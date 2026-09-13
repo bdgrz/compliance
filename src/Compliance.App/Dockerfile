@@ -9,7 +9,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY src/Compliance.App/ClientApp/ src/Compliance.App/ClientApp/
 RUN npm run client:build
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.400-noble-aot@sha256:3941698804976a8e4b187cdcb615534be73eadcd9b39107999e6f583ec7a5447 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.401-noble-aot@sha256:1a069a730888d278b5ac00e3e238707387d20d2b65f0fc6866b6180df0a767e0 AS build
 
 WORKDIR /source
 
