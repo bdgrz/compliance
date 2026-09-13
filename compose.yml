@@ -1,0 +1,108 @@
+# Local development topology. This is not a production deployment manifest.
+#
+# Standalone (API and workers in one process):
+#   export GITHUB_ACTOR=your-github-username
+#   export GITHUB_TOKEN=your-read-packages-token
+#   docker compose up --build
+#
+# Split API and worker processes using the same image:
+#   docker compose --profile split up --build api worker
+
+x-app-environment: &app-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  DOTNET_ENVIRONMENT: Development
+  ASPNETCORE_HTTP_PORTS: "8080"
+  # Local Compose uses the explicit development-only bypass. Set ASPNETCORE_ENVIRONMENT
+  # to Production and configure the provider-neutral external settings for deployment.
+  Compliance__Authentication__Mode: Development
+  Fitz__Endpoint: ws://fitz:4090/ws
+  Fitz__ApplicationName: compliance
+  Fitz__StartupTimeoutSeconds: "30"
+
+x-app-common: &app-common
+  build:
+    context: .
+    dockerfile: src/Compliance.App/Dockerfile
+    args:
+      GITHUB_ACTOR: "${GITHUB_ACTOR:-}"
+    secrets:
+      - github_token
+  image: compliance:local
+  restart: unless-stopped
+  depends_on:
+    - fitz
+
+services:
+  app:
+    <<: *app-common
+    environment:
+      <<: *app-environment
+      COMPLIANCE_HOST_MODE: standalone
+    ports:
+      - "127.0.0.1:${COMPLIANCE_HTTP_PORT:-8080}:8080"
+
+  api:
+    <<: *app-common
+    profiles:
+      - split
+    environment:
+      <<: *app-environment
+      COMPLIANCE_HOST_MODE: api
+    ports:
+      - "127.0.0.1:${COMPLIANCE_HTTP_PORT:-8080}:8080"
+
+  worker:
+    <<: *app-common
+    profiles:
+      - split
+    environment:
+      <<: *app-environment
+      COMPLIANCE_HOST_MODE: worker
+
+  fitz:
+    image: ghcr.io/cntryl/fitz:latest@sha256:0686055f39f349aeec5e992e2ac19c4b02b585edd8dd7d5f7482eaba8c7e4804
+    restart: unless-stopped
+    stop_grace_period: 15s
+    depends_on:
+      - sqrzl
+    environment:
+      # This is local broker transport auth, independent of Compliance user authentication.
+      FITZ_AUTH_REQUIRED: "false"
+      FITZ_ADMIN_AUTH_MODE: open
+      FITZ_HTTP_PORT: "4090"
+      FITZ_TCP_PORT: "4091"
+      FITZ_STORAGE_MODE: cloud
+      FITZ_STORAGE_PROVIDER: sqrzl-s3
+      FITZ_STORAGE_ENDPOINT: http://sqrzl:9000
+      FITZ_STORAGE_BUCKET: compliance-fitz
+      FITZ_STORAGE_PREFIX: local
+      FITZ_STORAGE_CACHE_PATH: /data/cache
+      FITZ_STORAGE_CLOUD_DURABILITY: background
+      RUST_LOG: info,fitz=info
+    ports:
+      - "127.0.0.1:${FITZ_HTTP_PORT:-4090}:4090"
+      - "127.0.0.1:${FITZ_TCP_PORT:-4091}:4091"
+    volumes:
+      - fitz_cache:/data
+
+  sqrzl:
+    image: ghcr.io/sqrzl/sqrzl-emulator:latest@sha256:786d910514727d7e26a9c26266a2232cfbcd9b31609d088b08a473326dc22c16
+    restart: unless-stopped
+    environment:
+      SQRZL_BLOBS_PATH: /app/blobs
+      SQRZL_ACCESS_KEY_ID: admin
+      SQRZL_SECRET_ACCESS_KEY: sqrzl-secret
+      SQRZL_BUCKET_LIST: compliance-fitz
+    ports:
+      - "127.0.0.1:${SQRZL_HTTP_PORT:-9000}:9000"
+      - "127.0.0.1:${SQRZL_ADMIN_PORT:-9001}:9001"
+    volumes:
+      - sqrzl_blobs:/app/blobs
+
+volumes:
+  fitz_cache:
+  sqrzl_blobs:
+
+secrets:
+  github_token:
+    environment: GITHUB_TOKEN

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.6578810">
+  <PropertyGroup>
+    <StartupCommand>npm run dev</StartupCommand>
+    <BuildCommand>npm run build</BuildCommand>
+    <CleanCommand>npm run clean</CleanCommand>
+    <DebugAssetsDirectory>dist</DebugAssetsDirectory>
+    <BuildOutputFolder>dist</BuildOutputFolder>
+    <NpmInstallCheck>$(MSBuildProjectDirectory)/../../../package-lock.json</NpmInstallCheck>
+    <ShouldRunNpmAudit>false</ShouldRunNpmAudit>
+  </PropertyGroup>
+</Project>

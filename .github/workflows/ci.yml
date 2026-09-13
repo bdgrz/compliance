@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Check client
+        run: npm run client:check
+
+      - name: Restore locked packages
+        run: dotnet restore Compliance.slnx --locked-mode
+
+      - name: Check formatting
+        run: dotnet format Compliance.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Compliance.slnx --configuration Release --no-restore
+
+      - name: Test without broker
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+
+      - name: Start Fitz and Sqrzl
+        run: docker compose up --detach sqrzl fitz
+
+      - name: Test with real broker
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
+
+      - name: Stop Fitz and Sqrzl
+        if: always()
+        run: docker compose down --volumes
+
+  native-container:
+    name: Native container ${{ matrix.platform }}
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Build native image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: src/Compliance.App/Dockerfile
+          platforms: ${{ matrix.platform }}
+          load: true
+          tags: compliance:native-test
+          build-args: GITHUB_ACTOR=${{ github.actor }}
+          secrets: github_token=${{ github.token }}
+          cache-from: type=gha,scope=ci-${{ matrix.platform }}
+          cache-to: type=gha,mode=min,scope=ci-${{ matrix.platform }}
+
+      - name: Start native dependencies
+        env:
+          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
+        run: docker compose up --detach sqrzl fitz
+
+      - name: Exercise standalone, API, and worker modes
+        env:
+          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          network="${COMPOSE_PROJECT_NAME}_default"
+
+          run_web_mode() {
+            name="$1"
+            mode="$2"
+            port="$3"
+            docker run --detach --name "$name" --network "$network" \
+              --publish "127.0.0.1:${port}:8080" \
+              --env ASPNETCORE_ENVIRONMENT=Development \
+              --env COMPLIANCE_HOST_MODE="$mode" \
+              --env Fitz__Endpoint=ws://fitz:4090/ws \
+              --env Fitz__ApplicationName="compliance-${mode}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+              compliance:native-test
+
+            for attempt in {1..45}; do
+              if curl --fail --silent "http://127.0.0.1:${port}/health/ready" > /dev/null; then
+                docker stop "$name"
+                docker rm "$name"
+                return 0
+              fi
+              sleep 1
+            done
+
+            docker logs "$name"
+            return 1
+          }
+
+          run_web_mode compliance-standalone standalone 18080
+          run_web_mode compliance-api api 18081
+
+          docker run --detach --name compliance-worker --network "$network" \
+            --env DOTNET_ENVIRONMENT=Development \
+            --env COMPLIANCE_HOST_MODE=worker \
+            --env Fitz__Endpoint=ws://fitz:4090/ws \
+            --env Fitz__ApplicationName="compliance-worker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            compliance:native-test
+          sleep 5
+          test "$(docker inspect --format '{{.State.Running}}' compliance-worker)" = "true"
+
+      - name: Stop native test containers
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          docker rm --force compliance-standalone compliance-api compliance-worker 2>/dev/null || true
+          docker compose down --volumes
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0

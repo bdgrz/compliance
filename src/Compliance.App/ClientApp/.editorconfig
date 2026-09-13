@@ -1,0 +1,2 @@
+[*.{js,jsx,mjs,cjs,ts,tsx,css,html}]
+indent_size = 2

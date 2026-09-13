@@ -1,0 +1,14 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Cntryl.Portia;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Bdgrz.Compliance;
+
+[PortiaJsonContext]
+[JsonSourceGenerationOptions(
+    JsonSerializerDefaults.Web,
+    PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSerializable(typeof(ComplianceAuthenticationClientConfiguration))]
+[JsonSerializable(typeof(ProblemDetails))]
+sealed partial class ComplianceJsonContext : JsonSerializerContext;

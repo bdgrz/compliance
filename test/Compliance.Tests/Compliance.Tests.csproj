@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Cntryl.Conventions.Testing.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Cntryl.Conventions.Testing.CodeFixes" PrivateAssets="all" />
+    <PackageReference Include="Cntryl.Portia.Testing" />
+    <PackageReference Include="coverlet.collector" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Compliance.Common/Compliance.Common.csproj" />
+    <ProjectReference Include="../../src/Compliance.Core/Compliance.Core.csproj" />
+    <ProjectReference Include="../../src/Compliance.App/Compliance.App.csproj" />
+  </ItemGroup>
+</Project>

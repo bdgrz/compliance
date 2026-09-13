@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Compliance.Common/Compliance.Common.csproj" />
+    <Project Path="src/Compliance.Core/Compliance.Core.csproj" />
+    <Project Path="src/Compliance.App/Compliance.App.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Compliance.Tests/Compliance.Tests.csproj" />
+  </Folder>
+</Solution>
