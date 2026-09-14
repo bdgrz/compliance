@@ -52,6 +52,7 @@ services:
     container_name: broker
     image: ghcr.io/cntryl/fitz:latest@sha256:0686055f39f349aeec5e992e2ac19c4b02b585edd8dd7d5f7482eaba8c7e4804
     restart: unless-stopped
+    stop_signal: SIGINT
     stop_grace_period: 15s
     depends_on:
       - storage
