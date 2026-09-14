@@ -50,7 +50,7 @@ RUN case "$TARGETARCH" in \
       /p:BuildCommand=true \
       /p:PublishCommand=true
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.11-noble-chiseled-extra@sha256:4bf18f918ddae188e11fc4a496e36eae78c43c927720b162bcd8a567e9bebc30 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.12-noble-chiseled-extra@sha256:9a3e4e315a3eae3be20b73739ae84fa7e4ffb2a47a234f3bef30825f0543fe1b AS runtime
 
 WORKDIR /app
 
