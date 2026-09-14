@@ -4,9 +4,9 @@
     "net10.0": {
       "Cntryl.Portia.Abstractions": {
         "type": "Direct",
-        "requested": "[0.1.0, )",
-        "resolved": "0.1.0",
-        "contentHash": "Bkzt8yWk5IBTq0LRhbT5I05H4WNGM4Apc+1YdT28Js2X7FKLtPG5WKIsZ9T7oLUWOmu6PF9D3/0SSyOwXizdxA==",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "xvOy3Hf1xzqYrfenp01WXufgbhpX34w3rX48ryWA0avEAnPB0MheCg1Dofs+MOMshGO1ly8hx6BTqAVh4/1r7Q==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.11"
         }

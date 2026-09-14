@@ -1,12 +1,11 @@
 # Local development topology. This is not a production deployment manifest.
 #
-# Standalone (API and workers in one process):
+# One API process and three worker replicas:
 #   export GITHUB_ACTOR=your-github-username
 #   export GITHUB_TOKEN=your-read-packages-token
 #   docker compose up --build
-#
-# Split API and worker processes using the same image:
-#   docker compose --profile split up --build api worker
+
+name: bdgrz
 
 x-app-environment: &app-environment
   ASPNETCORE_ENVIRONMENT: Development
@@ -15,7 +14,7 @@ x-app-environment: &app-environment
   # Local Compose uses the explicit development-only bypass. Set ASPNETCORE_ENVIRONMENT
   # to Production and configure the provider-neutral external settings for deployment.
   Compliance__Authentication__Mode: Development
-  Fitz__Endpoint: ws://fitz:4090/ws
+  Fitz__Endpoint: ws://broker:4090/ws
   Fitz__ApplicationName: compliance
   Fitz__StartupTimeoutSeconds: "30"
 
@@ -24,27 +23,17 @@ x-app-common: &app-common
     context: .
     dockerfile: src/Compliance.App/Dockerfile
     args:
-      GITHUB_ACTOR: "${GITHUB_ACTOR:-}"
+      GITHUB_ACTOR: "${GITHUB_ACTOR:-github}"
     secrets:
       - github_token
-  image: compliance:local
   restart: unless-stopped
   depends_on:
-    - fitz
+    - broker
 
 services:
-  app:
-    <<: *app-common
-    environment:
-      <<: *app-environment
-      COMPLIANCE_HOST_MODE: standalone
-    ports:
-      - "127.0.0.1:${COMPLIANCE_HTTP_PORT:-8080}:8080"
-
   api:
     <<: *app-common
-    profiles:
-      - split
+    container_name: api
     environment:
       <<: *app-environment
       COMPLIANCE_HOST_MODE: api
@@ -53,18 +42,19 @@ services:
 
   worker:
     <<: *app-common
-    profiles:
-      - split
+    deploy:
+      replicas: 3
     environment:
       <<: *app-environment
       COMPLIANCE_HOST_MODE: worker
 
-  fitz:
+  broker:
+    container_name: broker
     image: ghcr.io/cntryl/fitz:latest@sha256:0686055f39f349aeec5e992e2ac19c4b02b585edd8dd7d5f7482eaba8c7e4804
     restart: unless-stopped
     stop_grace_period: 15s
     depends_on:
-      - sqrzl
+      - storage
     environment:
       # This is local broker transport auth, independent of Compliance user authentication.
       FITZ_AUTH_REQUIRED: "false"
@@ -73,7 +63,7 @@ services:
       FITZ_TCP_PORT: "4091"
       FITZ_STORAGE_MODE: cloud
       FITZ_STORAGE_PROVIDER: sqrzl-s3
-      FITZ_STORAGE_ENDPOINT: http://sqrzl:9000
+      FITZ_STORAGE_ENDPOINT: http://storage:9000
       FITZ_STORAGE_BUCKET: compliance-fitz
       FITZ_STORAGE_PREFIX: local
       FITZ_STORAGE_CACHE_PATH: /data/cache
@@ -85,7 +75,8 @@ services:
     volumes:
       - fitz_cache:/data
 
-  sqrzl:
+  storage:
+    container_name: storage
     image: ghcr.io/sqrzl/sqrzl-emulator:latest@sha256:786d910514727d7e26a9c26266a2232cfbcd9b31609d088b08a473326dc22c16
     restart: unless-stopped
     environment:
