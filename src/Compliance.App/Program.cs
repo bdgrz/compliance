@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
 
@@ -26,7 +27,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         builder.Environment);
     var portia = builder.Services.AddCompliance(builder.Configuration);
     // AddPortia returns the same builder and lets this host contribute its generated JSON context.
-    _ = builder.Services.AddPortia();
+    _ = builder.Services.AddPortia().AddHttp();
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+        options.SerializerOptions.TypeInfoResolverChain.Insert(0, ComplianceJsonContext.Default);
+    });
 
     if (hostMode.RunsWorkers())
     {
@@ -58,6 +64,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 
     app.UseAuthentication();
     app.UseAuthorization();
+
+    app.MapPortiaOpenApi();
 
     app.MapComplianceHealthChecks();
     app.MapGet(
