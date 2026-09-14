@@ -13,6 +13,18 @@ Compliance is a Native AOT ASP.NET Core application built on Portia, with an Ask
 
 Dependencies point inward: App references Core and Common; Core references Common; Common does not reference either host layer. All code uses the `Bdgrz.Compliance` root namespace and `Bdgrz.Compliance.*` assembly names.
 
+The SPA follows a thin-page, vertical-feature layout documented in
+[`src/Compliance.App/ClientApp/README.md`](src/Compliance.App/ClientApp/README.md).
+
+Product discovery and delivery are governed by the
+[product brief](docs/product/product-brief.md),
+[SOC 2 product gap analysis](docs/product/gap-analysis.md),
+[shared domain model](docs/product/domain-model.md),
+[user-story backlog](docs/product/backlog.md), and
+[triage](docs/product/triage.md). The domain model and the domain slice and
+implementation subtasks in every story are part of that story's delivery
+contract.
+
 ## Prerequisites
 
 - .NET SDK 10.0.400 (pinned by `global.json`)
