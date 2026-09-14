@@ -1,6 +1,6 @@
 # Compliance product backlog
 
-Status: product-owner baseline
+Status: product-owner baseline, restructured 2026-09-14 with M0 discovery, shared enablers, and delivery slices
 
 This backlog carries a small compliance team through SOC 2 readiness, a Type I examination, a Type II observation period, and a Type II examination. It implements the product direction in [product-brief.md](product-brief.md).
 
@@ -13,7 +13,15 @@ The product coverage decisions behind this version are recorded in
 
 ## Product-backlog contract
 
-Every issue is a user story that delivers a business outcome. Infrastructure, schema, API, background processing, and UI tasks may be implementation subtasks, but they are not separate product-backlog items.
+Every product-backlog item is a user story that delivers a business outcome. Infrastructure, schema, API, background processing, and UI tasks may be implementation subtasks, but they are not separate product-backlog items.
+
+Three kinds of non-story issue are explicit exceptions:
+
+- Product discovery issues (`M0-D..`) record a product decision or validation that a story needs before it is ready. They produce decisions, not code.
+- Architecture decision issues (`M0-A..`) record an accepted ADR and a thin technical spike for a concern the domain model depends on.
+- Enablers (`EN-..`) deliver a shared platform primitive that several stories would otherwise define inconsistently or too late. An enabler is not independently releasable; it is done only when its first consuming story uses it end to end, and consuming stories must not build feature-local substitutes. New enablers require the same product-owner approval as the six listed below.
+
+A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each slice is itself an API-to-UI outcome whose acceptance criteria come from the parent story; a slice is never an API, persistence, worker, or UI layer. The parent's requirements, domain slice, definition of done, and external blockers apply to every slice, and the parent closes when all of its slices are done. Because GitHub sub-issues do not inherit dependency relationships, the first slice must explicitly repeat every blocker on its parent; every later slice must depend on that first slice, directly or transitively, in addition to any slice-specific blockers.
 
 Every story is a vertical slice from authorized API behavior through the usable browser experience. Completing only the API, worker, persistence, or UI does not complete the story.
 
@@ -31,7 +39,7 @@ Every story must include:
 
 ## Domain-coherence contract
 
-Every issue must include its `Domain slice` and `Implementation subtasks` from
+Every story issue must include its `Domain slice` and `Implementation subtasks` from
 this document. Those sections keep each vertical slice connected to the same
 program, authorization, work, evidence, review, history, readiness, and
 engagement model.
@@ -62,23 +70,936 @@ authorization, examples, acceptance criteria, dependencies, and explicit
 exclusions are understood well enough to implement without inventing product
 policy. Every domain term must agree with [domain-model.md](domain-model.md), and
 any unresolved product decision that affects the story must be resolved or
-explicitly excluded.
+explicitly excluded. Concretely, every M0 discovery or architecture issue that
+blocks the story is resolved and incorporated into the story, and every enabler
+it depends on is available or delivered with its first slice.
 
 ## Definition of done
 
 A story is done when its full API-to-UI workflow meets the acceptance criteria; allowed and denied behavior is tested; changes and decisions are traceable; period and snapshot behavior is correct; relevant failure states are recoverable; and the result works in the supported standalone and split-host deployments.
 
+## M0 - Design and discovery
+
+Business outcome: every product and architecture decision that blocks a P0 story is recorded with rationale, owner, and date; shared domain ownership conflicts are resolved; blocked stories have been refined to incorporate those decisions; and no P0 story still depends on an unresolved validation. This milestone produces decisions, ADRs, and thin technical spikes, not business implementation.
+
+Discovery and architecture issues do not deliver product behavior. Each lists the stories and enablers it blocks; those items are not ready until they incorporate the decision.
+
+### M0-D01 Confirm the first engagement's scope, Trust Services categories, and target dates
+
+Priority: P0
+
+Type: Product discovery
+
+Area: audit
+
+Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
+
+Questions to answer:
+
+- [ ] Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
+- [ ] Decide which categories beyond Security are in scope (Availability, Processing Integrity, Confidentiality, Privacy) and the rationale.
+- [ ] If Privacy is selected, decide whether a separate personal-information-lifecycle backlog is required before the product claims support.
+- [ ] Identify the audit firm and which engagement dates it has confirmed.
+- [ ] List the services in the first system boundary.
+- [ ] Set due dates on the R1, R2, and T1 milestones once targets are agreed.
+
+Involve: Compliance lead, readiness consultant, audit firm.
+
+Blocks: R1-01, R1-02, R1-03, T1-01, T2-01
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Product brief open decisions (first engagement, categories, dates, optional categories); R1-03 subtask on engagement categories.
+
+### M0-D02 Decide the criteria content source, edition, and permitted use
+
+Priority: P0
+
+Type: Product discovery
+
+Area: controls
+
+Decision needed: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
+
+Questions to answer:
+
+- [ ] Confirm the edition: 2017 Trust Services Criteria with 2022 revised points of focus.
+- [ ] Confirm AICPA permitted use for storing and displaying criteria text in the product, exports, and packages, or whether only identifiers plus customer-supplied text are allowed.
+- [ ] Decide whether points of focus are modeled and mappable or reference-only.
+- [ ] Identify who supplies the initial catalog file (for example, the consultant's workbook) and its identifiers.
+- [ ] Decide how a later edition is introduced without changing existing engagements.
+
+Involve: Compliance lead, readiness consultant; legal review of AICPA terms if needed.
+
+Blocks: R1-03, R1-06
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Product brief open decision on criteria source and permitted use; R1-03 requirements.
+
+### M0-D03 Decide platform roles, separation of duties, and team membership rules
+
+Priority: P0
+
+Type: Product discovery
+
+Area: workspace
+
+Decision needed: Which built-in roles, access scopes, and separation-of-duties exceptions does a small compliance team need, and who can hold responsibilities?
+
+Questions to answer:
+
+- [ ] Confirm the first built-in role catalog and the actions each role permits.
+- [ ] Define the scope hierarchy (organization, program, engagement, shared resource) for grants.
+- [ ] Decide the acceptable small-team self-review or self-approval exceptions and who approves them.
+- [ ] Decide whether the first release needs one workspace or several collaboration workspaces per organization.
+- [ ] Decide invitation behavior for Auth0 and Entra, and whether IdP group mapping is required for the first release.
+- [ ] Decide whether responsibilities (for example, control owner) can be assigned to people who never sign in, and how their work is attributed.
+
+Involve: Compliance lead, organization administrator, readiness consultant.
+
+Blocks: EN-01, EN-04, R1-04, R2-01, R2-05, R2-11
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-04 validation subtask; domain model open decisions on roles, self-review, workspaces, IdP groups, invitations; R2-05 independence rules.
+
+### M0-D04 Inventory existing readiness material and its import formats
+
+Priority: P0
+
+Type: Product discovery
+
+Area: product
+
+Decision needed: What readiness material already exists, in what shape, and which record families must be imported first to adopt the product mid-engagement?
+
+Questions to answer:
+
+- [ ] Collect sample files for controls, mappings, policies, evidence, owners, risks, vendors, gaps, and consultant findings.
+- [ ] Record each source's stable identifiers, or the lack of them.
+- [ ] Decide how owners named in source files (names, emails) match members or workforce people.
+- [ ] Decide how consultant-authored content is attributed without fabricating platform actors.
+- [ ] Rank record families by adoption value to set the R1-09 slice order.
+- [ ] Decide which material is acceptable to re-enter manually instead of importing.
+
+Involve: Compliance lead, readiness consultant.
+
+Blocks: R1-09
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-09 validation subtask.
+
+### M0-D05 Validate the application inventory and reviewed-system boundaries
+
+Priority: P0
+
+Type: Product discovery
+
+Area: applications
+
+Decision needed: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
+
+Questions to answer:
+
+- [ ] Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
+- [ ] Agree on the minimum inventory fields and ownership expectations (system owner, access owner).
+- [ ] For the first applications (for example, AWS accounts and GitHub organizations), define the reviewed-system boundary: tenant, organization, account, or environment.
+- [ ] Define access-review inclusion and exclusion criteria and who approves them.
+- [ ] Decide alias, duplicate, and retirement rules using real examples.
+
+Involve: Compliance lead, system owners, readiness consultant.
+
+Blocks: R1-10, R2-06
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-10 validation subtask; R2-06 validation subtask (application list).
+
+### M0-D06 Decide the authoritative workforce source and NHI ownership rules
+
+Priority: P0
+
+Type: Product discovery
+
+Area: workforce
+
+Decision needed: Which source is authoritative for people, employment status, and managers, and how is non-human identity (NHI) ownership governed?
+
+Questions to answer:
+
+- [ ] Identify the authoritative people source (HRIS, payroll, spreadsheet) and any corroborating sources, with precedence.
+- [ ] Agree on the minimum worker attributes and the privacy boundary for sensitive fields.
+- [ ] Define joiner, mover, and leaver observation rules, including contractors and external collaborators.
+- [ ] Decide who may own an NHI (person or team), the required purpose and review date, and how ownership is reviewed.
+- [ ] Decide the accepted manual fallback when no system source exists.
+
+Involve: Compliance lead, HR or people operations, engineering leadership.
+
+Blocks: R1-11, R2-06, R2-10
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-11 validation subtask; R2-06 validation subtask (identity roster); R2-10 joiner-mover-leaver behavior.
+
+### M0-D07 Validate the first access-review population, providers, and expectations
+
+Priority: P0
+
+Type: Product discovery
+
+Area: access-review
+
+Decision needed: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
+
+Questions to answer:
+
+- [ ] Choose the first reviewed systems and collect sample exports from each provider.
+- [ ] Catalog the principal kinds (account, group, role, service principal, workload identity) and entitlement shapes present.
+- [ ] Define how nested groups, role assumption, and effective access are calculated for those providers.
+- [ ] Define human and NHI classification rules and how ambiguous or shared accounts are handled.
+- [ ] Write the initial access expectations, including the AWS no-IAM-user expectation and privileged entitlements.
+- [ ] Confirm with the consultant which reviewer-assignment and remediation-verification evidence the auditor accepts.
+
+Involve: Compliance lead, system owners, access reviewers, readiness consultant.
+
+Blocks: R2-06
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-06 validation subtask.
+
+### M0-D08 Define the minimum technology, information, and data-flow inventory
+
+Priority: P0
+
+Type: Product discovery
+
+Area: inventory
+
+Decision needed: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
+
+Questions to answer:
+
+- [ ] List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
+- [ ] Define the information classification scheme and retention expectations to record.
+- [ ] Decide the granularity of data flows and their required protection expectations.
+- [ ] Identify the sources (cloud console, MDM, repository host) and whether each is authoritative or discovery-only.
+
+Involve: Compliance lead, engineering leadership, readiness consultant.
+
+Blocks: R1-12
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-12 validation subtask.
+
+### M0-D09 Identify service commitments, system requirements, CUECs, and CSOCs
+
+Priority: P0
+
+Type: Product discovery
+
+Area: commitments
+
+Decision needed: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
+
+Questions to answer:
+
+- [ ] Collect source artifacts: MSAs, SLAs, the security addendum, privacy notices, and policies.
+- [ ] Draft the first list of service commitments and system requirements with owners.
+- [ ] Draft the first list of CUECs and CSOCs with the consultant.
+- [ ] Agree on the minimum fields and the approval authority.
+
+Involve: Compliance lead, legal or contracts owner, readiness consultant.
+
+Blocks: R1-13
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-13 validation subtask.
+
+### M0-D10 Select the risk assessment method and acceptance authority
+
+Priority: P0
+
+Type: Product discovery
+
+Area: risk
+
+Decision needed: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
+
+Questions to answer:
+
+- [ ] Choose a qualitative or quantitative method and the likelihood and impact scales.
+- [ ] Define materiality, risk appetite, and tolerance thresholds.
+- [ ] Define the treatment vocabulary and the time-bounded acceptance authority.
+- [ ] Set the periodic reassessment cadence and trigger events.
+- [ ] Confirm the method with the readiness consultant.
+
+Involve: Compliance lead, management approver, readiness consultant.
+
+Blocks: R1-07
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-07 validation subtask.
+
+### M0-D11 Define vendor materiality, due diligence, and subservice treatment
+
+Priority: P0
+
+Type: Product discovery
+
+Area: providers
+
+Decision needed: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
+
+Questions to answer:
+
+- [ ] Define the material-provider threshold and classify the current vendor list against it.
+- [ ] Define the initial due-diligence evidence set and review cadence.
+- [ ] Define which assurance-report fields to capture, including coverage gaps and bridge-letter use.
+- [ ] Decide carve-out or inclusive treatment for each subservice organization, with its CSOCs.
+
+Involve: Compliance lead, procurement or finance owner, readiness consultant.
+
+Blocks: R1-14
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R1-14 validation subtask.
+
+### M0-D12 Decide policy audiences, acknowledgement, and training evidence
+
+Priority: P0
+
+Type: Product discovery
+
+Area: policies
+
+Decision needed: Who must acknowledge which policies and complete which training, and what evidence proves it?
+
+Questions to answer:
+
+- [ ] Define the audience rule for each policy.
+- [ ] Agree on acknowledgement language and reminder cadence.
+- [ ] Identify required security-awareness training and its delivery source (LMS or manual).
+- [ ] Define the exception policy and the joiner, mover, and leaver behavior for campaigns.
+- [ ] Confirm the evidence format the auditor accepts for completion.
+
+Involve: Compliance lead, policy owners, HR or people operations.
+
+Blocks: R2-10
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-10 validation subtask.
+
+### M0-D13 Define control evaluation procedures and tester independence
+
+Priority: P0
+
+Type: Product discovery
+
+Area: controls
+
+Decision needed: How are control design and implementation evaluated reproducibly before Type I, and who may perform and review evaluations?
+
+Questions to answer:
+
+- [ ] Collect the consultant's evaluation procedures for a representative set of controls.
+- [ ] Define the assertions, inspected items, and result vocabulary for design, implementation, and evidence sufficiency.
+- [ ] Define when a deviation requires a finding, corrective action, exception, or retest.
+- [ ] Define tester competence and independence rules and the small-team exceptions (with M0-D03).
+
+Involve: Compliance lead, readiness consultant.
+
+Blocks: R2-05
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-05 validation subtask.
+
+### M0-D14 Agree on the readiness-consultant collaboration workflow
+
+Priority: P0
+
+Type: Product discovery
+
+Area: workspace
+
+Decision needed: How do the readiness consultants want to review work in progress and return feedback?
+
+Questions to answer:
+
+- [ ] Ask whether the consultants prefer indexed handoffs, secure scoped links, direct product access, or their own platform.
+- [ ] Define what 'consultant validated' means and how it differs from internal approval.
+- [ ] Decide whether draft material may be shared, and under which approval.
+- [ ] Define how feedback is returned and attributed, and whether sharing can be revoked.
+
+Involve: Compliance lead, readiness consultant.
+
+Blocks: R2-08
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-08 validation subtask; triage validation queue item 1.
+
+### M0-D15 Define the daily work queue, reminders, and escalation
+
+Priority: P0
+
+Type: Product discovery
+
+Area: workspace
+
+Decision needed: What does the small team need from one accountable work view on day one?
+
+Questions to answer:
+
+- [ ] Identify the minimum source workflows the first queue must include.
+- [ ] Define the priority and materiality ordering rules.
+- [ ] Define the assignment actions (assign, claim, delegate, escalate) and who may perform them.
+- [ ] Define reminder, digest, and escalation expectations, and whether email is required.
+
+Involve: Compliance lead, control owners.
+
+Blocks: R2-11
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-11 validation subtask.
+
+### M0-D16 Decide evidence handling, retention, hold, and disclosure rules
+
+Priority: P1
+
+Type: Product discovery
+
+Area: evidence
+
+Decision needed: Which handling classes, retention periods, holds, redaction, and disposition rules apply to evidence and related artifacts?
+
+Questions to answer:
+
+- [ ] Define the handling classes and what may be stored at all (for example, never credentials).
+- [ ] Set retention periods and the rules for engagement holds and legal holds.
+- [ ] Define the redaction workflow and the disposition authority.
+- [ ] Define the content-inspection or malware-scanning boundary and quarantine behavior.
+- [ ] Set backup and recovery expectations for evidence.
+- [ ] Confirm what the auditor expects to be shared, and how.
+
+Involve: Compliance lead, security owner, legal.
+
+Blocks: R2-12
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: R2-12 validation subtask; product brief open decision on retention, legal hold, backup, and recovery.
+
+### M0-D17 Confirm audit firm deliverables, formats, and auditor access
+
+Priority: P1
+
+Type: Product discovery
+
+Area: audit
+
+Decision needed: Which outputs, formats, and collaboration model does the audit firm require for Type I and Type II?
+
+Questions to answer:
+
+- [ ] Collect the required control matrix, evidence index, and system-description section formats.
+- [ ] Collect the population, sample, and selection formats with stable identifiers, plus the treatment of late or corrected rows.
+- [ ] Confirm the package, workbook, portal, archive, and naming expectations.
+- [ ] Confirm the management assertion and representation-letter sequence, signers, and templates.
+- [ ] Ask whether the auditor wants direct product access, exported packages, or their own platform.
+
+Involve: Compliance lead, management approver, audit firm.
+
+Blocks: T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, T3-06
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Validation subtasks in T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, and T3-06; triage validation queue items 2 and 7.
+
+### M0-D18 Establish success-measure baselines and targets
+
+Priority: P1
+
+Type: Product discovery
+
+Area: product
+
+Decision needed: What are today's baselines for the brief's candidate success measures, and which targets define product success?
+
+Questions to answer:
+
+- [ ] Measure the current time to identify missing, stale, rejected, or overdue audit work.
+- [ ] Measure the current median time to answer an evidence request.
+- [ ] Measure how much parallel spreadsheet or drive tracking the team does today.
+- [ ] Agree on the target values and how each will be measured in the product.
+
+Involve: Compliance lead, product owner.
+
+Blocks: nothing directly; informs product measures
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Product brief: 'M0 must establish baselines and targets'.
+
+### M0-D19 Validate whether governance and management reviews fit the control workflow
+
+Priority: P2
+
+Type: Product discovery
+
+Area: audit
+
+Decision needed: Are periodic policy, risk, vendor, and management reviews ordinary recurring controls, or do they need dedicated product surfaces?
+
+Questions to answer:
+
+- [ ] Observe the first real policy, risk, and vendor reviews using the general control-occurrence workflow.
+- [ ] Observe one management compliance review and record what the general workflow could not support.
+- [ ] Recommend keeping, merging, or closing T2-06 and T2-09.
+
+Involve: Compliance lead, management approver.
+
+Blocks: T2-06, T2-09
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Validation subtasks in T2-06 and T2-09; triage validation queue item 3.
+
+### M0-D20 Discover inventory, access, and evidence integration sources
+
+Priority: P2
+
+Type: Product discovery
+
+Area: automation
+
+Decision needed: Which integrations would save meaningful work, and what must each source guarantee before we build a connector?
+
+Questions to answer:
+
+- [ ] Measure manual inventory, population, access, and evidence effort by source.
+- [ ] For each candidate source, answer the ten integration questions in gap-analysis.md (business question, authority, identifiers, completeness, matching, proposals, least privilege, freshness, retained snapshots, manual fallback).
+- [ ] Rank connectors by measured savings.
+
+Involve: Compliance lead, engineering.
+
+Blocks: T2-08
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: T2-08 validation subtask; gap analysis 'Next discovery: inventory data integrations'; triage validation queue item 6.
+
+### M0-D21 Define compliance-facing significant change and incident facts
+
+Priority: P1
+
+Type: Product discovery
+
+Area: risk
+
+Decision needed: Which change and incident facts must Compliance hold to assess impact and describe the Type II period, without replacing source systems?
+
+Questions to answer:
+
+- [ ] Define the minimum change and incident fields and the source links to ITSM or the incident tool.
+- [ ] Define the materiality threshold for 'significant change'.
+- [ ] Define the restricted-detail boundary and which conclusions are shareable with the auditor.
+- [ ] Define how a significant change affects the system description and closure.
+
+Involve: Compliance lead, engineering leadership, security owner.
+
+Blocks: T2-07
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: T2-07 validation subtask.
+
+### M0-D22 Resolve ownership of shared identity and inventory concepts
+
+Priority: P0
+
+Type: Product discovery
+
+Area: product
+
+Decision needed: Several concepts have two owners or none. Decide one owner and delivering story for each before implementation.
+
+Questions to answer:
+
+- [ ] ReviewedSystem: domain-model.md lists it under both Application inventory and External access governance. Choose one owning context.
+- [ ] AccessSubject versus Person: R2-06 imports its own access-subject roster with employment status and manager, duplicating R1-11's workforce roster. Decide whether R2-06 uses R1-11's roster, or define the difference.
+- [ ] NHI records: R1-11 owns NHI-owner relationships, yet AccessSubject is created by R2-06, which comes later. Decide where an NHI is first created.
+- [ ] Missing entities: Service, Location, and Process or Procedure are referenced by the boundary, commitments, providers, and system description but never defined. Choose their owning context and delivering story.
+- [ ] Incidents: R1-07 reassessment uses incidents, but IncidentReference is only defined in T2-07. Decide whether a minimal incident reference is needed in R1 or R2.
+- [ ] Control-to-risk relationship: choose R1-05 (control applicability) or R1-07 (risk treatment) as the owner.
+- [ ] Update the affected issue bodies and domain-model.md with the decisions.
+
+Involve: Product owner, tech lead.
+
+Blocks: R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Backlog design review 2026-09-14; domain-model.md bounded-context table; R1-05, R1-07, R1-11, R2-06, T2-07 domain slices.
+
+### M0-D23 Define the assurance vocabulary and readiness ownership
+
+Priority: P0
+
+Type: Product discovery
+
+Area: audit
+
+Decision needed: Assurance terms overlap across stories. Define one vocabulary and one owner for readiness rules before building gaps, findings, reviews, or readiness.
+
+Questions to answer:
+
+- [ ] Gap (R1-08), Finding (R2-07), deviation (R2-05), and provider coverage gap (R1-14): decide whether these are one record with kinds or distinct records, and how they relate.
+- [ ] 'Exception' currently means both an approved waiver (access expectation, separation of duties, occurrence) and an auditor-found test exception (T3-04). Rename one.
+- [ ] Risk acceptance is owned by both R1-07 (RiskTreatment acceptance) and R2-07 (RiskAcceptance). Choose one owner.
+- [ ] Review and approval: R2-05 owns Review and ReviewDecision, yet R1-02, R1-05, R1-06, R1-13, and R2-02 need approval earlier, and the domain model forbids a universal Review aggregate. Define the boundary of the shared decision primitive (EN-04).
+- [ ] Readiness: R1-08 (ReadinessAssessment), R2-09 (ReadinessSnapshot), T2-04 (projection definitions), and T2-09 (ManagementReviewSnapshot) split one concern. Name the single rules owner and how the others reuse it.
+- [ ] Update the affected issue bodies and domain-model.md with the decisions.
+
+Involve: Product owner, tech lead, readiness consultant.
+
+Blocks: EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Backlog design review 2026-09-14.
+
+### M0-D24 Define the accessibility target and supported-browser baseline
+
+Priority: P0
+
+Type: Product discovery
+
+Area: product
+
+Decision needed: Which accessibility standard, conformance level, assistive-technology combinations, and browser versions must every first-release browser workflow support?
+
+Questions to answer:
+
+- [ ] Select the accessibility standard and conformance target, including any documented exceptions and approval authority.
+- [ ] Name the supported desktop and mobile browsers and the version-support policy.
+- [ ] Choose the keyboard, focus, contrast, zoom, screen-reader, reduced-motion, and error-announcement acceptance baseline.
+- [ ] Define the automated and manual evidence required for a story to satisfy the accessible-UI contract.
+- [ ] Decide how unsupported browsers and known accessibility limitations are communicated and tracked.
+
+Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
+
+Blocks: Every delivery story and every first delivery slice. This is a global definition-of-ready blocker and must be recorded as a GitHub dependency on each story and first slice before either is scheduled.
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] The product-backlog contract, test strategy, browser support statement, and affected story acceptance criteria reflect the decision.
+- [ ] Every delivery story and first delivery slice records M0-D24 as a blocker; later slices depend on their first slice directly or transitively.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
+
+### M0-A01 ADR: Persistence, versioning, and effective-dated history
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: The repository has Portia and Fitz but no persistence. The domain model requires stable identities, immutable approved versions, successor proposals, effective intervals, optimistic concurrency, and distinct occurred, effective, covered, and observed times.
+
+Questions to answer:
+
+- [ ] Document what Portia and Fitz provide for durable state, event logs, queries, and transactions.
+- [ ] Choose event-sourced, relational temporal, or hybrid storage, with rationale.
+- [ ] Choose the identifier strategy and how time semantics are represented.
+- [ ] Choose the optimistic concurrency and conflict-reporting approach, which many acceptance criteria require.
+- [ ] Define organization isolation at the storage layer.
+- [ ] Define the schema or stream migration strategy and the backup, restore, and RPO/RTO expectations.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Blocks: M0-A02, M0-A05, M0-A06, EN-02, EN-03
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: domain-model.md 'History, snapshots, and time'; backlog design review.
+
+### M0-A02 ADR: Snapshots, content identity, and amendments
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Seven snapshot types (workforce, population, readiness, Type I baseline, period open, period close, management review) must be immutable, reproducible, and amendable through linked records.
+
+Questions to answer:
+
+- [ ] Choose how snapshots are represented: references to immutable versions plus content hashes, or materialized copies.
+- [ ] Define canonical serialization and hashing for content identity.
+- [ ] Define amendment records and how downstream impact is identified.
+- [ ] Define how deterministic regeneration (equivalent package manifests) is guaranteed.
+- [ ] Set size and performance expectations for large access and audit populations.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Depends on: M0-A01
+
+Blocks: EN-03
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
+
+### M0-A03 ADR: Evidence and artifact storage, inspection, and access
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Evidence, policy files, provider reports, and packages need immutable content identity, safe handling, and per-artifact authorization.
+
+Questions to answer:
+
+- [ ] Choose the blob store and content-addressed layout, with encryption at rest.
+- [ ] Set the upload size limits and resumable upload behavior.
+- [ ] Define content validation, malware inspection, and quarantine.
+- [ ] Choose the download authorization model (proxied or short-lived signed URLs) and delivery logging.
+- [ ] Define storage-level hooks for redacted derivatives, retention, holds, and disposition.
+- [ ] Confirm deduplication never crosses organizations.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Blocks: EN-06
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: R2-03, R2-12, T1-05 requirements.
+
+### M0-A04 ADR: Authorization and organization isolation
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Authorization combines active membership, a scoped grant, responsibility, resource state, and separation of duties, and must filter lists, counts, search, notifications, and exports.
+
+Questions to answer:
+
+- [ ] Choose the evaluation model and where it is enforced for commands and queries.
+- [ ] Define how restricted records are excluded from lists, counts, search, notifications, and exports.
+- [ ] Define field-level restrictions for workforce and evidence data.
+- [ ] Choose a policy engine or an in-code policy approach that is compatible with Native AOT.
+- [ ] Define logging of denied actions and cross-organization isolation tests.
+- [ ] Choose the architecture test that fails when an endpoint lacks an explicit policy.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Blocks: EN-01
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: domain-model.md 'Responsibility and separation of duties'; R1-04 and R2-11 acceptance criteria.
+
+### M0-A05 ADR: Read models, projections, and as-of calculations
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Readiness, the work queue, and every status count must reconcile to source records, show an as-of time, and be reproducible.
+
+Questions to answer:
+
+- [ ] Choose the projection strategy (synchronous or asynchronous) and consistency guarantees.
+- [ ] Define as-of calculation identity and reproducibility for historical readiness.
+- [ ] Define the stale-data and calculation-failure states shown to users.
+- [ ] Define authorization-aware projections.
+- [ ] Define background work over Fitz with parity between standalone and split API/worker hosts.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Depends on: M0-A01
+
+Blocks: R1-08, R2-11
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: R1-08, R2-11, T2-04 acceptance criteria.
+
+### M0-A06 ADR: Import, reconciliation, and background processing
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Every import or collection needs preview, explicit acceptance, partial-failure semantics, provenance, tombstones, and safe replay.
+
+Questions to answer:
+
+- [ ] Define the staged import model: upload, parse, validate, preview, accept, cancel.
+- [ ] Define atomic versus explicitly accepted-subset semantics.
+- [ ] Define idempotency keys, source identity, and replay detection.
+- [ ] Define missing-row and tombstone reconciliation states.
+- [ ] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Depends on: M0-A01
+
+Blocks: EN-05
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-06 requirements.
+
 ## R1 - Readiness program scoped
 
-Business outcome: the team has an agreed system boundary; authoritative
-workforce context; application, technology, and information inventories;
-service commitments and system requirements; criteria; roles; controls; risks;
-providers; and an owned gap plan. Nothing in this milestone claims audit
-readiness or an auditor opinion.
+Business outcome: the team has an agreed system boundary; authoritative workforce context; application, technology, and information inventories; service commitments and system requirements; criteria; roles; controls; risks; providers; and an owned gap plan. The shared platform primitives (authorization, versioned records, review decisions, snapshots, import, and artifact storage) are proven through their first consuming stories. Nothing in this milestone claims audit readiness or an auditor opinion.
+
+Shared enablers are delivered in this milestone and proven through their first consuming stories.
 
 ### R1-01 Start a SOC 2 program and see the path to Type II
 
-Priority: P0  
+Priority: P0
+
 Area: program
 
 User story: As a compliance lead, I want to start a SOC 2 program with our current stage and target journey so that the team shares one plan from readiness through Type I and Type II.
@@ -115,7 +1036,8 @@ Implementation subtasks:
 
 ### R1-02 Define the system boundary and intended audit scope
 
-Priority: P0  
+Priority: P0
+
 Area: audit scope
 
 User story: As a compliance lead, I want to define what services, people, technology, data, locations, and third parties are in scope so that the team assesses the right system.
@@ -139,6 +1061,7 @@ Domain slice:
   workforce, applications, components, information, data flows, locations, and providers.
 - Supplies versioned scope references to criteria selection, controls, risks,
   evidence, engagements, and impact analysis.
+- Sequencing: a boundary version may record services, people, technology, information, and providers as explicit unresolved references before their governed inventories exist. R1-10 through R1-14 replace those references with governed relationships, and each replacement goes through this story's impact preview and review.
 
 Acceptance criteria:
 
@@ -156,7 +1079,8 @@ Implementation subtasks:
 
 ### R1-03 Select a traceable SOC 2 criteria catalog
 
-Priority: P0  
+Priority: P0
+
 Area: criteria
 
 User story: As a compliance lead, I want to select the authorized criteria edition used by our engagement so that our readiness work is based on a known source rather than a stale spreadsheet.
@@ -191,7 +1115,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first engagement's categories and any category-specific workflow needs, especially the personal-information lifecycle if Privacy is selected.
+- [ ] Incorporate the decisions recorded in M0-D01 and M0-D02 before finalizing this story's rules.
 - [ ] Define catalog-edition identity, criterion identity, import validation, permitted-use metadata, explicit selection, and product-support gap rules.
 - [ ] Deliver authorized import or selection, preview, browse, and scope behavior through the API and browser, including incompatible-revision failures.
 - [ ] Bind mappings and engagement snapshots to exact catalog editions while keeping organization guidance separate from source text.
@@ -199,7 +1123,8 @@ Implementation subtasks:
 
 ### R1-04 Invite the compliance team and assign responsibilities
 
-Priority: P0  
+Priority: P0
+
 Area: collaboration
 
 User story: As a compliance lead, I want to invite our small team through our identity provider and assign appropriate responsibilities so that work can be delegated without giving everyone administrative access.
@@ -236,15 +1161,97 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first built-in role catalog, scope hierarchy, team behavior, IdP-group expectations, invitation behavior, and acceptable small-team conflicts with the target user.
+- [ ] Incorporate the decisions recorded in M0-D03 before finalizing this story's rules.
 - [ ] Define member and identity-binding lifecycles, explicit group mappings, team membership, access grants, revocation, actor attribution, and responsibility boundaries.
 - [ ] Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
 - [ ] Enforce every allow and deny decision on the server, including direct grants, team grants, removed provider groups, suspension, deprovisioning, and separation-of-duties conflicts.
 - [ ] Prove identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states, and standalone/split-host parity end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R1-04a Activate provider-authenticated members and explain their access
+
+Outcome: As an organization administrator, I can invite or activate an externally authenticated user, bind their provider identity, and grant a built-in role with a clear explanation of the access it gives.
+
+Acceptance criteria:
+
+- [ ] An administrator can invite or activate an externally authenticated user and explain the access being granted.
+- [ ] The provider identity is keyed by issuer plus subject; an email or display-name change does not create a new member.
+- [ ] Replacing or adding a provider identity preserves the member's authorship and assignments.
+- [ ] Pending and active member lifecycle states are visible, with their loading, empty, error, and forbidden states.
+
+Not in this slice:
+
+- Teams and IdP group mapping (R1-04c).
+- Suspension and deprovisioning (R1-04d).
+
+#### R1-04b Scope each member's access to organization, program, and engagement
+
+Outcome: As a member, I see only the programs, records, and actions my access grants allow, and the server enforces the same boundary.
+
+Acceptance criteria:
+
+- [ ] Each user sees only the programs, records, and actions allowed by their responsibilities.
+- [ ] Every grant records its scope, source, grantor, effective interval, and revocation.
+- [ ] Out-of-scope commands and queries are denied on the server, and the UI shows a usable forbidden state.
+
+Not in this slice:
+
+- Separation-of-duties conflicts (R1-04e).
+
+Depends on: R1-04a
+
+#### R1-04c Organize members into teams and map identity-provider groups when required
+
+Outcome: As an organization administrator, I can manage platform teams that receive grants and responsibilities, and map IdP groups to them explicitly if M0-D03 requires it for the first release.
+
+Acceptance criteria:
+
+- [ ] A team grant applies to its current members and stops applying when a member leaves the team.
+- [ ] A team can receive access or responsibility but is never recorded as the actor of an action.
+- [ ] If IdP group mapping is in scope: the mapping is explicit and reviewable, and removing a provider group removes the derived grant.
+
+Not in this slice:
+
+- Mapping external groups that are under access review (R2-06).
+
+Depends on: R1-04a
+
+#### R1-04d Suspend or deprovision members and recover orphaned work
+
+Outcome: As an organization administrator, I can suspend or deprovision a member so their access ends immediately, while their history is preserved and their open work is exposed for reassignment.
+
+Acceptance criteria:
+
+- [ ] Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
+- [ ] A suspended or deprovisioned member's historical actions still show the correct attribution.
+
+Not in this slice:
+
+- Queue-based reassignment actions (R2-11b).
+
+Depends on: R1-04a
+
+#### R1-04e Surface separation-of-duties conflicts before assignments are accepted
+
+Outcome: As a compliance lead, I can see when one person holds conflicting responsibilities, and the product blocks or records an approved exception before approval or review work is accepted.
+
+Acceptance criteria:
+
+- [ ] Assignment conflicts are surfaced before approval or review work is accepted.
+- [ ] One person may hold several responsibilities, and conflicts are visible.
+- [ ] Approved small-team exceptions record their approver, rationale, and interval, following M0-D03.
+
+Not in this slice:
+
+- Review decision semantics (EN-04).
+
+Depends on: EN-04, R1-04a
+
 ### R1-05 Build the control inventory and implementation narratives
 
-Priority: P0  
+Priority: P0
+
 Area: controls
 
 User story: As a compliance lead, I want to document the controls our organization actually performs so that readiness is evaluated against real operating practices rather than generic templates.
@@ -298,7 +1305,8 @@ Implementation subtasks:
 
 ### R1-06 Map controls to criteria and explain applicability
 
-Priority: P0  
+Priority: P0
+
 Area: controls
 
 User story: As a compliance lead, I want to explain which controls address each in-scope criterion and why anything is not applicable so that our coverage can be reviewed instead of assumed.
@@ -336,7 +1344,11 @@ Implementation subtasks:
 
 ### R1-07 Assess scoped risks and choose treatment
 
-Priority: P1  
+> [!NOTE]
+> Promoted from P1 to P0 on 2026-09-14. The R1/R2 milestone exits and the P0 readiness stories R1-08 and R2-09 depend on this capability, and it covers SOC 2 Security criteria a Type I auditor routinely tests (risk assessment CC3, vendor oversight CC9.2, policy communication CC1/CC2).
+
+Priority: P0
+
 Area: risk
 
 User story: As a compliance lead, I want to assess material risks and approve
@@ -384,7 +1396,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the initial assessment method, scales, materiality, appetite, review cadence, treatment vocabulary, and acceptance authority with the current readiness engagement.
+- [ ] Incorporate the decisions recorded in M0-D10 before finalizing this story's rules.
 - [ ] Define risk identity, assessment versions, method version, inherent and residual semantics, treatment, acceptance, reassessment triggers, review, and expiry invariants.
 - [ ] Deliver authorized identify, assess, relate, treat, accept, review, reassess, browse, and compare behavior through the API and browser.
 - [ ] Connect risks to boundary, commitments, assets, providers, controls, evidence, findings, accountable work, readiness, management review, and snapshots without duplicating those records.
@@ -392,7 +1404,8 @@ Implementation subtasks:
 
 ### R1-08 Complete the readiness assessment and own the gap plan
 
-Priority: P0  
+Priority: P0
+
 Area: readiness
 
 User story: As a compliance lead, I want to assess the scoped program and turn every material gap into owned work so that the team has a credible plan toward Type I.
@@ -430,6 +1443,7 @@ Acceptance criteria:
 - [ ] Unknown, unowned, missing-from-source, or unresolved-scope applications and reviewed systems remain visible readiness gaps.
 - [ ] The team can filter the gap plan by owner, severity, criterion, control, and target stage.
 - [ ] The product does not claim that completing the internal assessment guarantees audit success.
+- [ ] Evidence-governance capabilities that are not yet delivered (retention, hold, redaction, disclosure; R2-12) appear as explicit readiness gaps rather than being omitted or treated as satisfied.
 
 Implementation subtasks:
 
@@ -440,7 +1454,8 @@ Implementation subtasks:
 
 ### R1-09 Bring existing readiness work into the program
 
-Priority: P0  
+Priority: P0
+
 Area: program
 
 User story: As a compliance lead already working through readiness with
@@ -470,6 +1485,7 @@ Domain slice:
   responsibilities, risks, providers, gaps, and external authorship.
 - Produces ordinary domain records with provenance; imported records never form
   a parallel model or bypass their normal lifecycle, authorization, and review rules.
+- Uses the shared import pipeline enabler (EN-05) for import batches, staging, validation, preview, atomic acceptance, and replay. This story owns the readiness-material mappings and the adoption experience, delivered in record-family slices once each owning story exists.
 
 Acceptance criteria:
 
@@ -482,14 +1498,82 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first real source files and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
+- [ ] Incorporate the decisions recorded in M0-D04 and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
 - [ ] Deliver authorized upload, parse, preview, correct, accept, cancel, and retry behavior through the API, any required worker processing, and browser.
 - [ ] Route accepted items through the owning contexts, including identity and responsibility resolution, lifecycle checks, provenance, evidence content identity, and readiness recalculation.
 - [ ] Prove replay safety, partial and interrupted failure, accepted subsets, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R1-09a Import existing controls, mappings, and owners with preview and atomic acceptance
+
+Outcome: As a compliance lead, I can bring the consultant-built control inventory, criteria mappings, and control owners into Compliance and preview everything before any record becomes active.
+
+Acceptance criteria:
+
+- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- [ ] A failed or canceled import cannot leave an apparently complete partial program.
+- [ ] Every imported record can be traced to its source and import batch.
+- [ ] A valid subset is accepted only through an explicit choice, with a retained rejected-item report.
+- [ ] Unknown owners and ambiguous mappings are resolved or rejected before acceptance; imported records follow the normal control and mapping lifecycle.
+
+Not in this slice:
+
+- Policies and evidence (R1-09b).
+- Scope, inventories, risks, providers, and findings (R1-09c).
+- Repeat imports (R1-09d).
+
+Depends on: R1-04, R1-05, R1-06
+
+#### R1-09b Import existing policies and evidence with their files
+
+Outcome: As a compliance lead, I can import existing policy and evidence metadata and files with preserved provenance and content identity.
+
+Acceptance criteria:
+
+- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- [ ] Unsupported, oversized, or corrupt files are rejected before acceptance with an actionable report.
+- [ ] Every imported artifact keeps its source filename or identifier, import batch, importer, import time, and content identity.
+- [ ] Imported policies enter the normal policy lifecycle and are never implicitly approved.
+
+Not in this slice:
+
+- Repeat imports (R1-09d).
+
+Depends on: R1-09a, R2-02, R2-03
+
+#### R1-09c Import existing scope, inventories, risks, providers, and findings
+
+Outcome: As a compliance lead, I can import the existing boundary, workforce and system inventories, commitments, risks, providers, gaps, and consultant findings through their owning workflows.
+
+Acceptance criteria:
+
+- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- [ ] Every imported record can be traced to its source and import batch.
+- [ ] Consultant findings retain external-author provenance and are never fabricated as platform activity.
+
+Not in this slice:
+
+- Repeat imports (R1-09d).
+
+Depends on: R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07
+
+#### R1-09d Repeat imports safely and reconcile readiness to accepted records
+
+Outcome: As a compliance lead, I can re-import updated consultant material without duplicates and see readiness reconcile to what has been accepted.
+
+Acceptance criteria:
+
+- [ ] Repeating the same import does not silently duplicate controls, relationships, evidence, or findings.
+- [ ] Conflicting changes require an explicit resolution and preserve both the source value and the accepted result.
+- [ ] After import, the readiness assessment reconciles to the accepted records and clearly shows what still remains outside the product.
+
+Depends on: R1-08, R1-09a
+
 ### R1-10 Establish the application inventory and review scope
 
-Priority: P0  
+Priority: P0
+
 Area: application inventory
 
 User story: As a compliance lead, I want one governed inventory of the software
@@ -544,15 +1628,69 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the current real application list and define minimum inventory fields, ownership, application-versus-reviewed-system boundaries, aliases, lifecycle, source confidence, and scope-decision rules.
+- [ ] Incorporate the decisions recorded in M0-D05 and define minimum inventory fields, ownership, application-versus-reviewed-system boundaries, aliases, lifecycle, source confidence, and scope-decision rules.
 - [ ] Define stable application and reviewed-system identity, source-aware import and reconciliation, explicit inclusion or exclusion, relationship, impact, retirement, and narrowly permitted unused-draft deletion semantics.
 - [ ] Deliver authorized add, import, preview, match, reconcile, classify, own, scope, relate, revise, retire, browse, and inspect behavior through the API and browser.
 - [ ] Connect applications to boundary, vendors, controls, policies, evidence, external access governance, work, readiness, automation, and engagement snapshots without creating duplicate system records.
 - [ ] Prove duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay, and standalone/split-host parity end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R1-10a Record applications and their concrete reviewed systems with ownership and classification
+
+Outcome: As a compliance lead, I can manually record each application and its concrete tenants, accounts, or environments, with owners, purpose, and classification.
+
+Acceptance criteria:
+
+- [ ] Every active application shows an owner, business purpose, classification, and concrete reviewed systems, or an explicit unresolved gap.
+- [ ] A reviewed system has its own source identifier and access boundary and is never reused for an unrelated application.
+- [ ] Unauthorized users cannot discover restricted applications or change inventory, ownership, or classification.
+
+Not in this slice:
+
+- Import (R1-10b).
+- Review-scope decisions (R1-10c).
+- Retirement and impact (R1-10d).
+
+#### R1-10b Import and reconcile the application inventory from a source list
+
+Outcome: As a compliance lead, I can import an application list, match it to existing records, and resolve duplicates, aliases, and missing rows before acceptance.
+
+Acceptance criteria:
+
+- [ ] The team can import applications, preview validation and matching, and resolve duplicates or aliases before acceptance.
+- [ ] Unknown, missing-from-source, unowned, duplicate, and retired applications remain distinguishable and cannot silently disappear from scope.
+- [ ] Each application preserves whether it was declared, imported, or discovered, from which source, and when.
+
+Depends on: R1-10a
+
+#### R1-10c Decide and review access-review scope for each reviewed system
+
+Outcome: As a compliance lead, I can record an attributable inclusion, exclusion, or unresolved access-review decision for each application and reviewed system.
+
+Acceptance criteria:
+
+- [ ] Each inclusion or exclusion decision is attributable, time-aware, reviewable, and visible in readiness rather than hidden in import configuration.
+- [ ] Every active application shows its access-review scope status or an explicit unresolved gap.
+
+Depends on: R1-10a
+
+#### R1-10d Relate, change, or retire applications with impact preview
+
+Outcome: As a compliance lead, I can relate applications to the boundary, vendors, controls, policies, and evidence sources, and change or retire them only after seeing the impact.
+
+Acceptance criteria:
+
+- [ ] A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns, subject to authorization.
+- [ ] Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
+- [ ] Retirement preserves prior relationships and snapshots.
+
+Depends on: R1-10a
+
 ### R1-11 Establish the authoritative workforce and identity-owner roster
 
-Priority: P0  
+Priority: P0
+
 Area: workforce assurance
 
 User story: As a compliance lead, I want a reconciled roster of employees,
@@ -606,15 +1744,71 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first authoritative roster, required worker attributes, source precedence, privacy boundary, joiner-mover-leaver rules, NHI ownership, and accepted manual fallback with the target team.
+- [ ] Incorporate the decisions recorded in M0-D06 before finalizing this story's rules.
 - [ ] Define person and source identity, lifecycle observations, manager and owner relationships, correlation, reconciliation, conflict, freshness, snapshot, and retention rules.
 - [ ] Deliver authorized manual entry, import, preview, match, reconcile, classify, own, browse, freeze, and inspect behavior through the API, bounded processing where needed, and browser.
 - [ ] Connect workforce context to platform responsibility without merging identities and to policy, training, access, evidence, control, readiness, population, and snapshot workflows.
 - [ ] Prove conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and end-to-end reconciliation.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R1-11a Record and import the workforce roster with source precedence
+
+Outcome: As a compliance lead, I can record or import employees, contractors, and external collaborators from authoritative and corroborating sources, and accept an attributable reconciled result.
+
+Acceptance criteria:
+
+- [ ] The team can import or manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
+- [ ] Each person shows their source, freshness, lifecycle, and relationships without using email as the stable identifier.
+- [ ] Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
+
+Not in this slice:
+
+- NHI ownership (R1-11c).
+- Snapshots and field restrictions (R1-11d).
+
+#### R1-11b Surface joiners, movers, leavers, and unresolved roster conflicts
+
+Outcome: As a compliance lead, I can see joiners, movers, leavers, duplicates, conflicts, and stale observations as unresolved items to act on.
+
+Acceptance criteria:
+
+- [ ] Joiners, movers, leavers, missing source data, and stale observations remain visibly unresolved.
+- [ ] People present only in an access source are surfaced for deliberate treatment.
+
+Depends on: R1-11a
+
+#### R1-11c Record accountable owners and purpose for non-human identities
+
+Outcome: As a compliance lead, I can record the accountable human or team owner, approved purpose, environment, lifecycle, and review date for each in-scope NHI.
+
+Acceptance criteria:
+
+- [ ] Each NHI owner shows its source, freshness, lifecycle, relationships, and unresolved conflicts.
+- [ ] Ownerless NHIs remain visibly unresolved.
+- [ ] Groups and roles are never classified as people or NHIs.
+
+Not in this slice:
+
+- Classifying observed provider principals (R2-06b).
+
+Depends on: R1-11a
+
+#### R1-11d Freeze workforce snapshots and restrict sensitive workforce fields
+
+Outcome: As a compliance lead, I can freeze the roster used by a review, campaign, evaluation, or population, and sensitive workforce fields stay least-privilege.
+
+Acceptance criteria:
+
+- [ ] A frozen workforce snapshot remains stable after later roster changes and resolves every included row to its accepted source facts.
+- [ ] Sensitive fields and roster discovery are restricted to authorized users while the minimum review context remains usable.
+
+Depends on: EN-03, R1-11a
+
 ### R1-12 Inventory scoped technology and information assets
 
-Priority: P0  
+Priority: P0
+
 Area: system inventory
 
 User story: As a compliance lead, I want to inventory the material technology
@@ -669,7 +1863,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the minimum component, information, location, classification, retention, and data-flow detail required for the first real boundary and system description.
+- [ ] Incorporate the decisions recorded in M0-D08 before finalizing this story's rules.
 - [ ] Define stable identities, source matching, ownership, classification, lifecycle, flow versioning, scope decisions, reconciliation, retirement, and impact rules.
 - [ ] Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
 - [ ] Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
@@ -677,7 +1871,8 @@ Implementation subtasks:
 
 ### R1-13 Record service commitments, system requirements, and user responsibilities
 
-Priority: P0  
+Priority: P0
+
 Area: commitments and requirements
 
 User story: As a compliance lead, I want to record the promises, requirements,
@@ -728,7 +1923,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first engagement's commitments, requirements, CUECs, CSOCs, source artifacts, minimum fields, and approval authority with the target team and advisor.
+- [ ] Incorporate the decisions recorded in M0-D09 before finalizing this story's rules.
 - [ ] Define stable identities, source and version provenance, applicability, interpretation, conflict, review, effective-date, supersession, withdrawal, and impact rules.
 - [ ] Deliver authorized capture or import, relate, review, approve, revise, supersede, browse, and inspect behavior through the API and browser.
 - [ ] Connect approved records to boundary, inventories, providers, criteria, controls, policies, risks, readiness, system description, assertions, packages, and snapshots.
@@ -736,7 +1931,11 @@ Implementation subtasks:
 
 ### R1-14 Evaluate vendors and subservice organizations
 
-Priority: P1  
+> [!NOTE]
+> Promoted from P1 to P0 on 2026-09-14. The R1/R2 milestone exits and the P0 readiness stories R1-08 and R2-09 depend on this capability, and it covers SOC 2 Security criteria a Type I auditor routinely tests (risk assessment CC3, vendor oversight CC9.2, policy communication CC1/CC2).
+
+Priority: P0
+
 Area: provider oversight
 
 User story: As a compliance lead, I want to evaluate material vendors and
@@ -789,22 +1988,278 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the material-provider threshold, initial due-diligence set, review cadence, assurance-report fields, bridge-letter use, and subservice treatment with the current readiness engagement.
+- [ ] Incorporate the decisions recorded in M0-D11 before finalizing this story's rules.
 - [ ] Define provider identity, service relationships, assessment versions, evidence coverage, exception, boundary treatment, review, renewal, termination, and acceptance rules.
 - [ ] Deliver authorized record, import, classify, assess, review, relate, remediate, accept risk, renew, terminate, browse, and inspect behavior through the API and browser.
 - [ ] Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
 - [ ] Prove stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and end-to-end readiness reconciliation.
 
+### EN-01 Enforce server-side authorization, organization isolation, and actor attribution
+
+Priority: P0
+
+Type: enabler
+
+Area: workspace
+
+Why: Every story requires server-enforced authorization and attributable actions. Without one shared mechanism, each slice would invent its own checks and actor model.
+
+Scope:
+
+- An organization-scoped request context resolved from the authenticated external identity.
+- An authorization evaluation pipeline for commands and queries, following the M0-A04 decision.
+- ActorReference for members and named system processes, with a display snapshot.
+- Filtering for lists and counts, and consistent forbidden or not-found Problem Details.
+- A test harness for allow and deny matrices.
+
+Out of scope:
+
+- Member invitation, team administration, and role UX (R1-04).
+- Record-specific responsibilities (R2-01).
+
+Acceptance criteria:
+
+- [ ] Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
+- [ ] Cross-organization access is denied and cannot be distinguished from a missing resource.
+- [ ] Historical actor attribution survives rename, identity replacement, and deprovisioning.
+- [ ] Restricted records are absent from lists and counts, not merely hidden in the UI.
+- [ ] System-process actions cannot be mistaken for member actions.
+- [ ] Behavior is identical in standalone and split API/worker host modes.
+
+Implementation subtasks:
+
+- [ ] Implement the request context and evaluation pipeline.
+- [ ] Implement ActorReference persistence and display snapshots.
+- [ ] Add allow/deny test helpers and the architecture test.
+- [ ] Prove the pipeline through R1-01's create, view, and revise flow.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R1-01
+
+Depends on: M0-A04, M0-D03
+
+Blocks: EN-04, EN-05, EN-06, R1-01, R1-04, R2-11
+
+### EN-02 Provide versioned records, effective history, and change-impact preview
+
+Priority: P0
+
+Type: enabler
+
+Area: architecture
+
+Why: Boundary, controls, policies, inventories, commitments, risks, and providers all require drafts, immutable approved versions, successor proposals, effective dates, and impact preview.
+
+Scope:
+
+- Draft editing, immutable approved versions, and successor proposals with effective dates.
+- Retrieval of the version effective on a date.
+- Optimistic concurrency with actionable conflicts.
+- An impact-preview contract that owning contexts contribute affected records to.
+- A deletion guard that allows deleting only never-used drafts.
+
+Out of scope:
+
+- Workflow-specific review and approval rules (EN-04 and the owning stories).
+- Snapshot freezing (EN-03).
+
+Acceptance criteria:
+
+- [ ] An approved version cannot be changed in place through any API.
+- [ ] The version effective on any selected date is retrievable.
+- [ ] A concurrent edit returns a conflict that identifies the newer version.
+- [ ] An impact preview lists affected records contributed by each registered context before approval.
+- [ ] Deletion is refused for any record that was ever approved or referenced.
+
+Implementation subtasks:
+
+- [ ] Implement the version and effective-interval primitives from M0-A01.
+- [ ] Implement the concurrency and conflict contract.
+- [ ] Implement the impact-preview contribution contract.
+- [ ] Prove it through R1-02's boundary versioning flow.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R1-02
+
+Depends on: M0-A01
+
+Blocks: R1-02, R1-05, R1-07, R1-10, R1-12, R1-13, R1-14, R2-02
+
+### EN-03 Freeze immutable snapshots with content identity and amendments
+
+Priority: P0
+
+Type: enabler
+
+Area: architecture
+
+Why: Workforce, population, readiness, baseline, period, and management-review snapshots need one shared, provable freezing mechanism.
+
+Scope:
+
+- Snapshot creation from exact record versions, following the M0-A02 decision.
+- Content identity (canonical hash) and verification.
+- Amendments linked to the original snapshot, with downstream impact.
+- As-of retrieval of snapshot contents.
+
+Out of scope:
+
+- Deciding what each snapshot contains (owning stories).
+
+Acceptance criteria:
+
+- [ ] A frozen snapshot is unchanged by later source changes, and its content identity verifies.
+- [ ] An amendment is attributable, links to its original, and never mutates it.
+- [ ] Regenerating the same snapshot contents yields an equivalent content identity.
+- [ ] A partial freeze failure cannot produce an apparently complete snapshot.
+
+Implementation subtasks:
+
+- [ ] Implement snapshot and amendment primitives from M0-A02.
+- [ ] Implement the canonical hashing and verification.
+- [ ] Prove it through R1-11's workforce snapshot slice.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R1-11d workforce snapshot
+
+Depends on: M0-A01, M0-A02
+
+Blocks: R1-08, R1-11d, R2-06, R2-09
+
+### EN-04 Record attributable review and approval decisions with separation of duties
+
+Priority: P0
+
+Type: enabler
+
+Area: controls
+
+Why: Boundary, controls, mappings, commitments, policies, evaluations, and findings all require approval of an exact version with separation-of-duties checks. The domain model forbids a universal Review aggregate, so this delivers a decision primitive that each workflow's own state machine uses.
+
+Scope:
+
+- A decision record bound to the exact input version, actor, time, rationale, and outcome.
+- Separation-of-duties evaluation and approved small-team exceptions (M0-D03).
+- Reviewer assignment hooks into responsibilities.
+
+Out of scope:
+
+- Generic workflow states or a universal review queue.
+- Workflow-specific outcomes (owning stories).
+
+Acceptance criteria:
+
+- [ ] A decision always identifies the exact version it applies to and cannot be moved to another version.
+- [ ] Self-review is blocked on the server unless an approved exception applies, and the denial is explained.
+- [ ] Decisions are immutable; a later decision supersedes and never overwrites.
+- [ ] Each consuming workflow keeps its own lifecycle states.
+
+Implementation subtasks:
+
+- [ ] Implement the decision primitive and separation-of-duties evaluation.
+- [ ] Integrate with EN-01 authorization and EN-02 versions.
+- [ ] Prove it through R1-02 boundary approval.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R1-02
+
+Depends on: M0-D03, M0-D23, EN-01
+
+Blocks: R1-02, R1-04e, R1-05, R1-06, R1-13, R2-02, R2-05, R2-07
+
+### EN-05 Import with preview, reconciliation, and safe replay
+
+Priority: P0
+
+Type: enabler
+
+Area: architecture
+
+Why: The criteria catalog, readiness material, application inventory, workforce roster, technology inventory, and access populations all need the same staged import semantics.
+
+Scope:
+
+- Import batches with source and content identity.
+- Staged parsing, validation, preview, atomic or explicit-subset acceptance, cancellation, and retry, following M0-A06.
+- Rejected-item reports and replay detection (unchanged, changed, new, conflicting, missing).
+- Background processing with progress across host modes.
+
+Out of scope:
+
+- Per-source mappings and business validation (owning stories).
+
+Acceptance criteria:
+
+- [ ] Nothing imported becomes active before explicit acceptance.
+- [ ] A failed or canceled import leaves no partial active records.
+- [ ] Replaying the same source creates no duplicates and reports unchanged rows.
+- [ ] Missing rows produce explicit reconciliation states and never silent deletion.
+- [ ] Progress and failures are visible and recoverable in standalone and split hosts.
+
+Implementation subtasks:
+
+- [ ] Implement batch, staging, and preview primitives.
+- [ ] Implement replay and reconciliation classification.
+- [ ] Implement worker execution and progress.
+- [ ] Prove it through R1-10b application import.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R1-10b application import
+
+Depends on: M0-A06, EN-01
+
+Blocks: R1-03, R1-09, R1-10, R1-11, R1-12, R2-06
+
+### EN-06 Store governed artifacts with immutable content identity
+
+Priority: P0
+
+Type: enabler
+
+Area: evidence
+
+Why: Evidence, policy documents, provider reports, and imported files need one artifact store with content identity, validation, quarantine, and per-artifact authorization.
+
+Scope:
+
+- Upload, content hashing, validation, and quarantine, following M0-A03.
+- Artifact-level authorization for download and preview.
+- Derived-artifact relationships (for example, redactions) that never replace the source.
+
+Out of scope:
+
+- Evidence requests and support relationships (R2-03).
+- Retention, hold, and disposition policy (R2-12).
+
+Acceptance criteria:
+
+- [ ] An artifact's content can never be replaced silently; a correction is a new artifact.
+- [ ] Unsupported, oversized, interrupted, or failed-inspection uploads never appear successful.
+- [ ] Permission to view a related record does not grant access to a restricted artifact.
+- [ ] Downloads are authorized and recorded.
+
+Implementation subtasks:
+
+- [ ] Implement the storage adapter and content identity.
+- [ ] Implement validation, inspection, and quarantine.
+- [ ] Implement authorized download.
+- [ ] Prove it through R2-03 evidence upload.
+- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+
+First consumer: R2-03
+
+Depends on: M0-A03, EN-01
+
+Blocks: R1-14, R2-02, R2-03, R2-08
+
 ## R2 - Control environment implemented
 
-Business outcome: required controls and policies are implemented and evaluated;
-policy communication and evidence are governed; actual human and NHI access is
-reconciled with approved expectations; accountable work and gaps are visible;
-and the team can make an evidence-backed Type I entry decision.
+Business outcome: required controls and policies are implemented and evaluated; policies are communicated and acknowledged; evidence is captured with provenance and its handling status is explicit, with any undelivered evidence-governance capability (retention, hold, redaction, disclosure) shown as an acknowledged gap; actual human and NHI access is reconciled with approved expectations; accountable work and gaps are visible; and the team can make an evidence-backed Type I entry decision.
 
 ### R2-01 Assign control ownership and operating cadence
 
-Priority: P0  
+Priority: P0
+
 Area: controls
 
 User story: As a compliance lead, I want every active control assigned to an accountable owner with a clear cadence so that required work does not depend on personal memory.
@@ -843,7 +2298,8 @@ Implementation subtasks:
 
 ### R2-02 Maintain approved policies and review cycles
 
-Priority: P0  
+Priority: P0
+
 Area: policies
 
 User story: As a policy owner, I want to draft, review, approve, publish, and periodically revisit policies so that the team can show which governance was effective at any point in time.
@@ -898,7 +2354,8 @@ Implementation subtasks:
 
 ### R2-03 Request and capture trustworthy evidence
 
-Priority: P0  
+Priority: P0
+
 Area: evidence
 
 User story: As a control owner, I want to submit files, links, and notes with clear provenance so that reviewers can understand what the evidence supports and when it applied.
@@ -937,7 +2394,8 @@ Implementation subtasks:
 
 ### R2-04 Perform a control and attest to the result
 
-Priority: P0  
+Priority: P0
+
 Area: controls
 
 User story: As a control owner, I want to record each control performance, outcome, and support so that the organization can demonstrate implementation rather than only describe design.
@@ -976,7 +2434,8 @@ Implementation subtasks:
 
 ### R2-05 Review control design, implementation, and evidence
 
-Priority: P0  
+Priority: P0
+
 Area: controls and evidence
 
 User story: As a compliance reviewer, I want to evaluate each control's design
@@ -1030,14 +2489,65 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first real evaluation procedures and define plan versions, assertion and procedure results, applicable populations or inspected items, conclusions, deviations, retest, review assignment, and independence rules.
+- [ ] Incorporate the decisions recorded in M0-D13 and M0-D03 and define plan versions, assertion and procedure results, applicable populations or inspected items, conclusions, deviations, retest, review assignment, and independence rules.
 - [ ] Deliver authorized plan, assign, perform, document, submit, inspect, comment, accept, reject, request-change, remediate, and retest behavior through the API and browser.
 - [ ] Bind evaluations to exact scope, inventory, commitment, risk, criterion, control, policy, provider, and evidence versions and connect decisions to work, findings, readiness, descriptions, and snapshots.
 - [ ] Prove insufficient and conflicting evidence, failed procedures, deviation handling, design-versus-operation distinctions, self-review denial, concurrent revisions, rework, retest, small-team exceptions, and historical reproducibility end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R2-05a Plan a reproducible control design and implementation evaluation
+
+Outcome: As a compliance reviewer, I can define a versioned evaluation plan: objective, procedure, assertions, inspected items, expected support, and tester independence, all bound to exact record versions.
+
+Acceptance criteria:
+
+- [ ] An evaluation plan is versioned and bound to the exact boundary, commitment, risk, criterion, control, policy, provider, and evidence versions it evaluates.
+- [ ] Tester competence and independence requirements are recorded and checked when work is assigned.
+
+Not in this slice:
+
+- Performing the evaluation (R2-05b).
+
+#### R2-05b Perform and document design, implementation, and evidence conclusions
+
+Outcome: As a compliance reviewer, I can perform the planned procedure and record separate design, implementation, and evidence-sufficiency conclusions with the items I inspected.
+
+Acceptance criteria:
+
+- [ ] The user can reproduce what was evaluated, which exact versions and items were inspected, what procedure was performed, and how each conclusion was reached.
+- [ ] Design, implementation, evidence sufficiency, and Type II operating effectiveness cannot be conflated in the API, UI, readiness calculation, or export.
+
+Depends on: R2-05a
+
+#### R2-05c Independently review evaluations with separation of duties
+
+Outcome: As an assigned reviewer, I can accept, reject, or request changes to an evaluation, and self-review is prevented unless an approved exception applies.
+
+Acceptance criteria:
+
+- [ ] Accepted, rejected, and change-requested decisions produce clear next states, including retest when required.
+- [ ] Rejection reopens the correct work and never deletes the submitted evidence.
+- [ ] Unauthorized self-review is blocked by the server and explained in the UI.
+- [ ] Readiness status reflects the latest valid review without hiding prior decisions.
+
+Depends on: R2-05b
+
+#### R2-05d Route deviations to findings and retest
+
+Outcome: As a compliance lead, I see every deviation or failed procedure become an owned finding, corrective action, approved exception, or unresolved result, and retests preserve history.
+
+Acceptance criteria:
+
+- [ ] Deviations and failed procedures produce an owned finding, corrective action, approved exception, or unresolved result rather than disappearing inside reviewer notes.
+- [ ] Retest preserves the original plan, execution, decision, and remediation.
+
+Depends on: R2-05c, R2-07
+
 ### R2-06 Reconcile application access and complete the initial review
 
-Priority: P0  
+Priority: P0
+
 Area: access review
 
 User story: As an access reviewer, I want to compare the complete point-in-time
@@ -1132,16 +2642,87 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the real application list, workforce or identity roster, and first provider exports, including the AWS no-IAM-user expectation, before finalizing normalization and campaign rules.
+- [ ] Incorporate the decisions recorded in M0-D07, M0-D05 and M0-D06 before finalizing this story's rules.
 - [ ] Define human and NHI access-subject identity and lifecycle, NHI ownership and purpose, provider principal kinds, explicit classification and correction, provider object identity, group and role relationships, direct and inherited grant paths, entitlement and resource identity, external access-grant uniqueness, and optional platform-member correlation.
 - [ ] Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
 - [ ] Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
 - [ ] Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
 - [ ] Prove employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R2-06a Import and accept a point-in-time access population for a reviewed system
+
+Outcome: As an access reviewer, I can import the actual accounts, groups, roles, entitlements, memberships, and grant paths for a reviewed system as a validated source snapshot.
+
+Acceptance criteria:
+
+- [ ] Invalid, duplicate, incomplete, or ambiguous import rows are shown before acceptance.
+- [ ] Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
+- [ ] Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
+- [ ] Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
+
+Not in this slice:
+
+- Classification (R2-06b).
+- Expectations (R2-06c).
+- Campaign decisions (R2-06d).
+
+#### R2-06b Classify human and non-human principals and resolve their ownership
+
+Outcome: As an access reviewer, I can explicitly classify each account or service principal as human, NHI, or unresolved, and correlate it to the workforce roster and NHI owners.
+
+Acceptance criteria:
+
+- [ ] Every reviewed account or service principal has an explicit human, NHI, or unresolved classification; each NHI has an accountable owner and purpose or remains an actionable gap.
+- [ ] Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
+- [ ] Provider hints only propose a classification; a change preserves the prior decision.
+
+Depends on: R1-11, R2-06a
+
+#### R2-06c Approve access expectations and explain variance
+
+Outcome: As an access-review owner, I can approve expected, required, and prohibited access (for example, no AWS IAM users) and see observed variance explained without any item being pre-decided.
+
+Acceptance criteria:
+
+- [ ] Expected, unexpected, prohibited, missing, and unresolved access are explainable from approved expectations but do not pre-decide a review outcome.
+- [ ] Expectations record rationale, approver, effective interval, and expiring exceptions.
+
+Depends on: R2-06a
+
+#### R2-06d Launch a frozen review campaign and record access decisions
+
+Outcome: As an access-review owner, I can launch a campaign that freezes its population, reviewers, instructions, and deadline, and reviewers can record keep, modify, revoke, or unable-to-determine decisions.
+
+Acceptance criteria:
+
+- [ ] Every population item has an attributable decision or explicit unresolved status.
+- [ ] Bulk decisions require preview and shared rationale.
+- [ ] The launched population, reviewers, instructions, and deadline are frozen.
+
+Not in this slice:
+
+- Remediation and verification (R2-06e).
+
+Depends on: R2-06a
+
+#### R2-06e Remediate, verify, and complete the campaign snapshot
+
+Outcome: As an access-review owner, I can track required changes to independent verification and complete the campaign with a final snapshot.
+
+Acceptance criteria:
+
+- [ ] A campaign cannot complete while required remediation is unverified, unless an approved exception exists.
+- [ ] The final campaign snapshot includes population, decisions, remediation, evidence, and history.
+- [ ] Provider-side changes and platform-side verification remain distinct facts.
+
+Depends on: R2-06d
+
 ### R2-07 Resolve findings, exceptions, and corrective actions
 
-Priority: P0  
+Priority: P0
+
 Area: remediation
 
 User story: As a compliance lead, I want deficiencies and exceptions converted into owned corrective work so that known gaps cannot disappear behind a readiness score.
@@ -1180,7 +2761,8 @@ Implementation subtasks:
 
 ### R2-08 Collaborate with a readiness advisor on work in progress
 
-Priority: P0  
+Priority: P0
+
 Area: collaboration
 
 User story: As a compliance lead currently working with readiness consultants, I want to share selected work in progress and capture their feedback in context so that misunderstandings and gaps are corrected before the Type I audit begins.
@@ -1215,14 +2797,15 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the consultant's preferred workflow and define selection, draft visibility, external authorship, validation meaning, delivery, revocation, and change-comparison rules.
+- [ ] Incorporate the decisions recorded in M0-D14 and define selection, draft visibility, external authorship, validation meaning, delivery, revocation, and change-comparison rules.
 - [ ] Deliver authorized assemble, preview, share or export, receive or record feedback, respond, assign, and revoke behavior through the API, any bounded package processing, and browser.
 - [ ] Reuse platform membership and scoped access grants if direct access is selected; otherwise preserve external-author and delivery provenance without fabricating platform actors.
 - [ ] Connect feedback to owning records, requests, work queues, gaps, review, and readiness; prove least privilege, repeated handoffs, exact versions, failures, and history end to end.
 
 ### R2-09 Make and record the Type I entry decision
 
-Priority: P0  
+Priority: P0
+
 Area: readiness
 
 User story: As the management approver, I want an explainable readiness review and sign-off so that we deliberately decide whether to begin the Type I examination.
@@ -1257,6 +2840,7 @@ Acceptance criteria:
 - [ ] The decision records approvers, rationale, time, and snapshot identity.
 - [ ] Later changes do not silently alter the historical decision.
 - [ ] The product states that internal approval is not an auditor opinion.
+- [ ] Evidence-governance capabilities that are not yet delivered (R2-12) appear as explicitly acknowledged unresolved items in the decision rather than being omitted or treated as satisfied.
 
 Implementation subtasks:
 
@@ -1267,7 +2851,11 @@ Implementation subtasks:
 
 ### R2-10 Publish policies and verify acknowledgement and training
 
-Priority: P1  
+> [!NOTE]
+> Promoted from P1 to P0 on 2026-09-14. The R1/R2 milestone exits and the P0 readiness stories R1-08 and R2-09 depend on this capability, and it covers SOC 2 Security criteria a Type I auditor routinely tests (risk assessment CC3, vendor oversight CC9.2, policy communication CC1/CC2).
+
+Priority: P0
+
 Area: workforce assurance
 
 User story: As a policy owner, I want to distribute each approved policy to its
@@ -1318,7 +2906,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first policy audience, acknowledgement language, required training, reminder cadence, exception policy, external LMS evidence, and joiner-mover-leaver behavior.
+- [ ] Incorporate the decisions recorded in M0-D12 and M0-D06 before finalizing this story's rules.
 - [ ] Define campaign identity, version binding, audience rules and freeze, delivery, acknowledgement, completion observation, reminder, exception, reconciliation, and successor rules.
 - [ ] Deliver authorized assemble, preview, launch, deliver or import, acknowledge, remind, reconcile, review, close, and inspect behavior through the API, bounded processing where needed, and browser.
 - [ ] Connect campaigns to workforce, policies, training sources, evidence, controls, work queues, findings, readiness, populations, packages, and snapshots without duplicate person or policy records.
@@ -1326,7 +2914,8 @@ Implementation subtasks:
 
 ### R2-11 Manage accountable compliance work
 
-Priority: P0  
+Priority: P0
+
 Area: work management
 
 User story: As a compliance contributor, I want one prioritized view of the
@@ -1375,15 +2964,56 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the target team's daily queue, minimum source workflows, priority and materiality rules, assignment actions, reminders, digests, and escalation expectations.
+- [ ] Incorporate the decisions recorded in M0-D15 before finalizing this story's rules.
 - [ ] Define projection identity, source-state mapping, assignment and delegation, orphaning, due and blocked semantics, notification preference, delivery, deduplication, and reconciliation rules.
 - [ ] Deliver authorized personal and team queues, filters, assignment actions, source navigation, reminder preferences, digest, acknowledgement, and escalation through the API, bounded processing, and browser.
 - [ ] Integrate source workflows through stable identities and explicit allowed actions; derive counts and measures from those records without introducing generic completion state.
 - [ ] Prove stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search, and standalone/split-host parity end to end.
 
+Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+#### R2-11a See my and my team's work projected from source workflows
+
+Outcome: As a compliance contributor, I can see my, my team's, and unassigned work across source workflows, with what is required, why, when it is due, and where to act.
+
+Acceptance criteria:
+
+- [ ] Every displayed work item resolves to one authoritative source record and its current allowed action; counts reconcile after source changes.
+- [ ] A contributor can see what is required, why it matters, when it is due, what blocks it, and where to act without opening a parallel tracker.
+- [ ] Completing source work removes or advances the projected item; changing only the projection can never create false completion.
+- [ ] Restricted work is absent, not merely hidden, for unauthorized users, including in counts and search.
+
+Not in this slice:
+
+- Assignment actions (R2-11b).
+- Reminders and digests (R2-11c).
+
+#### R2-11b Assign, claim, reassign, and escalate work with separation of duties
+
+Outcome: As an authorized user, I can assign, claim, delegate, reassign, or escalate work while responsibility history and separation of duties are preserved.
+
+Acceptance criteria:
+
+- [ ] Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
+- [ ] Orphaned work appears immediately when membership, teams, responsibilities, scope, or source records change.
+
+Depends on: R2-11a
+
+#### R2-11c Receive in-product reminders and digests
+
+Outcome: As a contributor, I can receive configurable in-product reminders and digests with direct links, without email being required.
+
+Acceptance criteria:
+
+- [ ] Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
+- [ ] Restricted work never appears in notifications to unauthorized users.
+
+Depends on: R2-11a
+
 ### R2-12 Govern evidence access, retention, and disclosure
 
-Priority: P1  
+Priority: P1
+
 Area: evidence governance
 
 User story: As a compliance lead, I want sensitive evidence retained, shared,
@@ -1436,7 +3066,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the first handling classes, storage and inspection boundary, retention periods, engagement and legal hold rules, redaction workflow, disposition authority, and auditor-sharing expectations.
+- [ ] Incorporate the decisions recorded in M0-D16 before finalizing this story's rules.
 - [ ] Define policy and assignment versions, artifact-level authorization, hold precedence, derivative identity, quarantine, disposition, delivery, availability, and historical-reliance rules.
 - [ ] Deliver authorized classify, restrict, hold, release, derive, review, disclose, revoke where possible, preview-disposition, dispose, and inspect-history behavior through the API, bounded processing, and browser.
 - [ ] Apply the same decisions to evidence, imports, provider reports, workforce snapshots, responses, exports, and packages and expose availability to readiness and validation without duplicating artifacts.
@@ -1451,7 +3081,8 @@ auditor-supplied result, and create a Type II operating plan.
 
 ### T1-01 Establish the Type I engagement and point-in-time snapshot
 
-Priority: P1  
+Priority: P1
+
 Area: audit
 
 User story: As a compliance lead, I want to establish the Type I date and freeze the applicable scope and control versions so that everyone works from the same examination baseline.
@@ -1495,7 +3126,8 @@ Implementation subtasks:
 
 ### T1-02 Author, approve, and maintain the system description
 
-Priority: P1  
+Priority: P1
+
 Area: audit
 
 User story: As a compliance lead, I want to assemble, approve, and maintain the
@@ -1540,7 +3172,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate required sections, Type I as-of and Type II period presentation, significant-change treatment, source reconciliation, and preferred export with advisor or auditor input.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Define version, section completeness, source binding, contradiction and staleness, not-applicable, review, approval, Type I baseline, Type II period, assertion, and close-snapshot rules.
 - [ ] Deliver authorized authoring, source linking and refresh, section status, review, approval, version comparison, period-change view, and export through the API and browser.
 - [ ] Reuse platform responsibilities and review decisions, preserve governed source relationships, and feed the exact approved version into assertions, requests, populations, packages, and snapshots.
@@ -1548,7 +3180,8 @@ Implementation subtasks:
 
 ### T1-03 Give the auditor least-privilege engagement access
 
-Priority: P2  
+Priority: P2
+
 Area: auditor collaboration
 
 User story: As a compliance lead, I want to give the auditor access to the approved Type I material and request workflow so that collaboration is efficient without exposing unrelated or mutable workspace data.
@@ -1580,14 +3213,15 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate that direct auditor access is wanted before scheduling this P2 story; define scope, draft-sharing, time-bound grant, download, comment, and revocation rules.
+- [ ] Incorporate the decisions recorded in M0-D17 and define scope, draft-sharing, time-bound grant, download, comment, and revocation rules.
 - [ ] Deliver provider-authenticated auditor activation and engagement-scoped sharing through the existing membership and authorization API and browser experience.
 - [ ] Enforce read, download, request, and comment permissions server-side on every referenced artifact while preserving visibility and actor history after revocation.
 - [ ] Prove cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states end to end.
 
 ### T1-04 Respond to auditor requests and samples
 
-Priority: P1  
+Priority: P1
+
 Area: auditor collaboration
 
 User story: As a compliance contributor, I want auditor requests assigned, answered, reviewed, and resolved in context so that the team can respond without parallel email tracking.
@@ -1626,7 +3260,8 @@ Implementation subtasks:
 
 ### T1-05 Produce and validate the Type I package
 
-Priority: P1  
+Priority: P1
+
 Area: audit package
 
 User story: As a compliance lead, I want a reproducible indexed Type I package so that the auditor can trace scope, controls, policies, and evidence without an improvised folder tree.
@@ -1673,7 +3308,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the audit firm's minimum control matrix, evidence index, system-description, assertion-input, workbook, archive, naming, and delivery formats before implementation.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Define manifest identity, output schemas, deterministic ordering, content identity, source authorship, authorization filtering, validation, override, generation, retention, amendment, and delivery rules.
 - [ ] Deliver authorized preview, validate, generate, monitor, download, deliver, amend, and retrieve behavior through the API, bounded worker processing, and browser.
 - [ ] Resolve every manifest entry to the shared record or artifact identity and record the member or system actor for each attempt and delivery.
@@ -1681,7 +3316,8 @@ Implementation subtasks:
 
 ### T1-06 Track Type I observations and audit findings
 
-Priority: P1  
+Priority: P1
+
 Area: audit findings
 
 User story: As a compliance lead, I want auditor observations and findings linked to the examined records and remediation plan so that nothing is lost between Type I and Type II.
@@ -1719,7 +3355,8 @@ Implementation subtasks:
 
 ### T1-07 Record the Type I outcome and approve the Type II plan
 
-Priority: P1  
+Priority: P1
+
 Area: program transition
 
 User story: As a management approver, I want to record the Type I result and approve the observation-period plan so that the team enters Type II with known controls, cadence, owners, and remediation commitments.
@@ -1760,7 +3397,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the assertion and representation-letter sequence, required signers, supplied templates, report references, and handoff timing with the audit firm.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Define assertion-version binding, representation-letter provenance and signed artifact, outcome-source provenance, report reference, management review, operating-plan contents, completeness, approval, and transition rules.
 - [ ] Deliver authorized assertion review and approval, representation-letter retention, outcome recording, plan assembly, gap drill-down, review, approval, and transition preview through the API and browser.
 - [ ] Resolve every plan entry to shared controls, responsibilities, cadence, evidence expectations, findings, and approved changes without copying them into an unrelated planning model.
@@ -1775,7 +3412,8 @@ current and source populations remain complete and explainable.
 
 ### T2-01 Start the Type II observation period from the approved baseline
 
-Priority: P1  
+Priority: P1
+
 Area: observation period
 
 User story: As a compliance lead, I want to start a Type II period from the approved Type I baseline so that sustained operation begins with explicit scope, controls, dates, and known changes.
@@ -1819,7 +3457,8 @@ Implementation subtasks:
 
 ### T2-02 Operate a recurring control calendar
 
-Priority: P1  
+Priority: P1
+
 Area: control operations
 
 User story: As a control owner, I want an accurate calendar and work queue of control occurrences so that I perform every required activity during the observation period.
@@ -1858,7 +3497,8 @@ Implementation subtasks:
 
 ### T2-03 Collect and review evidence for every required occurrence
 
-Priority: P1  
+Priority: P1
+
 Area: evidence
 
 User story: As a compliance reviewer, I want each required control occurrence supported and reviewed within its applicable period so that the Type II population is complete and defensible.
@@ -1897,7 +3537,8 @@ Implementation subtasks:
 
 ### T2-04 Monitor readiness and intervene before gaps age
 
-Priority: P1  
+Priority: P1
+
 Area: readiness monitoring
 
 User story: As a compliance lead, I want an explainable view of current and forecasted readiness so that I can intervene before missed controls or stale evidence threaten the examination.
@@ -1936,7 +3577,8 @@ Implementation subtasks:
 
 ### T2-05 Run recurring application access reviews
 
-Priority: P1  
+Priority: P1
+
 Area: access review
 
 User story: As an access-review owner, I want repeatable campaigns with preserved populations and verified remediation so that periodic access controls operate throughout Type II.
@@ -1980,7 +3622,8 @@ Implementation subtasks:
 
 ### T2-06 Complete periodic policy, risk, and vendor reviews
 
-Priority: P2  
+Priority: P2
+
 Area: governance reviews
 
 User story: As a governance owner, I want scheduled review work for policies, risks, and material vendors so that governance artifacts remain current throughout the observation period.
@@ -2012,14 +3655,15 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate that these reviews fit the common occurrence and review experience before scheduling this P2 story; define subject-specific decision and material-change rules.
+- [ ] Incorporate the decisions recorded in M0-D19 and define subject-specific decision and material-change rules.
 - [ ] Deliver authorized scheduling, work queue, exact-version review, evidence, decision, next-date, and exception behavior through shared APIs and the browser.
 - [ ] Route material decisions into control and scope impact analysis, corrective work, evidence expectations, and readiness while preserving prior versions and decisions.
 - [ ] Prove due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status end to end.
 
 ### T2-07 Assess system changes and incidents for compliance impact
 
-Priority: P1  
+Priority: P1
+
 Area: change and incident oversight
 
 User story: As a compliance lead, I want significant changes and incidents evaluated against scope and controls so that the Type II record explains how the environment evolved.
@@ -2054,14 +3698,15 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the minimum compliance-facing change and incident facts, source links, materiality, restricted-detail boundary, description effect, impact review, chronology, and closure rules without replacing operational source systems.
+- [ ] Incorporate the decisions recorded in M0-D21 before finalizing this story's rules.
 - [ ] Deliver authorized capture or import, relate, assess, restrict, share conclusions, create follow-up work, and close behavior through the API and browser.
 - [ ] Reuse shared source provenance, responsibilities, evidence, reviews, findings, scope impact, readiness, period history, and package selection.
 - [ ] Prove planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility end to end.
 
 ### T2-08 Automate selected inventory, access, and evidence collection
 
-Priority: P2  
+Priority: P2
+
 Area: automation
 
 User story: As a compliance lead, I want selected workforce, application,
@@ -2119,7 +3764,8 @@ Implementation subtasks:
 
 ### T2-09 Conduct periodic management compliance reviews
 
-Priority: P2  
+Priority: P2
+
 Area: management oversight
 
 User story: As a management approver, I want periodic reviews of the observation-period program so that leadership acknowledges trends, exceptions, risk, and required intervention before the examination.
@@ -2151,7 +3797,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate that management review is not merely an ordinary recurring control before scheduling this P2 story; define snapshot, agenda, quorum or approver, decision, action, and deferral rules.
+- [ ] Incorporate the decisions recorded in M0-D19 and define snapshot, agenda, quorum or approver, decision, action, and deferral rules.
 - [ ] Deliver authorized assemble, preview, conduct, decide, approve, assign, and inspect behavior through shared APIs and the browser.
 - [ ] Bind the review to exact source records and route actions through shared responsibilities, findings or corrective work, evidence, and readiness.
 - [ ] Prove incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion end to end.
@@ -2165,7 +3811,8 @@ is recorded; and the program rolls forward without losing history.
 
 ### T3-01 Close the observation period and freeze the examination snapshot
 
-Priority: P1  
+Priority: P1
+
 Area: audit
 
 User story: As a compliance lead, I want to close the Type II period with an immutable snapshot so that the auditor and team evaluate the same complete population.
@@ -2209,7 +3856,8 @@ Implementation subtasks:
 
 ### T3-02 Demonstrate complete audit populations
 
-Priority: P1  
+Priority: P1
+
 Area: populations
 
 User story: As an auditor collaborator, I want to inspect complete,
@@ -2259,7 +3907,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the audit firm's first population definitions, source-total and completeness evidence, required columns, stable identifiers, selection format, and treatment of late or corrected rows.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Define source universe, definition version, inclusion, exclusion, reconciliation, effective-date, row identity, missing and duplicate classification, source snapshot, completeness, calculation time, amendment, freeze, and export rules.
 - [ ] Deliver authorized population define or import, generate, inspect, filter, reconcile, export, amend, and freeze-for-sample behavior through the API, bounded processing, and browser.
 - [ ] Resolve population rows to exact source facts and shared occurrence, performance, workforce, inventory, access, decision, evidence, and exception records where applicable while enforcing field and artifact authorization.
@@ -2267,7 +3915,8 @@ Implementation subtasks:
 
 ### T3-03 Fulfill Type II sample and evidence requests
 
-Priority: P1  
+Priority: P1
+
 Area: auditor collaboration
 
 User story: As a compliance contributor, I want Type II samples and follow-up requests tied to the frozen populations so that responses are fast, complete, and traceable.
@@ -2307,7 +3956,8 @@ Implementation subtasks:
 
 ### T3-04 Resolve examination exceptions and remediation commitments
 
-Priority: P1  
+Priority: P1
+
 Area: audit findings
 
 User story: As a compliance lead, I want examination exceptions connected to their occurrences, root causes, responses, and remediation so that the audit record and next-period plan remain honest.
@@ -2346,7 +3996,8 @@ Implementation subtasks:
 
 ### T3-05 Produce and validate the Type II package
 
-Priority: P1  
+Priority: P1
+
 Area: audit package
 
 User story: As a compliance lead, I want a reproducible indexed Type II package for the closed period so that the examination record can be delivered and retained without an improvised archive.
@@ -2394,7 +4045,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the audit firm's period, control matrix, population, sample, evidence index, system-description, assertion-input, workbook, archive, naming, and delivery formats before implementation.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Extend the shared package definition and output schemas for period, source inventories, population, sample, request, response, exception, management-response, assertion input, and amendment content while preserving deterministic identity, authorship, and authorization rules.
 - [ ] Deliver authorized preview, validate, generate, monitor, override, download, deliver, and retrieve behavior through shared APIs, bounded worker processing, and browser.
 - [ ] Resolve every manifest entry to exact shared records and artifacts, enforce their sharing policy, and record member or system actors for attempts and delivery.
@@ -2402,7 +4053,8 @@ Implementation subtasks:
 
 ### T3-06 Record management sign-off and the Type II outcome
 
-Priority: P1  
+Priority: P1
+
 Area: management oversight
 
 User story: As a management approver, I want to review the final period record, known exceptions, and auditor result so that the organization has an attributable conclusion and set of commitments.
@@ -2442,7 +4094,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Validate the assertion and representation-letter sequence, required signers, supplied templates, report references, and final handoff timing with the audit firm.
+- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
 - [ ] Define required approvers, assertion version and exact input binding, representation-letter provenance and signed artifact, management decision, outcome provenance, report reference, commitment, and historical-supersession rules.
 - [ ] Deliver authorized sign-off preview, assertion review and approval, representation-letter retention, drill-down, decision, comments, outcome recording, report linking, and commitment assignment through the API and browser.
 - [ ] Reuse platform actors, responsibilities, findings, risk acceptance, work queues, packages, and snapshot history while preserving the three distinct conclusion sources.
@@ -2450,7 +4102,8 @@ Implementation subtasks:
 
 ### T3-07 Roll the program into continuous compliance and the next period
 
-Priority: P1  
+Priority: P1
+
 Area: program transition
 
 User story: As a compliance lead, I want to roll controls, schedules, risks, vendors, and open commitments into the next period so that compliance remains an operating program rather than an annual reconstruction.
@@ -2487,3 +4140,128 @@ Implementation subtasks:
 - [ ] Deliver authorized roll-forward preview, inspect, select, revise, approve, create-next-period, and compare behavior through the API, bounded processing, and browser.
 - [ ] Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
 - [ ] Prove carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability end to end.
+
+## GitHub issue index
+
+The GitHub issue is the tracking record for each created item; its dependencies
+(`blocked by`) are maintained with GitHub issue relationships and summarized
+here. M0-D24 is the one pending issue: it must be created and added as a blocker
+to every delivery story and every first delivery slice before any of them is
+scheduled. That global blocker is not repeated in every row below.
+
+| Key | Issue | Milestone | Priority | Depends on |
+| --- | --- | --- | --- | --- |
+| M0-D01 | [#58](https://github.com/bdgrz/compliance/issues/58) | M0 | P0 | — |
+| M0-D02 | [#59](https://github.com/bdgrz/compliance/issues/59) | M0 | P0 | — |
+| M0-D03 | [#60](https://github.com/bdgrz/compliance/issues/60) | M0 | P0 | — |
+| M0-D04 | [#61](https://github.com/bdgrz/compliance/issues/61) | M0 | P0 | — |
+| M0-D05 | [#62](https://github.com/bdgrz/compliance/issues/62) | M0 | P0 | — |
+| M0-D06 | [#63](https://github.com/bdgrz/compliance/issues/63) | M0 | P0 | — |
+| M0-D07 | [#64](https://github.com/bdgrz/compliance/issues/64) | M0 | P0 | — |
+| M0-D08 | [#65](https://github.com/bdgrz/compliance/issues/65) | M0 | P0 | — |
+| M0-D09 | [#66](https://github.com/bdgrz/compliance/issues/66) | M0 | P0 | — |
+| M0-D10 | [#67](https://github.com/bdgrz/compliance/issues/67) | M0 | P0 | — |
+| M0-D11 | [#68](https://github.com/bdgrz/compliance/issues/68) | M0 | P0 | — |
+| M0-D12 | [#69](https://github.com/bdgrz/compliance/issues/69) | M0 | P0 | — |
+| M0-D13 | [#70](https://github.com/bdgrz/compliance/issues/70) | M0 | P0 | — |
+| M0-D14 | [#71](https://github.com/bdgrz/compliance/issues/71) | M0 | P0 | — |
+| M0-D15 | [#72](https://github.com/bdgrz/compliance/issues/72) | M0 | P0 | — |
+| M0-D16 | [#73](https://github.com/bdgrz/compliance/issues/73) | M0 | P1 | — |
+| M0-D17 | [#74](https://github.com/bdgrz/compliance/issues/74) | M0 | P1 | — |
+| M0-D18 | [#75](https://github.com/bdgrz/compliance/issues/75) | M0 | P1 | — |
+| M0-D19 | [#76](https://github.com/bdgrz/compliance/issues/76) | M0 | P2 | — |
+| M0-D20 | [#77](https://github.com/bdgrz/compliance/issues/77) | M0 | P2 | — |
+| M0-D21 | [#78](https://github.com/bdgrz/compliance/issues/78) | M0 | P1 | — |
+| M0-D22 | [#79](https://github.com/bdgrz/compliance/issues/79) | M0 | P0 | — |
+| M0-D23 | [#80](https://github.com/bdgrz/compliance/issues/80) | M0 | P0 | — |
+| M0-D24 | Pending GitHub issue | M0 | P0 | — |
+| M0-A01 | [#81](https://github.com/bdgrz/compliance/issues/81) | M0 | P0 | — |
+| M0-A02 | [#82](https://github.com/bdgrz/compliance/issues/82) | M0 | P0 | M0-A01 |
+| M0-A03 | [#83](https://github.com/bdgrz/compliance/issues/83) | M0 | P0 | — |
+| M0-A04 | [#84](https://github.com/bdgrz/compliance/issues/84) | M0 | P0 | — |
+| M0-A05 | [#85](https://github.com/bdgrz/compliance/issues/85) | M0 | P0 | M0-A01 |
+| M0-A06 | [#86](https://github.com/bdgrz/compliance/issues/86) | M0 | P0 | M0-A01 |
+| EN-01 | [#87](https://github.com/bdgrz/compliance/issues/87) | R1 | P0 | M0-A04, M0-D03 |
+| EN-02 | [#88](https://github.com/bdgrz/compliance/issues/88) | R1 | P0 | M0-A01 |
+| EN-03 | [#89](https://github.com/bdgrz/compliance/issues/89) | R1 | P0 | M0-A01, M0-A02 |
+| EN-04 | [#90](https://github.com/bdgrz/compliance/issues/90) | R1 | P0 | M0-D03, M0-D23, EN-01 |
+| EN-05 | [#91](https://github.com/bdgrz/compliance/issues/91) | R1 | P0 | M0-A06, EN-01 |
+| EN-06 | [#92](https://github.com/bdgrz/compliance/issues/92) | R1 | P0 | M0-A03, EN-01 |
+| R1-01 | [#7](https://github.com/bdgrz/compliance/issues/7) | R1 | P0 | M0-D01, EN-01 |
+| R1-02 | [#8](https://github.com/bdgrz/compliance/issues/8) | R1 | P0 | M0-D01, M0-D22, EN-02, EN-04, R1-01 |
+| R1-03 | [#9](https://github.com/bdgrz/compliance/issues/9) | R1 | P0 | M0-D01, M0-D02, EN-05, R1-01 |
+| R1-04 | [#10](https://github.com/bdgrz/compliance/issues/10) | R1 | P0 | M0-D03, EN-01 |
+| R1-04a | [#93](https://github.com/bdgrz/compliance/issues/93) | R1 | P0 | M0-D03, EN-01 |
+| R1-04b | [#94](https://github.com/bdgrz/compliance/issues/94) | R1 | P0 | R1-04a |
+| R1-04c | [#95](https://github.com/bdgrz/compliance/issues/95) | R1 | P0 | R1-04a |
+| R1-04d | [#96](https://github.com/bdgrz/compliance/issues/96) | R1 | P0 | R1-04a |
+| R1-04e | [#97](https://github.com/bdgrz/compliance/issues/97) | R1 | P0 | EN-04, R1-04a |
+| R1-05 | [#11](https://github.com/bdgrz/compliance/issues/11) | R1 | P0 | M0-D22, EN-02, EN-04, R1-02, R1-04 |
+| R1-06 | [#12](https://github.com/bdgrz/compliance/issues/12) | R1 | P0 | M0-D02, EN-04, R1-03, R1-05 |
+| R1-07 | [#13](https://github.com/bdgrz/compliance/issues/13) | R1 | P0 | M0-D10, M0-D22, M0-D23, EN-02, R1-02 |
+| R1-08 | [#14](https://github.com/bdgrz/compliance/issues/14) | R1 | P0 | M0-A05, M0-D23, EN-03, R1-06, R1-07, R1-10, R1-11, R1-12, R1-13, R1-14 |
+| R1-09 | [#47](https://github.com/bdgrz/compliance/issues/47) | R1 | P0 | M0-D04, EN-05 |
+| R1-09a | [#98](https://github.com/bdgrz/compliance/issues/98) | R1 | P0 | M0-D04, EN-05, R1-04, R1-05, R1-06 |
+| R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P0 | R1-09a, R2-02, R2-03 |
+| R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P0 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
+| R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P0 | R1-08, R1-09a |
+| R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, EN-02, EN-05, R1-02 |
+| R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, EN-02, EN-05, R1-02 |
+| R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P0 | R1-10a |
+| R1-10c | [#104](https://github.com/bdgrz/compliance/issues/104) | R1 | P0 | R1-10a |
+| R1-10d | [#105](https://github.com/bdgrz/compliance/issues/105) | R1 | P0 | R1-10a |
+| R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, EN-05, R1-04 |
+| R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, EN-05, R1-04 |
+| R1-11b | [#107](https://github.com/bdgrz/compliance/issues/107) | R1 | P0 | R1-11a |
+| R1-11c | [#108](https://github.com/bdgrz/compliance/issues/108) | R1 | P0 | R1-11a |
+| R1-11d | [#109](https://github.com/bdgrz/compliance/issues/109) | R1 | P0 | EN-03, R1-11a |
+| R1-12 | [#50](https://github.com/bdgrz/compliance/issues/50) | R1 | P0 | M0-D08, M0-D22, EN-02, EN-05, R1-02, R1-10 |
+| R1-13 | [#51](https://github.com/bdgrz/compliance/issues/51) | R1 | P0 | M0-D09, EN-02, EN-04, R1-02 |
+| R1-14 | [#52](https://github.com/bdgrz/compliance/issues/52) | R1 | P0 | M0-D11, M0-D23, EN-02, EN-06, R1-02, R1-10, R1-13 |
+| R2-01 | [#15](https://github.com/bdgrz/compliance/issues/15) | R2 | P0 | M0-D03, R1-04, R1-05 |
+| R2-02 | [#16](https://github.com/bdgrz/compliance/issues/16) | R2 | P0 | EN-02, EN-04, EN-06, R1-04 |
+| R2-03 | [#17](https://github.com/bdgrz/compliance/issues/17) | R2 | P0 | EN-06, R1-04 |
+| R2-04 | [#18](https://github.com/bdgrz/compliance/issues/18) | R2 | P0 | R2-01, R2-03 |
+| R2-05 | [#19](https://github.com/bdgrz/compliance/issues/19) | R2 | P0 | M0-D03, M0-D13, M0-D23, EN-04, R1-05, R2-03 |
+| R2-05a | [#110](https://github.com/bdgrz/compliance/issues/110) | R2 | P0 | M0-D03, M0-D13, M0-D23, EN-04, R1-05, R2-03 |
+| R2-05b | [#111](https://github.com/bdgrz/compliance/issues/111) | R2 | P0 | R2-05a |
+| R2-05c | [#112](https://github.com/bdgrz/compliance/issues/112) | R2 | P0 | R2-05b |
+| R2-05d | [#113](https://github.com/bdgrz/compliance/issues/113) | R2 | P0 | R2-05c, R2-07 |
+| R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, EN-03, EN-05, R1-10, R1-11 |
+| R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, EN-03, EN-05, R1-10, R1-11 |
+| R2-06b | [#115](https://github.com/bdgrz/compliance/issues/115) | R2 | P0 | R1-11, R2-06a |
+| R2-06c | [#116](https://github.com/bdgrz/compliance/issues/116) | R2 | P0 | R2-06a |
+| R2-06d | [#117](https://github.com/bdgrz/compliance/issues/117) | R2 | P0 | R2-06a |
+| R2-06e | [#118](https://github.com/bdgrz/compliance/issues/118) | R2 | P0 | R2-06d |
+| R2-07 | [#21](https://github.com/bdgrz/compliance/issues/21) | R2 | P0 | M0-D23, EN-04, R1-08 |
+| R2-08 | [#22](https://github.com/bdgrz/compliance/issues/22) | R2 | P0 | M0-D14, EN-06, R1-08 |
+| R2-09 | [#23](https://github.com/bdgrz/compliance/issues/23) | R2 | P0 | M0-D23, EN-03, R1-08, R2-02, R2-05, R2-06, R2-07, R2-10 |
+| R2-10 | [#53](https://github.com/bdgrz/compliance/issues/53) | R2 | P0 | M0-D06, M0-D12, R1-11, R2-02 |
+| R2-11 | [#54](https://github.com/bdgrz/compliance/issues/54) | R2 | P0 | M0-A05, M0-D03, M0-D15, EN-01, R2-01 |
+| R2-11a | [#119](https://github.com/bdgrz/compliance/issues/119) | R2 | P0 | M0-A05, M0-D03, M0-D15, EN-01, R2-01 |
+| R2-11b | [#120](https://github.com/bdgrz/compliance/issues/120) | R2 | P0 | R2-11a |
+| R2-11c | [#121](https://github.com/bdgrz/compliance/issues/121) | R2 | P0 | R2-11a |
+| R2-12 | [#55](https://github.com/bdgrz/compliance/issues/55) | R2 | P1 | M0-D16, R2-03 |
+| T1-01 | [#24](https://github.com/bdgrz/compliance/issues/24) | T1 | P1 | M0-D01, R2-09 |
+| T1-02 | [#25](https://github.com/bdgrz/compliance/issues/25) | T1 | P1 | M0-D17, T1-01 |
+| T1-03 | [#26](https://github.com/bdgrz/compliance/issues/26) | T1 | P2 | M0-D17, T1-01 |
+| T1-04 | [#27](https://github.com/bdgrz/compliance/issues/27) | T1 | P1 | R2-03, T1-01 |
+| T1-05 | [#28](https://github.com/bdgrz/compliance/issues/28) | T1 | P1 | M0-D17, T1-01, T1-02 |
+| T1-06 | [#29](https://github.com/bdgrz/compliance/issues/29) | T1 | P1 | R2-07, T1-01 |
+| T1-07 | [#30](https://github.com/bdgrz/compliance/issues/30) | T1 | P1 | M0-D17, T1-05, T1-06 |
+| T2-01 | [#31](https://github.com/bdgrz/compliance/issues/31) | T2 | P1 | M0-D01, T1-07 |
+| T2-02 | [#32](https://github.com/bdgrz/compliance/issues/32) | T2 | P1 | R2-01, T2-01 |
+| T2-03 | [#33](https://github.com/bdgrz/compliance/issues/33) | T2 | P1 | R2-05, T2-02 |
+| T2-04 | [#34](https://github.com/bdgrz/compliance/issues/34) | T2 | P1 | M0-D23, R1-08, T2-01 |
+| T2-05 | [#35](https://github.com/bdgrz/compliance/issues/35) | T2 | P1 | R2-06, T2-01 |
+| T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) | T2 | P2 | M0-D19, T2-01 |
+| T2-07 | [#37](https://github.com/bdgrz/compliance/issues/37) | T2 | P1 | M0-D21, T1-02, T2-01 |
+| T2-08 | [#38](https://github.com/bdgrz/compliance/issues/38) | T2 | P2 | M0-D20 |
+| T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) | T2 | P2 | M0-D19, M0-D23, T2-04 |
+| T3-01 | [#40](https://github.com/bdgrz/compliance/issues/40) | T3 | P1 | T2-03, T2-05, T2-07 |
+| T3-02 | [#41](https://github.com/bdgrz/compliance/issues/41) | T3 | P1 | M0-D17, T3-01 |
+| T3-03 | [#42](https://github.com/bdgrz/compliance/issues/42) | T3 | P1 | T1-04, T3-02 |
+| T3-04 | [#43](https://github.com/bdgrz/compliance/issues/43) | T3 | P1 | R2-07, T3-03 |
+| T3-05 | [#44](https://github.com/bdgrz/compliance/issues/44) | T3 | P1 | M0-D17, T1-05, T3-01, T3-02 |
+| T3-06 | [#45](https://github.com/bdgrz/compliance/issues/45) | T3 | P1 | M0-D17, T3-04, T3-05 |
+| T3-07 | [#46](https://github.com/bdgrz/compliance/issues/46) | T3 | P1 | T3-06 |

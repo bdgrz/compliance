@@ -261,3 +261,26 @@ we need to learn:
 T2-08 records this outcome but stays P2 until the first real application list,
 workforce roster, access exports, evidence requests, and audit population needs
 show which integrations save meaningful work.
+
+## Addendum: backlog design review, 2026-09-14
+
+A design review before any business implementation found that the story
+coverage above remains sound, but that the backlog could not yet be delivered
+as written. The following changes were made; the 49 user stories are unchanged
+in scope.
+
+| Finding | Backlog action |
+| --- | --- |
+| R1 and R2 milestone exits, R1-08, and R2-09 required risk, provider, and policy-communication records owned by P1 stories | Promoted R1-07, R1-14, and R2-10 to P0. R2-12 stays P1; R1-08, R2-09, and the R2 exit now treat undelivered evidence governance as an explicit, acknowledged gap |
+| Half of the P0 stories embedded unresolved validation, so none could meet the definition of ready | Added **M0 - Design and discovery** with 24 product discovery items; each story's validation subtask now incorporates the decision from its M0 item |
+| The domain model depends on persistence, snapshot, artifact, authorization, projection, and import behavior that has no recorded architecture | Added six M0 architecture-decision issues (M0-A01 through M0-A06) |
+| Shared primitives had no owner or were owned by a story sequenced after its consumers | Added six approved enablers (EN-01 through EN-06) in R1 |
+| Several concepts had two owners or none, and assurance vocabulary overlapped | Recorded as open decisions M0-D22 and M0-D23 and listed under [Unresolved ownership](domain-model.md#unresolved-ownership) |
+| Every story required accessible UI, but no accessibility target or supported-browser policy was tracked | Added the global M0-D24 readiness gate for every delivery story and first delivery slice |
+| The largest P0 stories bundled several independently valuable outcomes, and the P0 sequence contained dependency cycles | Divided seven stories into 29 outcome slices and replaced the sequence with a dependency-ordered one in [triage.md](triage.md#recommended-p0-delivery-sequence) |
+
+The backlog now contains 49 user stories, 29 delivery slices, 6 enablers, and
+30 M0 discovery or architecture-decision items. Created-item dependencies are
+maintained as GitHub issue relationships and summarized in the
+[issue index](backlog.md#github-issue-index); M0-D24 and its global dependency
+links remain explicitly pending there.

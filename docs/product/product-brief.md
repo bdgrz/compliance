@@ -38,7 +38,7 @@ The likely alternative is a mixture of spreadsheets, shared drives, policy docum
 - readiness status is manually reconstructed and difficult to trust;
 - auditor requests create repeated searches and duplicate uploads.
 
-These are hypotheses to validate during M0, not facts to encode without review.
+These are hypotheses to validate during M0 - Design and discovery, not facts to encode without review.
 
 ## Desired outcomes
 
@@ -123,7 +123,7 @@ before the core workflow is trustworthy.
 
 ## Candidate success measures
 
-M0 must establish baselines and targets, but the product should ultimately measure:
+M0 must establish baselines and targets (M0-D18), but the product should ultimately measure:
 
 - time to identify all missing, stale, rejected, or overdue audit work;
 - median time to answer an auditor evidence request;
@@ -135,37 +135,41 @@ M0 must establish baselines and targets, but the product should ultimately measu
 
 ## Open product decisions
 
-- readiness, Type I, or Type II as the first engagement;
-- Trust Services categories in scope;
-- target audit and observation-period dates;
-- exact system boundary and subservice-organization treatment;
-- the service commitments, system requirements, CUECs, and CSOCs applicable to
-  the first engagement;
-- source, edition, and permitted use of SOC 2 criteria content;
-- single-workspace versus multi-workspace needs for the first release;
-- required roles and acceptable self-review exceptions for a small team;
-- authoritative sources for the application inventory and human identity roster;
-- the first reviewed applications, source export formats, NHI classifications, and effective-access rules;
-- the minimum technology, information, data-flow, workforce, and NHI-owner
-  inventories needed for the first system description and control evaluation;
-- the risk methodology, material-vendor threshold, and minimum vendor-review evidence;
-- which prohibited or required access expectations apply to each reviewed system;
-- evidence retention, deletion, legal-hold, backup, and recovery expectations;
-- accessibility target and supported browsers;
-- first cloud provider and first evidence sources to automate;
-- how the readiness advisor and auditor want to review work in progress;
-- the auditor's required control matrix, population, sample, package, assertion,
-  representation-letter, and portal or workbook formats;
-- whether optional Availability, Processing Integrity, Confidentiality, or
-  Privacy categories are in scope; Privacy requires additional validated
-  lifecycle stories before complete product support is claimed.
+Each open decision is assigned to an M0 discovery item in
+[backlog.md](backlog.md#m0---design-and-discovery). A story that depends on a
+decision is not ready until the decision is incorporated. An item marked as
+pending in the backlog's GitHub issue index must be created and linked before
+its affected stories are scheduled.
+
+| Decision | Tracked in |
+| --- | --- |
+| Readiness, Type I, or Type II as the first engagement | M0-D01 |
+| Trust Services categories in scope | M0-D01 |
+| Target audit and observation-period dates | M0-D01 |
+| Exact system boundary and subservice-organization treatment | M0-D01, M0-D11 |
+| The service commitments, system requirements, CUECs, and CSOCs applicable to the first engagement | M0-D09 |
+| Source, edition, and permitted use of SOC 2 criteria content | M0-D02 |
+| Single-workspace versus multi-workspace needs for the first release | M0-D03 |
+| Required roles and acceptable self-review exceptions for a small team | M0-D03 |
+| Authoritative sources for the application inventory and human identity roster | M0-D05, M0-D06 |
+| The first reviewed applications, source export formats, NHI classifications, and effective-access rules | M0-D07 |
+| The minimum technology, information, data-flow, workforce, and NHI-owner inventories needed for the first system description and control evaluation | M0-D08, M0-D06 |
+| The risk methodology, material-vendor threshold, and minimum vendor-review evidence | M0-D10, M0-D11 |
+| Which prohibited or required access expectations apply to each reviewed system | M0-D07 |
+| Evidence retention, deletion, legal-hold, backup, and recovery expectations | M0-D16, M0-A01, M0-A03 |
+| Accessibility target and supported browsers | M0-D24 |
+| First cloud provider and first evidence sources to automate | M0-D20 |
+| How the readiness advisor and auditor want to review work in progress | M0-D14, M0-D17 |
+| The auditor's required control matrix, population, sample, package, assertion, representation-letter, and portal or workbook formats | M0-D17 |
+| Whether optional Availability, Processing Integrity, Confidentiality, or Privacy categories are in scope; Privacy requires additional validated lifecycle stories before complete product support is claimed | M0-D01 |
 
 ## Release story
 
 | Milestone | User-visible outcome |
 | --- | --- |
+| M0 - Design and discovery | Every product and architecture decision blocking the first release is recorded, shared domain ownership is unambiguous, and blocked stories are refined. No business behavior ships in this milestone. |
 | R1 - Readiness program scoped | The team has an agreed boundary; workforce, application, technology, and information inventories; commitments; criteria; controls; risks; vendors; and an owned gap plan. |
-| R2 - Control environment implemented | Required controls and policies are implemented and evaluated, policy communication and evidence are governed, actual human and NHI access is reviewed, and accountable gaps support a Type I entry decision. |
+| R2 - Control environment implemented | Required controls and policies are implemented and evaluated, policies are communicated and acknowledged, evidence is captured with provenance and any undelivered evidence governance is an acknowledged gap, actual human and NHI access is reviewed, and accountable gaps support a Type I entry decision. |
 | T1 - SOC 2 Type I supported | The team can freeze the point-in-time scope, approve the system description and management representations, answer requests, provide a reproducible handoff, record the result, and create the Type II plan. |
 | T2 - SOC 2 Type II period operated | The team operates recurring controls, evidence, access reviews, governance reviews, and significant-change assessment while maintaining complete source populations and the system description. |
 | T3 - SOC 2 Type II examination supported | The period is frozen, complete populations and samples are traceable, management and auditor outputs remain distinct, the examination is supported, and the program rolls forward. |
