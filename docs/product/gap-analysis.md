@@ -282,5 +282,51 @@ in scope.
 The backlog now contains 49 user stories, 29 delivery slices, 6 enablers, and
 30 M0 discovery or architecture-decision items. Created-item dependencies are
 maintained as GitHub issue relationships and summarized in the
-[issue index](backlog.md#github-issue-index); M0-D24 and its global dependency
-links remain explicitly pending there.
+[issue index](backlog.md#github-issue-index). M0-D24 was later created as
+issue #136 and linked as a blocker on every delivery story and first delivery
+slice.
+
+## Addendum: multi-client firm and tenancy, 2026-09-14
+
+The product direction widened from one organization preparing for SOC 2 to a
+small SOC 2 firm that provides advisory and attest services to many clients.
+The decisions were: the firm provides both services with independence walls;
+firm staff and client users both sign in; client organizations are the only
+tenant, with no firm entity; and the first release is tenant-ready while firm
+operations follow later.
+
+| Gap | Backlog action |
+| --- | --- |
+| No tenant boundary, tenant context, or cross-tenant isolation was defined, and the application trusts a single identity provider | Added M0-D25 (tenant boundary, affiliation, firm-owned material, creation authority, vocabulary) and M0-A07 (tenant context, slug routes with `tenant_id` APIs, reserved routes, identity federation); extended EN-01 to tenant isolation; tenant questions added to M0-A01, M0-A03 through M0-A06, M0-D02, M0-D03, M0-D14, and M0-D17 |
+| No story created or suspended a client organization, or let a user work in several | Added P0 story R1-15 with concrete slug rules and the sign-in selection flow; R1-01 and R1-04 now depend on it |
+| Existing stories assumed one organization | Added tenant requirements or acceptance criteria to R1-01, R1-03, R1-04, R2-08, R2-11, and T1-03 |
+| Firm operations were absent: client lifecycle, portfolio, templates, cross-client work, client identity federation, service engagements, and independence | Added milestone **F1 - Multi-client firm operations** with F1-01 through F1-08 (F1-03 remains a P2 hypothesis) |
+| A firm that both advises and examines must protect independence, and the product excluded auditor workpapers | Added M0-D26 (independence rules, with professional review) and M0-D27 (whether attest workpapers belong in the platform); the non-goal on auditor workpaper systems is under review |
+
+The tenancy discovery items were numbered M0-D25 through M0-D27 because M0-D24
+was already assigned to the accessibility baseline. The backlog now contains 58
+user stories, 29 delivery slices, 6 enablers, and 34 M0 discovery or
+architecture-decision issues before the canonical-model review below.
+
+## Addendum: canonical entity model and public-source licensing, 2026-09-14
+
+The identity and inventory review showed that provider terms such as user,
+employee, account, group, role, application, reviewed system, server, and device
+cannot safely serve as an unqualified shared model. It also showed that a public
+standards URL does not by itself grant rights to copy its text, schemas,
+taxonomies, or examples into an Apache-2.0 product.
+
+| Gap | Backlog action |
+| --- | --- |
+| Identity, workforce, access, application, infrastructure, and provenance terms lacked a complete provider-neutral entity and relationship catalog | Added P0 discovery issue M0-D28 and `canonical-entity-model.md`; it defines semantics and cardinalities while explicitly deferring aggregates, storage, APIs, and service boundaries |
+| Existing stories could independently redefine the same source objects | Made M0-D28 a blocker for EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, and R2-06 and added canonical-model subtasks to each |
+| Issues cited internal prose or standards-body landing pages without versioned public sources or reuse terms | Added `source-reference-policy.md` and made a `Public references` section part of every issue's backlog and readiness contract |
+| Public readability was being conflated with Apache-2.0 compatibility | Added an approved-source register, an excluded-source register, required notice handling, and fail-closed exclusion of any source whose intended use is not affirmatively acceptable |
+
+DMTF CIM is excluded from the active model because the exact schema reuse and
+patent posture has not been cleared. Device semantics instead use the IETF
+hardware model as a reference and the DMTF Redfish schema artifacts only under
+their published BSD-3-Clause license and notice requirements.
+
+The backlog now contains 58 user stories, 29 delivery slices, 6 enablers, and
+35 M0 discovery or architecture-decision issues.

@@ -1,12 +1,20 @@
 # Compliance product backlog
 
-Status: product-owner baseline, restructured 2026-09-14 with M0 discovery, shared enablers, and delivery slices
+Status: product-owner baseline, restructured 2026-09-14 with M0 discovery, shared enablers, delivery slices, and multi-client tenancy
 
 This backlog carries a small compliance team through SOC 2 readiness, a Type I examination, a Type II observation period, and a Type II examination. It implements the product direction in [product-brief.md](product-brief.md).
+
+The platform is also tenant-ready for a small SOC 2 firm that provides advisory and attest services to many client organizations. Each client organization is a tenant; the tenancy foundations are P0 in M0 and R1, and firm operations are planned in F1.
 
 The shared language, identity boundaries, record relationships, and
 cross-story invariants are defined in [domain-model.md](domain-model.md). That
 model is part of every issue created from this backlog.
+
+The canonical vocabulary and standards mappings are defined in
+[canonical-entity-model.md](canonical-entity-model.md). Public-source and reuse
+requirements are defined in
+[source-reference-policy.md](source-reference-policy.md). Both are part of
+every issue that creates, imports, maps, or exposes canonical domain data.
 
 The product coverage decisions behind this version are recorded in
 [gap-analysis.md](gap-analysis.md).
@@ -32,10 +40,15 @@ Every story must include:
 - product requirements and business rules;
 - observable acceptance criteria;
 - server-enforced authorization;
+- scoping to exactly one client organization (tenant), with no cross-tenant disclosure;
 - usable loading, empty, error, retry, and forbidden states;
 - traceable activity and historical behavior where the action matters to an audit;
 - accessible UI and documented API behavior;
-- focused automated acceptance evidence.
+- focused automated acceptance evidence;
+- a `Public references` section with direct, versioned links and the applicable
+  use classification from `source-reference-policy.md`, or an explicit
+  `No external normative source; product decision` statement linked to its
+  internal decision record.
 
 ## Domain-coherence contract
 
@@ -57,6 +70,12 @@ No story may introduce a second representation of member identity, external
 directory identity, ownership, evidence, review, finding, activity, or snapshot
 when the shared domain model already owns that concept.
 
+No story or subtask may use or copy a definition, schema, enum, example,
+registry, test corpus, or semantic model merely because it is publicly
+readable. The exact source must be approved by the standards-use register,
+required notices must be retained, and any source with unclear or unacceptable
+rights is excluded from the model and implementation.
+
 ## Priorities
 
 - P0 - prove now: required for the first product release to complete readiness and make a Type I entry decision.
@@ -73,6 +92,9 @@ any unresolved product decision that affects the story must be resolved or
 explicitly excluded. Concretely, every M0 discovery or architecture issue that
 blocks the story is resolved and incorporated into the story, and every enabler
 it depends on is available or delivered with its first slice.
+Every public reference is direct, accessible without credentials, versioned,
+checked against the standards-use register, and accompanied by any required
+copyright, attribution, patent, or redistribution decision.
 
 ## Definition of done
 
@@ -132,10 +154,11 @@ Questions to answer:
 - [ ] Decide whether points of focus are modeled and mappable or reference-only.
 - [ ] Identify who supplies the initial catalog file (for example, the consultant's workbook) and its identifiers.
 - [ ] Decide how a later edition is introduced without changing existing engagements.
+- [ ] Confirm the terms permit the firm to use the same criteria content across multiple client organizations and in client-facing exports and templates.
 
 Involve: Compliance lead, readiness consultant; legal review of AICPA terms if needed.
 
-Blocks: R1-03, R1-06
+Blocks: F1-04, R1-03, R1-06
 
 Done when:
 
@@ -163,6 +186,7 @@ Questions to answer:
 - [ ] Decide whether the first release needs one workspace or several collaboration workspaces per organization.
 - [ ] Decide invitation behavior for Auth0 and Entra, and whether IdP group mapping is required for the first release.
 - [ ] Decide whether responsibilities (for example, control owner) can be assigned to people who never sign in, and how their work is attributed.
+- [ ] Multiple client organizations per deployment are now required (M0-D25). Define separate role catalogs or scopes for firm staff and client personnel, and whether a firm staff member's roles are granted per client organization or through engagement assignment.
 
 Involve: Compliance lead, organization administrator, readiness consultant.
 
@@ -490,6 +514,7 @@ Questions to answer:
 - [ ] Define what 'consultant validated' means and how it differs from internal approval.
 - [ ] Decide whether draft material may be shared, and under which approval.
 - [ ] Define how feedback is returned and attributed, and whether sharing can be revoked.
+- [ ] Our firm's advisors now work as platform members assigned to client organizations (M0-D25). Decide whether external consultants engaged directly by a client still need the handoff workflow.
 
 Involve: Compliance lead, readiness consultant.
 
@@ -553,7 +578,7 @@ Questions to answer:
 
 Involve: Compliance lead, security owner, legal.
 
-Blocks: R2-12
+Blocks: F1-01, R2-12
 
 Done when:
 
@@ -580,6 +605,7 @@ Questions to answer:
 - [ ] Confirm the package, workbook, portal, archive, and naming expectations.
 - [ ] Confirm the management assertion and representation-letter sequence, signers, and templates.
 - [ ] Ask whether the auditor wants direct product access, exported packages, or their own platform.
+- [ ] For clients the firm examines, our own attest team is the audit firm. Separate the formats our attest team needs (M0-D27) from those external audit firms require for advisory clients.
 
 Involve: Compliance lead, management approver, audit firm.
 
@@ -801,6 +827,175 @@ Done when:
 
 Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
 
+### M0-D25 Define the client tenancy boundary, firm-staff affiliation, and data ownership
+
+Priority: P0
+
+Type: Product discovery
+
+Area: tenancy
+
+Decision needed: Each client organization is a tenant and there is no firm entity. Decide what that means for membership, record ownership, and anything that must live outside a tenant.
+
+Questions to answer:
+
+- [ ] Confirm the client organization is the only tenant boundary and that every business record belongs to exactly one organization.
+- [ ] Define which content is platform-level rather than tenant-owned (criteria catalog editions, firm templates, the firm-staff directory) and how tenants reference it by version without copying client data back out.
+- [ ] Define membership affiliation (client personnel or firm staff) and where a firm staff member's practice designation (advisory, attest) is recorded without a firm entity.
+- [ ] Decide where firm-owned material lives inside a client organization (advisory working notes, future attest documentation), who can see it, and how it is retained when the client leaves.
+- [ ] Decide who may create, suspend, and offboard organizations (platform operators) and how each client's first administrator is bootstrapped.
+- [ ] Decide who may create an organization in the sign-in flow (select or create): only platform operators, as R1-15 currently requires, or also self-service users.
+- [ ] Settle the vocabulary: the product proposes `tenant_id` in APIs while the domain model says organization. Choose one term, or define tenant as the technical name of a client organization everywhere.
+- [ ] Decide whether firm staff reach client records only through engagement assignment or also through standing access.
+- [ ] Record the triggers for revisiting the no-firm-entity decision, for example hosting more than one firm or firm-level retention obligations that cannot live inside client tenants.
+
+Involve: Firm leadership, product owner, tech lead.
+
+Blocks: M0-D26, EN-01, F1-01, F1-04, F1-07, R1-15
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Multi-client firm decision 2026-09-14: clients are the only tenant, firm staff and client users both sign in.
+
+### M0-D26 Define independence rules for advisory and attest services
+
+Priority: P1
+
+Type: Product discovery
+
+Area: tenancy
+
+Decision needed: The firm both advises and examines clients. Decide which independence requirements the platform must enforce and which remain firm quality-management procedures.
+
+Questions to answer:
+
+- [ ] Identify the governing requirements with the firm's independence or quality-management partner, including the AICPA Code of Professional Conduct independence rules for nonattest services and the firm's system of quality management.
+- [ ] Classify each advisory service (readiness assessment, control design, implementation, operating controls on the client's behalf, vCISO) as compatible, conditionally compatible, or impairing for a client the firm also examines.
+- [ ] Define look-back and cooling-off periods and whether they apply per client, per person, or per engagement.
+- [ ] Define staff separation: who may serve both practices and which advisory material attest staff may see.
+- [ ] Define what engagement acceptance must document (independence evaluation, management-responsibility acknowledgement for nonattest services, approver).
+- [ ] Decide how an advisory client that later requests an examination is evaluated.
+
+Involve: Firm leadership, independence or quality-management partner, legal counsel.
+
+Depends on: M0-D25
+
+Blocks: F1-07, F1-08
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Multi-client firm decision 2026-09-14: advisory and attest services with independence walls.
+
+### M0-D27 Decide the scope of attest engagement support in the platform
+
+Priority: P1
+
+Type: Product discovery
+
+Area: audit
+
+Decision needed: Should the platform support the firm's own SOC 2 examinations (planning, tests of controls, sampling, workpapers, report drafting), or should the attest team keep dedicated audit software and use the platform only to collaborate with clients?
+
+Questions to answer:
+
+- [ ] Inventory the attest team's current audit software, workpaper review, and documentation retention obligations.
+- [ ] Decide whether tests of controls, deviations, and report drafting are in product scope and how they stay separate from management's records.
+- [ ] Decide how attest documentation is retained when a client offboards, given that client organizations are the only tenant (M0-D25).
+- [ ] Decide how the attest team receives populations, samples, and evidence (in-product access or package handoff), and update T1-03, T1-04, T3-02, and T3-03 accordingly.
+- [ ] Decide whether the product-brief non-goal of not replacing auditor workpaper systems still stands.
+
+Involve: Firm attest leadership, independence or quality-management partner, product owner.
+
+Blocks: F1-01, T1-03
+
+Done when:
+
+- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
+- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+
+Source: Multi-client firm decision 2026-09-14; product-brief and gap-analysis non-goals on auditor workpapers.
+
+### M0-D28 Approve the canonical entity and relationship model with usable public sources
+
+Priority: P0
+
+Type: Product discovery
+
+Area: product
+
+Decision needed: Which provider-neutral entities, relationships, identifiers,
+cardinalities, and semantic distinctions define Compliance data, and which
+public standards may safely inform an Apache-2.0 implementation?
+
+Questions to answer:
+
+- [ ] Define every canonical entity and first-class relationship needed by the
+  first release, including organization, person, work relationship, platform
+  user, membership, application, system instance, device, compute instance,
+  account, service identity, group, group member, role, entitlement, access
+  assignment, information asset, provider, and provenance records.
+- [ ] For each entity and relationship, record its canonical meaning, stable
+  identity, required and optional attributes, allowed reference types,
+  cardinalities, time semantics, lifecycle vocabulary, and invariants without
+  deciding aggregate, transaction, storage, API, or service boundaries.
+- [ ] Distinguish person from employee/work relationship, platform user from
+  membership and external account, application from system instance, physical
+  device from compute instance, group from `GroupMember`, role from group and
+  responsibility, direct assignment from effective access, and source
+  observation from governed fact.
+- [ ] Map each supported source shape to canonical entities without making a
+  provider-specific schema canonical or losing the original source identity.
+- [ ] Give every standards-derived statement a direct, versioned public
+  reference and a use classification from
+  [source-reference-policy.md](source-reference-policy.md).
+- [ ] Verify the implementation, copyright, attribution, redistribution,
+  trademark, and material patent terms for the exact source and version. Exclude
+  any information whose use is not affirmatively acceptable for this
+  Apache-2.0 product.
+- [ ] Update `canonical-entity-model.md`, `domain-model.md`, all blocked issue
+  bodies, delivery slices, and implementation subtasks to use the approved
+  vocabulary and links.
+
+Involve: Product owner, domain lead, tech lead, security lead, and counsel for
+any source whose rights are not explicit.
+
+Blocks: EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06
+
+Done when:
+
+- [ ] The canonical entity and relationship catalog is complete for every
+  blocked story, internally consistent, and approved with rationale, owner, and
+  date.
+- [ ] Every entity and relationship has public semantic references or is
+  explicitly labeled an original product decision.
+- [ ] Every active reference appears in the approved-source register with exact
+  version and use terms; excluded sources contribute no model or implementation
+  information.
+- [ ] The model explicitly defers aggregate, transaction, persistence, API, and
+  service-boundary design.
+- [ ] Each blocked story and first delivery slice incorporates the approved
+  terms, references, mappings, and conformance tests in its domain slice,
+  acceptance criteria, and implementation subtasks.
+
+Public references:
+
+- [Canonical entity model](canonical-entity-model.md)
+- [Public source reference and standards-use policy](source-reference-policy.md)
+- The policy's approved reference register contains the exact public standards,
+  versions, and use terms; no unregistered source is normative for this issue.
+
+Source: Canonical-model design review 2026-09-14; M0-D22 shared identity and
+inventory conflicts; R1-04, R1-10, R1-11, R1-12, R1-15, and R2-06 domain slices.
+
 ### M0-A01 ADR: Persistence, versioning, and effective-dated history
 
 Priority: P0
@@ -819,6 +1014,7 @@ Questions to answer:
 - [ ] Choose the optimistic concurrency and conflict-reporting approach, which many acceptance criteria require.
 - [ ] Define organization isolation at the storage layer.
 - [ ] Define the schema or stream migration strategy and the backup, restore, and RPO/RTO expectations.
+- [ ] Choose the tenant data-partitioning strategy (shared storage with an enforced organization key, or a schema or database per organization) and its effect on backup, restore, per-organization export, and deletion.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -882,6 +1078,7 @@ Questions to answer:
 - [ ] Choose the download authorization model (proxied or short-lived signed URLs) and delivery logging.
 - [ ] Define storage-level hooks for redacted derivatives, retention, holds, and disposition.
 - [ ] Confirm deduplication never crosses organizations.
+- [ ] Define per-organization storage partitioning and encryption keys, and per-organization export and disposition.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -913,6 +1110,7 @@ Questions to answer:
 - [ ] Choose a policy engine or an in-code policy approach that is compatible with Native AOT.
 - [ ] Define logging of denied actions and cross-organization isolation tests.
 - [ ] Choose the architecture test that fails when an endpoint lacks an explicit policy.
+- [ ] Define how authorization evaluates a platform user with memberships in several organizations, how firm-staff access to a client is granted and revoked through engagement assignment, and how independence compartments (M0-D26) are enforced.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -943,12 +1141,13 @@ Questions to answer:
 - [ ] Define the stale-data and calculation-failure states shown to users.
 - [ ] Define authorization-aware projections.
 - [ ] Define background work over Fitz with parity between standalone and split API/worker hosts.
+- [ ] Define organization-scoped projections, and how a later cross-client portfolio or work queue is authorized without leaking restricted client data.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
 Depends on: M0-A01
 
-Blocks: R1-08, R2-11
+Blocks: F1-02, R1-08, R2-11
 
 Done when:
 
@@ -975,6 +1174,7 @@ Questions to answer:
 - [ ] Define idempotency keys, source identity, and replay detection.
 - [ ] Define missing-row and tombstone reconciliation states.
 - [ ] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
+- [ ] Ensure every job, message, retry, and progress report carries and verifies its organization context.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -989,6 +1189,42 @@ Done when:
 - [ ] Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-06 requirements.
+
+### M0-A07 ADR: Tenant identity, federation, and tenant context
+
+Priority: P0
+
+Type: Architecture decision
+
+Area: architecture
+
+Context: Client organizations become tenants. Firm staff hold memberships in several organizations, and client users may authenticate through their own identity providers. The application currently trusts one OIDC authority and has no tenant context. Proposed direction: after sign-in, a user selects one of their organizations (or, if authorized, creates one). Browser routes identify the organization by a unique, URL-friendly slug (for example `/acme-corp/controls`); every organization-scoped API identifies it by an opaque, immutable `tenant_id` path parameter (for example `/api/v1/tenants/{tenant_id}/controls`). The ADR confirms or amends this direction.
+
+Questions to answer:
+
+- [ ] Confirm the proposed routing: slug-based browser routes and `tenant_id` path parameters on organization-scoped APIs; the server verifies membership for the `tenant_id` on every request and never trusts an organization identifier in a request body.
+- [ ] Implement the slug rules defined in R1-15 with one reserved-route registry shared by server validation and the SPA router, plus an automated check that fails when a new top-level server or client route is missing from the registry or equals an existing organization slug.
+- [ ] Define slug changes: redirect history for members, and a rule that a retired slug is never reassigned to another organization so old links cannot land in a different client's tenant.
+- [ ] Define slug resolution without enumeration: the browser resolves slug to `tenant_id` from the signed-in user's own membership list, and an unknown slug and a slug the user cannot access produce the same not-found result.
+- [ ] Decide whether slugs may identify clients by name, given client confidentiality in URLs, browser history, logs, and referrer headers, and set the referrer policy accordingly.
+- [ ] Choose the opaque `tenant_id` format (non-sequential) and confirm it is the only organization identifier in API contracts, logs, jobs, and events.
+- [ ] Choose the approach for many client identity providers: a broker with per-organization connections (for example Auth0 Organizations or Entra External ID) or multiple trusted issuers.
+- [ ] Define the platform user that binds issuer plus subject once and holds memberships in several organizations, and how one person with two identities is handled.
+- [ ] Decide how organization context propagates through Fitz messages, background jobs, caches, logs, and telemetry.
+- [ ] Decide whether any token claim may carry organization membership or roles, or whether the platform remains the only authority.
+- [ ] Define the automated cross-tenant leak test strategy (APIs, search, counts, artifacts, projections, jobs, notifications, exports).
+
+Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
+
+Blocks: EN-01, F1-06, R1-15
+
+Done when:
+
+- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
+- [ ] Each blocked enabler or story is updated to reference the decision.
+
+Source: Multi-client firm decision 2026-09-14; README authentication section.
 
 ## R1 - Readiness program scoped
 
@@ -1012,6 +1248,7 @@ Requirements:
 - Show the stage sequence and the outcome required to advance.
 - Preserve the program across multiple audit engagements and periods.
 - Distinguish a target date from a confirmed auditor date.
+- Create the program inside exactly one client organization; a program never spans organizations.
 
 Domain slice:
 
@@ -1026,6 +1263,7 @@ Acceptance criteria:
 - [ ] Given a saved program, when its target dates or advisor change, then the current plan updates and the prior values remain traceable.
 - [ ] Given an incomplete setup, the product identifies the exact decisions required before the readiness assessment can begin.
 - [ ] A user without program-administration rights cannot create or alter the program.
+- [ ] A program and everything it owns are visible only within its client organization, including to firm staff who serve other clients.
 
 Implementation subtasks:
 
@@ -1096,6 +1334,7 @@ Requirements:
   cannot by itself make the program or product appear ready.
 - Preserve a stable catalog snapshot for each engagement.
 - Visibly distinguish source criteria from organization-authored guidance and mappings.
+- Treat a catalog edition as platform-level content shared across client organizations; each organization's criteria selection, guidance, and mappings remain tenant-owned.
 
 Domain slice:
 
@@ -1112,6 +1351,7 @@ Acceptance criteria:
 - [ ] A newer catalog never silently changes an existing engagement.
 - [ ] Users can browse and filter the selected criteria by identifier, category, and scope status.
 - [ ] A selected optional category exposes missing category-specific controls, workflows, evidence, or product support as gaps rather than silently treating the shared model as complete.
+- [ ] One organization's criteria selection, guidance, and mappings are never visible to or changed by another organization using the same catalog edition.
 
 Implementation subtasks:
 
@@ -1137,6 +1377,7 @@ Requirements:
 - Allow one person to hold multiple responsibilities while making conflicts visible.
 - Scope access to the organization, program, engagement, and assigned work as appropriate.
 - Define behavior for changed group membership, deprovisioned users, and orphaned assignments.
+- Distinguish client personnel from firm staff; a firm staff member may hold memberships in several client organizations, each with its own grants and responsibilities.
 
 Domain slice:
 
@@ -1151,6 +1392,7 @@ Domain slice:
 - Supplies active actors and authorization decisions to every program workflow;
   deprovisioning blocks new access while preserving attribution and surfacing
   orphaned responsibilities.
+- `Member` is an organization-local membership of a platform user. One external identity binds to one platform user, who may hold memberships in several organizations (M0-D25, M0-A07).
 
 Acceptance criteria:
 
@@ -1158,10 +1400,11 @@ Acceptance criteria:
 - [ ] Each user sees only the programs, records, and actions allowed by their responsibilities.
 - [ ] Assignment conflicts are surfaced before approval or review work is accepted.
 - [ ] Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
+- [ ] A firm staff member's grants and responsibilities in one client organization never apply in another.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D03 before finalizing this story's rules.
+- [ ] Incorporate the decisions recorded in M0-D03 and M0-D28 before finalizing this story's rules; use the canonical identity entities and the approved public references without deciding aggregate boundaries.
 - [ ] Define member and identity-binding lifecycles, explicit group mappings, team membership, access grants, revocation, actor attribution, and responsibility boundaries.
 - [ ] Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
 - [ ] Enforce every allow and deny decision on the server, including direct grants, team grants, removed provider groups, suspension, deprovisioning, and separation-of-duties conflicts.
@@ -1628,7 +1871,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D05 and define minimum inventory fields, ownership, application-versus-reviewed-system boundaries, aliases, lifecycle, source confidence, and scope-decision rules.
+- [ ] Incorporate the decisions recorded in M0-D05 and M0-D28 and define minimum inventory fields, ownership, application-versus-system-instance boundaries, aliases, lifecycle, source confidence, and scope-decision rules from approved public references.
 - [ ] Define stable application and reviewed-system identity, source-aware import and reconciliation, explicit inclusion or exclusion, relationship, impact, retirement, and narrowly permitted unused-draft deletion semantics.
 - [ ] Deliver authorized add, import, preview, match, reconcile, classify, own, scope, relate, revise, retire, browse, and inspect behavior through the API and browser.
 - [ ] Connect applications to boundary, vendors, controls, policies, evidence, external access governance, work, readiness, automation, and engagement snapshots without creating duplicate system records.
@@ -1744,7 +1987,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D06 before finalizing this story's rules.
+- [ ] Incorporate the decisions recorded in M0-D06 and M0-D28 before finalizing this story's rules; use `Person`, `WorkRelationship`, `ServiceIdentity`, and their first-class relationships with approved public references.
 - [ ] Define person and source identity, lifecycle observations, manager and owner relationships, correlation, reconciliation, conflict, freshness, snapshot, and retention rules.
 - [ ] Deliver authorized manual entry, import, preview, match, reconcile, classify, own, browse, freeze, and inspect behavior through the API, bounded processing where needed, and browser.
 - [ ] Connect workforce context to platform responsibility without merging identities and to policy, training, access, evidence, control, readiness, population, and snapshot workflows.
@@ -1863,7 +2106,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D08 before finalizing this story's rules.
+- [ ] Incorporate the decisions recorded in M0-D08 and M0-D28 before finalizing this story's rules; use the canonical application, system-instance, device, compute, network, resource, information, and provider entities with approved public references.
 - [ ] Define stable identities, source matching, ownership, classification, lifecycle, flow versioning, scope decisions, reconciliation, retirement, and impact rules.
 - [ ] Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
 - [ ] Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
@@ -1994,7 +2237,61 @@ Implementation subtasks:
 - [ ] Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
 - [ ] Prove stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and end-to-end readiness reconciliation.
 
-### EN-01 Enforce server-side authorization, organization isolation, and actor attribution
+### R1-15 Provision a client organization and its first administrators
+
+Priority: P0
+
+Area: tenancy
+
+User story: As a firm operator, I want to create a client organization, bootstrap its first client administrator, and assign our firm staff so that each client's compliance program starts inside an isolated tenant.
+
+Business objective: make every client's records, members, and evidence isolated from the start so the platform can serve many clients without retrofitting tenancy.
+
+Requirements:
+
+- Create a client organization with stable identity, legal and display name, lifecycle (provisioning, active, suspended), and platform-operator attribution.
+- Invite the first client administrator and add firm-staff memberships with an explicit affiliation of client personnel or firm staff.
+- Let a platform user who belongs to several organizations choose the active organization, and show it unmistakably throughout the product.
+- Suspend an organization, blocking access for its members and assigned firm staff while preserving its records.
+- Leave client onboarding templates, offboarding, export, and disposition to F1-01.
+- After sign-in, send a user with one organization directly to it, a user with several to an organization selector, and a user with none to a no-access or pending-invitation page; offer creation only to users authorized to create organizations (M0-D25).
+- Give each organization a unique, URL-friendly slug used in browser routes, and an opaque, immutable `tenant_id` used by every organization-scoped API, following M0-A07.
+- Validate every slug on the server, and mirror the validation in the browser, using these rules:
+  - Length: 4 to 63 characters.
+  - Characters: lowercase letters `a`–`z`, digits `0`–`9`, and hyphens. Input is trimmed and lowercased before validation; any other character is rejected, never silently transliterated.
+  - Shape: starts with a letter, ends with a letter or digit, and contains no consecutive hyphens (`^[a-z](?:[a-z0-9]|-(?=[a-z0-9])){3,62}$`).
+  - Uniqueness: unique across the current and retired slugs of every organization; a retired slug is never assigned to another organization.
+  - Reserved routes: must not equal any entry in the reserved-route registry, which lists every top-level server path segment and client route. Initial entries: `api`, `auth`, `health`, `healthz`, `openapi`, `login`, `logout`, `signup`, `callback`, `select`, `tenants`, `organizations`, `new`, `create`, `account`, `settings`, `admin`, `portfolio`, `work`, `my-work`, `invitations`, `invite`, `help`, `support`, `docs`, `status`, `static`, `assets`, `www`, and `app`.
+  - Registry ownership: adding a top-level route requires adding it to the registry first; the change fails if an existing organization already uses that slug.
+  - Not an identifier: a slug must not match the `tenant_id` format.
+- Allow an authorized slug change that keeps redirect history for members and never reassigns a retired slug to another organization.
+
+Domain slice:
+
+- Owns `Organization` as the tenant boundary, its lifecycle, and platform-operator provisioning decisions.
+- Uses platform users, external identities, and the tenant context and isolation enforced by EN-01.
+- Supplies the organization boundary to membership, programs, and every other context; no business record exists outside an organization except explicitly platform-level content.
+
+Acceptance criteria:
+
+- [ ] Only an authorized platform operator can create, suspend, or reactivate a client organization.
+- [ ] A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
+- [ ] A user with memberships in two organizations never sees, counts, searches, or receives notifications about records from the organization that is not active.
+- [ ] Suspending an organization blocks access immediately for its members and assigned firm staff and preserves all records and history.
+- [ ] The active organization is visible on every page, and switching it cannot carry cached or unsaved data across tenants.
+- [ ] Browser routes use the organization slug, and every organization-scoped API call uses the `tenant_id`; the server rejects a request whose `tenant_id` the caller is not a member of.
+- [ ] An unknown slug and a slug the user cannot access produce the same not-found result, so organization slugs cannot be enumerated.
+- [ ] A slug that is shorter than 4 or longer than 63 characters, uses characters other than lowercase letters, digits, and single inner hyphens, does not start with a letter, matches the `tenant_id` format, or equals a reserved route is rejected on the server with an explanation naming the rule.
+- [ ] Adding a top-level server or client route that is missing from the reserved-route registry, or that equals an existing organization slug, fails an automated check.
+- [ ] After a slug change, old links redirect members to the organization, and the retired slug can never be assigned to a different organization.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decisions recorded in M0-D25, M0-D28, and M0-A07 and define canonical organization, platform-user, membership, identity, lifecycle, operator-authority, bootstrap, and affiliation rules from approved public references.
+- [ ] Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
+- [ ] Prove cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions, and standalone/split-host parity end to end.
+
+### EN-01 Enforce server-side authorization, tenant isolation, and actor attribution
 
 Priority: P0
 
@@ -2002,11 +2299,11 @@ Type: enabler
 
 Area: workspace
 
-Why: Every story requires server-enforced authorization and attributable actions. Without one shared mechanism, each slice would invent its own checks and actor model.
+Why: Every story requires server-enforced authorization and attributable actions, and every client organization is now a tenant. Without one shared mechanism, each slice would invent its own checks, actor model, and tenant filtering.
 
 Scope:
 
-- An organization-scoped request context resolved from the authenticated external identity.
+- An organization (tenant) context resolved for every request, job, and message from the authenticated platform user and an explicit active-organization selection, following M0-A07.
 - An authorization evaluation pipeline for commands and queries, following the M0-A04 decision.
 - ActorReference for members and named system processes, with a display snapshot.
 - Filtering for lists and counts, and consistent forbidden or not-found Problem Details.
@@ -2020,6 +2317,8 @@ Out of scope:
 Acceptance criteria:
 
 - [ ] Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
+- [ ] A platform user with memberships in several organizations acts in exactly one resolved organization per request, and every query, write, artifact access, projection, job, and notification is scoped to it.
+- [ ] An automated cross-tenant leak suite covering APIs, search, counts, exports, artifacts, background jobs, and notifications runs in CI.
 - [ ] Cross-organization access is denied and cannot be distinguished from a missing resource.
 - [ ] Historical actor attribution survives rename, identity replacement, and deprovisioning.
 - [ ] Restricted records are absent from lists and counts, not merely hidden in the UI.
@@ -2028,6 +2327,7 @@ Acceptance criteria:
 
 Implementation subtasks:
 
+- [ ] Incorporate the canonical platform-user, membership, role, permission, assignment, and actor-reference semantics approved in M0-D28.
 - [ ] Implement the request context and evaluation pipeline.
 - [ ] Implement ActorReference persistence and display snapshots.
 - [ ] Add allow/deny test helpers and the architecture test.
@@ -2036,9 +2336,9 @@ Implementation subtasks:
 
 First consumer: R1-01
 
-Depends on: M0-A04, M0-D03
+Depends on: M0-A04, M0-A07, M0-D03, M0-D25, M0-D28
 
-Blocks: EN-04, EN-05, EN-06, R1-01, R1-04, R2-11
+Blocks: EN-04, EN-05, EN-06, F1-08, R1-01, R1-04, R1-15, R2-11
 
 ### EN-02 Provide versioned records, effective history, and change-impact preview
 
@@ -2083,7 +2383,7 @@ First consumer: R1-02
 
 Depends on: M0-A01
 
-Blocks: R1-02, R1-05, R1-07, R1-10, R1-12, R1-13, R1-14, R2-02
+Blocks: F1-04, R1-02, R1-05, R1-07, R1-10, R1-12, R1-13, R1-14, R2-02
 
 ### EN-03 Freeze immutable snapshots with content identity and amendments
 
@@ -2112,6 +2412,7 @@ Acceptance criteria:
 - [ ] An amendment is attributable, links to its original, and never mutates it.
 - [ ] Regenerating the same snapshot contents yields an equivalent content identity.
 - [ ] A partial freeze failure cannot produce an apparently complete snapshot.
+- [ ] A snapshot references only records from its own organization, plus explicitly versioned platform-level content such as a criteria catalog edition.
 
 Implementation subtasks:
 
@@ -2165,7 +2466,7 @@ First consumer: R1-02
 
 Depends on: M0-D03, M0-D23, EN-01
 
-Blocks: R1-02, R1-04e, R1-05, R1-06, R1-13, R2-02, R2-05, R2-07
+Blocks: F1-07, F1-08, R1-02, R1-04e, R1-05, R1-06, R1-13, R2-02, R2-05, R2-07
 
 ### EN-05 Import with preview, reconciliation, and safe replay
 
@@ -2195,9 +2496,11 @@ Acceptance criteria:
 - [ ] Replaying the same source creates no duplicates and reports unchanged rows.
 - [ ] Missing rows produce explicit reconciliation states and never silent deletion.
 - [ ] Progress and failures are visible and recoverable in standalone and split hosts.
+- [ ] Import batches, staged rows, and rejected-item reports belong to one organization and can never be accepted into another.
 
 Implementation subtasks:
 
+- [ ] Implement the canonical external-identifier, observation, source, and correlation semantics approved in M0-D28; reject source fields or schemas that are absent from the approved public-reference register.
 - [ ] Implement batch, staging, and preview primitives.
 - [ ] Implement replay and reconciliation classification.
 - [ ] Implement worker execution and progress.
@@ -2206,7 +2509,7 @@ Implementation subtasks:
 
 First consumer: R1-10b application import
 
-Depends on: M0-A06, EN-01
+Depends on: M0-A06, M0-D28, EN-01
 
 Blocks: R1-03, R1-09, R1-10, R1-11, R1-12, R2-06
 
@@ -2237,6 +2540,7 @@ Acceptance criteria:
 - [ ] Unsupported, oversized, interrupted, or failed-inspection uploads never appear successful.
 - [ ] Permission to view a related record does not grant access to a restricted artifact.
 - [ ] Downloads are authorized and recorded.
+- [ ] Artifacts, derived artifacts, and content-identity deduplication never cross organizations.
 
 Implementation subtasks:
 
@@ -2642,8 +2946,8 @@ Acceptance criteria:
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D07, M0-D05 and M0-D06 before finalizing this story's rules.
-- [ ] Define human and NHI access-subject identity and lifecycle, NHI ownership and purpose, provider principal kinds, explicit classification and correction, provider object identity, group and role relationships, direct and inherited grant paths, entitlement and resource identity, external access-grant uniqueness, and optional platform-member correlation.
+- [ ] Incorporate the decisions recorded in M0-D07, M0-D05, M0-D06, and M0-D28 before finalizing this story's rules; every external semantic source must be in the approved public-reference register.
+- [ ] Define person, work-relationship, account, and service-identity lifecycle and correlation; `Group` and direct `GroupMember` relationships; external roles and entitlements; direct access assignments and explainable effective-access paths; resource identity; and optional platform-membership correlation using the canonical model.
 - [ ] Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
 - [ ] Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
 - [ ] Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
@@ -2776,6 +3080,7 @@ Requirements:
 - Capture consultant requests, comments, recommendations, and validation status against the affected records.
 - Distinguish consultant-provided wording from internal interpretation and decisions.
 - Record what was shared, when, by whom, through which method, and what feedback was received.
+- Firm advisors assigned to the client work as scoped platform members; the handoff workflow remains for external consultants engaged directly by the client (M0-D14).
 
 Domain slice:
 
@@ -2943,6 +3248,7 @@ Requirements:
   the core work queue to function.
 - Surface orphaned work immediately when membership, teams, responsibilities,
   scope, or source records change.
+- Scope the queue to the active client organization; the cross-client queue for firm staff is delivered by F1-05.
 
 Domain slice:
 
@@ -3194,6 +3500,7 @@ Requirements:
 - Support time-bounded access and immediate revocation.
 - Share approved records by default and require explicit selection for work in progress.
 - Record views, downloads, requests, comments, and access changes.
+- For clients the firm itself examines, attest-staff access is governed by M0-D27 and F1-08; this story covers external auditors of advisory clients.
 
 Domain slice:
 
@@ -3718,6 +4025,10 @@ Business objective: reduce repetitive collection effort only after the manual wo
 
 Requirements:
 
+- Treat automation as an optional adapter over the functional domain. Workforce,
+  inventory, external-access, population, evidence, reconciliation, and review
+  workflows must operate end to end through manual entry or import before this
+  story is scheduled; no earlier story may depend on a connector runtime.
 - Choose a source only after documenting the inventory, population, or evidence
   question it answers and whether it is authoritative, corroborating, or
   discovery-only.
@@ -3732,6 +4043,16 @@ Requirements:
   require an attributable reconciliation decision before changing governed inventory.
 - Require ordinary evidence, population, or inventory review before automated
   material counts as accepted; retain a manual import fallback.
+- Package each source connector as a disposable executable with a versioned,
+  language-neutral process contract. A cloud worker or customer-hosted agent
+  launches one executable for one collection run, provides its bounded job
+  input, consumes canonical records from its output as they are produced, and
+  treats successful process exit as the end of the run. Diagnostics use a
+  separate channel from record output.
+- Keep deployment location out of the connector contract. The supervising
+  worker owns scheduling, credentials, resource limits, durable staging,
+  cancellation, and communication with the control plane, whether that worker
+  runs in the product cloud or as an agent in the customer's environment.
 
 Domain slice:
 
@@ -3748,6 +4069,7 @@ Acceptance criteria:
 
 - [ ] The UI explains requested provider access before connection and supports test, disable, and revoke.
 - [ ] Successful collections enter the same inventory, population, evidence, reconciliation, and review workflows as equivalent manual submissions.
+- [ ] The complete manual workflow remains usable when the connector runtime is unavailable, disabled, or has never been deployed.
 - [ ] Permission denial, rate limiting, partial results, stale data, and provider removal are visible and cannot appear complete.
 - [ ] Repeated collection does not create duplicate evidence for the same source snapshot.
 - [ ] Missing source records require explicit tombstone or reconciliation treatment and cannot silently delete, merge, retire, or de-scope governed records.
@@ -3757,10 +4079,66 @@ Acceptance criteria:
 Implementation subtasks:
 
 - [ ] Run the inventory-integration discovery in the gap analysis before scheduling this P2 story; measure the first manual workflow and validate source authority, stable identifiers, completeness, matching, tombstones, freshness, and business value.
+- [ ] After the functional domain and manual workflows are proven, define and
+  version the executable process protocol, including bounded job input,
+  canonical streaming output, diagnostics, completion and failure semantics,
+  cancellation, and compatibility negotiation.
+- [ ] Implement the same connector-execution contract in cloud workers and
+  customer-hosted agents without giving connectors control-plane or
+  deployment-specific responsibilities.
 - [ ] Define least-privilege scopes, credential custody, source and raw-snapshot identity, collection boundaries, pagination, normalization, reconciliation, freshness, disable, and revocation rules.
 - [ ] Deliver authorized connection consent, test, scope and schedule configuration, run status, disable, and revoke behavior through the API, bounded worker execution, and browser.
 - [ ] Normalize results into existing workforce, inventory, external-access, population, or evidence primitives with provider identifiers, system-actor attribution, idempotency, partial-failure detail, preview, and ordinary human review.
 - [ ] Prove denied and revoked credentials, pagination gaps, rate limiting, partial and stale results, tombstones, ambiguous matches, retries, duplicate snapshots, secret non-disclosure, cross-organization isolation, reconciliation history, and manual-workflow parity end to end.
+
+Delivery slices: this story is delivered through the following outcome slices,
+tracked as GitHub sub-issues. The parent's requirements, domain slice, and
+definition of done apply to every slice, and the parent is complete only when
+all slices are done.
+
+#### T2-08a Collect and reconcile a selected cloud-reachable source
+
+Outcome: As a compliance lead, I can run an approved connector through a cloud
+worker and reconcile its collected facts through the same workflow as a manual
+submission.
+
+Acceptance criteria:
+
+- [ ] At least one source whose equivalent manual domain workflow is already
+  functional can be configured, tested, collected, previewed, reconciled, and
+  reviewed end to end.
+- [ ] A disposable connector executable receives one bounded collection job and
+  streams versioned canonical records separately from diagnostics; successful
+  exit commits the staged run, while failure, cancellation, or partial output
+  cannot appear complete or advance durable source state.
+- [ ] The cloud worker owns connector selection, credential delivery, resource
+  limits, durable staging, cancellation, and run status without granting the
+  connector control-plane responsibilities.
+- [ ] Disabling or removing the connector runtime leaves the equivalent manual
+  workflow fully usable.
+
+Depends on: M0-D20, M0-D24
+
+#### T2-08b Collect and reconcile a private source through a customer-hosted agent
+
+Outcome: As a compliance lead, I can collect an approved source reachable only
+inside the customer's environment without changing the connector or weakening
+the ordinary reconciliation and review workflow.
+
+Acceptance criteria:
+
+- [ ] A customer-hosted agent launches the same connector artifact with the same
+  versioned process contract used by the cloud worker.
+- [ ] The agent owns its outbound control-plane communication, local credential
+  resolution, artifact verification, resource limits, cancellation, and durable
+  delivery; the connector contains no cloud-versus-customer deployment logic.
+- [ ] Disconnects, retries, duplicate delivery, agent or connector upgrades,
+  revoked credentials, and incomplete runs remain visible and cannot create a
+  completed source snapshot.
+- [ ] The customer can disable the agent and continue the equivalent workflow
+  through manual entry or import.
+
+Depends on: T2-08a
 
 ### T2-09 Conduct periodic management compliance reviews
 
@@ -4141,13 +4519,309 @@ Implementation subtasks:
 - [ ] Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
 - [ ] Prove carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability end to end.
 
+## F1 - Multi-client firm operations
+
+Business outcome: the firm onboards, operates, and offboards client organizations from one deployment; firm staff see and work their client portfolio without cross-client disclosure; reusable templates are applied with provenance; client users can sign in through their own identity providers; every client service is recorded as an accepted advisory or attest engagement; and independence walls prevent attest work where advisory services impaired independence. Attest workpaper support stays out of this milestone until M0-D27 decides its scope.
+
+These stories make the platform serve many client organizations for a firm that provides both advisory and attest services. The tenant-ready foundations they rely on (R1-15, EN-01, M0-D25, and M0-A07) are delivered in M0 and R1.
+
+### F1-01 Onboard, suspend, and offboard client organizations
+
+Priority: P1
+
+Area: tenancy
+
+User story: As a firm operator, I want to onboard a client from our standard setup and offboard a departing client with a complete export and governed retention so that client relationships start consistently and end without data leakage or lost obligations.
+
+Business objective: make the client lifecycle repeatable and defensible, including the end of the relationship.
+
+Requirements:
+
+- Onboard a client with a selected template set, initial members, firm-staff engagement assignments, and starting program stage.
+- Suspend and reactivate a client with a recorded reason.
+- Offboard a client through an explicit decision covering final export, access revocation, retention and hold evaluation, and scheduled disposition.
+- Produce a documented export of the client's management-owned records, evidence, history, and delivered packages.
+- Retain firm-owned material that must survive offboarding (for example attest documentation) separately from client-owned records, following M0-D25 and M0-D27.
+- Record every lifecycle decision with actor, rationale, and effective time.
+
+Domain slice:
+
+- Owns organization lifecycle decisions, `ClientExport`, and the offboarding disposition plan.
+- Uses R1-15 provisioning, F1-04 templates, memberships, R2-12 evidence governance, and F1-07 service engagements.
+- Produces an isolated, exportable, and eventually disposed tenant without deleting anything under hold or retention obligation.
+
+Acceptance criteria:
+
+- [ ] Onboarding records which template versions were applied and creates only draft client records.
+- [ ] Offboarding revokes all client and firm-staff access to the organization at the recorded effective time.
+- [ ] The client export reconciles to the organization's records and artifacts and lists anything withheld with the reason.
+- [ ] Records under an engagement hold, legal hold, or retention obligation are not disposed of, and the reason is visible.
+- [ ] Disposition removes the organization's content from every store, index, projection, and backup according to the approved plan and records the result.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decisions recorded in M0-D25, M0-D16, and M0-D27 and define lifecycle, export contents, firm-retained material, and disposition rules.
+- [ ] Deliver authorized onboard, suspend, reactivate, export, offboard, and dispose behavior through the API, bounded worker processing, and browser.
+- [ ] Prove export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions end to end.
+
+### F1-02 See the client portfolio across organizations
+
+Priority: P1
+
+Area: tenancy
+
+User story: As a firm engagement lead, I want one view of every client I am authorized for, with stage, readiness, upcoming deadlines, overdue work, and open findings, so that I can intervene before any client falls behind.
+
+Business objective: manage the firm's client base from one place without opening each client or maintaining a firm spreadsheet.
+
+Requirements:
+
+- Summarize each authorized client organization: service engagements, program stage, target dates, readiness, overdue and blocked work, open findings, and access-review status.
+- Include only organizations where the viewer holds an active membership or engagement assignment.
+- Open a client from the portfolio by explicitly switching the active organization.
+- Show each summary's as-of time and calculation source, and never aggregate restricted client details across organizations.
+
+Domain slice:
+
+- Owns the client portfolio projection and its authorization rules.
+- Uses per-organization readiness (R1-08), accountable work (R2-11), service engagements (F1-07), and memberships.
+- Produces oversight and navigation only; it never stores client state.
+
+Acceptance criteria:
+
+- [ ] A staff member sees exactly the clients they are authorized for, and each summary reconciles to that client's own views at the stated as-of time.
+- [ ] Revoking an assignment removes the client from the portfolio immediately.
+- [ ] Portfolio search, export, and notifications never disclose unauthorized clients or restricted client details.
+- [ ] Opening a client from the portfolio switches the active organization visibly.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decisions recorded in M0-D25 and M0-A05 and define portfolio measures, authorization, and as-of semantics.
+- [ ] Deliver the portfolio overview, filters, drill-down, and organization switch through the API and browser.
+- [ ] Prove per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant leak tests end to end.
+
+### F1-03 Plan firm staff assignments and capacity across clients
+
+Priority: P2
+
+Area: tenancy
+
+User story: As a firm leader, I want to see and plan staff assignments and workload across client engagements so that deadlines are met without overloading consultants.
+
+Business objective: learn whether capacity planning belongs in the platform before building it.
+
+Requirements:
+
+- Show each staff member's client engagement assignments, upcoming due work, and engagement deadlines.
+- Propose and approve assignment changes that respect independence walls.
+- Do not become a resource-management, scheduling, or timekeeping system.
+
+Domain slice:
+
+- Owns staff assignment proposals and the capacity projection.
+- Uses service engagements (F1-07), accountable work (R2-11, F1-05), and independence rules (F1-08).
+
+Acceptance criteria:
+
+- [ ] An assignment proposal that would breach an independence wall is blocked with an explanation.
+- [ ] Workload totals reconcile to the underlying client work items.
+- [ ] A workload view never reveals client details the viewer is not authorized to see.
+
+Implementation subtasks:
+
+- [ ] Before scheduling this P2 story, confirm with firm leadership that capacity planning belongs in the platform rather than an existing resource tool.
+- [ ] Deliver authorized assignment overview, proposal, approval, and workload drill-down through the API and browser.
+- [ ] Prove independence blocks, reconciliation, and restricted visibility end to end.
+
+### F1-04 Maintain a reusable template library and apply it to clients
+
+Priority: P1
+
+Area: firm methodology
+
+User story: As a firm practice lead, I want to maintain versioned control, policy, evidence-request, and risk templates and apply them to client organizations so that every client starts from our methodology while each program remains the client's own.
+
+Business objective: scale the firm's methodology across clients without copying one client's data into another.
+
+Requirements:
+
+- Maintain platform-level templates with versions, authorship, approval, and change notes.
+- Apply a template version to one client organization, creating client-owned draft records with template provenance; applying a template never activates records.
+- When a template changes, show which clients used the prior version and let each client adopt, adapt, or decline the successor through its own review.
+- Prevent client-authored content or identifiers from entering templates except through an explicit, reviewed, de-identified contribution.
+- Respect criteria-content licensing when templates include criteria mappings (M0-D02).
+
+Domain slice:
+
+- Owns platform-level `Template`, `TemplateVersion`, template approval, and `TemplateApplication` provenance.
+- Uses EN-02 versioning and the owning client workflows for controls (R1-05), mappings (R1-06), risks (R1-07), and policies (R2-02).
+- Produces tenant-owned drafts through each owning workflow; templates never own client state.
+
+Acceptance criteria:
+
+- [ ] Applying a template creates drafts in exactly one organization, each traceable to the template version.
+- [ ] A template update never changes an existing client record; it produces a reviewable proposal for each affected client.
+- [ ] No client identifier, evidence, or client-authored text enters a template without an explicit reviewed contribution.
+- [ ] Client users cannot see which other clients use a template.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decisions recorded in M0-D25 and M0-D02 and define template scope, versioning, application, successor proposals, and contribution rules.
+- [ ] Deliver authorized template authoring, approval, application, change impact, and client adoption through the API and browser.
+- [ ] Prove provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation end to end.
+
+### F1-05 Work one queue across all my client organizations
+
+Priority: P1
+
+Area: work management
+
+User story: As a firm consultant, I want my assigned work from every client in one queue so that I can prioritize across clients without switching organizations to discover what is due.
+
+Business objective: let a small firm run many client programs without missed work hiding inside individual tenants.
+
+Requirements:
+
+- Aggregate my accountable work items from every organization where I hold an active membership or engagement assignment, labeled by client.
+- Acting on an item opens its source workflow in that client organization through an explicit organization switch.
+- Group reminders and digests by client and respect each client's restrictions.
+
+Domain slice:
+
+- Extends the `AccountableWorkItem` projection (R2-11) with cross-organization aggregation for the viewing user.
+- Uses memberships, engagement assignments (F1-07), and portfolio authorization (F1-02).
+
+Acceptance criteria:
+
+- [ ] Every item shows its client and resolves to one source record in that client organization.
+- [ ] Counts reconcile to each client's own queue for the same user.
+- [ ] Losing access to one client removes its items immediately without affecting other clients.
+- [ ] Restricted work in one client is never disclosed through the cross-client queue, counts, or digests.
+
+Implementation subtasks:
+
+- [ ] Define cross-organization aggregation, authorization, ordering, and digest grouping rules.
+- [ ] Deliver the cross-client queue, filters, and source navigation through the API and browser.
+- [ ] Prove revocation, reconciliation, restricted work, and cross-tenant leak tests end to end.
+
+### F1-06 Let client users sign in through their own identity providers
+
+Priority: P1
+
+Area: identity
+
+User story: As a client administrator, I want our people to sign in through our own identity provider so that access follows our joiner-mover-leaver process and nobody manages separate credentials.
+
+Business objective: let each client govern its own people's authentication while the firm keeps one platform.
+
+Requirements:
+
+- Configure one or more identity-provider connections per client organization following M0-A07.
+- Restrict which connections may authenticate into which organization; firm staff keep using the firm's identity provider.
+- Keep issuer plus subject as the identity key and never grant membership from a claim without an explicit mapping.
+- Test, disable, and rotate a connection without losing member history.
+
+Domain slice:
+
+- Owns per-organization identity-provider connection configuration and lifecycle.
+- Uses platform users, external identities, memberships (R1-04), and tenant context (EN-01).
+
+Acceptance criteria:
+
+- [ ] A user authenticated through one client's connection cannot reach any other organization unless separately a member.
+- [ ] Disabling a connection blocks new sign-ins through it immediately while preserving attribution.
+- [ ] A misconfigured or unreachable provider fails safely with an actionable error.
+- [ ] Connection secrets are never displayed after configuration.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decision recorded in M0-A07 and define connection, discovery, mapping, and rotation rules.
+- [ ] Deliver authorized connection setup, test, disable, rotation, and sign-in routing through the API and browser.
+- [ ] Prove wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure, and host-mode parity end to end.
+
+### F1-07 Record client engagements and accept them after independence checks
+
+Priority: P1
+
+Area: firm engagements
+
+User story: As a firm engagement partner, I want every service we provide to a client recorded as an advisory or attest engagement with scope, period, and team, and accepted only after an independence and conflict check, so that we never start work we are not permitted to perform.
+
+Business objective: make the firm's client services explicit, because independence walls, the portfolio, and staff access all depend on them.
+
+Requirements:
+
+- Record engagement type (for example readiness advisory, continuous compliance, SOC 2 Type I examination, SOC 2 Type II examination), client organization, scope, period, engagement lead, and assigned staff.
+- Keep the firm's service engagement distinct from the client's Type I and Type II audit engagements, whose auditor may be an external firm.
+- Require an attributable acceptance decision recording the independence evaluation, conflicts, management-responsibility acknowledgement for nonattest services, and approver, following M0-D26.
+- Grant firm-staff access to client records through engagement assignment rather than standing firm membership.
+- Preserve engagement amendments and closure history.
+
+Domain slice:
+
+- Owns `ServiceEngagement`, engagement type, team assignment, acceptance decision, amendment, and closure.
+- Uses client organizations, memberships and access grants (R1-04), EN-04 decisions, and independence rules (F1-08).
+- Supplies engagement context to independence enforcement, the portfolio, assignments, the client's Type I and Type II engagements, and offboarding.
+
+Acceptance criteria:
+
+- [ ] No firm staff member can access a client's records without an active engagement assignment or an approved exception.
+- [ ] An engagement cannot start without a recorded acceptance decision and independence evaluation.
+- [ ] The approver sees every advisory and attest engagement for the client with its period and services before deciding.
+- [ ] Amending or closing an engagement preserves history and changes staff access at the effective time.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decisions recorded in M0-D25, M0-D26, and M0-D27 and define engagement types, acceptance, assignment-based access, amendment, and closure rules.
+- [ ] Deliver authorized create, evaluate, accept, assign, amend, and close behavior through the API and browser.
+- [ ] Prove assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval end to end.
+
+### F1-08 Enforce independence walls between advisory and attest work
+
+Priority: P1
+
+Area: independence
+
+User story: As the firm's independence partner, I want the platform to prevent attest work where our advisory services impaired independence and to separate advisory and attest teams so that the firm's examination reports remain defensible.
+
+Business objective: turn the firm's independence policy into enforced, auditable platform behavior rather than a manual checklist.
+
+Requirements:
+
+- Record the nonattest services performed for each client with period, staff, and whether they involved management functions, following M0-D26.
+- Block acceptance of an attest engagement, or a staff assignment to one, when recorded services or assignments breach the approved rules or cooling-off periods; allow only exceptions the rules permit, with documented approval.
+- Separate advisory-only and attest-only material within a client organization so each team sees only what the rules allow.
+- Prevent attest staff from authoring or approving the client's management records such as controls, policies, evidence, and assertions.
+- Retain an independence evaluation for each attest engagement that can be produced for firm quality review or peer review.
+- Re-evaluate affected attest engagements when services, assignments, or periods change.
+
+Domain slice:
+
+- Owns versioned `IndependenceRuleSet`, `NonattestServiceRecord`, `IndependenceEvaluation`, staff-assignment restrictions, and advisory and attest access compartments.
+- Uses service engagements (F1-07), memberships and grants (R1-04), EN-01 authorization, and EN-04 decisions.
+- Produces enforced authorization constraints and retained independence evidence; it does not replace the firm's system of quality management.
+
+Acceptance criteria:
+
+- [ ] An attest engagement or staff assignment that breaches the approved rules cannot be accepted, and the explanation cites the rule and the conflicting service or assignment.
+- [ ] Attest staff cannot create, edit, or approve client management records, enforced on the server.
+- [ ] Advisory-only and attest-only material is inaccessible to the other team, including through search, counts, exports, and notifications.
+- [ ] Every evaluation, exception, and rule-set change is attributable and retained.
+- [ ] A later change to services or assignments triggers re-evaluation of affected attest engagements.
+
+Implementation subtasks:
+
+- [ ] Incorporate the decision recorded in M0-D26 and define rule-set versions, service classification, cooling-off periods, compartments, exceptions, and re-evaluation.
+- [ ] Deliver authorized service recording, evaluation, exception approval, compartment administration, and evaluation history through the API and browser.
+- [ ] Prove blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history end to end.
+
 ## GitHub issue index
 
 The GitHub issue is the tracking record for each created item; its dependencies
 (`blocked by`) are maintained with GitHub issue relationships and summarized
-here. M0-D24 is the one pending issue: it must be created and added as a blocker
-to every delivery story and every first delivery slice before any of them is
-scheduled. That global blocker is not repeated in every row below.
+here. M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) is recorded
+as a blocker on every delivery story and every first delivery slice; that global
+blocker is not repeated in every row below.
 
 | Key | Issue | Milestone | Priority | Depends on |
 | --- | --- | --- | --- | --- |
@@ -4174,24 +4848,29 @@ scheduled. That global blocker is not repeated in every row below.
 | M0-D21 | [#78](https://github.com/bdgrz/compliance/issues/78) | M0 | P1 | — |
 | M0-D22 | [#79](https://github.com/bdgrz/compliance/issues/79) | M0 | P0 | — |
 | M0-D23 | [#80](https://github.com/bdgrz/compliance/issues/80) | M0 | P0 | — |
-| M0-D24 | Pending GitHub issue | M0 | P0 | — |
+| M0-D24 | [#136](https://github.com/bdgrz/compliance/issues/136) | M0 | P0 | — |
+| M0-D25 | [#123](https://github.com/bdgrz/compliance/issues/123) | M0 | P0 | — |
+| M0-D26 | [#124](https://github.com/bdgrz/compliance/issues/124) | M0 | P1 | M0-D25 |
+| M0-D27 | [#125](https://github.com/bdgrz/compliance/issues/125) | M0 | P1 | — |
+| M0-D28 | [#139](https://github.com/bdgrz/compliance/issues/139) | M0 | P0 | — |
 | M0-A01 | [#81](https://github.com/bdgrz/compliance/issues/81) | M0 | P0 | — |
 | M0-A02 | [#82](https://github.com/bdgrz/compliance/issues/82) | M0 | P0 | M0-A01 |
 | M0-A03 | [#83](https://github.com/bdgrz/compliance/issues/83) | M0 | P0 | — |
 | M0-A04 | [#84](https://github.com/bdgrz/compliance/issues/84) | M0 | P0 | — |
 | M0-A05 | [#85](https://github.com/bdgrz/compliance/issues/85) | M0 | P0 | M0-A01 |
 | M0-A06 | [#86](https://github.com/bdgrz/compliance/issues/86) | M0 | P0 | M0-A01 |
-| EN-01 | [#87](https://github.com/bdgrz/compliance/issues/87) | R1 | P0 | M0-A04, M0-D03 |
+| M0-A07 | [#126](https://github.com/bdgrz/compliance/issues/126) | M0 | P0 | — |
+| EN-01 | [#87](https://github.com/bdgrz/compliance/issues/87) | R1 | P0 | M0-A04, M0-A07, M0-D03, M0-D25, M0-D28 |
 | EN-02 | [#88](https://github.com/bdgrz/compliance/issues/88) | R1 | P0 | M0-A01 |
 | EN-03 | [#89](https://github.com/bdgrz/compliance/issues/89) | R1 | P0 | M0-A01, M0-A02 |
 | EN-04 | [#90](https://github.com/bdgrz/compliance/issues/90) | R1 | P0 | M0-D03, M0-D23, EN-01 |
-| EN-05 | [#91](https://github.com/bdgrz/compliance/issues/91) | R1 | P0 | M0-A06, EN-01 |
+| EN-05 | [#91](https://github.com/bdgrz/compliance/issues/91) | R1 | P0 | M0-A06, M0-D28, EN-01 |
 | EN-06 | [#92](https://github.com/bdgrz/compliance/issues/92) | R1 | P0 | M0-A03, EN-01 |
-| R1-01 | [#7](https://github.com/bdgrz/compliance/issues/7) | R1 | P0 | M0-D01, EN-01 |
+| R1-01 | [#7](https://github.com/bdgrz/compliance/issues/7) | R1 | P0 | M0-D01, EN-01, R1-15 |
 | R1-02 | [#8](https://github.com/bdgrz/compliance/issues/8) | R1 | P0 | M0-D01, M0-D22, EN-02, EN-04, R1-01 |
 | R1-03 | [#9](https://github.com/bdgrz/compliance/issues/9) | R1 | P0 | M0-D01, M0-D02, EN-05, R1-01 |
-| R1-04 | [#10](https://github.com/bdgrz/compliance/issues/10) | R1 | P0 | M0-D03, EN-01 |
-| R1-04a | [#93](https://github.com/bdgrz/compliance/issues/93) | R1 | P0 | M0-D03, EN-01 |
+| R1-04 | [#10](https://github.com/bdgrz/compliance/issues/10) | R1 | P0 | M0-D03, M0-D28, EN-01, R1-15 |
+| R1-04a | [#93](https://github.com/bdgrz/compliance/issues/93) | R1 | P0 | M0-D03, M0-D28, EN-01, R1-15 |
 | R1-04b | [#94](https://github.com/bdgrz/compliance/issues/94) | R1 | P0 | R1-04a |
 | R1-04c | [#95](https://github.com/bdgrz/compliance/issues/95) | R1 | P0 | R1-04a |
 | R1-04d | [#96](https://github.com/bdgrz/compliance/issues/96) | R1 | P0 | R1-04a |
@@ -4205,19 +4884,20 @@ scheduled. That global blocker is not repeated in every row below.
 | R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P0 | R1-09a, R2-02, R2-03 |
 | R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P0 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
 | R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P0 | R1-08, R1-09a |
-| R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, EN-02, EN-05, R1-02 |
-| R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, EN-02, EN-05, R1-02 |
+| R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
+| R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
 | R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P0 | R1-10a |
 | R1-10c | [#104](https://github.com/bdgrz/compliance/issues/104) | R1 | P0 | R1-10a |
 | R1-10d | [#105](https://github.com/bdgrz/compliance/issues/105) | R1 | P0 | R1-10a |
-| R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, EN-05, R1-04 |
-| R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, EN-05, R1-04 |
+| R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, M0-D28, EN-05, R1-04 |
+| R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, M0-D28, EN-05, R1-04 |
 | R1-11b | [#107](https://github.com/bdgrz/compliance/issues/107) | R1 | P0 | R1-11a |
 | R1-11c | [#108](https://github.com/bdgrz/compliance/issues/108) | R1 | P0 | R1-11a |
 | R1-11d | [#109](https://github.com/bdgrz/compliance/issues/109) | R1 | P0 | EN-03, R1-11a |
-| R1-12 | [#50](https://github.com/bdgrz/compliance/issues/50) | R1 | P0 | M0-D08, M0-D22, EN-02, EN-05, R1-02, R1-10 |
+| R1-12 | [#50](https://github.com/bdgrz/compliance/issues/50) | R1 | P0 | M0-D08, M0-D22, M0-D28, EN-02, EN-05, R1-02, R1-10 |
 | R1-13 | [#51](https://github.com/bdgrz/compliance/issues/51) | R1 | P0 | M0-D09, EN-02, EN-04, R1-02 |
 | R1-14 | [#52](https://github.com/bdgrz/compliance/issues/52) | R1 | P0 | M0-D11, M0-D23, EN-02, EN-06, R1-02, R1-10, R1-13 |
+| R1-15 | [#127](https://github.com/bdgrz/compliance/issues/127) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01 |
 | R2-01 | [#15](https://github.com/bdgrz/compliance/issues/15) | R2 | P0 | M0-D03, R1-04, R1-05 |
 | R2-02 | [#16](https://github.com/bdgrz/compliance/issues/16) | R2 | P0 | EN-02, EN-04, EN-06, R1-04 |
 | R2-03 | [#17](https://github.com/bdgrz/compliance/issues/17) | R2 | P0 | EN-06, R1-04 |
@@ -4227,8 +4907,8 @@ scheduled. That global blocker is not repeated in every row below.
 | R2-05b | [#111](https://github.com/bdgrz/compliance/issues/111) | R2 | P0 | R2-05a |
 | R2-05c | [#112](https://github.com/bdgrz/compliance/issues/112) | R2 | P0 | R2-05b |
 | R2-05d | [#113](https://github.com/bdgrz/compliance/issues/113) | R2 | P0 | R2-05c, R2-07 |
-| R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, EN-03, EN-05, R1-10, R1-11 |
-| R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, EN-03, EN-05, R1-10, R1-11 |
+| R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, EN-05, R1-10, R1-11 |
+| R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, EN-05, R1-10, R1-11 |
 | R2-06b | [#115](https://github.com/bdgrz/compliance/issues/115) | R2 | P0 | R1-11, R2-06a |
 | R2-06c | [#116](https://github.com/bdgrz/compliance/issues/116) | R2 | P0 | R2-06a |
 | R2-06d | [#117](https://github.com/bdgrz/compliance/issues/117) | R2 | P0 | R2-06a |
@@ -4244,7 +4924,7 @@ scheduled. That global blocker is not repeated in every row below.
 | R2-12 | [#55](https://github.com/bdgrz/compliance/issues/55) | R2 | P1 | M0-D16, R2-03 |
 | T1-01 | [#24](https://github.com/bdgrz/compliance/issues/24) | T1 | P1 | M0-D01, R2-09 |
 | T1-02 | [#25](https://github.com/bdgrz/compliance/issues/25) | T1 | P1 | M0-D17, T1-01 |
-| T1-03 | [#26](https://github.com/bdgrz/compliance/issues/26) | T1 | P2 | M0-D17, T1-01 |
+| T1-03 | [#26](https://github.com/bdgrz/compliance/issues/26) | T1 | P2 | M0-D17, M0-D27, T1-01 |
 | T1-04 | [#27](https://github.com/bdgrz/compliance/issues/27) | T1 | P1 | R2-03, T1-01 |
 | T1-05 | [#28](https://github.com/bdgrz/compliance/issues/28) | T1 | P1 | M0-D17, T1-01, T1-02 |
 | T1-06 | [#29](https://github.com/bdgrz/compliance/issues/29) | T1 | P1 | R2-07, T1-01 |
@@ -4256,7 +4936,9 @@ scheduled. That global blocker is not repeated in every row below.
 | T2-05 | [#35](https://github.com/bdgrz/compliance/issues/35) | T2 | P1 | R2-06, T2-01 |
 | T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) | T2 | P2 | M0-D19, T2-01 |
 | T2-07 | [#37](https://github.com/bdgrz/compliance/issues/37) | T2 | P1 | M0-D21, T1-02, T2-01 |
-| T2-08 | [#38](https://github.com/bdgrz/compliance/issues/38) | T2 | P2 | M0-D20 |
+| T2-08 | [#38](https://github.com/bdgrz/compliance/issues/38) | T2 | P2 | M0-D20, M0-D24 |
+| T2-08a | [#137](https://github.com/bdgrz/compliance/issues/137) | T2 | P2 | M0-D20, M0-D24 |
+| T2-08b | [#138](https://github.com/bdgrz/compliance/issues/138) | T2 | P2 | T2-08a |
 | T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) | T2 | P2 | M0-D19, M0-D23, T2-04 |
 | T3-01 | [#40](https://github.com/bdgrz/compliance/issues/40) | T3 | P1 | T2-03, T2-05, T2-07 |
 | T3-02 | [#41](https://github.com/bdgrz/compliance/issues/41) | T3 | P1 | M0-D17, T3-01 |
@@ -4265,3 +4947,11 @@ scheduled. That global blocker is not repeated in every row below.
 | T3-05 | [#44](https://github.com/bdgrz/compliance/issues/44) | T3 | P1 | M0-D17, T1-05, T3-01, T3-02 |
 | T3-06 | [#45](https://github.com/bdgrz/compliance/issues/45) | T3 | P1 | M0-D17, T3-04, T3-05 |
 | T3-07 | [#46](https://github.com/bdgrz/compliance/issues/46) | T3 | P1 | T3-06 |
+| F1-01 | [#128](https://github.com/bdgrz/compliance/issues/128) | F1 | P1 | M0-D16, M0-D25, M0-D27, F1-04, F1-07, R1-15, R2-12 |
+| F1-02 | [#129](https://github.com/bdgrz/compliance/issues/129) | F1 | P1 | M0-A05, F1-07, R1-08, R1-15, R2-11 |
+| F1-03 | [#130](https://github.com/bdgrz/compliance/issues/130) | F1 | P2 | F1-02, F1-08 |
+| F1-04 | [#131](https://github.com/bdgrz/compliance/issues/131) | F1 | P1 | M0-D02, M0-D25, EN-02, R1-05, R2-02 |
+| F1-05 | [#132](https://github.com/bdgrz/compliance/issues/132) | F1 | P1 | F1-02, R2-11 |
+| F1-06 | [#133](https://github.com/bdgrz/compliance/issues/133) | F1 | P1 | M0-A07, R1-04, R1-15 |
+| F1-07 | [#134](https://github.com/bdgrz/compliance/issues/134) | F1 | P1 | M0-D25, M0-D26, EN-04, R1-04, R1-15 |
+| F1-08 | [#135](https://github.com/bdgrz/compliance/issues/135) | F1 | P1 | M0-D26, EN-01, EN-04, F1-07 |
