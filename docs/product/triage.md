@@ -21,6 +21,13 @@ milestone of discovery and architecture-decision issues, six approved shared
 enablers in R1, and outcome-level delivery slices for the largest P0 stories.
 Their contract is defined in [backlog.md](backlog.md#product-backlog-contract).
 
+The same day, the product direction widened to a small SOC 2 firm that
+provides both advisory and attest services to many clients. Client
+organizations are the only tenant, firm staff and client users both sign in,
+and the first release stays tenant-ready rather than firm-complete: the tenancy
+foundations (M0-D25, M0-A07, EN-01, and R1-15) are P0, and firm operations are
+planned in **F1 - Multi-client firm operations**.
+
 ## Evidence levels
 
 - Confirmed: directly supported by the target customer statement in this product conversation.
@@ -70,6 +77,7 @@ Milestone and priority are intentionally different. A Type II story can be essen
 | R1-12 | P0 | Derived | The boundary and system description require material technology, information, and data-flow inventory beyond applications. |
 | R1-13 | P0 | Derived | Commitments, requirements, CUECs, and CSOCs explain what controls and the described system are intended to achieve. |
 | R1-14 | P0 | Derived | Promoted 2026-09-14: the R1 exit, R1-08, and R2-09 require provider oversight, and vendor management (CC9.2) is tested in Type I. The due-diligence set and subservice treatment are resolved in M0-D11. |
+| R1-15 | P0 | Derived | Every client record must live in an isolated organization from the first release; retrofitting tenancy later would touch every story. |
 | R2-01 | P0 | Derived | Ownership and cadence turn control definitions into actionable work. |
 | R2-02 | P0 | Confirmed | Policies are a directly stated core job. |
 | R2-03 | P0 | Confirmed | Evidence is a directly stated core job. |
@@ -105,6 +113,14 @@ Milestone and priority are intentionally different. A Type II story can be essen
 | T3-05 | P1 | Derived | A period package offers an auditor-independent delivery path and retained record. |
 | T3-06 | P1 | Derived | The team needs to distinguish its sign-off from the auditor result. |
 | T3-07 | P1 | Derived | Roll-forward supports the product promise of one continuing program rather than annual reconstruction. |
+| F1-01 | P1 | Derived | A firm must onboard and offboard clients consistently; export and retention rules need M0-D16, M0-D25, and M0-D27. |
+| F1-02 | P1 | Confirmed | Managing all clients from one platform is the stated firm need; it follows per-client readiness and work. |
+| F1-03 | P2 | Hypothesis | Capacity planning may belong in an existing resource tool; validate before scheduling. |
+| F1-04 | P1 | Derived | Reusable methodology scales a small firm, but template scope and licensing need M0-D02 and M0-D25. |
+| F1-05 | P1 | Derived | Consultants serving many clients need one queue; it extends the per-client queue in R2-11. |
+| F1-06 | P1 | Derived | Client sign-in through each client's identity provider follows M0-A07; firm staff and a first client can start on the firm's provider. |
+| F1-07 | P1 | Confirmed | The firm provides both advisory and attest services, so every client service must be an explicit, accepted engagement. |
+| F1-08 | P1 | Confirmed | Independence walls were explicitly required; the rules themselves need professional validation in M0-D26. |
 
 ## M0 discovery and architecture triage
 
@@ -138,12 +154,17 @@ not before all product work.
 | M0-D22 | P0 | R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06 | Resolves double-owned and missing identity and inventory concepts. |
 | M0-D23 | P0 | EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09 | Resolves overlapping gap, finding, exception, risk-acceptance, review, and readiness ownership. |
 | M0-D24 | P0 | Every delivery story and first delivery slice | Defines the release-wide accessibility and supported-browser acceptance baseline. |
+| M0-D25 | P0 | EN-01, R1-15, M0-D26, F1-01, F1-04, F1-07 | Defines the tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary. |
+| M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. |
+| M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. |
+| M0-D28 | P0 | EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06 | Establishes the canonical entity and relationship vocabulary from direct public sources whose use is acceptable for the Apache-2.0 product; unusable or unclear sources are excluded. |
 | M0-A01 | P0 | EN-02, EN-03, M0-A02, M0-A05, M0-A06 | No persistence exists; versioning and effective history underpin every story. |
 | M0-A02 | P0 | EN-03 | Seven snapshot types need one provable freezing and amendment model. |
 | M0-A03 | P0 | EN-06 | Evidence and file handling need safe storage, inspection, and per-artifact access. |
 | M0-A04 | P0 | EN-01 | Authorization combines membership, grants, responsibility, state, and separation of duties. |
 | M0-A05 | P0 | R1-08, R2-11 | Readiness and work projections must reconcile to source records with an as-of time. |
 | M0-A06 | P0 | EN-05 | Every import and collection shares preview, acceptance, and replay semantics. |
+| M0-A07 | P0 | EN-01, R1-15, F1-06 | Tenant context, slug-based browser routes with `tenant_id` APIs, the reserved-route registry, and client identity federation. |
 
 ## Enabler triage
 
@@ -153,7 +174,7 @@ consuming story rather than released independently.
 
 | Enabler | Depends on | First consumer | Triage rationale |
 | --- | --- | --- | --- |
-| EN-01 Authorization, organization isolation, and actor attribution | M0-A04, M0-D03 | R1-01 | Every story requires server-enforced authorization and attribution. |
+| EN-01 Authorization, tenant isolation, and actor attribution | M0-A04, M0-A07, M0-D03, M0-D25 | R1-01 | Every story requires server-enforced authorization, attribution, and tenant isolation. |
 | EN-02 Versioned records, effective history, and change-impact preview | M0-A01 | R1-02 | Nine P0 stories require drafts, immutable versions, successors, and impact preview. |
 | EN-03 Immutable snapshots, content identity, and amendments | M0-A01, M0-A02 | R1-11d | Workforce, population, readiness, and engagement snapshots share one mechanism. |
 | EN-04 Attributable review and approval decisions | EN-01, M0-D03, M0-D23 | R1-02 | Approval of exact versions is needed before R2-05, which previously owned review. |
@@ -181,22 +202,22 @@ done.
 
 | Priority | Count | Scheduling meaning |
 | --- | ---: | --- |
-| P0 | 25 | Candidate first product release, delivered through dependency-ordered stories and slices. |
-| P1 | 20 | Product path after readiness proof or after required validation. |
-| P2 | 4 | Explicitly unscheduled hypotheses. |
+| P0 | 26 | Candidate first product release, delivered through dependency-ordered stories and slices. |
+| P1 | 27 | Product path after readiness proof, firm operations, or required validation. |
+| P2 | 5 | Explicitly unscheduled hypotheses. |
 
 | Evidence | Count |
 | --- | ---: |
-| Confirmed | 15 |
-| Derived | 30 |
-| Hypothesis | 4 |
+| Confirmed | 18 |
+| Derived | 35 |
+| Hypothesis | 5 |
 
 Counts above are user stories. Supporting issues are counted separately:
 
 | Issue type | Count | Priority mix |
 | --- | ---: | --- |
-| M0 product discovery | 24 | 18 P0, 4 P1, 2 P2 |
-| M0 architecture decision | 6 | 6 P0 |
+| M0 product discovery | 28 | 20 P0, 6 P1, 2 P2 |
+| M0 architecture decision | 7 | 7 P0 |
 | Enabler | 6 | 6 P0 |
 | Delivery slice | 29 | 29 P0 |
 
@@ -205,19 +226,20 @@ Counts above are user stories. Supporting issues are counted separately:
 The sequence follows the GitHub issue dependencies. Items in the same step have
 no dependency on one another and can proceed in parallel.
 
-0. Resolve the P0 discovery and architecture decisions: M0-D01 through M0-D15, M0-D22 through M0-D24, and M0-A01 through M0-A06. M0-D24 is a global readiness gate; each other blocked item waits only for its own blockers, so discovery and delivery otherwise overlap.
-1. Foundation enablers: EN-01, EN-02, and EN-03.
-2. Remaining enablers, program, and team: EN-04, EN-05, EN-06, R1-01, and R1-04 (R1-04a first, then R1-04b through R1-04e).
-3. Boundary, criteria, workforce, policies, and evidence: R1-02, R1-03, R1-11 (R1-11a first), R2-02, and R2-03.
-4. Controls, risks, applications, commitments, and policy communication: R1-05, R1-07, R1-10 (R1-10a first), R1-13, and R2-10.
-5. Mappings, technology inventory, providers, ownership and cadence, evaluation, and access review: R1-06, R1-12, R1-14, R2-01, R2-05 (R2-05a through R2-05c), and R2-06 (R2-06a first, R2-06b after R1-11).
-6. Adopt existing readiness work as its owning stories land: R1-09a (controls, mappings, and owners) after R1-06, and R1-09b (policies and evidence) after R2-02 and R2-03.
-7. Readiness, control performance, and accountable work: R1-08, R2-04, and R2-11.
-8. Findings and consultant collaboration: R2-07 and R2-08, then R2-05d, R1-09c (scope, inventories, risks, providers, and findings), and R1-09d (repeat import and readiness reconciliation).
-9. The Type I entry decision: R2-09.
+0. Resolve the P0 discovery and architecture decisions: M0-D01 through M0-D15, M0-D22 through M0-D25, M0-D28, and M0-A01 through M0-A07. M0-D24 is a global readiness gate; M0-D28 gates stories that create or import canonical entities; each other blocked item waits only for its own blockers, so discovery and delivery otherwise overlap.
+1. Foundation enablers: EN-01 (including tenant isolation), EN-02, and EN-03.
+2. Remaining enablers and the tenant boundary: EN-04, EN-05, EN-06, and R1-15.
+3. Program and team inside the client organization: R1-01 and R1-04 (R1-04a first, then R1-04b through R1-04e).
+4. Boundary, criteria, workforce, policies, and evidence: R1-02, R1-03, R1-11 (R1-11a first), R2-02, and R2-03.
+5. Controls, risks, applications, commitments, and policy communication: R1-05, R1-07, R1-10 (R1-10a first), R1-13, and R2-10.
+6. Mappings, technology inventory, providers, ownership and cadence, evaluation, and access review: R1-06, R1-12, R1-14, R2-01, R2-05 (R2-05a through R2-05c), and R2-06 (R2-06a first, R2-06b after R1-11).
+7. Adopt existing readiness work as its owning stories land: R1-09a (controls, mappings, and owners) after R1-06, and R1-09b (policies and evidence) after R2-02 and R2-03.
+8. Readiness, control performance, and accountable work: R1-08, R2-04, and R2-11.
+9. Findings and consultant collaboration: R2-07 and R2-08, then R2-05d, R1-09c (scope, inventories, risks, providers, and findings), and R1-09d (repeat import and readiness reconciliation).
+10. The Type I entry decision: R2-09.
 
 Adoption of the live readiness engagement therefore begins with the control
-inventory in step 6 rather than at program setup. Earlier record families can
+inventory in step 7 rather than at program setup. Earlier record families can
 be entered manually through their owning stories.
 
 Slice further only into outcome slices recorded as sub-issues of the owning
@@ -229,6 +251,17 @@ understood. Its blocking discovery and architecture decisions must be
 incorporated, and its upstream identities and records, downstream readiness and
 snapshot effects, authorization rules, history, failure behavior, and
 API-to-UI acceptance evidence must also be explicit in the issue.
+
+## F1 delivery sequence
+
+F1 is not part of the first release. It can proceed alongside T1 once its
+dependencies land:
+
+1. Firm engagements after R1-04, R1-15, EN-04, M0-D25, and M0-D26: F1-07.
+2. Independence walls and client identity federation: F1-08 and F1-06.
+3. Templates after R1-05 and R2-02, and the client portfolio after R1-08 and R2-11: F1-04 and F1-02.
+4. Cross-client work and the client lifecycle: F1-05 and F1-01.
+5. Capacity planning only if validated: F1-03.
 
 ## Validation queue before P2 work
 
@@ -242,3 +275,6 @@ Each queue item is tracked as an M0 discovery issue.
 6. Measure manual inventory, population, access, and evidence effort by source before prioritizing HRIS, Auth0, Entra, GitHub, cloud, MDM, or other connectors (M0-D20).
 7. Validate required control-matrix, system-description, assertion, representation-letter, population, sample, evidence-index, package, and delivery formats with the audit firm (M0-D17).
 8. If Privacy is selected, build and validate a separate personal-information-lifecycle backlog before claiming complete category support (M0-D01).
+9. Confirm the tenant boundary, who may create organizations, firm-owned material, and tenant vocabulary with firm leadership (M0-D25).
+10. Validate independence rules for advisory and attest services with the firm's independence or quality-management partner (M0-D26).
+11. Decide with the attest team whether the platform supports the firm's own examination workpapers (M0-D27).

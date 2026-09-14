@@ -7,6 +7,13 @@ Compliance product backlog. It is a product model, not a database schema or a
 commitment to separate services. The bounded contexts below should begin as
 cohesive modules inside the existing application.
 
+Canonical identity, workforce, access, application, device, infrastructure,
+and provenance terms are refined in
+[canonical-entity-model.md](canonical-entity-model.md) through M0-D28. Only
+public sources approved by
+[source-reference-policy.md](source-reference-policy.md) may shape that model;
+information without acceptable use rights is excluded.
+
 ## Modeling rules
 
 - Model the compliance process, not a collection of independent CRUD screens.
@@ -24,13 +31,16 @@ cohesive modules inside the existing application.
   auditor-authored material.
 - Use explicit domain workflows. A generic task list, activity stream, or audit
   log may summarize work, but it does not own the underlying business state.
+- Scope every business record to exactly one client organization (tenant).
+  Only explicitly platform-level content, such as criteria catalog editions and
+  firm templates, exists outside a tenant, and it never contains client data.
 
 ## Cohesive process spine
 
 The primary product flow is:
 
 ```text
-Organization and membership
+Client organization (tenant) and membership
   -> Program and system boundary
   -> Workforce, technology, information, and provider inventories
   -> Service commitments, system requirements, and risk assessment
@@ -57,7 +67,9 @@ microservices.
 
 | Context | Owns | Does not own |
 | --- | --- | --- |
-| Platform access | Organizations, members, teams, identity bindings, access roles, access grants | External accounts and entitlements being audited |
+| Platform access | Client organizations (tenants), platform users, members and affiliation, teams, identity bindings, access roles, access grants | External accounts and entitlements being audited |
+| Firm services | Service engagements, engagement acceptance, staff assignment, nonattest service records, independence rule sets and evaluations, advisory and attest compartments | Client management records or the firm's system of quality management |
+| Firm methodology | Platform-level templates, template versions, and template application provenance | Client-owned controls, policies, risks, or evidence created from templates |
 | Program and scope | Programs, stages, system boundaries, inclusions, exclusions, engagement plans | Criteria source content or control operation |
 | Workforce assurance | People, employment or engagement lifecycle facts, managers, workforce populations, NHI ownership | Platform access or provider accounts |
 | Application inventory | Applications, concrete reviewed-system instances, ownership, classification, lifecycle, review scope | Observed accounts, permissions, and campaign decisions |
@@ -96,9 +108,70 @@ and must be resolved before the stories that depend on them are ready:
 | Review and approval | Needed by many early workflows, while a universal `Review` aggregate is forbidden | M0-D23, EN-04 |
 | Readiness rules | Split across the readiness assessment, readiness snapshot, readiness projection, and management review | M0-D23 |
 | Accessibility and browser support | Every story requires accessible browser behavior, but the conformance target, assistive-technology baseline, and supported-browser policy are undecided | M0-D24 |
+| Firm-owned material inside a client tenant | With no firm entity, advisory working notes and any attest documentation have no owner outside the client organization, yet may need to survive client offboarding | M0-D25, M0-D27 |
+| "Tenant" and "organization" | APIs are proposed to use `tenant_id` while this model says organization | M0-D25 |
+| "Engagement" | The firm's service engagement (F1-07) differs from the client's Type I or Type II audit engagement | M0-D23, F1-07 |
 
 When a decision is made, update this document, the affected stories, and the
 issue, and remove the row.
+
+## Tenancy and firm services
+
+A small SOC 2 firm uses one deployment to serve many clients. Each client
+`Organization` is a tenant: the security, isolation, and ownership boundary for
+that client's program, people, inventories, evidence, decisions, and history.
+There is no firm entity. Revisit that choice if the platform must host more
+than one firm or if firm-level obligations cannot live inside client tenants
+(M0-D25).
+
+Platform-level content exists outside every tenant and is referenced by exact
+version: criteria catalog editions, firm templates (F1-04), and the firm-staff
+directory. A tenant may copy from platform-level content with provenance, but
+client data never flows back into it except through an explicit, reviewed,
+de-identified contribution.
+
+A `PlatformUser` is a person who can sign in. One `ExternalIdentity` (issuer
+plus subject) binds to one platform user, who may hold a `Member` record in
+several organizations. Each membership has an affiliation of client personnel or
+firm staff. A firm staff member's practice designation (advisory or attest) is
+recorded at the platform level, as defined in M0-D25.
+
+Every request, job, message, projection, and notification resolves exactly one
+active organization. The proposed routing, confirmed or amended by M0-A07, is:
+
+- after sign-in, a user is sent to their only organization, chooses among
+  several, or sees a no-access page; creating an organization is limited to
+  authorized users (R1-15, M0-D25);
+- browser routes identify the organization by a unique, URL-friendly slug;
+- organization-scoped APIs identify it by an opaque, immutable `tenant_id` path
+  parameter, and the server verifies membership for that `tenant_id` on every
+  request.
+
+A slug is an attribute, not an identity. It follows the rules in R1-15: 4 to 63
+lowercase letters, digits, and single inner hyphens, starting with a letter; no
+collision with the reserved-route registry of top-level server and client
+routes; never the `tenant_id` format; unique across current and retired slugs,
+with retired slugs never reassigned. An unknown slug and a slug the user cannot
+access produce the same not-found result.
+
+The firm provides advisory and attest services. A `ServiceEngagement` records a
+service the firm provides to one client organization, its type, scope, period,
+team, and acceptance decision (F1-07). It is distinct from the client's Type I
+or Type II audit engagement, whose auditor may be an external firm. Firm staff
+reach client records through engagement assignment.
+
+Independence walls (F1-08) are enforced platform behavior:
+
+- `NonattestServiceRecord` records advisory services performed for a client and
+  whether they involved management functions;
+- a versioned `IndependenceRuleSet` and an `IndependenceEvaluation` govern
+  whether an attest engagement or staff assignment may be accepted;
+- advisory and attest compartments inside a client organization limit which
+  team can see which material;
+- attest staff never author or approve the client's management records.
+
+The rules themselves require professional validation (M0-D26), and whether the
+firm's own attest workpapers belong in the platform is undecided (M0-D27).
 
 ## Identity has three planes
 
@@ -114,8 +187,8 @@ Authenticates the caller          Governs Compliance          Describes access u
 
 ### Authentication identity
 
-An `ExternalIdentity` is a binding between a provider identity and a platform
-member.
+An `ExternalIdentity` is a binding between a provider identity and a
+`PlatformUser`, who may hold memberships in several organizations.
 
 - Its stable provider key is issuer plus subject.
 - Email, display name, and claim values are descriptive and may change.
@@ -126,13 +199,13 @@ member.
 
 ### Platform membership and authorization
 
-An `Organization` is the initial security and ownership boundary. A `Program`
-belongs to an organization. The first release need not expose multiple
-workspaces, but the model must not merge organization membership with a single
-program.
+An `Organization` is the tenant: the security, isolation, and ownership
+boundary for one client. A `Program` belongs to exactly one organization. The
+model must not merge organization membership with a single program, and nothing
+from one organization is visible to another.
 
-A `Member` is an organization-local relationship for a person who can use
-Compliance. Its lifecycle is pending, active, suspended, or deprovisioned.
+A `Member` is an organization-local membership of a `PlatformUser`, with an
+affiliation of client personnel or firm staff. Its lifecycle is pending, active, suspended, or deprovisioned.
 Deprovisioning blocks new access immediately while preserving authorship,
 decisions, comments, and historical assignments.
 
@@ -413,7 +486,7 @@ decision recorded in M0.
 
 | Primitive | Enabler | Architecture decision | Model rules it enforces |
 | --- | --- | --- | --- |
-| Authorization, organization isolation, and `ActorReference` | EN-01 | M0-A04 | Server-enforced authorization; attribution to members or named system processes; restricted records absent from lists and counts |
+| Authorization, tenant isolation, and `ActorReference` | EN-01 | M0-A04, M0-A07 | Server-enforced authorization; exactly one resolved organization per request, job, and message; attribution to members or named system processes; restricted and other-tenant records absent from lists and counts |
 | Versions, effective intervals, and impact preview | EN-02 | M0-A01 | Drafts, immutable approved versions, successor proposals, effective history, and never-used-draft deletion |
 | Snapshots, content identity, and amendments | EN-03 | M0-A01, M0-A02 | Frozen snapshots unaffected by later changes; amendments linked to their originals |
 | Attributable decisions and separation of duties | EN-04 | — | A decision binds the exact input version, actor, time, and rationale. Each workflow keeps its own state machine; this is not a universal `Review` aggregate |
@@ -567,6 +640,9 @@ its downstream impact.
 
 - Platform authorization is enforced by the server for every command and query;
   client route guards are only a navigation aid.
+- Every organization-scoped command, query, artifact, job, message, projection,
+  search, export, and notification is scoped to one organization, and automated
+  cross-tenant leak tests prove it.
 - Every work assignment resolves to an active member or team and exposes
   orphaned work after membership changes.
 - Every access campaign starts from the governed application inventory and
@@ -610,7 +686,7 @@ tracked as an M0 discovery issue:
 
 | Decision | Tracked in |
 | --- | --- |
-| Whether one organization needs more than one collaboration workspace | M0-D03 |
+| Whether one client organization needs more than one collaboration workspace; multiple client organizations per deployment are required | M0-D03, M0-D25 |
 | Which built-in access roles are required and which actions each permits | M0-D03 |
 | Which small-team self-review exceptions are acceptable and who approves them | M0-D03 |
 | Whether IdP group mapping is required for the first release | M0-D03 |
@@ -630,3 +706,8 @@ tracked as an M0 discovery issue:
 | Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
 | The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 |
 | How persistence, snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A01 through M0-A06 |
+| The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | M0-D25 |
+| Independence rules for advisory and attest services | M0-D26 |
+| Whether the firm's own attest workpapers belong in the platform | M0-D27 |
+| Tenant resolution, slug and `tenant_id` routing, the reserved-route registry, and client identity federation | M0-A07 |
+| The complete canonical entity and relationship model, provider mappings, public sources, and acceptable-use decisions | M0-D28 |

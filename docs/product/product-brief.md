@@ -11,15 +11,32 @@ and intentional exclusions are recorded in [gap-analysis.md](gap-analysis.md).
 
 Compliance gives a founder or operator preparing for a SOC 2 audit one trustworthy workspace to define controls, operate them, manage policies and evidence, complete access reviews, close findings, and answer an auditor without reconstructing the story from spreadsheets and folders.
 
+The same platform lets a small SOC 2 firm run that workspace for many clients: each client organization is an isolated tenant, firm staff and client personnel collaborate inside it, and the firm can later manage its whole client portfolio from one place.
+
 ## First customer
 
 The first customer is a small compliance team preparing its own organization for SOC 2. One person may lead most of the program, but the work also involves control owners, managers, employees, a readiness advisor, and an external auditor.
 
 This is not initially a product for a large enterprise GRC department. It should remain direct enough for a founder or compliance lead while supporting real delegation, review, management approval, and separation of duties.
 
+## Firm operating model
+
+The platform is designed for a small SOC 2 firm that provides two kinds of service:
+
+- advisory services, such as readiness assessments, control design and implementation support, continuous compliance, and vCISO work, where each client's SOC 2 examination is performed by an external audit firm or, subject to independence rules, by our attest practice;
+- attest services, in which our own attest team examines a client's SOC 2 system description and controls.
+
+Because the firm provides both, independence walls are a product requirement. The platform must record which services the firm performs for each client, prevent attest work where advisory services impaired independence, and keep advisory and attest teams and material appropriately separated. The governing rules require professional review (M0-D26), and whether the firm's own attest workpapers belong in the platform is undecided (M0-D27).
+
+Each client organization is the only tenant; there is no separate firm entity. Firm staff are platform users with memberships in the client organizations they serve, and client personnel sign in to their own organization. What lives outside a tenant, such as templates and the firm-staff directory, is defined in M0-D25.
+
+The first release is tenant-ready rather than firm-complete. Tenant isolation, client-organization provisioning, and slug-based organization routes (M0-D25, M0-A07, EN-01, and R1-15) are required now. Firm operations, including the client portfolio, templates, cross-client work, client identity federation, service engagements, and independence enforcement, are planned in F1.
+
 ## Current real-world context
 
 The first customer is already in SOC 2 readiness with consultants and expects to move next into a SOC 2 Type I audit. Controls, policies, evidence, mappings, and findings may already exist in documents, spreadsheets, shared folders, and consultant work products.
+
+Under the firm operating model, that live engagement is the first client organization.
 
 The product must therefore be adoptable mid-readiness. It cannot assume a clean start or require the team to recreate completed work. The first proving ground is the live readiness engagement: bring the existing program into Compliance, use it to close readiness gaps with the consultants, and make the Type I entry decision from the resulting record.
 
@@ -59,7 +76,7 @@ The product should let the first customer:
 - History is part of the product. Corrections create new history rather than silently rewriting completed audit work.
 - Drafts are honest. Unvalidated mappings and incomplete materials are visible as drafts, never represented as authoritative.
 - The user owns the program. The application supports judgment and review; it does not issue an audit opinion.
-- Secure by default. Least privilege, workspace isolation, safe evidence handling, and delegated identity apply to every slice.
+- Secure by default. Least privilege, tenant isolation, safe evidence handling, and delegated identity apply to every slice. No client's records, counts, or existence are disclosed to another client.
 - Small-team simple. The default path is direct and usable by one operator, while roles support real collaboration.
 - Automation stays observable. Imported or collected evidence retains its source, capture time, status, and failures.
 - Framework content is governed. Criteria provenance, version, permitted use, and mapping review are explicit.
@@ -68,6 +85,7 @@ The product should let the first customer:
 
 The initial product journey is:
 
+0. Provision the client organization and bring the firm staff and client personnel who serve it into that tenant.
 1. Define the audit and system boundary.
 2. Establish the authoritative workforce context used to evaluate human and NHI ownership.
 3. Inventory applications, concrete reviewed systems, material technology, and information assets.
@@ -86,6 +104,13 @@ The initial product journey is:
 16. Support auditor requests, complete populations, samples, management sign-off, and outcomes.
 17. Produce an indexed audit package and roll the program forward.
 18. Automate repeatable inventory, access, and evidence collection after the manual workflow is trusted.
+
+For the firm, the later capabilities are:
+
+19. Onboard, suspend, and offboard client organizations with governed export and retention.
+20. See and work the client portfolio across organizations without cross-client disclosure.
+21. Apply the firm's templates to clients with provenance.
+22. Record every client service as an accepted advisory or attest engagement and enforce independence walls.
 
 ## Product journey
 
@@ -109,16 +134,22 @@ available to the team. Manual entry, file upload, and reviewed bulk import are
 acceptable. Provider integrations and broad framework coverage are not required
 before the core workflow is trustworthy.
 
+The release runs inside an isolated client organization reached through its
+slug-based routes. More than one client organization may exist, but firm
+portfolio, templates, cross-client work, client identity federation, and
+independence enforcement are not required until F1.
+
 ## Explicit early non-goals
 
-- issuing an audit opinion or guaranteeing SOC 2 compliance;
-- replacing the external auditor or readiness advisor;
+- generating an audit opinion from product data, deriving attest conclusions from readiness status, or guaranteeing SOC 2 compliance;
+- replacing an advisory client's external audit firm; support for our own attest workpapers is undecided (M0-D27);
 - replacing operational systems such as an HRIS, LMS, CMDB, MDM, ITSM,
   vulnerability scanner, SIEM, procurement system, or audit workpaper system;
 - storing passwords or becoming an identity provider;
 - supporting every compliance framework in the first release;
 - building integrations before the manual workflow and domain model are validated;
 - enterprise sales, billing, marketplace, or white-label capabilities;
+- hosting several independent firms; client organizations are the only tenant;
 - prescriptive AI-generated controls or mappings presented without human review.
 
 ## Candidate success measures
@@ -131,7 +162,9 @@ M0 must establish baselines and targets (M0-D18), but the product should ultimat
 - number and age of overdue control and remediation tasks;
 - percentage of access-review decisions with verified completion where action was required;
 - number of package validation errors at auditor handoff;
-- amount of parallel spreadsheet or drive tracking still required.
+- amount of parallel spreadsheet or drive tracking still required;
+- time to onboard a new client organization to a working program;
+- number of attempted independence conflicts blocked and exceptions approved.
 
 ## Open product decisions
 
@@ -149,7 +182,7 @@ its affected stories are scheduled.
 | Exact system boundary and subservice-organization treatment | M0-D01, M0-D11 |
 | The service commitments, system requirements, CUECs, and CSOCs applicable to the first engagement | M0-D09 |
 | Source, edition, and permitted use of SOC 2 criteria content | M0-D02 |
-| Single-workspace versus multi-workspace needs for the first release | M0-D03 |
+| Multiple client organizations per deployment are required; whether one client needs more than one workspace | M0-D03, M0-D25 |
 | Required roles and acceptable self-review exceptions for a small team | M0-D03 |
 | Authoritative sources for the application inventory and human identity roster | M0-D05, M0-D06 |
 | The first reviewed applications, source export formats, NHI classifications, and effective-access rules | M0-D07 |
@@ -162,14 +195,20 @@ its affected stories are scheduled.
 | How the readiness advisor and auditor want to review work in progress | M0-D14, M0-D17 |
 | The auditor's required control matrix, population, sample, package, assertion, representation-letter, and portal or workbook formats | M0-D17 |
 | Whether optional Availability, Processing Integrity, Confidentiality, or Privacy categories are in scope; Privacy requires additional validated lifecycle stories before complete product support is claimed | M0-D01 |
+| The tenant boundary, firm-staff affiliation, firm-owned material, who may create organizations, and tenant vocabulary | M0-D25 |
+| Independence rules for a firm that provides advisory and attest services | M0-D26 |
+| Whether the platform supports the firm's own attest workpapers | M0-D27 |
+| Tenant resolution, slug and `tenant_id` routing, reserved routes, and client identity federation | M0-A07 |
+| The complete canonical entity and relationship vocabulary, source mappings, and which public standards are usable in an Apache-2.0 product | M0-D28 |
 
 ## Release story
 
 | Milestone | User-visible outcome |
 | --- | --- |
-| M0 - Design and discovery | Every product and architecture decision blocking the first release is recorded, shared domain ownership is unambiguous, and blocked stories are refined. No business behavior ships in this milestone. |
+| M0 - Design and discovery | Every product and architecture decision blocking the first release is recorded, shared domain ownership is unambiguous, the canonical entity model is approved from usable public references, excluded sources contribute no product information, and blocked stories are refined. No business behavior ships in this milestone. |
 | R1 - Readiness program scoped | The team has an agreed boundary; workforce, application, technology, and information inventories; commitments; criteria; controls; risks; vendors; and an owned gap plan. |
 | R2 - Control environment implemented | Required controls and policies are implemented and evaluated, policies are communicated and acknowledged, evidence is captured with provenance and any undelivered evidence governance is an acknowledged gap, actual human and NHI access is reviewed, and accountable gaps support a Type I entry decision. |
 | T1 - SOC 2 Type I supported | The team can freeze the point-in-time scope, approve the system description and management representations, answer requests, provide a reproducible handoff, record the result, and create the Type II plan. |
 | T2 - SOC 2 Type II period operated | The team operates recurring controls, evidence, access reviews, governance reviews, and significant-change assessment while maintaining complete source populations and the system description. |
 | T3 - SOC 2 Type II examination supported | The period is frozen, complete populations and samples are traceable, management and auditor outputs remain distinct, the examination is supported, and the program rolls forward. |
+| F1 - Multi-client firm operations | The firm onboards and offboards clients, works its client portfolio and cross-client queue, applies templates with provenance, lets client users sign in through their own identity providers, and enforces independence between advisory and attest engagements. |

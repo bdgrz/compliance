@@ -1,0 +1,277 @@
+# Canonical entity model
+
+Status: proposed domain contract, 2026-09-14
+
+This document defines a provider-neutral vocabulary for people, organizations,
+workforce relationships, identities, accounts, applications, and access. It is
+a conceptual and interoperability model, not a database schema. It does not
+define aggregate roots, aggregate ownership, command boundaries, storage
+layout, or service boundaries; those are later design decisions.
+
+The model deliberately follows established standards where they define useful
+semantics:
+
+- SCIM 2.0 for provisioned users, enterprise-user attributes, groups, resource
+  identifiers, and lifecycle metadata;
+- OpenID Connect for authentication identity as an issuer and subject pair;
+- NIST RBAC for users, roles, permissions, assignments, hierarchies, and
+  separation-of-duty constraints;
+- W3C PROV for sources, observations, derivations, agents, and activities.
+
+No one standard covers the whole domain. The canonical model composes those
+standards without changing their meanings. Provider-specific objects and
+attributes remain source projections or namespaced extensions.
+
+Every standards claim in this model is governed by the
+[public source reference and standards-use policy](source-reference-policy.md).
+Only sources in its approved register may shape this model. Sources whose use
+has not been cleared for this Apache-2.0 product are excluded rather than used
+as informal inspiration.
+
+## Modeling principles
+
+1. A real person, their relationship to an organization, their login identity,
+   and each account they hold are different records.
+2. An application product and a deployable or reviewable instance of that
+   product are different records.
+3. Groups collect principals. Roles collect permissions. They are not synonyms.
+4. An entitlement describes access that can be granted. A grant records that
+   the access was assigned. Effective access is a derived, explainable path.
+5. Every canonical record has a platform-generated immutable ID. Source IDs,
+   email addresses, employee numbers, names, slugs, and usernames are alternate
+   identifiers or attributes, never canonical keys.
+6. Imported observations do not silently overwrite governed facts. Authority,
+   provenance, observed time, effective time, and reconciliation decisions are
+   explicit.
+7. Tenant ownership is explicit on every tenant-owned record and relationship.
+   Cross-tenant identity correlation never implies cross-tenant visibility.
+8. Standards-compatible does not mean copying an external JSON document into
+   the domain. Adapters preserve the source payload and map it to canonical
+   records with attributable decisions.
+
+## Canonical entity families
+
+### Parties and workforce
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `Organization` | A legal, business, or administrative organization. A client organization may also be the product tenant. | immutable ID, legal/display name, type, status, parent organization, alternate identifiers | SCIM enterprise `organization`; W3C PROV `Organization` |
+| `OrganizationalUnit` | A department, division, cost center, team-like business unit, or other node in an organization structure. It is not an access-control group. | organization, type, name, parent unit, effective interval, source identifiers | SCIM enterprise `organization`, `division`, `department`, and `costCenter`, normalized into governed records |
+| `Person` | A natural person, independent of employment, login, or account status. | names, contact points, locale/time zone, status, alternate identifiers | SCIM User name/contact shapes; W3C PROV `Person` |
+| `WorkRelationship` | A person's effective-dated employment, contract, internship, advisory, or other relationship with an organization. “Employee” is a person with an active employment relationship, not a subtype or duplicate person. | person, organization, worker type, employee number, start/end dates, status, manager relationship, organization units, job profile | SCIM EnterpriseUser attributes and manager relationship |
+| `JobProfile` | A governed job or position definition used for workforce classification and access expectations. | code, title, family, level, duties, organization applicability | Organization-owned reference data; not an authorization role |
+| `Responsibility` | Accountable work assigned to a person, organization unit, team, or platform member for a scope and interval. | assignee, responsibility type, governed object/scope, effective interval, source | Distinct from RBAC authorization; may use W3C PROV roles when attributing an activity |
+
+Do not store `Employee`, `Contractor`, or `Manager` as competing person types.
+Worker type belongs to `WorkRelationship`; management is an effective-dated
+relationship between work relationships. This supports rehire, simultaneous
+relationships, manager changes, and contractors who later become employees.
+
+### Identity and platform access
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `FederatedIdentity` | A subject asserted by an identity provider. | exact issuer, subject, provider, first/last observed, claims snapshot, optional person correlation | OpenID Connect `(iss, sub)`; email is not identity |
+| `PlatformUser` | The platform-local security subject to which sign-in identities bind. It exists even if identity providers change. | status, federated identities, optional person correlation | Local security subject; deliberately narrower than SCIM User |
+| `Membership` | A platform user's effective-dated affiliation with one tenant organization. | platform user, organization, affiliation, lifecycle, invitation/provisioning source | Tenant-local relationship; analogous to, but not represented as, a SCIM Group |
+| `Team` | A platform-managed collection used for work assignment or platform authorization. | organization, purpose, members, effective membership intervals | SCIM Group-shaped collection; semantics owned by Compliance |
+| `AccessRole` | A named bundle of platform permissions. | permission assignments, optional hierarchy, scope types, lifecycle | NIST Core and Hierarchical RBAC |
+| `Permission` | Approval to perform an operation on a class of platform object. | operation, object/resource type, constraints | NIST RBAC permission = operation plus object |
+| `RoleAssignment` | An effective-dated assignment of an access role to a platform user, membership, or team within a scope. | subject, role, scope, grantor/source, effective interval, revocation | NIST user-role assignment, extended with explicit tenant scope and history |
+| `SeparationOfDutyConstraint` | A static or dynamic constraint on role assignment, activation, or a consequential workflow decision. | conflicting roles/actions, cardinality, scope, exception authority | NIST static and dynamic separation of duty |
+
+Platform roles authorize actions in Compliance. They must not be reused for job
+profiles, provider roles observed during an access review, or responsibilities
+such as control owner and policy approver.
+
+### Applications, systems, and resources
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `Application` | A logical software product or service the organization uses, develops, or supplies. | canonical name, description, delivery model, publisher/provider, business owner, lifecycle, criticality, classifications | IT/application portfolio concept; no broadly adopted interchange standard fully defines this inventory |
+| `SystemInstance` | A concrete deployable, administrative, tenancy, account, subscription, or environment boundary of an application. This replaces ambiguous uses of `ReviewedSystem`. | application, environment, owning organization, operator/provider, region, source identifiers, lifecycle | Provider-neutral configuration-item pattern; SCIM service-provider boundary where applicable |
+| `Resource` | An object or resource collection protected by a system instance. | system instance, type, parent resource, source identifiers, sensitivity, lifecycle | NIST RBAC object; provider-specific resource kinds remain extensions |
+| `IntegrationEndpoint` | A configured connection through which the platform observes or manages a system instance. | system instance, connector type/version, authority, capabilities, health, credential reference | Operational integration record, not the system itself |
+
+`Application` answers “what software or service is this?” `SystemInstance`
+answers “which concrete boundary are we inventorying or reviewing?” An access
+campaign targets one or more system instances; `reviewed` is a campaign or scope
+state, not an entity type.
+
+### Devices and infrastructure
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `Device` | Independently managed physical equipment or appliance, such as a server, switch, router, firewall, endpoint, phone, printer, or storage appliance. | device kind, manufacturer, model, serial and asset identifiers, owner, custodian, location, lifecycle, management state | IETF hardware model and BSD-licensed Redfish schemas |
+| `DeviceComponent` | A physical component contained by a device. | device, component class, parent component, manufacturer, model, serial number, firmware, state | IETF RFC 8348 hardware component and IANA hardware classes |
+| `ComputeInstance` | A logical compute environment such as a virtual machine, bare-metal OS instance, container host, or material serverless environment. | host, provider identifiers, environment, operating system, lifecycle, state | BSD-licensed Redfish computer-system schema where applicable; otherwise original provider-neutral vocabulary |
+| `NetworkInterface` | A physical or logical network attachment belonging to a device or compute instance. | parent, interface type, source identifiers, MAC addresses, administrative and operational state | IETF hardware model and BSD-licensed Redfish interface schemas |
+| `Network` | A governed logical network, segment, or zone. | environment, prefixes, classification, owner, lifecycle | IETF network-management concepts; provider-neutral inventory projection |
+| `NetworkConnection` | A declared or observed topology relationship between interfaces or network endpoints. | typed endpoints, source, effective/observed interval, state | Relationship derived from network-management sources |
+| `SoftwareInstallation` | An effective-dated relationship showing software or firmware installed on a device, component, or compute instance. | installation target, application or software release, version, source, observed/effective interval | Software inventory relationship; source-specific package identifiers remain extensions |
+
+A physical server or switch is a `Device`; a virtual machine is a
+`ComputeInstance`; software is an `Application`; and a concrete deployed
+application boundary remains a `SystemInstance`. Hosting, installation, and
+network topology are relationships among those independently identified
+entities.
+
+### External identity and access
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `Account` | A system-local identity record that may authenticate or receive access. | system instance, immutable source ID, username, account type, enabled state, lifecycle timestamps, optional subject correlation | SCIM User resource and common IAM account semantics |
+| `ServiceIdentity` | A governed non-human subject such as a workload, service, automation, bot, or integration. | type, purpose, owning organization, accountable owner, environment, lifecycle, review/expiry dates | NIST user may represent a human or machine; provider workload/service-principal types map here when they represent the subject |
+| `Group` | A source-system collection of accounts, groups, or other principals. | system instance, immutable source ID, display name, type, lifecycle | SCIM Group, including nested membership |
+| `GroupMember` | One direct group-to-member relationship. | group, typed member reference, membership kind, source, effective/observed interval, lifecycle | SCIM Group `members`; nesting is explicit rather than flattened |
+| `Role` | A source-system role: a named collection of entitlements or permissions. | system instance, source ID, role type, hierarchy, lifecycle | NIST RBAC role |
+| `Entitlement` | A grantable access right exposed by a system, including a permission, license, group-membership right, permission set, or application role. | system instance, type, source ID, display name, privilege/sensitivity, resource scope | SCIM `entitlements` and `roles` as attributes; NIST RBAC permission where operation/object semantics are known |
+| `RoleEntitlement` | A role-to-entitlement assignment. | role, entitlement, source, effective/observed interval | NIST permission-role assignment |
+| `AccessAssignment` | A direct observed assignment of a group, role, or entitlement to an account or service identity, optionally scoped to a resource. | grantee, access item, resource, assignment mechanism, source, effective/observed interval | NIST user-role assignment and provider ACL/grant models |
+| `EffectiveAccess` | A derived result explaining that a subject or account can exercise an entitlement over a resource. It is a snapshot/projection, not mutable source truth. | subject/account, entitlement, resource, derivation time, complete grant path, source snapshot | NIST authorization result; graph-derived extension needed for real provider data |
+
+`Principal` may be used as a union type in APIs and relationship definitions,
+not as a persisted catch-all entity. Its permitted variants should be explicit,
+for example `Account | ServiceIdentity | Group` for a `GroupMember` relationship and
+assignment. A provider “service principal” commonly produces both a source
+`Account`-like object and a correlation to a governed `ServiceIdentity`.
+
+`Group` and `GroupMember` are distinct entity types. `GroupMember` references
+one group and one allowed member variant, normally `Account | Group` and,
+where a source supports it, `ServiceIdentity`. Nested groups are direct
+group-to-group relationships. `EffectiveGroupMember` is a derived transitive
+relationship that retains the complete path. Whether `GroupMember` is later
+placed inside a `Group` aggregate is deliberately unspecified here.
+
+### Governance, observation, and history
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `SourceSystem` | A named producer of source records. | provider, instance/tenant, authority by field or question | Supports W3C PROV agent/source attribution |
+| `ExternalIdentifier` | A typed identifier assigned to a canonical entity by a source or namespace. | entity, source system, namespace, value, validity interval | SCIM `id` is service-provider-issued; `externalId` is client-issued |
+| `Observation` | An immutable assertion made by a source about an entity or relationship at a time. | source, source record ID/version, observed time, payload identity, normalized assertions | W3C PROV Entity generated by an Activity and attributed to an Agent |
+| `Correlation` | An attributable assertion that two records represent or relate to the same governed subject, with confidence and status. | left/right records, method, confidence, decision, actor, time | Explicit reconciliation extension; never inferred solely from email or display name |
+| `Snapshot` | An immutable set of records and relationships used for a campaign, decision, or audit period. | definition, cutoff/as-of time, source completeness, content identity, rows, amendment chain | W3C PROV collection/derivation concepts |
+
+All records use both transaction and valid-time concepts where the distinction
+matters:
+
+- `effective_from` / `effective_to`: when the fact is true in the business or
+  source system;
+- `observed_at`: when Compliance learned it;
+- `recorded_at`: when Compliance persisted it;
+- `superseded_at`: when a governed successor replaced it.
+
+## Relationship spine
+
+```text
+Person --< WorkRelationship >-- Organization --< OrganizationalUnit
+   |
+   +--? FederatedIdentity >-- PlatformUser --< Membership >-- Organization
+   |                                  |
+   |                                  +--< RoleAssignment >-- AccessRole --< Permission
+   |
+   +--? correlation -- Account >-- SystemInstance >-- Application
+                              |             |
+ServiceIdentity --?-----------+             +--< Resource
+                              +--< GroupMember >-- Group
+                              +--< AccessAssignment >-- Role / Entitlement / Group
+                                                        |
+                                                        +-- EffectiveAccess (derived path)
+```
+
+The `?` edges are optional correlations, not ownership. A person can exist with
+no login or external account. An account may be shared, unresolved, or non-human
+and therefore have no person correlation. A platform user can participate in
+several tenants, while workforce relationships remain organization-specific.
+
+## Required invariants
+
+- `FederatedIdentity` is unique by exact `(issuer, subject)`.
+- `Account`, `Group`, `Role`, `Entitlement`, and `Resource` are unique by
+  `(system_instance_id, source_object_type, immutable_source_id)`.
+- A `Membership` references exactly one platform user and one tenant
+  organization; disabling a workforce relationship does not silently mutate it.
+- A `WorkRelationship` references one person and one organization and may not
+  use email as either identity.
+- A manager relationship connects workforce relationships valid in compatible
+  organization and time scopes; it does not make “manager” a person type.
+- A group may contain only the principal variants supported by its source.
+  Cycles and incomplete nested expansion are recorded, not discarded.
+- A role contains entitlements; a group contains principals. If a provider uses
+  one object for both, the adapter emits both facets linked to the same source
+  object rather than weakening the canonical meanings.
+- Direct assignment and inherited/effective access are never stored as the same
+  fact. Every effective-access row retains all contributing edges.
+- Deletion or absence in a source import becomes a tombstone or reconciliation
+  state until source completeness and lifecycle policy authorize retirement.
+- Historical decisions retain stable entity IDs plus display snapshots. Later
+  renames, correlations, or deprovisioning do not rewrite attribution.
+
+## Mapping common source terms
+
+| Source term | Canonical mapping | Notes |
+| --- | --- | --- |
+| SCIM `User` | `Account`; optionally correlate to `Person` or `ServiceIdentity` | SCIM describes a service-provider user resource, not the universal person record |
+| SCIM EnterpriseUser | `WorkRelationship` plus organization-unit relationships | Preserve the original SCIM resource and manager reference as observation provenance |
+| SCIM `Group` | `Group` plus direct `GroupMember` relationships | Do not flatten nested groups on ingestion |
+| OIDC ID Token subject | `FederatedIdentity` | Key by exact issuer and subject; claims are observed attributes |
+| Entra user | `Account`, optionally correlated to `Person` | Tenant/object ID is the source identity; UPN/email is mutable |
+| Entra service principal | source `Account` facet correlated to `ServiceIdentity` | App registration/product identity and tenant-local service principal must remain distinct |
+| AWS IAM user | `Account` | Account is not presumed human |
+| AWS IAM role | `Role`; trust/assumption edges map to assignments or policies | Role session observations do not create new people |
+| GitHub organization | `SystemInstance` | A GitHub user is an `Account`; teams are `Group`; repository roles/permissions are entitlements scoped to `Resource` |
+| SaaS product catalog entry | `Application` | Each customer tenant, organization, or environment is a `SystemInstance` |
+| HRIS employee | `Person` plus `WorkRelationship` | Employee number is a source-scoped external identifier |
+| Compliance control owner | `Responsibility` | It is neither a job profile nor an access role |
+
+## Extension policy
+
+The canonical core changes only when a concept has stable cross-provider
+semantics and at least two real consumers. Otherwise use one of these extension
+points:
+
+1. source payload retained immutably on the `Observation`;
+2. namespaced source attributes, such as `entra:accountEnabled`;
+3. a typed provider facet linked to a canonical entity;
+4. a governed classification or tag whose vocabulary and owner are explicit.
+
+Extensions must not redefine canonical IDs, overload lifecycle state, turn a
+derived fact into source truth, or bypass tenant and provenance rules.
+
+## Adoption in the existing domain model
+
+Use these replacements and clarifications when resolving M0-D22:
+
+| Existing term | Canonical treatment |
+| --- | --- |
+| `Person` | Keep; add `WorkRelationship` rather than employment fields directly on the person |
+| human `AccessSubject` | Remove as a duplicate entity; use `Person` correlated to one or more `Account` records |
+| NHI `AccessSubject` | Rename to `ServiceIdentity` |
+| `DirectoryPrincipal` with kind account | `Account` |
+| `DirectoryPrincipal` with kind group | `Group` |
+| `DirectoryPrincipal` with kind role | `Role` |
+| `DirectoryPrincipal` with workload/service kind | Source account facet correlated to `ServiceIdentity` |
+| `ReviewedSystem` | Rename to `SystemInstance`; review inclusion belongs to scope/campaign records |
+| `ExternalAccessGrant` | Rename to `AccessAssignment` for observed direct edges; use `EffectiveAccess` for derived paths |
+| `Member` | Rename to `Membership` to make its relationship semantics explicit |
+| `Team` | Keep as a platform-managed collection, separate from external `Group` |
+| `AccessRole` | Keep for Compliance authorization, separate from external `Role` |
+| `Application` | Keep; define it as the logical product/service above its system instances |
+
+Migration should be semantic before it is physical: update the glossary and
+acceptance criteria first, then introduce persistence/API representations. Do
+not rename existing data structures until adapters and history-preserving data
+migrations are defined.
+
+## Standards references
+
+- [RFC 7643: SCIM Core Schema](https://www.rfc-editor.org/rfc/rfc7643)
+- [RFC 7644: SCIM Protocol](https://www.rfc-editor.org/rfc/rfc7644)
+- [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)
+- [NIST Role-Based Access Control](https://csrc.nist.gov/projects/role-based-access-control)
+- [NIST SP 800-162: Attribute Based Access Control](https://csrc.nist.gov/pubs/sp/800/162/upd2/final)
+- [W3C PROV Overview](https://www.w3.org/TR/prov-overview/)
+- [W3C PROV-O](https://www.w3.org/TR/prov-o/)
+- [RFC 8348: A YANG Data Model for Hardware Management](https://www.rfc-editor.org/rfc/rfc8348)
+- [DMTF Redfish schema index](https://redfish.dmtf.org/redfish/schema_index)
