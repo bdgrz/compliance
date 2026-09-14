@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <PublishAot>true</PublishAot>
-    <RuntimeIdentifiers>linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <PublishAot Condition="'$(PublishAot)' == ''">false</PublishAot>
     <DefaultItemExcludes>$(DefaultItemExcludes);ClientApp/**</DefaultItemExcludes>
   </PropertyGroup>
 

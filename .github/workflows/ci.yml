@@ -60,7 +60,7 @@ jobs:
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 
       - name: Start Fitz and Sqrzl
-        run: docker compose up --detach sqrzl fitz
+        run: docker compose up --detach storage broker
 
       - name: Test with real broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
@@ -107,7 +107,7 @@ jobs:
       - name: Start native dependencies
         env:
           COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
-        run: docker compose up --detach sqrzl fitz
+        run: docker compose up --detach storage broker
 
       - name: Exercise standalone, API, and worker modes
         env:
@@ -123,7 +123,7 @@ jobs:
               --publish "127.0.0.1:${port}:8080" \
               --env ASPNETCORE_ENVIRONMENT=Development \
               --env COMPLIANCE_HOST_MODE="$mode" \
-              --env Fitz__Endpoint=ws://fitz:4090/ws \
+              --env Fitz__Endpoint=ws://broker:4090/ws \
               --env Fitz__ApplicationName="compliance-${mode}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
               compliance:native-test
 
@@ -146,7 +146,7 @@ jobs:
           docker run --detach --name compliance-worker --network "$network" \
             --env DOTNET_ENVIRONMENT=Development \
             --env COMPLIANCE_HOST_MODE=worker \
-            --env Fitz__Endpoint=ws://fitz:4090/ws \
+            --env Fitz__Endpoint=ws://broker:4090/ws \
             --env Fitz__ApplicationName="compliance-worker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             compliance:native-test
           sleep 5

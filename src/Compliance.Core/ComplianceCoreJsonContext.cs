@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cntryl.Portia;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Bdgrz.Compliance;
 
@@ -9,11 +8,9 @@ namespace Bdgrz.Compliance;
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
-[JsonSerializable(typeof(ComplianceAuthenticationClientConfiguration))]
 [JsonSerializable(typeof(RegisterDeveloperUser))]
 [JsonSerializable(typeof(RegisterOidcUser))]
 [JsonSerializable(typeof(RegisteredUserIdentity))]
+[JsonSerializable(typeof(UserIdentityRegistered))]
 [JsonSerializable(typeof(string))]
-[JsonSerializable(typeof(BrowserSession))]
-[JsonSerializable(typeof(ProblemDetails))]
-sealed partial class ComplianceJsonContext : JsonSerializerContext;
+sealed partial class ComplianceCoreJsonContext : JsonSerializerContext;
