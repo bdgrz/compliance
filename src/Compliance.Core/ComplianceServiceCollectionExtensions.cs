@@ -14,13 +14,19 @@ public static class ComplianceServiceCollectionExtensions
     /// </summary>
     public static PortiaBuilder AddCompliance(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool developerAuthentication = false)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
+        services.AddScoped<UserIdentityRegistration>();
+
         return services
             .AddPortia()
+            .AddRequestHandler<RegisterDeveloperUserHandler>()
+            .AddRequestHandler<RegisterOidcUserHandler>()
             .AddFitz(configuration.GetSection("Fitz"));
     }
 }

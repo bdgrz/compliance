@@ -114,6 +114,40 @@ public sealed class ComplianceAuthenticationSettingsTests
         Assert.Throws<InvalidOperationException>(action);
     }
 
+    [Fact]
+    public void ShouldEnableDevelopmentModeGivenExplicitEnvironmentFlag()
+    {
+        // Arrange
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["BDGRZ_DEVELOPER_AUTH"] = "true",
+        });
+
+        // Act
+        var settings = ComplianceAuthenticationSettings.Resolve(configuration, isDevelopment: true);
+
+        // Assert
+        Assert.Null(settings);
+    }
+
+    [Fact]
+    public void ShouldRejectDevelopmentFlagOutsideDevelopment()
+    {
+        // Arrange
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["BDGRZ_DEVELOPER_AUTH"] = "true",
+        });
+
+        // Act
+        Action action = () => _ = ComplianceAuthenticationSettings.Resolve(
+            configuration,
+            isDevelopment: false);
+
+        // Assert
+        Assert.Throws<InvalidOperationException>(action);
+    }
+
     static Dictionary<string, string?> ValidExternalValues() => new()
     {
         ["Compliance:Authentication:Mode"] = "External",

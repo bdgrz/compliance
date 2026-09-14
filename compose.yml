@@ -11,11 +11,11 @@ x-app-environment: &app-environment
   ASPNETCORE_ENVIRONMENT: Development
   DOTNET_ENVIRONMENT: Development
   ASPNETCORE_HTTP_PORTS: "8080"
-  # Local Compose uses the explicit development-only bypass. Set ASPNETCORE_ENVIRONMENT
+  # Local Compose uses explicit development-only registration auth. Set ASPNETCORE_ENVIRONMENT
   # to Production and configure the provider-neutral external settings for deployment.
-  Compliance__Authentication__Mode: Development
+  BDGRZ_DEVELOPER_AUTH: "true"
   Fitz__Endpoint: ws://broker:4090/ws
-  Fitz__ApplicationName: compliance
+  Fitz__ApplicationName: bdgrz
   Fitz__StartupTimeoutSeconds: "30"
 
 x-app-common: &app-common

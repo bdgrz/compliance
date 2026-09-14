@@ -18,6 +18,9 @@ const HomePage = lazy(() =>
 const LoginPage = lazy(() =>
   import('./login.js').then((module) => module.LoginPage)
 );
+const RegistrationPage = lazy(() =>
+  import('./register.js').then((module) => module.RegistrationPage)
+);
 const NotFoundPage = lazy(() =>
   import('./not-found.js').then((module) => module.NotFoundPage)
 );
@@ -26,13 +29,14 @@ export const pageRegistry = createRouteRegistry(
   () => {
     group({ layout: PageLayout }, () => {
       route('/login', LoginPage, { auth: requireAnonymous() });
+      route('/register', RegistrationPage, { auth: requireAnonymous() });
       route('/auth/callback', AuthenticationCallbackPage);
 
       group({ auth: requireUser() }, () => {
         route('/', HomePage, {
           meta: {
-            title: 'Compliance',
-            description: 'Compliance operations and evidence workspace.',
+            title: 'Badgers - The Compliance Platform',
+            description: 'Badgers - The Compliance Platform',
             html: { lang: 'en', dir: 'ltr' },
           },
         });

@@ -27,7 +27,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldReturnProblemDetailsInsteadOfSpaGivenUnknownApiRouteInDevelopment()
+    public async Task ShouldChallengeUnknownApiRouteInDevelopmentWithoutSession()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Development");
@@ -35,13 +35,8 @@ public sealed class ComplianceWebTests
 
         // Act
         using var response = await client.GetAsync("/api/missing", CancellationToken.None);
-        var body = await response.Content.ReadFromJsonAsync<ProblemDetailsDocument>(
-            CancellationToken.None);
-
         // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal(404, body?.Status);
-        Assert.False(string.IsNullOrWhiteSpace(body?.TraceId));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -55,12 +50,14 @@ public sealed class ComplianceWebTests
         using var index = await client.GetAsync("/index.html", CancellationToken.None);
         using var response = await client.GetAsync("/controls/example", CancellationToken.None);
         using var callback = await client.GetAsync("/auth/callback", CancellationToken.None);
+        using var registration = await client.GetAsync("/register?returnUrl=%2Fcontrols", CancellationToken.None);
         var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, index.StatusCode);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(HttpStatusCode.OK, callback.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, registration.StatusCode);
         Assert.Contains("<div id=\"app\"></div>", body, StringComparison.Ordinal);
     }
 
@@ -80,6 +77,7 @@ public sealed class ComplianceWebTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(body);
         Assert.True(body.Enabled);
+        Assert.False(body.DeveloperRegistrationEnabled);
         Assert.Equal("https://issuer.example/", body.Issuer);
         Assert.Equal("compliance-spa", body.ClientId);
         Assert.Equal(["openid", "profile"], body.Scopes);
@@ -96,11 +94,13 @@ public sealed class ComplianceWebTests
         using var liveness = await client.GetAsync("/health/live", CancellationToken.None);
         using var readiness = await client.GetAsync("/health/ready", CancellationToken.None);
         using var openApi = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        var openApiDocument = await openApi.Content.ReadAsStringAsync(CancellationToken.None);
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, liveness.StatusCode);
         Assert.Equal(HttpStatusCode.OK, readiness.StatusCode);
         Assert.Equal(HttpStatusCode.OK, openApi.StatusCode);
+        Assert.Contains("/api/v1/developer-user-identities", openApiDocument, StringComparison.Ordinal);
     }
 
     static WebApplicationFactory<Program> CreateBrokerFreeFactory(string environment) =>
@@ -114,6 +114,7 @@ public sealed class ComplianceWebTests
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
             builder.UseSetting("Compliance:Authentication:ClientId", "compliance-spa");
             builder.UseSetting("Compliance:Authentication:Scopes", "openid profile");
+            builder.UseSetting("BDGRZ_SESSION_SIGNING_KEY", "bdgrz-test-session-signing-key-000001");
             builder.UseSetting("Fitz:Endpoint", "ws://127.0.0.1:4090/ws");
             builder.UseSetting("Fitz:ApplicationName", "compliance-tests");
             builder.ConfigureServices(services =>
@@ -131,12 +132,10 @@ public sealed class ComplianceWebTests
             });
         });
 
-    sealed record ProblemDetailsDocument(
-        int Status,
-        [property: JsonPropertyName("trace_id")] string TraceId);
-
     sealed record AuthenticationConfigurationDocument(
         bool Enabled,
+        [property: JsonPropertyName("developer_registration_enabled")]
+        bool DeveloperRegistrationEnabled,
         string? Issuer,
         [property: JsonPropertyName("client_id")] string? ClientId,
         string[] Scopes);
