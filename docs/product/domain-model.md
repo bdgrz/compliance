@@ -1,6 +1,6 @@
 # Compliance domain model
 
-Status: working product and domain contract
+Status: working product and domain contract, updated 2026-09-14
 
 This document defines the shared language and relationships used by the
 Compliance product backlog. It is a product model, not a database schema or a
@@ -75,6 +75,30 @@ microservices.
 Cross-context references use stable identities and explicit versions or
 snapshots when history matters. One context must not silently mutate another
 context's aggregate.
+
+### Unresolved ownership
+
+The 2026-09-14 backlog design review found concepts that this model and the
+backlog assign to more than one owner, or to none. They remain open decisions
+and must be resolved before the stories that depend on them are ready:
+
+| Concern | Conflict | Decision |
+| --- | --- | --- |
+| `ReviewedSystem` | Listed under both Application inventory and External access governance | M0-D22 |
+| `AccessSubject` and `Person` | R2-06 imports an access-subject roster with employment status and manager, duplicating the workforce roster in R1-11 | M0-D22 |
+| NHI records | Workforce assurance owns NHI ownership, but the NHI `AccessSubject` is first created by access governance | M0-D22 |
+| Service, location, and process | Referenced by the boundary, commitments, providers, and system description, but not defined by any context | M0-D22 |
+| Incident reference | Used by risk reassessment in readiness, but defined only for the Type II period | M0-D22 |
+| Control-to-risk relationship | Could belong to control applicability or to risk treatment | M0-D22 |
+| Gap, finding, deviation, and coverage gap | Readiness gaps, findings, evaluation deviations, and provider coverage gaps overlap | M0-D23 |
+| "Exception" | Means both an approved waiver and an auditor-identified test exception | M0-D23 |
+| Risk acceptance | Owned by both risk treatment and findings | M0-D23 |
+| Review and approval | Needed by many early workflows, while a universal `Review` aggregate is forbidden | M0-D23, EN-04 |
+| Readiness rules | Split across the readiness assessment, readiness snapshot, readiness projection, and management review | M0-D23 |
+| Accessibility and browser support | Every story requires accessible browser behavior, but the conformance target, assistive-technology baseline, and supported-browser policy are undecided | M0-D24 |
+
+When a decision is made, update this document, the affected stories, and the
+issue, and remove the row.
 
 ## Identity has three planes
 
@@ -380,6 +404,25 @@ reason, and destination for navigation, notification, and escalation. Completing
 or reassigning work invokes the source workflow; it cannot independently claim
 that a control, review, request, or remediation is complete.
 
+## Shared platform primitives
+
+Some mechanisms are shared by every bounded context. They are delivered once,
+as approved enablers in [backlog.md](backlog.md), and consuming stories must
+not build feature-local substitutes. Each is grounded in an architecture
+decision recorded in M0.
+
+| Primitive | Enabler | Architecture decision | Model rules it enforces |
+| --- | --- | --- | --- |
+| Authorization, organization isolation, and `ActorReference` | EN-01 | M0-A04 | Server-enforced authorization; attribution to members or named system processes; restricted records absent from lists and counts |
+| Versions, effective intervals, and impact preview | EN-02 | M0-A01 | Drafts, immutable approved versions, successor proposals, effective history, and never-used-draft deletion |
+| Snapshots, content identity, and amendments | EN-03 | M0-A01, M0-A02 | Frozen snapshots unaffected by later changes; amendments linked to their originals |
+| Attributable decisions and separation of duties | EN-04 | — | A decision binds the exact input version, actor, time, and rationale. Each workflow keeps its own state machine; this is not a universal `Review` aggregate |
+| Import batches, reconciliation, and replay | EN-05 | M0-A06 | Preview, explicit acceptance, partial-failure semantics, provenance, tombstones, and safe replay |
+| Artifact storage and content identity | EN-06 | M0-A03 | Immutable content identity, quarantine, derived artifacts, and per-artifact access |
+
+Read models such as readiness and accountable work follow M0-A05: they are
+projections that reconcile to source records and show their as-of time.
+
 ## Core record relationships
 
 ### Program and engagement
@@ -562,37 +605,28 @@ its downstream impact.
 
 ## Initial open decisions
 
-These remain product decisions rather than implementation guesses:
+These remain product decisions rather than implementation guesses. Each is
+tracked as an M0 discovery issue:
 
-- whether one organization needs more than one collaboration workspace;
-- which built-in access roles are required and which actions each permits;
-- which small-team self-review exceptions are acceptable and who approves them;
-- whether IdP group mapping is required for the first release;
-- how invitations work for providers that do not support application-managed
-  invitations;
-- the authoritative workforce source, minimum worker attributes, privacy
-  boundary, and joiner, mover, or leaver observation rules;
-- the minimum system-component, information-asset, classification, and data-flow
-  inventory needed for the first approved boundary and system description;
-- which customer commitments, system requirements, CUECs, and CSOCs apply and
-  who approves them;
-- the risk scoring or qualitative method, risk appetite, acceptance authority,
-  and material-vendor threshold;
-- the first vendor-assessment evidence set and treatment of SOC report coverage
-  gaps, bridge letters, exceptions, and subservice organizations;
-- retention, deletion, legal hold, backup, and recovery rules for identity and
-  evidence records;
-- which external principal and entitlement shapes are required by the first
-  real access-review population;
-- which source is authoritative for people, employment status, managers, and
-  non-human identity ownership;
-- how detailed initial access expectations must be and whether reusable access
-  profiles emerge from the first real campaigns;
-- how nested groups and provider-specific effective-access calculations should
-  be represented for the first reviewed applications;
-- whether advisors or auditors use scoped platform membership or a handoff-only
-  workflow;
-- the audit firm's required population definitions, reconciliation fields,
-  sample identifiers, package shape, and representation-letter workflow;
-- whether an optional Trust Services category requires category-specific
-  workflows beyond the shared control and evidence model.
+| Decision | Tracked in |
+| --- | --- |
+| Whether one organization needs more than one collaboration workspace | M0-D03 |
+| Which built-in access roles are required and which actions each permits | M0-D03 |
+| Which small-team self-review exceptions are acceptable and who approves them | M0-D03 |
+| Whether IdP group mapping is required for the first release | M0-D03 |
+| How invitations work for providers that do not support application-managed invitations | M0-D03 |
+| The authoritative workforce source, minimum worker attributes, privacy boundary, and joiner, mover, or leaver observation rules | M0-D06 |
+| The minimum system-component, information-asset, classification, and data-flow inventory needed for the first approved boundary and system description | M0-D08 |
+| Which customer commitments, system requirements, CUECs, and CSOCs apply and who approves them | M0-D09 |
+| The risk scoring or qualitative method, risk appetite, acceptance authority, and material-vendor threshold | M0-D10, M0-D11 |
+| The first vendor-assessment evidence set and treatment of SOC report coverage gaps, bridge letters, exceptions, and subservice organizations | M0-D11 |
+| Retention, deletion, legal hold, backup, and recovery rules for identity and evidence records | M0-D16, M0-A01, M0-A03 |
+| Which external principal and entitlement shapes are required by the first real access-review population | M0-D07 |
+| Which source is authoritative for people, employment status, managers, and non-human identity ownership | M0-D06 |
+| How detailed initial access expectations must be and whether reusable access profiles emerge from the first real campaigns | M0-D07 |
+| How nested groups and provider-specific effective-access calculations should be represented for the first reviewed applications | M0-D07 |
+| Whether advisors or auditors use scoped platform membership or a handoff-only workflow | M0-D14, M0-D17 |
+| The audit firm's required population definitions, reconciliation fields, sample identifiers, package shape, and representation-letter workflow | M0-D17 |
+| Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
+| The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 |
+| How persistence, snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A01 through M0-A06 |
