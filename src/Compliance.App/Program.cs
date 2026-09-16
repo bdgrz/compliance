@@ -30,14 +30,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     // AddPortia returns the same builder and lets this host contribute its generated JSON context.
     var httpPortia = builder.Services.AddPortia().AddHttp();
     builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<RegistrationSessionCookie>();
+    builder.Services.AddScoped<UserSessionCookie>();
     if (developerAuthentication)
     {
-        _ = httpPortia.AddRequestPipelineBehavior<DeveloperRegistrationSessionBehavior>(order: 1000);
+        _ = httpPortia.AddRequestPipelineBehavior<DeveloperIdentityContinuationSessionBehavior>(order: 1000);
     }
     else
     {
-        _ = httpPortia.AddRequestPipelineBehavior<OidcRegistrationSessionBehavior>(order: 1000);
+        _ = httpPortia.AddRequestPipelineBehavior<OidcContinuationSessionBehavior>(order: 1000);
     }
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -97,16 +97,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 
     if (developerAuthentication)
     {
-        app.MapPortiaPost<RegisterDeveloperUser, RegisteredUserIdentity>("/api/v1/developer-user-identities")
+        app.MapPortiaPost<ContinueWithDeveloperIdentity, AuthenticatedUserIdentity>("/api/v1/developer-user-sessions")
             .AllowAnonymous()
             .WithTags("Users");
     }
     else
     {
-        app.MapPortiaPost<RegisterOidcUser, RegisteredUserIdentity>("/api/v1/oidc-user-identities")
-            .RequireAuthorization(ComplianceAuthorizationPolicies.OidcRegistration)
+        app.MapPortiaPost<ContinueWithOidcProvider, AuthenticatedUserIdentity>("/api/v1/oidc-user-sessions")
+            .RequireAuthorization(ComplianceAuthorizationPolicies.OidcContinuation)
             .WithTags("Users");
     }
+    app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaDelete<RequestTenantSlugSurrender>("/api/v1/tenants/{tenantId}/slugs/{slug}")
+        .RequireAuthorization()
+        .WithTags("Tenants");
     app.MapMethods(
         "/api/{**path}",
         ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
@@ -137,8 +143,6 @@ static async Task RunWorkerAsync(string[] args)
 
     await builder.Build().RunAsync();
 }
-
-sealed record BrowserSession(string Id, string? EmailAddress, bool EmailAddressVerified);
 
 /// <summary>
 /// Exposes the application entry point to integration tests.

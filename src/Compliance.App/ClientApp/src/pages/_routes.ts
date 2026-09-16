@@ -8,7 +8,7 @@ import {
 import { PageLayout } from './_layout.js';
 
 const AuthenticationCallbackPage = lazy(() =>
-  import('./auth-callback.js').then(
+  import('../features/authentication/pages/auth-callback.js').then(
     (module) => module.AuthenticationCallbackPage
   )
 );
@@ -16,10 +16,14 @@ const HomePage = lazy(() =>
   import('./home.js').then((module) => module.HomePage)
 );
 const LoginPage = lazy(() =>
-  import('./login.js').then((module) => module.LoginPage)
+  import('../features/authentication/pages/login.js').then(
+    (module) => module.LoginPage
+  )
 );
-const RegistrationPage = lazy(() =>
-  import('./register.js').then((module) => module.RegistrationPage)
+const DeveloperLoginPage = lazy(() =>
+  import('../features/authentication/pages/developer-login.js').then(
+    (module) => module.DeveloperLoginPage
+  )
 );
 const NotFoundPage = lazy(() =>
   import('./not-found.js').then((module) => module.NotFoundPage)
@@ -29,7 +33,7 @@ export const pageRegistry = createRouteRegistry(
   () => {
     group({ layout: PageLayout }, () => {
       route('/login', LoginPage, { auth: requireAnonymous() });
-      route('/register', RegistrationPage, { auth: requireAnonymous() });
+      route('/developer-login', DeveloperLoginPage, { auth: requireAnonymous() });
       route('/auth/callback', AuthenticationCallbackPage);
 
       group({ auth: requireUser() }, () => {

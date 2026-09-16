@@ -21,12 +21,40 @@ public static class ComplianceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
-        services.AddScoped<UserIdentityRegistration>();
+        services.AddScoped<UserIdentityContinuation>();
+        services.AddScoped<IPermissionProjection, FitzPermissionProjection>();
+        services.AddSingleton<IPermissionAuthorizer, FitzPermissionAuthorizer>();
+        services.AddSingleton<ITenantDirectory>(provider =>
+            new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
+                provider.GetRequiredService<IDomainEventReader>(),
+                EventStreamPattern.ForPattern("bdgrz", "tenants"),
+                domainEvent => new TenantId(((TenantRegistered)domainEvent).TenantId.ToString())));
 
         return services
             .AddPortia()
-            .AddRequestHandler<RegisterDeveloperUserHandler>()
-            .AddRequestHandler<RegisterOidcUserHandler>()
-            .AddFitz(configuration.GetSection("Fitz"));
+            .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
+            .AddRequestHandler<ContinueWithOidcProviderHandler>()
+            .AddRequestHandler<RegisterMemberHandler>()
+            .AddRequestHandler<DefineTeamHandler>()
+            .AddRequestHandler<DefineRoleHandler>()
+            .AddRequestHandler<AssignTeamMemberHandler>()
+            .AddRequestHandler<AssignTeamRoleHandler>()
+            .AddRequestHandler<AssignRolePermissionHandler>()
+            .AddRequestHandler<RegisterTenantHandler>()
+            .AddRequestHandler<RegisterTenantSlugHandler>()
+            .AddRequestHandler<RegisterTenantOwnerHandler>()
+            .AddRequestHandler<ConfirmTenantSlugHandler>()
+            .AddRequestHandler<RejectTenantSlugHandler>()
+            .AddRequestHandler<RequestTenantSlugSurrenderHandler>()
+            .AddRequestHandler<SurrenderTenantSlugHandler>()
+            .AddRequestHandler<ConfirmTenantSlugSurrenderHandler>()
+            .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
+            .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
+            .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
+            .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
+            .AddFitz(
+                configuration.GetSection("Fitz"),
+                fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));
     }
 }

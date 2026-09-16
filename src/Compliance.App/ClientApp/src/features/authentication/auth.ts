@@ -6,7 +6,7 @@ import {
 
 export interface AuthenticationConfiguration {
   enabled: boolean;
-  developer_registration_enabled: boolean;
+  developer_identity_enabled: boolean;
   issuer: string | null;
   client_id: string | null;
   scopes: string[];
@@ -61,12 +61,12 @@ export function parseAuthenticationConfiguration(
   }
 
   if (!candidate.enabled) {
-    if (candidate.developer_registration_enabled !== true) {
+    if (candidate.developer_identity_enabled !== true) {
       throw new Error('The development authentication configuration is invalid.');
     }
     return {
       enabled: false,
-      developer_registration_enabled: true,
+      developer_identity_enabled: true,
       issuer: null,
       client_id: null,
       scopes: [],
@@ -75,7 +75,7 @@ export function parseAuthenticationConfiguration(
   }
 
   if (
-    candidate.developer_registration_enabled !== false ||
+    candidate.developer_identity_enabled !== false ||
     typeof candidate.issuer !== 'string' ||
     typeof candidate.client_id !== 'string' ||
     !Array.isArray(candidate.scopes) ||
@@ -97,7 +97,7 @@ export async function beginSignIn(returnPath?: string): Promise<void> {
       window.location.origin
     );
     window.location.assign(
-      `/register?returnUrl=${encodeURIComponent(safeReturnPath)}`
+      `/developer-login?returnUrl=${encodeURIComponent(safeReturnPath)}`
     );
     return;
   }
@@ -176,13 +176,13 @@ export async function completeOidcCallbackIfPresent(): Promise<void> {
       scopes: configuration.scopes,
     };
     window.sessionStorage.setItem(sessionKey, JSON.stringify(session));
-    const registration = await authorizedFetch('/api/v1/oidc-user-identities', {
+    const continuation = await authorizedFetch('/api/v1/oidc-user-sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: '{}',
     });
-    if (!registration.ok) {
-      throw new Error('The authenticated identity could not be registered.');
+    if (!continuation.ok) {
+      throw new Error('The authenticated identity could not be continued.');
     }
     window.sessionStorage.removeItem(authenticationErrorKey);
     window.history.replaceState(

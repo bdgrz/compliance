@@ -28,7 +28,7 @@ describe('authentication foundation', () => {
     expect(() =>
       parseAuthenticationConfiguration({
         enabled: true,
-        developer_registration_enabled: false,
+        developer_identity_enabled: false,
         scopes: [],
       })
     ).toThrow(/incomplete/);
@@ -38,11 +38,11 @@ describe('authentication foundation', () => {
     expect(
       parseAuthenticationConfiguration({
         enabled: false,
-        developer_registration_enabled: true,
+        developer_identity_enabled: true,
       })
     ).toEqual({
       enabled: false,
-      developer_registration_enabled: true,
+      developer_identity_enabled: true,
       issuer: null,
       client_id: null,
       scopes: [],
