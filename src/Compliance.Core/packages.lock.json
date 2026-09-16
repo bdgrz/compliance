@@ -4,13 +4,13 @@
     "net10.0": {
       "Cntryl.Portia.Fitz": {
         "type": "Direct",
-        "requested": "[0.1.0, )",
-        "resolved": "0.1.0",
-        "contentHash": "iwjbL0oFAeOBZAHPZEYqJfmjTSjObRwXQ0FJNMW1AmpDw4iuFXZULQrOIVG1stecNYgc7iP49LYH01j0guF+Kw==",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "WOYprmxh+ozVviGkx5bNpF4eo1s+oLXDv1T7Jg3lbauB8GGIHtgKKEkcmZ+sIpk5KwlwMykFt1I1fxLKbNzFow==",
         "dependencies": {
           "Cntryl.Fitz.Core": "1.0.0",
-          "Cntryl.Portia.Abstractions": "0.1.0",
-          "Cntryl.Portia.DependencyInjection": "0.1.0",
+          "Cntryl.Portia.Abstractions": "0.2.0",
+          "Cntryl.Portia.DependencyInjection": "0.2.0",
           "Microsoft.Extensions.Configuration.Abstractions": "10.0.11",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.11"
@@ -31,20 +31,20 @@
       },
       "Cntryl.Portia.Core": {
         "type": "Transitive",
-        "resolved": "0.1.0",
-        "contentHash": "niFEpi4z5Rc2jL/azHaqIaY1WYvjxTXRYlZxj7keSzFAuI4hHX6+88oaN9ghvSb/5nZz8xb5XEGnYeva2Rvgcg==",
+        "resolved": "0.2.0",
+        "contentHash": "s0o8h1GklwbBYHny6a9DSDrbf+A7w5OoMAfF3mP7z61T7DpKqcdAnhJLJmJHy9Y50mm+uN+pvjJHm+jqKiWK2Q==",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "0.1.0",
+          "Cntryl.Portia.Abstractions": "0.2.0",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.11"
         }
       },
       "Cntryl.Portia.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "0.1.0",
-        "contentHash": "ird3odOafEr34MZec4Q7EGyfnIj6rxjsWKu+nMtF6HZvU2bXUf3ou9jnkwbm2Bmp5sSQ8xNY2xToNI+vjqJE5Q==",
+        "resolved": "0.2.0",
+        "contentHash": "6/gde58plShpgpQ7u1tKpcFsryHztwzI2iWKW0aXpXiaUtOZfyyA/61x/2qluXDnvJoWkFM6EKv3FnSuOdPuyA==",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "0.1.0",
-          "Cntryl.Portia.Core": "0.1.0",
+          "Cntryl.Portia.Abstractions": "0.2.0",
+          "Cntryl.Portia.Core": "0.2.0",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.11",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.11"
         }
@@ -116,14 +116,14 @@
       "Bdgrz.Compliance.Common": {
         "type": "Project",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "[0.1.0, )"
+          "Cntryl.Portia.Abstractions": "[0.2.0, )"
         }
       },
       "Cntryl.Portia.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[0.1.0, )",
-        "resolved": "0.1.0",
-        "contentHash": "Bkzt8yWk5IBTq0LRhbT5I05H4WNGM4Apc+1YdT28Js2X7FKLtPG5WKIsZ9T7oLUWOmu6PF9D3/0SSyOwXizdxA==",
+        "requested": "[0.2.0, )",
+        "resolved": "0.2.0",
+        "contentHash": "xvOy3Hf1xzqYrfenp01WXufgbhpX34w3rX48ryWA0avEAnPB0MheCg1Dofs+MOMshGO1ly8hx6BTqAVh4/1r7Q==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.11"
         }
