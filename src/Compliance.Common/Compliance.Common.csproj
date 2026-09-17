@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Cntryl.Fitz.Extensions" />
     <PackageReference Include="Cntryl.Portia.Abstractions" />
   </ItemGroup>
 </Project>

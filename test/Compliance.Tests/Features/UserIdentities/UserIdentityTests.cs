@@ -97,10 +97,10 @@ public sealed class UserIdentityTests
         // Arrange
         var userId = Uuid.Parse("5e87ff38-8dad-404f-a129-56a02ca2dd73", CultureInfo.InvariantCulture);
         var identity = new UserIdentity("example-provider", "subject-42");
-        var repository = new AggregateRepository(new InMemoryEventStore());
+        await using var fixture = new StoreFixture();
         _ = identity.Register(userId, "person@example.com");
-        await repository.SaveAsync(identity, new ExecutionContext(), CancellationToken.None);
-        identity = await repository.HydrateAsync(
+        await fixture.Repository.SaveAsync(identity, new ExecutionContext(), CancellationToken.None);
+        identity = await fixture.Repository.HydrateAsync(
             new UserIdentity("example-provider", "subject-42"),
             CancellationToken.None);
         var scenario = new AggregateScenario<UserIdentity>(identity);

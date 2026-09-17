@@ -27,6 +27,9 @@ sealed class PermissionProjectionState
             case TeamMemberAssigned teamMember:
                 TeamMembers.Add(new TeamMemberEdge(teamMember.TeamId, teamMember.MemberId));
                 break;
+            case TeamMemberRemoved teamMember:
+                TeamMembers.Remove(new TeamMemberEdge(teamMember.TeamId, teamMember.MemberId));
+                break;
             case RoleDefined role:
                 Roles.Add(role.RoleId);
                 break;

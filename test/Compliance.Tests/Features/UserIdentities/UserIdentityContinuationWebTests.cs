@@ -156,9 +156,7 @@ public sealed class UserIdentityContinuationWebTests
                 }
 
                 services.RemoveAll<IEventStore>();
-                services.RemoveAll<IAggregateRepository>();
                 services.AddSingleton<IEventStore, InMemoryEventStore>();
-                services.AddScoped<IAggregateRepository, AggregateRepository>();
             });
         });
 

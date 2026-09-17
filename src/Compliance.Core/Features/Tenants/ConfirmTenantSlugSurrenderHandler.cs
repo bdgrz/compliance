@@ -2,17 +2,14 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed class ConfirmTenantSlugSurrenderHandler(IAggregateRepository repository)
+public sealed class ConfirmTenantSlugSurrenderHandler(IAggregateExecutor executor)
     : IRequestHandler<ConfirmTenantSlugSurrender>
 {
-    public async ValueTask<Result> HandleAsync(
+    public ValueTask<Result> HandleAsync(
         IRequestContext<ConfirmTenantSlugSurrender> context,
-        CancellationToken ct)
-    {
-        var tenant = await repository.HydrateAsync(new Tenant(context.Request.TenantId), ct);
-        var result = tenant.ConfirmSlugSurrender(context.Request.Slug);
-        if (result.IsSuccess)
-            await repository.SaveAsync(tenant, context, ct);
-        return result;
-    }
+        CancellationToken ct) =>
+        executor.ExecuteAsync(
+            new Tenant(context.Request.TenantId),
+            tenant => AggregateOutcome.CommitOnSuccess(tenant.ConfirmSlugSurrender(context.Request.Slug)),
+            context, ct);
 }

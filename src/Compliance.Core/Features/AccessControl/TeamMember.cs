@@ -21,12 +21,21 @@ public sealed class TeamMember : Aggregate
         _teamId = teamId;
         _memberId = memberId;
         On<TeamMemberAssigned>(_ => _isAssigned = true);
+        On<TeamMemberRemoved>(_ => _isAssigned = false);
     }
 
     public Result Assign()
     {
         if (!_isAssigned)
             RaiseEvent(new TeamMemberAssigned(_tenantId, _teamId, _memberId));
+        return Result.Success;
+    }
+
+    public Result Remove()
+    {
+        if (!_isAssigned)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The member is not on this team."));
+        RaiseEvent(new TeamMemberRemoved(_tenantId, _teamId, _memberId));
         return Result.Success;
     }
 }

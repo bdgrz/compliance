@@ -11,9 +11,8 @@ public sealed class UserIdentityContinuationTests
     public async Task ShouldProduceSameIdentityShapeGivenDeveloperAndOidcRegistration()
     {
         // Arrange
-        var store = new InMemoryEventStore();
-        var repository = new AggregateRepository(store);
-        var continuation = new UserIdentityContinuation(repository);
+        await using var fixture = new StoreFixture();
+        var continuation = new UserIdentityContinuation(fixture.Repository);
         var developerHandler = new ContinueWithDeveloperIdentityHandler(
             continuation,
             new DeveloperUserRegistration(true));
@@ -31,18 +30,18 @@ public sealed class UserIdentityContinuationTests
         // Act
         var developer = await developerHandler.HandleAsync(developerContext, CancellationToken.None);
         var oidc = await oidcHandler.HandleAsync(oidcContext, CancellationToken.None);
-        var developerIdentity = await repository.HydrateAsync(
+        var developerIdentity = await fixture.Repository.HydrateAsync(
             new UserIdentity(
                 DeveloperUserRegistration.Provider,
                 Uuid.CreateVersion5(
                     DeveloperUserRegistration.IdentifierNamespaceId,
                     "person@example.com").ToString()),
             CancellationToken.None);
-        var oidcIdentity = await repository.HydrateAsync(
+        var oidcIdentity = await fixture.Repository.HydrateAsync(
             new UserIdentity("https://issuer.example/", "provider-subject"),
             CancellationToken.None);
-        var developerEventType = await ReadEventType(store, developerIdentity.Stream);
-        var oidcEventType = await ReadEventType(store, oidcIdentity.Stream);
+        var developerEventType = await ReadEventType(fixture.Store, developerIdentity.Stream);
+        var oidcEventType = await ReadEventType(fixture.Store, oidcIdentity.Stream);
 
         // Assert
         Assert.True(developer.IsSuccess);
@@ -61,8 +60,8 @@ public sealed class UserIdentityContinuationTests
     public async Task ShouldRegisterWithoutEmailGivenOidcProviderOmitsClaim()
     {
         // Arrange
-        var repository = new AggregateRepository(new InMemoryEventStore());
-        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(repository));
+        await using var fixture = new StoreFixture();
+        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(fixture.Repository));
         var context = Context(
             new ContinueWithOidcProvider(),
             AuthenticatedActor(
@@ -71,7 +70,7 @@ public sealed class UserIdentityContinuationTests
 
         // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
-        var identity = await repository.HydrateAsync(
+        var identity = await fixture.Repository.HydrateAsync(
             new UserIdentity("https://issuer.example/", "no-email-subject"),
             CancellationToken.None);
 
@@ -85,8 +84,8 @@ public sealed class UserIdentityContinuationTests
     public async Task ShouldReuseExistingUserGivenAdditionalOidcProvider()
     {
         // Arrange
-        var repository = new AggregateRepository(new InMemoryEventStore());
-        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(repository));
+        await using var fixture = new StoreFixture();
+        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(fixture.Repository));
         var existingUserId = Uuid.Parse(
             "a85d59b8-2f35-42b0-bc02-03085ad7d20f",
             CultureInfo.InvariantCulture);
@@ -120,9 +119,8 @@ public sealed class UserIdentityContinuationTests
     public async Task ShouldRegisterThenAuthenticateGivenSameOidcProviderIdentity()
     {
         // Arrange
-        var store = new InMemoryEventStore();
-        var handler = new ContinueWithOidcProviderHandler(
-            new UserIdentityContinuation(new AggregateRepository(store)));
+        await using var fixture = new StoreFixture();
+        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(fixture.Repository));
         var actor = AuthenticatedActor(
             new Claim("iss", "https://issuer.example/"),
             new Claim("sub", "returning-subject"),
@@ -136,7 +134,7 @@ public sealed class UserIdentityContinuationTests
             Context(new ContinueWithOidcProvider(), actor),
             CancellationToken.None);
         var records = new List<DomainEventRecord>();
-        await foreach (var record in store.ReadAsync(
+        await foreach (var record in fixture.Store.ReadAsync(
                            EventStreamPattern.ForPattern("bdgrz", "user-identities"),
                            EventCursor.Start,
                            CancellationToken.None))
@@ -162,7 +160,7 @@ public sealed class UserIdentityContinuationTests
         new(new ClaimsIdentity(claims, "oidc"));
 
     static async Task<Type> ReadEventType(
-        InMemoryEventStore store,
+        IEventStore store,
         EventStreamAddress stream)
     {
         await foreach (var record in store.ReadAsync(stream, 0, CancellationToken.None))

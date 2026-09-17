@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="Cntryl.Portia.AspNetCore" />
+    <PackageReference Include="Cntryl.Portia.Mcp" />
+    <PackageReference Include="Cntryl.Portia.Mcp.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
 

@@ -94,6 +94,24 @@ public sealed class InternalRbacTests
     }
 
     [Fact]
+    public void ShouldRevokePermissionWhenAMemberLeavesATeam()
+    {
+        var memberId = RbacIds.Member(TenantId, UserId);
+        var state = new PermissionProjectionState();
+        state.Apply(new MemberRegistered(TenantId, memberId, UserId));
+        state.Apply(new TeamDefined(TenantId, TeamId, "Reviewers"));
+        state.Apply(new RoleDefined(TenantId, RoleId, "Control reviewer"));
+        state.Apply(new TeamMemberAssigned(TenantId, TeamId, memberId));
+        state.Apply(new TeamRoleAssigned(TenantId, TeamId, RoleId));
+        state.Apply(new RolePermissionAssigned(TenantId, RoleId, "controls.read"));
+        Assert.Contains(new PermissionGrant(memberId, "controls.read"), state.Materialize());
+
+        state.Apply(new TeamMemberRemoved(TenantId, TeamId, memberId));
+
+        Assert.Empty(state.Materialize());
+    }
+
+    [Fact]
     public void ShouldUseTheSamePermissionKeyForEquivalentPermissionStrings()
     {
         Assert.Equal(

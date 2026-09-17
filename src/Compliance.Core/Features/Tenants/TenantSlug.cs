@@ -21,6 +21,13 @@ public sealed class TenantSlug : Aggregate
         On<TenantSlugSurrenderRejected>(_ => { });
     }
 
+    /// <summary>
+    ///     Reports whether <paramref name="tenantId" /> could claim this slug right now. A cheap,
+    ///     possibly-stale preflight for <see cref="RegisterTenantSlugAvailabilityGuard" />; only
+    ///     <see cref="Register" /> decides ownership authoritatively.
+    /// </summary>
+    public bool IsAvailableFor(Uuid tenantId) => _tenantId is null || _tenantId == tenantId;
+
     public Result Register(Uuid tenantId)
     {
         if (_tenantId is null)

@@ -10,12 +10,6 @@ namespace Bdgrz.Compliance;
     JsonSerializerDefaults.Web,
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ComplianceAuthenticationClientConfiguration))]
-[JsonSerializable(typeof(ContinueWithDeveloperIdentity))]
-[JsonSerializable(typeof(ContinueWithOidcProvider))]
-[JsonSerializable(typeof(AuthenticatedUserIdentity))]
-[JsonSerializable(typeof(RegisterTenant))]
-[JsonSerializable(typeof(TenantRegistration))]
-[JsonSerializable(typeof(RequestTenantSlugSurrender))]
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(BrowserSession))]
 [JsonSerializable(typeof(ProblemDetails))]

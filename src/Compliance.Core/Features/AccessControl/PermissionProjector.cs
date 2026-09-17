@@ -3,11 +3,12 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 public sealed partial class PermissionProjector(IPermissionProjection projection)
-    : Projector(projection, EventStreamPattern.ForPattern("tenant", area: null), "PermissionProjection"),
+    : Projector(projection, EventStreamPattern.ForTenant(), "PermissionProjection"),
       IProjectorHandler<MemberRegistered>,
       IProjectorHandler<TeamDefined>,
       IProjectorHandler<TeamDeleted>,
       IProjectorHandler<TeamMemberAssigned>,
+      IProjectorHandler<TeamMemberRemoved>,
       IProjectorHandler<RoleDefined>,
       IProjectorHandler<RoleDeleted>,
       IProjectorHandler<RolePermissionAssigned>,
@@ -23,6 +24,9 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(TeamMemberAssigned ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(TeamMemberRemoved ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(RoleDefined ev, IProjectorContext context, CancellationToken ct) =>

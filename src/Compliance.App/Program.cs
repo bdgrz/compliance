@@ -28,17 +28,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     var developerAuthentication = authentication is null;
     var portia = builder.Services.AddCompliance(builder.Configuration, developerAuthentication);
     // AddPortia returns the same builder and lets this host contribute its generated JSON context.
-    var httpPortia = builder.Services.AddPortia().AddHttp();
-    builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<UserSessionCookie>();
-    if (developerAuthentication)
-    {
-        _ = httpPortia.AddRequestPipelineBehavior<DeveloperIdentityContinuationSessionBehavior>(order: 1000);
-    }
-    else
-    {
-        _ = httpPortia.AddRequestPipelineBehavior<OidcContinuationSessionBehavior>(order: 1000);
-    }
+    builder.Services.AddPortia()
+        .AddHttp()
+        .AddMcpTool<DefineTeam>(tool => tool.Idempotent())
+        .AddMcpTool<DeleteTeam>(tool => tool.Destructive())
+        .AddMcpTool<GetTeam>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTeams>(tool => tool.ReadOnly())
+        .AddMcpTool<AssignTeamMember>(tool => tool.Idempotent())
+        .AddMcpTool<RemoveTeamMember>(tool => tool.Destructive())
+        .AddMcpTool<ListTeamMembers>(tool => tool.ReadOnly())
+        .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
         options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -78,6 +77,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.UseAuthorization();
 
     app.MapPortiaOpenApi();
+    app.MapPortiaMcp("/mcp").RequireAuthorization();
 
     app.MapComplianceHealthChecks();
     app.MapGet(
@@ -95,15 +95,20 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization()
         .ExcludeFromDescription();
 
+    var sessionTokens = app.Services.GetRequiredService<BdgrzSessionTokens>();
     if (developerAuthentication)
     {
-        app.MapPortiaPost<ContinueWithDeveloperIdentity, AuthenticatedUserIdentity>("/api/v1/developer-user-sessions")
+        app.MapPortiaPost<ContinueWithDeveloperIdentity, AuthenticatedUserIdentity>(
+                "/api/v1/developer-user-sessions",
+                config => config.OnResult((http, result) => UserSessionCookie.Issue(http, result, sessionTokens)))
             .AllowAnonymous()
             .WithTags("Users");
     }
     else
     {
-        app.MapPortiaPost<ContinueWithOidcProvider, AuthenticatedUserIdentity>("/api/v1/oidc-user-sessions")
+        app.MapPortiaPost<ContinueWithOidcProvider, AuthenticatedUserIdentity>(
+                "/api/v1/oidc-user-sessions",
+                config => config.OnResult((http, result) => UserSessionCookie.Issue(http, result, sessionTokens)))
             .RequireAuthorization(ComplianceAuthorizationPolicies.OidcContinuation)
             .WithTags("Users");
     }
@@ -113,6 +118,27 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaDelete<RequestTenantSlugSurrender>("/api/v1/tenants/{tenantId}/slugs/{slug}")
         .RequireAuthorization()
         .WithTags("Tenants");
+    app.MapPortiaPost<DefineTeam>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaDelete<DeleteTeam>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaGet<GetTeam, TeamView>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaGet<ListTeams, Page<TeamView>>("/api/v1/tenants/{tenantId}/teams")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaPost<AssignTeamMember>("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaDelete<RemoveTeamMember>("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaGet<ListTeamMembers, Page<TeamMemberView>>("/api/v1/tenants/{tenantId}/teams/{teamId}/members")
+        .RequireAuthorization()
+        .WithTags("Teams");
     app.MapMethods(
         "/api/{**path}",
         ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
