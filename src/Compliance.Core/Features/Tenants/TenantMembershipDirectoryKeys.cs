@@ -2,5 +2,5 @@ namespace Bdgrz.Compliance.Features.Tenants;
 
 static class TenantMembershipDirectoryKeys
 {
-    public static string Route() => "kv://bdgrz/tenant-membership-directory/global";
+    public static string Route(string tenantId) => $"kv://{tenantId}/tenant-membership-directory/by-user";
 }

@@ -6,47 +6,48 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 
 public sealed class FitzTenantMembershipDirectoryReaderTests
 {
+    static readonly Uuid TenantId = Uuid.CreateVersion4();
     static readonly Uuid UserId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ListByUserAsyncShouldReturnOnlyTheRequestedUsersMemberships()
+    public async Task IsMemberAsyncShouldReturnTrueGivenAStoredMembership()
     {
         var client = new InMemoryKvClient();
-        var otherUserId = Uuid.CreateVersion4();
-        var tenantId = Uuid.CreateVersion4();
-        await SeedAsync(client, UserId, tenantId);
-        await SeedAsync(client, otherUserId, Uuid.CreateVersion4());
+        await SeedAsync(client, TenantId, UserId);
         var reader = new FitzTenantMembershipDirectoryReader(client);
 
-        var page = await reader.ListByUserAsync(UserId, null, null, descending: false, CancellationToken.None);
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
 
-        var membership = Assert.Single(page.Items);
-        Assert.Equal(tenantId, membership.TenantId);
+        Assert.True(isMember);
     }
 
     [Fact]
-    public async Task ListByUserAsyncShouldPaginateUsingTheReturnedCursorWithoutAnExtraEmptyPage()
+    public async Task IsMemberAsyncShouldReturnFalseGivenNoStoredMembership()
     {
-        var client = new InMemoryKvClient();
-        await SeedAsync(client, UserId, Uuid.CreateVersion4());
-        await SeedAsync(client, UserId, Uuid.CreateVersion4());
-        var reader = new FitzTenantMembershipDirectoryReader(client);
+        var reader = new FitzTenantMembershipDirectoryReader(new InMemoryKvClient());
 
-        var firstPage = await reader.ListByUserAsync(UserId, 1, null, descending: false, CancellationToken.None);
-        Assert.Single(firstPage.Items);
-        Assert.NotNull(firstPage.NextCursor);
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
 
-        var secondPage = await reader.ListByUserAsync(
-            UserId, 1, firstPage.NextCursor, descending: false, CancellationToken.None);
-
-        Assert.Single(secondPage.Items);
-        Assert.Null(secondPage.NextCursor);
+        Assert.False(isMember);
     }
 
-    static async Task SeedAsync(InMemoryKvClient client, Uuid userId, Uuid tenantId)
+    [Fact]
+    public async Task IsMemberAsyncShouldNotSeeAMembershipStoredUnderADifferentTenant()
+    {
+        var client = new InMemoryKvClient();
+        var otherTenantId = Uuid.CreateVersion4();
+        await SeedAsync(client, otherTenantId, UserId);
+        var reader = new FitzTenantMembershipDirectoryReader(client);
+
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
+
+        Assert.False(isMember);
+    }
+
+    static async Task SeedAsync(InMemoryKvClient client, Uuid tenantId, Uuid userId)
     {
         await using var transaction = await client.BeginAsync(
-            TenantMembershipDirectoryKeys.Route(), KvDurability.Async, KvMode.ReadWrite);
+            TenantMembershipDirectoryKeys.Route(tenantId.ToString()), KvDurability.Async, KvMode.ReadWrite);
         await TenantMembershipDirectorySchema.Directory.InsertAsync(
             transaction, new TenantMembershipView(userId, tenantId));
         await transaction.CommitAsync();

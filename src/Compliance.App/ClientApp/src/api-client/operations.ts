@@ -144,9 +144,7 @@ export type RegisterTenantError_500 = {
 };
 
 export type ListMyTenantsQuery = {
-  "cursor"?: string | null;
   "limit"?: number | string;
-  "sort"?: string | null;
 };
 
 export type ListMyTenantsResponse200 = PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4;

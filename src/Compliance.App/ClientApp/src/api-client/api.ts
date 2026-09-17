@@ -116,7 +116,7 @@ export const api = defineApi({
   "transient"?: boolean;
 }>() }),
   listMyTenants: get("/api/v1/tenants/mine")
-    .query<ListMyTenantsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
+    .query<ListMyTenantsQuery>({ "limit": { style: "form", explode: true } })
     .returns(json<PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4>())
     .errors({ "400": json<{
   "type": string;

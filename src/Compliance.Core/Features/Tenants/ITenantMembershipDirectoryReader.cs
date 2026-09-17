@@ -1,15 +1,9 @@
-using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-/// <summary>Reads the materialized tenant-membership directory for one user.</summary>
+/// <summary>Reads one tenant's materialized membership directory.</summary>
 public interface ITenantMembershipDirectoryReader
 {
-    ValueTask<Page<TenantMembershipView>> ListByUserAsync(
-        Uuid userId,
-        int? limit,
-        string? cursor,
-        bool descending,
-        CancellationToken ct = default);
+    ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default);
 }

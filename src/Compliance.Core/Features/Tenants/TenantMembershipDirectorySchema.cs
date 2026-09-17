@@ -3,16 +3,17 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-/// <summary>The shared tenant-membership directory schema, used by both the read and write sides.</summary>
+/// <summary>
+///     The shared tenant-membership directory schema, used by both the read and write sides. Routed
+///     per tenant (see <see cref="TenantMembershipDirectoryKeys" />), so identity is just the member's
+///     UserId — TenantId is already implied by which tenant's route a row lives in.
+/// </summary>
 static class TenantMembershipDirectorySchema
 {
-    public static readonly KvDirectoryIndex<TenantMembershipView> ByUser = new(
-        "by_user", 1, static membership => [membership.UserId.ToString(), membership.TenantId.ToString()]);
-
-    public static readonly KvDirectory<TenantMembershipView, (Uuid UserId, Uuid TenantId)> Directory = new(
+    public static readonly KvDirectory<TenantMembershipView, Uuid> Directory = new(
         "tenant-memberships",
         ComplianceCoreJsonContext.Default.TenantMembershipView,
-        static membership => (membership.UserId, membership.TenantId),
-        static identity => [identity.UserId.ToString(), identity.TenantId.ToString()],
-        [ByUser]);
+        static membership => membership.UserId,
+        static userId => [userId.ToString()],
+        []);
 }

@@ -1,12 +1,17 @@
+using System.Globalization;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
 public sealed class ListMyTenantsHandler(
+    ITenantDirectory activeTenants,
     ITenantMembershipDirectoryReader memberships,
     ITenantDirectoryReader tenants) : IRequestHandler<ListMyTenants, Page<TenantMembershipSummary>>
 {
+    const int DefaultLimit = 200;
+    const int MaxLimit = 200;
+
     public async ValueTask<Result<Page<TenantMembershipSummary>>> HandleAsync(
         IRequestContext<ListMyTenants> context,
         CancellationToken ct)
@@ -17,22 +22,29 @@ public sealed class ListMyTenantsHandler(
             : throw new InvalidOperationException(
                 "ListMyTenantsAuthorizer must reject requests without a Bdgrz user identity.");
 
-        var request = context.Request;
-        var page = await memberships.ListByUserAsync(
-            userId, request.Limit, request.Cursor, ListRequestNormalization.IsDescending(request.Sort), ct);
-
-        var items = new List<TenantMembershipSummary>(page.Items.Count);
-        foreach (var membership in page.Items)
+        var limit = Math.Clamp(context.Request.Limit ?? DefaultLimit, 1, MaxLimit);
+        var items = new List<TenantMembershipSummary>();
+        await foreach (var tenantId in activeTenants.GetActiveTenantsAsync(ct))
         {
-            var tenant = await tenants.GetAsync(membership.TenantId, ct);
+            if (items.Count >= limit)
+            {
+                break;
+            }
+
+            if (!await memberships.IsMemberAsync(tenantId.Value, userId, ct))
+            {
+                continue;
+            }
+
             // A membership row can briefly outrun the tenant directory's own projector; skip rather
             // than fail — it self-heals once TenantDirectory catches up.
+            var tenant = await tenants.GetAsync(Uuid.Parse(tenantId.Value, CultureInfo.InvariantCulture), ct);
             if (tenant is not null)
             {
                 items.Add(new TenantMembershipSummary(tenant.TenantId, tenant.Name, tenant.Slug));
             }
         }
 
-        return Result<Page<TenantMembershipSummary>>.Success(new Page<TenantMembershipSummary>(items, page.NextCursor));
+        return Result<Page<TenantMembershipSummary>>.Success(new Page<TenantMembershipSummary>(items, null));
     }
 }

@@ -789,26 +789,6 @@
                 "string"
               ]
             }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": [
-                "null",
-                "string"
-              ]
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "schema": {
-              "type": [
-                "null",
-                "string"
-              ]
-            }
           }
         ],
         "responses": {

@@ -3,15 +3,8 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-/// <summary>
-///     Materializes <see cref="MemberRegistered" /> into a global, cross-tenant membership index.
-///     Unlike every other per-tenant directory projection in this codebase, this one writes a fixed
-///     global KV route regardless of <see cref="WorkloadContext.Identity" />'s tenant — the whole
-///     point is one index a user's memberships across every tenant land in, since "which tenants do
-///     I belong to" is not itself a per-tenant question.
-/// </summary>
-sealed class FitzTenantMembershipDirectoryProjection(IKvClient client)
-    : FitzKvProjectionStore(client, TenantMembershipDirectoryKeys.Route()), ITenantMembershipDirectoryProjection
+sealed class FitzTenantMembershipDirectoryProjection(IKvClient client, WorkloadContext workload)
+    : FitzKvProjectionStore(client, Route(workload)), ITenantMembershipDirectoryProjection
 {
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
@@ -22,5 +15,12 @@ sealed class FitzTenantMembershipDirectoryProjection(IKvClient client)
                 new TenantMembershipView(registered.UserId, registered.TenantId),
                 ct).ConfigureAwait(false);
         }
+    }
+
+    static string Route(WorkloadContext workload)
+    {
+        var tenant = workload.Identity.Tenant
+            ?? throw new InvalidOperationException("The tenant-membership projection requires a tenant workload.");
+        return TenantMembershipDirectoryKeys.Route(tenant.Value);
     }
 }
