@@ -1,4 +1,4 @@
-import type { Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54 } from "./schemas";
+import type { Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54 } from "./schemas";
 
 export type ContinueWithDeveloperIdentityBody = {
   "email_address": string | null;
@@ -135,6 +135,79 @@ export type RegisterTenantError_415 = {
 };
 
 export type RegisterTenantError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "sort"?: string | null;
+};
+
+export type ListMyTenantsResponse200 = PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4;
+
+export type ListMyTenantsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_401 = undefined;
+
+export type ListMyTenantsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListMyTenantsError_500 = {
   "type": string;
   "title": string;
   "status": number;

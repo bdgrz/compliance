@@ -28,6 +28,10 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton<ITeamDirectoryReader, FitzTeamDirectoryReader>();
         services.AddScoped<ITeamMemberDirectoryProjection, FitzTeamMemberDirectoryProjection>();
         services.AddSingleton<ITeamMemberDirectoryReader, FitzTeamMemberDirectoryReader>();
+        services.AddScoped<ITenantDirectoryProjection, FitzTenantDirectoryProjection>();
+        services.AddSingleton<ITenantDirectoryReader, FitzTenantDirectoryReader>();
+        services.AddScoped<ITenantMembershipDirectoryProjection, FitzTenantMembershipDirectoryProjection>();
+        services.AddSingleton<ITenantMembershipDirectoryReader, FitzTenantMembershipDirectoryReader>();
         services.AddSingleton<ITenantDirectory>(provider =>
             new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
                 provider.GetRequiredService<IDomainEventReader>(),
@@ -53,6 +57,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestHandler<ListMyTenantsHandler>()
+            .AddRequestAuthorizer<ListMyTenantsAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>()
             .AddRequestHandler<RegisterTenantSlugHandler>()
             .AddRequestHandler<RegisterTenantOwnerHandler>()
@@ -69,6 +75,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
             .AddProjector<TeamDirectoryProjector>("TeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TeamMemberDirectoryProjector>("TeamMemberDirectory", WorkloadScope.PerTenant)
+            .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
+            .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));

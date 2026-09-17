@@ -39,7 +39,8 @@ public sealed class TeamMcpScenarioTests
             "bdgrz.rbac.team.list",
             "bdgrz.rbac.team-member.assign",
             "bdgrz.rbac.team-member.remove",
-            "bdgrz.rbac.team-member.list");
+            "bdgrz.rbac.team-member.list",
+            "bdgrz.tenant-membership.list-mine");
 
         // No permission grant exists for this actor, so a call must fail the same way a direct
         // HTTP request would: TenantAccessAuthorizer denies before the handler ever runs.
