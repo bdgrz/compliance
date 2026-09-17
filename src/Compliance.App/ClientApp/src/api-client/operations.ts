@@ -144,6 +144,7 @@ export type RegisterTenantError_500 = {
 };
 
 export type ListMyTenantsQuery = {
+  "cursor"?: string | null;
   "limit"?: number | string;
 };
 

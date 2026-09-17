@@ -57,6 +57,37 @@ public sealed class ListMyTenantsRequestScenarioTests
     }
 
     [Fact]
+    public async Task ShouldPaginateTheTenantScanUsingTheReturnedCursor()
+    {
+        var tenantIds = new[] { Uuid.CreateVersion4(), Uuid.CreateVersion4(), Uuid.CreateVersion4() };
+        var activeTenants = new FakeTenantDirectory(tenantIds);
+        var memberships = new FakeTenantMembershipDirectoryReader();
+        memberships.Members[tenantIds[0]] = [CallerUserId];
+        memberships.Members[tenantIds[1]] = [CallerUserId];
+        memberships.Members[tenantIds[2]] = [CallerUserId];
+        var tenants = new FakeTenantDirectoryReader();
+        foreach (var tenantId in tenantIds)
+        {
+            tenants.ById[tenantId] = new TenantView(tenantId, tenantId.ToString(), tenantId.ToString());
+        }
+
+        await using var provider = BuildProvider(activeTenants, memberships, tenants);
+        var seen = new List<Uuid>();
+        string? cursor = null;
+        do
+        {
+            var scenario = await RequestScenario.For(provider)
+                .GivenActor(BdgrzActor(CallerUserId))
+                .When(new ListMyTenants(Limit: 1, Cursor: cursor))
+                .ExpectSuccess();
+            seen.AddRange(scenario.Value.Items.Select(item => item.TenantId));
+            cursor = scenario.Value.NextCursor;
+        } while (cursor is not null);
+
+        Assert.Equal(tenantIds.OrderBy(id => id.ToString(), StringComparer.Ordinal), seen);
+    }
+
+    [Fact]
     public async Task ShouldSkipAMembershipWhoseTenantHasNotProjectedYet()
     {
         var activeTenants = new FakeTenantDirectory(TenantId);

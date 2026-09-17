@@ -789,6 +789,16 @@
                 "string"
               ]
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
           }
         ],
         "responses": {
