@@ -36,6 +36,9 @@ export function PageLayout({ children }: { children?: unknown }) {
                     <Block hide={{ base: true, sm: false }}>
                       <NavLink href="/">Overview</NavLink>
                     </Block>
+                    <Block hide={{ base: true, sm: false }}>
+                      <NavLink href="/teams">Teams</NavLink>
+                    </Block>
                   </NavGroup>
                   <NavGroup align="end">
                     <ThemeToggle

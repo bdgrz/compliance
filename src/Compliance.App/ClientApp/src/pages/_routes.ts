@@ -38,6 +38,16 @@ const SelectTenantPage = lazy(() =>
     (module) => module.SelectTenantPage
   )
 );
+const TeamsListPage = lazy(() =>
+  import('../features/teams/pages/teams-list.js').then(
+    (module) => module.TeamsListPage
+  )
+);
+const TeamDetailPage = lazy(() =>
+  import('../features/teams/pages/team-detail.js').then(
+    (module) => module.TeamDetailPage
+  )
+);
 
 export const pageRegistry = createRouteRegistry(
   () => {
@@ -56,6 +66,8 @@ export const pageRegistry = createRouteRegistry(
         });
         route('/organizations', SelectTenantPage);
         route('/organizations/new', CreateTenantPage);
+        route('/teams', TeamsListPage);
+        route('/teams/{teamId}', TeamDetailPage);
         route('/*', NotFoundPage);
       });
     });
