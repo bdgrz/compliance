@@ -187,12 +187,12 @@ Authenticates the caller          Governs Compliance          Describes access u
 
 ### Authentication identity
 
-An `ExternalIdentity` is a binding between a provider identity and a
-`PlatformUser`, who may hold memberships in several organizations.
+A `UserIdentity` is a binding between a provider identity and a `User`, who may
+hold memberships in several organizations.
 
 - Its stable provider key is issuer plus subject.
 - Email, display name, and claim values are descriptive and may change.
-- A member may acquire a replacement or additional provider identity without
+- A user may acquire a replacement or additional provider identity without
   losing platform authorship or assignments.
 - Authentication proves who is calling. It does not, by itself, grant access to
   an organization or program.

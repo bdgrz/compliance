@@ -28,8 +28,16 @@ ARG GITHUB_ACTOR
 RUN --mount=type=secret,id=github_token,required=true \
     GITHUB_ACTOR="$GITHUB_ACTOR" \
     GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
+    sh -c 'case "$TARGETARCH" in \
+      amd64) compliance_rid=linux-x64 ;; \
+      arm64) compliance_rid=linux-arm64 ;; \
+      *) echo "Unsupported target architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac; \
     dotnet restore src/Compliance.App/Compliance.App.csproj \
-      --locked-mode
+      --runtime "$compliance_rid" \
+      --force-evaluate \
+      /p:PublishAot=true \
+      /p:RestorePackagesWithLockFile=true'
 
 COPY src/ src/
 COPY --from=client-build /source/src/Compliance.App/ClientApp/dist \
@@ -46,6 +54,7 @@ RUN case "$TARGETARCH" in \
       --runtime "$compliance_rid" \
       --self-contained true \
       --output /app/publish \
+      /p:PublishAot=true \
       /p:ShouldRunNpmInstall=false \
       /p:BuildCommand=true \
       /p:PublishCommand=true

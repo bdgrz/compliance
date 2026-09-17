@@ -10,5 +10,7 @@ namespace Bdgrz.Compliance;
     JsonSerializerDefaults.Web,
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ComplianceAuthenticationClientConfiguration))]
+[JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(BrowserSession))]
 [JsonSerializable(typeof(ProblemDetails))]
 sealed partial class ComplianceJsonContext : JsonSerializerContext;

@@ -4,7 +4,7 @@ import { Brand, BrandLabel, BrandMark } from '@askrjs/themes/components';
 export function ComplianceBrand() {
   return (
     <Brand asChild>
-      <Link class="compliance-brand" href="/" aria-label="Compliance home">
+      <Link class="compliance-brand" href="/" aria-label="Badgers home">
         <BrandMark class="compliance-brand__mark" aria-hidden="true">
           <img
             class="compliance-brand__image"
@@ -14,7 +14,7 @@ export function ComplianceBrand() {
             height="32"
           />
         </BrandMark>
-        <BrandLabel>Compliance</BrandLabel>
+        <BrandLabel>Badgers - The Compliance Platform</BrandLabel>
       </Link>
     </Brand>
   );

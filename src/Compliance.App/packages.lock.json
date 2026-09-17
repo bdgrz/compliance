@@ -4,14 +4,35 @@
     "net10.0": {
       "Cntryl.Portia.AspNetCore": {
         "type": "Direct",
-        "requested": "[0.2.0, )",
-        "resolved": "0.2.0",
-        "contentHash": "BUmC6vWYQq+hHZXQd8P8Y507xIacWRWg3hX4n6h5YAOMmATksgGvEBdPVbTROzm5X8FKPLQrQu7eLdgnP97ruw==",
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "ezqqYbvm8eCXXDOf1i/KAyLkpOpFXg+fGrWOXUkDxhvE80rYVYH5/0T7k6MR9jkczMgUDp+XitmwqzMVYqY8OQ==",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "0.2.0",
-          "Cntryl.Portia.DependencyInjection": "0.2.0",
+          "Cntryl.Portia.Abstractions": "0.4.4",
+          "Cntryl.Portia.DependencyInjection": "0.4.4",
           "Microsoft.AspNetCore.OpenApi": "10.0.11",
           "Microsoft.OpenApi": "2.12.0"
+        }
+      },
+      "Cntryl.Portia.Mcp": {
+        "type": "Direct",
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "LGhQ7Oq69Zl3YDDbyr0hkq1WvfChE19TYqHGfGSou0KVR9Y6lvDUIbg8/46zyz8/jGiL/xDpmcnxXEe82kJ9qQ==",
+        "dependencies": {
+          "Cntryl.Portia.DependencyInjection": "0.4.4",
+          "ModelContextProtocol": "2.2.0"
+        }
+      },
+      "Cntryl.Portia.Mcp.AspNetCore": {
+        "type": "Direct",
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "hjtazl42hqHiu+2LzI5+5kEPvc/vwClwdn8+vee25C57TLwRoG4wHr83z8TQJic3SRkjenpnahtPMqW1lP4NmQ==",
+        "dependencies": {
+          "Cntryl.Portia.AspNetCore": "0.4.4",
+          "Cntryl.Portia.Mcp": "0.4.4",
+          "ModelContextProtocol.AspNetCore": "2.2.0"
         }
       },
       "Microsoft.AspNetCore.Authentication.JwtBearer": {
@@ -23,46 +44,34 @@
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "8.19.2"
         }
       },
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "AawF393Q+VkdrnrnI1gu612zh5iqpa1AGSvnKCQ3IkMgSKJXIQbO1sXYRgEzOU4f0cPZ6MaCCF29xZSGWlmbuQ=="
-      },
-      "Microsoft.NET.ILLink.Tasks": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "xi+BDjFpW+Sb+MHFHaH6Y/gV9I8BluFwRXc1QyCdoZbIK26eNiBeFuMTe/FMwc33G1wdHCyDg7CVTmb8OdQrMQ=="
-      },
       "Cntryl.Fitz.Abstractions": {
         "type": "Transitive",
-        "resolved": "1.0.0",
-        "contentHash": "ilYUplWCnWzKXCOWjrx44hmhE0TDF8vZlDRoSpAc7BxmSGCcXtNF468/1VqgyQ0z/SknYEiZf9SrQyFgji2s9g=="
+        "resolved": "1.3.0",
+        "contentHash": "wl2FAaDbJNSIz1QQPpsdloWNukDaZgQ7RDva+D3RdSICbhdA9OyGCTDhFfNUoOFlxEt1F3fYR+ia2GwWo3PYhA=="
       },
       "Cntryl.Fitz.Core": {
         "type": "Transitive",
-        "resolved": "1.0.0",
-        "contentHash": "6/Rz8PmGkqbcW2U9l8sCdHhUX2QQtBTz3/l5UwZ9FFAEUruWFnCYG4K6iNQxL5k4pG5Uuv+rabHhy5HKSj3R8A==",
+        "resolved": "1.3.0",
+        "contentHash": "jtPw+v+BUNwnfh0FZpl0x9aqtiFOrffrO52CIpzY3Tfqjvjg/jxVq13AXhgEWEePFJ5tss73bx5RNHljshp23Q==",
         "dependencies": {
-          "Cntryl.Fitz.Abstractions": "1.0.0"
+          "Cntryl.Fitz.Abstractions": "1.3.0"
         }
       },
       "Cntryl.Portia.Core": {
         "type": "Transitive",
-        "resolved": "0.2.0",
-        "contentHash": "s0o8h1GklwbBYHny6a9DSDrbf+A7w5OoMAfF3mP7z61T7DpKqcdAnhJLJmJHy9Y50mm+uN+pvjJHm+jqKiWK2Q==",
+        "resolved": "0.4.4",
+        "contentHash": "RlJRNXzIccdle35OiciU60b1UP3oQ8UDhUA+jxn2IpGkPk7iDsgLRl+DPpU496BrYF+v0+0jwEYWYRZG9PX5xA==",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "0.2.0"
+          "Cntryl.Portia.Abstractions": "0.4.4"
         }
       },
       "Cntryl.Portia.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "0.2.0",
-        "contentHash": "6/gde58plShpgpQ7u1tKpcFsryHztwzI2iWKW0aXpXiaUtOZfyyA/61x/2qluXDnvJoWkFM6EKv3FnSuOdPuyA==",
+        "resolved": "0.4.4",
+        "contentHash": "XRHetgeBnz6Rj1ZLmzhwMqFz9upSbpVKw5LiA0PeXhOvSS5RwwgXqLv/njbJ3GHynCUdnaBQzo75hf3XJfgDsQ==",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "0.2.0",
-          "Cntryl.Portia.Core": "0.2.0"
+          "Cntryl.Portia.Abstractions": "0.4.4",
+          "Cntryl.Portia.Core": "0.4.4"
         }
       },
       "Microsoft.AspNetCore.OpenApi": {
@@ -77,6 +86,11 @@
         "type": "Transitive",
         "resolved": "10.0.2",
         "contentHash": "LG9Yll3B5aNpxv0+D47g6LiOiKBIlodhcHdQwcYzo8VeexFLGqx5ymetmA2aBRyo9cCcWsQWrFsdbsr8LvmWDw=="
+      },
+      "Microsoft.Extensions.AI.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.8.3",
+        "contentHash": "K0B05oApxmviWalNHPMBBcRC7erKiDATz3ENNR/jqTR9JwIwLRefgDhj2jCRwL1aca99pXUe0qyQC73/xIuZig=="
       },
       "Microsoft.IdentityModel.Abstractions": {
         "type": "Transitive",
@@ -130,6 +144,30 @@
         "resolved": "2.12.0",
         "contentHash": "0xB/be+f6qYOhvQPUrVsLrau+fkowYv6gt9RIkajMhwT7sZnqtcA797yW3bS5kgSje+AQW4xZgyLnW641YFioQ=="
       },
+      "ModelContextProtocol": {
+        "type": "Transitive",
+        "resolved": "2.2.0",
+        "contentHash": "4Pb9u02Nwsp0poueDsqNdyGRojFxOYpljB7zDBsq+aHL+Afou3OgxlBc3GWFVnsRMRJrUtWqDh3s6k2JgPzmrQ==",
+        "dependencies": {
+          "ModelContextProtocol.Core": "[2.2.0]"
+        }
+      },
+      "ModelContextProtocol.AspNetCore": {
+        "type": "Transitive",
+        "resolved": "2.2.0",
+        "contentHash": "3JelDMuFIwFzXybsh6K30G6wXu5gmqKnuRnieqgBMuR0FkqqXRv4B+NYZuPgthSyNq5UwRyvv2U2VJBE3RD3PQ==",
+        "dependencies": {
+          "ModelContextProtocol": "[2.2.0]"
+        }
+      },
+      "ModelContextProtocol.Core": {
+        "type": "Transitive",
+        "resolved": "2.2.0",
+        "contentHash": "FeBfXU6T8k+jw4afg4sfxdEX2rL/e5oKOk9ROOGztu9k47+7Bz08sdaToYt2XvMY1opNbwxYQOFMj6wH9TInhA==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.8.3"
+        }
+      },
       "System.IdentityModel.Tokens.Jwt": {
         "type": "Transitive",
         "resolved": "8.19.2",
@@ -142,96 +180,51 @@
       "Bdgrz.Compliance.Common": {
         "type": "Project",
         "dependencies": {
-          "Cntryl.Portia.Abstractions": "[0.2.0, )"
+          "Cntryl.Fitz.Extensions": "[1.3.0, )",
+          "Cntryl.Portia.Abstractions": "[0.4.4, )"
         }
       },
       "Bdgrz.Compliance.Core": {
         "type": "Project",
         "dependencies": {
           "Bdgrz.Compliance.Common": "[1.0.0, )",
-          "Cntryl.Portia.Fitz": "[0.2.0, )"
+          "Cntryl.Fitz.Extensions": "[1.3.0, )",
+          "Cntryl.LexKey": "[0.1.2, )",
+          "Cntryl.Portia.Fitz": "[0.4.4, )"
         }
+      },
+      "Cntryl.Fitz.Extensions": {
+        "type": "CentralTransitive",
+        "requested": "[1.3.0, )",
+        "resolved": "1.3.0",
+        "contentHash": "OfoL5de7cOlAufeb1S5UKtNJeWDqZkqxAl+tgj0WMtV/0Tsyv2Ko+5oenSayCDqMzCdf5Ig8uJcmCQkmJT3TSg==",
+        "dependencies": {
+          "Cntryl.Fitz.Abstractions": "1.3.0",
+          "Cntryl.LexKey": "0.1.2"
+        }
+      },
+      "Cntryl.LexKey": {
+        "type": "CentralTransitive",
+        "requested": "[0.1.2, )",
+        "resolved": "0.1.2",
+        "contentHash": "L7rKtCZ0uutLR42abYXFMHLSmOGzup+NPljB9D4qHLjkbuuXnuE0edpN5OWIB4UoA4e8FpU+TyBY4YrRW3CIFQ=="
       },
       "Cntryl.Portia.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[0.2.0, )",
-        "resolved": "0.2.0",
-        "contentHash": "xvOy3Hf1xzqYrfenp01WXufgbhpX34w3rX48ryWA0avEAnPB0MheCg1Dofs+MOMshGO1ly8hx6BTqAVh4/1r7Q=="
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "79cqN3TGHGvadpl15BW2+vHAHAvik1NOu7EKZJeKFlXGMD+Mg7AoLellj1mQNZgB/UXdtfrOlRLbILK89pBWcQ=="
       },
       "Cntryl.Portia.Fitz": {
         "type": "CentralTransitive",
-        "requested": "[0.2.0, )",
-        "resolved": "0.2.0",
-        "contentHash": "WOYprmxh+ozVviGkx5bNpF4eo1s+oLXDv1T7Jg3lbauB8GGIHtgKKEkcmZ+sIpk5KwlwMykFt1I1fxLKbNzFow==",
+        "requested": "[0.4.4, )",
+        "resolved": "0.4.4",
+        "contentHash": "zfXkyn9ZvO1MMb0jYYncdcCoWlNjyNHepavSYKq9mPBs/9NZtEtWocboiad9brYACRRSbUNBE0xIRdCxvkqz6Q==",
         "dependencies": {
-          "Cntryl.Fitz.Core": "1.0.0",
-          "Cntryl.Portia.Abstractions": "0.2.0",
-          "Cntryl.Portia.DependencyInjection": "0.2.0"
+          "Cntryl.Fitz.Core": "1.3.0",
+          "Cntryl.Portia.Abstractions": "0.4.4",
+          "Cntryl.Portia.DependencyInjection": "0.4.4"
         }
-      }
-    },
-    "net10.0/linux-arm64": {
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "AawF393Q+VkdrnrnI1gu612zh5iqpa1AGSvnKCQ3IkMgSKJXIQbO1sXYRgEzOU4f0cPZ6MaCCF29xZSGWlmbuQ==",
-        "dependencies": {
-          "runtime.linux-arm64.Microsoft.DotNet.ILCompiler": "10.0.12"
-        }
-      },
-      "runtime.linux-arm64.Microsoft.DotNet.ILCompiler": {
-        "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "/5+mHi8hwnpAh0Uut3VVoungKmx5lER+c9T11qlt9Geqpm3j28eTnay6kQnWdegcGgXBhdLN/iY09yPR8GukeQ=="
-      }
-    },
-    "net10.0/linux-x64": {
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "AawF393Q+VkdrnrnI1gu612zh5iqpa1AGSvnKCQ3IkMgSKJXIQbO1sXYRgEzOU4f0cPZ6MaCCF29xZSGWlmbuQ==",
-        "dependencies": {
-          "runtime.linux-x64.Microsoft.DotNet.ILCompiler": "10.0.12"
-        }
-      },
-      "runtime.linux-x64.Microsoft.DotNet.ILCompiler": {
-        "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "wAa+LAE6+Bkd+pEJvGdnQU8PZQRzvhurpQ4hzsOTpRuedIq1kunJcz86xBCBlzsc+QlVdCKVUPzEfB3uYVB7Gw=="
-      }
-    },
-    "net10.0/osx-arm64": {
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "AawF393Q+VkdrnrnI1gu612zh5iqpa1AGSvnKCQ3IkMgSKJXIQbO1sXYRgEzOU4f0cPZ6MaCCF29xZSGWlmbuQ==",
-        "dependencies": {
-          "runtime.osx-arm64.Microsoft.DotNet.ILCompiler": "10.0.12"
-        }
-      },
-      "runtime.osx-arm64.Microsoft.DotNet.ILCompiler": {
-        "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "WwM79vRmPYfsV7wVjFVYaZWc853weM+HpY917SbWI52go/PU+A2L24fMaGkYB3bunhjiLb/SMNlNT0fuyjbQqA=="
-      }
-    },
-    "net10.0/osx-x64": {
-      "Microsoft.DotNet.ILCompiler": {
-        "type": "Direct",
-        "requested": "[10.0.12, )",
-        "resolved": "10.0.12",
-        "contentHash": "AawF393Q+VkdrnrnI1gu612zh5iqpa1AGSvnKCQ3IkMgSKJXIQbO1sXYRgEzOU4f0cPZ6MaCCF29xZSGWlmbuQ==",
-        "dependencies": {
-          "runtime.osx-x64.Microsoft.DotNet.ILCompiler": "10.0.12"
-        }
-      },
-      "runtime.osx-x64.Microsoft.DotNet.ILCompiler": {
-        "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "vgcBY1cy8s45JTHH0oakn9R/wTUpJEhc6mbnwfkL4HhySqUcsmTPZq43zgC2/RoL8DWcFiWBHMgHgKGGHnRaxQ=="
       }
     }
   }

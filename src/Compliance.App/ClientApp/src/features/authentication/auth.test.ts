@@ -26,7 +26,27 @@ describe('authentication foundation', () => {
 
   it('rejects incomplete external provider configuration', () => {
     expect(() =>
-      parseAuthenticationConfiguration({ enabled: true, scopes: [] })
+      parseAuthenticationConfiguration({
+        enabled: true,
+        developer_identity_enabled: false,
+        scopes: [],
+      })
     ).toThrow(/incomplete/);
+  });
+
+  it('accepts explicit development registration configuration', () => {
+    expect(
+      parseAuthenticationConfiguration({
+        enabled: false,
+        developer_identity_enabled: true,
+      })
+    ).toEqual({
+      enabled: false,
+      developer_identity_enabled: true,
+      issuer: null,
+      client_id: null,
+      scopes: [],
+      authorization_audience: null,
+    });
   });
 });

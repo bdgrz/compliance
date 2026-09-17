@@ -19,3 +19,11 @@
 5. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
 
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
+
+## Code organization
+
+- Organize product code by capability under `Features/<FeatureName>`.
+- Match .NET namespaces to the folder structure.
+- Declare one top-level type per C# file and name the file for that type.
+- Keep project-wide composition, generated JSON contexts, and assembly markers at the project root.
+- Put process-level API and worker concerns under `Hosting` rather than a product feature.

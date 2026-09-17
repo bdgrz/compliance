@@ -59,15 +59,15 @@ docker compose --profile split up --build api worker
 To run the app directly while its dependencies remain in Compose:
 
 ```console
-docker compose up --detach sqrzl fitz
+docker compose up --detach storage broker
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Compliance.App
 ```
 
-`COMPLIANCE_HOST_MODE` accepts `standalone` (the default), `api`, or `worker`. Development uses an explicit development-only authentication bypass. The application rejects that bypass in every other environment.
+`COMPLIANCE_HOST_MODE` accepts `standalone` (the default), `api`, or `worker`. Local Compose enables email-based developer authentication with `BDGRZ_DEVELOPER_AUTH=true`. The application rejects developer authentication in every other environment.
 
 ## Authentication
 
-Compliance delegates identity to an external OpenID Connect provider such as Auth0 or Microsoft Entra ID. It does not host users, passwords, or a client secret. Production fails at startup unless these settings are supplied:
+Badgers delegates authentication to an external OpenID Connect provider such as Auth0 or Microsoft Entra ID. It does not host passwords or a client secret. Production fails at startup unless these settings are supplied:
 
 | Setting | Purpose |
 | --- | --- |
@@ -76,10 +76,11 @@ Compliance delegates identity to an external OpenID Connect provider such as Aut
 | `Compliance__Authentication__ClientId` | Public browser application client ID |
 | `Compliance__Authentication__Scopes` | Space-delimited OIDC and API scopes; must include `openid` |
 | `Compliance__Authentication__AuthorizationAudience` | Optional Auth0-style `audience` authorization parameter |
+| `BDGRZ_SESSION_SIGNING_KEY` | At least 32 bytes used to sign the HttpOnly Badgers session JWT |
 
 For Entra, put the delegated API scope (for example, `api://.../Compliance.Read`) in `Scopes`. For Auth0, set the API identifier in both the server `Audience` and, when needed, `AuthorizationAudience`.
 
-The SPA uses Authorization Code with PKCE. It stores the access token in session storage, never persists a refresh token, validates callback state/nonce and the ID token through `@askrjs/auth`, and sends the access token as a bearer credential. Client route guards are navigation ergonomics; ASP.NET Core remains the authorization boundary.
+The SPA uses Authorization Code with PKCE. It stores the access token in session storage, never persists a refresh token, validates callback state/nonce and the ID token through `@askrjs/auth`, and sends the access token to the OIDC identity-registration command. A successful registration establishes the signed Badgers session cookie. Client route guards are navigation ergonomics; ASP.NET Core remains the authorization boundary.
 
 ## HTTP boundaries and operations
 
@@ -97,7 +98,7 @@ ASP.NET Core's optimized static-asset endpoints serve the Vite output with build
 Run the real-broker test after starting Fitz and Sqrzl:
 
 ```console
-docker compose up --detach sqrzl fitz
+docker compose up --detach storage broker
 dotnet test Compliance.slnx --configuration Release --filter "Category=BrokerIntegration"
 docker compose down --volumes
 ```

@@ -6,6 +6,7 @@ import {
 
 export interface AuthenticationConfiguration {
   enabled: boolean;
+  developer_identity_enabled: boolean;
   issuer: string | null;
   client_id: string | null;
   scopes: string[];
@@ -60,8 +61,12 @@ export function parseAuthenticationConfiguration(
   }
 
   if (!candidate.enabled) {
+    if (candidate.developer_identity_enabled !== true) {
+      throw new Error('The development authentication configuration is invalid.');
+    }
     return {
       enabled: false,
+      developer_identity_enabled: true,
       issuer: null,
       client_id: null,
       scopes: [],
@@ -70,6 +75,7 @@ export function parseAuthenticationConfiguration(
   }
 
   if (
+    candidate.developer_identity_enabled !== false ||
     typeof candidate.issuer !== 'string' ||
     typeof candidate.client_id !== 'string' ||
     !Array.isArray(candidate.scopes) ||
@@ -86,7 +92,13 @@ export function parseAuthenticationConfiguration(
 export async function beginSignIn(returnPath?: string): Promise<void> {
   const configuration = await loadConfiguration();
   if (!configuration.enabled) {
-    window.location.assign(normalizeReturnPath(returnPath ?? '/'));
+    const safeReturnPath = normalizeReturnPath(
+      returnPath ?? '/',
+      window.location.origin
+    );
+    window.location.assign(
+      `/developer-login?returnUrl=${encodeURIComponent(safeReturnPath)}`
+    );
     return;
   }
 
@@ -164,6 +176,14 @@ export async function completeOidcCallbackIfPresent(): Promise<void> {
       scopes: configuration.scopes,
     };
     window.sessionStorage.setItem(sessionKey, JSON.stringify(session));
+    const continuation = await authorizedFetch('/api/v1/oidc-user-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{}',
+    });
+    if (!continuation.ok) {
+      throw new Error('The authenticated identity could not be continued.');
+    }
     window.sessionStorage.removeItem(authenticationErrorKey);
     window.history.replaceState(
       null,
@@ -183,9 +203,23 @@ export async function completeOidcCallbackIfPresent(): Promise<void> {
 export async function resolveBrowserAuthentication(): Promise<AuthContext> {
   const configuration = await loadConfiguration();
   if (!configuration.enabled) {
+    const response = await fetch('/auth/session', {
+      headers: { Accept: 'application/json' },
+    });
+    if (response.status === 401) return anonymousContext();
+    if (!response.ok) throw new Error('The authentication session is unavailable.');
+
+    const session = (await response.json()) as {
+      id: string;
+      email_address: string;
+    };
     return {
       authenticated: true,
-      principal: { id: 'development', subject: 'development' },
+      principal: {
+        id: session.id,
+        subject: session.id,
+        email: session.email_address,
+      },
       session: null,
       tenant: null,
       scopes: [],
@@ -223,7 +257,12 @@ export async function authorizedFetch(
   return fetch(input, { ...init, headers });
 }
 
-export function signOut(): void {
+export async function signOut(): Promise<void> {
+  try {
+    await fetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // Local sign-out must still succeed even if the network call fails.
+  }
   window.sessionStorage.removeItem(sessionKey);
   window.location.assign('/login');
 }

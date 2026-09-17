@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Cntryl.Fitz.Extensions" />
+    <PackageReference Include="Cntryl.LexKey" />
     <PackageReference Include="Cntryl.Portia.Fitz" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Compliance.Common/Compliance.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bdgrz.Compliance.Tests" />
   </ItemGroup>
 </Project>

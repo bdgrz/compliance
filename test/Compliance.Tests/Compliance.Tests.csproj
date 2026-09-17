@@ -2,6 +2,8 @@
   <ItemGroup>
     <PackageReference Include="Cntryl.Conventions.Testing.Analyzers" PrivateAssets="all" />
     <PackageReference Include="Cntryl.Conventions.Testing.CodeFixes" PrivateAssets="all" />
+    <PackageReference Include="Cntryl.Fitz.Testing" />
+    <PackageReference Include="Cntryl.Portia.Mcp.Testing" />
     <PackageReference Include="Cntryl.Portia.Testing" />
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
