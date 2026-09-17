@@ -47,4 +47,31 @@ public sealed class TenantSlugTests
         Assert.True(surrendered.IsSuccess);
         Assert.IsType<TenantSlugSurrendered>(scenario.PendingEvents[^1]);
     }
+
+    // Regression coverage for the backlog's "a retired slug is never assigned to another
+    // organization" rule: surrendering must permanently spend a slug, not free it for reuse.
+    [Fact]
+    public void ShouldNeverBecomeAvailableAgainOnceSurrendered()
+    {
+        var slug = new TenantSlug("acme");
+        _ = slug.Register(FirstTenant);
+        _ = slug.Surrender(FirstTenant);
+
+        Assert.False(slug.IsAvailableFor(FirstTenant));
+        Assert.False(slug.IsAvailableFor(SecondTenant));
+    }
+
+    [Fact]
+    public void ShouldRejectRegistrationOfARetiredSlugEvenForItsFormerOwner()
+    {
+        var slug = new TenantSlug("acme");
+        _ = slug.Register(FirstTenant);
+        _ = slug.Surrender(FirstTenant);
+        var scenario = new AggregateScenario<TenantSlug>(slug);
+
+        var result = slug.Register(FirstTenant);
+
+        Assert.True(result.IsSuccess);
+        Assert.IsType<TenantSlugRegistrationRejected>(scenario.PendingEvents[^1]);
+    }
 }

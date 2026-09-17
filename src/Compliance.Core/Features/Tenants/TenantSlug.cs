@@ -10,6 +10,7 @@ public sealed class TenantSlug : Aggregate
 
     readonly string _slug;
     Uuid? _tenantId;
+    bool _retired;
 
     public TenantSlug(string slug)
         : base(CreateId(slug), new EventStreamAddress("bdgrz", "tenant-slugs", CreateId(slug).ToString()))
@@ -24,15 +25,16 @@ public sealed class TenantSlug : Aggregate
     /// <summary>
     ///     Reports whether <paramref name="tenantId" /> could claim this slug right now. A cheap,
     ///     possibly-stale preflight for <see cref="RegisterTenantSlugAvailabilityGuard" />; only
-    ///     <see cref="Register" /> decides ownership authoritatively.
+    ///     <see cref="Register" /> decides ownership authoritatively. A retired slug (once
+    ///     surrendered) is never available again, even to the tenant that surrendered it.
     /// </summary>
-    public bool IsAvailableFor(Uuid tenantId) => _tenantId is null || _tenantId == tenantId;
+    public bool IsAvailableFor(Uuid tenantId) => !_retired && (_tenantId is null || _tenantId == tenantId);
 
     public Result Register(Uuid tenantId)
     {
-        if (_tenantId is null)
+        if (!_retired && _tenantId is null)
             RaiseEvent(new TenantSlugRegistered(tenantId, _slug));
-        else if (_tenantId != tenantId)
+        else if (_tenantId != tenantId || _retired)
             RaiseEvent(new TenantSlugRegistrationRejected(tenantId, _slug));
         return Result.Success;
     }
@@ -47,7 +49,14 @@ public sealed class TenantSlug : Aggregate
     }
 
     void Apply(TenantSlugRegistered registered) => _tenantId = registered.TenantId;
-    void Apply(TenantSlugSurrendered _) => _tenantId = null;
+
+    // A slug is permanently spent once surrendered, per the backlog's "a retired slug is never
+    // assigned to another organization" rule -- retiring clears ownership but never un-retires.
+    void Apply(TenantSlugSurrendered _)
+    {
+        _tenantId = null;
+        _retired = true;
+    }
 
     static Uuid CreateId(string slug) => Uuid.CreateVersion5(SlugNamespaceId, Normalize(slug));
     static string Normalize(string slug) => TenantSlugs.TryNormalize(slug, out var normalized)
