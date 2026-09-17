@@ -64,6 +64,27 @@ public sealed class FitzTeamMemberDirectoryReaderTests
         Assert.Null(secondPage.NextCursor);
     }
 
+    // Regression test: Search must match a substring anywhere in the member ID, not just a prefix —
+    // the KvDirectory 1.3.0 migration briefly narrowed this to prefix-only before being caught and
+    // fixed.
+    [Fact]
+    public async Task ListAsyncShouldFilterByMemberIdSubstringNotJustPrefix()
+    {
+        var client = new InMemoryKvClient();
+        var member = Uuid.CreateVersion4();
+        var otherMember = Uuid.CreateVersion4();
+        await SeedAsync(client, TeamId, member);
+        await SeedAsync(client, TeamId, otherMember);
+        var reader = new FitzTeamMemberDirectoryReader(client);
+        var middleOfMemberId = member.ToString().Substring(9, 8);
+
+        var page = await reader.ListAsync(
+            TenantId, TeamId, null, null, middleOfMemberId, descending: false, CancellationToken.None);
+
+        var result = Assert.Single(page.Items);
+        Assert.Equal(member, result.MemberId);
+    }
+
     static async Task SeedAsync(InMemoryKvClient client, Uuid teamId, Uuid memberId)
     {
         await using var transaction = await client.BeginAsync(

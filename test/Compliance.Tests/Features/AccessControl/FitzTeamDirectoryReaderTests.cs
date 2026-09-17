@@ -88,6 +88,43 @@ public sealed class FitzTeamDirectoryReaderTests
         Assert.Equal("Reviewers", team.Name);
     }
 
+    // Regression test: Search must match a substring anywhere in the name, not just a prefix — the
+    // KvDirectory 1.3.0 migration briefly narrowed this to prefix-only before being caught and fixed.
+    [Fact]
+    public async Task ListAsyncShouldFilterByNameSubstringNotJustPrefix()
+    {
+        var client = new InMemoryKvClient();
+        await SeedAsync(client, Uuid.CreateVersion4(), "Site Reviewers");
+        await SeedAsync(client, Uuid.CreateVersion4(), "Administrators");
+        var reader = new FitzTeamDirectoryReader(client);
+
+        var page = await reader.ListAsync(
+            TenantId, null, null, "review", descending: false, CancellationToken.None);
+
+        var team = Assert.Single(page.Items);
+        Assert.Equal("Site Reviewers", team.Name);
+    }
+
+    [Fact]
+    public async Task ListAsyncShouldPaginateSearchResultsUsingTheReturnedCursor()
+    {
+        var client = new InMemoryKvClient();
+        await SeedAsync(client, Uuid.CreateVersion4(), "Alpha Reviewers");
+        await SeedAsync(client, Uuid.CreateVersion4(), "Beta");
+        await SeedAsync(client, Uuid.CreateVersion4(), "Gamma Reviewers");
+        var reader = new FitzTeamDirectoryReader(client);
+
+        var firstPage = await reader.ListAsync(
+            TenantId, 1, null, "review", descending: false, CancellationToken.None);
+        Assert.Equal(["Alpha Reviewers"], firstPage.Items.Select(team => team.Name));
+        Assert.NotNull(firstPage.NextCursor);
+
+        var secondPage = await reader.ListAsync(
+            TenantId, 1, firstPage.NextCursor, "review", descending: false, CancellationToken.None);
+        Assert.Equal(["Gamma Reviewers"], secondPage.Items.Select(team => team.Name));
+        Assert.Null(secondPage.NextCursor);
+    }
+
     [Fact]
     public async Task ListAsyncShouldSortByNameDescending()
     {
