@@ -94,6 +94,15 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
                 string.Equals(context.User.FindFirst("email_verified")?.Value, "true", StringComparison.Ordinal))))
         .RequireAuthorization()
         .ExcludeFromDescription();
+    app.MapPost(
+            "/auth/logout",
+            (HttpContext context) =>
+            {
+                UserSessionCookie.Clear(context);
+                return Results.NoContent();
+            })
+        .RequireAuthorization(ComplianceAuthorizationPolicies.Session)
+        .ExcludeFromDescription();
 
     var sessionTokens = app.Services.GetRequiredService<BdgrzSessionTokens>();
     if (developerAuthentication)

@@ -120,6 +120,29 @@ public sealed class UserIdentityContinuationWebTests
     }
 
     [Fact]
+    public async Task ShouldEndTheSessionGivenLogout()
+    {
+        // Arrange
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await client.PostAsJsonAsync(
+            "/api/v1/developer-user-sessions",
+            new RegistrationDocument("person@example.com"),
+            CancellationToken.None);
+
+        // Act
+        using var logout = await client.PostAsync("/auth/logout", null, CancellationToken.None);
+        using var sessionAfterLogout = await client.GetAsync("/auth/session", CancellationToken.None);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, logout.StatusCode);
+        var cookie = Assert.Single(logout.Headers.GetValues("Set-Cookie"));
+        Assert.Contains("bdgrz_session=", cookie, StringComparison.Ordinal);
+        Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Unauthorized, sessionAfterLogout.StatusCode);
+    }
+
+    [Fact]
     public async Task ShouldRejectInvalidEmailGivenDeveloperIdentity()
     {
         // Arrange

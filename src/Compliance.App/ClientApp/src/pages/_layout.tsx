@@ -46,7 +46,7 @@ export function PageLayout({ children }: { children?: unknown }) {
                       darkIcon={<MoonIcon size={16} aria-hidden="true" />}
                     />
                     {currentAuth().authenticated ? (
-                      <Button variant="ghost" onPress={signOut}>
+                      <Button variant="ghost" onPress={() => void signOut()}>
                         <LogOutIcon size={16} aria-hidden="true" />
                         <Block as="span" hide={{ base: true, sm: false }}>
                           Sign out

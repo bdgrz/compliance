@@ -257,7 +257,12 @@ export async function authorizedFetch(
   return fetch(input, { ...init, headers });
 }
 
-export function signOut(): void {
+export async function signOut(): Promise<void> {
+  try {
+    await fetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // Local sign-out must still succeed even if the network call fails.
+  }
   window.sessionStorage.removeItem(sessionKey);
   window.location.assign('/login');
 }

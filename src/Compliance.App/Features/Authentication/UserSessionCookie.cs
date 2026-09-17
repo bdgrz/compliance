@@ -27,4 +27,16 @@ static class UserSessionCookie
 
         return null;
     }
+
+    /// <summary>Clears the Bdgrz browser session cookie, ending the session immediately.</summary>
+    public static void Clear(HttpContext http) =>
+        http.Response.Cookies.Delete(
+            BdgrzSessionTokens.CookieName,
+            new CookieOptions
+            {
+                HttpOnly = true,
+                IsEssential = true,
+                SameSite = SameSiteMode.Lax,
+                Secure = http.Request.IsHttps,
+            });
 }
