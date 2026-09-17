@@ -17,6 +17,7 @@
   "dependencies": {
     "@askrjs/askr": "0.3.1",
     "@askrjs/auth": "0.3.0",
+    "@askrjs/fetch": "0.3.0",
     "@askrjs/lucide": "0.3.0",
     "@askrjs/themes": "0.3.0",
     "@askrjs/ui": "0.3.0"

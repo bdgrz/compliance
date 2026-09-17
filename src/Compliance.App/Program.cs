@@ -152,7 +152,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         "/api/{**path}",
         ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
         () => Results.NotFound())
-        .RequireAuthorization();
+        .RequireAuthorization()
+        .ExcludeFromDescription();
 
     await app.RunAsync();
 }
