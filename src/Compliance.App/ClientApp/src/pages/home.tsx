@@ -1,4 +1,6 @@
+import { state } from '@askrjs/askr';
 import {
+  Block,
   Card,
   CardContent,
   CardDescription,
@@ -6,9 +8,30 @@ import {
   CardTitle,
   Page,
   PageHeader,
+  Spinner,
 } from '@askrjs/themes/components';
 
+import { ensureActiveTenant } from '../features/tenants/tenants.js';
+
 export function HomePage() {
+  const [ready, setReady] = state(false);
+
+  void ensureActiveTenant().then((shouldRender) => {
+    if (shouldRender) {
+      setReady(true);
+    }
+  });
+
+  if (!ready()) {
+    return (
+      <Page background="muted" center>
+        <Block as="section" align="center" justify="center" grow>
+          <Spinner label="Loading" />
+        </Block>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <PageHeader

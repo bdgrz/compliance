@@ -28,6 +28,16 @@ const DeveloperLoginPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import('./not-found.js').then((module) => module.NotFoundPage)
 );
+const CreateTenantPage = lazy(() =>
+  import('../features/tenants/pages/create-tenant.js').then(
+    (module) => module.CreateTenantPage
+  )
+);
+const SelectTenantPage = lazy(() =>
+  import('../features/tenants/pages/select-tenant.js').then(
+    (module) => module.SelectTenantPage
+  )
+);
 
 export const pageRegistry = createRouteRegistry(
   () => {
@@ -44,6 +54,8 @@ export const pageRegistry = createRouteRegistry(
             html: { lang: 'en', dir: 'ltr' },
           },
         });
+        route('/organizations', SelectTenantPage);
+        route('/organizations/new', CreateTenantPage);
         route('/*', NotFoundPage);
       });
     });
