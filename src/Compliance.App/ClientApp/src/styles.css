@@ -56,3 +56,31 @@ svg {
   border-radius: var(--ak-radius-md);
   font: inherit;
 }
+
+.app-shell-layout {
+  width: 100%;
+  min-height: 100%;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: calc(var(--ak-layout-navbar-height, 3.75rem) + 1px);
+  align-self: start;
+  height: calc(100dvh - var(--ak-layout-navbar-height, 3.75rem) - 1px);
+  background: var(--ak-color-bg, Canvas);
+}
+
+.app-content-surface {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-block: var(--ak-space-lg, 1.5rem);
+}
+
+@media (max-width: 47.999rem) {
+  .app-sidebar {
+    position: static;
+    height: auto;
+    min-height: 0;
+  }
+}
