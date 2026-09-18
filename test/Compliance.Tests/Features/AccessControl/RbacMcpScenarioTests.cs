@@ -12,15 +12,19 @@ using Microsoft.Extensions.Hosting;
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 /// <summary>
-///     Exercises the Team domain's MCP surface through a real Streamable HTTP client — this is what
-///     no test could verify before Portia 0.4's Mcp.Testing package: that the declared tools are
-///     actually reachable, and that a call genuinely dispatches through the same authorization
-///     pipeline as direct HTTP, not just that host startup didn't throw.
+///     Exercises the RBAC domain's (Team + Role) MCP surface through a real Streamable HTTP client
+///     — this is what no test could verify before Portia 0.4's Mcp.Testing package: that the
+///     declared tools are actually reachable, and that a call genuinely dispatches through the
+///     same authorization pipeline as direct HTTP, not just that host startup didn't throw.
+///     <see cref="McpToolListExpectations.ExpectExactly" /> is exact-match only, so this list must
+///     be updated whenever a Program.cs <c>AddMcpTool</c> registration changes — that coupling is
+///     deliberate: it forces a visible review of the registered surface instead of registration
+///     drift going unnoticed.
 /// </summary>
-public sealed class TeamMcpScenarioTests
+public sealed class RbacMcpScenarioTests
 {
     [Fact]
-    public async Task ShouldListTeamToolsAndDenyAnUnprivilegedCall()
+    public async Task ShouldListRbacToolsAndDenyAnUnprivilegedCall()
     {
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
@@ -40,6 +44,16 @@ public sealed class TeamMcpScenarioTests
             "bdgrz.rbac.team-member.assign",
             "bdgrz.rbac.team-member.remove",
             "bdgrz.rbac.team-member.list",
+            "bdgrz.rbac.role.define",
+            "bdgrz.rbac.role.delete",
+            "bdgrz.rbac.role.get",
+            "bdgrz.rbac.role.list",
+            "bdgrz.rbac.role-permission.assign",
+            "bdgrz.rbac.role-permission.remove",
+            "bdgrz.rbac.role-permission.list",
+            "bdgrz.rbac.team-role.assign",
+            "bdgrz.rbac.team-role.remove",
+            "bdgrz.rbac.role-team.list",
             "bdgrz.tenant-membership.list-mine");
 
         // No permission grant exists for this actor, so a call must fail the same way a direct
