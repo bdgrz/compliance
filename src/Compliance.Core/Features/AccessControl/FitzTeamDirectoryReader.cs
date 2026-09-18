@@ -5,19 +5,38 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 /// <summary>
-///     Reads the team directory directly from Fitz KV, independent of any projector's workload
-///     scope — mirrors <see cref="FitzPermissionAuthorizer" />'s direct-read pattern rather than the
-///     <see cref="IProjectionStore" />-typed write side, which only applies during a projector pass.
+///     Serves the "TeamDirectory" projector: writes join its batch transaction, and query-side
+///     reads open their own read-only transaction on the resource it writes for the given tenant.
 /// </summary>
-sealed class FitzTeamDirectoryReader(IKvClient client) : ITeamDirectoryReader
+sealed class FitzTeamDirectoryReader(IKvClient client)
+    : FitzKvProjectionStore(client, TeamDirectoryKeys.Route, "TeamDirectory"),
+      ITeamDirectoryProjection,
+      ITeamDirectoryReader
 {
-    const int DefaultLimit = 50;
-    const int MaxLimit = 200;
+    public const int DefaultLimit = 50;
+    public const int MaxLimit = 200;
 
-    public ValueTask<TeamView?> GetAsync(Uuid tenantId, Uuid teamId, CancellationToken ct = default) =>
-        TeamDirectorySchema.Directory.GetAsync(client, TeamDirectoryKeys.Route(tenantId.ToString()), teamId, ct);
+    public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
+    {
+        switch (domainEvent)
+        {
+            case TeamDefined defined:
+                await TeamDirectorySchema.Directory.InsertAsync(
+                    Transaction, new TeamView(defined.TeamId, defined.Name), ct).ConfigureAwait(false);
+                break;
+            case TeamDeleted deleted:
+                await TeamDirectorySchema.Directory.DeleteAsync(Transaction, deleted.TeamId, ct).ConfigureAwait(false);
+                break;
+        }
+    }
 
-    public ValueTask<Page<TeamView>> ListAsync(
+    public async ValueTask<TeamView?> GetAsync(Uuid tenantId, Uuid teamId, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await TeamDirectorySchema.Directory.GetAsync(tx, teamId, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<TeamView>> ListAsync(
         Uuid tenantId,
         int? limit,
         string? cursor,
@@ -25,7 +44,7 @@ sealed class FitzTeamDirectoryReader(IKvClient client) : ITeamDirectoryReader
         bool descending,
         CancellationToken ct = default)
     {
-        var route = TeamDirectoryKeys.Route(tenantId.ToString());
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         if (search is null)
         {
             var query = TeamDirectorySchema.ByName.Query().After(cursor);
@@ -39,10 +58,10 @@ sealed class FitzTeamDirectoryReader(IKvClient client) : ITeamDirectoryReader
                 query = query.Descending();
             }
 
-            return TeamDirectorySchema.Directory.QueryAsync(client, route, query, ct);
+            return await TeamDirectorySchema.Directory.QueryAsync(tx, query, ct).ConfigureAwait(false);
         }
 
-        return SearchAsync(route, limit, cursor, search, descending, ct);
+        return await SearchAsync(tx, limit, cursor, search, descending, ct).ConfigureAwait(false);
     }
 
     // KvDirectory's declared indexes only support prefix range scans, not substring matching, so a
@@ -52,8 +71,8 @@ sealed class FitzTeamDirectoryReader(IKvClient client) : ITeamDirectoryReader
     // substring, the same as before the KvDirectory 1.3.0 migration; see the
     // design-api-contracts-hide-impl-strategy note — the contract does not narrow just because the
     // storage layer's native query shape changed underneath it.
-    async ValueTask<Page<TeamView>> SearchAsync(
-        string route, int? limit, string? cursor, string search, bool descending, CancellationToken ct)
+    static async ValueTask<Page<TeamView>> SearchAsync(
+        IKvTransaction tx, int? limit, string? cursor, string search, bool descending, CancellationToken ct)
     {
         var effectiveLimit = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);
         var matches = new List<TeamView>();
@@ -66,7 +85,7 @@ sealed class FitzTeamDirectoryReader(IKvClient client) : ITeamDirectoryReader
                 step = step.Descending();
             }
 
-            var page = await TeamDirectorySchema.Directory.QueryAsync(client, route, step, ct).ConfigureAwait(false);
+            var page = await TeamDirectorySchema.Directory.QueryAsync(tx, step, ct).ConfigureAwait(false);
             if (page.Items.Count == 0)
             {
                 scanCursor = null;

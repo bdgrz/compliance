@@ -87,9 +87,10 @@ public sealed class FitzTeamMemberDirectoryReaderTests
 
     static async Task SeedAsync(InMemoryKvClient client, Uuid teamId, Uuid memberId)
     {
-        await using var transaction = await client.BeginAsync(
-            TeamMemberDirectoryKeys.Route(TenantId.ToString()), KvDurability.Async, KvMode.ReadWrite);
-        await TeamMemberDirectorySchema.Directory.InsertAsync(transaction, new TeamMemberView(teamId, memberId));
-        await transaction.CommitAsync();
+        var repository = new FitzTeamMemberDirectoryReader(client);
+        var identity = new CheckpointIdentity("TeamMemberDirectory", EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+        await repository.ApplyAsync(new TeamMemberAssigned(TenantId, teamId, memberId));
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 }

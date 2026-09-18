@@ -1,14 +1,36 @@
 using Cntryl.Fitz;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
 /// <summary>
-///     Reads the tenant directory directly from Fitz KV, independent of any projector's workload
-///     scope — same direct-read pattern as <see cref="Bdgrz.Compliance.Features.AccessControl.FitzTeamDirectoryReader" />.
+///     Serves the "TenantDirectory" projector, which is <see cref="WorkloadScope.Global" /> on
+///     <see cref="EventStreamPattern.ForPattern(string, string)" />("bdgrz", "tenants"), so its
+///     realm is the fixed "bdgrz" rather than a tenant ID. Writes join its batch transaction, and
+///     query-side reads open their own read-only transaction on that same realm.
 /// </summary>
-sealed class FitzTenantDirectoryReader(IKvClient client) : ITenantDirectoryReader
+sealed class FitzTenantDirectoryReader(IKvClient client)
+    : FitzKvProjectionStore(client, TenantDirectoryKeys.Route, "TenantDirectory"),
+      ITenantDirectoryProjection,
+      ITenantDirectoryReader
 {
-    public ValueTask<TenantView?> GetAsync(Uuid tenantId, CancellationToken ct = default) =>
-        TenantDirectorySchema.Directory.GetAsync(client, TenantDirectoryKeys.Route(), tenantId, ct);
+    const string Realm = "bdgrz";
+
+    public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
+    {
+        if (domainEvent is TenantRegistered registered)
+        {
+            await TenantDirectorySchema.Directory.InsertAsync(
+                Transaction,
+                new TenantView(registered.TenantId, registered.Name, registered.Slug),
+                ct).ConfigureAwait(false);
+        }
+    }
+
+    public async ValueTask<TenantView?> GetAsync(Uuid tenantId, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(Realm, ct).ConfigureAwait(false);
+        return await TenantDirectorySchema.Directory.GetAsync(tx, tenantId, ct).ConfigureAwait(false);
+    }
 }

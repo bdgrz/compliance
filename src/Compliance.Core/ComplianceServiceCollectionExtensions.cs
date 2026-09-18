@@ -22,16 +22,25 @@ public static class ComplianceServiceCollectionExtensions
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
         services.AddScoped<UserIdentityContinuation>();
-        services.AddScoped<IPermissionProjection, FitzPermissionProjection>();
-        services.AddSingleton<IPermissionAuthorizer, FitzPermissionAuthorizer>();
-        services.AddScoped<ITeamDirectoryProjection, FitzTeamDirectoryProjection>();
-        services.AddSingleton<ITeamDirectoryReader, FitzTeamDirectoryReader>();
-        services.AddScoped<ITeamMemberDirectoryProjection, FitzTeamMemberDirectoryProjection>();
-        services.AddSingleton<ITeamMemberDirectoryReader, FitzTeamMemberDirectoryReader>();
-        services.AddScoped<ITenantDirectoryProjection, FitzTenantDirectoryProjection>();
-        services.AddSingleton<ITenantDirectoryReader, FitzTenantDirectoryReader>();
-        services.AddScoped<ITenantMembershipDirectoryProjection, FitzTenantMembershipDirectoryProjection>();
-        services.AddSingleton<ITenantMembershipDirectoryReader, FitzTenantMembershipDirectoryReader>();
+        services.AddScoped<FitzPermissionAuthorizer>();
+        services.AddScoped<IPermissionProjection>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
+        services.AddScoped<IPermissionAuthorizer>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
+        services.AddScoped<FitzTeamDirectoryReader>();
+        services.AddScoped<ITeamDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
+        services.AddScoped<ITeamDirectoryReader>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
+        services.AddScoped<FitzTeamMemberDirectoryReader>();
+        services.AddScoped<ITeamMemberDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzTeamMemberDirectoryReader>());
+        services.AddScoped<ITeamMemberDirectoryReader>(
+            provider => provider.GetRequiredService<FitzTeamMemberDirectoryReader>());
+        services.AddScoped<FitzTenantDirectoryReader>();
+        services.AddScoped<ITenantDirectoryProjection>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
+        services.AddScoped<ITenantDirectoryReader>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
+        services.AddScoped<FitzTenantMembershipDirectoryReader>();
+        services.AddScoped<ITenantMembershipDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
+        services.AddScoped<ITenantMembershipDirectoryReader>(
+            provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
         services.AddSingleton<ITenantDirectory>(provider =>
             new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
                 provider.GetRequiredService<IDomainEventReader>(),
