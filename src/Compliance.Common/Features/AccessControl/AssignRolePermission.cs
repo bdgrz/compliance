@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.AccessControl;
     Justification = "AssignRolePermission uses the canonical RBAC relationship term.")]
 [Discriminator("bdgrz.rbac.role-permission.assign", 1)]
 public sealed record AssignRolePermission(Uuid TenantId, Uuid RoleId, string Permission)
-    : IRequest, IRbacManagementRequest;
+    : IRequest, IRbacManagementRequest, ICallable;

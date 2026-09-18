@@ -21,12 +21,21 @@ public sealed class TeamRole : Aggregate
         _teamId = teamId;
         _roleId = roleId;
         On<TeamRoleAssigned>(_ => _isAssigned = true);
+        On<TeamRoleRemoved>(_ => _isAssigned = false);
     }
 
     public Result Assign()
     {
         if (!_isAssigned)
             RaiseEvent(new TeamRoleAssigned(_tenantId, _teamId, _roleId));
+        return Result.Success;
+    }
+
+    public Result Remove()
+    {
+        if (!_isAssigned)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The role is not assigned to this team."));
+        RaiseEvent(new TeamRoleRemoved(_tenantId, _teamId, _roleId));
         return Result.Success;
     }
 }

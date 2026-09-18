@@ -37,6 +37,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<AssignTeamMember>(tool => tool.Idempotent())
         .AddMcpTool<RemoveTeamMember>(tool => tool.Destructive())
         .AddMcpTool<ListTeamMembers>(tool => tool.ReadOnly())
+        .AddMcpTool<DefineRole>(tool => tool.Idempotent())
+        .AddMcpTool<DeleteRole>(tool => tool.Destructive())
+        .AddMcpTool<GetRole>(tool => tool.ReadOnly())
+        .AddMcpTool<ListRoles>(tool => tool.ReadOnly())
+        .AddMcpTool<AssignRolePermission>(tool => tool.Idempotent())
+        .AddMcpTool<RemoveRolePermission>(tool => tool.Destructive())
+        .AddMcpTool<ListRolePermissions>(tool => tool.ReadOnly())
+        .AddMcpTool<AssignTeamRole>(tool => tool.Idempotent())
+        .AddMcpTool<RemoveTeamRole>(tool => tool.Destructive())
+        .AddMcpTool<ListRoleTeams>(tool => tool.ReadOnly())
         .AddMcpTool<ListMyTenants>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -152,6 +162,37 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<ListTeamMembers, Page<TeamMemberView>>("/api/v1/tenants/{tenantId}/teams/{teamId}/members")
         .RequireAuthorization()
         .WithTags("Teams");
+    app.MapPortiaPost<AssignTeamRole>("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaDelete<RemoveTeamRole>("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
+        .RequireAuthorization()
+        .WithTags("Teams");
+    app.MapPortiaPost<DefineRole>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaDelete<DeleteRole>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaGet<GetRole, RoleView>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaGet<ListRoles, Page<RoleView>>("/api/v1/tenants/{tenantId}/roles")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaPost<AssignRolePermission>("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaDelete<RemoveRolePermission>("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaGet<ListRolePermissions, Page<RolePermissionView>>(
+            "/api/v1/tenants/{tenantId}/roles/{roleId}/permissions")
+        .RequireAuthorization()
+        .WithTags("Roles");
+    app.MapPortiaGet<ListRoleTeams, Page<RoleTeamView>>("/api/v1/tenants/{tenantId}/roles/{roleId}/teams")
+        .RequireAuthorization()
+        .WithTags("Roles");
     app.MapMethods(
         "/api/{**path}",
         ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
