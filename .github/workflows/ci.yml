@@ -59,15 +59,11 @@ jobs:
       - name: Test without broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 
-      - name: Start Broker and Storage
-        run: docker compose up --detach storage broker
-
+      # BrokerIntegration tests own their own docker compose lifecycle
+      # (test/Compliance.Tests/E2E/compose.yml), separate from the root compose.yml -- no manual
+      # start/stop step needed here.
       - name: Test with real broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
-
-      - name: Stop Broker and Storage
-        if: always()
-        run: docker compose down --volumes
 
   native-container:
     name: Native container ${{ matrix.platform }}
