@@ -4,7 +4,7 @@ import {
   type OidcAuthorizationRequest,
 } from '@askrjs/auth/oidc';
 
-import { clearActiveTenantSlug } from '../tenants/tenants.js';
+import { clearActiveTenant } from '../tenants/tenants.js';
 
 export interface AuthenticationConfiguration {
   enabled: boolean;
@@ -266,7 +266,7 @@ export async function signOut(): Promise<void> {
     // Local sign-out must still succeed even if the network call fails.
   }
   window.sessionStorage.removeItem(sessionKey);
-  clearActiveTenantSlug();
+  clearActiveTenant();
   window.location.assign('/login');
 }
 

@@ -6,7 +6,7 @@ sealed class PermissionProjectionState
 {
     public HashSet<Uuid> Members { get; init; } = [];
     public HashSet<Uuid> Roles { get; init; } = [];
-    public Dictionary<Uuid, HashSet<string>> RolePermissions { get; init; } = [];
+    public HashSet<RolePermissionEdge> RolePermissions { get; init; } = [];
     public HashSet<Uuid> Teams { get; init; } = [];
     public HashSet<TeamMemberEdge> TeamMembers { get; init; } = [];
     public HashSet<TeamRoleEdge> TeamRoles { get; init; } = [];
@@ -37,9 +37,7 @@ sealed class PermissionProjectionState
                 Roles.Remove(role.RoleId);
                 break;
             case RolePermissionAssigned rolePermission:
-                if (!RolePermissions.TryGetValue(rolePermission.RoleId, out var permissions))
-                    RolePermissions[rolePermission.RoleId] = permissions = [];
-                permissions.Add(rolePermission.Permission);
+                RolePermissions.Add(new RolePermissionEdge(rolePermission.RoleId, rolePermission.Permission));
                 break;
             case TeamRoleAssigned teamRole:
                 TeamRoles.Add(new TeamRoleEdge(teamRole.TeamId, teamRole.RoleId));
@@ -54,15 +52,14 @@ sealed class PermissionProjectionState
         var activeTeamRoles = TeamRoles
             .Where(item => Teams.Contains(item.TeamId) && Roles.Contains(item.RoleId))
             .ToLookup(item => item.TeamId);
+        var rolePermissions = RolePermissions.ToLookup(item => item.RoleId);
         var grants = new HashSet<PermissionGrant>();
         foreach (var teamMember in activeTeamMembers)
         {
             foreach (var teamRole in activeTeamRoles[teamMember.TeamId])
             {
-                if (!RolePermissions.TryGetValue(teamRole.RoleId, out var permissions))
-                    continue;
-                foreach (var permission in permissions)
-                    grants.Add(new PermissionGrant(teamMember.MemberId, permission));
+                foreach (var rolePermission in rolePermissions[teamRole.RoleId])
+                    grants.Add(new PermissionGrant(teamMember.MemberId, rolePermission.Permission));
             }
         }
 

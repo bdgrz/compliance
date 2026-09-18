@@ -6,11 +6,16 @@ import type {
 
 const client = createApiClient();
 
-const activeTenantSlugKey = 'bdgrz.compliance.active-tenant-slug';
+const activeTenantKey = 'bdgrz.compliance.active-tenant-slug';
 
 export interface TenantMembershipSummary {
   tenantId: string;
   name: string;
+  slug: string;
+}
+
+export interface ActiveTenant {
+  tenantId: string;
   slug: string;
 }
 
@@ -54,17 +59,28 @@ export async function listMyTenants(): Promise<TenantMembershipSummary[]> {
   return tenants;
 }
 
-export function readActiveTenantSlug(): string | null {
+export function readActiveTenant(): ActiveTenant | null {
   try {
-    return window.localStorage.getItem(activeTenantSlugKey);
+    const stored = window.localStorage.getItem(activeTenantKey);
+    if (!stored) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(stored);
+    return typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as ActiveTenant).tenantId === 'string' &&
+      typeof (parsed as ActiveTenant).slug === 'string'
+      ? (parsed as ActiveTenant)
+      : null;
   } catch {
     return null;
   }
 }
 
-export function writeActiveTenantSlug(slug: string): void {
+export function writeActiveTenant(tenant: ActiveTenant): void {
   try {
-    window.localStorage.setItem(activeTenantSlugKey, slug);
+    window.localStorage.setItem(activeTenantKey, JSON.stringify(tenant));
   } catch {
     // Best-effort convenience only; nothing depends on this succeeding.
   }
@@ -72,9 +88,9 @@ export function writeActiveTenantSlug(slug: string): void {
 
 // A different user signing in on the same browser must not silently inherit the previous user's
 // tenant selection, so this is cleared on sign-out.
-export function clearActiveTenantSlug(): void {
+export function clearActiveTenant(): void {
   try {
-    window.localStorage.removeItem(activeTenantSlugKey);
+    window.localStorage.removeItem(activeTenantKey);
   } catch {
     // Best-effort convenience only; nothing depends on this succeeding.
   }
@@ -85,7 +101,7 @@ export function clearActiveTenantSlug(): void {
 // the caller should render its own page (an active tenant is settled), false when it already
 // redirected and the caller should render nothing further.
 export async function ensureActiveTenant(): Promise<boolean> {
-  if (readActiveTenantSlug() !== null) {
+  if (readActiveTenant() !== null) {
     return true;
   }
 
@@ -96,7 +112,7 @@ export async function ensureActiveTenant(): Promise<boolean> {
   }
 
   if (tenants.length === 1) {
-    writeActiveTenantSlug(tenants[0]!.slug);
+    writeActiveTenant({ tenantId: tenants[0]!.tenantId, slug: tenants[0]!.slug });
     return true;
   }
 

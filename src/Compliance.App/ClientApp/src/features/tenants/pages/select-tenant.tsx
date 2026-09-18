@@ -11,7 +11,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { listMyTenants, writeActiveTenantSlug, type TenantMembershipSummary } from '../tenants.js';
+import { listMyTenants, writeActiveTenant, type TenantMembershipSummary } from '../tenants.js';
 
 export function SelectTenantPage() {
   const [tenants, setTenants] = state<TenantMembershipSummary[] | null>(null);
@@ -23,8 +23,8 @@ export function SelectTenantPage() {
       setError(failure instanceof Error ? failure.message : 'Unable to load your organizations.')
     );
 
-  function select(slug: string) {
-    writeActiveTenantSlug(slug);
+  function select(tenant: TenantMembershipSummary) {
+    writeActiveTenant({ tenantId: tenant.tenantId, slug: tenant.slug });
     window.location.assign('/');
   }
 
@@ -46,7 +46,7 @@ export function SelectTenantPage() {
                     key={tenant.tenantId}
                     variant="secondary"
                     width="full"
-                    onPress={() => select(tenant.slug)}
+                    onPress={() => select(tenant)}
                   >
                     {tenant.name}
                   </Button>

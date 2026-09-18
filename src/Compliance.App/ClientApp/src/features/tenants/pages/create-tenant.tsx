@@ -11,7 +11,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { registerTenant, slugPattern, writeActiveTenantSlug } from '../tenants.js';
+import { registerTenant, slugPattern, writeActiveTenant } from '../tenants.js';
 
 export function CreateTenantPage() {
   const [name, setName] = state('');
@@ -34,7 +34,7 @@ export function CreateTenantPage() {
     try {
       const tenant = await registerTenant(name(), slug());
       if (tenant) {
-        writeActiveTenantSlug(tenant.slug);
+        writeActiveTenant({ tenantId: tenant.tenant_id, slug: tenant.slug });
       }
 
       window.location.assign('/');
