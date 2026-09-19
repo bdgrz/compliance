@@ -59,6 +59,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.client-service.retire",
             "bdgrz.client-service.get",
             "bdgrz.client-service.list",
+            "bdgrz.client-service.program.list",
             "bdgrz.client-service.revisions.list",
             "bdgrz.program.create",
             "bdgrz.program.revise",

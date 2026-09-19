@@ -4,14 +4,14 @@ namespace Bdgrz.Compliance.Features.Boundaries;
 
 public interface IBoundaryReferenceValidator
 {
-    ValueTask<Result> ValidateAsync(Uuid tenantId, BoundaryContent content,
+    ValueTask<Result> ValidateAsync(Uuid tenantId, Uuid programId, BoundaryContent content,
         CancellationToken ct = default);
 }
 
 public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity services)
     : IBoundaryReferenceValidator
 {
-    public async ValueTask<Result> ValidateAsync(Uuid tenantId, BoundaryContent content,
+    public async ValueTask<Result> ValidateAsync(Uuid tenantId, Uuid programId, BoundaryContent content,
         CancellationToken ct = default)
     {
         if (content?.Entries is null)
@@ -24,9 +24,9 @@ public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity se
             if (entry.GovernedRecordId is not { } id)
                 return Result.Failure(new RequestError(RequestErrorKind.Validation,
                     "A governed service reference requires a service ID."));
-            if (!await services.IsActiveAsync(tenantId, id, ct).ConfigureAwait(false))
+            if (!await services.IsActiveAsync(tenantId, programId, id, ct).ConfigureAwait(false))
                 return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The governed service reference is not active in this tenant."));
+                    "The governed service reference is not active in this program."));
         }
         return Result.Success;
     }

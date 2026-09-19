@@ -9,6 +9,8 @@ public interface IClientServiceDirectoryReader
     ValueTask<ClientServiceView?> GetAsync(Uuid tenantId, Uuid serviceId, CancellationToken ct = default);
     ValueTask<Page<ClientServiceView>> ListAsync(Uuid tenantId, int limit, string? cursor,
         CancellationToken ct = default);
+    ValueTask<Page<ClientServiceView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+        int limit, string? cursor, CancellationToken ct = default);
     ValueTask<Page<ClientServiceRevisionView>?> ListRevisionsAsync(Uuid tenantId, Uuid serviceId,
         int limit, string? cursor, CancellationToken ct = default);
 }
@@ -23,10 +25,15 @@ static class ClientServiceDirectorySchema
     public static readonly KvDirectoryIndex<ClientServiceView> ByName = new(
         "by_name", 1, static service => [service.Name.ToUpperInvariant()]);
 
+    public static readonly KvDirectoryIndex<ClientServiceView> ByProgram = new(
+        "by_program", 1, static service =>
+            [(service.ProgramId ?? Uuid.Empty).ToString(), service.Name.ToUpperInvariant(),
+                service.ServiceId.ToString()]);
+
     public static readonly KvDirectory<ClientServiceView, Uuid> Directory = new(
         "client_services", ComplianceCoreJsonContext.Default.ClientServiceView,
         static service => service.ServiceId,
-        static serviceId => [serviceId.ToString()], [ByName]);
+        static serviceId => [serviceId.ToString()], [ByName, ByProgram]);
 
     public static readonly KvDirectoryIndex<ClientServiceRevisionView> RevisionsByService = new(
         "by_service", 1,
@@ -51,11 +58,13 @@ sealed class FitzClientServiceDirectory(IKvClient client)
                 await ClientServiceDirectorySchema.Directory.InsertAsync(Transaction,
                     new ClientServiceView(created.TenantId, created.ServiceId, 1, created.Name,
                         created.Purpose, created.OwnerReference, "active", created.ActorMemberId,
-                        created.ActorDisplay, created.ChangedAt), ct).ConfigureAwait(false);
+                        created.ActorDisplay, created.ChangedAt,
+                        created.ProgramId == Uuid.Empty ? null : created.ProgramId), ct).ConfigureAwait(false);
                 await ClientServiceDirectorySchema.Revisions.InsertAsync(Transaction,
                     new ClientServiceRevisionView(created.ServiceId, 1, created.Name,
                         created.Purpose, created.OwnerReference, "active", null,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt,
+                        created.ProgramId == Uuid.Empty ? null : created.ProgramId), ct)
                     .ConfigureAwait(false);
                 break;
             case ClientServiceRevised revised:
@@ -74,7 +83,8 @@ sealed class FitzClientServiceDirectory(IKvClient client)
                 await ClientServiceDirectorySchema.Revisions.InsertAsync(Transaction,
                     new ClientServiceRevisionView(revised.ServiceId, revised.Revision, revised.Name,
                         revised.Purpose, revised.OwnerReference, "active", null,
-                        revised.ActorMemberId, revised.ActorDisplay, revised.ChangedAt), ct)
+                        revised.ActorMemberId, revised.ActorDisplay, revised.ChangedAt,
+                        current.ProgramId), ct)
                     .ConfigureAwait(false);
                 break;
             case ClientServiceRetired retired:
@@ -91,7 +101,8 @@ sealed class FitzClientServiceDirectory(IKvClient client)
                 await ClientServiceDirectorySchema.Revisions.InsertAsync(Transaction,
                     new ClientServiceRevisionView(retired.ServiceId, retired.Revision, active.Name,
                         active.Purpose, active.OwnerReference, "retired", retired.Rationale,
-                        retired.ActorMemberId, retired.ActorDisplay, retired.ChangedAt), ct)
+                        retired.ActorMemberId, retired.ActorDisplay, retired.ChangedAt,
+                        active.ProgramId), ct)
                     .ConfigureAwait(false);
                 break;
         }
@@ -117,6 +128,15 @@ sealed class FitzClientServiceDirectory(IKvClient client)
         return await ClientServiceDirectorySchema.Directory.QueryAsync(tx,
             ClientServiceDirectorySchema.ByName.Query().Take(Math.Clamp(limit, 1, 200)).After(cursor), ct)
             .ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<ClientServiceView>> ListProgramAsync(Uuid tenantId,
+        Uuid programId, int limit, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await ClientServiceDirectorySchema.Directory.QueryAsync(tx,
+            ClientServiceDirectorySchema.ByProgram.Query().WithPrefix(programId.ToString())
+                .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
     }
 
     public async ValueTask<Page<ClientServiceRevisionView>?> ListRevisionsAsync(Uuid tenantId,

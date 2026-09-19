@@ -2,17 +2,27 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
 
-public sealed class CreateClientServiceHandler(IAggregateExecutor executor, TimeProvider clock)
+public sealed class CreateClientServiceHandler(IAggregateExecutor executor,
+    IAggregateReader reader, TimeProvider clock)
     : IRequestHandler<CreateClientService, ClientServiceRegistration>
 {
-    public ValueTask<Result<ClientServiceRegistration>> HandleAsync(
+    public async ValueTask<Result<ClientServiceRegistration>> HandleAsync(
         IRequestContext<CreateClientService> context, CancellationToken ct)
     {
+        var request = context.Request;
+        if (request.ProgramId == Uuid.Empty)
+            return Result<ClientServiceRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
+                "A service requires its owning program."));
+        var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
+            request.ProgramId), ct).ConfigureAwait(false);
+        if (!program.IsCreated)
+            return Result<ClientServiceRegistration>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program was not found."));
         var (memberId, display) = ClientServiceActor.Snapshot(context);
-        return executor.ExecuteAsync(new ClientService(context.Request.TenantId, context.RequestId),
-            service => AggregateOutcome.CommitOnSuccess(service.Create(context.Request.Name,
-                context.Request.Purpose, context.Request.OwnerReference, memberId, display,
-                clock.GetUtcNow())), context, ct);
+        return await executor.ExecuteAsync(new ClientService(request.TenantId, context.RequestId),
+            service => AggregateOutcome.CommitOnSuccess(service.Create(request.ProgramId,
+                request.Name, request.Purpose, request.OwnerReference, memberId, display,
+                clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }
 }
 
@@ -85,6 +95,24 @@ public sealed class ListClientServicesHandler(IClientServiceDirectoryReader dire
         IRequestContext<ListClientServices> context, CancellationToken ct) =>
         Result<Page<ClientServiceView>>.Success(await directory.ListAsync(context.Request.TenantId,
             context.Request.Limit ?? 50, context.Request.Cursor, ct).ConfigureAwait(false));
+}
+
+public sealed class ListProgramClientServicesHandler(IClientServiceDirectoryReader directory,
+    IAggregateReader reader) : IRequestHandler<ListProgramClientServices, Page<ClientServiceView>>
+{
+    public async ValueTask<Result<Page<ClientServiceView>>> HandleAsync(
+        IRequestContext<ListProgramClientServices> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
+            request.ProgramId), ct).ConfigureAwait(false);
+        if (!program.IsCreated)
+            return Result<Page<ClientServiceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program was not found."));
+        return Result<Page<ClientServiceView>>.Success(await directory.ListProgramAsync(
+            request.TenantId, request.ProgramId, request.Limit ?? 50, request.Cursor, ct)
+            .ConfigureAwait(false));
+    }
 }
 
 public sealed class ListClientServiceRevisionsHandler(IClientServiceDirectoryReader directory)

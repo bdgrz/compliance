@@ -67,6 +67,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
         .AddMcpTool<GetClientService>(tool => tool.ReadOnly())
         .AddMcpTool<ListClientServices>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramClientServices>(tool => tool.ReadOnly())
         .AddMcpTool<ListClientServiceRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateBoundary>()
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
@@ -225,7 +226,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
-            "/api/v1/tenants/{tenant_id}/client-services")
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<ListProgramClientServices, Page<ClientServiceView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Client services");
     app.MapPortiaPut<ReviseClientService>(

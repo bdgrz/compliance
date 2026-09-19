@@ -7,15 +7,21 @@ public sealed class ComplianceProgram : Aggregate
     readonly Uuid _tenantId;
     bool _created;
     long _revision;
+    string? _initialName;
+    ProgramPlan? _initialPlan;
+
+    public bool IsCreated => _created;
 
     public ComplianceProgram(Uuid tenantId, Uuid programId)
         : base(programId, new EventStreamAddress(tenantId.ToString(), "programs", programId.ToString()))
     {
         _tenantId = tenantId;
-        On<ProgramCreated>(_ =>
+        On<ProgramCreated>(ev =>
         {
             _created = true;
             _revision = 1;
+            _initialName = ev.Name;
+            _initialPlan = ev.Plan;
         });
         On<ProgramRevised>(ev => _revision = ev.Revision);
     }
@@ -24,7 +30,11 @@ public sealed class ComplianceProgram : Aggregate
         string actorDisplay, DateTimeOffset changedAt)
     {
         if (_created)
-            return Result<ProgramRegistration>.Success(new ProgramRegistration(Id));
+            return StringComparer.Ordinal.Equals(_initialName, name?.Trim()) &&
+                   Equals(_initialPlan, plan)
+                ? Result<ProgramRegistration>.Success(new ProgramRegistration(Id))
+                : Result<ProgramRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The program already exists with different content."));
         var error = Validate(name, plan);
         if (error is not null)
             return Result<ProgramRegistration>.Failure(error);

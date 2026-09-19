@@ -21,8 +21,10 @@ remove duplicate ownership. Cross-context references use tenant ID, stable
 record ID, and an exact version when a decision or snapshot relies on one.
 Before an owning inventory exists, a boundary may keep a typed unresolved
 reference with its owner and rationale. The R1-02 backend bundle adds a
-tenant-scoped `ClientService` register and checks active service IDs before a
-boundary draft can cite them. Other subject types still require unresolved
+tenant-scoped `ClientService` register. Each new service belongs to a program,
+and a boundary draft may cite only active services owned by that same program.
+Older service events without a program remain readable but cannot be used as
+governed scope references. Other subject types still require unresolved
 references until their owning inventories arrive. `OwnerReference` is a
 user-supplied attribution field; M0-D06 must settle authoritative workforce
 and ownership validation before it can be treated as a verified owner identity.

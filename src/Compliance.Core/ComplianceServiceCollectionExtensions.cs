@@ -131,6 +131,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RetireClientServiceHandler>()
             .AddRequestHandler<GetClientServiceHandler>()
             .AddRequestHandler<ListClientServicesHandler>()
+            .AddRequestHandler<ListProgramClientServicesHandler>()
             .AddRequestHandler<ListClientServiceRevisionsHandler>()
             .AddRequestHandler<CreateBoundaryHandler>()
             .AddRequestHandler<ReviseBoundaryDraftHandler>()

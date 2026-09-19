@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Boundaries;
 
 public sealed class CreateBoundaryHandler(IAggregateExecutor executor,
-    IProgramDirectoryReader programs, IBoundaryReferenceValidator references,
+    IAggregateReader reader, IBoundaryReferenceValidator references,
     TimeProvider clock)
     : IRequestHandler<CreateBoundary, BoundaryRegistration>
 {
@@ -11,11 +11,13 @@ public sealed class CreateBoundaryHandler(IAggregateExecutor executor,
         IRequestContext<CreateBoundary> context, CancellationToken ct)
     {
         var request = context.Request;
-        if (await programs.GetAsync(request.TenantId, request.ProgramId, ct).ConfigureAwait(false)
-            is null)
+        var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
+            request.ProgramId), ct).ConfigureAwait(false);
+        if (!program.IsCreated)
             return Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
-        var validation = await references.ValidateAsync(request.TenantId, request.Content, ct)
+        var validation = await references.ValidateAsync(request.TenantId, request.ProgramId,
+                request.Content, ct)
             .ConfigureAwait(false);
         if (!validation.IsSuccess)
             return Result<BoundaryRegistration>.Failure(validation.Error);
@@ -33,14 +35,20 @@ public sealed class CreateBoundaryHandler(IAggregateExecutor executor,
 }
 
 public sealed class ReviseBoundaryDraftHandler(IAggregateExecutor executor,
-    IBoundaryReferenceValidator references, TimeProvider clock)
+    IAggregateReader reader, IBoundaryReferenceValidator references, TimeProvider clock)
     : IRequestHandler<ReviseBoundaryDraft>
 {
     public async ValueTask<Result> HandleAsync(IRequestContext<ReviseBoundaryDraft> context,
         CancellationToken ct)
     {
         var request = context.Request;
-        var validation = await references.ValidateAsync(request.TenantId, request.Content, ct)
+        var boundary = await reader.HydrateAsync(new SystemBoundary(request.TenantId,
+            request.BoundaryId), ct).ConfigureAwait(false);
+        if (!boundary.IsCreated)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The boundary was not found."));
+        var validation = await references.ValidateAsync(request.TenantId, boundary.ProgramId,
+                request.Content, ct)
             .ConfigureAwait(false);
         if (!validation.IsSuccess)
             return validation;
@@ -234,7 +242,8 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
             draft.VersionId != request.DraftVersionId || draft.Revision != request.ExpectedRevision)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The boundary draft changed. Reload it before approval."));
-        var referenceValidation = await references.ValidateAsync(request.TenantId, draft.Content, ct)
+        var referenceValidation = await references.ValidateAsync(request.TenantId,
+                boundaryView.ProgramId, draft.Content, ct)
             .ConfigureAwait(false);
         if (!referenceValidation.IsSuccess)
             return referenceValidation;
@@ -252,14 +261,20 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
 }
 
 public sealed class ProposeBoundarySuccessorHandler(IAggregateExecutor executor,
-    IBoundaryReferenceValidator references, TimeProvider clock)
+    IAggregateReader reader, IBoundaryReferenceValidator references, TimeProvider clock)
     : IRequestHandler<ProposeBoundarySuccessor, BoundaryRegistration>
 {
     public async ValueTask<Result<BoundaryRegistration>> HandleAsync(
         IRequestContext<ProposeBoundarySuccessor> context, CancellationToken ct)
     {
         var request = context.Request;
-        var validation = await references.ValidateAsync(request.TenantId, request.Content, ct)
+        var boundary = await reader.HydrateAsync(new SystemBoundary(request.TenantId,
+            request.BoundaryId), ct).ConfigureAwait(false);
+        if (!boundary.IsCreated)
+            return Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The boundary was not found."));
+        var validation = await references.ValidateAsync(request.TenantId, boundary.ProgramId,
+                request.Content, ct)
             .ConfigureAwait(false);
         if (!validation.IsSuccess)
             return Result<BoundaryRegistration>.Failure(validation.Error);
