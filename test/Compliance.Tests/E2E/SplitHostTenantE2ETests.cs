@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -157,6 +158,49 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
             var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
 
+            await using (var restrictedFactory = E2EAppFactory.Create(broker, applicationName)
+                             .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                                 services.AddSingleton(new PlatformOperatorAuthority([])))))
+            {
+                var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+                HttpClient nonOperator;
+                try
+                {
+                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                    nonOperator = restrictedFactory.CreateClient();
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                }
+                using (nonOperator)
+                {
+                    await TenantInvitationE2ETests.LoginAsync(nonOperator,
+                        $"nonoperator-{Guid.NewGuid():N}@example.com");
+                    using var createDenied = await nonOperator.PostAsJsonAsync("/api/v1/tenants", new
+                    {
+                        name = "Unauthorized Tenant",
+                        slug = $"unauthorized-{Guid.NewGuid():N}"[..24],
+                    });
+                    using var inviteDenied = await nonOperator.PostAsJsonAsync(
+                        $"/api/v1/tenants/{tenantId}/invitations",
+                        new { email_address = "denied@example.com", affiliation = "firm_staff" });
+                    using var slugDenied = await nonOperator.PostAsJsonAsync(
+                        $"/api/v1/tenants/{tenantId}/slug-changes", new { slug = "denied-slug" });
+                    using var suspendDenied = await nonOperator.PostAsync(
+                        $"/api/v1/tenants/{tenantId}/suspensions", null);
+                    using var reactivateDenied = await nonOperator.DeleteAsync(
+                        $"/api/v1/tenants/{tenantId}/suspensions");
+                    using var viewDenied = await nonOperator.GetAsync($"/api/v1/tenants/{tenantId}");
+                    Assert.Equal(HttpStatusCode.Forbidden, createDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.Forbidden, inviteDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.Forbidden, slugDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.Forbidden, suspendDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.Forbidden, reactivateDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.NotFound, viewDenied.StatusCode);
+                }
+            }
+
             var delivery = worker.Services.GetRequiredService<MockTenantInvitationDelivery>();
             var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             string? invitationToken = null;
@@ -188,6 +232,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.Equal(HttpStatusCode.OK, access);
+            using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
+            Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 
             var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
             using var invitedStaff = await operatorClient.PostAsJsonAsync(
@@ -326,7 +372,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                 new { email_address = $"other-{Guid.NewGuid():N}@example.com" });
             Assert.Equal(HttpStatusCode.OK, otherLogin.StatusCode);
             using var denied = await otherClient.GetAsync($"/api/v1/tenants/{registration.TenantId}/teams");
-            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+            using var missing = await otherClient.GetAsync($"/api/v1/tenants/{Uuid.CreateVersion4()}/teams");
+            Assert.Equal(denied.StatusCode, missing.StatusCode);
+            var deniedProblem = await denied.Content.ReadFromJsonAsync<Problem>();
+            var missingProblem = await missing.Content.ReadFromJsonAsync<Problem>();
+            Assert.Equal(deniedProblem?.Title, missingProblem?.Title);
+            Assert.Equal(deniedProblem?.Detail, missingProblem?.Detail);
             using var ownTenants = await otherClient.GetAsync("/api/v1/tenants/mine");
             Assert.Equal(HttpStatusCode.OK, ownTenants.StatusCode);
             var ownTenantList = await ownTenants.Content.ReadFromJsonAsync<TenantList>();
@@ -424,6 +476,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     sealed record Members(IReadOnlyList<Member> Items);
     sealed record Member([property: JsonPropertyName("user_id")] string UserId,
         string Affiliation);
+    sealed record Problem(string? Title, string? Detail);
 
     sealed class FailingOnceInvitationDelivery : ITenantInvitationDelivery
     {

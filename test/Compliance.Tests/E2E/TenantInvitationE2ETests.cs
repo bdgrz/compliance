@@ -36,7 +36,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
         using var operatorDenied = await operatorClient.GetAsync(
             $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
-        Assert.Equal(HttpStatusCode.Forbidden, operatorDenied.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, operatorDenied.StatusCode);
 
         var invitationDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
         string? invitationToken = null;
@@ -71,6 +71,11 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal(HttpStatusCode.OK, access);
+
+        using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
+        Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
+        using var otherTenant = await administratorClient.GetAsync($"/api/v1/tenants/{Uuid.CreateVersion4()}");
+        Assert.Equal(HttpStatusCode.NotFound, otherTenant.StatusCode);
 
         using var tenantResponse = await operatorClient.GetAsync($"/api/v1/tenants/{tenantId}");
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);

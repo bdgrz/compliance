@@ -37,6 +37,11 @@ public sealed class RbacMcpScenarioTests
         await using var scenario = await McpScenario.ConnectAsync(client, new Uri(client.BaseAddress!, "/mcp"));
 
         _ = await scenario.ListTools().ExpectExactly(
+            "bdgrz.program.create",
+            "bdgrz.program.revise",
+            "bdgrz.program.get",
+            "bdgrz.program.list",
+            "bdgrz.program.revisions.list",
             "bdgrz.rbac.team.define",
             "bdgrz.rbac.team.delete",
             "bdgrz.rbac.team.get",

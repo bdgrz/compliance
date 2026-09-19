@@ -12,7 +12,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldAllowSystemActorRegardlessOfPermissions()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, RequestActor.System);
 
@@ -24,7 +24,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutBdgrzIdentity()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant());
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(
             request,
@@ -41,7 +41,7 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldAllowActorWithTenantAccessPermission()
     {
         var permissions = new FakePermissionAuthorizer(true);
-        var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant());
+        var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -55,7 +55,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutTenantAccessPermission()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -67,6 +67,28 @@ public sealed class TenantAccessAuthorizerTests
 
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
+
+    [Fact]
+    public async Task ShouldHideTenantFromNonmember()
+    {
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(false));
+        var context = new RequestContext<ITenantAccessRequest>(
+            new GetTeam(TenantId, Uuid.CreateVersion4()), BdgrzActor());
+
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
+    }
+
+    sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
+    {
+        public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
+            ValueTask.FromResult(member);
+
+        public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
+            CancellationToken ct = default) => ValueTask.FromResult(new Page<TenantMembershipView>([], null));
+    }
 
     sealed class ActiveTenant : ITenantActivity
     {

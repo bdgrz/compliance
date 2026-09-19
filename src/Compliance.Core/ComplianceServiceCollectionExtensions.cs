@@ -54,6 +54,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
         services.AddScoped<ITenantMembershipDirectoryReader>(
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
+        services.AddScoped<FitzProgramDirectory>();
+        services.AddScoped<IProgramDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzProgramDirectory>());
+        services.AddScoped<IProgramDirectoryReader>(
+            provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<FitzRoleDirectoryReader>();
         services.AddScoped<IRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
         services.AddScoped<IRoleDirectoryReader>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
@@ -101,12 +106,19 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRolePermissionsHandler>()
             .AddRequestHandler<ListRoleTeamsHandler>()
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
+            .AddRequestHandler<CreateProgramHandler>()
+            .AddRequestHandler<ReviseProgramHandler>()
+            .AddRequestHandler<GetProgramHandler>()
+            .AddRequestHandler<ListProgramsHandler>()
+            .AddRequestHandler<ListProgramRevisionsHandler>()
+            .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
             .AddRequestHandler<AcceptTenantInvitationHandler>()
             .AddRequestHandler<GetTenantHandler>()
+            .AddRequestAuthorizer<GetTenantAuthorizer>()
             .AddRequestHandler<ListTenantMembersHandler>()
             .AddRequestHandler<ChangeTenantSlugHandler>()
             .AddRequestHandler<ResolveMyTenantSlugHandler>()
@@ -142,6 +154,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<RoleTeamDirectoryProjector>("RoleTeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
             .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
+            .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));
