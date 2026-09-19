@@ -55,6 +55,7 @@ public sealed class RemoveTeamMemberRequestScenarioTests
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IPermissionAuthorizer>(new FakePermissionAuthorizer(allowed));
         services.AddSingleton<ITenantActivity, ActiveTenant>();
+        services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
         services.AddPortia()
             .AddRequestHandler<RemoveTeamMemberHandler>()
             .AddRequestAuthorizer<RbacManagementAuthorizer>();
