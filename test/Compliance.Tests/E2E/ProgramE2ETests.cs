@@ -232,6 +232,23 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal(2, projected?.Revision);
         Assert.Equal("SOC 2 continuing program", projected?.Name);
         Assert.Equal("Advisor B", projected?.Plan.ReadinessAdvisor);
+        using var revisionsResponse = await owner.GetAsync($"{programPath}/revisions");
+        Assert.Equal(HttpStatusCode.OK, revisionsResponse.StatusCode);
+        var revisions = await revisionsResponse.Content.ReadFromJsonAsync<ProgramRevisionPageDocument>();
+        Assert.Equal([1L, 2L], revisions?.Items.Select(item => item.Revision));
+        Assert.Equal("Advisor A", revisions?.Items[0].Plan.ReadinessAdvisor);
+        Assert.Equal("Advisor B", revisions?.Items[1].Plan.ReadinessAdvisor);
+        Assert.All(revisions?.Items ?? [], item => Assert.False(string.IsNullOrWhiteSpace(item.ActorDisplay)));
+        using var firstRevisionPage = await owner.GetAsync($"{programPath}/revisions?limit=1");
+        var firstRevision = await firstRevisionPage.Content.ReadFromJsonAsync<ProgramRevisionPageDocument>();
+        Assert.Equal(1, Assert.Single(firstRevision?.Items ?? []).Revision);
+        Assert.False(string.IsNullOrWhiteSpace(firstRevision?.NextCursor));
+        using var nextRevisionPage = await owner.GetAsync(
+            $"{programPath}/revisions?limit=1&cursor={Uri.EscapeDataString(firstRevision.NextCursor)}");
+        var nextRevision = await nextRevisionPage.Content.ReadFromJsonAsync<ProgramRevisionPageDocument>();
+        Assert.Equal(2, Assert.Single(nextRevision?.Items ?? []).Revision);
+        using var deniedRevisions = await outsider.GetAsync($"{programPath}/revisions");
+        Assert.Equal(HttpStatusCode.NotFound, deniedRevisions.StatusCode);
         using var listed = await owner.GetAsync(path);
         Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
         var page = await listed.Content.ReadFromJsonAsync<ProgramPageDocument>();
@@ -290,4 +307,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
     sealed record ProgramStageDocument(string Stage,
         [property: JsonPropertyName("advance_when")] string AdvanceWhen);
     sealed record ProgramPageDocument(IReadOnlyList<ProgramDocument> Items);
+    sealed record ProgramRevisionPageDocument(IReadOnlyList<ProgramRevisionDocument> Items,
+        [property: JsonPropertyName("next_cursor")] string? NextCursor);
+    sealed record ProgramRevisionDocument(long Revision, ProgramPlanDocument Plan,
+        [property: JsonPropertyName("actor_display")] string ActorDisplay);
 }

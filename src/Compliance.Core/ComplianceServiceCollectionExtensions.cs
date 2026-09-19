@@ -110,6 +110,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviseProgramHandler>()
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
+            .AddRequestHandler<ListProgramRevisionsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()

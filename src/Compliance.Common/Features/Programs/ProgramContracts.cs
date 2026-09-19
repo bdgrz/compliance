@@ -12,6 +12,9 @@ public sealed record ProgramRegistration(Uuid ProgramId);
 
 public sealed record ProgramStageView(string Stage, string AdvanceWhen);
 
+public sealed record ProgramRevisionView(Uuid ProgramId, long Revision, string Name,
+    ProgramPlan Plan, Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt);
+
 public sealed record ProgramView(Uuid TenantId, Uuid ProgramId, string Name, string Stage,
     string? NextStage, long Revision, ProgramPlan Plan, Uuid LastChangedByMemberId,
     string LastChangedByDisplay, DateTimeOffset LastChangedAt,
@@ -37,6 +40,11 @@ public sealed record GetProgram(Uuid TenantId, Uuid ProgramId)
 [Discriminator("bdgrz.program.list", 1)]
 public sealed record ListPrograms(Uuid TenantId, int? Limit = null, string? Cursor = null)
     : IRequest<Page<ProgramView>>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.program.revisions.list", 1)]
+public sealed record ListProgramRevisions(Uuid TenantId, Uuid ProgramId,
+    int? Limit = null, string? Cursor = null)
+    : IRequest<Page<ProgramRevisionView>>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.program.created", 1)]
 public sealed record ProgramCreated(Uuid TenantId, Uuid ProgramId, string Name, ProgramPlan Plan,

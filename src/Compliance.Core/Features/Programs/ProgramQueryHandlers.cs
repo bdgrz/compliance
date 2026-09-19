@@ -28,3 +28,19 @@ public sealed class ListProgramsHandler(IProgramDirectoryReader directory)
         return Result<Page<ProgramView>>.Success(page);
     }
 }
+
+public sealed class ListProgramRevisionsHandler(IProgramDirectoryReader directory)
+    : IRequestHandler<ListProgramRevisions, Page<ProgramRevisionView>>
+{
+    public async ValueTask<Result<Page<ProgramRevisionView>>> HandleAsync(
+        IRequestContext<ListProgramRevisions> context, CancellationToken ct)
+    {
+        var page = await directory.ListRevisionsAsync(context.Request.TenantId,
+            context.Request.ProgramId, context.Request.Limit ?? 50,
+            context.Request.Cursor, ct).ConfigureAwait(false);
+        return page is null
+            ? Result<Page<ProgramRevisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program was not found."))
+            : Result<Page<ProgramRevisionView>>.Success(page);
+    }
+}

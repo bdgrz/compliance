@@ -1,3 +1,4 @@
+using System.Globalization;
 using Cntryl.Fitz;
 using Cntryl.Portia;
 
@@ -8,6 +9,8 @@ public interface IProgramDirectoryReader
     ValueTask<ProgramView?> GetAsync(Uuid tenantId, Uuid programId, CancellationToken ct = default);
     ValueTask<Page<ProgramView>> ListAsync(Uuid tenantId, int limit, string? cursor,
         CancellationToken ct = default);
+    ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId, Uuid programId,
+        int limit, string? cursor, CancellationToken ct = default);
 }
 
 public interface IProgramDirectoryProjection : IProjectionStore
@@ -24,6 +27,16 @@ static class ProgramDirectorySchema
         "programs", ComplianceCoreJsonContext.Default.ProgramView,
         static program => program.ProgramId,
         static programId => [programId.ToString()], [ByName]);
+
+    public static readonly KvDirectoryIndex<ProgramRevisionView> RevisionsByProgram = new(
+        "by_program", 1,
+        static revision => [revision.ProgramId.ToString(),
+            revision.Revision.ToString("D20", CultureInfo.InvariantCulture)]);
+
+    public static readonly KvDirectory<ProgramRevisionView, string> Revisions = new(
+        "program_revisions", ComplianceCoreJsonContext.Default.ProgramRevisionView,
+        static revision => $"{revision.ProgramId}:{revision.Revision.ToString("D20", CultureInfo.InvariantCulture)}",
+        static key => [key], [RevisionsByProgram]);
 }
 
 sealed class FitzProgramDirectory(IKvClient client)
@@ -48,21 +61,31 @@ sealed class FitzProgramDirectory(IKvClient client)
                                 "Close the operating period and record the examination outcome."),
                         ]), ct)
                     .ConfigureAwait(false);
+                await ProgramDirectorySchema.Revisions.InsertAsync(Transaction,
+                    new ProgramRevisionView(created.ProgramId, 1, created.Name, created.Plan,
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                    .ConfigureAwait(false);
                 break;
             case ProgramRevised revised:
                 var current = await ProgramDirectorySchema.Directory.GetAsync(Transaction,
                     revised.ProgramId, ct).ConfigureAwait(false);
-                if (current is not null)
-                    await ProgramDirectorySchema.Directory.ReplaceAsync(Transaction, current,
-                        current with
-                        {
-                            Name = revised.Name,
-                            Revision = revised.Revision,
-                            Plan = revised.Plan,
-                            LastChangedByMemberId = revised.ActorMemberId,
-                            LastChangedByDisplay = revised.ActorDisplay,
-                            LastChangedAt = revised.ChangedAt,
-                        }, ct).ConfigureAwait(false);
+                if (current is null)
+                    throw new InvalidOperationException(
+                        "A program revision cannot project before its creation.");
+                await ProgramDirectorySchema.Directory.ReplaceAsync(Transaction, current,
+                    current with
+                    {
+                        Name = revised.Name,
+                        Revision = revised.Revision,
+                        Plan = revised.Plan,
+                        LastChangedByMemberId = revised.ActorMemberId,
+                        LastChangedByDisplay = revised.ActorDisplay,
+                        LastChangedAt = revised.ChangedAt,
+                    }, ct).ConfigureAwait(false);
+                await ProgramDirectorySchema.Revisions.InsertAsync(Transaction,
+                    new ProgramRevisionView(revised.ProgramId, revised.Revision,
+                        revised.Name, revised.Plan, revised.ActorMemberId,
+                        revised.ActorDisplay, revised.ChangedAt), ct).ConfigureAwait(false);
                 break;
         }
     }
@@ -80,6 +103,18 @@ sealed class FitzProgramDirectory(IKvClient client)
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         return await ProgramDirectorySchema.Directory.QueryAsync(tx,
             ProgramDirectorySchema.ByName.Query().Take(Math.Clamp(limit, 1, 200)).After(cursor), ct)
+            .ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId,
+        Uuid programId, int limit, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        if (await ProgramDirectorySchema.Directory.GetAsync(tx, programId, ct).ConfigureAwait(false) is null)
+            return null;
+        return await ProgramDirectorySchema.Revisions.QueryAsync(tx,
+            ProgramDirectorySchema.RevisionsByProgram.Query()
+                .WithPrefix(programId.ToString()).Take(Math.Clamp(limit, 1, 200)).After(cursor), ct)
             .ConfigureAwait(false);
     }
 }

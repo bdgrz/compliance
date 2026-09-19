@@ -61,6 +61,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -192,6 +193,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization()
         .WithTags("Programs");
     app.MapPortiaGet<ListPrograms, Page<ProgramView>>("/api/v1/tenants/{tenantId}/programs")
+        .RequireAuthorization()
+        .WithTags("Programs");
+    app.MapPortiaGet<ListProgramRevisions, Page<ProgramRevisionView>>(
+            "/api/v1/tenants/{tenantId}/programs/{programId}/revisions")
         .RequireAuthorization()
         .WithTags("Programs");
     app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
