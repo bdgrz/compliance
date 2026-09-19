@@ -32,8 +32,8 @@ The standards names in the entity tables refer to the exact editions linked
 under [Standards references](#standards-references). `SCIM` means RFC 7643
 (and RFC 7644 only for protocol behavior), `OpenID Connect` means Core 1.0
 incorporating errata set 2, `NIST RBAC` means NIST IR 6192, `W3C PROV` means
-the April 2013 PROV-O Recommendation, `IETF hardware model` means RFC 8348,
-and `Redfish` means the tagged 2026.2 schema repository. A table entry labeled
+the April 2013 PROV-O Recommendation, and `IETF hardware model` means RFC 8348.
+A table entry labeled
 as an original product decision is not a standards-conformance claim. No
 schema, standard prose, or test corpus is copied into this catalog.
 
@@ -112,10 +112,10 @@ state, not an entity type.
 
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
-| `Device` | Independently managed physical equipment or appliance, such as a server, switch, router, firewall, endpoint, phone, printer, or storage appliance. | device kind, manufacturer, model, serial and asset identifiers, owner, custodian, location, lifecycle, management state | IETF hardware model and BSD-licensed Redfish schemas |
+| `Device` | Independently managed physical equipment or appliance, such as a server, switch, router, firewall, endpoint, phone, printer, or storage appliance. | device kind, manufacturer, model, serial and asset identifiers, owner, custodian, location, lifecycle, management state | IETF hardware model for physical components; remaining inventory semantics are original product decisions |
 | `DeviceComponent` | A physical component contained by a device. | device, component class, parent component, manufacturer, model, serial number, firmware, state | IETF RFC 8348 hardware component; product-defined class vocabulary |
-| `ComputeInstance` | A logical compute environment such as a virtual machine, bare-metal OS instance, container host, or material serverless environment. | host, provider identifiers, environment, operating system, lifecycle, state | BSD-licensed Redfish computer-system schema where applicable; otherwise original provider-neutral vocabulary |
-| `NetworkInterface` | A physical or logical network attachment belonging to a device or compute instance. | parent, interface type, source identifiers, MAC addresses, administrative and operational state | IETF hardware model and BSD-licensed Redfish interface schemas |
+| `ComputeInstance` | A logical compute environment such as a virtual machine, bare-metal OS instance, container host, or material serverless environment. | host, provider identifiers, environment, operating system, lifecycle, state | Original provider-neutral product decision |
+| `NetworkInterface` | A physical or logical network attachment belonging to a device or compute instance. | parent, interface type, source identifiers, MAC addresses, administrative and operational state | IETF hardware model for physical interfaces; logical attachment semantics are original product decisions |
 | `Network` | A governed logical network, segment, or zone. | environment, prefixes, classification, owner, lifecycle | Original product decision; provider-neutral inventory projection |
 | `NetworkConnection` | A declared or observed topology relationship between interfaces or network endpoints. | typed endpoints, source, effective/observed interval, state | Relationship derived from network-management sources |
 | `SoftwareInstallation` | An effective-dated relationship showing software or firmware installed on a device, component, or compute instance. | installation target, application or software release, version, source, observed/effective interval | Software inventory relationship; source-specific package identifiers remain extensions |
@@ -293,9 +293,8 @@ migrations are defined.
 - [NIST IR 6192: A Revised Model for Role Based Access Control, July 1998](https://csrc.nist.gov/pubs/ir/6192/final)
 - [W3C PROV-O Recommendation, April 2013](https://www.w3.org/TR/2013/REC-prov-o-20130430/)
 - [RFC 8348: A YANG Data Model for Hardware Management](https://www.rfc-editor.org/rfc/rfc8348)
-- [DMTF Redfish-Publications 2026.2](https://github.com/DMTF/Redfish-Publications/tree/2026.2), release commit `4f81814e399213c9055863ddaff42791c6b3706a`
-
 NIST SP 800-162 update 2 is excluded by the source register pending clearance
-of its mixed-author material. The Redfish repository is reference material
-here; no schema is bundled. Product-specific entities and relationships in
+of its mixed-author material. DMTF Redfish is also excluded pending patent and
+intended-use clearance; no Redfish schema or semantics shape this catalog.
+Product-specific entities and relationships in
 this catalog remain original decisions unless an exact mapping is stated.
