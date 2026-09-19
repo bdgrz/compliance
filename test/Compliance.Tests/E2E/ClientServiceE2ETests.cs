@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -61,6 +62,21 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal("active", projected?.Status);
+        var toolInput = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenant.TenantId,
+            ["service_id"] = service.ServiceId,
+        };
+        await using (var ownerMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await ownerMcp.When("bdgrz.client-service.get", toolInput).ExpectSuccess();
+        }
+        await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+        {
+            _ = await outsiderMcp.When("bdgrz.client-service.get", toolInput).ExpectFailure();
+        }
         using var denied = await outsider.GetAsync(servicePath);
         using var hidden = await outsider.GetAsync($"{path}/{Guid.NewGuid()}");
         using var deniedList = await outsider.GetAsync(path);
