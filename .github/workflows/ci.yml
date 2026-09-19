@@ -67,7 +67,6 @@ jobs:
 
   native-container:
     name: Native container ${{ matrix.platform }}
-    needs: validate
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 
