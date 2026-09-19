@@ -52,6 +52,37 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     [Fact]
+    public async Task ProductionOperatorMustProvideLegalNameAndFirstAdministrator()
+    {
+        var operatorId = Uuid.CreateVersion4();
+        await using var provider = BuildProvider(developerAuthentication: false,
+            operatorId: operatorId);
+        var actor = BdgrzActor(operatorId);
+
+        await RequestScenario.For(provider)
+            .GivenActor(actor)
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
+            .ExpectAuthorized()
+            .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
+            .ExpectHandled()
+            .ExpectFailure();
+        await RequestScenario.For(provider)
+            .GivenActor(actor)
+            .When(new RegisterTenant("Acme", "acme", FirstAdministratorEmail: "admin@example.com"))
+            .ExpectAuthorized()
+            .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
+            .ExpectHandled()
+            .ExpectFailure();
+        await RequestScenario.For(provider)
+            .GivenActor(actor)
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC", "admin@example.com"))
+            .ExpectAuthorized()
+            .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
+            .ExpectHandled()
+            .ExpectSuccess();
+    }
+
+    [Fact]
     public async Task ShouldShortCircuitAtTheGuardGivenAnOccupiedSlug()
     {
         await using var provider = BuildProvider();
@@ -72,11 +103,13 @@ public sealed class RegisterTenantRequestScenarioTests
             .ExpectNotHandled();
     }
 
-    static ServiceProvider BuildProvider(bool developerAuthentication = true)
+    static ServiceProvider BuildProvider(bool developerAuthentication = true,
+        Uuid? operatorId = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
-        services.AddSingleton(new PlatformOperatorAuthority([], developerAuthentication));
+        services.AddSingleton(new PlatformOperatorAuthority(
+            operatorId is { } id ? [id] : [], developerAuthentication));
         services.AddPortia()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
@@ -84,6 +117,7 @@ public sealed class RegisterTenantRequestScenarioTests
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
-        [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "BdgrzSession"));
+    static ClaimsPrincipal BdgrzActor(Uuid? userId = null) => new(new ClaimsIdentity(
+        [new Claim("iss", "bdgrz"), new Claim("sub", (userId ?? Uuid.CreateVersion4()).ToString())],
+        "BdgrzSession"));
 }

@@ -79,6 +79,13 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 
     var app = builder.Build();
 
+    app.Use((context, next) =>
+    {
+        // Organization slugs may identify a client and must not be sent to
+        // another origin through a browser's Referer header.
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+        return next(context);
+    });
     app.UseExceptionHandler();
     app.UseStatusCodePages();
     app.Use(async (context, next) =>
