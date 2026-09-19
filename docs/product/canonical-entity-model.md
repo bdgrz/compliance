@@ -134,6 +134,7 @@ entities.
 | --- | --- | --- | --- |
 | `InformationAsset` | A governed class or collection of information handled by the client service system, separate from a file used as evidence. | tenant, name, classification, owner, origin, permitted uses, retention reference, lifecycle | Original product decision; source-specific classifications remain observations |
 | `Provider` | A vendor or subservice organization on which a client service depends. It is distinct from a source-system adapter and from the firm serving the client. | tenant, legal/display name, services supplied, owner, criticality, boundary treatment, lifecycle | Original product decision; provider reports retain their own source wording and scope |
+| `DataFlow` | A governed, versioned description of material information movement between typed system, process, provider, or location endpoints. It is distinct from a network connection or a file transfer observation. | tenant, exact version, source and destination, information asset, purpose, protection expectation, effective interval, boundary relevance | Original product decision for [R1-12](https://github.com/bdgrz/compliance/issues/50) |
 
 ### External identity and access
 
@@ -253,6 +254,7 @@ display name or a provider-wide identifier guessed from another tenant.
 | `OperationalProcess` | governed name, purpose, owner reference | inputs, outputs, source |
 | `InformationAsset` | governed name, information kind, classification | owner, origin, uses, retention reference |
 | `Provider` | legal or governed name, provider kind | services, owner, criticality, boundary treatment |
+| `DataFlow` | stable flow ID and exact version, typed source and destination, information asset, purpose, effective start | end, protection expectation, scope decision, source |
 | `Account` | system instance, source account ID, account kind | username, enabled state, subject correlation |
 | `ServiceIdentity` | identity kind, purpose, accountable owner | environment, review and expiry dates |
 | `Group` | system instance, source group ID, group kind | display name |
@@ -299,6 +301,7 @@ distinct relationships or separately attributed, conflicting observations.
 | Integration connection | `IntegrationEndpoint` 1 `SystemInstance`, 1 connector type; instance 0..* endpoints | Credential reference names a secret location, never secret bytes; a connector's authority is explicit. |
 | Service boundary | `ClientService` 0..* system instances, providers, locations, processes, and information assets | Inclusion is an effective-dated scope assertion, not ownership transfer; references stay tenant-local. |
 | Provider dependency | `Provider` 0..* client services and system instances | Relationship records service supplied, scope treatment, source, and effective interval; a provider is never inferred from a connector. |
+| Information movement | `DataFlow` 1 typed source, 1 typed destination, 1 `InformationAsset`; each endpoint and asset 0..* flows | Source and destination are tenant-local `Person`, `OperationalProcess`, `Application`, `SystemInstance`, `Provider`, or `Location` references; revision creates a new exact version. |
 | Protected resource | `Resource` 1 `SystemInstance`, 0..1 parent `Resource`; instance 0..* resources | Parent belongs to the same instance; no cycles. |
 | Physical containment | `DeviceComponent` 1 `Device`, 0..1 parent component; device 0..* components | Parent belongs to the same device; no cycles. |
 | Compute hosting | `ComputeInstance` 0..1 host (`Device` or another `ComputeInstance`); host 0..* guests | Unknown host is explicit; no containment cycles. |
