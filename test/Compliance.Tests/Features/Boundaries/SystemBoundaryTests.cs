@@ -95,6 +95,29 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
+    public void ShouldPreserveCreateReplayGivenRevisedDraft()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var original = Content();
+        Assert.True(boundary.Create(ProgramId, VersionId, original, AuthorId,
+            "Lead", Now).IsSuccess);
+        Assert.True(boundary.Revise(VersionId, 1, original with { Statement = "Revised" },
+            AuthorId, "Lead", Now.AddMinutes(1)).IsSuccess);
+
+        // Act
+        var replay = boundary.Create(ProgramId, VersionId, original, AuthorId,
+            "Lead", Now.AddMinutes(2));
+        var changed = boundary.Create(ProgramId, VersionId,
+            original with { Statement = "Other scope" }, AuthorId, "Lead", Now.AddMinutes(2));
+
+        // Assert
+        Assert.Equal(VersionId, replay.Value.DraftVersionId);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(changed.Error).Kind);
+        Assert.Equal(2, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
+    }
+
+    [Fact]
     public void ShouldBindRevisionAndDenyAuthorApprovalGivenReview()
     {
         // Arrange

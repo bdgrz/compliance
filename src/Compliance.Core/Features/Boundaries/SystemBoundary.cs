@@ -7,6 +7,8 @@ public sealed class SystemBoundary : Aggregate
     readonly Uuid _tenantId;
     bool _created;
     Uuid _programId;
+    Uuid _initialDraftVersionId;
+    BoundaryContent? _initialContent;
     Uuid _draftVersionId;
     long _draftRevision;
     BoundaryContent? _draftContent;
@@ -24,6 +26,8 @@ public sealed class SystemBoundary : Aggregate
         {
             _created = true;
             _programId = ev.ProgramId;
+            _initialDraftVersionId = ev.DraftVersionId;
+            _initialContent = ev.Content;
             _draftVersionId = ev.DraftVersionId;
             _draftRevision = 1;
             _draftContent = ev.Content;
@@ -72,9 +76,9 @@ public sealed class SystemBoundary : Aggregate
         DateTimeOffset changedAt)
     {
         if (_created)
-            return programId == _programId && draftVersionId == _draftVersionId &&
-                   Equivalent(content, _draftContent)
-                ? Result<BoundaryRegistration>.Success(new BoundaryRegistration(Id, _draftVersionId))
+            return programId == _programId && draftVersionId == _initialDraftVersionId &&
+                   Equivalent(content, _initialContent)
+                ? Result<BoundaryRegistration>.Success(new BoundaryRegistration(Id, _initialDraftVersionId))
                 : Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The boundary already exists with different content."));
         if (programId == Uuid.Empty || draftVersionId == Uuid.Empty || authorMemberId == Uuid.Empty)

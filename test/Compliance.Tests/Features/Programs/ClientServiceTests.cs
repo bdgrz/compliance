@@ -46,6 +46,30 @@ public sealed class ClientServiceTests
     }
 
     [Fact]
+    public void ShouldRejectChangedCreateGivenExistingServiceAndPreserveReplay()
+    {
+        // Arrange
+        var service = new ClientService(Uuid.CreateVersion4(), Uuid.CreateVersion4());
+        var actorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        Assert.True(service.Create("Payroll", "Process payroll", "Operations",
+            actorId, "Owner", now).IsSuccess);
+        Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
+            actorId, "Owner", now.AddMinutes(1)).IsSuccess);
+
+        // Act
+        var replay = service.Create(" Payroll ", "Process payroll", "Operations",
+            actorId, "Owner", now.AddMinutes(2));
+        var changed = service.Create("Payroll", "Different purpose", "Operations",
+            actorId, "Owner", now.AddMinutes(2));
+
+        // Assert
+        Assert.True(replay.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(changed.Error).Kind);
+        Assert.Equal(2, new AggregateScenario<ClientService>(service).PendingEvents.Count);
+    }
+
+    [Fact]
     public void ShouldRejectStaleRevisionAndInvalidRetirementGivenServiceHistory()
     {
         // Arrange

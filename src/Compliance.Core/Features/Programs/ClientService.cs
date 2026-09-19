@@ -8,6 +8,9 @@ public sealed class ClientService : Aggregate
     bool _created;
     bool _retired;
     long _revision;
+    string? _initialName;
+    string? _initialPurpose;
+    string? _initialOwnerReference;
 
     public bool IsActive => _created && !_retired;
 
@@ -15,7 +18,14 @@ public sealed class ClientService : Aggregate
         : base(serviceId, new EventStreamAddress(tenantId.ToString(), "client-services", serviceId.ToString()))
     {
         _tenantId = tenantId;
-        On<ClientServiceCreated>(_ => { _created = true; _revision = 1; });
+        On<ClientServiceCreated>(ev =>
+        {
+            _created = true;
+            _revision = 1;
+            _initialName = ev.Name;
+            _initialPurpose = ev.Purpose;
+            _initialOwnerReference = ev.OwnerReference;
+        });
         On<ClientServiceRevised>(ev => _revision = ev.Revision);
         On<ClientServiceRetired>(ev => { _retired = true; _revision = ev.Revision; });
     }
@@ -24,7 +34,12 @@ public sealed class ClientService : Aggregate
         string ownerReference, Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         if (_created)
-            return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
+            return StringComparer.Ordinal.Equals(_initialName, name?.Trim()) &&
+                   StringComparer.Ordinal.Equals(_initialPurpose, purpose?.Trim()) &&
+                   StringComparer.Ordinal.Equals(_initialOwnerReference, ownerReference?.Trim())
+                ? Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id))
+                : Result<ClientServiceRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The service already exists with different content."));
         var error = Validate(name, purpose, ownerReference);
         if (error is not null)
             return Result<ClientServiceRegistration>.Failure(error);
