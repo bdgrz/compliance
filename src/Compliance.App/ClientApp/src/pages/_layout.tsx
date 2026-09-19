@@ -1,5 +1,5 @@
 import { Link, currentAuth, currentRoute } from '@askrjs/askr/router';
-import { HomeIcon, LogOutIcon, MoonIcon, SunIcon, UsersIcon } from '@askrjs/lucide';
+import { HomeIcon, LogOutIcon, MoonIcon, ShieldIcon, SunIcon, UsersIcon } from '@askrjs/lucide';
 import {
   Block,
   Button,
@@ -27,6 +27,7 @@ import { signOut } from '../features/authentication/auth.js';
 const primaryNavLinks = [
   { title: 'Overview', href: '/', icon: HomeIcon, exact: true },
   { title: 'Teams', href: '/teams', icon: UsersIcon, exact: false },
+  { title: 'Roles', href: '/roles', icon: ShieldIcon, exact: false },
 ];
 
 function isActiveNavLink(currentPath: string, href: string, exact: boolean) {

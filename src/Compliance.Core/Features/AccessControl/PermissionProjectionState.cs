@@ -39,8 +39,14 @@ sealed class PermissionProjectionState
             case RolePermissionAssigned rolePermission:
                 RolePermissions.Add(new RolePermissionEdge(rolePermission.RoleId, rolePermission.Permission));
                 break;
+            case RolePermissionRemoved rolePermission:
+                RolePermissions.Remove(new RolePermissionEdge(rolePermission.RoleId, rolePermission.Permission));
+                break;
             case TeamRoleAssigned teamRole:
                 TeamRoles.Add(new TeamRoleEdge(teamRole.TeamId, teamRole.RoleId));
+                break;
+            case TeamRoleRemoved teamRole:
+                TeamRoles.Remove(new TeamRoleEdge(teamRole.TeamId, teamRole.RoleId));
                 break;
         }
     }

@@ -41,6 +41,17 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
         services.AddScoped<ITenantMembershipDirectoryReader>(
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
+        services.AddScoped<FitzRoleDirectoryReader>();
+        services.AddScoped<IRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
+        services.AddScoped<IRoleDirectoryReader>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
+        services.AddScoped<FitzRolePermissionDirectoryReader>();
+        services.AddScoped<IRolePermissionDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzRolePermissionDirectoryReader>());
+        services.AddScoped<IRolePermissionDirectoryReader>(
+            provider => provider.GetRequiredService<FitzRolePermissionDirectoryReader>());
+        services.AddScoped<FitzRoleTeamDirectoryReader>();
+        services.AddScoped<IRoleTeamDirectoryProjection>(provider => provider.GetRequiredService<FitzRoleTeamDirectoryReader>());
+        services.AddScoped<IRoleTeamDirectoryReader>(provider => provider.GetRequiredService<FitzRoleTeamDirectoryReader>());
         services.AddSingleton<ITenantDirectory>(provider =>
             new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
                 provider.GetRequiredService<IDomainEventReader>(),
@@ -55,14 +66,21 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<DefineTeamHandler>()
             .AddRequestHandler<DeleteTeamHandler>()
             .AddRequestHandler<DefineRoleHandler>()
+            .AddRequestHandler<DeleteRoleHandler>()
             .AddRequestHandler<AssignTeamMemberHandler>()
             .AddRequestHandler<RemoveTeamMemberHandler>()
             .AddRequestHandler<AssignTeamRoleHandler>()
+            .AddRequestHandler<RemoveTeamRoleHandler>()
             .AddRequestHandler<AssignRolePermissionHandler>()
+            .AddRequestHandler<RemoveRolePermissionHandler>()
             .AddRequestAuthorizer<RbacManagementAuthorizer>()
             .AddRequestHandler<GetTeamHandler>()
             .AddRequestHandler<ListTeamsHandler>()
             .AddRequestHandler<ListTeamMembersHandler>()
+            .AddRequestHandler<GetRoleHandler>()
+            .AddRequestHandler<ListRolesHandler>()
+            .AddRequestHandler<ListRolePermissionsHandler>()
+            .AddRequestHandler<ListRoleTeamsHandler>()
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()
@@ -81,9 +99,13 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
+            .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
             .AddProjector<TeamDirectoryProjector>("TeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TeamMemberDirectoryProjector>("TeamMemberDirectory", WorkloadScope.PerTenant)
+            .AddProjector<RoleDirectoryProjector>("RoleDirectory", WorkloadScope.PerTenant)
+            .AddProjector<RolePermissionDirectoryProjector>("RolePermissionDirectory", WorkloadScope.PerTenant)
+            .AddProjector<RoleTeamDirectoryProjector>("RoleTeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
             .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
             .AddFitz(

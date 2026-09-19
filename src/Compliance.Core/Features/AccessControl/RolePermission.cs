@@ -24,12 +24,21 @@ public sealed class RolePermission : Aggregate
         _roleId = roleId;
         _permission = Permissions.Normalize(permission);
         On<RolePermissionAssigned>(_ => _isAssigned = true);
+        On<RolePermissionRemoved>(_ => _isAssigned = false);
     }
 
     public Result Assign()
     {
         if (!_isAssigned)
             RaiseEvent(new RolePermissionAssigned(_tenantId, _roleId, _permission));
+        return Result.Success;
+    }
+
+    public Result Remove()
+    {
+        if (!_isAssigned)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The permission is not assigned to this role."));
+        RaiseEvent(new RolePermissionRemoved(_tenantId, _roleId, _permission));
         return Result.Success;
     }
 }
