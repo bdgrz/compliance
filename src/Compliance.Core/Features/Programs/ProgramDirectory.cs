@@ -38,7 +38,15 @@ sealed class FitzProgramDirectory(IKvClient client)
                 await ProgramDirectorySchema.Directory.InsertAsync(Transaction,
                     new ProgramView(created.TenantId, created.ProgramId, created.Name,
                         "readiness", "type_i", 1, created.Plan,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt,
+                        [
+                            new ProgramStageView("readiness",
+                                "Approve the scoped readiness baseline and own its remaining gaps."),
+                            new ProgramStageView("type_i",
+                                "Record the point-in-time examination outcome and Type II plan."),
+                            new ProgramStageView("type_ii",
+                                "Close the operating period and record the examination outcome."),
+                        ]), ct)
                     .ConfigureAwait(false);
                 break;
             case ProgramRevised revised:

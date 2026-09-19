@@ -10,9 +10,12 @@ public sealed record ProgramPlan(DateOnly? TargetReadinessDate, DateOnly? Target
 
 public sealed record ProgramRegistration(Uuid ProgramId);
 
+public sealed record ProgramStageView(string Stage, string AdvanceWhen);
+
 public sealed record ProgramView(Uuid TenantId, Uuid ProgramId, string Name, string Stage,
     string? NextStage, long Revision, ProgramPlan Plan, Uuid LastChangedByMemberId,
-    string LastChangedByDisplay, DateTimeOffset LastChangedAt);
+    string LastChangedByDisplay, DateTimeOffset LastChangedAt,
+    IReadOnlyList<ProgramStageView> StagePlan);
 
 public interface IProgramManagementRequest : IRequestBase
 {

@@ -15,6 +15,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ListPrograms))]
 [JsonSerializable(typeof(ProgramPlan))]
 [JsonSerializable(typeof(ProgramRegistration))]
+[JsonSerializable(typeof(ProgramStageView))]
 [JsonSerializable(typeof(ProgramView))]
 [JsonSerializable(typeof(Page<ProgramView>))]
 [JsonSerializable(typeof(ProgramCreated))]
