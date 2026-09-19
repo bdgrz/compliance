@@ -99,3 +99,13 @@ approval refuses an incomplete preview. The approval decision stores the
 acknowledged preview digest; this does not make unrelated context writes atomic
 with the boundary stream, so later contributors must define their own lag and
 stability guarantees before the boundary backend child is complete.
+
+Boundary reads expose a stream revision independent of each draft version's
+revision. `minimum_revision` on the current boundary read distinguishes an
+unreached source revision from projection lag after authorization. The
+`BoundaryDirectoryV2` projection uses a new Fitz store URI and checkpoint
+identity so retained boundary events rebuild that revision from the start;
+existing `BoundaryDirectory` checkpoints cannot be reused with this schema.
+Until the new projector catches up, revision-aware reads report a conflict and
+ordinary reads may show no boundary. The previous projection remains available
+for rollback and can be removed after replay and operational readback.

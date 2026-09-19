@@ -20,7 +20,7 @@ public sealed class FitzBoundaryDirectoryTests
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
         var impact = new BoundaryImpactService(directory,
             [new ProgramBoundaryImpactContributor()]);
-        var identity = new CheckpointIdentity("BoundaryDirectory",
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
         await using (var batch = await directory.BeginAsync(
@@ -70,7 +70,7 @@ public sealed class FitzBoundaryDirectoryTests
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
 
         // Act
-        var identity = new CheckpointIdentity("BoundaryDirectory",
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
 
@@ -115,7 +115,7 @@ public sealed class FitzBoundaryDirectoryTests
         var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
         var content = new BoundaryContent("Unused", "readiness", ["security"], []);
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
-        var identity = new CheckpointIdentity("BoundaryDirectory",
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
         // Act
@@ -155,7 +155,7 @@ public sealed class FitzBoundaryDirectoryTests
                 "Service A", null, "Compliance lead", "Core service", true)]);
         var successor = original with { Statement = "Scope with provider B" };
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
-        var identity = new CheckpointIdentity("BoundaryDirectory",
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
 

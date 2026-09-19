@@ -61,7 +61,7 @@ static class BoundaryDirectorySchema
 }
 
 sealed class FitzBoundaryDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/boundary-directory/projection", "BoundaryDirectory"),
+    : FitzKvProjectionStore(client, "kv://bdgrz/boundary-directory-v2/projection", "BoundaryDirectoryV2"),
       IBoundaryDirectoryReader, IBoundaryDirectoryProjection
 {
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
@@ -75,7 +75,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                         new BoundaryVersionView(created.TenantId, created.BoundaryId,
                             created.ProgramId, created.DraftVersionId, 1,
                             created.Content, "draft", null, created.AuthorMemberId,
-                            created.AuthorDisplay, created.ChangedAt), null, null), ct)
+                            created.AuthorDisplay, created.ChangedAt), null, null, 1), ct)
                     .ConfigureAwait(false);
                 break;
             case BoundaryDraftRevised revised:
@@ -87,6 +87,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, current,
                     current with
                     {
+                        Revision = current.Revision + 1,
                         Draft = current.Draft with
                         {
                             Revision = revised.Revision,
@@ -111,7 +112,11 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                         discardedCurrent, ct).ConfigureAwait(false);
                 else
                     await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction,
-                        discardedCurrent, discardedCurrent with { Draft = null }, ct)
+                        discardedCurrent, discardedCurrent with
+                        {
+                            Draft = null,
+                            Revision = discardedCurrent.Revision + 1,
+                        }, ct)
                         .ConfigureAwait(false);
                 break;
             case BoundaryReviewed reviewed:
@@ -135,6 +140,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, reviewedCurrent,
                     reviewedCurrent with
                     {
+                        Revision = reviewedCurrent.Revision + 1,
                         LatestDecision = reviewDecision,
                     }, ct).ConfigureAwait(false);
                 break;
@@ -165,6 +171,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, approvedCurrent,
                     approvedCurrent with
                     {
+                        Revision = approvedCurrent.Revision + 1,
                         Draft = null,
                         LatestApprovedVersion = approvedVersion,
                         LatestDecision = approvalDecision,
@@ -180,6 +187,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, predecessor,
                     predecessor with
                     {
+                        Revision = predecessor.Revision + 1,
                         Draft = new BoundaryVersionView(proposed.TenantId, proposed.BoundaryId,
                             predecessor.ProgramId, proposed.DraftVersionId, 1,
                             proposed.Content, "draft", null, proposed.AuthorMemberId,
