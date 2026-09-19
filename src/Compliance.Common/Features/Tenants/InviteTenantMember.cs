@@ -4,4 +4,4 @@ namespace Bdgrz.Compliance.Features.Tenants;
 
 [Discriminator("bdgrz.tenant-member.invite", 1)]
 public sealed record InviteTenantMember(Uuid TenantId, string EmailAddress, string Affiliation,
-    bool Administrator = false, Uuid? InvitedBy = null) : IRequest, ICallable, IPlatformOperatorRequest;
+    bool Administrator = false) : IRequest, ICallable, IPlatformOperatorRequest;

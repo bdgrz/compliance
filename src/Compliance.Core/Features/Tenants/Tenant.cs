@@ -10,6 +10,7 @@ public sealed class Tenant : Aggregate
     bool _requiresInvitation;
     bool _activated;
     string? _firstAdministratorEmail;
+    Uuid _operatorUserId;
     string? _pendingSlug;
     readonly HashSet<string> _previousSlugs = new(StringComparer.Ordinal);
 
@@ -39,6 +40,7 @@ public sealed class Tenant : Aggregate
                             (!_requiresInvitation || _activated);
     public bool IsRegistered => _slug is not null && _slugState != TenantSlugState.Rejected;
     public string? CurrentSlug => _slug;
+    public Uuid OperatorUserId => _operatorUserId;
     public bool IsSuspended => _suspended;
 
     public Result<TenantRegistration> Register(Uuid ownerUserId, string name, string slug,
@@ -180,6 +182,7 @@ public sealed class Tenant : Aggregate
         _slugState = TenantSlugState.Pending;
         _requiresInvitation = registered.FirstAdministratorEmail is not null;
         _firstAdministratorEmail = registered.FirstAdministratorEmail;
+        _operatorUserId = registered.OwnerUserId;
     }
     void Apply(TenantSlugConfirmed _) => _slugState = TenantSlugState.Confirmed;
     void Apply(TenantSlugRejected _) => _slugState = TenantSlugState.Rejected;

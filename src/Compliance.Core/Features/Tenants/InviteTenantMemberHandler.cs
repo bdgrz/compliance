@@ -17,7 +17,7 @@ public sealed class InviteTenantMemberHandler(IAggregateReader reader, IAggregat
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant does not exist."));
 
         var invitedBy = RequestActor.IsSystem(context.Actor)
-            ? context.Request.InvitedBy ?? Uuid.Empty
+            ? tenant.OperatorUserId
             : UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId)
                 ? userId
                 : Uuid.Empty;
