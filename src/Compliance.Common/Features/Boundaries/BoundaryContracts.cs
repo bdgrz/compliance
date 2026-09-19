@@ -33,8 +33,8 @@ public sealed record BoundaryChange(string Field, string ChangeType, Uuid? Entry
     string? PreviousValue, string? ProposedValue,
     BoundaryScopeEntry? PreviousEntry, BoundaryScopeEntry? ProposedEntry);
 
-public sealed record BoundaryAffectedRecord(string Context, string RecordType,
-    Uuid RecordId, string Reason);
+public sealed record BoundaryAffectedRecord(Uuid TenantId, string Context,
+    string RecordType, Uuid RecordId, string Reason);
 
 public sealed record BoundaryImpactContribution(string Context,
     IReadOnlyList<BoundaryAffectedRecord> Records, bool Complete);

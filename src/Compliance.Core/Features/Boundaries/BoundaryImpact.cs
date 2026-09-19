@@ -21,7 +21,8 @@ public sealed class ProgramBoundaryImpactContributor : IBoundaryImpactContributo
     {
         IReadOnlyList<BoundaryAffectedRecord> records =
             boundary.LatestApprovedVersion is not null && changes.Count > 0
-                ? [new BoundaryAffectedRecord(Context, "program", boundary.ProgramId,
+                ? [new BoundaryAffectedRecord(boundary.TenantId, Context,
+                    "program", boundary.ProgramId,
                     "The approved scope used by this program would change.")]
                 : [];
         return ValueTask.FromResult(new BoundaryImpactContribution(Context, records, true));
@@ -55,10 +56,18 @@ public sealed class BoundaryImpactService(
         {
             var contribution = await contributor.ContributeAsync(boundary, changes, ct)
                 .ConfigureAwait(false);
-            if (contribution.Context != contributor.Context || contribution.Records.Count > 200)
+            if (contribution.Context != contributor.Context || contribution.Records is null ||
+                contribution.Records.Count > 200 ||
+                contribution.Records.Any(record => record.TenantId != request.TenantId ||
+                    record.Context != contributor.Context || record.RecordId == Uuid.Empty))
                 throw new InvalidOperationException(
                     "A boundary impact contributor returned an invalid or unbounded result.");
-            contributions.Add(contribution);
+            contributions.Add(contribution with
+            {
+                Records = [.. contribution.Records
+                    .OrderBy(static record => record.RecordType, StringComparer.Ordinal)
+                    .ThenBy(static record => record.RecordId.ToString(), StringComparer.Ordinal)],
+            });
         }
         if (contributions.Select(static item => item.Context).Distinct(StringComparer.Ordinal).Count() !=
             contributions.Count)
