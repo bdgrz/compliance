@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Hosting;
@@ -180,8 +181,20 @@ public sealed class UserIdentityContinuationWebTests
 
                 services.RemoveAll<IEventStore>();
                 services.AddSingleton<IEventStore, InMemoryEventStore>();
+                services.RemoveAll<IEmailAddressDirectoryReader>();
+                services.AddSingleton<IEmailAddressDirectoryReader, EmptyEmailAddressDirectory>();
             });
         });
+
+    sealed class EmptyEmailAddressDirectory : IEmailAddressDirectoryReader
+    {
+        public ValueTask<EmailAddressView?> GetAsync(string emailAddress, CancellationToken ct = default) =>
+            ValueTask.FromResult<EmailAddressView?>(null);
+
+        public ValueTask<Page<EmailAddressView>> ListAsync(Uuid userId, int? limit, string? cursor,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<EmailAddressView>([], null));
+    }
 
     sealed record RegistrationDocument(
         [property: JsonPropertyName("email_address")] string EmailAddress);

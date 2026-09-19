@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
@@ -99,10 +100,19 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .ExcludeFromDescription();
     app.MapGet(
             "/auth/session",
-            (HttpContext context) => Results.Ok(new BrowserSession(
-                context.User.FindFirst("sub")?.Value ?? string.Empty,
-                context.User.FindFirst("email")?.Value ?? string.Empty,
-                string.Equals(context.User.FindFirst("email_verified")?.Value, "true", StringComparison.Ordinal))))
+            async (HttpContext context, IEmailAddressDirectoryReader directory, CancellationToken ct) =>
+            {
+                var id = context.User.FindFirst("sub")?.Value ?? string.Empty;
+                var email = context.User.FindFirst("email")?.Value ?? string.Empty;
+                var verified = false;
+                if (email.Length > 0 && Uuid.TryParse(id, CultureInfo.InvariantCulture, out var userId))
+                {
+                    var address = await directory.GetAsync(email, ct).ConfigureAwait(false);
+                    verified = address?.UserId == userId && address.Verified;
+                }
+
+                return Results.Ok(new BrowserSession(id, email, verified));
+            })
         .RequireAuthorization()
         .ExcludeFromDescription();
     app.MapPost(
