@@ -7,6 +7,51 @@ namespace Bdgrz.Compliance.Tests.Features.Boundaries;
 public sealed class FitzBoundaryDirectoryTests
 {
     [Fact]
+    public async Task ImpactPreviewWaitsForExactProjectedRevision()
+    {
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var draftId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        var content = new BoundaryContent("Initial", "readiness", ["security"], []);
+        var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+        var impact = new BoundaryImpactService(directory,
+            [new ProgramBoundaryImpactContributor()]);
+        var identity = new CheckpointIdentity("BoundaryDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, draftId, content, authorId, "Author", now));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        var requested = new PreviewBoundaryImpact(tenantId, boundaryId, draftId, 2);
+        var lagged = await impact.PreviewAsync(requested, CancellationToken.None);
+        Assert.False(lagged.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, lagged.Error.Kind);
+
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftRevised(tenantId, boundaryId,
+                draftId, 2, content with { Statement = "Revised" }, authorId,
+                "Author", now.AddMinutes(1)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        var caughtUp = await impact.PreviewAsync(requested, CancellationToken.None);
+        Assert.True(caughtUp.IsSuccess);
+        Assert.True(caughtUp.Value.Complete);
+        Assert.Contains(caughtUp.Value.Changes, change =>
+            change.Field == "statement" && change.ProposedValue == "Revised");
+    }
+
+    [Fact]
     public async Task FailedBatchRollsBackAndCanBeRetried()
     {
         var tenantId = Uuid.CreateVersion4();
