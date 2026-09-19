@@ -13,6 +13,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(long))]
+[JsonSerializable(typeof(DateOnly))]
 [JsonSerializable(typeof(Uuid))]
 [JsonSerializable(typeof(BrowserSession))]
 [JsonSerializable(typeof(ProblemDetails))]
