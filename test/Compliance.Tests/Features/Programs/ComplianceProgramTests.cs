@@ -46,14 +46,22 @@ public sealed class ComplianceProgramTests
             TargetTypeIIStartDate = new DateOnly(2028, 4, 1),
             TargetTypeIIEndDate = new DateOnly(2028, 3, 1),
         };
+        var reversedJourney = valid with
+        {
+            TargetReadinessDate = new DateOnly(2028, 4, 1),
+            TargetTypeIAsOfDate = new DateOnly(2028, 3, 1),
+        };
 
         var stale = program.Revise(0, "Stale", valid, MemberId, "Lead", Now);
         var reversed = program.Revise(1, "Invalid", invalid, MemberId, "Lead", Now);
+        var reversedStages = program.Revise(1, "Invalid", reversedJourney, MemberId, "Lead", Now);
 
         Assert.False(stale.IsSuccess);
         Assert.False(reversed.IsSuccess);
+        Assert.False(reversedStages.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, stale.Error.Kind);
         Assert.Equal(RequestErrorKind.Validation, reversed.Error.Kind);
+        Assert.Equal(RequestErrorKind.Validation, reversedStages.Error.Kind);
         Assert.Single(new AggregateScenario<ComplianceProgram>(program).PendingEvents);
     }
 }

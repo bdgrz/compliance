@@ -55,6 +55,9 @@ public sealed class ComplianceProgram : Aggregate
             return new RequestError(RequestErrorKind.Validation, "A program requires a name.");
         if (plan is null)
             return new RequestError(RequestErrorKind.Validation, "A program requires a plan.");
+        if (plan.TargetReadinessDate > plan.TargetTypeIAsOfDate)
+            return new RequestError(RequestErrorKind.Validation,
+                "The Type I target date must follow the readiness target date.");
         if (plan.TargetTypeIIStartDate > plan.TargetTypeIIEndDate)
             return new RequestError(RequestErrorKind.Validation,
                 "The Type II target end date must follow its start date.");
