@@ -140,6 +140,33 @@ public sealed class SystemBoundaryTests
             new DateOnly(2027, 2, 1), "Approved", "digest", reviewer, "Reviewer", Now).IsSuccess);
     }
 
+    [Fact]
+    public void OnlyNeverReviewedDraftCanBeDiscarded()
+    {
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
+            "Author", Now).IsSuccess);
+        var reviewedBy = Uuid.CreateVersion4();
+        Assert.True(boundary.Review(VersionId, 1, Uuid.CreateVersion4(),
+            "request_changes", "Revise the scope", reviewedBy, "Reviewer", Now).IsSuccess);
+
+        var denied = boundary.DiscardDraft(VersionId, 1, "Withdraw",
+            AuthorId, "Author", Now);
+
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(denied.Error).Kind);
+        Assert.Equal(2, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
+
+        var unused = new SystemBoundary(TenantId, Uuid.CreateVersion4());
+        var unusedVersion = Uuid.CreateVersion4();
+        Assert.True(unused.Create(ProgramId, unusedVersion, Content(),
+            AuthorId, "Author", Now).IsSuccess);
+        Assert.True(unused.DiscardDraft(unusedVersion, 1, "Not the right scope",
+            AuthorId, "Author", Now).IsSuccess);
+        Assert.Equal(2, new AggregateScenario<SystemBoundary>(unused).PendingEvents.Count);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(
+            unused.Revise(unusedVersion, 1, Content(), AuthorId, "Author", Now).Error).Kind);
+    }
+
     static BoundaryContent Content() => new("The in-scope service and its dependencies.",
         "readiness", ["security"],
         [new BoundaryScopeEntry(EntryId, "inclusion", "service",

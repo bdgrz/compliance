@@ -64,7 +64,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateBoundary>()
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
+        .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
         .AddMcpTool<GetBoundary>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramBoundaries>(tool => tool.ReadOnly())
         .AddMcpTool<GetBoundaryVersion>(tool => tool.ReadOnly())
         .AddMcpTool<ListBoundaryVersions>(tool => tool.ReadOnly())
         .AddMcpTool<GetEffectiveBoundaryVersion>(tool => tool.ReadOnly())
@@ -220,8 +222,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
         .RequireAuthorization()
         .WithTags("Boundaries");
+    app.MapPortiaGet<ListProgramBoundaries, Page<BoundaryView>>(
+            "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
     app.MapPortiaPut<ReviseBoundaryDraft>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaPost<DiscardBoundaryDraft>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/discards")
         .RequireAuthorization()
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundary, BoundaryView>(

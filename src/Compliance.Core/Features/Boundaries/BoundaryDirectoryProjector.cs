@@ -5,6 +5,7 @@ namespace Bdgrz.Compliance.Features.Boundaries;
 public sealed partial class BoundaryDirectoryProjector(IBoundaryDirectoryProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant(), "BoundaryDirectory"),
       IProjectorHandler<BoundaryDraftCreated>, IProjectorHandler<BoundaryDraftRevised>,
+      IProjectorHandler<BoundaryDraftDiscarded>,
       IProjectorHandler<BoundaryReviewed>, IProjectorHandler<BoundaryApproved>,
       IProjectorHandler<BoundarySuccessorProposed>
 {
@@ -12,6 +13,9 @@ public sealed partial class BoundaryDirectoryProjector(IBoundaryDirectoryProject
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(BoundaryDraftRevised ev, IProjectorContext context,
+        CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(BoundaryDraftDiscarded ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(BoundaryReviewed ev, IProjectorContext context,

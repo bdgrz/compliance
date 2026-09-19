@@ -11,6 +11,7 @@ public sealed class SystemBoundary : Aggregate
     long _draftRevision;
     BoundaryContent? _draftContent;
     Uuid _draftAuthorMemberId;
+    bool _draftEverReviewed;
     Uuid _acceptedReviewDecisionId;
     Uuid _latestApprovedVersionId;
     DateOnly? _latestApprovedEffectiveFrom;
@@ -27,6 +28,7 @@ public sealed class SystemBoundary : Aggregate
             _draftRevision = 1;
             _draftContent = ev.Content;
             _draftAuthorMemberId = ev.AuthorMemberId;
+            _draftEverReviewed = false;
         });
         On<BoundaryDraftRevised>(ev =>
         {
@@ -38,6 +40,13 @@ public sealed class SystemBoundary : Aggregate
         On<BoundaryReviewed>(ev =>
         {
             _acceptedReviewDecisionId = ev.Outcome == "accept" ? ev.DecisionId : Uuid.Empty;
+            _draftEverReviewed = true;
+        });
+        On<BoundaryDraftDiscarded>(_ =>
+        {
+            _draftVersionId = Uuid.Empty;
+            _draftContent = null;
+            _acceptedReviewDecisionId = Uuid.Empty;
         });
         On<BoundaryApproved>(ev =>
         {
@@ -53,6 +62,7 @@ public sealed class SystemBoundary : Aggregate
             _draftRevision = 1;
             _draftContent = ev.Content;
             _draftAuthorMemberId = ev.AuthorMemberId;
+            _draftEverReviewed = false;
             _acceptedReviewDecisionId = Uuid.Empty;
         });
     }
@@ -114,6 +124,24 @@ public sealed class SystemBoundary : Aggregate
                 "A review requires an outcome and rationale."));
         RaiseEvent(new BoundaryReviewed(_tenantId, Id, draftVersionId, expectedRevision,
             decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt));
+        return Result.Success;
+    }
+
+    public Result DiscardDraft(Uuid draftVersionId, long expectedRevision,
+        string rationale, Uuid actorMemberId, string actorDisplay,
+        DateTimeOffset discardedAt)
+    {
+        var current = CheckDraft(draftVersionId, expectedRevision);
+        if (current is not null)
+            return Result.Failure(current);
+        if (_draftEverReviewed)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "A reviewed draft is referenced by an immutable decision and cannot be discarded."));
+        if (string.IsNullOrWhiteSpace(rationale))
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "Discarding a draft requires a rationale."));
+        RaiseEvent(new BoundaryDraftDiscarded(_tenantId, Id, draftVersionId,
+            expectedRevision, actorMemberId, actorDisplay, rationale.Trim(), discardedAt));
         return Result.Success;
     }
 
