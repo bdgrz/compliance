@@ -49,15 +49,35 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             using var operatorClient = client;
             await TenantInvitationE2ETests.LoginAsync(operatorClient,
                 $"operator-{Guid.NewGuid():N}@example.com");
+            var administratorEmail = $"administrator-{Guid.NewGuid():N}@example.com";
             using var registered = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
             {
                 name = "Direct Invitation Retry",
+                legal_name = "Direct Invitation Retry LLC",
                 slug = $"direct-retry-{Guid.NewGuid():N}"[..24],
+                first_administrator_email = administratorEmail,
             });
             Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
             var registration = await registered.Content.ReadFromJsonAsync<Registration>();
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            var bootstrapDelivery = worker.Services.GetRequiredService<MockTenantInvitationDelivery>();
+            string? administratorToken = null;
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline &&
+                   !bootstrapDelivery.TryGetLatest(tenantId, administratorEmail, out administratorToken))
+                await Task.Delay(250);
+            Assert.NotNull(administratorToken);
+            using var administratorClient = factory.CreateClient();
+            var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
+                administratorEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
+                administratorId, administratorEmail);
+            using var administratorAccepted = await administratorClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/invitations/acceptance",
+                new { email_address = administratorEmail, token = administratorToken });
+            Assert.Equal(HttpStatusCode.NoContent, administratorAccepted.StatusCode);
+
             var email = $"invitee-{Guid.NewGuid():N}@example.com";
             var path = $"/api/v1/tenants/{tenantId}/invitations";
             var request = new { email_address = email, affiliation = "client_personnel" };
@@ -70,7 +90,32 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             Assert.True(delivery.TryGetLatest(tenantId, email, out var token));
             Assert.False(string.IsNullOrEmpty(token));
             Assert.Equal(2, delivery.Attempts);
-            Assert.False(delivery.TryGetLatest(Uuid.CreateVersion4(), email, out _));
+
+            using var inviteeClient = factory.CreateClient();
+            var inviteeId = await TenantInvitationE2ETests.LoginAsync(inviteeClient, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, inviteeClient,
+                inviteeId, email);
+            using var accepted = await inviteeClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/invitations/acceptance",
+                new { email_address = email, token });
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+            Members? members = null;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await operatorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/members");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    members = await response.Content.ReadFromJsonAsync<Members>();
+                    if (members?.Items.Count == 2)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal(2, members?.Items.Count);
+            Assert.Contains(members?.Items ?? [], member => member.UserId == administratorId);
+            Assert.Contains(members?.Items ?? [], member => member.UserId == inviteeId);
         }
         finally
         {
