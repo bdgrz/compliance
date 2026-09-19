@@ -76,4 +76,17 @@ public sealed class TenantSlugTests
         Assert.True(result.IsSuccess);
         Assert.IsType<TenantSlugRegistrationRejected>(scenario.PendingEvents[^1]);
     }
+
+    [Fact]
+    public void HistoricalLookupOfReservedSlugMustNotAllowANewClaim()
+    {
+        var slug = new TenantSlug("login", allowReserved: true);
+        var scenario = new AggregateScenario<TenantSlug>(slug);
+
+        var result = slug.Register(FirstTenant);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(slug.OwningTenantId);
+        Assert.IsType<TenantSlugRegistrationRejected>(scenario.PendingEvents[^1]);
+    }
 }

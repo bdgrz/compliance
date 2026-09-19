@@ -69,6 +69,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         portia.AddWorkers();
     }
 
+    builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
     builder.Services.AddComplianceHealthChecks();
 
     var app = builder.Build();
