@@ -31,6 +31,8 @@ Dependency lock files are part of the change. Keep the tree formatted and warnin
 
 Tests use `Should<Outcome>Given<State>` names, with `When<Action>` when it clarifies the case. Block-bodied tests mark their Arrange, Act, and Assert phases. The Cntryl.Conventions analyzers enforce these rules as build errors.
 
+HTTP route parameter names, query parameter names, and JSON property names use `snake_case`. Keep the OpenAPI wire-name test current when adding operations.
+
 ## Code organization
 
 - Organize product code by capability under `Features/<FeatureName>`.

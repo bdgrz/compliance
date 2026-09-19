@@ -95,7 +95,7 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 - `/health/ready` and the compatibility alias `/healthz` become healthy after hosted startup, including the initial Fitz connection and worker startup.
 - API errors use RFC Problem Details and include a `trace_id`.
 - Authenticated users can reserve, list, inspect, and verify their own email addresses under
-  `/api/v1/users/{userId}/email-addresses`. Challenge issuance and completion use Portia commands.
+  `/api/v1/users/{user_id}/email-addresses`. Challenge issuance and completion use Portia commands.
   Email ownership and verification are HTTP-only; they are not MCP tools.
 
 Email delivery currently uses `MockEmailChallengeDelivery`. It captures the latest challenge
