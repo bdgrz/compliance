@@ -7,6 +7,8 @@ sealed class PlatformOperatorAuthorizer(PlatformOperatorAuthority operators) : I
 {
     public ValueTask<Result> AuthorizeAsync(IRequestContext<IPlatformOperatorRequest> context, CancellationToken ct)
     {
+        if (RequestActor.IsSystem(context.Actor))
+            return ValueTask.FromResult(Result.Success);
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
             return ValueTask.FromResult(Result.Failure(new RequestError(
                 RequestErrorKind.Unauthorized, "Tenant registration requires a Bdgrz user identity.")));

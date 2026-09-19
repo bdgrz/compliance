@@ -23,17 +23,31 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
         {
             await TenantDirectorySchema.Directory.InsertAsync(
                 Transaction,
-                new TenantView(registered.TenantId, registered.Name, registered.Slug),
+                new TenantView(registered.TenantId, registered.Name, registered.Slug,
+                    Status: "provisioning",
+                    LegalName: registered.LegalName ?? registered.Name,
+                    OperatorUserId: registered.OwnerUserId,
+                    RequiresInvitation: registered.FirstAdministratorEmail is not null),
                 ct).ConfigureAwait(false);
         }
         else
         {
+            if (domainEvent is TenantSlugChanged changed)
+            {
+                var old = await TenantDirectorySchema.Directory.GetAsync(Transaction, changed.TenantId, ct)
+                    .ConfigureAwait(false);
+                if (old is not null)
+                    await TenantDirectorySchema.Directory.ReplaceAsync(Transaction, old,
+                        old with { Slug = changed.NewSlug }, ct).ConfigureAwait(false);
+                return;
+            }
             var (tenantId, status) = domainEvent switch
             {
                 TenantSlugConfirmed ev => (ev.TenantId, "active"),
                 TenantSlugRejected ev => (ev.TenantId, "rejected"),
                 TenantSuspended ev => (ev.TenantId, "suspended"),
                 TenantReactivated ev => (ev.TenantId, "active"),
+                TenantActivated ev => (ev.TenantId, "active"),
                 _ => (Uuid.Empty, string.Empty),
             };
             if (tenantId != Uuid.Empty)
@@ -41,8 +55,14 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                 var current = await TenantDirectorySchema.Directory.GetAsync(Transaction, tenantId, ct)
                     .ConfigureAwait(false);
                 if (current is not null)
+                {
+                    if (domainEvent is TenantSlugConfirmed && current.RequiresInvitation)
+                        status = "provisioning";
+                    if (domainEvent is TenantActivated && current.Status == "suspended")
+                        status = "suspended";
                     await TenantDirectorySchema.Directory.ReplaceAsync(
                         Transaction, current, current with { Status = status }, ct).ConfigureAwait(false);
+                }
             }
         }
     }

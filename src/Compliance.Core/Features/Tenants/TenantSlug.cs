@@ -12,6 +12,9 @@ public sealed class TenantSlug : Aggregate
     Uuid? _tenantId;
     bool _retired;
 
+    public Uuid? OwningTenantId => _tenantId;
+    public bool IsRetired => _retired;
+
     public TenantSlug(string slug)
         : base(CreateId(slug), new EventStreamAddress("bdgrz", "tenant-slugs", CreateId(slug).ToString()))
     {
@@ -32,7 +35,7 @@ public sealed class TenantSlug : Aggregate
 
     public Result Register(Uuid tenantId)
     {
-        if (!_retired && _tenantId is null)
+        if (!_retired && (_tenantId is null || _tenantId == tenantId))
             RaiseEvent(new TenantSlugRegistered(tenantId, _slug));
         else if (_tenantId != tenantId || _retired)
             RaiseEvent(new TenantSlugRegistrationRejected(tenantId, _slug));
@@ -41,8 +44,10 @@ public sealed class TenantSlug : Aggregate
 
     public Result Surrender(Uuid tenantId)
     {
-        if (_tenantId == tenantId)
+        if (_tenantId == tenantId && !_retired)
             RaiseEvent(new TenantSlugSurrendered(tenantId, _slug));
+        else if (_tenantId == tenantId)
+            return Result.Success;
         else
             RaiseEvent(new TenantSlugSurrenderRejected(tenantId, _slug));
         return Result.Success;
@@ -51,12 +56,8 @@ public sealed class TenantSlug : Aggregate
     void Apply(TenantSlugRegistered registered) => _tenantId = registered.TenantId;
 
     // A slug is permanently spent once surrendered, per the backlog's "a retired slug is never
-    // assigned to another organization" rule -- retiring clears ownership but never un-retires.
-    void Apply(TenantSlugSurrendered _)
-    {
-        _tenantId = null;
-        _retired = true;
-    }
+    // assigned to another organization" rule. Keep the old owner for member-only redirects.
+    void Apply(TenantSlugSurrendered _) => _retired = true;
 
     static Uuid CreateId(string slug) => Uuid.CreateVersion5(SlugNamespaceId, Normalize(slug));
     static string Normalize(string slug) => TenantSlugs.TryNormalize(slug, out var normalized)

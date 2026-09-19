@@ -6,4 +6,6 @@ namespace Bdgrz.Compliance.Features.Tenants;
 public interface ITenantMembershipDirectoryReader
 {
     ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default);
+    ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
+        CancellationToken ct = default);
 }

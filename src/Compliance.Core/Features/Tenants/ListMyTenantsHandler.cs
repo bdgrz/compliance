@@ -62,7 +62,8 @@ public sealed class ListMyTenantsHandler(
             var tenant = await tenants.GetAsync(Uuid.Parse(tenantId.Value, CultureInfo.InvariantCulture), ct);
             if (tenant is not null)
             {
-                items.Add(new TenantMembershipSummary(tenant.TenantId, tenant.Name, tenant.Slug));
+                items.Add(new TenantMembershipSummary(tenant.TenantId, tenant.Name, tenant.Slug,
+                    tenant.Status));
             }
         }
 

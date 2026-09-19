@@ -2,6 +2,17 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 
 public sealed class TenantSlugsTests
 {
+    [Fact]
+    public void ShouldExplainWhyASlugIsRejected()
+    {
+        Assert.False(TenantSlugs.TryNormalize("abc", out _, out var shortReason));
+        Assert.Contains("4 to 63", shortReason, StringComparison.Ordinal);
+        Assert.False(TenantSlugs.TryNormalize("api", out _, out _));
+        Assert.False(TenantSlugs.TryNormalize("developer-login", out _, out var reservedReason));
+        Assert.Contains("reserved route", reservedReason, StringComparison.Ordinal);
+        Assert.False(TenantSlugs.TryNormalize("bad--slug", out _, out var hyphenReason));
+        Assert.Contains("consecutive hyphens", hyphenReason, StringComparison.Ordinal);
+    }
     [Theory]
     [InlineData("acme")]
     [InlineData("acme-corp")]

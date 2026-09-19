@@ -11,10 +11,8 @@ public sealed partial class TenantRbacBootstrapReactor(
     public async ValueTask HandleAsync(IReactorContext<TenantRegistered> context, CancellationToken ct)
     {
         var tenantId = context.Trigger.TenantId;
-        var memberId = RbacIds.Member(tenantId, context.Trigger.OwnerUserId);
-        IRequest[] commands =
+        List<IRequest> commands =
         [
-            new RegisterMember(tenantId, context.Trigger.OwnerUserId),
             new DefineTeam(tenantId, BuiltInRbac.AdministratorsTeamId(tenantId),
                 BuiltInRbac.AdministratorsTeamName),
             new DefineTeam(tenantId, BuiltInRbac.PowerUsersTeamId(tenantId), BuiltInRbac.PowerUsersTeamName),
@@ -39,8 +37,16 @@ public sealed partial class TenantRbacBootstrapReactor(
                 RbacPermissions.TenantAccess),
             new AssignRolePermission(tenantId, BuiltInRbac.ComplianceParticipationRoleId(tenantId),
                 RbacPermissions.TenantAccess),
-            new AssignTeamMember(tenantId, BuiltInRbac.AdministratorsTeamId(tenantId), memberId),
         ];
+
+        // Legacy developer-created tenants bootstrap the creator. Production registration supplies
+        // an explicit first administrator invitation and grants nothing until it is accepted.
+        if (context.Trigger.FirstAdministratorEmail is null)
+        {
+            var memberId = RbacIds.Member(tenantId, context.Trigger.OwnerUserId);
+            commands.Add(new RegisterMember(tenantId, context.Trigger.OwnerUserId));
+            commands.Add(new AssignTeamMember(tenantId, BuiltInRbac.AdministratorsTeamId(tenantId), memberId));
+        }
 
         foreach (var command in commands)
             await bus.SendReactionAsync(command, context, ct);

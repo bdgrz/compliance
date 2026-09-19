@@ -104,4 +104,48 @@ public sealed class TenantTests
         Assert.True(tenant.IsActive);
         Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantReactivated>());
     }
+
+    [Fact]
+    public void InvitedFirstAdministratorMustAcceptBeforeTenantIsActive()
+    {
+        var tenant = new Tenant(TenantId);
+        var result = tenant.Register(OwnerUserId, "Acme", "acme", "Acme Legal LLC", "admin@example.com");
+        Assert.True(result.IsSuccess);
+        _ = tenant.ConfirmSlug("acme");
+
+        Assert.False(tenant.IsActive);
+        Assert.False(tenant.Suspend(OwnerUserId).IsSuccess);
+        Assert.False(tenant.Activate(Uuid.CreateVersion4(), "other@example.com").IsSuccess);
+        Assert.True(tenant.Activate(Uuid.CreateVersion4(), "admin@example.com").IsSuccess);
+        Assert.True(tenant.IsActive);
+    }
+
+    [Fact]
+    public void SlugChangeKeepsOldSlugUntilReplacementIsConfirmed()
+    {
+        var tenant = new Tenant(TenantId);
+        _ = tenant.Register(OwnerUserId, "Acme", "acme");
+        _ = tenant.ConfirmSlug("acme");
+
+        Assert.True(tenant.RequestSlugChange("acme-new").IsSuccess);
+        Assert.Equal("acme", tenant.CurrentSlug);
+        Assert.True(tenant.ConfirmSlug("acme-new").IsSuccess);
+        Assert.Equal("acme-new", tenant.CurrentSlug);
+        Assert.True(tenant.ConfirmSlugSurrender("acme").IsSuccess);
+        Assert.True(tenant.IsActive);
+        Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantSlugChanged>());
+    }
+
+    [Fact]
+    public void RejectedSlugChangeRetainsCurrentSlug()
+    {
+        var tenant = new Tenant(TenantId);
+        _ = tenant.Register(OwnerUserId, "Acme", "acme");
+        _ = tenant.ConfirmSlug("acme");
+        _ = tenant.RequestSlugChange("taken-slug");
+
+        Assert.True(tenant.RejectSlug("taken-slug").IsSuccess);
+        Assert.Equal("acme", tenant.CurrentSlug);
+        Assert.True(tenant.IsActive);
+    }
 }

@@ -7,6 +7,6 @@ public sealed class RegisterMemberHandler(IAggregateExecutor executor) : IReques
     public ValueTask<Result> HandleAsync(IRequestContext<RegisterMember> context, CancellationToken ct) =>
         executor.ExecuteAsync(
             new Member(context.Request.TenantId, context.Request.UserId),
-            member => AggregateOutcome.CommitOnSuccess(member.Register()),
+            member => AggregateOutcome.CommitOnSuccess(member.Register(context.Request.Affiliation)),
             context, ct);
 }

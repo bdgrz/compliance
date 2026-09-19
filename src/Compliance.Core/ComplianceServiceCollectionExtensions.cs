@@ -25,6 +25,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<MockEmailChallengeDelivery>();
         services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
+        services.AddSingleton<MockTenantInvitationDelivery>();
+        services.AddSingleton<ITenantInvitationDelivery>(provider =>
+            provider.GetRequiredService<MockTenantInvitationDelivery>());
         services.AddScoped<FitzEmailAddressDirectory>();
         services.AddScoped<IEmailAddressDirectoryProjection>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
@@ -101,6 +104,16 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
+            .AddRequestHandler<InviteTenantMemberHandler>()
+            .AddRequestHandler<AcceptTenantInvitationHandler>()
+            .AddRequestHandler<GetTenantHandler>()
+            .AddRequestHandler<ListTenantMembersHandler>()
+            .AddRequestHandler<ChangeTenantSlugHandler>()
+            .AddRequestHandler<ResolveMyTenantSlugHandler>()
+            .AddRequestAuthorizer<ResolveMyTenantSlugAuthorizer>()
+            .AddRequestAuthorizer<AcceptTenantInvitationAuthorizer>()
+            .AddRequestHandler<ActivateTenantHandler>()
+            .AddRequestAuthorizer<ActivateTenantAuthorizer>()
             .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
             .AddRequestHandler<ListMyTenantsHandler>()
             .AddRequestAuthorizer<ListMyTenantsAuthorizer>()
@@ -114,6 +127,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ConfirmTenantSlugSurrenderHandler>()
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
+            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
