@@ -236,6 +236,48 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
         var page = await listed.Content.ReadFromJsonAsync<ProgramPageDocument>();
         Assert.Single(page?.Items ?? []);
+
+        using var secondTenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
+        {
+            name = "Second Program Tenant",
+            slug = $"second-program-{Guid.NewGuid():N}"[..24],
+        });
+        Assert.Equal(HttpStatusCode.OK, secondTenantResponse.StatusCode);
+        var secondTenant = await secondTenantResponse.Content
+            .ReadFromJsonAsync<TenantRegistrationDocument>();
+        Assert.NotNull(secondTenant);
+        var secondPath = $"/api/v1/tenants/{secondTenant.TenantId}/programs";
+        ProgramRegistrationDocument? secondRegistration = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.PostAsJsonAsync(secondPath,
+                new { name = "Second tenant program", plan = create.plan });
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                secondRegistration = await response.Content
+                    .ReadFromJsonAsync<ProgramRegistrationDocument>();
+                break;
+            }
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        Assert.NotNull(secondRegistration);
+        ProgramPageDocument? firstTenantPrograms = null;
+        ProgramPageDocument? secondTenantPrograms = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var firstList = await owner.GetAsync(path);
+            using var secondList = await owner.GetAsync(secondPath);
+            firstTenantPrograms = await firstList.Content.ReadFromJsonAsync<ProgramPageDocument>();
+            secondTenantPrograms = await secondList.Content.ReadFromJsonAsync<ProgramPageDocument>();
+            if (firstTenantPrograms?.Items.Count == 1 && secondTenantPrograms?.Items.Count == 1)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal("SOC 2 continuing program", Assert.Single(firstTenantPrograms?.Items ?? []).Name);
+        Assert.Equal("Second tenant program", Assert.Single(secondTenantPrograms?.Items ?? []).Name);
     }
 
     sealed record TenantRegistrationDocument([property: JsonPropertyName("tenant_id")] string TenantId);
