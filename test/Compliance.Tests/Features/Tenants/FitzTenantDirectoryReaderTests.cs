@@ -33,9 +33,10 @@ public sealed class FitzTenantDirectoryReaderTests
 
     static async Task SeedAsync(InMemoryKvClient client, Uuid tenantId, string name, string slug)
     {
-        await using var transaction = await client.BeginAsync(
-            TenantDirectoryKeys.Route(), KvDurability.Async, KvMode.ReadWrite);
-        await TenantDirectorySchema.Directory.InsertAsync(transaction, new TenantView(tenantId, name, slug));
-        await transaction.CommitAsync();
+        var repository = new FitzTenantDirectoryReader(client);
+        var identity = new CheckpointIdentity("TenantDirectory", EventStreamPattern.ForPattern("bdgrz", "tenants"));
+        await using var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+        await repository.ApplyAsync(new TenantRegistered(tenantId, Uuid.CreateVersion4(), name, slug));
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 }
