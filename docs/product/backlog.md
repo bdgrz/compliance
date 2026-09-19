@@ -21,7 +21,7 @@ The product coverage decisions behind this version are recorded in
 
 ## Product-backlog contract
 
-Every product-backlog item is a user story that delivers a business outcome. Infrastructure, schema, API, background processing, and UI tasks may be implementation subtasks, but they are not separate product-backlog items.
+Every product-backlog item is a user story that delivers a business outcome. Infrastructure, schema, API, background processing, and UI tasks may be implementation subtasks, but they are not separate product-backlog items. Backend and frontend children are delivery tracking under that story, not new business outcomes.
 
 Three kinds of non-story issue are explicit exceptions:
 
@@ -29,11 +29,15 @@ Three kinds of non-story issue are explicit exceptions:
 - Architecture decision issues (`M0-A..`) record an accepted ADR and a thin technical spike for a concern the domain model depends on.
 - Enablers (`EN-..`) deliver a shared platform primitive that several stories would otherwise define inconsistently or too late. An enabler is not independently releasable; it is done only when its first consuming story uses it end to end, and consuming stories must not build feature-local substitutes. New enablers require the same product-owner approval as the six listed below.
 
-A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice is an API-to-UI outcome whose acceptance criteria come from the parent story. Create one backend sub-issue for each story or existing delivery slice, with the same milestone. The backend child inherits the parent's domain and non-UI acceptance criteria and explicitly records its applicable GitHub dependencies, because sub-issues do not inherit dependency relationships. M0-D24 governs UI delivery and does not block backend children. Close a backend child only after its API, MCP where appropriate, Portia handlers, event-sourced domain behavior, projections, reactors, isolation and failure tests, standalone and split-host proof, and required CI evidence are complete. Keep the product parent open until its UI acceptance criteria and all delivery slices are complete. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers.
+A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice retains an API-to-UI outcome whose acceptance criteria come from the parent story. When a validated feature story or product slice enters delivery, create **two delivery children** under it: one backend child and one frontend child. Give both the parent's milestone and record their applicable GitHub dependencies explicitly, because sub-issues do not inherit dependency relationships. Do not schedule children for an unvalidated P2 hypothesis.
+
+The backend child owns the authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and non-UI acceptance evidence. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has a backend child, depend on that child rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and integration with the delivered API. It depends on the backend child and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
+
+Close each child only when its own acceptance evidence is complete. Keep the product parent open until both children and the integrated product outcome pass. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers. Backfill the pair for active stories first; create children for other validated stories when scheduled.
 
 Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The first bundle covers the R1-15 remainder, EN-01, and R1-01; its tracking issues are #152, #157, and #158.
 
-Every story is a vertical slice from authorized API behavior through the usable browser experience. Completing only the API, worker, persistence, or UI does not complete the story.
+Every story is a vertical slice from authorized API behavior through the usable browser experience. Its backend and frontend children track separate delivery and may close at different times; completing either child alone does not complete the story.
 
 Every story must include:
 
@@ -102,7 +106,9 @@ copyright, attribution, patent, or redistribution decision.
 
 A story is done when its full API-to-UI workflow meets the acceptance criteria; allowed and denied behavior is tested; changes and decisions are traceable; period and snapshot behavior is correct; relevant failure states are recoverable; and the result works in the supported standalone and split-host deployments.
 
-A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable non-UI acceptance criteria are verified. Verification covers allowed and denied behavior, tenant isolation, concurrent and replayed work, projection lag, recoverable failure, and standalone and split API-worker deployment. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Focused and applicable full .NET and broker tests, formatting, and required exact-head CI checks must pass before the reviewed PR is merged. Link the merged PR and verification evidence from the backend child. The product parent remains open for UI delivery.
+A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable non-UI acceptance criteria are verified. Verification covers allowed and denied behavior, tenant isolation, concurrent and replayed work, projection lag, recoverable failure, and standalone and split API-worker deployment. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Focused and applicable full .NET and broker tests, formatting, and required exact-head CI checks must pass before the reviewed PR is merged. Link the merged PR and verification evidence from the backend child.
+
+A frontend child is done when its accessible browser workflow consumes the authorized API, handles loading, empty, error, retry, and forbidden states, and passes focused browser acceptance and applicable repository checks. Link its merged PR and evidence from the frontend child. Close the product parent only after both delivery children and the integrated story acceptance pass.
 
 ## M0 - Design and discovery
 
@@ -842,13 +848,13 @@ Questions to answer:
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
 
-Blocks: UI delivery for every story and first product delivery slice. It does not block backend children.
+Blocks: frontend children for every story and first product delivery slice. It does not block backend children.
 
 Done when:
 
 - [ ] The decision, rationale, decision owner, and date are recorded in the issue.
 - [ ] The product-backlog contract, test strategy, browser support statement, and affected story acceptance criteria reflect the decision.
-- [ ] Every delivery story and first product delivery slice records M0-D24 as a UI blocker; backend children omit it. Later product slices depend on their first slice directly or transitively.
+- [ ] Every scheduled frontend child records M0-D24 as a blocker; backend children omit it. Later product slices depend on their first slice directly or transitively.
 - [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
@@ -4881,9 +4887,30 @@ Implementation subtasks:
 
 The GitHub issue is the tracking record for each created item; its dependencies
 (`blocked by`) are maintained with GitHub issue relationships and summarized
-here. M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) is recorded
-as a UI blocker on every delivery story and every first product delivery slice;
-backend children omit it. That global blocker is not repeated in every row below.
+here. M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) remains
+a UI blocker on existing product parents and first product delivery slices.
+Every scheduled frontend child records it directly; backend children omit it.
+That global blocker is not repeated in every row below. The parent issue index
+continues to describe product dependencies, while delivery-child tracking is
+listed separately below it.
+
+### Active feature delivery children
+
+| Product story | Backend child | Frontend child | Milestone |
+| --- | --- | --- | --- |
+| R1-15 [#127](https://github.com/bdgrz/compliance/issues/127) | [#152](https://github.com/bdgrz/compliance/issues/152) | [#176](https://github.com/bdgrz/compliance/issues/176) | R1 |
+| R1-01 [#7](https://github.com/bdgrz/compliance/issues/7) | [#158](https://github.com/bdgrz/compliance/issues/158) | [#177](https://github.com/bdgrz/compliance/issues/177) | R1 |
+| R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | [#162](https://github.com/bdgrz/compliance/issues/162) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
+
+Shared enablers EN-01, EN-02, and EN-04 retain backend children #157, #160,
+and #161. Their first consuming feature supplies the browser workflow; these
+enablers have no separate frontend child. The active backend dependency chain
+uses these children and #152, #158, and #162, rather than their UI-dependent
+product parents. Frontend children #176 through #178 depend on their
+corresponding backend children and M0-D24, and record other applicable product
+and UI dependencies directly in GitHub.
+
+### Product issue index
 
 | Key | Issue | Milestone | Priority | Depends on |
 | --- | --- | --- | --- | --- |

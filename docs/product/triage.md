@@ -28,11 +28,14 @@ and the first release stays tenant-ready rather than firm-complete: the tenancy
 foundations (M0-D25, M0-A07, EN-01, and R1-15) are P0, and firm operations are
 planned in **F1 - Multi-client firm operations**.
 
-Backend delivery is tracked in a child issue of each story or existing product
-slice, with the same milestone and applicable dependencies. Close that child
-only with linked backend acceptance evidence; keep the product parent open for
-UI work. M0-D24 blocks UI delivery but does not block backend children. Finish
-the R1-15 backend proof before starting another feature, then follow actual
+Each validated story or existing product slice entering delivery gets separate
+backend and frontend child issues with its milestone and applicable dependencies.
+The frontend child depends on the backend child and M0-D24; backend children
+omit that UI-only blocker. Close each child with its own acceptance evidence,
+and keep the product parent open until both and the integrated outcome pass.
+Backend dependencies use upstream backend children rather than UI-dependent
+product parents. Finish the R1-15 backend proof before starting another
+feature, then follow actual
 dependencies through R1, R2, T1, T2, T3, and F1. An unvalidated P2 hypothesis
 stays visible and unscheduled.
 
@@ -167,7 +170,7 @@ not before all product work.
 | M0-D21 | P1 | T2-07 | Compliance-facing change and incident facts must not replace operational systems. |
 | M0-D22 | P0 | R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06 | Resolves double-owned and missing identity and inventory concepts. |
 | M0-D23 | P0 | EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09 | Resolves overlapping gap, finding, exception, risk-acceptance, review, and readiness ownership. |
-| M0-D24 | P0 | Every delivery story and first delivery slice | Defines the release-wide accessibility and supported-browser acceptance baseline. |
+| M0-D24 | P0 | Every scheduled frontend child, delivery story, and first delivery slice | Defines the release-wide accessibility and supported-browser acceptance baseline; backend children omit this blocker. |
 | M0-D25 | P0 | EN-01, R1-15, M0-D26, F1-01, F1-04, F1-07 | Defines the tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary. |
 | M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. |
 | M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. |
