@@ -6,6 +6,7 @@ public sealed class Tenant : Aggregate
 {
     string? _slug;
     TenantSlugState _slugState;
+    bool _suspended;
 
     public Tenant(Uuid id)
         : base(id, new EventStreamAddress("bdgrz", "tenants", id.ToString()))
@@ -16,7 +17,12 @@ public sealed class Tenant : Aggregate
         On<TenantSlugSurrenderRequested>(Apply);
         On<TenantSlugSurrenderConfirmed>(Apply);
         On<TenantSlugSurrenderFailed>(Apply);
+        On<TenantSuspended>(_ => _suspended = true);
+        On<TenantReactivated>(_ => _suspended = false);
     }
+
+    public bool IsActive => _slugState == TenantSlugState.Confirmed && !_suspended;
+    public bool IsSuspended => _suspended;
 
     public Result<TenantRegistration> Register(Uuid ownerUserId, string name, string slug)
     {
@@ -54,6 +60,26 @@ public sealed class Tenant : Aggregate
         if (_slugState != TenantSlugState.Confirmed || !Matches(slug))
             return Failure(RequestErrorKind.Conflict, "The tenant does not own that slug.");
         RaiseEvent(new TenantSlugSurrenderRequested(Id, _slug!));
+        return Result.Success;
+    }
+
+    public Result Suspend(Uuid operatorUserId)
+    {
+        if (_slug is null || _slugState == TenantSlugState.Rejected)
+            return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
+        if (!_suspended)
+            RaiseEvent(new TenantSuspended(Id, operatorUserId));
+        return Result.Success;
+    }
+
+    public Result Reactivate(Uuid operatorUserId)
+    {
+        if (_slug is null || _slugState == TenantSlugState.Rejected)
+            return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
+        if (_slugState != TenantSlugState.Confirmed)
+            return Failure(RequestErrorKind.Conflict, "The tenant has no confirmed slug.");
+        if (_suspended)
+            RaiseEvent(new TenantReactivated(Id, operatorUserId));
         return Result.Success;
     }
 

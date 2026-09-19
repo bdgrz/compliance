@@ -84,4 +84,24 @@ public sealed class TenantTests
         Assert.True(rejected.IsSuccess);
         Assert.True(retry.IsSuccess);
     }
+
+    [Fact]
+    public void ShouldBlockAndRestoreAccessWithoutDiscardingTenantHistory()
+    {
+        var tenant = new Tenant(TenantId);
+        _ = tenant.Register(OwnerUserId, "Acme", "acme");
+        Assert.False(tenant.IsActive);
+        _ = tenant.ConfirmSlug("acme");
+        Assert.True(tenant.IsActive);
+
+        Assert.True(tenant.Suspend(OwnerUserId).IsSuccess);
+        Assert.True(tenant.IsSuspended);
+        Assert.False(tenant.IsActive);
+        Assert.True(tenant.Suspend(OwnerUserId).IsSuccess);
+        Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantSuspended>());
+
+        Assert.True(tenant.Reactivate(OwnerUserId).IsSuccess);
+        Assert.True(tenant.IsActive);
+        Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantReactivated>());
+    }
 }

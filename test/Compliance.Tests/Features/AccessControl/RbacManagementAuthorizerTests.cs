@@ -12,7 +12,7 @@ public sealed class RbacManagementAuthorizerTests
     [Fact]
     public async Task ShouldAllowSystemActorRegardlessOfPermissions()
     {
-        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(false));
+        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
         var request = new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers");
         var context = new RequestContext<IRbacManagementRequest>(request, RequestActor.System);
 
@@ -24,7 +24,7 @@ public sealed class RbacManagementAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutBdgrzIdentity()
     {
-        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(true));
+        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant());
         var request = new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers");
         var context = new RequestContext<IRbacManagementRequest>(
             request,
@@ -41,7 +41,7 @@ public sealed class RbacManagementAuthorizerTests
     public async Task ShouldAllowActorWithTenantRbacManagePermission()
     {
         var permissions = new FakePermissionAuthorizer(true);
-        var authorizer = new RbacManagementAuthorizer(permissions);
+        var authorizer = new RbacManagementAuthorizer(permissions, new ActiveTenant());
         var request = new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers");
         var context = new RequestContext<IRbacManagementRequest>(request, BdgrzActor());
 
@@ -55,7 +55,7 @@ public sealed class RbacManagementAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutTenantRbacManagePermission()
     {
-        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(false));
+        var authorizer = new RbacManagementAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
         var request = new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers");
         var context = new RequestContext<IRbacManagementRequest>(request, BdgrzActor());
 
@@ -67,6 +67,12 @@ public sealed class RbacManagementAuthorizerTests
 
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
+
+    sealed class ActiveTenant : ITenantActivity
+    {
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(true);
+    }
 
     sealed class FakePermissionAuthorizer(bool allowed) : IPermissionAuthorizer
     {

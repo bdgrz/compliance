@@ -21,6 +21,7 @@ public static class ComplianceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
+        services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<MockEmailChallengeDelivery>();
         services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
@@ -44,6 +45,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTenantDirectoryReader>();
         services.AddScoped<ITenantDirectoryProjection>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
         services.AddScoped<ITenantDirectoryReader>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
+        services.AddScoped<ITenantActivity, EventSourcedTenantActivity>();
         services.AddScoped<FitzTenantMembershipDirectoryReader>();
         services.AddScoped<ITenantMembershipDirectoryProjection>(
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
@@ -97,7 +99,9 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRoleTeamsHandler>()
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
-            .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestHandler<SuspendTenantHandler>()
+            .AddRequestHandler<ReactivateTenantHandler>()
+            .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
             .AddRequestHandler<ListMyTenantsHandler>()
             .AddRequestAuthorizer<ListMyTenantsAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>()

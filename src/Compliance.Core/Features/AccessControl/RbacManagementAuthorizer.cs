@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     run as the trusted system actor and always pass, and any other caller needs
 ///     <see cref="RbacPermissions.TenantRbacManage" /> in the target tenant.
 /// </summary>
-sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions) : IRequestAuthorizer<IRbacManagementRequest>
+sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenantActivity tenants) : IRequestAuthorizer<IRbacManagementRequest>
 {
     public async ValueTask<Result> AuthorizeAsync(
         IRequestContext<IRbacManagementRequest> context,
@@ -22,6 +22,8 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions) : IRequ
                 "RBAC management requires a Bdgrz user identity."));
 
         var tenantId = context.Request.TenantId;
+        if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
         var allowed = await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantRbacManage, ct)
             .ConfigureAwait(false);

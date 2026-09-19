@@ -65,6 +65,8 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Compliance.App
 
 `COMPLIANCE_HOST_MODE` accepts `standalone` (the default), `api`, or `worker`. Local Compose enables email-based developer authentication with `BDGRZ_DEVELOPER_AUTH=true`. The application rejects developer authentication in every other environment.
 
+Organization provisioning and suspension require a platform operator. Configure production operators with `PlatformOperators:UserIds:0`, `PlatformOperators:UserIds:1`, and so on, using Bdgrz platform user UUIDs. With no configured operators, production provisioning is denied. Local developer identities are treated as operators only while developer authentication is enabled; this supports local bootstrap and integration tests.
+
 ## Authentication
 
 Badgers delegates authentication to an external OpenID Connect provider such as Auth0 or Microsoft Entra ID. It does not host passwords or a client secret. Production fails at startup unless these settings are supplied:

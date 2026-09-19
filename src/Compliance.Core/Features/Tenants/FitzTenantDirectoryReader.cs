@@ -26,6 +26,25 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                 new TenantView(registered.TenantId, registered.Name, registered.Slug),
                 ct).ConfigureAwait(false);
         }
+        else
+        {
+            var (tenantId, status) = domainEvent switch
+            {
+                TenantSlugConfirmed ev => (ev.TenantId, "active"),
+                TenantSlugRejected ev => (ev.TenantId, "rejected"),
+                TenantSuspended ev => (ev.TenantId, "suspended"),
+                TenantReactivated ev => (ev.TenantId, "active"),
+                _ => (Uuid.Empty, string.Empty),
+            };
+            if (tenantId != Uuid.Empty)
+            {
+                var current = await TenantDirectorySchema.Directory.GetAsync(Transaction, tenantId, ct)
+                    .ConfigureAwait(false);
+                if (current is not null)
+                    await TenantDirectorySchema.Directory.ReplaceAsync(
+                        Transaction, current, current with { Status = status }, ct).ConfigureAwait(false);
+            }
+        }
     }
 
     public async ValueTask<TenantView?> GetAsync(Uuid tenantId, CancellationToken ct = default)

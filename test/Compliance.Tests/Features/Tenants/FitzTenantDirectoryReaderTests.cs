@@ -31,6 +31,33 @@ public sealed class FitzTenantDirectoryReaderTests
         Assert.Null(tenant);
     }
 
+    [Fact]
+    public async Task ShouldProjectSuspensionAndReactivation()
+    {
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var operatorId = Uuid.CreateVersion4();
+        var repository = new FitzTenantDirectoryReader(client);
+        var identity = new CheckpointIdentity("TenantDirectory", EventStreamPattern.ForPattern("bdgrz", "tenants"));
+        await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantRegistered(tenantId, operatorId, "Acme", "acme"));
+            await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await repository.ApplyAsync(new TenantSuspended(tenantId, operatorId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        Assert.Equal("suspended", (await repository.GetAsync(tenantId))?.Status);
+
+        await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantReactivated(tenantId, operatorId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        Assert.Equal("active", (await repository.GetAsync(tenantId))?.Status);
+    }
+
     static async Task SeedAsync(InMemoryKvClient client, Uuid tenantId, string name, string slug)
     {
         var repository = new FitzTenantDirectoryReader(client);

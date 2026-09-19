@@ -49,6 +49,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RemoveTeamRole>(tool => tool.Destructive())
         .AddMcpTool<ListRoleTeams>(tool => tool.ReadOnly())
         .AddMcpTool<ListMyTenants>(tool => tool.ReadOnly())
+        .AddMcpTool<RegisterTenant>()
+        .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
+        .AddMcpTool<ReactivateTenant>(tool => tool.Idempotent())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -143,6 +146,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             .WithTags("Users");
     }
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaPost<SuspendTenant>("/api/v1/tenants/{tenantId}/suspensions")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenantId}/suspensions")
         .RequireAuthorization()
         .WithTags("Tenants");
     app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
