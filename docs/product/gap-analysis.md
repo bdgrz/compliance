@@ -318,15 +318,17 @@ taxonomies, or examples into an Apache-2.0 product.
 
 | Gap | Backlog action |
 | --- | --- |
-| Identity, workforce, access, application, infrastructure, and provenance terms lacked a complete provider-neutral entity and relationship catalog | Added P0 discovery issue M0-D28 and `canonical-entity-model.md`; it defines semantics and cardinalities while explicitly deferring aggregates, storage, APIs, and service boundaries |
+| Identity, workforce, access, application, infrastructure, and provenance terms lacked a complete provider-neutral entity and relationship catalog | Added P0 discovery issue M0-D28 and `canonical-entity-model.md`; it proposes the semantic spine while per-entity cardinalities remain open and explicitly defers aggregates, storage, APIs, and service boundaries |
 | Existing stories could independently redefine the same source objects | Made M0-D28 a blocker for EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, and R2-06 and added canonical-model subtasks to each |
 | Issues cited internal prose or standards-body landing pages without versioned public sources or reuse terms | Added `source-reference-policy.md` and made a `Public references` section part of every issue's backlog and readiness contract |
 | Public readability was being conflated with Apache-2.0 compatibility | Added an approved-source register, an excluded-source register, required notice handling, and fail-closed exclusion of any source whose intended use is not affirmatively acceptable |
 
-DMTF CIM is excluded from the active model because the exact schema reuse and
-patent posture has not been cleared. Device semantics instead use the IETF
-hardware model as a reference and the DMTF Redfish schema artifacts only under
-their published BSD-3-Clause license and notice requirements.
+DMTF CIM and Redfish are excluded from the active model pending rights review.
+Redfish-Publications has a BSD-3-Clause copyright notice, but the DMTF IPR
+statement describes possible RAND patent terms for implementers. Device and
+physical-component concepts use RFC 8348 where it applies; other inventory
+semantics remain original product decisions. No DMTF schema or derived mapping
+is approved for this Apache-2.0 product.
 
 The backlog now contains 58 user stories, 29 delivery slices, 6 enablers, and
 35 M0 discovery or architecture-decision issues.
