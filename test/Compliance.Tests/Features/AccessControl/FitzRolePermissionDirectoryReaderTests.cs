@@ -57,10 +57,10 @@ public sealed class FitzRolePermissionDirectoryReaderTests
 
     static async Task SeedAsync(InMemoryKvClient client, Uuid roleId, string permission)
     {
-        await using var transaction = await client.BeginAsync(
-            RolePermissionDirectoryKeys.Route(TenantId.ToString()), KvDurability.Async, KvMode.ReadWrite);
-        await RolePermissionDirectorySchema.Directory.InsertAsync(
-            transaction, new RolePermissionView(roleId, permission));
-        await transaction.CommitAsync();
+        var repository = new FitzRolePermissionDirectoryReader(client);
+        var identity = new CheckpointIdentity("RolePermissionDirectory", EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+        await repository.ApplyAsync(new RolePermissionAssigned(TenantId, roleId, permission));
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 }

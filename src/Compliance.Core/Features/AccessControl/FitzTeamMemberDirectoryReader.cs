@@ -5,15 +5,38 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 /// <summary>
-///     Reads the team-member directory directly from Fitz KV, independent of any projector's
-///     workload scope — same direct-read pattern as <see cref="FitzTeamDirectoryReader" />.
+///     Serves the "TeamMemberDirectory" projector: writes join its batch transaction, and
+///     query-side reads open their own read-only transaction on the resource it writes for the
+///     given tenant.
 /// </summary>
-sealed class FitzTeamMemberDirectoryReader(IKvClient client) : ITeamMemberDirectoryReader
+sealed class FitzTeamMemberDirectoryReader(IKvClient client)
+    : FitzKvProjectionStore(client, TeamMemberDirectoryKeys.Route, "TeamMemberDirectory"),
+      ITeamMemberDirectoryProjection,
+      ITeamMemberDirectoryReader
 {
-    const int DefaultLimit = 50;
-    const int MaxLimit = 200;
+    public const int DefaultLimit = 50;
+    public const int MaxLimit = 200;
 
-    public ValueTask<Page<TeamMemberView>> ListAsync(
+    public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
+    {
+        switch (domainEvent)
+        {
+            case TeamMemberAssigned assigned:
+                await TeamMemberDirectorySchema.Directory.InsertAsync(
+                    Transaction,
+                    new TeamMemberView(assigned.TeamId, assigned.MemberId),
+                    ct).ConfigureAwait(false);
+                break;
+            case TeamMemberRemoved removed:
+                await TeamMemberDirectorySchema.Directory.DeleteAsync(
+                    Transaction,
+                    (removed.TeamId, removed.MemberId),
+                    ct).ConfigureAwait(false);
+                break;
+        }
+    }
+
+    public async ValueTask<Page<TeamMemberView>> ListAsync(
         Uuid tenantId,
         Uuid teamId,
         int? limit,
@@ -22,7 +45,7 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client) : ITeamMemberDirect
         bool descending,
         CancellationToken ct = default)
     {
-        var route = TeamMemberDirectoryKeys.Route(tenantId.ToString());
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         if (search is null)
         {
             var query = TeamMemberDirectorySchema.ByTeam.Query().WithPrefix(teamId.ToString()).After(cursor);
@@ -36,10 +59,10 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client) : ITeamMemberDirect
                 query = query.Descending();
             }
 
-            return TeamMemberDirectorySchema.Directory.QueryAsync(client, route, query, ct);
+            return await TeamMemberDirectorySchema.Directory.QueryAsync(tx, query, ct).ConfigureAwait(false);
         }
 
-        return SearchAsync(route, teamId, limit, cursor, search, descending, ct);
+        return await SearchAsync(tx, teamId, limit, cursor, search, descending, ct).ConfigureAwait(false);
     }
 
     // Same reasoning as FitzTeamDirectoryReader.SearchAsync: the by_team index prefix only bounds
@@ -47,8 +70,8 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client) : ITeamMemberDirect
     // member-id-ordered range one entry at a time and filters here. See
     // design-api-contracts-hide-impl-strategy — Search means substring, not "whatever the index can
     // serve directly."
-    async ValueTask<Page<TeamMemberView>> SearchAsync(
-        string route, Uuid teamId, int? limit, string? cursor, string search, bool descending, CancellationToken ct)
+    static async ValueTask<Page<TeamMemberView>> SearchAsync(
+        IKvTransaction tx, Uuid teamId, int? limit, string? cursor, string search, bool descending, CancellationToken ct)
     {
         var effectiveLimit = Math.Clamp(limit ?? DefaultLimit, 1, MaxLimit);
         var matches = new List<TeamMemberView>();
@@ -61,8 +84,7 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client) : ITeamMemberDirect
                 step = step.Descending();
             }
 
-            var page = await TeamMemberDirectorySchema.Directory.QueryAsync(client, route, step, ct)
-                .ConfigureAwait(false);
+            var page = await TeamMemberDirectorySchema.Directory.QueryAsync(tx, step, ct).ConfigureAwait(false);
             if (page.Items.Count == 0)
             {
                 scanCursor = null;

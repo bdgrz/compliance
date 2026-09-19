@@ -81,9 +81,11 @@ public sealed class FitzRoleDirectoryReaderTests
 
     static async Task SeedAsync(InMemoryKvClient client, Uuid roleId, string name, Uuid? tenantId = null)
     {
-        await using var transaction = await client.BeginAsync(
-            RoleDirectoryKeys.Route((tenantId ?? TenantId).ToString()), KvDurability.Async, KvMode.ReadWrite);
-        await RoleDirectorySchema.Directory.InsertAsync(transaction, new RoleView(roleId, name));
-        await transaction.CommitAsync();
+        var tenant = tenantId ?? TenantId;
+        var repository = new FitzRoleDirectoryReader(client);
+        var identity = new CheckpointIdentity("RoleDirectory", EventStreamPattern.ForPattern(tenant.ToString()));
+        await using var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+        await repository.ApplyAsync(new RoleDefined(tenant, roleId, name));
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 }

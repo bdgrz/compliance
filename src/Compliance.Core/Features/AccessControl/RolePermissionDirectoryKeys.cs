@@ -2,5 +2,5 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 
 static class RolePermissionDirectoryKeys
 {
-    public static string Route(string tenantId) => $"kv://bdgrz/role-permission-directory/{tenantId}";
+    public const string Route = "kv://bdgrz/role-permission-directory/projection";
 }
