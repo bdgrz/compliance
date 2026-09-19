@@ -10,22 +10,26 @@ focused and full applicable test results, broker and split-host evidence, and
 exact-head CI checks. A previously merged PR can satisfy part of a child's
 criteria, but record the remaining gaps explicitly.
 
-1. Open a focused branch and keep domain code within the ownership boundaries documented in `README.md`.
+1. Open a branch for one reviewable backend capability. Bundle dependent child issues when they share contracts, canonical records, or acceptance tests. Keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
    Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
-3. Run the local gates before opening a pull request:
+3. During development, run the focused test through the framework. Its build runs Portia generation, Cntryl.Conventions, and the .NET AOT analyzer with warnings-as-errors, without publishing a native image. Native publish still checks trimming and architecture-specific runtime behavior:
 
    ```console
-   npm ci
-   npm run client:check
-   dotnet restore Compliance.slnx --locked-mode
-   dotnet format Compliance.slnx --verify-no-changes --no-restore
-   dotnet build Compliance.slnx --configuration Release --no-restore
-   dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+   dotnet restore Compliance.slnx --locked-mode # once per dependency change or fresh checkout
+   ./scripts/check-backend.sh focused 'FullyQualifiedName~ShouldRejectChangedCreateGivenExistingProgramAndPreserveReplay'
    ```
 
-4. Run the broker integration test when changing hosting, Portia, Fitz, persistence, scheduling, or worker behavior.
-5. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
+   Add a broker-focused filter when changing persistence, projections, reactors, or split-host behavior. Those tests start their own isolated Compose stack. Keep working on the same branch and commit related slices together. Do not push each red/green correction.
+
+4. Run the full local gate once when the bundle is ready for review:
+
+   ```console
+   ./scripts/check-backend.sh full
+   ```
+
+5. Push the reviewed bundle and run hosted CI on its final head. Native AOT builds on both architectures remain required before merge, but start alongside Validate so they do not extend the critical path by their full duration. Repeat the local focused test for a correction; rerun the full gate and exact-head CI only after the final correction.
+6. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
 
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
 

@@ -115,7 +115,7 @@ The real-broker tests start and tear down their own isolated Fitz and Sqrzl Comp
 dotnet test Compliance.slnx --configuration Release --filter "Category=BrokerIntegration"
 ```
 
-CI runs formatting, TypeScript, lint, browser-auth unit tests, the .NET suite, and the real-broker test. It then builds and executes the Native AOT image on native AMD64 and ARM64 GitHub runners—without emulation—and exercises standalone, API, and worker modes.
+CI runs formatting, TypeScript, lint, browser-auth unit tests, the .NET suite, and the real-broker test. In parallel, it builds and executes the Native AOT image on native AMD64 and ARM64 GitHub runners—without emulation—and exercises standalone, API, and worker modes. All jobs must pass on the final pull-request head before merge; use the focused local loop in [CONTRIBUTING.md](CONTRIBUTING.md) during development.
 
 The publish workflow runs only after CI succeeds (or by explicit manual dispatch), rebuilds the validated commit on native runners, pushes architecture digests, and assembles a multi-platform manifest. Images include BuildKit provenance and SBOM attestations. `sha-<commit>` and `latest` tags are emitted; a SemVer tag is created only when it does not already exist.
 
