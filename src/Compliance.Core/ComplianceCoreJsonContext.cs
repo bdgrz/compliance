@@ -28,6 +28,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(RetireClientService))]
 [JsonSerializable(typeof(GetClientService))]
 [JsonSerializable(typeof(ListClientServices))]
+[JsonSerializable(typeof(ListProgramClientServices))]
 [JsonSerializable(typeof(ListClientServiceRevisions))]
 [JsonSerializable(typeof(ClientServiceRegistration))]
 [JsonSerializable(typeof(ClientServiceView))]

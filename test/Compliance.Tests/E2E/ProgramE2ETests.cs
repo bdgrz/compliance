@@ -13,6 +13,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class ProgramE2ETests(BrokerStackFixture broker)
 {
+    static readonly string[] SecurityCategory = ["security"];
+
     [Fact]
     public async Task ShouldProjectProgramChangesGivenIndependentWorker()
     {
@@ -113,12 +115,13 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 Assert.Equal(2, projected?.Revision);
 
                 var servicesPath = $"/api/v1/tenants/{tenant.TenantId}/client-services";
-                using var serviceCreated = await owner.PostAsJsonAsync(servicesPath, new
-                {
-                    name = "Service A",
-                    purpose = "Handle customer requests",
-                    owner_reference = "Operations",
-                });
+                using var serviceCreated = await owner.PostAsJsonAsync(
+                    $"{programPath}/client-services", new
+                    {
+                        name = "Service A",
+                        purpose = "Handle customer requests",
+                        owner_reference = "Operations",
+                    });
                 Assert.Equal(HttpStatusCode.OK, serviceCreated.StatusCode);
                 var service = await serviceCreated.Content
                     .ReadFromJsonAsync<ClientServiceRegistrationDocument>();
@@ -179,6 +182,38 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal(boundary.DraftVersionId, boundaryView?.Draft?.VersionId);
+
+                using var otherProgramCreated = await owner.PostAsJsonAsync(path,
+                    new { name = "Other program", plan });
+                Assert.Equal(HttpStatusCode.OK, otherProgramCreated.StatusCode);
+                var otherProgram = await otherProgramCreated.Content
+                    .ReadFromJsonAsync<ProgramRegistrationDocument>();
+                Assert.NotNull(otherProgram);
+                using var crossProgramBoundary = await owner.PostAsJsonAsync(
+                    $"{path}/{otherProgram.ProgramId}/boundaries", new
+                    {
+                        content = new
+                        {
+                            statement = "Wrong program service",
+                            engagement_stage = "readiness",
+                            trust_services_categories = SecurityCategory,
+                            entries = new[]
+                            {
+                                new
+                                {
+                                    entry_id = Uuid.CreateVersion4().ToString(),
+                                    kind = "inclusion",
+                                    subject_type = "service",
+                                    subject = "Service A",
+                                    governed_record_id = service.ServiceId,
+                                    owner_reference = "Compliance lead",
+                                    rationale = "The service is owned by another program.",
+                                    unresolved = false,
+                                },
+                            },
+                        },
+                    });
+                Assert.Equal(HttpStatusCode.Conflict, crossProgramBoundary.StatusCode);
             }
         }
         finally

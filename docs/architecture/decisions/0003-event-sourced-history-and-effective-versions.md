@@ -84,8 +84,10 @@ projection data, artifact objects, and retained backups.
 EN-02 supplies the reusable version, interval, conflict, and impact-preview
 contracts. R1-02 owns boundary lifecycle and its approval rules; it must bind a
 decision to the exact version and recheck impact before approval. R1-02 may
-start with unresolved scope references, then replace them with governed
-inventory relationships through a reviewed successor version. An engagement
+start with unresolved scope references for inventories that are not yet
+governed. Service references resolve to active records in the boundary's
+program. Other references gain governed inventory relationships through a
+reviewed successor version. An engagement
 stores the approved boundary version ID it used. The first boundary tests must
 exercise replay, stale revision, overlapping intervals, lag, and standalone
 and split-host parity.

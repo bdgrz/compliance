@@ -32,12 +32,48 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
-        var path = $"/api/v1/tenants/{tenant.TenantId}/client-services";
-        ServiceRegistrationDocument? service = null;
+        var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
+        ProgramRegistrationDocument? program = null;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
-            using var response = await owner.PostAsJsonAsync(path, new
+            using var response = await owner.PostAsJsonAsync(programsPath, new
+            {
+                name = "Service program",
+                plan = new
+                {
+                    target_readiness_date = "2027-01-31",
+                    target_type_i_as_of_date = "2027-03-31",
+                    target_type_ii_start_date = "2027-04-01",
+                    target_type_ii_end_date = "2028-03-31",
+                    readiness_advisor = "Advisor",
+                    audit_firm = (string?)null,
+                },
+            });
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                program = await response.Content.ReadFromJsonAsync<ProgramRegistrationDocument>();
+                break;
+            }
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        Assert.NotNull(program);
+        var path = $"/api/v1/tenants/{tenant.TenantId}/client-services";
+        var createPath = $"{programsPath}/{program.ProgramId}/client-services";
+        ServiceRegistrationDocument? service = null;
+        using var missingProgram = await owner.PostAsJsonAsync(
+            $"{programsPath}/{Guid.NewGuid()}/client-services", new
+            {
+                name = "Unknown",
+                purpose = "Unknown",
+                owner_reference = "Operations",
+            });
+        Assert.Equal(HttpStatusCode.NotFound, missingProgram.StatusCode);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.PostAsJsonAsync(createPath, new
             {
                 name = "Payroll",
                 purpose = "Run payroll",
@@ -67,6 +103,11 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal("active", projected?.Status);
+        Assert.Equal(program.ProgramId, projected?.ProgramId);
+        using var programList = await owner.GetAsync(createPath);
+        Assert.Equal(HttpStatusCode.OK, programList.StatusCode);
+        Assert.Contains(service.ServiceId.ToString(), await programList.Content.ReadAsStringAsync(),
+            StringComparison.OrdinalIgnoreCase);
         var toolInput = new Dictionary<string, object?>
         {
             ["tenant_id"] = tenant.TenantId,
@@ -85,7 +126,8 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         using var denied = await outsider.GetAsync(servicePath);
         using var hidden = await outsider.GetAsync($"{path}/{Guid.NewGuid()}");
         using var deniedList = await outsider.GetAsync(path);
-        using var deniedCreate = await outsider.PostAsJsonAsync(path, new
+        using var deniedProgramList = await outsider.GetAsync(createPath);
+        using var deniedCreate = await outsider.PostAsJsonAsync(createPath, new
         {
             name = "Hidden",
             purpose = "Hidden",
@@ -104,6 +146,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         Assert.Equal(hidden.StatusCode, denied.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedList.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedProgramList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedCreate.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedRevise.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedRetire.StatusCode);
@@ -154,8 +197,10 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
     }
 
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] string TenantId);
+    sealed record ProgramRegistrationDocument([property: JsonPropertyName("program_id")] string ProgramId);
     sealed record ServiceRegistrationDocument([property: JsonPropertyName("service_id")] string ServiceId);
-    sealed record ServiceDocument(long Revision, string Purpose, string Status);
+    sealed record ServiceDocument(long Revision, string Purpose, string Status,
+        [property: JsonPropertyName("program_id")] string? ProgramId);
     sealed record ServiceRevisionPageDocument(IReadOnlyList<ServiceRevisionDocument> Items);
     sealed record ServiceRevisionDocument(long Revision,
         [property: JsonPropertyName("retirement_rationale")] string? RetirementRationale);

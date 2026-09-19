@@ -7,12 +7,13 @@ namespace Bdgrz.Compliance.Tests.Features.Boundaries;
 public sealed class GovernedBoundaryReferenceValidatorTests
 {
     [Fact]
-    public async Task ShouldAcceptOnlyActiveSameTenantServiceGivenGovernedBoundaryReference()
+    public async Task ShouldAcceptOnlyActiveSameProgramServiceGivenGovernedBoundaryReference()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
         var serviceId = Uuid.CreateVersion4();
-        var activity = new ServiceActivity(tenantId, serviceId);
+        var activity = new ServiceActivity(tenantId, programId, serviceId);
         var validator = new GovernedBoundaryReferenceValidator(activity);
 
         // Act
@@ -20,11 +21,13 @@ public sealed class GovernedBoundaryReferenceValidatorTests
 
 
         // Assert
-        Assert.True((await validator.ValidateAsync(tenantId, content)).IsSuccess);
-        Assert.False((await validator.ValidateAsync(Uuid.CreateVersion4(), content)).IsSuccess);
+        Assert.True((await validator.ValidateAsync(tenantId, programId, content)).IsSuccess);
+        Assert.False((await validator.ValidateAsync(Uuid.CreateVersion4(), programId, content)).IsSuccess);
+        Assert.False((await validator.ValidateAsync(tenantId, Uuid.CreateVersion4(), content)).IsSuccess);
         activity.Active = false;
-        Assert.False((await validator.ValidateAsync(tenantId, content)).IsSuccess);
-        Assert.False((await validator.ValidateAsync(tenantId, Content("provider", serviceId))).IsSuccess);
+        Assert.False((await validator.ValidateAsync(tenantId, programId, content)).IsSuccess);
+        Assert.False((await validator.ValidateAsync(tenantId, programId,
+            Content("provider", serviceId))).IsSuccess);
     }
 
     static BoundaryContent Content(string subjectType, Uuid serviceId) =>
@@ -32,12 +35,14 @@ public sealed class GovernedBoundaryReferenceValidatorTests
         [new BoundaryScopeEntry(Uuid.CreateVersion4(), "inclusion", subjectType,
             "Payroll", serviceId, "Operations", "In scope", false)]);
 
-    sealed class ServiceActivity(Uuid tenantId, Uuid serviceId) : IClientServiceActivity
+    sealed class ServiceActivity(Uuid tenantId, Uuid programId, Uuid serviceId) : IClientServiceActivity
     {
         public bool Active { get; set; } = true;
 
-        public ValueTask<bool> IsActiveAsync(Uuid requestedTenantId, Uuid requestedServiceId,
+        public ValueTask<bool> IsActiveAsync(Uuid requestedTenantId, Uuid requestedProgramId,
+            Uuid requestedServiceId,
             CancellationToken ct = default) => ValueTask.FromResult(
-            Active && requestedTenantId == tenantId && requestedServiceId == serviceId);
+            Active && requestedTenantId == tenantId && requestedProgramId == programId &&
+            requestedServiceId == serviceId);
     }
 }

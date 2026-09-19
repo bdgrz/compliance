@@ -181,7 +181,7 @@ public sealed class ComplianceWebTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var paths = document.RootElement.GetProperty("paths");
-        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services")
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));

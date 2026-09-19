@@ -8,11 +8,13 @@ public sealed class ClientService : Aggregate
     bool _created;
     bool _retired;
     long _revision;
+    Uuid _programId;
     string? _initialName;
     string? _initialPurpose;
     string? _initialOwnerReference;
 
     public bool IsActive => _created && !_retired;
+    public Uuid? ProgramId => _programId == Uuid.Empty ? null : _programId;
 
     public ClientService(Uuid tenantId, Uuid serviceId)
         : base(serviceId, new EventStreamAddress(tenantId.ToString(), "client-services", serviceId.ToString()))
@@ -22,6 +24,7 @@ public sealed class ClientService : Aggregate
         {
             _created = true;
             _revision = 1;
+            _programId = ev.ProgramId;
             _initialName = ev.Name;
             _initialPurpose = ev.Purpose;
             _initialOwnerReference = ev.OwnerReference;
@@ -30,21 +33,25 @@ public sealed class ClientService : Aggregate
         On<ClientServiceRetired>(ev => { _retired = true; _revision = ev.Revision; });
     }
 
-    public Result<ClientServiceRegistration> Create(string name, string purpose,
+    public Result<ClientServiceRegistration> Create(Uuid programId, string name, string purpose,
         string ownerReference, Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         if (_created)
-            return StringComparer.Ordinal.Equals(_initialName, name?.Trim()) &&
+            return _programId == programId &&
+                   StringComparer.Ordinal.Equals(_initialName, name?.Trim()) &&
                    StringComparer.Ordinal.Equals(_initialPurpose, purpose?.Trim()) &&
                    StringComparer.Ordinal.Equals(_initialOwnerReference, ownerReference?.Trim())
                 ? Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id))
                 : Result<ClientServiceRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The service already exists with different content."));
+        if (programId == Uuid.Empty)
+            return Result<ClientServiceRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
+                "A service requires its owning program."));
         var error = Validate(name, purpose, ownerReference);
         if (error is not null)
             return Result<ClientServiceRegistration>.Failure(error);
         RaiseEvent(new ClientServiceCreated(_tenantId, Id, name.Trim(), purpose.Trim(),
-            ownerReference.Trim(), actorMemberId, actorDisplay, changedAt));
+            ownerReference.Trim(), actorMemberId, actorDisplay, changedAt, programId));
         return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
     }
 

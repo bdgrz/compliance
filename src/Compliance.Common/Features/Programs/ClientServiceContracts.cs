@@ -8,15 +8,16 @@ public sealed record ClientServiceRegistration(Uuid ServiceId);
 
 public sealed record ClientServiceView(Uuid TenantId, Uuid ServiceId, long Revision,
     string Name, string Purpose, string OwnerReference, string Status,
-    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt);
+    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt,
+    Uuid? ProgramId = null);
 
 public sealed record ClientServiceRevisionView(Uuid ServiceId, long Revision,
     string Name, string Purpose, string OwnerReference, string Status,
     string? RetirementRationale, Uuid ActorMemberId, string ActorDisplay,
-    DateTimeOffset ChangedAt);
+    DateTimeOffset ChangedAt, Uuid? ProgramId = null);
 
-[Discriminator("bdgrz.client-service.create", 1)]
-public sealed record CreateClientService(Uuid TenantId, string Name, string Purpose,
+[Discriminator("bdgrz.client-service.create", 2)]
+public sealed record CreateClientService(Uuid TenantId, Uuid ProgramId, string Name, string Purpose,
     string OwnerReference) : IRequest<ClientServiceRegistration>, IProgramManagementRequest, ICallable;
 
 [Discriminator("bdgrz.client-service.revise", 1)]
@@ -36,6 +37,11 @@ public sealed record GetClientService(Uuid TenantId, Uuid ServiceId)
 public sealed record ListClientServices(Uuid TenantId, int? Limit = null, string? Cursor = null)
     : IRequest<Page<ClientServiceView>>, ITenantAccessRequest, ICallable;
 
+[Discriminator("bdgrz.client-service.program.list", 1)]
+public sealed record ListProgramClientServices(Uuid TenantId, Uuid ProgramId,
+    int? Limit = null, string? Cursor = null)
+    : IRequest<Page<ClientServiceView>>, ITenantAccessRequest, ICallable;
+
 [Discriminator("bdgrz.client-service.revisions.list", 1)]
 public sealed record ListClientServiceRevisions(Uuid TenantId, Uuid ServiceId,
     int? Limit = null, string? Cursor = null)
@@ -44,7 +50,7 @@ public sealed record ListClientServiceRevisions(Uuid TenantId, Uuid ServiceId,
 [Discriminator("bdgrz.client-service.created", 1)]
 public sealed record ClientServiceCreated(Uuid TenantId, Uuid ServiceId, string Name,
     string Purpose, string OwnerReference, Uuid ActorMemberId, string ActorDisplay,
-    DateTimeOffset ChangedAt) : DomainEvent;
+    DateTimeOffset ChangedAt, Uuid ProgramId = default) : DomainEvent;
 
 [Discriminator("bdgrz.client-service.revised", 1)]
 public sealed record ClientServiceRevised(Uuid TenantId, Uuid ServiceId, long Revision,

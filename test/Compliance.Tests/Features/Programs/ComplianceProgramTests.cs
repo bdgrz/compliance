@@ -40,6 +40,26 @@ public sealed class ComplianceProgramTests
     }
 
     [Fact]
+    public void ShouldRejectChangedCreateGivenExistingProgramAndPreserveReplay()
+    {
+        // Arrange
+        var program = new ComplianceProgram(TenantId, ProgramId);
+        var original = new ProgramPlan(null, null, null, null, "Advisor A", null);
+        Assert.True(program.Create("SOC 2", original, MemberId, "Lead", Now).IsSuccess);
+        Assert.True(program.Revise(1, "SOC 2 revised", original with { ReadinessAdvisor = "Advisor B" },
+            MemberId, "Lead", Now.AddMinutes(1)).IsSuccess);
+
+        // Act
+        var replay = program.Create(" SOC 2 ", original, MemberId, "Lead", Now.AddMinutes(2));
+        var changed = program.Create("Different", original, MemberId, "Lead", Now.AddMinutes(2));
+
+        // Assert
+        Assert.True(replay.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(changed.Error).Kind);
+        Assert.Equal(2, new AggregateScenario<ComplianceProgram>(program).PendingEvents.Count);
+    }
+
+    [Fact]
     public void ShouldAvoidEventsGivenStaleRevisionOrInvalidPeriod()
     {
         // Arrange

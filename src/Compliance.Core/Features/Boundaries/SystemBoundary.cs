@@ -18,6 +18,9 @@ public sealed class SystemBoundary : Aggregate
     Uuid _latestApprovedVersionId;
     DateOnly? _latestApprovedEffectiveFrom;
 
+    public bool IsCreated => _created;
+    public Uuid ProgramId => _programId;
+
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))
     {
