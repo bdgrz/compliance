@@ -317,8 +317,8 @@ distinct relationships or separately attributed, conflicting observations.
 | Physical containment | `DeviceComponent` 1 `Device`, 0..1 parent component; device 0..* components | Parent belongs to the same device; no cycles. |
 | Compute hosting | `ComputeInstance` 0..1 host (`Device` or another `ComputeInstance`); host 0..* guests | Unknown host is explicit; no containment cycles. |
 | Network attachment | `NetworkInterface` 1 parent (`Device` or `ComputeInstance`); parent 0..* interfaces | Exactly one parent type per interface at a time. |
-| Network topology | `NetworkConnection` 2 typed endpoints (`NetworkInterface` or governed network endpoint) | Endpoints are distinct and tenant-local; observed and declared connections remain separately attributed. |
-| Software installation | `SoftwareInstallation` 1 target (`Device`, `DeviceComponent`, or `ComputeInstance`), 1 software `Application` or versioned release | Original package and version identifiers remain source observations. |
+| Network topology | `NetworkConnection` 2 typed endpoints (`NetworkInterface` or `Network`) | Endpoints are distinct and tenant-local; observed and declared connections remain separately attributed. |
+| Software installation | `SoftwareInstallation` 1 target (`Device`, `DeviceComponent`, or `ComputeInstance`), 1 software `Application` | Release and package identifiers are versioned attributes with source attribution until a separate governed release catalog is approved. |
 | External account | `Account` 1 `SystemInstance`; instance 0..* accounts; account 0..1 `Person` or `ServiceIdentity` correlation | Shared and unresolved accounts need no subject correlation. |
 | Source group membership | `GroupMember` 1 `Group`, 1 member (`Account`, `Group`, or supported `ServiceIdentity`) | Member kind is explicit; nested cycles are retained as incomplete expansion, not flattened truth. |
 | External role permission | `RoleEntitlement` 1 `Role`, 1 `Entitlement`; each endpoint 0..* edges | Both endpoints belong to the same system instance unless the source explicitly models a cross-instance grant. |
@@ -333,9 +333,10 @@ distinct relationships or separately attributed, conflicting observations.
 `SourceSystem` identifies one tenant-owned producer or manually governed
 source; it has 0..* observations and identifiers. `SourceSystem` authority is
 declared by field or question and can change over time without rewriting prior
-observations. `Permission` belongs to one platform `AccessRole` through an
-attributed 0..* assignment; neither a role nor a permission grants tenant
-access without an effective `RoleAssignment`. `OperationalProcess`,
+observations. An `AccessRole` has 0..* permissions, and a `Permission` may
+appear in 0..* roles through attributable assignments. Neither a role nor a
+permission grants tenant access without an effective `RoleAssignment`.
+`OperationalProcess`,
 `InformationAsset`, and `Location` are independent tenant-owned records;
 their inclusion in a client service or program is a separate, effective-dated
 scope relationship. No arbitrary UUID is a valid reference.
