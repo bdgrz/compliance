@@ -212,6 +212,64 @@ historical decision. Domain-specific lifecycles refine these states in the
 owning story; this vocabulary does not imply a workflow transition or command
 boundary.
 
+### Minimum entity fields
+
+These are semantic requirements beyond the common identity, tenant/realm,
+creation, and lifecycle fields above. They do not specify a request schema or
+storage layout. A field listed only in an earlier "important attributes" cell
+is optional unless a later feature contract makes it required. A required
+source identifier is the immutable identifier supplied by that source, not a
+display name or a provider-wide identifier guessed from another tenant.
+
+| Entity | Additional required fields | Important optional fields |
+| --- | --- | --- |
+| `Organization` | legal or governed display name, organization kind | legal name when different, parent, alternate IDs |
+| `OrganizationalUnit` | organization, name, unit kind | parent, source IDs |
+| `Person` | governed name or explicitly unknown-name state | contacts, locale, source IDs |
+| `WorkRelationship` | person, organization, worker kind, effective start | end, employee number, manager, units, job profile |
+| `JobProfile` | organization applicability, code or stable name | family, level, duties |
+| `Responsibility` | typed assignee, responsibility kind, governed target, effective start | end, source, delegation |
+| `FederatedIdentity` | exact issuer, subject, bound platform user | provider label, observed claims, person correlation |
+| `PlatformUser` | security status | person correlation, additional federated identities |
+| `Membership` | platform user, tenant organization, affiliation kind, effective start | invitation or provisioning source, end, suspension reason |
+| `Team` | tenant organization, name, purpose | members, retirement reason |
+| `AccessRole` | stable role code, scope types | display name, hierarchy, permissions |
+| `Permission` | operation, platform object kind | constraints |
+| `RoleAssignment` | typed subject, role, exact scope, effective start, grantor or source | end, revocation reason |
+| `SeparationOfDutyConstraint` | constraint kind, conflicting actions or roles, scope | exception authority, limit |
+| `Application` | governed name, application kind | provider, owner, criticality, classifications |
+| `ClientService` | governed name, purpose, owner reference | boundary references, retirement reason |
+| `SystemInstance` | application, instance kind, stable governed name | environment, provider, region, source IDs |
+| `Resource` | system instance, resource kind, stable local name or source ID | parent, sensitivity |
+| `IntegrationEndpoint` | system instance, connector type and version, authority declaration | health, secret reference, capabilities |
+| `Device` | device kind, governed name or asset identifier | manufacturer, serial, owner, location |
+| `DeviceComponent` | device, component class, local component identifier | parent, serial, firmware, state |
+| `ComputeInstance` | compute kind, governed name or source ID | host, provider IDs, OS, environment |
+| `NetworkInterface` | typed parent, interface kind, local identifier | MAC, source IDs, administrative state |
+| `Network` | governed name, network kind | environment, prefixes, classification, owner |
+| `NetworkConnection` | two typed endpoints, declaration or observation kind, effective start or observed time | end, state, source |
+| `SoftwareInstallation` | typed target, software reference, effective start or observed time | release, package IDs, end |
+| `Location` | location kind, governed name | geography, provider region ID, owner |
+| `OperationalProcess` | governed name, purpose, owner reference | inputs, outputs, source |
+| `InformationAsset` | governed name, information kind, classification | owner, origin, uses, retention reference |
+| `Provider` | legal or governed name, provider kind | services, owner, criticality, boundary treatment |
+| `Account` | system instance, source account ID, account kind | username, enabled state, subject correlation |
+| `ServiceIdentity` | identity kind, purpose, accountable owner | environment, review and expiry dates |
+| `Group` | system instance, source group ID, group kind | display name |
+| `GroupMember` | group, typed member, source or governed decision, effective start or observed time | end, membership kind |
+| `Role` | system instance, source role ID, role kind | hierarchy, display name |
+| `Entitlement` | system instance, source entitlement ID, entitlement kind | display name, privilege, resource scope |
+| `RoleEntitlement` | role, entitlement, source or governed decision, effective start or observed time | end |
+| `AccessAssignment` | typed grantee, typed grantable, source or governed decision, effective start or observed time | resource, mechanism, end |
+| `EffectiveAccess` | subject or account, entitlement, derivation time, grant path, completeness state | resource, source snapshot |
+| `SourceSystem` | source kind, tenant-local name, authority declaration | provider, connection, source tenant ID |
+| `ExternalIdentifier` | entity, source system, namespace, object kind, value, effective start | end |
+| `Observation` | source system, source record ID, observed time, payload identity | source version, normalized assertions |
+| `Correlation` | two typed records, method, decision status, actor or source, recorded time | confidence, effective interval |
+| `Snapshot` | definition, cutoff, content identity, source completeness | rows, amendment parent |
+| `IncidentReference` | source system, source incident ID, occurrence time or explicit unknown, observed time | summary, severity |
+| `ControlRiskTreatment` | risk, exact control version, treatment kind, rationale, reviewer, effective start | end, review evidence |
+
 ### Relationship cardinality and time contract
 
 The following are canonical relationship rules, not aggregate or storage
@@ -312,7 +370,17 @@ several tenants, while workforce relationships remain organization-specific.
 - Historical decisions retain stable entity IDs plus display snapshots. Later
   renames, correlations, or deprovisioning do not rewrite attribution.
 
-## Mapping common source terms
+## Mapping approved source shapes
+
+The table maps only source shapes whose semantic references are in the
+approved-source register, plus explicitly original product inputs. It is a
+conceptual mapping contract; a connector still needs its own source-version,
+rights, field, completeness, and failure review before ingesting data. Every
+mapped row keeps the exact source system, record ID, version when available,
+payload identity, observed time, and mapping decision. Unknown source fields
+remain in the attributable observation and do not silently create canonical
+facts. An unavailable target is an unresolved reference, not a fabricated
+entity.
 
 | Source term | Canonical mapping | Notes |
 | --- | --- | --- |
@@ -320,14 +388,14 @@ several tenants, while workforce relationships remain organization-specific.
 | SCIM EnterpriseUser | `WorkRelationship` plus organization-unit relationships | Preserve the original SCIM resource and manager reference as observation provenance |
 | SCIM `Group` | `Group` plus direct `GroupMember` relationships | Do not flatten nested groups on ingestion |
 | OIDC ID Token subject | `FederatedIdentity` | Key by exact issuer and subject; claims are observed attributes |
-| Entra user | `Account`, optionally correlated to `Person` | Tenant/object ID is the source identity; UPN/email is mutable |
-| Entra service principal | source `Account` facet correlated to `ServiceIdentity` | App registration/product identity and tenant-local service principal must remain distinct |
-| AWS IAM user | `Account` | Account is not presumed human |
-| AWS IAM role | `Role`; trust/assumption edges map to assignments or policies | Role session observations do not create new people |
-| GitHub organization | `SystemInstance` | A GitHub user is an `Account`; teams are `Group`; repository roles/permissions are entitlements scoped to `Resource` |
-| SaaS product catalog entry | `Application` | Each customer tenant, organization, or environment is a `SystemInstance` |
-| HRIS employee | `Person` plus `WorkRelationship` | Employee number is a source-scoped external identifier |
-| Compliance control owner | `Responsibility` | It is neither a job profile nor an access role |
+| Product-authored application catalog entry | `Application`; an explicitly identified deployment becomes a `SystemInstance` | This is an original product input, not a vendor schema mapping |
+| Product-authored workforce entry | `Person` plus `WorkRelationship` | This is an original product input; any later HRIS mapping needs exact source review |
+| Compliance control owner | `Responsibility` | Original product input; it is neither a job profile nor an access role |
+
+Provider-specific Entra, AWS, GitHub, HRIS, and other adapter mappings are
+deferred until their exact public source versions and intended use pass the
+source policy. Provider names and sample field semantics are not normative for
+this catalog.
 
 ## Extension policy
 
