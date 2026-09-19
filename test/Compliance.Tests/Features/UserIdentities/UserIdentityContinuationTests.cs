@@ -153,11 +153,116 @@ public sealed class UserIdentityContinuationTests
         Assert.True(records[1].Event.Metadata.IsAudit);
     }
 
+    [Fact]
+    public async Task ShouldPreservePlatformUserGivenExplicitProviderLinkAndReplay()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var userId = Uuid.CreateVersion4();
+        var handler = new LinkOidcProviderIdentityHandler(fixture.Repository);
+        var actor = DualProofActor(userId, "https://second-issuer.example/", "subject-2");
+        var context = Context(new LinkOidcProviderIdentity(), actor);
+
+        // Act
+        var first = await handler.HandleAsync(context, CancellationToken.None);
+        var replayed = await handler.HandleAsync(context, CancellationToken.None);
+        var identity = await fixture.Repository.HydrateAsync(
+            new UserIdentity("https://second-issuer.example/", "subject-2"),
+            CancellationToken.None);
+        var events = new List<DomainEvent>();
+        await foreach (var record in fixture.Store.ReadAsync(identity.Stream, 0,
+                           CancellationToken.None))
+            events.Add(record.Event);
+
+        // Assert
+        Assert.True(first.IsSuccess);
+        Assert.True(replayed.IsSuccess);
+        Assert.Equal(userId, first.Value.UserId);
+        Assert.Equal(first.Value, replayed.Value);
+        Assert.Single(events);
+        Assert.IsType<UserIdentityRegistered>(events[0]);
+    }
+
+    [Fact]
+    public async Task ShouldRejectProviderLinkGivenIdentityOwnedByAnotherUser()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var continuation = new UserIdentityContinuation(fixture.Repository);
+        var providerActor = AuthenticatedActor(
+            new Claim("iss", "https://issuer.example/"),
+            new Claim("sub", "claimed-subject"));
+        var existing = await new ContinueWithOidcProviderHandler(continuation).HandleAsync(
+            Context(new ContinueWithOidcProvider(), providerActor), CancellationToken.None);
+        Assert.True(existing.IsSuccess);
+        var otherUserId = Uuid.CreateVersion4();
+        var handler = new LinkOidcProviderIdentityHandler(fixture.Repository);
+
+        // Act
+        var result = await handler.HandleAsync(Context(new LinkOidcProviderIdentity(),
+            DualProofActor(otherUserId, "https://issuer.example/", "claimed-subject")),
+            CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
+        var identity = await fixture.Repository.HydrateAsync(
+            new UserIdentity("https://issuer.example/", "claimed-subject"),
+            CancellationToken.None);
+        var authenticated = identity.Authenticate();
+        Assert.Equal(existing.Value.UserId, authenticated.Value.UserId);
+    }
+
+    [Fact]
+    public async Task ShouldRejectProviderLinkGivenMissingAuthenticatedProof()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var handler = new LinkOidcProviderIdentityHandler(fixture.Repository);
+        var authorizer = new LinkOidcProviderIdentityAuthorizer();
+        var userId = Uuid.CreateVersion4();
+        var oidcOnly = AuthenticatedActor(
+            new Claim("iss", "https://issuer.example/"),
+            new Claim("sub", "subject"));
+        var sessionOnly = AuthenticatedActor(
+            new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString()));
+        var untrustedSession = new ClaimsPrincipal(new[]
+        {
+            new ClaimsIdentity(new[] { new Claim("iss", "bdgrz"),
+                new Claim("sub", userId.ToString()) }),
+            new ClaimsIdentity(new[] { new Claim("iss", "https://issuer.example/"),
+                new Claim("sub", "subject") }, "oidc"),
+        });
+
+        // Act
+        var actors = new[] { oidcOnly, sessionOnly, untrustedSession };
+        foreach (var actor in actors)
+        {
+            var context = Context(new LinkOidcProviderIdentity(), actor);
+            var authorization = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+            var result = await handler.HandleAsync(context, CancellationToken.None);
+
+            // Assert
+            Assert.False(authorization.IsSuccess);
+            Assert.Equal(RequestErrorKind.Unauthorized, authorization.Error.Kind);
+            Assert.False(result.IsSuccess);
+            Assert.Equal(RequestErrorKind.Unauthorized, result.Error.Kind);
+        }
+    }
+
     static RequestContext<TRequest> Context<TRequest>(TRequest request, ClaimsPrincipal actor) =>
         new(request, actor);
 
     static ClaimsPrincipal AuthenticatedActor(params Claim[] claims) =>
         new(new ClaimsIdentity(claims, "oidc"));
+
+    static ClaimsPrincipal DualProofActor(Uuid userId, string issuer, string subject) =>
+        new(new[]
+        {
+            new ClaimsIdentity(new[] { new Claim("iss", issuer), new Claim("sub", subject) }, "oidc"),
+            new ClaimsIdentity(new[] { new Claim("iss", "bdgrz"),
+                new Claim("sub", userId.ToString()) }, "BdgrzSession"),
+        });
 
     static async Task<Type> ReadEventType(
         IEventStore store,

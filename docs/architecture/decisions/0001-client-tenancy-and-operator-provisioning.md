@@ -43,10 +43,16 @@ expansion path is an identity broker with organization-specific connections
 and one application-trusted issuer; enabling another authority requires an
 issuer-validation and account-linking review. An external identity is keyed by
 exact issuer plus subject and belongs to one `PlatformUser`. Two identities
-with the same email do not merge automatically. Until a reviewed linking flow
-exists, they remain distinct platform users and memberships are granted
-separately. This avoids treating a mutable or unverified email as identity
-proof.
+with the same email do not merge automatically. An explicit HTTP-only link
+operation now requires both a signed Bdgrz browser session and a validated OIDC
+resource token in one request. It binds a new issuer-plus-subject to the session's
+platform user ID; a provider identity already owned by another user conflicts.
+Repeating the same link is safe, and ordinary OIDC continuation still creates a
+separate user rather than inferring consent from an existing cookie. This is a
+technical linking path, not approval to enable multiple authorities. M0-A07
+still needs a security review of provider configuration, reauthentication
+requirements, identity replacement and revocation, and recovery before that
+deployment expands.
 
 Client-provided slugs can reveal a name in browser history or server logs.
 `Referrer-Policy: no-referrer` prevents browser referrer disclosure, and
@@ -67,4 +73,4 @@ The API and MCP surfaces use Portia command/query authorization and event-source
 
 ## Follow-up
 
-M0-D25 and M0-A07 still own cross-client firm practice designation, engagement-specific staff grants, multi-authority federation, identity linking, and full split-host conformance. M0-D28 remains the approval gate for the broader canonical catalog. These decisions should be incorporated into the later features that introduce those records.
+M0-D25 and M0-A07 still own cross-client firm practice designation, engagement-specific staff grants, multi-authority federation, reviewed identity replacement and revocation, and full tenant-context conformance. M0-D28 remains the approval gate for the broader canonical catalog. These decisions should be incorporated into the later features that introduce those records.

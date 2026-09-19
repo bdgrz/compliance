@@ -91,6 +91,20 @@ public static class ComplianceAuthenticationServiceCollectionExtensions
                     .AddAuthenticationSchemes(
                         [.. resourceSchemes, ComplianceAuthenticationSchemes.Session])
                     .RequireAuthenticatedUser());
+            options.AddPolicy(
+                ComplianceAuthorizationPolicies.IdentityLink,
+                policy => policy
+                    .AddAuthenticationSchemes(
+                        [.. resourceSchemes, ComplianceAuthenticationSchemes.Session])
+                    .RequireAssertion(context =>
+                        context.User.Identities.Any(identity => identity.IsAuthenticated &&
+                            string.Equals(identity.FindFirst("iss")?.Value, "bdgrz",
+                                StringComparison.Ordinal)) &&
+                        context.User.Identities.Any(identity => identity.IsAuthenticated &&
+                            !string.Equals(identity.FindFirst("iss")?.Value, "bdgrz",
+                                StringComparison.Ordinal) &&
+                            !string.IsNullOrWhiteSpace(identity.FindFirst("iss")?.Value) &&
+                            !string.IsNullOrWhiteSpace(identity.FindFirst("sub")?.Value))));
         });
 
         return settings;
