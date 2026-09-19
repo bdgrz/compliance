@@ -10,7 +10,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task ServiceHistoryStaysWithinTenant()
+    public async Task ShouldPreserveServiceHistoryAndDenyOutsiderGivenBrokerHost()
     {
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();

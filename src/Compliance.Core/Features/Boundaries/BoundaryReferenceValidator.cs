@@ -8,7 +8,7 @@ public interface IBoundaryReferenceValidator
         CancellationToken ct = default);
 }
 
-public sealed class GovernedBoundaryReferenceValidator(IClientServiceDirectoryReader services)
+public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity services)
     : IBoundaryReferenceValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, BoundaryContent content,
@@ -21,15 +21,12 @@ public sealed class GovernedBoundaryReferenceValidator(IClientServiceDirectoryRe
             if (entry.SubjectType != "service")
                 return Result.Failure(new RequestError(RequestErrorKind.Validation,
                     "A governed scope reference requires its owning inventory to validate the record."));
-            var service = entry.GovernedRecordId is { } id
-                ? await services.GetAsync(tenantId, id, ct).ConfigureAwait(false)
-                : null;
-            if (service is null)
-                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The governed service reference is not available in this tenant. Retry after projection catches up."));
-            if (service.Status != "active")
+            if (entry.GovernedRecordId is not { } id)
                 return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                    "The governed service reference is not active."));
+                    "A governed service reference requires a service ID."));
+            if (!await services.IsActiveAsync(tenantId, id, ct).ConfigureAwait(false))
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The governed service reference is not active in this tenant."));
         }
         return Result.Success;
     }

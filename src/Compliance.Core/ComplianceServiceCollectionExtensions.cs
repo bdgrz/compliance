@@ -64,6 +64,7 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
         services.AddScoped<IClientServiceDirectoryReader>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
+        services.AddScoped<IClientServiceActivity, EventSourcedClientServiceActivity>();
         services.AddScoped<FitzBoundaryDirectory>();
         services.AddScoped<IBoundaryDirectoryProjection>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());

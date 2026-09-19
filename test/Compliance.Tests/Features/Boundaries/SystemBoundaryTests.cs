@@ -15,7 +15,7 @@ public sealed class SystemBoundaryTests
     static readonly DateTimeOffset Now = new(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void RevisionUsesExactDraftVersionAndExpectedRevision()
+    public void ShouldRequireExactVersionAndRevisionGivenDraftChange()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var first = Content();
@@ -46,7 +46,7 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
-    public void ScopeEntriesRequireOwnerAndRationale()
+    public void ShouldRequireOwnerAndRationaleGivenScopeEntries()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var invalid = Content() with
@@ -62,7 +62,7 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
-    public void ReplayedCreateReturnsExistingIdentityWithoutAppendingAnotherEvent()
+    public void ShouldReturnExistingIdentityGivenReplayedCreate()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var content = Content();
@@ -80,7 +80,7 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
-    public void ReviewBindsExactRevisionAndBlocksAuthorApproval()
+    public void ShouldBindRevisionAndDenyAuthorApprovalGivenReview()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
@@ -111,7 +111,7 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
-    public void ApprovedVersionIsImmutableAndSuccessorRequiresLaterEffectiveDate()
+    public void ShouldPreserveApprovedVersionAndRequireLaterDateGivenSuccessor()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var reviewer = Uuid.CreateVersion4();
@@ -141,7 +141,7 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
-    public void OnlyNeverReviewedDraftCanBeDiscarded()
+    public void ShouldAllowDiscardOnlyGivenNeverReviewedDraft()
     {
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,

@@ -14,7 +14,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task DraftIsProjectedAndTenantScopedWithOptimisticRevision()
+    public async Task ShouldProjectTenantScopedDraftGivenBoundaryCreationAndRevision()
     {
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();

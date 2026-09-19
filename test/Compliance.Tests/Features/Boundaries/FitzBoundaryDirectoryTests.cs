@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Tests.Features.Boundaries;
 public sealed class FitzBoundaryDirectoryTests
 {
     [Fact]
-    public async Task ImpactPreviewWaitsForExactProjectedRevision()
+    public async Task ShouldWaitForExactProjectedRevisionGivenImpactPreview()
     {
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
@@ -52,7 +52,7 @@ public sealed class FitzBoundaryDirectoryTests
     }
 
     [Fact]
-    public async Task FailedBatchRollsBackAndCanBeRetried()
+    public async Task ShouldRollBackAndRetryGivenFailedProjectionBatch()
     {
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
@@ -94,7 +94,7 @@ public sealed class FitzBoundaryDirectoryTests
     }
 
     [Fact]
-    public async Task NeverUsedInitialDraftDisappearsFromCurrentDirectory()
+    public async Task ShouldRemoveCurrentDraftGivenDiscardOfNeverReviewedVersion()
     {
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
@@ -121,7 +121,7 @@ public sealed class FitzBoundaryDirectoryTests
     }
 
     [Fact]
-    public async Task ApprovedSuccessorPreservesEffectiveHistoryAndDecisionIdentity()
+    public async Task ShouldPreserveEffectiveHistoryGivenApprovedSuccessor()
     {
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();

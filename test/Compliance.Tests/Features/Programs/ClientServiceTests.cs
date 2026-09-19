@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -5,8 +6,42 @@ namespace Bdgrz.Compliance.Tests.Features.Programs;
 
 public sealed class ClientServiceTests
 {
+    sealed class ExecutionContext : IExecutionContext
+    {
+        public ClaimsPrincipal Actor { get; } = new(new ClaimsIdentity());
+        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
+        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
+        public Uuid CauseId { get; } = Uuid.CreateVersion4();
+        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+    }
+
     [Fact]
-    public void ServiceHistoryRejectsStaleChangesAndRetirementWithoutReason()
+    public async Task ShouldReadCurrentActivityFromTenantEventStreamGivenCreateAndRetire()
+    {
+        var tenantId = Uuid.CreateVersion4();
+        var serviceId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        await using var fixture = new StoreFixture();
+        var activity = new EventSourcedClientServiceActivity(fixture.Repository);
+        var service = new ClientService(tenantId, serviceId);
+        Assert.False(await activity.IsActiveAsync(tenantId, serviceId));
+
+        Assert.True(service.Create("Payroll", "Process payroll", "Operations",
+            actorId, "Owner", now).IsSuccess);
+        await fixture.Repository.SaveAsync(service, new ExecutionContext(), CancellationToken.None);
+        Assert.True(await activity.IsActiveAsync(tenantId, serviceId));
+        Assert.False(await activity.IsActiveAsync(Uuid.CreateVersion4(), serviceId));
+
+        service = await fixture.Repository.HydrateAsync(new ClientService(tenantId, serviceId),
+            CancellationToken.None);
+        Assert.True(service.Retire(1, "Service ended", actorId, "Owner", now.AddDays(1)).IsSuccess);
+        await fixture.Repository.SaveAsync(service, new ExecutionContext(), CancellationToken.None);
+        Assert.False(await activity.IsActiveAsync(tenantId, serviceId));
+    }
+
+    [Fact]
+    public void ShouldRejectStaleRevisionAndInvalidRetirementGivenServiceHistory()
     {
         var tenantId = Uuid.CreateVersion4();
         var serviceId = Uuid.CreateVersion4();

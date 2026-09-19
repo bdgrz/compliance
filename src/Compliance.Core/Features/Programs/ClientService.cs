@@ -9,6 +9,8 @@ public sealed class ClientService : Aggregate
     bool _retired;
     long _revision;
 
+    public bool IsActive => _created && !_retired;
+
     public ClientService(Uuid tenantId, Uuid serviceId)
         : base(serviceId, new EventStreamAddress(tenantId.ToString(), "client-services", serviceId.ToString()))
     {

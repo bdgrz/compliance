@@ -12,6 +12,7 @@ criteria, but record the remaining gaps explicitly.
 
 1. Open a focused branch and keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
+   Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
 3. Run the local gates before opening a pull request:
 
    ```console
