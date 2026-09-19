@@ -151,7 +151,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.Conflict, reuse.StatusCode);
     }
 
-    static async Task<string> LoginAsync(HttpClient client, string emailAddress)
+    internal static async Task<string> LoginAsync(HttpClient client, string emailAddress)
     {
         using var login = await client.PostAsJsonAsync("/api/v1/developer-user-sessions",
             new { email_address = emailAddress });
@@ -162,7 +162,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         return identity.Id;
     }
 
-    static async Task VerifyEmailAsync(WebApplicationFactory<Program> factory, HttpClient client,
+    internal static async Task VerifyEmailAsync(WebApplicationFactory<Program> factory, HttpClient client,
         string userId, string emailAddress)
     {
         var path = $"/api/v1/users/{userId}/email-addresses/{emailAddress}";
