@@ -91,8 +91,10 @@ context's aggregate.
 ### Unresolved ownership
 
 The 2026-09-14 backlog design review found concepts that this model and the
-backlog assign to more than one owner, or to none. They remain open decisions
-and must be resolved before the stories that depend on them are ready:
+backlog assign to more than one owner, or to none. M0-D23 has an
+[accepted assurance vocabulary](decisions/m0-d23-assurance-vocabulary.md)
+for the assurance rows below. Other
+rows remain open decisions before their dependent stories are ready:
 
 | Concern | Conflict | Decision |
 | --- | --- | --- |
@@ -102,15 +104,15 @@ and must be resolved before the stories that depend on them are ready:
 | Service, location, and process | Referenced by the boundary, commitments, providers, and system description, but not defined by any context | M0-D22 |
 | Incident reference | Used by risk reassessment in readiness, but defined only for the Type II period | M0-D22 |
 | Control-to-risk relationship | Could belong to control applicability or to risk treatment | M0-D22 |
-| Gap, finding, deviation, and coverage gap | Readiness gaps, findings, evaluation deviations, and provider coverage gaps overlap | M0-D23 |
-| "Exception" | Means both an approved waiver and an auditor-identified test exception | M0-D23 |
-| Risk acceptance | Owned by both risk treatment and findings | M0-D23 |
-| Review and approval | Needed by many early workflows, while a universal `Review` aggregate is forbidden | M0-D23, EN-04 |
-| Readiness rules | Split across the readiness assessment, readiness snapshot, readiness projection, and management review | M0-D23 |
+| Gap, finding, deviation, and coverage gap | Separate context-owned records link through source and remediation references | M0-D23 |
+| "Exception" | An approved `Waiver` differs from an auditor-found `AuditTestException` | M0-D23 |
+| Risk acceptance | R1-07 owns the decision; R2-07 links to it | M0-D23 |
+| Review and approval | EN-04 shares an immutable decision shape; each workflow owns decisions and transitions | M0-D23, EN-04 |
+| Readiness rules | R1-08 owns rules; later snapshots and views bind exact rule and result versions | M0-D23 |
 | Accessibility and browser support | Every story requires accessible browser behavior, but the conformance target, assistive-technology baseline, and supported-browser policy are undecided | M0-D24 |
 | Firm-owned material inside a client tenant | With no firm entity, advisory working notes and any attest documentation have no owner outside the client organization, yet may need to survive client offboarding | M0-D25, M0-D27 |
 | "Tenant" and "organization" | APIs are proposed to use `tenant_id` while this model says organization | M0-D25 |
-| "Engagement" | The firm's service engagement (F1-07) differs from the client's Type I or Type II audit engagement | M0-D23, F1-07 |
+| "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
 When a decision is made, update this document, the affected stories, and the
 issue, and remove the row.
@@ -458,7 +460,7 @@ facts.
 | Artifact | Carries content or a reference to content | EvidenceArtifact, PolicyDocument, ImportFile, AuditPackage |
 | Request | Asks for bounded work or support | EvidenceRequest, AdvisorRequest, AuditorRequest |
 | Decision | Records an authorized outcome and rationale | ReviewDecision, AccessDecision, RiskAcceptance, ReadinessDecision |
-| Exception and remediation | Carries a known gap to resolution | Finding, Exception, CorrectiveAction, Verification |
+| Waiver and remediation | Carries an authorized time-bounded deviation from an expectation or known deficiency to resolution | Waiver, Finding, CorrectiveAction, Verification |
 | Snapshot | Freezes applicable state for later reliance | PopulationSnapshot, TypeIBaseline, TypeIIPeriodClose |
 | Provenance | Explains where data came from | SourceReference, ImportBatch, CollectionRun, content identity |
 | Attribution | Explains who or what acted and when | ActorReference, external author, occurred time, effective time |

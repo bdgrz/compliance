@@ -771,6 +771,15 @@ Source: Backlog design review 2026-09-14; domain-model.md bounded-context table;
 
 ### M0-D23 Define the assurance vocabulary and readiness ownership
 
+Accepted product default, 2026-09-19:
+[assurance vocabulary and readiness ownership](decisions/m0-d23-assurance-vocabulary.md).
+Gap, provider coverage gap, control evaluation deviation, and finding remain
+distinct linked records; waiver and auditor test exception have different
+names; R1-07 owns risk acceptance; EN-04 shares a decision shape while each
+workflow owns its state; R1-08 owns readiness rules. Firm-specific approver and
+exception policy stays with M0-D03; engagement-specific thresholds stay with
+their owning decisions.
+
 Priority: P0
 
 Type: Product discovery
@@ -799,6 +808,9 @@ Done when:
 - [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Backlog design review 2026-09-14.
+
+Public references: No external normative source; product decision recorded in
+[M0-D23](decisions/m0-d23-assurance-vocabulary.md).
 
 ### M0-D24 Define the accessibility target and supported-browser baseline
 
@@ -1634,7 +1646,8 @@ Requirements:
 Domain slice:
 
 - Owns stable `Risk`, versioned `RiskAssessment`, explicit assessment method,
-  `RiskTreatment`, review decision, time-bounded acceptance, and reassessment state.
+  `RiskTreatment`, its time-bounded `RiskAcceptance` decision, review decision,
+  and reassessment state.
 - Uses the program boundary, commitments, workforce context, applications,
   system components, information assets, providers, criteria, controls,
   incidents, findings, evidence, and responsibilities.
@@ -1681,8 +1694,8 @@ Requirements:
 
 Domain slice:
 
-- Owns the `ReadinessAssessment`, accountable `Gap`, assessment rules, and
-  as-of calculation identity; it does not own the source records it evaluates.
+- Owns versioned readiness rules, `ReadinessAssessment`, accountable `Gap`,
+  and as-of calculation identity; it does not own the source records it evaluates.
 - Uses scope, workforce, application and asset inventories, reviewed systems,
   commitments, requirements, criteria, mappings, control design and operation,
   formal evaluations, responsibilities, policies and communication, governed
@@ -2226,7 +2239,7 @@ Domain slice:
 
 - Owns stable `Provider`, service relationships, classification, lifecycle,
   boundary treatment, versioned `ProviderAssessment`, reviewer conclusion,
-  coverage gap, renewal or termination review, and next-review state.
+  `ProviderCoverageGap`, renewal or termination review, and next-review state.
 - Uses commitments and requirements, CUECs and CSOCs, inventories, risks,
   controls, evidence artifacts, findings, corrective actions, and platform
   responsibilities.
@@ -2441,6 +2454,11 @@ Depends on: M0-A01, M0-A02
 Blocks: R1-08, R1-11d, R2-06, R2-09
 
 ### EN-04 Record attributable review and approval decisions with separation of duties
+
+M0-D23's [decision](decisions/m0-d23-assurance-vocabulary.md) makes the
+immutable decision shape reusable while each subject workflow owns its review
+request, allowed outcomes, state transition, and history. A decision in one
+workflow never approves a different record.
 
 Priority: P0
 
@@ -2786,7 +2804,7 @@ Requirements:
 Domain slice:
 
 - Owns versioned `ControlEvaluationPlan`, `ControlEvaluation`, procedure result,
-  deviation, assigned `Review`, immutable `ReviewDecision`, comments,
+  `ControlEvaluationDeviation`, assigned review, immutable `ReviewDecision`, comments,
   separation-of-duties evaluation, retest, and approved exception to that policy.
 - Uses the exact control design, implementation, occurrence, attestation, or
   evidence submission being reviewed plus member access and responsibility.
@@ -3055,8 +3073,9 @@ Requirements:
 
 Domain slice:
 
-- Owns `Finding`, `Exception`, `CorrectiveAction`, `RiskAcceptance`, closure
-  `ReviewDecision`, and required `Verification` with source wording preserved.
+- Owns `Finding`, `CorrectiveAction`, closure `ReviewDecision`, and required
+  `Verification` with source wording preserved. It links approved `Waiver` and
+  R1-07 `RiskAcceptance` decisions without owning a second acceptance authority.
 - Uses affected scope, criteria, controls, evidence, access decisions, risks,
   vendors, responsibilities, and engagement or period references.
 - Produces accountable remediation work and readiness or roll-forward effects;
@@ -3143,7 +3162,9 @@ Requirements:
 Domain slice:
 
 - Owns the immutable `ReadinessSnapshot` and attributable `TypeIEntryDecision`,
-  including unresolved-item acknowledgements and approved exceptions.
+  including unresolved-item acknowledgements and approved waivers. The snapshot
+  binds the R1-08 readiness rule and assessment versions instead of defining a
+  second readiness calculation.
 - Uses the program boundary, workforce and system inventories, commitments and
   requirements, criteria, control environment and evaluations, policies and
   communication campaigns, governed evidence, access expectations and
@@ -3875,7 +3896,8 @@ Requirements:
 Domain slice:
 
 - Owns versioned readiness and workload `Projection` definitions and as-of
-  results; it does not own another copy of control, evidence, access, policy, or finding state.
+  results; it reuses R1-08 rule outputs and does not own another copy of
+  readiness, control, evidence, access, policy, or finding state.
 - Uses occurrences, review decisions, access campaigns, policies, risks,
   vendors, findings, exceptions, responsibilities, and approved cadence.
 - Produces role- and scope-aware overview and work views whose counts always
@@ -4174,7 +4196,8 @@ Domain slice:
 
 - Owns immutable `ManagementReviewSnapshot`, agenda or discussion record,
   `ManagementDecision`, approval, and resulting action assignments.
-- Uses the shared readiness projection and exact underlying control, evidence,
+- Binds exact R1-08 readiness assessment and T2-04 monitoring measure versions.
+  Uses the shared readiness projection and exact underlying control, evidence,
   access, finding, risk, vendor, incident, and change records as of a known time.
 - Produces accountable work and period evidence without creating a parallel
   management-only readiness or task model.
@@ -4365,7 +4388,9 @@ Requirements:
 Domain slice:
 
 - Reuses the shared finding, external-author, corrective-action, evidence,
-  review, risk-acceptance, and verification model for examination exceptions.
+- Reuses the shared finding, external-author, corrective-action, evidence,
+  review, R1-07 risk-acceptance, and verification model. Its distinct
+  `AuditTestException` preserves auditor wording and links to those records.
 - Binds each exception to exact frozen samples, population items, control
   occurrences, evidence, changes, incidents, risks, and close snapshot.
 - Produces management responses, package content, and next-period commitments
