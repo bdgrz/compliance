@@ -27,11 +27,19 @@ public static class ComplianceAuthenticationServiceCollectionExtensions
             services
                 .AddAuthentication(ComplianceAuthenticationSchemes.Session)
                 .AddBdgrzSession(sessionTokens);
-            services.AddAuthorization(options => options.AddPolicy(
-                ComplianceAuthorizationPolicies.Session,
-                policy => policy
-                    .AddAuthenticationSchemes(ComplianceAuthenticationSchemes.Session)
-                    .RequireAuthenticatedUser()));
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(
+                    ComplianceAuthorizationPolicies.ApiUser,
+                    policy => policy
+                        .AddAuthenticationSchemes(ComplianceAuthenticationSchemes.Session)
+                        .RequireAuthenticatedUser());
+                options.AddPolicy(
+                    ComplianceAuthorizationPolicies.Session,
+                    policy => policy
+                        .AddAuthenticationSchemes(ComplianceAuthenticationSchemes.Session)
+                        .RequireAuthenticatedUser());
+            });
             return null;
         }
 
@@ -66,6 +74,12 @@ public static class ComplianceAuthenticationServiceCollectionExtensions
                     [.. resourceSchemes, ComplianceAuthenticationSchemes.Session])
                 .RequireAuthenticatedUser()
                 .Build();
+            options.AddPolicy(
+                ComplianceAuthorizationPolicies.ApiUser,
+                policy => policy
+                    .AddAuthenticationSchemes(
+                        [.. resourceSchemes, ComplianceAuthenticationSchemes.Session])
+                    .RequireAuthenticatedUser());
             options.AddPolicy(
                 ComplianceAuthorizationPolicies.Session,
                 policy => policy

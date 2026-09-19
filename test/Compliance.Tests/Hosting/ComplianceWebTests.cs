@@ -14,10 +14,12 @@ namespace Bdgrz.Compliance.Tests.Hosting;
 
 public sealed class ComplianceWebTests
 {
-    [Fact]
-    public async Task EveryBusinessApiEndpointDeclaresAuthorization()
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public async Task EveryBusinessApiEndpointDeclaresAuthorization(string environment)
     {
-        await using var factory = CreateBrokerFreeFactory("Development");
+        await using var factory = CreateBrokerFreeFactory(environment);
         using var client = factory.CreateClient();
         var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
@@ -27,7 +29,16 @@ public sealed class ComplianceWebTests
             .ToArray();
 
         Assert.NotEmpty(endpoints);
-        Assert.All(endpoints, endpoint => Assert.NotEmpty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
+        var policies = factory.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+        foreach (var endpoint in endpoints)
+        {
+            var authorizations = endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>();
+            Assert.NotEmpty(authorizations);
+            var policyName = Assert.IsType<string>(Assert.Single(authorizations).Policy);
+            Assert.Equal("BdgrzApiUser", policyName);
+            Assert.NotNull(await policies.GetPolicyAsync(policyName));
+            Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        }
     }
 
     [Fact]
