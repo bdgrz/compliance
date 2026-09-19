@@ -225,7 +225,7 @@ display name or a provider-wide identifier guessed from another tenant.
 
 | Entity | Additional required fields | Important optional fields |
 | --- | --- | --- |
-| `Organization` | legal or governed display name, organization kind | legal name when different, parent, alternate IDs |
+| `Organization` | organization kind, governed display name; a client tenant also requires legal name | parent, alternate IDs |
 | `OrganizationalUnit` | organization, name, unit kind | parent, source IDs |
 | `Person` | governed name or explicitly unknown-name state | contacts, locale, source IDs |
 | `WorkRelationship` | person, organization, worker kind, effective start | end, employee number, manager, units, job profile |
@@ -272,6 +272,16 @@ display name or a provider-wide identifier guessed from another tenant.
 | `Snapshot` | definition, cutoff, content identity, source completeness | rows, amendment parent |
 | `IncidentReference` | source system, source incident ID, occurrence time or explicit unknown, observed time | summary, severity |
 | `ControlRiskTreatment` | risk, exact control version, treatment kind, rationale, reviewer, effective start | end, review evidence |
+
+These minimums allow a draft or unresolved inventory record to exist without
+invented ownership or classification. An active record asserted to be in a
+program or engagement scope must additionally satisfy its owning story's
+scope-ready fields, or carry an explicit unresolved gap that prevents a
+completeness claim. In particular, R1-10 requires application purpose, owner,
+classification, concrete system instances, and access-review scope decision;
+R1-12 requires owners, classifications, boundary relationships, and material
+flow protection expectations. A draft's optional fields cannot be silently
+treated as complete in a readiness or frozen-population calculation.
 
 ### Relationship cardinality and time contract
 
