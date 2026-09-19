@@ -9,12 +9,17 @@ public sealed class GovernedBoundaryReferenceValidatorTests
     [Fact]
     public async Task ShouldAcceptOnlyActiveSameTenantServiceGivenGovernedBoundaryReference()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var serviceId = Uuid.CreateVersion4();
         var activity = new ServiceActivity(tenantId, serviceId);
         var validator = new GovernedBoundaryReferenceValidator(activity);
+
+        // Act
         var content = Content("service", serviceId);
 
+
+        // Assert
         Assert.True((await validator.ValidateAsync(tenantId, content)).IsSuccess);
         Assert.False((await validator.ValidateAsync(Uuid.CreateVersion4(), content)).IsSuccess);
         activity.Active = false;

@@ -17,8 +17,13 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldRequireExactVersionAndRevisionGivenDraftChange()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
+
+        // Act
         var first = Content();
+
+        // Assert
         Assert.True(boundary.Create(ProgramId, VersionId, first, AuthorId, "Lead A", Now).IsSuccess);
 
         var second = first with { Statement = "Revised scope" };
@@ -48,6 +53,7 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldRequireOwnerAndRationaleGivenScopeEntries()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var invalid = Content() with
         {
@@ -55,8 +61,12 @@ public sealed class SystemBoundaryTests
                 "Service A", null, "", "", true)],
         };
 
+
+        // Act
         var result = boundary.Create(ProgramId, VersionId, invalid, AuthorId, "Lead", Now);
 
+
+        // Assert
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
         Assert.Empty(new AggregateScenario<SystemBoundary>(boundary).PendingEvents);
     }
@@ -64,8 +74,13 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldReturnExistingIdentityGivenReplayedCreate()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
+
+        // Act
         var content = Content();
+
+        // Assert
         Assert.True(boundary.Create(ProgramId, VersionId, content, AuthorId,
             "Lead", Now).IsSuccess);
 
@@ -82,14 +97,18 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldBindRevisionAndDenyAuthorApprovalGivenReview()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
             "Author", Now).IsSuccess);
         var reviewer = Uuid.CreateVersion4();
         var decisionId = Uuid.CreateVersion4();
 
+        // Act
         var selfReview = boundary.Review(VersionId, 1, Uuid.CreateVersion4(),
             "accept", "Looks complete", AuthorId, "Author", Now);
+
+        // Assert
         Assert.Equal(RequestErrorKind.Forbidden,
             Assert.IsType<RequestError>(selfReview.Error).Kind);
         Assert.True(boundary.Review(VersionId, 1, decisionId,
@@ -113,9 +132,14 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldPreserveApprovedVersionAndRequireLaterDateGivenSuccessor()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         var reviewer = Uuid.CreateVersion4();
+
+        // Act
         var decisionId = Uuid.CreateVersion4();
+
+        // Assert
         Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
             "Author", Now).IsSuccess);
         Assert.True(boundary.Review(VersionId, 1, decisionId, "accept",
@@ -143,6 +167,7 @@ public sealed class SystemBoundaryTests
     [Fact]
     public void ShouldAllowDiscardOnlyGivenNeverReviewedDraft()
     {
+        // Arrange
         var boundary = new SystemBoundary(TenantId, BoundaryId);
         Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
             "Author", Now).IsSuccess);
@@ -150,9 +175,11 @@ public sealed class SystemBoundaryTests
         Assert.True(boundary.Review(VersionId, 1, Uuid.CreateVersion4(),
             "request_changes", "Revise the scope", reviewedBy, "Reviewer", Now).IsSuccess);
 
+        // Act
         var denied = boundary.DiscardDraft(VersionId, 1, "Withdraw",
             AuthorId, "Author", Now);
 
+        // Assert
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(denied.Error).Kind);
         Assert.Equal(2, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
 

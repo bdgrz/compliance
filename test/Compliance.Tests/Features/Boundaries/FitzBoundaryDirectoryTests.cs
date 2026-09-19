@@ -9,6 +9,7 @@ public sealed class FitzBoundaryDirectoryTests
     [Fact]
     public async Task ShouldWaitForExactProjectedRevisionGivenImpactPreview()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
@@ -31,7 +32,11 @@ public sealed class FitzBoundaryDirectoryTests
         }
 
         var requested = new PreviewBoundaryImpact(tenantId, boundaryId, draftId, 2);
+
+        // Act
         var lagged = await impact.PreviewAsync(requested, CancellationToken.None);
+
+        // Assert
         Assert.False(lagged.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, lagged.Error.Kind);
 
@@ -54,6 +59,7 @@ public sealed class FitzBoundaryDirectoryTests
     [Fact]
     public async Task ShouldRollBackAndRetryGivenFailedProjectionBatch()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
@@ -62,9 +68,13 @@ public sealed class FitzBoundaryDirectoryTests
         var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
         var content = new BoundaryContent("Original", "readiness", ["security"], []);
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+
+        // Act
         var identity = new CheckpointIdentity("BoundaryDirectory",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
+
+        // Assert
         await using (var batch = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
@@ -96,6 +106,7 @@ public sealed class FitzBoundaryDirectoryTests
     [Fact]
     public async Task ShouldRemoveCurrentDraftGivenDiscardOfNeverReviewedVersion()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
@@ -106,6 +117,8 @@ public sealed class FitzBoundaryDirectoryTests
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
         var identity = new CheckpointIdentity("BoundaryDirectory",
             EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
         await using (var batch = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
@@ -116,6 +129,7 @@ public sealed class FitzBoundaryDirectoryTests
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
+        // Assert
         Assert.Null(await directory.GetAsync(tenantId, boundaryId));
         Assert.Empty((await directory.ListProgramAsync(tenantId, programId, 20, null)).Items);
     }
@@ -123,6 +137,7 @@ public sealed class FitzBoundaryDirectoryTests
     [Fact]
     public async Task ShouldPreserveEffectiveHistoryGivenApprovedSuccessor()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
@@ -143,6 +158,8 @@ public sealed class FitzBoundaryDirectoryTests
         var identity = new CheckpointIdentity("BoundaryDirectory",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
+
+        // Act
         await using (var batch = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
@@ -165,6 +182,7 @@ public sealed class FitzBoundaryDirectoryTests
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
+        // Assert
         Assert.Null(await directory.GetEffectiveVersionAsync(tenantId, boundaryId,
             new DateOnly(2026, 12, 31)));
         Assert.Equal(originalId, (await directory.GetEffectiveVersionAsync(tenantId,

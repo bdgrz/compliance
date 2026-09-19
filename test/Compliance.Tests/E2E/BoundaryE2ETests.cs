@@ -16,6 +16,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     [Fact]
     public async Task ShouldProjectTenantScopedDraftGivenBoundaryCreationAndRevision()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();
         using var outsider = factory.CreateClient();
@@ -24,11 +25,15 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"boundary-outsider-{Guid.NewGuid():N}@example.com");
 
+
+        // Act
         using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Boundary E2E",
             slug = $"boundary-{Guid.NewGuid():N}"[..24],
         });
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);

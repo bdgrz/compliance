@@ -18,13 +18,18 @@ public sealed class ClientServiceTests
     [Fact]
     public async Task ShouldReadCurrentActivityFromTenantEventStreamGivenCreateAndRetire()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var serviceId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
         await using var fixture = new StoreFixture();
         var activity = new EventSourcedClientServiceActivity(fixture.Repository);
+
+        // Act
         var service = new ClientService(tenantId, serviceId);
+
+        // Assert
         Assert.False(await activity.IsActiveAsync(tenantId, serviceId));
 
         Assert.True(service.Create("Payroll", "Process payroll", "Operations",
@@ -43,12 +48,17 @@ public sealed class ClientServiceTests
     [Fact]
     public void ShouldRejectStaleRevisionAndInvalidRetirementGivenServiceHistory()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var serviceId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+
+        // Act
         var service = new ClientService(tenantId, serviceId);
 
+
+        // Assert
         Assert.True(service.Create("Payroll", "Process payroll", "Operations",
             actorId, "Owner", now).IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(service.Revise(0,

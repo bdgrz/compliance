@@ -12,6 +12,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
     [Fact]
     public async Task ShouldPreserveServiceHistoryAndDenyOutsiderGivenBrokerHost()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();
         using var outsider = factory.CreateClient();
@@ -19,11 +20,15 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             $"service-owner-{Guid.NewGuid():N}@example.com");
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"service-outsider-{Guid.NewGuid():N}@example.com");
+
+        // Act
         using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Service tenant",
             slug = $"service-{Guid.NewGuid():N}"[..24],
         });
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
