@@ -90,17 +90,22 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 - `/health/live` reports that the process can answer HTTP.
 - `/health/ready` and the compatibility alias `/healthz` become healthy after hosted startup, including the initial Fitz connection and worker startup.
 - API errors use RFC Problem Details and include a `trace_id`.
+- Authenticated users can reserve, list, inspect, and verify their own email addresses under
+  `/api/v1/users/{userId}/email-addresses`. Challenge issuance and completion use Portia commands.
+  Email ownership and verification are HTTP-only; they are not MCP tools.
+
+Email delivery currently uses `MockEmailChallengeDelivery`. It captures the latest challenge
+in process for automated tests and sends no external message. Replace that adapter with a real
+delivery service before enabling email verification for users outside the mock environment.
 
 ASP.NET Core's optimized static-asset endpoints serve the Vite output with build-time metadata and compression. A small pre-routing rewrite supplies `index.html` for client-owned, extensionless paths while reserving `/api`, `/auth`, `/health`, and `/openapi` for the server.
 
 ## Tests and containers
 
-Run the real-broker test after starting Fitz and Sqrzl:
+The real-broker tests start and tear down their own isolated Fitz and Sqrzl Compose stack:
 
 ```console
-docker compose up --detach storage broker
 dotnet test Compliance.slnx --configuration Release --filter "Category=BrokerIntegration"
-docker compose down --volumes
 ```
 
 CI runs formatting, TypeScript, lint, browser-auth unit tests, the .NET suite, and the real-broker test. It then builds and executes the Native AOT image on native AMD64 and ARM64 GitHub runners—without emulation—and exercises standalone, API, and worker modes.
