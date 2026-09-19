@@ -2,13 +2,27 @@
 
 ## Change workflow
 
-Backend work is tracked by a child issue under each product story or existing
-delivery slice. Give the child the parent's milestone and applicable dependencies;
-omit the UI-only M0-D24 blocker. Keep the product parent open for its browser
-acceptance criteria. Close the backend child only after linking its merged PR,
-focused and full applicable test results, broker and split-host evidence, and
-exact-head CI checks. A previously merged PR can satisfy part of a child's
-criteria, but record the remaining gaps explicitly.
+For each validated product story or existing delivery slice entering delivery,
+track backend and frontend work in separate child issues under the product
+parent. Give both children the parent's milestone and record applicable
+dependencies explicitly. Backend children omit the UI-only M0-D24 blocker;
+frontend children depend on M0-D24 and the corresponding backend child. Keep
+the product parent open until both children and their integrated acceptance
+criteria are complete. Do not schedule delivery children for unvalidated P2
+hypotheses.
+For an upstream feature or enabler, link a backend child to its backend child;
+link a frontend child to an upstream frontend child when that browser workflow
+is required. Do not let a still-open product parent make backend work wait for
+UI completion.
+
+Close a backend child only after linking its merged PR, focused and full
+applicable test results, broker and split-host evidence, and exact-head CI
+checks. A previously merged PR can satisfy part of a child's criteria, but
+record the remaining gaps explicitly. Close a frontend child only after its
+accessible browser workflow, API integration, required UI states, focused
+browser tests, and applicable repository checks are evidenced by a merged PR.
+The frontend consumes backend contracts; it does not redefine authorization or
+domain policy.
 
 1. Open a branch for one reviewable backend capability. Bundle dependent child issues when they share contracts, canonical records, or acceptance tests. Keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
