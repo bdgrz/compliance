@@ -8,16 +8,29 @@ public interface IBoundaryReferenceValidator
         CancellationToken ct = default);
 }
 
-// Governed inventory readers replace this validator as their owning features arrive.
-// Until then, callers may preserve an explicit unresolved reference but cannot claim
-// that an arbitrary UUID identifies an approved inventory record.
-public sealed class PendingInventoryBoundaryReferenceValidator : IBoundaryReferenceValidator
+public sealed class GovernedBoundaryReferenceValidator(IClientServiceDirectoryReader services)
+    : IBoundaryReferenceValidator
 {
-    public ValueTask<Result> ValidateAsync(Uuid tenantId, BoundaryContent content,
-        CancellationToken ct = default) =>
-        ValueTask.FromResult(content?.Entries is not null && content.Entries.Any(
-            static entry => entry is { Unresolved: false })
-            ? Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "A governed scope reference requires its owning inventory to validate the record."))
-            : Result.Success);
+    public async ValueTask<Result> ValidateAsync(Uuid tenantId, BoundaryContent content,
+        CancellationToken ct = default)
+    {
+        if (content?.Entries is null)
+            return Result.Success;
+        foreach (var entry in content.Entries.Where(static entry => entry is { Unresolved: false }))
+        {
+            if (entry.SubjectType != "service")
+                return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                    "A governed scope reference requires its owning inventory to validate the record."));
+            var service = entry.GovernedRecordId is { } id
+                ? await services.GetAsync(tenantId, id, ct).ConfigureAwait(false)
+                : null;
+            if (service is null)
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The governed service reference is not available in this tenant. Retry after projection catches up."));
+            if (service.Status != "active")
+                return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                    "The governed service reference is not active."));
+        }
+        return Result.Success;
+    }
 }

@@ -112,6 +112,31 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 Assert.Equal("Split program revised", projected?.Name);
                 Assert.Equal(2, projected?.Revision);
 
+                var servicesPath = $"/api/v1/tenants/{tenant.TenantId}/client-services";
+                using var serviceCreated = await owner.PostAsJsonAsync(servicesPath, new
+                {
+                    name = "Service A",
+                    purpose = "Handle customer requests",
+                    owner_reference = "Operations",
+                });
+                Assert.Equal(HttpStatusCode.OK, serviceCreated.StatusCode);
+                var service = await serviceCreated.Content
+                    .ReadFromJsonAsync<ClientServiceRegistrationDocument>();
+                Assert.NotNull(service);
+                ClientServiceDocument? serviceView = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync($"{servicesPath}/{service.ServiceId}");
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        serviceView = await response.Content.ReadFromJsonAsync<ClientServiceDocument>();
+                        if (serviceView?.Status == "active")
+                            break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.Equal("active", serviceView?.Status);
+
                 var boundariesPath = $"{programPath}/boundaries";
                 using var boundaryCreated = await owner.PostAsJsonAsync(boundariesPath, new
                 {
@@ -128,10 +153,10 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                                 kind = "inclusion",
                                 subject_type = "service",
                                 subject = "Service A",
-                                governed_record_id = (string?)null,
+                                governed_record_id = service.ServiceId,
                                 owner_reference = "Compliance lead",
                                 rationale = "It handles customer requests.",
-                                unresolved = true,
+                                unresolved = false,
                             },
                         },
                     },
@@ -374,6 +399,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
 
     sealed record TenantRegistrationDocument([property: JsonPropertyName("tenant_id")] string TenantId);
     sealed record ProgramRegistrationDocument([property: JsonPropertyName("program_id")] string ProgramId);
+    sealed record ClientServiceRegistrationDocument(
+        [property: JsonPropertyName("service_id")] string ServiceId);
+    sealed record ClientServiceDocument(string Status);
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("draft_version_id")] string DraftVersionId);

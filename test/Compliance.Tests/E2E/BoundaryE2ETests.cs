@@ -142,7 +142,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 },
             },
         });
-        Assert.Equal(HttpStatusCode.BadRequest, unsupportedGovernedLink.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, unsupportedGovernedLink.StatusCode);
         var draftPath = $"{boundaryPath}/drafts/{registration.DraftVersionId}";
         using var initialPreviewResponse = await owner.GetAsync(
             $"{draftPath}/impact-preview?expected_revision=1");

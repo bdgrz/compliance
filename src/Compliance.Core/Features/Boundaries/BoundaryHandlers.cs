@@ -208,7 +208,8 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, TimeProvi
 }
 
 public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
-    BoundaryImpactService impact, TimeProvider clock)
+    BoundaryImpactService impact, IBoundaryDirectoryReader boundaries,
+    IBoundaryReferenceValidator references, TimeProvider clock)
     : IRequestHandler<ApproveBoundary>
 {
     public async ValueTask<Result> HandleAsync(IRequestContext<ApproveBoundary> context,
@@ -227,6 +228,16 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
         if (!StringComparer.Ordinal.Equals(request.ImpactDigest, preview.Value.Digest))
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The impact preview changed. Reload it before approval."));
+        var boundaryView = await boundaries.GetAsync(request.TenantId, request.BoundaryId, ct)
+            .ConfigureAwait(false);
+        if (boundaryView?.Draft is not { } draft ||
+            draft.VersionId != request.DraftVersionId || draft.Revision != request.ExpectedRevision)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The boundary draft changed. Reload it before approval."));
+        var referenceValidation = await references.ValidateAsync(request.TenantId, draft.Content, ct)
+            .ConfigureAwait(false);
+        if (!referenceValidation.IsSuccess)
+            return referenceValidation;
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");

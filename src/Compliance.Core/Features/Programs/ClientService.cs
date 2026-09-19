@@ -1,0 +1,82 @@
+using Cntryl.Portia;
+
+namespace Bdgrz.Compliance.Features.Programs;
+
+public sealed class ClientService : Aggregate
+{
+    readonly Uuid _tenantId;
+    bool _created;
+    bool _retired;
+    long _revision;
+
+    public ClientService(Uuid tenantId, Uuid serviceId)
+        : base(serviceId, new EventStreamAddress(tenantId.ToString(), "client-services", serviceId.ToString()))
+    {
+        _tenantId = tenantId;
+        On<ClientServiceCreated>(_ => { _created = true; _revision = 1; });
+        On<ClientServiceRevised>(ev => _revision = ev.Revision);
+        On<ClientServiceRetired>(ev => { _retired = true; _revision = ev.Revision; });
+    }
+
+    public Result<ClientServiceRegistration> Create(string name, string purpose,
+        string ownerReference, Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
+    {
+        if (_created)
+            return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
+        var error = Validate(name, purpose, ownerReference);
+        if (error is not null)
+            return Result<ClientServiceRegistration>.Failure(error);
+        RaiseEvent(new ClientServiceCreated(_tenantId, Id, name.Trim(), purpose.Trim(),
+            ownerReference.Trim(), actorMemberId, actorDisplay, changedAt));
+        return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
+    }
+
+    public Result Revise(long expectedRevision, string name, string purpose,
+        string ownerReference, Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
+    {
+        var error = CheckChange(expectedRevision);
+        if (error is not null)
+            return Result.Failure(error);
+        error = Validate(name, purpose, ownerReference);
+        if (error is not null)
+            return Result.Failure(error);
+        RaiseEvent(new ClientServiceRevised(_tenantId, Id, _revision + 1, name.Trim(),
+            purpose.Trim(), ownerReference.Trim(), actorMemberId, actorDisplay, changedAt));
+        return Result.Success;
+    }
+
+    public Result Retire(long expectedRevision, string rationale, Uuid actorMemberId,
+        string actorDisplay, DateTimeOffset changedAt)
+    {
+        var error = CheckChange(expectedRevision);
+        if (error is not null)
+            return Result.Failure(error);
+        if (string.IsNullOrWhiteSpace(rationale))
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "Retiring a service requires a rationale."));
+        RaiseEvent(new ClientServiceRetired(_tenantId, Id, _revision + 1, rationale.Trim(),
+            actorMemberId, actorDisplay, changedAt));
+        return Result.Success;
+    }
+
+    RequestError? CheckChange(long expectedRevision)
+    {
+        if (!_created)
+            return new RequestError(RequestErrorKind.NotFound, "The service was not found.");
+        if (_retired)
+            return new RequestError(RequestErrorKind.Conflict, "The service is retired.");
+        return expectedRevision == _revision ? null : new RequestError(RequestErrorKind.Conflict,
+            "The service changed. Reload it before revising.");
+    }
+
+    static RequestError? Validate(string name, string purpose, string ownerReference)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return new RequestError(RequestErrorKind.Validation, "A service requires a name.");
+        if (string.IsNullOrWhiteSpace(purpose))
+            return new RequestError(RequestErrorKind.Validation, "A service requires a purpose.");
+        if (string.IsNullOrWhiteSpace(ownerReference))
+            return new RequestError(RequestErrorKind.Validation, "A service requires an owner reference.");
+        return null;
+    }
+}

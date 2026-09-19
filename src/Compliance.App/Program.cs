@@ -62,6 +62,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateClientService>()
+        .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
+        .AddMcpTool<RetireClientService>(tool => tool.Destructive())
+        .AddMcpTool<GetClientService>(tool => tool.ReadOnly())
+        .AddMcpTool<ListClientServices>(tool => tool.ReadOnly())
+        .AddMcpTool<ListClientServiceRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateBoundary>()
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
         .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
@@ -218,6 +224,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenantId}/programs/{programId}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
+            "/api/v1/tenants/{tenantId}/client-services")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaPut<ReviseClientService>(
+            "/api/v1/tenants/{tenantId}/client-services/{serviceId}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaPost<RetireClientService>(
+            "/api/v1/tenants/{tenantId}/client-services/{serviceId}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<GetClientService, ClientServiceView>(
+            "/api/v1/tenants/{tenantId}/client-services/{serviceId}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<ListClientServices, Page<ClientServiceView>>(
+            "/api/v1/tenants/{tenantId}/client-services")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<ListClientServiceRevisions, Page<ClientServiceRevisionView>>(
+            "/api/v1/tenants/{tenantId}/client-services/{serviceId}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
     app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
             "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

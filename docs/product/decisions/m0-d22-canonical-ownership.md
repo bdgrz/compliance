@@ -20,8 +20,12 @@ source `Account`, and `SystemInstance`. These choices follow that model and
 remove duplicate ownership. Cross-context references use tenant ID, stable
 record ID, and an exact version when a decision or snapshot relies on one.
 Before an owning inventory exists, a boundary may keep a typed unresolved
-reference with its owner and rationale. It must not claim that an arbitrary
-UUID is a governed inventory record; the backend currently rejects that claim.
+reference with its owner and rationale. The R1-02 backend bundle adds a
+tenant-scoped `ClientService` register and checks active service IDs before a
+boundary draft can cite them. Other subject types still require unresolved
+references until their owning inventories arrive. `OwnerReference` is a
+user-supplied attribution field; M0-D06 must settle authoritative workforce
+and ownership validation before it can be treated as a verified owner identity.
 
 No physical migration is implied by these names. Existing data and APIs, if
 any, require a history-preserving adapter or migration before a rename. The
