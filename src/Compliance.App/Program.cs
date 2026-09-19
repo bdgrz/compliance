@@ -220,59 +220,59 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Programs");
     app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
             "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<ListProgramBoundaries, Page<BoundaryView>>(
             "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPut<ReviseBoundaryDraft>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<DiscardBoundaryDraft>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/discards")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundary, BoundaryView>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundaryVersion, BoundaryVersionView>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/versions/{versionId}")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<ListBoundaryVersions, Page<BoundaryVersionView>>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/versions")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetEffectiveBoundaryVersion, BoundaryVersionView>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/effective-version")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundaryDecision, BoundaryDecisionView>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/decisions/{decisionId}")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<ListBoundaryDecisions, Page<BoundaryDecisionView>>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/decisions")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/impact-preview")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ReviewBoundary>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/reviews")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ApproveBoundary>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/approvals")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ProposeBoundarySuccessor, BoundaryRegistration>(
             "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/successors")
-        .RequireAuthorization()
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
