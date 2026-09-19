@@ -36,6 +36,12 @@ the R1-15 backend proof before starting another feature, then follow actual
 dependencies through R1, R2, T1, T2, T3, and F1. An unvalidated P2 hypothesis
 stays visible and unscheduled.
 
+Use one PR for a reviewable backend capability that may satisfy several
+dependent issue children. Keep separate acceptance evidence for each child and
+close each only when its own backend criteria pass. The first bundle tracks
+R1-15, EN-01, and R1-01 in #152, #157, and #158. Avoid PRs that deliver only
+one test or one technical layer of that capability.
+
 ## Evidence levels
 
 - Confirmed: directly supported by the target customer statement in this product conversation.
