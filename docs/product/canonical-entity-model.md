@@ -203,15 +203,16 @@ may report an unresolved target, but no governed relationship is asserted
 until the target is resolved. Labels and contact values are mutable display
 attributes and cannot be foreign keys.
 
-For all tenant records, `id`, `tenant_id`, `created_at`, and lifecycle state are
-required. Creation and retirement retain actor, time, and source. Optional
-fields in the tables above remain optional; a blank string is not a substitute
-for a missing value. A record may be `active`, `inactive`, or `retired`; source
-observations additionally have `unresolved` and `superseded` states. Retirement
-does not delete identity, source attribution, or references captured in a
-historical decision. Domain-specific lifecycles refine these states in the
-owning story; this vocabulary does not imply a workflow transition or command
-boundary.
+For all tenant-owned governed records, `id`, `tenant_id`, `created_at`, and
+lifecycle state are required. Creation and retirement retain actor, time, and
+source. Optional fields in the tables above remain optional; a blank string is
+not a substitute for a missing value. `active`, `inactive`, and `retired` are
+common governed-record states, not a mandatory transition sequence. An
+`Observation` is immutable; `unresolved` or `superseded` describes its
+reconciliation, not a mutation of the observation. Retirement does not delete
+identity, source attribution, or references captured in a historical decision.
+Domain-specific lifecycles refine these states in the owning story; this
+vocabulary does not imply a workflow transition or command boundary.
 
 ### Minimum entity fields
 
@@ -296,7 +297,7 @@ distinct relationships or separately attributed, conflicting observations.
 | Person correlation | `Person` 0..* identities, platform users, and accounts; each correlated identity/account 0..1 person | Correlation is explicit, revocable, and tenant-scoped; neither email nor name proves it. |
 | Tenant membership | `Membership` 1 `PlatformUser`, 1 `Organization`; each endpoint 0..* over history | At most one active membership for the same user and organization; suspension revokes effective access immediately. |
 | Team membership | `Team` 1 organization, 0..* memberships; member 1 `Membership` | Team and membership belong to the same tenant; membership intervals cannot outlive the tenant affiliation. |
-| Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; a global user reference alone grants no tenant role. |
+| Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; effective tenant access requires an active membership even when the subject is a global user. |
 | Application deployment | `SystemInstance` 1 `Application`; application 0..* instances | Instance is tenant-owned; provider and operator are separately attributable references. |
 | Integration connection | `IntegrationEndpoint` 1 `SystemInstance`, 1 connector type; instance 0..* endpoints | Credential reference names a secret location, never secret bytes; a connector's authority is explicit. |
 | Service boundary | `ClientService` 0..* system instances, providers, locations, processes, and information assets | Inclusion is an effective-dated scope assertion, not ownership transfer; references stay tenant-local. |
@@ -312,7 +313,7 @@ distinct relationships or separately attributed, conflicting observations.
 | Source group membership | `GroupMember` 1 `Group`, 1 member (`Account`, `Group`, or supported `ServiceIdentity`) | Member kind is explicit; nested cycles are retained as incomplete expansion, not flattened truth. |
 | External role permission | `RoleEntitlement` 1 `Role`, 1 `Entitlement`; each endpoint 0..* edges | Both endpoints belong to the same system instance unless the source explicitly models a cross-instance grant. |
 | Direct access grant | `AccessAssignment` 1 grantee (`Account` or `ServiceIdentity`), 1 grantable (`Group`, `Role`, or `Entitlement`), 0..1 `Resource` | Grant is direct and attributed; derived `EffectiveAccess` includes every contributing edge and a completeness status. |
-| Source identity | `ExternalIdentifier` 1 canonical entity, 1 `SourceSystem`; entity 0..* identifiers | Source namespace, object type, and value are required; reuse over time is represented with separate intervals. |
+| Source identity | `ExternalIdentifier` 1 canonical entity, 1 `SourceSystem`; entity 0..* identifiers | Source namespace, object type, and value are required; one tuple cannot identify two active entities in the same interval. Reuse over time is represented with separate intervals. |
 | Source assertion | `Observation` 1 `SourceSystem`, 1 source record; source 0..* observations | Payload identity and observed time are required; no silent promotion to a governed fact. |
 | Incident source reference | `IncidentReference` 1 `SourceSystem`, 1 source incident ID; source 0..* references | Occurrence and observation times are distinct; the reference is not an approved internal incident record. |
 | Correlation decision | `Correlation` 2 typed records and 1 decision actor or source | Records may disagree; status and effective time preserve reversal history. |
