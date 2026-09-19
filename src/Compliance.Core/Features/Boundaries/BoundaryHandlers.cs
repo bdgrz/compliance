@@ -56,6 +56,25 @@ public sealed class ReviseBoundaryDraftHandler(IAggregateExecutor executor,
     }
 }
 
+public sealed class DiscardBoundaryDraftHandler(IAggregateExecutor executor,
+    TimeProvider clock) : IRequestHandler<DiscardBoundaryDraft>
+{
+    public ValueTask<Result> HandleAsync(IRequestContext<DiscardBoundaryDraft> context,
+        CancellationToken ct)
+    {
+        var request = context.Request;
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
+        return executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
+            boundary => AggregateOutcome.CommitOnSuccess(boundary.DiscardDraft(
+                request.DraftVersionId, request.ExpectedRevision, request.Rationale,
+                RbacIds.Member(request.TenantId, userId),
+                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+            context, ct);
+    }
+}
+
 public sealed class GetBoundaryHandler(IBoundaryDirectoryReader directory)
     : IRequestHandler<GetBoundary, BoundaryView>
 {
@@ -68,6 +87,24 @@ public sealed class GetBoundaryHandler(IBoundaryDirectoryReader directory)
             ? Result<BoundaryView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The boundary was not found."))
             : Result<BoundaryView>.Success(view);
+    }
+}
+
+public sealed class ListProgramBoundariesHandler(IBoundaryDirectoryReader directory,
+    IProgramDirectoryReader programs)
+    : IRequestHandler<ListProgramBoundaries, Page<BoundaryView>>
+{
+    public async ValueTask<Result<Page<BoundaryView>>> HandleAsync(
+        IRequestContext<ListProgramBoundaries> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (await programs.GetAsync(request.TenantId, request.ProgramId, ct)
+                .ConfigureAwait(false) is null)
+            return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program was not found."));
+        var page = await directory.ListProgramAsync(request.TenantId, request.ProgramId,
+            request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        return Result<Page<BoundaryView>>.Success(page);
     }
 }
 

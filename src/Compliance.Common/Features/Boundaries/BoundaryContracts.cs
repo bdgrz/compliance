@@ -56,6 +56,11 @@ public sealed record ReviseBoundaryDraft(Uuid TenantId, Uuid BoundaryId, Uuid Dr
     long ExpectedRevision, BoundaryContent Content)
     : IRequest, IBoundaryAuthoringRequest, ICallable;
 
+[Discriminator("bdgrz.boundary.draft.discard", 1)]
+public sealed record DiscardBoundaryDraft(Uuid TenantId, Uuid BoundaryId,
+    Uuid DraftVersionId, long ExpectedRevision, string Rationale)
+    : IRequest, IBoundaryAuthoringRequest, ICallable;
+
 [Discriminator("bdgrz.boundary.review", 1)]
 public sealed record ReviewBoundary(Uuid TenantId, Uuid BoundaryId, Uuid DraftVersionId,
     long ExpectedRevision, string Outcome, string Rationale)
@@ -74,6 +79,11 @@ public sealed record ProposeBoundarySuccessor(Uuid TenantId, Uuid BoundaryId,
 [Discriminator("bdgrz.boundary.get", 1)]
 public sealed record GetBoundary(Uuid TenantId, Uuid BoundaryId)
     : IRequest<BoundaryView>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.boundary.program.list", 1)]
+public sealed record ListProgramBoundaries(Uuid TenantId, Uuid ProgramId,
+    int? Limit = null, string? Cursor = null)
+    : IRequest<Page<BoundaryView>>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.version.get", 1)]
 public sealed record GetBoundaryVersion(Uuid TenantId, Uuid BoundaryId, Uuid VersionId)
@@ -112,6 +122,11 @@ public sealed record BoundaryDraftCreated(Uuid TenantId, Uuid BoundaryId, Uuid P
 public sealed record BoundaryDraftRevised(Uuid TenantId, Uuid BoundaryId,
     Uuid DraftVersionId, long Revision, BoundaryContent Content, Uuid AuthorMemberId,
     string AuthorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+
+[Discriminator("bdgrz.boundary.draft.discarded", 1)]
+public sealed record BoundaryDraftDiscarded(Uuid TenantId, Uuid BoundaryId,
+    Uuid DraftVersionId, long Revision, Uuid ActorMemberId,
+    string ActorDisplay, string Rationale, DateTimeOffset DiscardedAt) : DomainEvent;
 
 [Discriminator("bdgrz.boundary.reviewed", 1)]
 public sealed record BoundaryReviewed(Uuid TenantId, Uuid BoundaryId, Uuid DraftVersionId,

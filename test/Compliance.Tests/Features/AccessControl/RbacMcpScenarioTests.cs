@@ -44,8 +44,10 @@ public sealed class RbacMcpScenarioTests
         _ = await scenario.ListTools().ExpectExactly(
             "bdgrz.boundary.create",
             "bdgrz.boundary.draft.revise",
+            "bdgrz.boundary.draft.discard",
             "bdgrz.boundary.successor.propose",
             "bdgrz.boundary.get",
+            "bdgrz.boundary.program.list",
             "bdgrz.boundary.version.get",
             "bdgrz.boundary.version.effective.get",
             "bdgrz.boundary.versions.list",

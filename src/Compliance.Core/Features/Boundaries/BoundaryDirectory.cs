@@ -8,6 +8,8 @@ public interface IBoundaryDirectoryReader
 {
     ValueTask<BoundaryView?> GetAsync(Uuid tenantId, Uuid boundaryId,
         CancellationToken ct = default);
+    ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+        int limit, string? cursor, CancellationToken ct = default);
     ValueTask<BoundaryVersionView?> GetVersionAsync(Uuid tenantId, Uuid boundaryId,
         Uuid versionId, CancellationToken ct = default);
     ValueTask<Page<BoundaryVersionView>?> ListVersionsAsync(Uuid tenantId, Uuid boundaryId,
@@ -48,10 +50,14 @@ static class BoundaryDirectorySchema
         static decision => decision.DecisionId,
         static decisionId => [decisionId.ToString()], [DecisionsByBoundary]);
 
+    public static readonly KvDirectoryIndex<BoundaryView> ByProgram = new(
+        "by_program", 1, static boundary =>
+            [boundary.ProgramId.ToString(), boundary.BoundaryId.ToString()]);
+
     public static readonly KvDirectory<BoundaryView, Uuid> Directory = new(
         "boundaries", ComplianceCoreJsonContext.Default.BoundaryView,
         static boundary => boundary.BoundaryId,
-        static boundaryId => [boundaryId.ToString()], []);
+        static boundaryId => [boundaryId.ToString()], [ByProgram]);
 }
 
 sealed class FitzBoundaryDirectory(IKvClient client)
@@ -91,6 +97,22 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                         },
                         LatestDecision = null,
                     }, ct).ConfigureAwait(false);
+                break;
+            case BoundaryDraftDiscarded discarded:
+                var discardedCurrent = await BoundaryDirectorySchema.Directory.GetAsync(Transaction,
+                    discarded.BoundaryId, ct).ConfigureAwait(false);
+                if (discardedCurrent?.Draft is null ||
+                    discardedCurrent.Draft.VersionId != discarded.DraftVersionId ||
+                    discardedCurrent.Draft.Revision != discarded.Revision)
+                    throw new InvalidOperationException(
+                        "A draft discard cannot project before its exact draft revision.");
+                if (discardedCurrent.LatestApprovedVersion is null)
+                    await BoundaryDirectorySchema.Directory.DeleteAsync(Transaction,
+                        discardedCurrent, ct).ConfigureAwait(false);
+                else
+                    await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction,
+                        discardedCurrent, discardedCurrent with { Draft = null }, ct)
+                        .ConfigureAwait(false);
                 break;
             case BoundaryReviewed reviewed:
                 var reviewedCurrent = await BoundaryDirectorySchema.Directory.GetAsync(Transaction,
@@ -174,6 +196,15 @@ sealed class FitzBoundaryDirectory(IKvClient client)
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         return await BoundaryDirectorySchema.Directory.GetAsync(tx, boundaryId, ct)
             .ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId,
+        Uuid programId, int limit, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await BoundaryDirectorySchema.Directory.QueryAsync(tx,
+            BoundaryDirectorySchema.ByProgram.Query().WithPrefix(programId.ToString())
+                .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
     }
 
     public async ValueTask<BoundaryVersionView?> GetVersionAsync(Uuid tenantId,

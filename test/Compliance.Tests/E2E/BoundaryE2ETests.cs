@@ -111,6 +111,14 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal(registration.DraftVersionId, projected?.Draft?.VersionId);
         Assert.Equal("Service A handles customer work.", projected?.Draft?.Content.Statement);
+        using var programBoundaries = await owner.GetAsync(path);
+        Assert.Equal(HttpStatusCode.OK, programBoundaries.StatusCode);
+        var boundaryList = await programBoundaries.Content
+            .ReadFromJsonAsync<BoundaryPageDocument>();
+        Assert.Equal(registration.BoundaryId,
+            Assert.Single(boundaryList?.Items ?? []).BoundaryId);
+        using var deniedList = await outsider.GetAsync(path);
+        Assert.Equal(HttpStatusCode.NotFound, deniedList.StatusCode);
         using var unsupportedGovernedLink = await owner.PostAsJsonAsync(path, new
         {
             content = new
@@ -340,6 +348,51 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         using var deniedDecisions = await outsider.GetAsync($"{boundaryPath}/decisions");
         Assert.Equal(HttpStatusCode.NotFound, deniedDecisions.StatusCode);
 
+        using var secondTenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
+        {
+            name = "Other boundary tenant",
+            slug = $"other-boundary-{Guid.NewGuid():N}"[..24],
+        });
+        Assert.Equal(HttpStatusCode.OK, secondTenantResponse.StatusCode);
+        var secondTenant = await secondTenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
+        Assert.NotNull(secondTenant);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(
+                $"/api/v1/tenants/{secondTenant.TenantId}");
+            if (response.StatusCode == HttpStatusCode.OK)
+                break;
+            await Task.Delay(250);
+        }
+        using var crossTenantBoundary = await owner.GetAsync(
+            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}");
+        using var crossTenantList = await owner.GetAsync(
+            $"/api/v1/tenants/{secondTenant.TenantId}/programs/{program.ProgramId}/boundaries");
+        using var crossTenantVersion = await owner.GetAsync(
+            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}/versions/{registration.DraftVersionId}");
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantBoundary.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantList.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantVersion.StatusCode);
+
+        using var discardedSuccessorResponse = await owner.PostAsJsonAsync(
+            $"{boundaryPath}/successors", new
+            {
+                expected_approved_version_id = registration.DraftVersionId,
+                content,
+            });
+        Assert.Equal(HttpStatusCode.OK, discardedSuccessorResponse.StatusCode);
+        var discardedSuccessor = await discardedSuccessorResponse.Content
+            .ReadFromJsonAsync<BoundaryRegistrationDocument>();
+        Assert.NotNull(discardedSuccessor);
+        using var discarded = await owner.PostAsJsonAsync(
+            $"{boundaryPath}/drafts/{discardedSuccessor.DraftVersionId}/discards", new
+            {
+                expected_revision = 1,
+                rationale = "This draft was opened by mistake.",
+            });
+        Assert.Equal(HttpStatusCode.NoContent, discarded.StatusCode);
+
         using var successorResponse = await owner.PostAsJsonAsync($"{boundaryPath}/successors", new
         {
             expected_approved_version_id = registration.DraftVersionId,
@@ -397,6 +450,13 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.NotNull(successorDecision);
+        using var reviewedDiscard = await owner.PostAsJsonAsync(
+            $"{successorDraft}/discards", new
+            {
+                expected_revision = 1,
+                rationale = "A reviewed version must remain in history.",
+            });
+        Assert.Equal(HttpStatusCode.Conflict, reviewedDiscard.StatusCode);
         using var incompleteApproval = await reviewer.PostAsJsonAsync($"{successorDraft}/approvals", new
         {
             expected_revision = 1,
@@ -414,8 +474,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("draft_version_id")] string DraftVersionId);
     sealed record BoundaryDocument(BoundaryVersionDocument? Draft,
+        [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("latest_approved_version")] BoundaryVersionDocument? LatestApprovedVersion,
         [property: JsonPropertyName("latest_decision")] BoundaryDecisionDocument? LatestDecision);
+    sealed record BoundaryPageDocument(IReadOnlyList<BoundaryDocument> Items);
     sealed record BoundaryVersionDocument(
         [property: JsonPropertyName("version_id")] string VersionId,
         long Revision, BoundaryContentDocument Content, string Status,
