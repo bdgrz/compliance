@@ -28,6 +28,15 @@ Only sources in its approved register may shape this model. Sources whose use
 has not been cleared for this Apache-2.0 product are excluded rather than used
 as informal inspiration.
 
+The standards names in the entity tables refer to the exact editions linked
+under [Standards references](#standards-references). `SCIM` means RFC 7643
+(and RFC 7644 only for protocol behavior), `OpenID Connect` means Core 1.0
+incorporating errata set 2, `NIST RBAC` means NIST IR 6192, `W3C PROV` means
+the April 2013 PROV-O Recommendation, `IETF hardware model` means RFC 8348,
+and `Redfish` means the tagged 2026.2 schema repository. A table entry labeled
+as an original product decision is not a standards-conformance claim. No
+schema, standard prose, or test corpus is copied into this catalog.
+
 ## Modeling principles
 
 1. A real person, their relationship to an organization, their login identity,
@@ -89,6 +98,7 @@ such as control owner and policy approver.
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
 | `Application` | A logical software product or service the organization uses, develops, or supplies. | canonical name, description, delivery model, publisher/provider, business owner, lifecycle, criticality, classifications | IT/application portfolio concept; no broadly adopted interchange standard fully defines this inventory |
+| `ClientService` | A client offering or operated service system included or excluded by a program boundary. It is not a software application or the firm's service engagement. | tenant, stable name, owner, purpose, lifecycle, boundary references | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 | `SystemInstance` | A concrete deployable, administrative, tenancy, account, subscription, or environment boundary of an application. This replaces ambiguous uses of `ReviewedSystem`. | application, environment, owning organization, operator/provider, region, source identifiers, lifecycle | Provider-neutral configuration-item pattern; SCIM service-provider boundary where applicable |
 | `Resource` | An object or resource collection protected by a system instance. | system instance, type, parent resource, source identifiers, sensitivity, lifecycle | NIST RBAC object; provider-specific resource kinds remain extensions |
 | `IntegrationEndpoint` | A configured connection through which the platform observes or manages a system instance. | system instance, connector type/version, authority, capabilities, health, credential reference | Operational integration record, not the system itself |
@@ -103,12 +113,14 @@ state, not an entity type.
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
 | `Device` | Independently managed physical equipment or appliance, such as a server, switch, router, firewall, endpoint, phone, printer, or storage appliance. | device kind, manufacturer, model, serial and asset identifiers, owner, custodian, location, lifecycle, management state | IETF hardware model and BSD-licensed Redfish schemas |
-| `DeviceComponent` | A physical component contained by a device. | device, component class, parent component, manufacturer, model, serial number, firmware, state | IETF RFC 8348 hardware component and IANA hardware classes |
+| `DeviceComponent` | A physical component contained by a device. | device, component class, parent component, manufacturer, model, serial number, firmware, state | IETF RFC 8348 hardware component; product-defined class vocabulary |
 | `ComputeInstance` | A logical compute environment such as a virtual machine, bare-metal OS instance, container host, or material serverless environment. | host, provider identifiers, environment, operating system, lifecycle, state | BSD-licensed Redfish computer-system schema where applicable; otherwise original provider-neutral vocabulary |
 | `NetworkInterface` | A physical or logical network attachment belonging to a device or compute instance. | parent, interface type, source identifiers, MAC addresses, administrative and operational state | IETF hardware model and BSD-licensed Redfish interface schemas |
-| `Network` | A governed logical network, segment, or zone. | environment, prefixes, classification, owner, lifecycle | IETF network-management concepts; provider-neutral inventory projection |
+| `Network` | A governed logical network, segment, or zone. | environment, prefixes, classification, owner, lifecycle | Original product decision; provider-neutral inventory projection |
 | `NetworkConnection` | A declared or observed topology relationship between interfaces or network endpoints. | typed endpoints, source, effective/observed interval, state | Relationship derived from network-management sources |
 | `SoftwareInstallation` | An effective-dated relationship showing software or firmware installed on a device, component, or compute instance. | installation target, application or software release, version, source, observed/effective interval | Software inventory relationship; source-specific package identifiers remain extensions |
+| `Location` | A physical site, hosting region, or other governed place relevant to the scoped service system. It is distinct from a device or provider. | tenant, type, name, geography or source reference, owner, lifecycle | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
+| `OperationalProcess` | A governed system activity or data-handling process used in scope and system description; it is distinct from a written policy procedure. | tenant, purpose, owner, inputs/outputs, lifecycle, source | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 
 A physical server or switch is a `Device`; a virtual machine is a
 `ComputeInstance`; software is an `Application`; and a concrete deployed
@@ -116,12 +128,19 @@ application boundary remains a `SystemInstance`. Hosting, installation, and
 network topology are relationships among those independently identified
 entities.
 
+### Information and providers
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `InformationAsset` | A governed class or collection of information handled by the client service system, separate from a file used as evidence. | tenant, name, classification, owner, origin, permitted uses, retention reference, lifecycle | Original product decision; source-specific classifications remain observations |
+| `Provider` | A vendor or subservice organization on which a client service depends. It is distinct from a source-system adapter and from the firm serving the client. | tenant, legal/display name, services supplied, owner, criticality, boundary treatment, lifecycle | Original product decision; provider reports retain their own source wording and scope |
+
 ### External identity and access
 
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
 | `Account` | A system-local identity record that may authenticate or receive access. | system instance, immutable source ID, username, account type, enabled state, lifecycle timestamps, optional subject correlation | SCIM User resource and common IAM account semantics |
-| `ServiceIdentity` | A governed non-human subject such as a workload, service, automation, bot, or integration. | type, purpose, owning organization, accountable owner, environment, lifecycle, review/expiry dates | NIST user may represent a human or machine; provider workload/service-principal types map here when they represent the subject |
+| `ServiceIdentity` | A governed non-human subject such as a workload, service, automation, bot, or integration. | type, purpose, owning organization, accountable owner, environment, lifecycle, review/expiry dates | Original product distinction; provider workload/service-principal types map here when they represent the subject |
 | `Group` | A source-system collection of accounts, groups, or other principals. | system instance, immutable source ID, display name, type, lifecycle | SCIM Group, including nested membership |
 | `GroupMember` | One direct group-to-member relationship. | group, typed member reference, membership kind, source, effective/observed interval, lifecycle | SCIM Group `members`; nesting is explicit rather than flattened |
 | `Role` | A source-system role: a named collection of entitlements or permissions. | system instance, source ID, role type, hierarchy, lifecycle | NIST RBAC role |
@@ -152,6 +171,8 @@ placed inside a `Group` aggregate is deliberately unspecified here.
 | `Observation` | An immutable assertion made by a source about an entity or relationship at a time. | source, source record ID/version, observed time, payload identity, normalized assertions | W3C PROV Entity generated by an Activity and attributed to an Agent |
 | `Correlation` | An attributable assertion that two records represent or relate to the same governed subject, with confidence and status. | left/right records, method, confidence, decision, actor, time | Explicit reconciliation extension; never inferred solely from email or display name |
 | `Snapshot` | An immutable set of records and relationships used for a campaign, decision, or audit period. | definition, cutoff/as-of time, source completeness, content identity, rows, amendment chain | W3C PROV collection/derivation concepts |
+| `IncidentReference` | An attributable reference to a source incident used for risk reassessment before the governed operating-period incident workflow exists. | tenant, source system and ID, occurrence time, summary, observation time, attribution | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
+| `ControlRiskTreatment` | A reviewed assertion that an exact control version addresses a specific risk and treatment decision. | tenant, risk, control version, rationale, reviewer, effective interval | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 
 All records use both transaction and valid-time concepts where the distinction
 matters:
@@ -269,9 +290,12 @@ migrations are defined.
 - [RFC 7643: SCIM Core Schema](https://www.rfc-editor.org/rfc/rfc7643)
 - [RFC 7644: SCIM Protocol](https://www.rfc-editor.org/rfc/rfc7644)
 - [OpenID Connect Core 1.0](https://openid.net/specs/openid-connect-core-1_0.html)
-- [NIST Role-Based Access Control](https://csrc.nist.gov/projects/role-based-access-control)
-- [NIST SP 800-162: Attribute Based Access Control](https://csrc.nist.gov/pubs/sp/800/162/upd2/final)
-- [W3C PROV Overview](https://www.w3.org/TR/prov-overview/)
-- [W3C PROV-O](https://www.w3.org/TR/prov-o/)
+- [NIST IR 6192: A Revised Model for Role Based Access Control, July 1998](https://csrc.nist.gov/pubs/ir/6192/final)
+- [W3C PROV-O Recommendation, April 2013](https://www.w3.org/TR/2013/REC-prov-o-20130430/)
 - [RFC 8348: A YANG Data Model for Hardware Management](https://www.rfc-editor.org/rfc/rfc8348)
-- [DMTF Redfish schema index](https://redfish.dmtf.org/redfish/schema_index)
+- [DMTF Redfish-Publications 2026.2](https://github.com/DMTF/Redfish-Publications/tree/2026.2), release commit `4f81814e399213c9055863ddaff42791c6b3706a`
+
+NIST SP 800-162 update 2 is excluded by the source register pending clearance
+of its mixed-author material. The Redfish repository is reference material
+here; no schema is bundled. Product-specific entities and relationships in
+this catalog remain original decisions unless an exact mapping is stated.
