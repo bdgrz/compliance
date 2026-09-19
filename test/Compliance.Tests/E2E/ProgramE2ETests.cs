@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -100,6 +101,11 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal("Split program", projected?.Name);
+                using var initialSetupResponse = await owner.GetAsync($"{programPath}/setup-work");
+                Assert.Equal(HttpStatusCode.OK, initialSetupResponse.StatusCode);
+                var initialSetup = await initialSetupResponse.Content
+                    .ReadFromJsonAsync<ProgramSetupDocument>();
+                Assert.Contains(initialSetup?.Items ?? [], item => item.Code == "define_system_boundary");
                 using var revised = await owner.PutAsJsonAsync(programPath,
                     new { expected_revision = 1, name = "Split program revised", plan });
                 Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
@@ -148,7 +154,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                         statement = "Split-host service boundary",
                         engagement_stage = "readiness",
                         trust_services_categories = new List<string> { "security" },
-                        entries = new[]
+                        entries = new object[]
                         {
                             new
                             {
@@ -160,6 +166,17 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                                 owner_reference = "Compliance lead",
                                 rationale = "It handles customer requests.",
                                 unresolved = false,
+                            },
+                            new
+                            {
+                                entry_id = Uuid.CreateVersion4().ToString(),
+                                kind = "assumption",
+                                subject_type = "provider",
+                                subject = "Pending hosting provider",
+                                governed_record_id = (string?)null,
+                                owner_reference = "Compliance lead",
+                                rationale = "Confirm provider scope before assessment.",
+                                unresolved = true,
                             },
                         },
                     },
@@ -182,6 +199,62 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal(boundary.DraftVersionId, boundaryView?.Draft?.VersionId);
+                ProgramSetupDocument? draftSetup = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync($"{programPath}/setup-work");
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        draftSetup = await response.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+                        if (draftSetup?.Items.Any(item => item.Code == "approve_system_boundary") == true)
+                            break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.Contains(draftSetup?.Items ?? [], item =>
+                    item.Code == "approve_system_boundary" && item.SourceId == boundary.BoundaryId);
+                Assert.Contains(draftSetup?.Items ?? [], item =>
+                    item.Code == "resolve_scope_references" && item.SourceId == boundary.BoundaryId);
+                Assert.DoesNotContain(draftSetup?.Items ?? [], item => item.Code == "define_system_boundary");
+                using var secondBoundaryCreated = await owner.PostAsJsonAsync(boundariesPath, new
+                {
+                    content = new
+                    {
+                        statement = "Second split-host boundary",
+                        engagement_stage = "readiness",
+                        trust_services_categories = SecurityCategory,
+                        entries = Array.Empty<object>(),
+                    },
+                });
+                Assert.Equal(HttpStatusCode.OK, secondBoundaryCreated.StatusCode);
+                ProgramSetupDocument? firstSetupPage = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync($"{programPath}/setup-work?boundary_limit=1");
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        firstSetupPage = await response.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+                        if (firstSetupPage?.NextBoundaryCursor is not null)
+                            break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.NotNull(firstSetupPage);
+                Assert.NotNull(firstSetupPage.NextBoundaryCursor);
+                using var nextSetupPageResponse = await owner.GetAsync(
+                    $"{programPath}/setup-work?boundary_limit=1&boundary_cursor=" +
+                    Uri.EscapeDataString(firstSetupPage.NextBoundaryCursor));
+                Assert.Equal(HttpStatusCode.OK, nextSetupPageResponse.StatusCode);
+                var nextSetupPage = await nextSetupPageResponse.Content
+                    .ReadFromJsonAsync<ProgramSetupDocument>();
+                Assert.Contains(nextSetupPage?.Items ?? [], item => item.Code == "approve_system_boundary");
+                Assert.DoesNotContain(nextSetupPage?.Items ?? [], item => item.Code == "define_system_boundary");
+                ProgramSetupDocument? allSetup = null;
+                using (var response = await owner.GetAsync($"{programPath}/setup-work"))
+                {
+                    allSetup = await response.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+                }
+                Assert.Contains(allSetup?.Items ?? [], item => item.Code == "identify_scoped_services");
 
                 using var otherProgramCreated = await owner.PostAsJsonAsync(path,
                     new { name = "Other program", plan });
@@ -293,6 +366,29 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal(["readiness", "type_i", "type_ii"],
             projected?.StagePlan.Select(stage => stage.Stage));
         Assert.Equal("Advisor A", projected?.Plan.ReadinessAdvisor);
+        using var setupResponse = await owner.GetAsync($"{programPath}/setup-work");
+        Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
+        var setup = await setupResponse.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+        Assert.Contains(setup?.Items ?? [], item => item.Code == "define_system_boundary");
+        using var deniedSetup = await outsider.GetAsync($"{programPath}/setup-work");
+        using var missingSetup = await outsider.GetAsync($"{path}/{Uuid.CreateVersion4()}/setup-work");
+        Assert.Equal(HttpStatusCode.NotFound, deniedSetup.StatusCode);
+        Assert.Equal(deniedSetup.StatusCode, missingSetup.StatusCode);
+        var setupToolInput = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId,
+            ["program_id"] = registration.ProgramId,
+        };
+        await using (var ownerMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await ownerMcp.When("bdgrz.program.setup-work.get", setupToolInput).ExpectSuccess();
+        }
+        await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+        {
+            _ = await outsiderMcp.When("bdgrz.program.setup-work.get", setupToolInput).ExpectFailure();
+        }
 
         using var denied = await outsider.GetAsync(programPath);
         using var missing = await outsider.GetAsync($"{path}/{Uuid.CreateVersion4()}");
@@ -455,4 +551,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("next_cursor")] string? NextCursor);
     sealed record ProgramRevisionDocument(long Revision, ProgramPlanDocument Plan,
         [property: JsonPropertyName("actor_display")] string ActorDisplay);
+    sealed record ProgramSetupDocument(IReadOnlyList<ProgramSetupItemDocument> Items,
+        [property: JsonPropertyName("next_boundary_cursor")] string? NextBoundaryCursor);
+    sealed record ProgramSetupItemDocument(string Code,
+        [property: JsonPropertyName("source_id")] string? SourceId);
 }

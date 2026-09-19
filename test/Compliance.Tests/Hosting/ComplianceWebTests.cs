@@ -183,6 +183,8 @@ public sealed class ComplianceWebTests
         var paths = document.RootElement.GetProperty("paths");
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
             .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
