@@ -1,19 +1,28 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json.Serialization;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 
 public sealed class UserIdentityContinuationWebTests
 {
+    const string SessionSecret = "bdgrz-test-session-signing-key-000001";
+    const string ProviderSecret = "oidc-provider-test-signing-key-000001";
+
     [Fact]
     public async Task ShouldRequireAuthenticationGivenOidcContinuation()
     {
@@ -49,6 +58,40 @@ public sealed class UserIdentityContinuationWebTests
 
         // Assert
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldLinkOnlyWithSessionAndProviderProofGivenExternalAuthentication()
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+        var firstUserId = Uuid.CreateVersion4();
+        var secondUserId = Uuid.CreateVersion4();
+        var providerToken = Token("https://issuer.example/", "compliance-api",
+            ProviderSecret, "provider-subject");
+
+        // Act
+        using var providerOnly = await PostLinkAsync(client, providerToken, null);
+        using var sessionOnly = await PostLinkAsync(client, null,
+            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
+        using var linked = await PostLinkAsync(client, providerToken,
+            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
+        using var replayed = await PostLinkAsync(client, providerToken,
+            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
+        using var taken = await PostLinkAsync(client, providerToken,
+            Token("bdgrz", "bdgrz-browser", SessionSecret, secondUserId.ToString()));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, providerOnly.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, sessionOnly.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, replayed.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, taken.StatusCode);
+        var link = await linked.Content.ReadFromJsonAsync<LinkedIdentityDocument>();
+        var replay = await replayed.Content.ReadFromJsonAsync<LinkedIdentityDocument>();
+        Assert.Equal(firstUserId.ToString(), link?.UserId);
+        Assert.Equal(link, replay);
     }
 
     [Fact]
@@ -186,6 +229,67 @@ public sealed class UserIdentityContinuationWebTests
             });
         });
 
+    static WebApplicationFactory<Program> CreateExternalFactory() =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("Compliance:Authentication:Mode", "External");
+            builder.UseSetting("Compliance:Authentication:Authority", "https://issuer.example/");
+            builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
+            builder.UseSetting("Compliance:Authentication:ClientId", "compliance-spa");
+            builder.UseSetting("BDGRZ_SESSION_SIGNING_KEY", SessionSecret);
+            builder.UseSetting("Fitz:Endpoint", "ws://127.0.0.1:4090/ws");
+            builder.UseSetting("Fitz:ApplicationName", "compliance-link-tests");
+            builder.ConfigureServices(services =>
+            {
+                foreach (var descriptor in services.Where(item =>
+                             item.ServiceType == typeof(IHostedService)).ToArray())
+                    services.Remove(descriptor);
+                services.RemoveAll<IEventStore>();
+                services.AddSingleton<IEventStore, InMemoryEventStore>();
+                services.PostConfigure<JwtBearerOptions>("BdgrzResource0", options =>
+                {
+                    options.Configuration = new OpenIdConnectConfiguration
+                    {
+                        Issuer = "https://issuer.example/",
+                    };
+                    options.Configuration.SigningKeys.Add(new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(ProviderSecret)));
+                    options.TokenValidationParameters.IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(ProviderSecret));
+                    options.TokenValidationParameters.ValidIssuer = "https://issuer.example/";
+                    options.TokenValidationParameters.ValidAudience = "compliance-api";
+                });
+            });
+        });
+
+    static async Task<HttpResponseMessage> PostLinkAsync(HttpClient client,
+        string? providerToken, string? sessionToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            "/api/v1/my/oidc_identity_links")
+        {
+            Content = JsonContent.Create(new { }),
+        };
+        if (providerToken is not null)
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", providerToken);
+        if (sessionToken is not null)
+            request.Headers.Add("Cookie", $"bdgrz_session={sessionToken}");
+        return await client.SendAsync(request, CancellationToken.None);
+    }
+
+    static string Token(string issuer, string audience, string secret, string subject)
+    {
+        var now = DateTime.UtcNow;
+        var token = new JwtSecurityToken(issuer, audience,
+            [new Claim(JwtRegisteredClaimNames.Sub, subject)], now.AddMinutes(-1),
+            now.AddMinutes(30), new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+                SecurityAlgorithms.HmacSha256));
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     sealed class EmptyEmailAddressDirectory : IEmailAddressDirectoryReader
     {
         public ValueTask<EmailAddressView?> GetAsync(string emailAddress, CancellationToken ct = default) =>
@@ -204,4 +308,8 @@ public sealed class UserIdentityContinuationWebTests
         [property: JsonPropertyName("email_address")] string EmailAddress,
         [property: JsonPropertyName("email_address_verified")]
         bool EmailAddressVerified);
+
+    sealed record LinkedIdentityDocument(
+        [property: JsonPropertyName("user_id")] string UserId,
+        [property: JsonPropertyName("user_identity_id")] string UserIdentityId);
 }

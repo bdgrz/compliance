@@ -95,6 +95,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddPortia()
             .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
             .AddRequestHandler<ContinueWithOidcProviderHandler>()
+            .AddRequestHandler<LinkOidcProviderIdentityHandler>()
+            .AddRequestAuthorizer<LinkOidcProviderIdentityAuthorizer>()
             .AddRequestHandler<ReserveEmailHandler>()
             .AddRequestHandler<IssueEmailChallengeHandler>()
             .AddRequestHandler<CompleteEmailChallengeHandler>()

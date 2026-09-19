@@ -30,7 +30,8 @@ public sealed class ComplianceWebTests
             .OfType<RouteEndpoint>()
             .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
             .Where(endpoint => endpoint.RoutePattern.RawText is not
-                "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions")
+                "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions" and not
+                "/api/v1/my/oidc_identity_links")
             .ToArray();
 
         // Assert
@@ -45,6 +46,29 @@ public sealed class ComplianceWebTests
             Assert.NotNull(await policies.GetPolicyAsync(policyName));
             Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
         }
+    }
+
+    [Fact]
+    public async Task ShouldRequireDualProofPolicyGivenIdentityLinkEndpoint()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Production");
+        using var client = factory.CreateClient();
+
+        // Act
+        var endpoint = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(item => item.RoutePattern.RawText == "/api/v1/my/oidc_identity_links");
+        var policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy;
+        using var response = await client.PostAsync("/api/v1/my/oidc_identity_links",
+            null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("BdgrzIdentityLink", policy);
+        Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.NotNull(await factory.Services.GetRequiredService<IAuthorizationPolicyProvider>()
+            .GetPolicyAsync(policy!));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
@@ -195,11 +219,13 @@ public sealed class ComplianceWebTests
             .GetProperty("post").TryGetProperty("requestBody", out _));
     }
 
-    [Fact]
-    public async Task ShouldUseSnakeCaseGivenApiRouteQueryAndJsonNames()
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public async Task ShouldUseSnakeCaseGivenApiRouteQueryAndJsonNames(string environment)
     {
         // Arrange
-        await using var factory = CreateBrokerFreeFactory("Development");
+        await using var factory = CreateBrokerFreeFactory(environment);
         using var client = factory.CreateClient();
 
         // Act
@@ -210,6 +236,8 @@ public sealed class ComplianceWebTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var paths = document.RootElement.GetProperty("paths");
+        if (environment == "Production")
+            Assert.True(paths.TryGetProperty("/api/v1/my/oidc_identity_links", out _));
         foreach (var path in paths.EnumerateObject())
         {
             foreach (Match token in Regex.Matches(path.Name, @"\{([^}]+)\}"))

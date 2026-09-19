@@ -75,6 +75,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(BoundaryApproved))]
 [JsonSerializable(typeof(BoundarySuccessorProposed))]
 [JsonSerializable(typeof(ContinueWithOidcProvider))]
+[JsonSerializable(typeof(LinkOidcProviderIdentity))]
 [JsonSerializable(typeof(AuthenticatedUserIdentity))]
 [JsonSerializable(typeof(UserIdentityRegistered))]
 [JsonSerializable(typeof(UserIdentityAuthenticated))]

@@ -182,6 +182,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
                 config => config.OnResult((http, result) => UserSessionCookie.Issue(http, result, sessionTokens)))
             .RequireAuthorization(ComplianceAuthorizationPolicies.OidcContinuation)
             .WithTags("Users");
+        app.MapPortiaPost<LinkOidcProviderIdentity, AuthenticatedUserIdentity>(
+                "/api/v1/my/oidc_identity_links")
+            .RequireAuthorization(ComplianceAuthorizationPolicies.IdentityLink)
+            .WithTags("Users");
     }
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
