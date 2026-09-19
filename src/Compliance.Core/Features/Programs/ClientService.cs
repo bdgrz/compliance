@@ -14,6 +14,8 @@ public sealed class ClientService : Aggregate
     string? _initialOwnerReference;
 
     public bool IsActive => _created && !_retired;
+    public bool IsCreated => _created;
+    public long Revision => _revision;
     public Uuid? ProgramId => _programId == Uuid.Empty ? null : _programId;
 
     public ClientService(Uuid tenantId, Uuid serviceId)

@@ -11,6 +11,7 @@ public sealed class ComplianceProgram : Aggregate
     ProgramPlan? _initialPlan;
 
     public bool IsCreated => _created;
+    public long Revision => _revision;
 
     public ComplianceProgram(Uuid tenantId, Uuid programId)
         : base(programId, new EventStreamAddress(tenantId.ToString(), "programs", programId.ToString()))

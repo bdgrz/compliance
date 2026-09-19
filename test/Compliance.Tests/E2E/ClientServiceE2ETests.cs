@@ -104,6 +104,13 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal("active", projected?.Status);
         Assert.Equal(program.ProgramId, projected?.ProgramId);
+        using var futureServiceRevision = await owner.GetAsync($"{servicePath}?minimum_revision=2");
+        using var invalidServiceRevision = await owner.GetAsync($"{servicePath}?minimum_revision=0");
+        using var missingServiceRevision = await owner.GetAsync(
+            $"{path}/{Guid.NewGuid()}?minimum_revision=1");
+        Assert.Equal(HttpStatusCode.Conflict, futureServiceRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidServiceRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missingServiceRevision.StatusCode);
         using var programList = await owner.GetAsync(createPath);
         Assert.Equal(HttpStatusCode.OK, programList.StatusCode);
         Assert.Contains(service.ServiceId.ToString(), await programList.Content.ReadAsStringAsync(),
@@ -124,6 +131,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             _ = await outsiderMcp.When("bdgrz.client-service.get", toolInput).ExpectFailure();
         }
         using var denied = await outsider.GetAsync(servicePath);
+        using var deniedFresh = await outsider.GetAsync($"{servicePath}?minimum_revision=1");
         using var hidden = await outsider.GetAsync($"{path}/{Guid.NewGuid()}");
         using var deniedList = await outsider.GetAsync(path);
         using var deniedProgramList = await outsider.GetAsync(createPath);
@@ -144,6 +152,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             new { expected_revision = 1, rationale = "Outsider" });
         using var deniedHistory = await outsider.GetAsync($"{servicePath}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.Equal(denied.StatusCode, deniedFresh.StatusCode);
         Assert.Equal(hidden.StatusCode, denied.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedProgramList.StatusCode);
@@ -177,6 +186,8 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal("Monthly payroll", projected?.Purpose);
+        using var currentServiceRevision = await owner.GetAsync($"{servicePath}?minimum_revision=2");
+        Assert.Equal(HttpStatusCode.OK, currentServiceRevision.StatusCode);
         using var retired = await owner.PostAsJsonAsync($"{servicePath}/retirements",
             new { expected_revision = 2, rationale = "Service ended" });
         Assert.Equal(HttpStatusCode.NoContent, retired.StatusCode);

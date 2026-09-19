@@ -101,6 +101,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal("Split program", projected?.Name);
+                using var pendingSplitRevision = await owner.GetAsync(
+                    $"{programPath}?minimum_revision=2");
+                Assert.Equal(HttpStatusCode.Conflict, pendingSplitRevision.StatusCode);
                 using var initialSetupResponse = await owner.GetAsync($"{programPath}/setup-work");
                 Assert.Equal(HttpStatusCode.OK, initialSetupResponse.StatusCode);
                 var initialSetup = await initialSetupResponse.Content
@@ -119,6 +122,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 }
                 Assert.Equal("Split program revised", projected?.Name);
                 Assert.Equal(2, projected?.Revision);
+                using var currentSplitRevision = await owner.GetAsync(
+                    $"{programPath}?minimum_revision=2");
+                Assert.Equal(HttpStatusCode.OK, currentSplitRevision.StatusCode);
 
                 var servicesPath = $"/api/v1/tenants/{tenant.TenantId}/client-services";
                 using var serviceCreated = await owner.PostAsJsonAsync(
@@ -366,6 +372,13 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal(["readiness", "type_i", "type_ii"],
             projected?.StagePlan.Select(stage => stage.Stage));
         Assert.Equal("Advisor A", projected?.Plan.ReadinessAdvisor);
+        using var futureProgramRevision = await owner.GetAsync($"{programPath}?minimum_revision=2");
+        using var invalidProgramRevision = await owner.GetAsync($"{programPath}?minimum_revision=0");
+        using var missingProgramRevision = await owner.GetAsync(
+            $"{path}/{Uuid.CreateVersion4()}?minimum_revision=1");
+        Assert.Equal(HttpStatusCode.Conflict, futureProgramRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidProgramRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missingProgramRevision.StatusCode);
         using var setupResponse = await owner.GetAsync($"{programPath}/setup-work");
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
         var setup = await setupResponse.Content.ReadFromJsonAsync<ProgramSetupDocument>();
@@ -391,6 +404,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         }
 
         using var denied = await outsider.GetAsync(programPath);
+        using var deniedFresh = await outsider.GetAsync($"{programPath}?minimum_revision=1");
         using var missing = await outsider.GetAsync($"{path}/{Uuid.CreateVersion4()}");
         using var deniedList = await outsider.GetAsync(path);
         using var deniedCreate = await outsider.PostAsJsonAsync(path, create);
@@ -401,6 +415,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
             plan = create.plan,
         });
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.Equal(denied.StatusCode, deniedFresh.StatusCode);
         Assert.Equal(denied.StatusCode, missing.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedCreate.StatusCode);
@@ -438,6 +453,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal(2, projected?.Revision);
+        using var currentProgramRevision = await owner.GetAsync($"{programPath}?minimum_revision=2");
+        Assert.Equal(HttpStatusCode.OK, currentProgramRevision.StatusCode);
         Assert.Equal("SOC 2 continuing program", projected?.Name);
         Assert.Equal("Advisor B", projected?.Plan.ReadinessAdvisor);
         using var revisionsResponse = await owner.GetAsync($"{programPath}/revisions");

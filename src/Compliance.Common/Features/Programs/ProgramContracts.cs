@@ -34,7 +34,7 @@ public sealed record ReviseProgram(Uuid TenantId, Uuid ProgramId, long ExpectedR
     string Name, ProgramPlan Plan) : IRequest, IProgramManagementRequest, ICallable;
 
 [Discriminator("bdgrz.program.get", 1)]
-public sealed record GetProgram(Uuid TenantId, Uuid ProgramId)
+public sealed record GetProgram(Uuid TenantId, Uuid ProgramId, long? MinimumRevision = null)
     : IRequest<ProgramView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.program.list", 1)]
