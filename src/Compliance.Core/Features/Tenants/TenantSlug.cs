@@ -15,10 +15,15 @@ public sealed class TenantSlug : Aggregate
     public Uuid? OwningTenantId => _tenantId;
     public bool IsRetired => _retired;
 
-    public TenantSlug(string slug)
-        : base(CreateId(slug), new EventStreamAddress("bdgrz", "tenant-slugs", CreateId(slug).ToString()))
+    public TenantSlug(string slug) : this(slug, allowReserved: false)
     {
-        _slug = Normalize(slug);
+    }
+
+    internal TenantSlug(string slug, bool allowReserved)
+        : base(CreateId(slug, allowReserved),
+            new EventStreamAddress("bdgrz", "tenant-slugs", CreateId(slug, allowReserved).ToString()))
+    {
+        _slug = Normalize(slug, allowReserved);
         On<TenantSlugRegistered>(Apply);
         On<TenantSlugRegistrationRejected>(_ => { });
         On<TenantSlugSurrendered>(Apply);
@@ -35,7 +40,9 @@ public sealed class TenantSlug : Aggregate
 
     public Result Register(Uuid tenantId)
     {
-        if (!_retired && (_tenantId is null || _tenantId == tenantId))
+        if (TenantSlugs.IsReservedRoute(_slug))
+            RaiseEvent(new TenantSlugRegistrationRejected(tenantId, _slug));
+        else if (!_retired && (_tenantId is null || _tenantId == tenantId))
             RaiseEvent(new TenantSlugRegistered(tenantId, _slug));
         else if (_tenantId != tenantId || _retired)
             RaiseEvent(new TenantSlugRegistrationRejected(tenantId, _slug));
@@ -59,8 +66,14 @@ public sealed class TenantSlug : Aggregate
     // assigned to another organization" rule. Keep the old owner for member-only redirects.
     void Apply(TenantSlugSurrendered _) => _retired = true;
 
-    static Uuid CreateId(string slug) => Uuid.CreateVersion5(SlugNamespaceId, Normalize(slug));
-    static string Normalize(string slug) => TenantSlugs.TryNormalize(slug, out var normalized)
-        ? normalized
-        : throw new ArgumentException("A valid tenant slug is required.", nameof(slug));
+    static Uuid CreateId(string slug, bool allowReserved) =>
+        Uuid.CreateVersion5(SlugNamespaceId, Normalize(slug, allowReserved));
+
+    static string Normalize(string slug, bool allowReserved)
+    {
+        var valid = allowReserved
+            ? TenantSlugs.TryNormalizeForLookup(slug, out var normalized)
+            : TenantSlugs.TryNormalize(slug, out normalized);
+        return valid ? normalized : throw new ArgumentException("A valid tenant slug is required.", nameof(slug));
+    }
 }

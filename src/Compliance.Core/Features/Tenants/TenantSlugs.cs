@@ -21,12 +21,20 @@ public static class TenantSlugs
         "mcp", "developer-login", "teams", "roles",
     };
 
+    internal static IEnumerable<string> ReservedRouteSegments => ReservedRoutes;
+
     public static bool IsReservedRoute(string segment) => ReservedRoutes.Contains(segment);
 
     public static bool TryNormalize(string? value, out string normalized) =>
         TryNormalize(value, out normalized, out _);
 
-    public static bool TryNormalize(string? value, out string normalized, out string reason)
+    public static bool TryNormalize(string? value, out string normalized, out string reason) =>
+        TryNormalizeCore(value, out normalized, out reason, rejectReserved: true);
+
+    internal static bool TryNormalizeForLookup(string? value, out string normalized) =>
+        TryNormalizeCore(value, out normalized, out _, rejectReserved: false);
+
+    static bool TryNormalizeCore(string? value, out string normalized, out string reason, bool rejectReserved)
     {
         normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
         reason = string.Empty;
@@ -62,7 +70,7 @@ public static class TenantSlugs
             previousHyphen = hyphen;
         }
 
-        if (ReservedRoutes.Contains(normalized))
+        if (rejectReserved && ReservedRoutes.Contains(normalized))
         {
             reason = "A slug cannot use a reserved route.";
             return false;
