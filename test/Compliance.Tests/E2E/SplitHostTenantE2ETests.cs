@@ -15,6 +15,101 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
 {
     [Fact]
+    public async Task WorkerRecoversFromFirstAdministratorDeliveryFailure()
+    {
+        var applicationName = $"compliance-split-retry-{Guid.NewGuid():N}";
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        var delivery = new FailingOnceInvitationDelivery();
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        builder.Services.AddSingleton<ITenantInvitationDelivery>(delivery);
+        using var worker = builder.Build();
+        await worker.StartAsync();
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient operatorClient;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                operatorClient = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+            using var operatorClientToDispose = operatorClient;
+            using var administratorClient = factory.CreateClient();
+            await TenantInvitationE2ETests.LoginAsync(operatorClient,
+                $"operator-{Guid.NewGuid():N}@example.com");
+            var administratorEmail = $"administrator-{Guid.NewGuid():N}@example.com";
+            using var registered = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name = "Delivery Retry",
+                legal_name = "Delivery Retry LLC",
+                slug = $"delivery-retry-{Guid.NewGuid():N}"[..24],
+                first_administrator_email = administratorEmail,
+            });
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+            var registration = await registered.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(registration);
+            var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+
+            string? invitationToken = null;
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
+            while (DateTimeOffset.UtcNow < deadline &&
+                   !delivery.TryGetLatest(tenantId, administratorEmail, out invitationToken))
+                await Task.Delay(250);
+            Assert.NotNull(invitationToken);
+            Assert.True(delivery.Attempts >= 2);
+
+            var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
+                administratorEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
+                administratorId, administratorEmail);
+            using var accepted = await administratorClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/invitations/acceptance",
+                new { email_address = administratorEmail, token = invitationToken });
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            var access = HttpStatusCode.Forbidden;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+                access = response.StatusCode;
+                if (access == HttpStatusCode.OK)
+                    break;
+                await Task.Delay(250);
+            }
+            Assert.Equal(HttpStatusCode.OK, access);
+            Members? members = null;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await operatorClient.GetAsync($"/api/v1/tenants/{tenantId}/members");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    members = await response.Content.ReadFromJsonAsync<Members>();
+                    if (members?.Items.Count == 1)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Single(members?.Items ?? []);
+        }
+        finally
+        {
+            await worker.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task IndependentWorkerCompletesFirstAdministratorAndSlugFlow()
     {
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
@@ -329,4 +424,22 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     sealed record Members(IReadOnlyList<Member> Items);
     sealed record Member([property: JsonPropertyName("user_id")] string UserId,
         string Affiliation);
+
+    sealed class FailingOnceInvitationDelivery : ITenantInvitationDelivery
+    {
+        readonly MockTenantInvitationDelivery _successfulDeliveries = new();
+        int _attempts;
+
+        public int Attempts => Volatile.Read(ref _attempts);
+
+        public ValueTask SendAsync(Uuid tenantId, string emailAddress, string token, CancellationToken ct)
+        {
+            if (Interlocked.Increment(ref _attempts) == 1)
+                throw new InvalidOperationException("Injected invitation delivery failure.");
+            return _successfulDeliveries.SendAsync(tenantId, emailAddress, token, ct);
+        }
+
+        public bool TryGetLatest(Uuid tenantId, string emailAddress, out string? token) =>
+            _successfulDeliveries.TryGetLatest(tenantId, emailAddress, out token);
+    }
 }
