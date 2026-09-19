@@ -2,6 +2,14 @@
 
 ## Change workflow
 
+Backend work is tracked by a child issue under each product story or existing
+delivery slice. Give the child the parent's milestone and applicable dependencies;
+omit the UI-only M0-D24 blocker. Keep the product parent open for its browser
+acceptance criteria. Close the backend child only after linking its merged PR,
+focused and full applicable test results, broker and split-host evidence, and
+exact-head CI checks. A previously merged PR can satisfy part of a child's
+criteria, but record the remaining gaps explicitly.
+
 1. Open a focused branch and keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
 3. Run the local gates before opening a pull request:

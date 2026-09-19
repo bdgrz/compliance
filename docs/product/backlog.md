@@ -29,7 +29,7 @@ Three kinds of non-story issue are explicit exceptions:
 - Architecture decision issues (`M0-A..`) record an accepted ADR and a thin technical spike for a concern the domain model depends on.
 - Enablers (`EN-..`) deliver a shared platform primitive that several stories would otherwise define inconsistently or too late. An enabler is not independently releasable; it is done only when its first consuming story uses it end to end, and consuming stories must not build feature-local substitutes. New enablers require the same product-owner approval as the six listed below.
 
-A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each slice is itself an API-to-UI outcome whose acceptance criteria come from the parent story; a slice is never an API, persistence, worker, or UI layer. The parent's requirements, domain slice, definition of done, and external blockers apply to every slice, and the parent closes when all of its slices are done. Because GitHub sub-issues do not inherit dependency relationships, the first slice must explicitly repeat every blocker on its parent; every later slice must depend on that first slice, directly or transitively, in addition to any slice-specific blockers.
+A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice is an API-to-UI outcome whose acceptance criteria come from the parent story. Create one backend sub-issue for each story or existing delivery slice, with the same milestone. The backend child inherits the parent's domain and non-UI acceptance criteria and explicitly records its applicable GitHub dependencies, because sub-issues do not inherit dependency relationships. M0-D24 governs UI delivery and does not block backend children. Close a backend child only after its API, MCP where appropriate, Portia handlers, event-sourced domain behavior, projections, reactors, isolation and failure tests, standalone and split-host proof, and required CI evidence are complete. Keep the product parent open until its UI acceptance criteria and all delivery slices are complete. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers.
 
 Every story is a vertical slice from authorized API behavior through the usable browser experience. Completing only the API, worker, persistence, or UI does not complete the story.
 
@@ -99,6 +99,8 @@ copyright, attribution, patent, or redistribution decision.
 ## Definition of done
 
 A story is done when its full API-to-UI workflow meets the acceptance criteria; allowed and denied behavior is tested; changes and decisions are traceable; period and snapshot behavior is correct; relevant failure states are recoverable; and the result works in the supported standalone and split-host deployments.
+
+A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable non-UI acceptance criteria are verified. Verification covers allowed and denied behavior, tenant isolation, concurrent and replayed work, projection lag, recoverable failure, and standalone and split API-worker deployment. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Focused and applicable full .NET and broker tests, formatting, and required exact-head CI checks must pass before the reviewed PR is merged. Link the merged PR and verification evidence from the backend child. The product parent remains open for UI delivery.
 
 ## M0 - Design and discovery
 
@@ -816,13 +818,13 @@ Questions to answer:
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
 
-Blocks: Every delivery story and every first delivery slice. This is a global definition-of-ready blocker and must be recorded as a GitHub dependency on each story and first slice before either is scheduled.
+Blocks: UI delivery for every story and first product delivery slice. It does not block backend children.
 
 Done when:
 
 - [ ] The decision, rationale, decision owner, and date are recorded in the issue.
 - [ ] The product-backlog contract, test strategy, browser support statement, and affected story acceptance criteria reflect the decision.
-- [ ] Every delivery story and first delivery slice records M0-D24 as a blocker; later slices depend on their first slice directly or transitively.
+- [ ] Every delivery story and first product delivery slice records M0-D24 as a UI blocker; backend children omit it. Later product slices depend on their first slice directly or transitively.
 - [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
@@ -4820,8 +4822,8 @@ Implementation subtasks:
 The GitHub issue is the tracking record for each created item; its dependencies
 (`blocked by`) are maintained with GitHub issue relationships and summarized
 here. M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) is recorded
-as a blocker on every delivery story and every first delivery slice; that global
-blocker is not repeated in every row below.
+as a UI blocker on every delivery story and every first product delivery slice;
+backend children omit it. That global blocker is not repeated in every row below.
 
 | Key | Issue | Milestone | Priority | Depends on |
 | --- | --- | --- | --- | --- |
@@ -4898,6 +4900,7 @@ blocker is not repeated in every row below.
 | R1-13 | [#51](https://github.com/bdgrz/compliance/issues/51) | R1 | P0 | M0-D09, EN-02, EN-04, R1-02 |
 | R1-14 | [#52](https://github.com/bdgrz/compliance/issues/52) | R1 | P0 | M0-D11, M0-D23, EN-02, EN-06, R1-02, R1-10, R1-13 |
 | R1-15 | [#127](https://github.com/bdgrz/compliance/issues/127) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01 |
+| R1-15 backend | [#152](https://github.com/bdgrz/compliance/issues/152) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01; PR #151 credited, split-host proof pending |
 | R2-01 | [#15](https://github.com/bdgrz/compliance/issues/15) | R2 | P0 | M0-D03, R1-04, R1-05 |
 | R2-02 | [#16](https://github.com/bdgrz/compliance/issues/16) | R2 | P0 | EN-02, EN-04, EN-06, R1-04 |
 | R2-03 | [#17](https://github.com/bdgrz/compliance/issues/17) | R2 | P0 | EN-06, R1-04 |
