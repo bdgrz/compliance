@@ -126,6 +126,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
             .AddRequestHandler<ListProgramRevisionsHandler>()
+            .AddRequestHandler<GetProgramSetupWorkHandler>()
             .AddRequestHandler<CreateClientServiceHandler>()
             .AddRequestHandler<ReviseClientServiceHandler>()
             .AddRequestHandler<RetireClientServiceHandler>()

@@ -66,6 +66,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.program.get",
             "bdgrz.program.list",
             "bdgrz.program.revisions.list",
+            "bdgrz.program.setup-work.get",
             "bdgrz.rbac.team.define",
             "bdgrz.rbac.team.delete",
             "bdgrz.rbac.team.get",
