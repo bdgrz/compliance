@@ -2,7 +2,7 @@ using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace Bdgrz.Compliance.Tests.Hosting;
+namespace Bdgrz.Compliance.Tests.E2E;
 
 public sealed class ComplianceBrokerIntegrationTests
 {
