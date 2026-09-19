@@ -110,6 +110,9 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.True(verified?.Verified);
+        using var verifiedSession = await client.GetAsync("/auth/session");
+        var sessionState = await verifiedSession.Content.ReadFromJsonAsync<VerifiedSessionDocument>();
+        Assert.True(sessionState?.EmailAddressVerified);
 
         var secondEmail = $"second-{Guid.NewGuid():N}@example.com";
         var secondPath = $"/api/v1/users/{identity.Id}/email-addresses/{secondEmail}";
@@ -142,6 +145,8 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker)
 
     sealed record RegistrationDocument([property: JsonPropertyName("email_address")] string EmailAddress);
     sealed record SessionDocument(string Id);
+    sealed record VerifiedSessionDocument(
+        [property: JsonPropertyName("email_address_verified")] bool EmailAddressVerified);
     sealed record EmailDocument(
         [property: JsonPropertyName("user_id")] string UserId,
         [property: JsonPropertyName("email_address")] string EmailAddress,
