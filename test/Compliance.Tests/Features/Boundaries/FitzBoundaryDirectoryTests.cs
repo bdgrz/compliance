@@ -7,6 +7,48 @@ namespace Bdgrz.Compliance.Tests.Features.Boundaries;
 public sealed class FitzBoundaryDirectoryTests
 {
     [Fact]
+    public async Task FailedBatchRollsBackAndCanBeRetried()
+    {
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var draftId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        var content = new BoundaryContent("Original", "readiness", ["security"], []);
+        var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity("BoundaryDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, draftId, content, authorId, "Author", now));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await directory.ApplyAsync(new BoundaryDraftRevised(tenantId, boundaryId,
+                    Uuid.CreateVersion4(), 2, content with { Statement = "Revised" },
+                    authorId, "Author", now.AddMinutes(1))));
+        }
+
+        Assert.Null(await directory.GetAsync(tenantId, boundaryId));
+
+        await using (var retry = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, draftId, content, authorId, "Author", now));
+            await directory.ApplyAsync(new BoundaryDraftRevised(tenantId, boundaryId,
+                draftId, 2, content with { Statement = "Revised" }, authorId,
+                "Author", now.AddMinutes(1)));
+            await retry.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        Assert.Equal("Revised", (await directory.GetAsync(tenantId, boundaryId))?
+            .Draft?.Content.Statement);
+    }
+
+    [Fact]
     public async Task NeverUsedInitialDraftDisappearsFromCurrentDirectory()
     {
         var tenantId = Uuid.CreateVersion4();
