@@ -9,31 +9,37 @@ public sealed class ListRolePermissionsHandlerTests
     static readonly Uuid RoleId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ShouldReturnThePageFromTheReader()
+    public async Task ShouldReturnPageGivenReaderResult()
     {
+        // Arrange
         var reader = new FakeRolePermissionDirectoryReader();
         reader.Permissions[(TenantId, RoleId)] = [new RolePermissionView(RoleId, "controls.read")];
         var handler = new ListRolePermissionsHandler(reader);
         var context = new RequestContext<ListRolePermissions>(new ListRolePermissions(TenantId, RoleId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var permission = Assert.Single(result.Value.Items);
         Assert.Equal("controls.read", permission.Permission);
     }
 
     [Fact]
-    public async Task ShouldBuildANormalizedQueryFromTheRequest()
+    public async Task ShouldBuildNormalizedQueryGivenRequest()
     {
+        // Arrange
         var reader = new FakeRolePermissionDirectoryReader();
         var handler = new ListRolePermissionsHandler(reader);
         var context = new RequestContext<ListRolePermissions>(
             new ListRolePermissions(TenantId, RoleId, Limit: 5, Cursor: "opaque", Search: "  abc  ", Sort: "permission:desc"),
             Actor());
 
+        // Act
         _ = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(5, reader.LastLimit);
         Assert.Equal("opaque", reader.LastCursor);
         Assert.Equal("abc", reader.LastSearch);

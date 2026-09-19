@@ -7,20 +7,24 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class RegisterTenantSlugAvailabilityGuardTests
 {
     [Fact]
-    public async Task ShouldAllowAnUnclaimedSlug()
+    public async Task ShouldAllowRegistrationGivenUnclaimedSlug()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var guard = new RegisterTenantSlugAvailabilityGuard(fixture.Repository);
         var context = Context(new RegisterTenant("Acme", "acme"));
 
+        // Act
         var result = await guard.GuardAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
-    public async Task ShouldRejectASlugClaimedByAnotherTenant()
+    public async Task ShouldRejectRegistrationGivenOtherTenantOwnsSlug()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var occupied = await fixture.Repository.HydrateAsync(new TenantSlug("acme"), CancellationToken.None);
         _ = occupied.Register(Uuid.CreateVersion4());
@@ -29,15 +33,18 @@ public sealed class RegisterTenantSlugAvailabilityGuardTests
         var guard = new RegisterTenantSlugAvailabilityGuard(fixture.Repository);
         var context = Context(new RegisterTenant("Acme", "acme"));
 
+        // Act
         var result = await guard.GuardAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
     }
 
     [Fact]
-    public async Task ShouldAllowARetryThatAlreadyOwnsTheSlug()
+    public async Task ShouldAllowRetryGivenOwnedSlug()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var context = Context(new RegisterTenant("Acme", "acme"));
         var owned = await fixture.Repository.HydrateAsync(new TenantSlug("acme"), CancellationToken.None);
@@ -46,20 +53,25 @@ public sealed class RegisterTenantSlugAvailabilityGuardTests
             owned, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
         var guard = new RegisterTenantSlugAvailabilityGuard(fixture.Repository);
 
+        // Act
         var result = await guard.GuardAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
-    public async Task ShouldLetTheAggregateOwnValidationForAnInvalidSlug()
+    public async Task ShouldDeferValidationGivenMalformedSlug()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var guard = new RegisterTenantSlugAvailabilityGuard(fixture.Repository);
         var context = Context(new RegisterTenant("Acme", "!!"));
 
+        // Act
         var result = await guard.GuardAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
     }
 

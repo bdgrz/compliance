@@ -8,8 +8,9 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class TenantInvitationTests
 {
     [Fact]
-    public void ShouldRequireCurrentTokenBeforeExpiryAndAcceptOnce()
+    public void ShouldAcceptOnceGivenCurrentUnexpiredToken()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var userId = Uuid.CreateVersion4();
         var operatorId = Uuid.CreateVersion4();
@@ -17,8 +18,11 @@ public sealed class TenantInvitationTests
         var invitation = new TenantInvitation(tenantId, " ADMIN@EXAMPLE.COM ");
         var scenario = new AggregateScenario<TenantInvitation>(invitation);
         var token = "first-token";
+
+        // Act
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
+        // Assert
         Assert.True(invitation.Invite("client_personnel", true, hash, now.AddDays(7), now, operatorId).IsSuccess);
         Assert.False(invitation.Accept(userId, "wrong-token", now).IsSuccess);
         Assert.False(invitation.Accept(userId, token, now.AddDays(7)).IsSuccess);
@@ -30,12 +34,16 @@ public sealed class TenantInvitationTests
     }
 
     [Fact]
-    public void FirmStaffInvitationCannotGrantAdministrator()
+    public void ShouldRejectAdministratorGrantGivenFirmStaffInvitation()
     {
+        // Arrange
         var invitation = new TenantInvitation(Uuid.CreateVersion4(), "staff@example.com");
+
+        // Act
         var result = invitation.Invite("firm_staff", true, new string('A', 64),
             DateTimeOffset.UtcNow.AddDays(1), DateTimeOffset.UtcNow, Uuid.CreateVersion4());
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Validation, result.Error.Kind);
     }

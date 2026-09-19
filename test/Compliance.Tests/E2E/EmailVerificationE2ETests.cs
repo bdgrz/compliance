@@ -12,14 +12,19 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class EmailVerificationE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task AnotherUserCannotReserveAnOwnedAddress()
+    public async Task ShouldRejectReservationGivenAddressOwnedByAnotherUser()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var firstClient = factory.CreateClient();
         using var secondClient = factory.CreateClient();
         var ownedEmail = $"owned-{Guid.NewGuid():N}@example.com";
+
+        // Act
         using var firstLogin = await firstClient.PostAsJsonAsync("/api/v1/developer-user-sessions",
             new RegistrationDocument(ownedEmail));
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, firstLogin.StatusCode);
         using var firstSession = await firstClient.GetAsync("/auth/session");
         var first = await firstSession.Content.ReadFromJsonAsync<SessionDocument>();
@@ -52,13 +57,18 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
-    public async Task RegistrationReservesAndVerifiesAddressThroughMockDelivery()
+    public async Task ShouldReserveAndVerifyAddressGivenMockDelivery()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var client = factory.CreateClient();
         var email = $"verify-{Guid.NewGuid():N}@example.com";
+
+        // Act
         using var login = await client.PostAsJsonAsync("/api/v1/developer-user-sessions",
             new RegistrationDocument(email));
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         using var session = await client.GetAsync("/auth/session");
         var identity = await session.Content.ReadFromJsonAsync<SessionDocument>();

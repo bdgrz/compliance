@@ -10,8 +10,9 @@ public sealed class TeamCleanupReactorTests
     static readonly Uuid TeamId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ShouldRemoveEveryMemberOfTheDeletedTeam()
+    public async Task ShouldRemoveMembersGivenDeletedTeam()
     {
+        // Arrange
         var firstMember = Uuid.CreateVersion4();
         var secondMember = Uuid.CreateVersion4();
         var members = new FakeTeamMemberDirectoryReader(
@@ -20,8 +21,10 @@ public sealed class TeamCleanupReactorTests
         var reactor = new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, members);
         var context = new FakeReactorContext(new TeamDeleted(TenantId, TeamId));
 
+        // Act
         await reactor.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(2, bus.Dispatched.Count);
         Assert.Contains(bus.Dispatched, request =>
             request is RemoveTeamMember removal && removal.MemberId == firstMember);
@@ -38,13 +41,16 @@ public sealed class TeamCleanupReactorTests
     [Fact]
     public async Task ShouldDispatchNothingGivenAnAlreadyEmptyTeam()
     {
+        // Arrange
         var members = new FakeTeamMemberDirectoryReader();
         var bus = new RecordingRequestBus();
         var reactor = new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, members);
         var context = new FakeReactorContext(new TeamDeleted(TenantId, TeamId));
 
+        // Act
         await reactor.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Empty(bus.Dispatched);
     }
 

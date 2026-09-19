@@ -16,8 +16,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task DirectInvitationCanBeRetriedAfterDeliveryFailure()
+    public async Task ShouldRetryDirectInvitationGivenDeliveryFailure()
     {
+        // Arrange
         var applicationName = $"compliance-split-direct-retry-{Guid.NewGuid():N}";
         var delivery = new FailingOnceInvitationDelivery();
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
@@ -29,7 +30,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         using var worker = builder.Build();
+
+        // Act
         await worker.StartAsync();
+
+        // Assert
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName)
@@ -124,8 +129,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
-    public async Task WorkerRecoversFromFirstAdministratorDeliveryFailure()
+    public async Task ShouldRecoverInvitationGivenFirstAdministratorDeliveryFailure()
     {
+        // Arrange
         var applicationName = $"compliance-split-retry-{Guid.NewGuid():N}";
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -138,7 +144,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         builder.Services.AddSingleton<ITenantInvitationDelivery>(delivery);
         using var worker = builder.Build();
+
+        // Act
         await worker.StartAsync();
+
+        // Assert
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
@@ -223,8 +233,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
-    public async Task IndependentWorkerCompletesFirstAdministratorAndSlugFlow()
+    public async Task ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker()
     {
+        // Arrange
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -235,7 +246,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         using var worker = builder.Build();
+
+        // Act
         await worker.StartAsync();
+
+        // Assert
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
@@ -429,11 +444,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
-    public async Task ApiAndIndependentWorkerProjectTenantLifecycle()
+    public async Task ShouldProjectTenantLifecycleGivenIndependentApiAndWorker()
     {
+        // Arrange
         var applicationName = $"compliance-split-e2e-{Guid.NewGuid():N}";
         var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+
+        // Act
         using var worker = StartWorker(applicationName);
+
+        // Assert
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);

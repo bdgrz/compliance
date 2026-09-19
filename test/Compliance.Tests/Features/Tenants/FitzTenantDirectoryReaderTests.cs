@@ -7,38 +7,47 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class FitzTenantDirectoryReaderTests
 {
     [Fact]
-    public async Task GetAsyncShouldReturnTheStoredTenant()
+    public async Task ShouldReturnStoredTenantGivenMatchingId()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var tenantId = Uuid.CreateVersion4();
         await SeedAsync(client, tenantId, "Acme", "acme");
         var reader = new FitzTenantDirectoryReader(client);
 
+        // Act
         var tenant = await reader.GetAsync(tenantId, CancellationToken.None);
 
+        // Assert
         Assert.NotNull(tenant);
         Assert.Equal("Acme", tenant.Name);
         Assert.Equal("acme", tenant.Slug);
     }
 
     [Fact]
-    public async Task GetAsyncShouldReturnNullGivenNoSuchTenant()
+    public async Task ShouldReturnNullGivenNoSuchTenant()
     {
+        // Arrange
         var reader = new FitzTenantDirectoryReader(new InMemoryKvClient());
 
+        // Act
         var tenant = await reader.GetAsync(Uuid.CreateVersion4(), CancellationToken.None);
 
+        // Assert
         Assert.Null(tenant);
     }
 
     [Fact]
-    public async Task ShouldProjectSuspensionAndReactivation()
+    public async Task ShouldProjectLifecycleGivenSuspensionAndReactivation()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var tenantId = Uuid.CreateVersion4();
         var operatorId = Uuid.CreateVersion4();
         var repository = new FitzTenantDirectoryReader(client);
         var identity = new CheckpointIdentity("TenantDirectory", EventStreamPattern.ForPattern("bdgrz", "tenants"));
+
+        // Act
         await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await repository.ApplyAsync(new TenantRegistered(tenantId, operatorId, "Acme", "acme"));
@@ -47,6 +56,7 @@ public sealed class FitzTenantDirectoryReaderTests
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
+        // Assert
         Assert.Equal("suspended", (await repository.GetAsync(tenantId))?.Status);
 
         await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))

@@ -81,10 +81,13 @@ public sealed class UserIdentityTests
     [Fact]
     public void ShouldDeriveSameAggregateIdGivenSameProviderIdentity()
     {
+        // Arrange
+        const string issuer = "example-provider";
+
         // Act
-        var first = new UserIdentity("example-provider", "subject-42");
-        var second = new UserIdentity("example-provider", "subject-42");
-        var another = new UserIdentity("example-provider", "subject-43");
+        var first = new UserIdentity(issuer, "subject-42");
+        var second = new UserIdentity(issuer, "subject-42");
+        var another = new UserIdentity(issuer, "subject-43");
 
         // Assert
         Assert.Equal(first.Id, second.Id);

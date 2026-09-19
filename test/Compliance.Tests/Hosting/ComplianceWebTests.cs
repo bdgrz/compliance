@@ -17,10 +17,13 @@ public sealed class ComplianceWebTests
     [Theory]
     [InlineData("Development")]
     [InlineData("Production")]
-    public async Task EveryBusinessApiEndpointDeclaresAuthorization(string environment)
+    public async Task ShouldDeclareAuthorizationGivenBusinessApiEndpoint(string environment)
     {
+        // Arrange
         await using var factory = CreateBrokerFreeFactory(environment);
         using var client = factory.CreateClient();
+
+        // Act
         var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
             .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
@@ -28,6 +31,7 @@ public sealed class ComplianceWebTests
                 "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions")
             .ToArray();
 
+        // Assert
         Assert.NotEmpty(endpoints);
         var policies = factory.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         foreach (var endpoint in endpoints)
@@ -42,7 +46,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldRegisterBearerSchemeForEachConfiguredResource()
+    public async Task ShouldRegisterBearerSchemeGivenConfiguredResource()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Production").WithWebHostBuilder(builder =>
@@ -66,7 +70,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldChallengeUnknownApiRouteInProduction()
+    public async Task ShouldChallengeUnknownRouteGivenProductionMode()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Production");
@@ -81,7 +85,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldChallengeUnknownApiRouteInDevelopmentWithoutSession()
+    public async Task ShouldChallengeUnknownRouteGivenDevelopmentWithoutSession()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Development");
@@ -94,7 +98,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldServeSpaFallbackOutsideApiBoundary()
+    public async Task ShouldServeSpaFallbackGivenNonApiRoute()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Development");
@@ -118,7 +122,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldExposeOnlyPublicExternalAuthenticationConfiguration()
+    public async Task ShouldExposePublicAuthSettingsGivenExternalConfiguration()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Production");
@@ -141,7 +145,7 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldExposeLivenessReadinessAndOpenApiInDevelopment()
+    public async Task ShouldExposeHealthAndOpenApiGivenDevelopmentMode()
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory("Development");

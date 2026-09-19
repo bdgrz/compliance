@@ -10,43 +10,53 @@ public sealed class FitzTenantMembershipDirectoryReaderTests
     static readonly Uuid UserId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task IsMemberAsyncShouldReturnTrueGivenAStoredMembership()
+    public async Task ShouldReturnTrueGivenStoredMembership()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, TenantId, UserId);
         var reader = new FitzTenantMembershipDirectoryReader(client);
 
+        // Act
         var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
 
+        // Assert
         Assert.True(isMember);
     }
 
     [Fact]
-    public async Task IsMemberAsyncShouldReturnFalseGivenNoStoredMembership()
+    public async Task ShouldReturnFalseGivenNoStoredMembership()
     {
+        // Arrange
         var reader = new FitzTenantMembershipDirectoryReader(new InMemoryKvClient());
 
+        // Act
         var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
 
+        // Assert
         Assert.False(isMember);
     }
 
     [Fact]
-    public async Task IsMemberAsyncShouldNotSeeAMembershipStoredUnderADifferentTenant()
+    public async Task ShouldHideMembershipGivenDifferentTenant()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherTenantId = Uuid.CreateVersion4();
         await SeedAsync(client, otherTenantId, UserId);
         var reader = new FitzTenantMembershipDirectoryReader(client);
 
+        // Act
         var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId, CancellationToken.None);
 
+        // Assert
         Assert.False(isMember);
     }
 
     [Fact]
-    public async Task ListAsyncShouldBackfillMembershipsWrittenBeforeTheIndexExisted()
+    public async Task ShouldBackfillMembershipsGivenPreIndexEvents()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var tenantId = Uuid.CreateVersion4();
         var userId = Uuid.CreateVersion4();
@@ -61,7 +71,10 @@ public sealed class FitzTenantMembershipDirectoryReaderTests
             await tx.CommitAsync();
         }
 
+        // Act
         var reader = new FitzTenantMembershipDirectoryReader(client);
+
+        // Assert
         Assert.True(await reader.IsMemberAsync(tenantId.ToString(), userId));
         var page = await reader.ListAsync(tenantId, 50, null);
 

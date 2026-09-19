@@ -28,6 +28,8 @@ criteria, but record the remaining gaps explicitly.
 
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
 
+Tests use `Should<Outcome>Given<State>` names, with `When<Action>` when it clarifies the case. Block-bodied tests mark their Arrange, Act, and Assert phases. The Cntryl.Conventions analyzers enforce these rules as build errors.
+
 ## Code organization
 
 - Organize product code by capability under `Features/<FeatureName>`.

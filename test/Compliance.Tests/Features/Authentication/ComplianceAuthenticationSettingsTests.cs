@@ -41,7 +41,7 @@ public sealed class ComplianceAuthenticationSettingsTests
     }
 
     [Fact]
-    public void ShouldResolveProviderNeutralExternalSettings()
+    public void ShouldResolveSettingsGivenExternalProviderConfiguration()
     {
         // Arrange
         var configuration = BuildConfiguration(ValidExternalValues());
@@ -65,7 +65,7 @@ public sealed class ComplianceAuthenticationSettingsTests
     }
 
     [Fact]
-    public void ShouldResolveMultipleResourceDiscoveryAuthorities()
+    public void ShouldResolveAuthoritiesGivenMultipleResources()
     {
         // Arrange
         var values = ValidExternalValues();
@@ -114,7 +114,7 @@ public sealed class ComplianceAuthenticationSettingsTests
     }
 
     [Fact]
-    public void ShouldAllowExplicitDevelopmentModeInDevelopment()
+    public void ShouldAllowDeveloperModeGivenDevelopmentEnvironment()
     {
         // Arrange
         var configuration = BuildConfiguration(new Dictionary<string, string?>
@@ -132,7 +132,7 @@ public sealed class ComplianceAuthenticationSettingsTests
     }
 
     [Fact]
-    public void ShouldRejectDevelopmentModeOutsideDevelopment()
+    public void ShouldRejectDeveloperModeGivenProductionEnvironment()
     {
         // Arrange
         var configuration = BuildConfiguration(new Dictionary<string, string?>
@@ -166,7 +166,7 @@ public sealed class ComplianceAuthenticationSettingsTests
     }
 
     [Fact]
-    public void ShouldRejectDevelopmentFlagOutsideDevelopment()
+    public void ShouldRejectDeveloperFlagGivenProductionEnvironment()
     {
         // Arrange
         var configuration = BuildConfiguration(new Dictionary<string, string?>

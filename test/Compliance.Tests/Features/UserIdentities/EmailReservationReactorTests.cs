@@ -7,35 +7,42 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class EmailReservationReactorTests
 {
     [Fact]
-    public async Task RegistrationWithEmailReservesItForTheRegisteredUser()
+    public async Task ShouldReserveEmailGivenUserRegistrationWithEmail()
     {
+        // Arrange
         var owner = Uuid.CreateVersion4();
         var bus = new RecordingRequestBus();
         var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
 
+        // Act
         await reactor.HandleAsync(new Context(new UserIdentityRegistered(owner, "oidc", "subject", "person@example.com")),
             CancellationToken.None);
 
+        // Assert
         var request = Assert.IsType<ReserveEmail>(Assert.Single(bus.Dispatched));
         Assert.Equal(owner, request.UserId);
         Assert.Equal("person@example.com", request.EmailAddress);
     }
 
     [Fact]
-    public async Task RegistrationWithoutEmailDoesNothing()
+    public async Task ShouldSkipReservationGivenRegistrationWithoutEmail()
     {
+        // Arrange
         var bus = new RecordingRequestBus();
         var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
 
+        // Act
         await reactor.HandleAsync(new Context(new UserIdentityRegistered(Uuid.CreateVersion4(), "oidc", "subject", null)),
             CancellationToken.None);
 
+        // Assert
         Assert.Empty(bus.Dispatched);
     }
 
     [Fact]
-    public async Task OwnershipConflictDoesNotBlockLaterRegistrations()
+    public async Task ShouldAllowLaterRegistrationsGivenOwnershipConflict()
     {
+        // Arrange
         var bus = new RecordingRequestBus
         {
             DispatchResult = Result.Failure(new RequestError(RequestErrorKind.Conflict,
@@ -43,21 +50,27 @@ public sealed class EmailReservationReactorTests
         };
         var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
 
+        // Act
         await reactor.HandleAsync(new Context(new UserIdentityRegistered(
             Uuid.CreateVersion4(), "oidc", "subject", "person@example.com")), CancellationToken.None);
 
+        // Assert
         Assert.Single(bus.Dispatched);
     }
 
     [Fact]
-    public async Task UnexpectedDispatchFailureRemainsRetryable()
+    public async Task ShouldRemainRetryableGivenDispatchFailure()
     {
+        // Arrange
         var bus = new RecordingRequestBus
         {
             DispatchResult = Result.Failure(new RequestError(RequestErrorKind.Validation, "Unexpected failure.")),
         };
+
+        // Act
         var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
 
+        // Assert
         await Assert.ThrowsAsync<ReactionCommandFailedException>(async () =>
             await reactor.HandleAsync(new Context(new UserIdentityRegistered(
                 Uuid.CreateVersion4(), "oidc", "subject", "person@example.com")), CancellationToken.None));

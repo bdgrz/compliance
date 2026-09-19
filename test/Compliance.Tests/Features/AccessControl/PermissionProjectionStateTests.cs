@@ -19,8 +19,9 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class PermissionProjectionStateTests
 {
     [Fact]
-    public void ShouldRoundTripThroughRealJsonSerialization()
+    public void ShouldRoundTripGivenRealJsonSerialization()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var memberId = Uuid.CreateVersion4();
         var teamId = Uuid.CreateVersion4();
@@ -34,8 +35,11 @@ public sealed class PermissionProjectionStateTests
         state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
 
         var json = JsonSerializer.SerializeToUtf8Bytes(state, ComplianceCoreJsonContext.Default.PermissionProjectionState);
+
+        // Act
         var restored = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.PermissionProjectionState);
 
+        // Assert
         Assert.NotNull(restored);
         var grant = Assert.Single(restored.Materialize());
         Assert.Equal(memberId, grant.MemberId);
@@ -43,8 +47,9 @@ public sealed class PermissionProjectionStateTests
     }
 
     [Fact]
-    public void ShouldMaterializeAPermissionGrantForAnActiveTeamMemberInAnAssignedRole()
+    public void ShouldMaterializePermissionGivenActiveMemberAssignedRole()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var memberId = Uuid.CreateVersion4();
         var teamId = Uuid.CreateVersion4();
@@ -55,8 +60,11 @@ public sealed class PermissionProjectionStateTests
         state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId));
         state.Apply(new RoleDefined(tenantId, roleId, "Reviewer"));
         state.Apply(new RolePermissionAssigned(tenantId, roleId, "tenant:access"));
+
+        // Act
         state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
 
+        // Assert
         var grant = Assert.Single(state.Materialize());
 
         Assert.Equal(memberId, grant.MemberId);
@@ -64,8 +72,9 @@ public sealed class PermissionProjectionStateTests
     }
 
     [Fact]
-    public void ShouldNotGrantAPermissionAfterTheTeamMemberIsRemoved()
+    public void ShouldRemovePermissionGivenTeamMemberRemoval()
     {
+        // Arrange
         var tenantId = Uuid.CreateVersion4();
         var memberId = Uuid.CreateVersion4();
         var teamId = Uuid.CreateVersion4();
@@ -77,8 +86,11 @@ public sealed class PermissionProjectionStateTests
         state.Apply(new RoleDefined(tenantId, roleId, "Reviewer"));
         state.Apply(new RolePermissionAssigned(tenantId, roleId, "tenant:access"));
         state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
+
+        // Act
         state.Apply(new TeamMemberRemoved(tenantId, teamId, memberId));
 
+        // Assert
         Assert.Empty(state.Materialize());
     }
 }

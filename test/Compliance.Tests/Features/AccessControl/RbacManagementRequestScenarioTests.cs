@@ -15,38 +15,47 @@ public sealed class RbacManagementRequestScenarioTests
     static readonly Uuid TenantId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ShouldAllowASystemActorRegardlessOfPermissions()
+    public async Task ShouldAllowSystemActorGivenMissingMemberPermissions()
     {
+        // Arrange
         await using var provider = BuildProvider(allowed: false);
 
         await RequestScenario.For(provider)
             .GivenActor(RequestActor.System)
+            // Act
             .When(new RegisterMember(TenantId, Uuid.CreateVersion4()))
+            // Assert
             .ExpectAuthorized()
             .ExpectHandled()
             .ExpectSuccess();
     }
 
     [Fact]
-    public async Task ShouldDenyAnActorWithoutTheTenantRbacManagePermission()
+    public async Task ShouldDenyActorGivenMissingTenantRbacManagePermission()
     {
+        // Arrange
         await using var provider = BuildProvider(allowed: false);
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RegisterMember(TenantId, Uuid.CreateVersion4()))
+            // Assert
             .ExpectDenied(RequestErrorKind.Forbidden)
             .ExpectNotHandled();
     }
 
     [Fact]
-    public async Task ShouldHandleAnActorWithTheTenantRbacManagePermission()
+    public async Task ShouldHandleRequestGivenTenantRbacManagePermission()
     {
+        // Arrange
         await using var provider = BuildProvider(allowed: true);
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RegisterMember(TenantId, Uuid.CreateVersion4()))
+            // Assert
             .ExpectAuthorized()
             .ExpectHandled()
             .ExpectSuccess();

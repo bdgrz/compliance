@@ -11,8 +11,9 @@ public sealed class ComplianceProgramTests
     static readonly DateTimeOffset Now = new(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void CreateAndRevisePreserveRevisionEventsAndActorSnapshot()
+    public void ShouldPreserveEventsAndActorSnapshotGivenProgramRevision()
     {
+        // Arrange
         var program = new ComplianceProgram(TenantId, ProgramId);
         var original = new ProgramPlan(null, new DateOnly(2027, 3, 1),
             new DateOnly(2027, 4, 1), new DateOnly(2028, 3, 31), "Advisor A", null);
@@ -20,8 +21,11 @@ public sealed class ComplianceProgramTests
 
         var created = program.Create("SOC 2", original, MemberId, "Lead A", Now);
         var changed = program.Revise(1, "SOC 2 program", revised, MemberId, "Lead B", Now.AddDays(1));
+
+        // Act
         var events = new AggregateScenario<ComplianceProgram>(program).PendingEvents;
 
+        // Assert
         Assert.True(created.IsSuccess);
         Assert.Equal(ProgramId, created.Value.ProgramId);
         Assert.True(changed.IsSuccess);
@@ -36,10 +40,15 @@ public sealed class ComplianceProgramTests
     }
 
     [Fact]
-    public void StaleRevisionAndInvalidTargetPeriodDoNotAppendEvents()
+    public void ShouldAvoidEventsGivenStaleRevisionOrInvalidPeriod()
     {
+        // Arrange
         var program = new ComplianceProgram(TenantId, ProgramId);
+
+        // Act
         var valid = new ProgramPlan(null, null, null, null, null, null);
+
+        // Assert
         Assert.True(program.Create("SOC 2", valid, MemberId, "Lead", Now).IsSuccess);
         var invalid = valid with
         {

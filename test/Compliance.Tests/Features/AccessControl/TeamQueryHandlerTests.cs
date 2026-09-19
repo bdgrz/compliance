@@ -9,41 +9,50 @@ public sealed class TeamQueryHandlerTests
     static readonly Uuid TeamId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task GetTeamShouldReturnTheTeamGivenItExists()
+    public async Task ShouldReturnTeamGivenItExists()
     {
+        // Arrange
         var reader = new FakeTeamDirectoryReader();
         reader.Teams[(TenantId, TeamId)] = new TeamView(TeamId, "Reviewers");
         var handler = new GetTeamHandler(reader);
         var context = new RequestContext<GetTeam>(new GetTeam(TenantId, TeamId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(new TeamView(TeamId, "Reviewers"), result.Value);
     }
 
     [Fact]
-    public async Task GetTeamShouldReturnNotFoundGivenNoSuchTeam()
+    public async Task ShouldReturnNotFoundGivenNoSuchTeam()
     {
+        // Arrange
         var handler = new GetTeamHandler(new FakeTeamDirectoryReader());
         var context = new RequestContext<GetTeam>(new GetTeam(TenantId, TeamId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
     [Fact]
-    public async Task ListTeamsShouldReturnThePageFromTheReader()
+    public async Task ShouldReturnTeamPageGivenReaderResult()
     {
+        // Arrange
         var reader = new FakeTeamDirectoryReader();
         reader.Teams[(TenantId, TeamId)] = new TeamView(TeamId, "Reviewers");
         var handler = new ListTeamsHandler(reader);
         var context = new RequestContext<ListTeams>(new ListTeams(TenantId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var team = Assert.Single(result.Value.Items);
         Assert.Equal(TeamId, team.TeamId);
@@ -51,16 +60,19 @@ public sealed class TeamQueryHandlerTests
     }
 
     [Fact]
-    public async Task ListTeamsShouldBuildANormalizedQueryFromTheRequest()
+    public async Task ShouldBuildNormalizedTeamQueryGivenRequest()
     {
+        // Arrange
         var reader = new FakeTeamDirectoryReader();
         var handler = new ListTeamsHandler(reader);
         var context = new RequestContext<ListTeams>(
             new ListTeams(TenantId, Limit: 5, Cursor: "opaque", Search: "  review  ", Sort: "name:desc"),
             Actor());
 
+        // Act
         _ = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(5, reader.LastLimit);
         Assert.Equal("opaque", reader.LastCursor);
         Assert.Equal("review", reader.LastSearch);

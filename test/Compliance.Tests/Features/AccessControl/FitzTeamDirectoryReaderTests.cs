@@ -13,47 +13,57 @@ public sealed class FitzTeamDirectoryReaderTests
     static readonly Uuid TenantId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task GetAsyncShouldReturnTheStoredTeam()
+    public async Task ShouldReturnStoredTeamGivenMatchingId()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var teamId = Uuid.CreateVersion4();
         await SeedAsync(client, teamId, "Reviewers");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var team = await reader.GetAsync(TenantId, teamId, CancellationToken.None);
 
+        // Assert
         Assert.NotNull(team);
         Assert.Equal("Reviewers", team.Name);
     }
 
     [Fact]
-    public async Task GetAsyncShouldReturnNullGivenNoSuchTeam()
+    public async Task ShouldReturnNullGivenNoSuchTeam()
     {
+        // Arrange
         var reader = new FitzTeamDirectoryReader(new InMemoryKvClient());
 
+        // Act
         var team = await reader.GetAsync(TenantId, Uuid.CreateVersion4(), CancellationToken.None);
 
+        // Assert
         Assert.Null(team);
     }
 
     [Fact]
-    public async Task ListAsyncShouldReturnEveryTeamInNameOrder()
+    public async Task ShouldReturnTeamsInNameOrderGivenTenantQuery()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Beta");
         await SeedAsync(client, Uuid.CreateVersion4(), "Alpha");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         Assert.Equal(["Alpha", "Beta"], page.Items.Select(team => team.Name));
         Assert.Null(page.NextCursor);
     }
 
     [Fact]
-    public async Task ListAsyncShouldPaginateUsingTheReturnedCursor()
+    public async Task ShouldPaginateResultsGivenReturnedCursor()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var first = Uuid.CreateVersion4();
         var second = Uuid.CreateVersion4();
@@ -61,7 +71,10 @@ public sealed class FitzTeamDirectoryReaderTests
         await SeedAsync(client, second, "Beta");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var firstPage = await reader.ListAsync(TenantId, 1, null, null, descending: false, CancellationToken.None);
+
+        // Assert
         Assert.Single(firstPage.Items);
         Assert.NotNull(firstPage.NextCursor);
 
@@ -74,16 +87,19 @@ public sealed class FitzTeamDirectoryReaderTests
     }
 
     [Fact]
-    public async Task ListAsyncShouldFilterByNamePrefix()
+    public async Task ShouldFilterTeamsGivenNamePrefix()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Reviewers");
         await SeedAsync(client, Uuid.CreateVersion4(), "Administrators");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, null, null, "review", descending: false, CancellationToken.None);
 
+        // Assert
         var team = Assert.Single(page.Items);
         Assert.Equal("Reviewers", team.Name);
     }
@@ -91,31 +107,38 @@ public sealed class FitzTeamDirectoryReaderTests
     // Regression test: Search must match a substring anywhere in the name, not just a prefix — the
     // KvDirectory 1.3.0 migration briefly narrowed this to prefix-only before being caught and fixed.
     [Fact]
-    public async Task ListAsyncShouldFilterByNameSubstringNotJustPrefix()
+    public async Task ShouldFilterTeamsGivenNameSubstring()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Site Reviewers");
         await SeedAsync(client, Uuid.CreateVersion4(), "Administrators");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, null, null, "review", descending: false, CancellationToken.None);
 
+        // Assert
         var team = Assert.Single(page.Items);
         Assert.Equal("Site Reviewers", team.Name);
     }
 
     [Fact]
-    public async Task ListAsyncShouldPaginateSearchResultsUsingTheReturnedCursor()
+    public async Task ShouldPaginateSearchResultsGivenReturnedCursor()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Alpha Reviewers");
         await SeedAsync(client, Uuid.CreateVersion4(), "Beta");
         await SeedAsync(client, Uuid.CreateVersion4(), "Gamma Reviewers");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var firstPage = await reader.ListAsync(
             TenantId, 1, null, "review", descending: false, CancellationToken.None);
+
+        // Assert
         Assert.Equal(["Alpha Reviewers"], firstPage.Items.Select(team => team.Name));
         Assert.NotNull(firstPage.NextCursor);
 
@@ -126,30 +149,36 @@ public sealed class FitzTeamDirectoryReaderTests
     }
 
     [Fact]
-    public async Task ListAsyncShouldSortByNameDescending()
+    public async Task ShouldSortTeamsDescendingGivenNameOrder()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Alpha");
         await SeedAsync(client, Uuid.CreateVersion4(), "Beta");
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(TenantId, null, null, null, descending: true, CancellationToken.None);
 
+        // Assert
         Assert.Equal(["Beta", "Alpha"], page.Items.Select(team => team.Name));
     }
 
     [Fact]
-    public async Task ListAsyncShouldOnlyReturnTeamsForTheRequestedTenant()
+    public async Task ShouldReturnTeamsOnlyGivenRequestedTenant()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherTenantId = Uuid.CreateVersion4();
         await SeedAsync(client, Uuid.CreateVersion4(), "Mine", TenantId);
         await SeedAsync(client, Uuid.CreateVersion4(), "Theirs", otherTenantId);
         var reader = new FitzTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         var team = Assert.Single(page.Items);
         Assert.Equal("Mine", team.Name);
     }
