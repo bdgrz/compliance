@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
-using System.Runtime.CompilerServices;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -90,8 +89,8 @@ sealed class BrokerStack : IAsyncDisposable
         }
     }
 
-    static string ComposeFilePath([CallerFilePath] string sourceFile = "") =>
-        Path.Combine(Path.GetDirectoryName(sourceFile)!, "compose.yml");
+    static string ComposeFilePath() =>
+        Path.Combine(AppContext.BaseDirectory, "E2E", "compose.yml");
 
     sealed record BrokerHealth(string Status);
 }

@@ -17,4 +17,8 @@
     <ProjectReference Include="../../src/Compliance.Core/Compliance.Core.csproj" />
     <ProjectReference Include="../../src/Compliance.App/Compliance.App.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="E2E/compose.yml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
