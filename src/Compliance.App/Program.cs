@@ -62,6 +62,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateBoundary>()
+        .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
+        .AddMcpTool<GetBoundary>(tool => tool.ReadOnly())
+        .AddMcpTool<GetBoundaryVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListBoundaryVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEffectiveBoundaryVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetBoundaryDecision>(tool => tool.ReadOnly())
+        .AddMcpTool<ListBoundaryDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewBoundaryImpact>(tool => tool.ReadOnly())
+        .AddMcpTool<ProposeBoundarySuccessor>()
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -206,6 +216,54 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenantId}/programs/{programId}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
+            "/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaPut<ReviseBoundaryDraft>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundary, BoundaryView>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundaryVersion, BoundaryVersionView>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/versions/{versionId}")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<ListBoundaryVersions, Page<BoundaryVersionView>>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/versions")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetEffectiveBoundaryVersion, BoundaryVersionView>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/effective-version")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundaryDecision, BoundaryDecisionView>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/decisions/{decisionId}")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<ListBoundaryDecisions, Page<BoundaryDecisionView>>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/decisions")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/impact-preview")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ReviewBoundary>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/reviews")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ApproveBoundary>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/approvals")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ProposeBoundarySuccessor, BoundaryRegistration>(
+            "/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/successors")
+        .RequireAuthorization()
+        .WithTags("Boundaries");
     app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");

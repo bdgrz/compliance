@@ -111,6 +111,49 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 }
                 Assert.Equal("Split program revised", projected?.Name);
                 Assert.Equal(2, projected?.Revision);
+
+                var boundariesPath = $"{programPath}/boundaries";
+                using var boundaryCreated = await owner.PostAsJsonAsync(boundariesPath, new
+                {
+                    content = new
+                    {
+                        statement = "Split-host service boundary",
+                        engagement_stage = "readiness",
+                        trust_services_categories = new List<string> { "security" },
+                        entries = new[]
+                        {
+                            new
+                            {
+                                entry_id = Uuid.CreateVersion4().ToString(),
+                                kind = "inclusion",
+                                subject_type = "service",
+                                subject = "Service A",
+                                governed_record_id = (string?)null,
+                                owner_reference = "Compliance lead",
+                                rationale = "It handles customer requests.",
+                                unresolved = true,
+                            },
+                        },
+                    },
+                });
+                Assert.Equal(HttpStatusCode.OK, boundaryCreated.StatusCode);
+                var boundary = await boundaryCreated.Content
+                    .ReadFromJsonAsync<BoundaryRegistrationDocument>();
+                Assert.NotNull(boundary);
+                var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/boundaries/{boundary.BoundaryId}";
+                BoundaryDocument? boundaryView = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync(boundaryPath);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        boundaryView = await response.Content.ReadFromJsonAsync<BoundaryDocument>();
+                        if (boundaryView?.Draft?.Revision == 1)
+                            break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.Equal(boundary.DraftVersionId, boundaryView?.Draft?.VersionId);
             }
         }
         finally
@@ -331,6 +374,12 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
 
     sealed record TenantRegistrationDocument([property: JsonPropertyName("tenant_id")] string TenantId);
     sealed record ProgramRegistrationDocument([property: JsonPropertyName("program_id")] string ProgramId);
+    sealed record BoundaryRegistrationDocument(
+        [property: JsonPropertyName("boundary_id")] string BoundaryId,
+        [property: JsonPropertyName("draft_version_id")] string DraftVersionId);
+    sealed record BoundaryDocument(BoundaryDraftDocument? Draft);
+    sealed record BoundaryDraftDocument(
+        [property: JsonPropertyName("version_id")] string VersionId, long Revision);
     sealed record ProgramPlanDocument([property: JsonPropertyName("readiness_advisor")] string? ReadinessAdvisor);
     sealed record ProgramDocument(string Name, string Stage,
         [property: JsonPropertyName("next_stage")] string? NextStage, long Revision,
