@@ -120,6 +120,12 @@ Area: audit
 
 Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
+The delegated product defaults and the remaining organization-owned facts are
+separated in [the M0-D01 decision record](decisions/m0-d01-program-targets.md).
+Program dates remain optional targets; no target becomes a confirmed auditor
+date or a milestone due date without attributable evidence. The issue remains
+open until management and the audit firm supply the first engagement facts.
+
 Questions to answer:
 
 - [ ] Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
