@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Microsoft.AspNetCore.Authentication;
@@ -162,6 +163,33 @@ public sealed class ComplianceWebTests
         Assert.Equal(HttpStatusCode.OK, readiness.StatusCode);
         Assert.Equal(HttpStatusCode.OK, openApi.StatusCode);
         Assert.Contains("/api/v1/developer-user-sessions", openApiDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShouldDescribeServiceAndBoundaryContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenantId}/client-services")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenantId}/client-services/{serviceId}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenantId}/programs/{programId}/boundaries")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/reviews")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenantId}/boundaries/{boundaryId}/drafts/{draftVersionId}/approvals")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
     }
 
     static WebApplicationFactory<Program> CreateBrokerFreeFactory(string environment) =>
