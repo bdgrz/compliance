@@ -1196,6 +1196,15 @@ Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-0
 
 ### M0-A07 ADR: Tenant identity, federation, and tenant context
 
+Technical default recorded 2026-09-19 in
+[the client-tenancy ADR](../architecture/decisions/0001-client-tenancy-and-operator-provisioning.md):
+the URL tenant ID is authoritative even when a JSON body supplies another,
+tenant streams and projections retain that ID, platform grants never come from
+IdP claims, and OIDC continuation does not silently link a second identity
+from an existing session. A broker with client-specific connections is the
+chosen expansion direction. Client slug naming and log retention, the reviewed
+identity-linking flow, and production federation rollout remain open.
+
 Priority: P0
 
 Type: Architecture decision
