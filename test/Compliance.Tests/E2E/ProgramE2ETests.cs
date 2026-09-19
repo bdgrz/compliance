@@ -205,6 +205,13 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal(boundary.DraftVersionId, boundaryView?.Draft?.VersionId);
+                Assert.Equal(1, boundaryView?.Revision);
+                using var currentBoundaryRevision = await owner.GetAsync(
+                    $"{boundaryPath}?minimum_revision=1");
+                using var futureBoundaryRevision = await owner.GetAsync(
+                    $"{boundaryPath}?minimum_revision=2");
+                Assert.Equal(HttpStatusCode.OK, currentBoundaryRevision.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, futureBoundaryRevision.StatusCode);
                 ProgramSetupDocument? draftSetup = null;
                 while (DateTimeOffset.UtcNow < deadline)
                 {
@@ -553,7 +560,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("draft_version_id")] string DraftVersionId);
-    sealed record BoundaryDocument(BoundaryDraftDocument? Draft);
+    sealed record BoundaryDocument(BoundaryDraftDocument? Draft, long Revision);
     sealed record BoundaryDraftDocument(
         [property: JsonPropertyName("version_id")] string VersionId, long Revision);
     sealed record ProgramPlanDocument([property: JsonPropertyName("readiness_advisor")] string? ReadinessAdvisor);

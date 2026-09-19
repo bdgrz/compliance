@@ -115,7 +115,21 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal(registration.DraftVersionId, projected?.Draft?.VersionId);
+        Assert.Equal(1, projected?.Revision);
         Assert.Equal("Service A handles customer work.", projected?.Draft?.Content.Statement);
+        using var currentRevision = await owner.GetAsync($"{boundaryPath}?minimum_revision=1");
+        using var futureRevision = await owner.GetAsync($"{boundaryPath}?minimum_revision=2");
+        using var invalidRevision = await owner.GetAsync($"{boundaryPath}?minimum_revision=0");
+        using var missingRevision = await owner.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/boundaries/{Uuid.CreateVersion4()}?minimum_revision=1");
+        using var deniedRevision = await outsider.GetAsync($"{boundaryPath}?minimum_revision=1");
+        Assert.Equal(HttpStatusCode.OK, currentRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, futureRevision.StatusCode);
+        Assert.Contains("source has not reached revision 2",
+            await futureRevision.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missingRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedRevision.StatusCode);
         using var programBoundaries = await owner.GetAsync(path);
         Assert.Equal(HttpStatusCode.OK, programBoundaries.StatusCode);
         var boundaryList = await programBoundaries.Content
@@ -202,6 +216,9 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.Equal(2, projected?.Draft?.Revision);
+        Assert.Equal(2, projected?.Revision);
+        using var revisedRevision = await owner.GetAsync($"{boundaryPath}?minimum_revision=2");
+        Assert.Equal(HttpStatusCode.OK, revisedRevision.StatusCode);
         Assert.Equal("Service A and its provider are in scope.", projected?.Draft?.Content.Statement);
         using var stalePreview = await owner.GetAsync(
             $"{draftPath}/impact-preview?expected_revision=1");
@@ -481,7 +498,8 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     sealed record BoundaryDocument(BoundaryVersionDocument? Draft,
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("latest_approved_version")] BoundaryVersionDocument? LatestApprovedVersion,
-        [property: JsonPropertyName("latest_decision")] BoundaryDecisionDocument? LatestDecision);
+        [property: JsonPropertyName("latest_decision")] BoundaryDecisionDocument? LatestDecision,
+        long Revision);
     sealed record BoundaryPageDocument(IReadOnlyList<BoundaryDocument> Items);
     sealed record BoundaryVersionDocument(
         [property: JsonPropertyName("version_id")] string VersionId,

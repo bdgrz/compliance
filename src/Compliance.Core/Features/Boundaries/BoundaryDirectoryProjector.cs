@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Boundaries;
 
 public sealed partial class BoundaryDirectoryProjector(IBoundaryDirectoryProjection projection)
-    : Projector(projection, EventStreamPattern.ForTenant(), "BoundaryDirectory"),
+    : Projector(projection, EventStreamPattern.ForTenant(), "BoundaryDirectoryV2"),
       IProjectorHandler<BoundaryDraftCreated>, IProjectorHandler<BoundaryDraftRevised>,
       IProjectorHandler<BoundaryDraftDiscarded>,
       IProjectorHandler<BoundaryReviewed>, IProjectorHandler<BoundaryApproved>,

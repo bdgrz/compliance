@@ -27,7 +27,7 @@ public sealed record BoundaryVersionView(Uuid TenantId, Uuid BoundaryId, Uuid Pr
 
 public sealed record BoundaryView(Uuid TenantId, Uuid BoundaryId, Uuid ProgramId,
     BoundaryVersionView? Draft, BoundaryVersionView? LatestApprovedVersion,
-    BoundaryDecisionView? LatestDecision);
+    BoundaryDecisionView? LatestDecision, long Revision = 0);
 
 public sealed record BoundaryChange(string Field, string ChangeType, Uuid? EntryId,
     string? PreviousValue, string? ProposedValue,
@@ -77,7 +77,7 @@ public sealed record ProposeBoundarySuccessor(Uuid TenantId, Uuid BoundaryId,
     : IRequest<BoundaryRegistration>, IBoundaryAuthoringRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.get", 1)]
-public sealed record GetBoundary(Uuid TenantId, Uuid BoundaryId)
+public sealed record GetBoundary(Uuid TenantId, Uuid BoundaryId, long? MinimumRevision = null)
     : IRequest<BoundaryView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.program.list", 1)]

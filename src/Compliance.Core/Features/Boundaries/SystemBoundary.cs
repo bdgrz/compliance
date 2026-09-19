@@ -17,9 +17,12 @@ public sealed class SystemBoundary : Aggregate
     Uuid _acceptedReviewDecisionId;
     Uuid _latestApprovedVersionId;
     DateOnly? _latestApprovedEffectiveFrom;
+    long _revision;
 
     public bool IsCreated => _created;
+    public bool IsVisible => _draftContent is not null || _latestApprovedVersionId != Uuid.Empty;
     public Uuid ProgramId => _programId;
+    public long Revision => _revision;
 
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))
@@ -27,6 +30,7 @@ public sealed class SystemBoundary : Aggregate
         _tenantId = tenantId;
         On<BoundaryDraftCreated>(ev =>
         {
+            _revision++;
             _created = true;
             _programId = ev.ProgramId;
             _initialDraftVersionId = ev.DraftVersionId;
@@ -39,6 +43,7 @@ public sealed class SystemBoundary : Aggregate
         });
         On<BoundaryDraftRevised>(ev =>
         {
+            _revision++;
             _draftRevision = ev.Revision;
             _draftContent = ev.Content;
             _draftAuthorMemberId = ev.AuthorMemberId;
@@ -46,17 +51,20 @@ public sealed class SystemBoundary : Aggregate
         });
         On<BoundaryReviewed>(ev =>
         {
+            _revision++;
             _acceptedReviewDecisionId = ev.Outcome == "accept" ? ev.DecisionId : Uuid.Empty;
             _draftEverReviewed = true;
         });
         On<BoundaryDraftDiscarded>(_ =>
         {
+            _revision++;
             _draftVersionId = Uuid.Empty;
             _draftContent = null;
             _acceptedReviewDecisionId = Uuid.Empty;
         });
         On<BoundaryApproved>(ev =>
         {
+            _revision++;
             _latestApprovedVersionId = ev.DraftVersionId;
             _latestApprovedEffectiveFrom = ev.EffectiveFrom;
             _draftVersionId = Uuid.Empty;
@@ -65,6 +73,7 @@ public sealed class SystemBoundary : Aggregate
         });
         On<BoundarySuccessorProposed>(ev =>
         {
+            _revision++;
             _draftVersionId = ev.DraftVersionId;
             _draftRevision = 1;
             _draftContent = ev.Content;
