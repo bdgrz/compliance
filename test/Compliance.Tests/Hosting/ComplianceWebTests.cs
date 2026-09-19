@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -12,6 +14,22 @@ namespace Bdgrz.Compliance.Tests.Hosting;
 
 public sealed class ComplianceWebTests
 {
+    [Fact]
+    public async Task EveryBusinessApiEndpointDeclaresAuthorization()
+    {
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
+            .Where(endpoint => endpoint.RoutePattern.RawText is not
+                "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions")
+            .ToArray();
+
+        Assert.NotEmpty(endpoints);
+        Assert.All(endpoints, endpoint => Assert.NotEmpty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()));
+    }
+
     [Fact]
     public async Task ShouldRegisterBearerSchemeForEachConfiguredResource()
     {
