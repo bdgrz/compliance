@@ -30,7 +30,8 @@ public sealed record RetireClientService(Uuid TenantId, Uuid ServiceId, long Exp
     string Rationale) : IRequest, IProgramManagementRequest, ICallable;
 
 [Discriminator("bdgrz.client-service.get", 1)]
-public sealed record GetClientService(Uuid TenantId, Uuid ServiceId)
+public sealed record GetClientService(Uuid TenantId, Uuid ServiceId,
+    long? MinimumRevision = null)
     : IRequest<ClientServiceView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.client-service.list", 1)]
