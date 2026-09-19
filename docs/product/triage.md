@@ -28,6 +28,14 @@ and the first release stays tenant-ready rather than firm-complete: the tenancy
 foundations (M0-D25, M0-A07, EN-01, and R1-15) are P0, and firm operations are
 planned in **F1 - Multi-client firm operations**.
 
+Backend delivery is tracked in a child issue of each story or existing product
+slice, with the same milestone and applicable dependencies. Close that child
+only with linked backend acceptance evidence; keep the product parent open for
+UI work. M0-D24 blocks UI delivery but does not block backend children. Finish
+the R1-15 backend proof before starting another feature, then follow actual
+dependencies through R1, R2, T1, T2, T3, and F1. An unvalidated P2 hypothesis
+stays visible and unscheduled.
+
 ## Evidence levels
 
 - Confirmed: directly supported by the target customer statement in this product conversation.
