@@ -1,7 +1,12 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using Bdgrz.Compliance;
+using Cntryl.Portia;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -9,6 +14,166 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
 {
+    [Fact]
+    public async Task IndependentWorkerCompletesFirstAdministratorAndSlugFlow()
+    {
+        var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        using var worker = builder.Build();
+        await worker.StartAsync();
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient operatorClient;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                operatorClient = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+            using var operatorClientToDispose = operatorClient;
+            using var administratorClient = factory.CreateClient();
+            var operatorEmail = $"operator-{Guid.NewGuid():N}@example.com";
+            var administratorEmail = $"administrator-{Guid.NewGuid():N}@example.com";
+            await TenantInvitationE2ETests.LoginAsync(operatorClient, operatorEmail);
+
+            var slug = $"split-invite-{Guid.NewGuid():N}"[..24];
+            using var registered = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name = "Split Invitation",
+                legal_name = "Split Invitation LLC",
+                slug,
+                first_administrator_email = administratorEmail,
+            });
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+            var registration = await registered.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(registration);
+            var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+
+            var delivery = worker.Services.GetRequiredService<MockTenantInvitationDelivery>();
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            string? invitationToken = null;
+            while (DateTimeOffset.UtcNow < deadline &&
+                   !delivery.TryGetLatest(tenantId, administratorEmail, out invitationToken))
+                await Task.Delay(250);
+            Assert.NotNull(invitationToken);
+
+            var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
+                administratorEmail);
+            var acceptancePath = $"/api/v1/tenants/{tenantId}/invitations/acceptance";
+            using var unverified = await administratorClient.PostAsJsonAsync(acceptancePath,
+                new { email_address = administratorEmail, token = invitationToken });
+            Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
+                administratorId, administratorEmail);
+            using var accepted = await administratorClient.PostAsJsonAsync(acceptancePath,
+                new { email_address = administratorEmail, token = invitationToken });
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+
+            var access = HttpStatusCode.Forbidden;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+                access = response.StatusCode;
+                if (access == HttpStatusCode.OK)
+                    break;
+                await Task.Delay(250);
+            }
+            Assert.Equal(HttpStatusCode.OK, access);
+
+            var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
+            using var invitedStaff = await operatorClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/invitations",
+                new { email_address = staffEmail, affiliation = "firm_staff", administrator = false });
+            Assert.Equal(HttpStatusCode.NoContent, invitedStaff.StatusCode);
+            string? staffToken = null;
+            var apiDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline &&
+                   !apiDelivery.TryGetLatest(tenantId, staffEmail, out staffToken))
+                await Task.Delay(250);
+            Assert.NotNull(staffToken);
+            using var staffClient = factory.CreateClient();
+            var staffId = await TenantInvitationE2ETests.LoginAsync(staffClient, staffEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, staffClient, staffId, staffEmail);
+            using var staffAccepted = await staffClient.PostAsJsonAsync(acceptancePath,
+                new { email_address = staffEmail, token = staffToken });
+            Assert.Equal(HttpStatusCode.NoContent, staffAccepted.StatusCode);
+            Members? members = null;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await operatorClient.GetAsync($"/api/v1/tenants/{tenantId}/members");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    members = await response.Content.ReadFromJsonAsync<Members>();
+                    if (members?.Items.Count == 2)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.NotNull(members);
+            Assert.Contains(members.Items, member => member.UserId == staffId &&
+                member.Affiliation == "firm_staff");
+            using var staffAdministratorDenied = await staffClient.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            Assert.Equal(HttpStatusCode.Forbidden, staffAdministratorDenied.StatusCode);
+
+            var newSlug = $"split-renamed-{Guid.NewGuid():N}"[..24];
+            using var changed = await operatorClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/slug-changes", new { slug = newSlug });
+            Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
+            SlugResolution? oldLink = null;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenant-slugs/{slug}/mine");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    oldLink = await response.Content.ReadFromJsonAsync<SlugResolution>();
+                    if (oldLink?.Redirect == true && oldLink.CurrentSlug == newSlug)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal(newSlug, oldLink?.CurrentSlug);
+            Assert.True(oldLink?.Redirect);
+            using var reused = await operatorClient.PostAsJsonAsync("/api/v1/tenants",
+                new { name = "Reused Slug", slug });
+            Assert.Equal(HttpStatusCode.Conflict, reused.StatusCode);
+
+            using var suspended = await operatorClient.PostAsync(
+                $"/api/v1/tenants/{tenantId}/suspensions", null);
+            Assert.Equal(HttpStatusCode.NoContent, suspended.StatusCode);
+            using var deniedImmediately = await administratorClient.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            Assert.Equal(HttpStatusCode.Forbidden, deniedImmediately.StatusCode);
+            using var reactivated = await operatorClient.DeleteAsync(
+                $"/api/v1/tenants/{tenantId}/suspensions");
+            Assert.Equal(HttpStatusCode.NoContent, reactivated.StatusCode);
+            using var restored = await administratorClient.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        }
+        finally
+        {
+            await worker.StopAsync();
+        }
+    }
+
     [Fact]
     public async Task ApiAndIndependentWorkerProjectTenantLifecycle()
     {
@@ -89,6 +254,48 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.Equal("suspended", projected?.Status);
+
+            var contestedSlug = $"contested-{Guid.NewGuid():N}"[..24];
+            var firstRegistration = client.PostAsJsonAsync("/api/v1/tenants",
+                new { name = "First Claim", slug = contestedSlug });
+            var secondRegistration = client.PostAsJsonAsync("/api/v1/tenants",
+                new { name = "Second Claim", slug = contestedSlug });
+            using var firstClaim = await firstRegistration;
+            using var secondClaim = await secondRegistration;
+            var claims = new[] { firstClaim, secondClaim };
+            Assert.All(claims, claim => Assert.True(
+                claim.StatusCode is HttpStatusCode.OK or HttpStatusCode.Conflict));
+            var acceptedClaims = new List<Registration>();
+            foreach (var claim in claims.Where(claim => claim.StatusCode == HttpStatusCode.OK))
+            {
+                var acceptedClaim = await claim.Content.ReadFromJsonAsync<Registration>();
+                Assert.NotNull(acceptedClaim);
+                acceptedClaims.Add(acceptedClaim);
+            }
+            Assert.NotEmpty(acceptedClaims);
+
+            var resolvedStatuses = new Dictionary<string, string>();
+            var claimDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < claimDeadline && resolvedStatuses.Count < acceptedClaims.Count)
+            {
+                foreach (var claim in acceptedClaims)
+                {
+                    if (resolvedStatuses.ContainsKey(claim.TenantId))
+                        continue;
+                    using var response = await client.GetAsync($"/api/v1/tenants/{claim.TenantId}");
+                    if (response.StatusCode != HttpStatusCode.OK)
+                        continue;
+                    var view = await response.Content.ReadFromJsonAsync<Tenant>();
+                    if (view?.Status is "active" or "rejected")
+                        resolvedStatuses.Add(claim.TenantId, view.Status);
+                }
+                if (resolvedStatuses.Count < acceptedClaims.Count)
+                    await Task.Delay(250);
+            }
+            Assert.Equal(acceptedClaims.Count, resolvedStatuses.Count);
+            Assert.Single(resolvedStatuses.Values, status => status == "active");
+            Assert.All(resolvedStatuses.Values, status =>
+                Assert.True(status is "active" or "rejected"));
         }
         finally
         {
@@ -117,4 +324,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     sealed record Registration([property: JsonPropertyName("tenant_id")] string TenantId);
     sealed record Tenant([property: JsonPropertyName("legal_name")] string? LegalName, string Status);
     sealed record TenantList(IReadOnlyList<Tenant> Items);
+    sealed record SlugResolution([property: JsonPropertyName("current_slug")] string CurrentSlug,
+        bool Redirect);
+    sealed record Members(IReadOnlyList<Member> Items);
+    sealed record Member([property: JsonPropertyName("user_id")] string UserId,
+        string Affiliation);
 }

@@ -18,7 +18,7 @@ public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
     ValueTask IAsyncDisposable.DisposeAsync() => _stack.DisposeAsync();
 }
 
-[CollectionDefinition(Name)]
+[CollectionDefinition(Name, DisableParallelization = true)]
 public sealed class BrokerCollectionDefinition : ICollectionFixture<BrokerStackFixture>
 {
     public const string Name = "Broker e2e";
