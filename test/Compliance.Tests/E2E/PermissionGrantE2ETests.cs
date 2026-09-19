@@ -59,6 +59,16 @@ public sealed class PermissionGrantE2ETests(BrokerStackFixture broker)
         var team = await getTeamResponse.Content.ReadFromJsonAsync<TeamDocument>();
         Assert.NotNull(team);
         Assert.Equal(BuiltInRbac.AdministratorsTeamName, team.Name);
+
+        using var suspend = await client.PostAsync($"/api/v1/tenants/{tenantId}/suspensions", null);
+        Assert.Equal(HttpStatusCode.NoContent, suspend.StatusCode);
+        using var blocked = await client.GetAsync($"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+        Assert.Equal(HttpStatusCode.Forbidden, blocked.StatusCode);
+
+        using var reactivate = await client.DeleteAsync($"/api/v1/tenants/{tenantId}/suspensions");
+        Assert.Equal(HttpStatusCode.NoContent, reactivate.StatusCode);
+        using var restored = await client.GetAsync($"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
     }
 
     static async Task LogInAsDeveloperAsync(HttpClient client)

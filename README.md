@@ -65,6 +65,10 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Compliance.App
 
 `COMPLIANCE_HOST_MODE` accepts `standalone` (the default), `api`, or `worker`. Local Compose enables email-based developer authentication with `BDGRZ_DEVELOPER_AUTH=true`. The application rejects developer authentication in every other environment.
 
+Organization provisioning and suspension require a platform operator. Configure production operators with `PlatformOperators:UserIds:0`, `PlatformOperators:UserIds:1`, and so on, using Bdgrz platform user UUIDs. With no configured operators, production provisioning is denied. Local developer identities are treated as operators only while developer authentication is enabled; this supports local bootstrap and integration tests.
+
+Production organization registration requires a legal name and first administrator email. Registration creates no membership for the operator. The first administrator receives an invitation, verifies the address, and accepts the invitation before the organization becomes active. Firm staff invitations create an explicit `firm_staff` membership without a standing tenant permission grant. Operators can inspect members, suspend or reactivate an active organization, and change its slug. The previous slug resolves only for existing members and is never assigned to another organization.
+
 ## Authentication
 
 Badgers delegates authentication to an external OpenID Connect provider such as Auth0 or Microsoft Entra ID. It does not host passwords or a client secret. Production fails at startup unless these settings are supplied:
@@ -97,6 +101,9 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 Email delivery currently uses `MockEmailChallengeDelivery`. It captures the latest challenge
 in process for automated tests and sends no external message. Replace that adapter with a real
 delivery service before enabling email verification for users outside the mock environment.
+Invitations likewise use `MockTenantInvitationDelivery`, which captures tokens only in the process
+that sent them. Invitation acceptance and email verification are human HTTP flows and have no MCP tools;
+operator invitation management, organization queries, lifecycle, and slug operations use both HTTP and MCP.
 
 ASP.NET Core's optimized static-asset endpoints serve the Vite output with build-time metadata and compression. A small pre-routing rewrite supplies `index.html` for client-owned, extensionless paths while reserving `/api`, `/auth`, `/health`, and `/openapi` for the server.
 

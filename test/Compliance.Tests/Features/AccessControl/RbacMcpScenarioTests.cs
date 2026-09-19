@@ -54,7 +54,22 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.rbac.team-role.assign",
             "bdgrz.rbac.team-role.remove",
             "bdgrz.rbac.role-team.list",
-            "bdgrz.tenant-membership.list-mine");
+            "bdgrz.tenant-membership.list-mine",
+            "bdgrz.tenant.register",
+            "bdgrz.tenant.suspend",
+            "bdgrz.tenant.reactivate",
+            "bdgrz.tenant-member.invite",
+            "bdgrz.tenant.get",
+            "bdgrz.tenant-member.list",
+            "bdgrz.tenant.change-slug",
+            "bdgrz.tenant-slug.resolve-mine");
+
+        var registration = new Dictionary<string, object?>
+        {
+            ["name"] = "MCP organization",
+            ["slug"] = $"mcp-tenant-{Guid.NewGuid():N}"[..24],
+        };
+        _ = await scenario.When("bdgrz.tenant.register", registration).ExpectSuccess();
 
         // No permission grant exists for this actor, so a call must fail the same way a direct
         // HTTP request would: TenantAccessAuthorizer denies before the handler ever runs.

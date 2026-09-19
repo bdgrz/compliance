@@ -10,10 +10,13 @@ namespace Bdgrz.Compliance.Features.Tenants;
 /// </summary>
 static class TenantMembershipDirectorySchema
 {
+    public static readonly KvDirectoryIndex<TenantMembershipView> ByUser = new(
+        "by_user", 1, static membership => [membership.UserId.ToString()]);
+
     public static readonly KvDirectory<TenantMembershipView, Uuid> Directory = new(
         "tenant-memberships",
         ComplianceCoreJsonContext.Default.TenantMembershipView,
         static membership => membership.UserId,
         static userId => [userId.ToString()],
-        []);
+        [ByUser]);
 }

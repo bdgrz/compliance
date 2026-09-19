@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 
 /// <summary>
 ///     Runs <see cref="RegisterTenant" /> through Portia's real composed lifecycle — this is what a
-///     unit test against <see cref="RegisterTenantAuthorizer" /> or
+///     unit test against <see cref="PlatformOperatorAuthorizer" /> or
 ///     <see cref="RegisterTenantSlugAvailabilityGuard" /> in isolation cannot show: that they are
 ///     actually wired to <see cref="RegisterTenant" />, and run in the right order.
 /// </summary>
@@ -40,6 +40,18 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     [Fact]
+    public async Task ShouldDenyAPlatformUserWithoutAnOperatorGrant()
+    {
+        await using var provider = BuildProvider(developerAuthentication: false);
+
+        await RequestScenario.For(provider)
+            .GivenActor(BdgrzActor())
+            .When(new RegisterTenant("Acme", "acme"))
+            .ExpectDenied(RequestErrorKind.Forbidden)
+            .ExpectNotHandled();
+    }
+
+    [Fact]
     public async Task ShouldShortCircuitAtTheGuardGivenAnOccupiedSlug()
     {
         await using var provider = BuildProvider();
@@ -60,13 +72,14 @@ public sealed class RegisterTenantRequestScenarioTests
             .ExpectNotHandled();
     }
 
-    static ServiceProvider BuildProvider()
+    static ServiceProvider BuildProvider(bool developerAuthentication = true)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton(new PlatformOperatorAuthority([], developerAuthentication));
         services.AddPortia()
             .AddRequestHandler<RegisterTenantHandler>()
-            .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }

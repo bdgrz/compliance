@@ -2,7 +2,7 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed class RegisterTenantHandler(IAggregateExecutor executor)
+public sealed class RegisterTenantHandler(IAggregateExecutor executor, PlatformOperatorAuthority operators)
     : IRequestHandler<RegisterTenant, TenantRegistration>
 {
     public ValueTask<Result<TenantRegistration>> HandleAsync(
@@ -15,10 +15,18 @@ public sealed class RegisterTenantHandler(IAggregateExecutor executor)
             : throw new InvalidOperationException(
                 "RegisterTenantAuthorizer must reject requests without a Bdgrz user identity.");
 
+        if (!operators.DeveloperAuthentication &&
+            (string.IsNullOrWhiteSpace(context.Request.LegalName) ||
+             string.IsNullOrWhiteSpace(context.Request.FirstAdministratorEmail)))
+            return ValueTask.FromResult(Result<TenantRegistration>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "Legal name and first administrator email are required for provisioning.")));
+
         return executor.ExecuteAsync(
             new Tenant(context.RequestId),
             tenant => AggregateOutcome.CommitOnSuccess(
-                tenant.Register(ownerUserId, context.Request.Name, context.Request.Slug)),
+                tenant.Register(ownerUserId, context.Request.Name, context.Request.Slug,
+                    context.Request.LegalName, context.Request.FirstAdministratorEmail)),
             context, ct);
     }
 }

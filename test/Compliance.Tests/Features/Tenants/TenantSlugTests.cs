@@ -59,6 +59,8 @@ public sealed class TenantSlugTests
 
         Assert.False(slug.IsAvailableFor(FirstTenant));
         Assert.False(slug.IsAvailableFor(SecondTenant));
+        Assert.Equal(FirstTenant, slug.OwningTenantId);
+        Assert.True(slug.IsRetired);
     }
 
     [Fact]

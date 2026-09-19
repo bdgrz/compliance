@@ -18,13 +18,31 @@ public static class TenantSlugs
         "select", "tenants", "organizations", "new", "create", "account", "settings", "admin",
         "portfolio", "work", "my-work", "invitations", "invite", "help", "support", "docs",
         "status", "static", "assets", "www", "app",
+        "mcp", "developer-login", "teams", "roles",
     };
 
-    public static bool TryNormalize(string? value, out string normalized)
+    public static bool IsReservedRoute(string segment) => ReservedRoutes.Contains(segment);
+
+    public static bool TryNormalize(string? value, out string normalized) =>
+        TryNormalize(value, out normalized, out _);
+
+    public static bool TryNormalize(string? value, out string normalized, out string reason)
     {
         normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalized.Length is < 4 or > 63 || normalized[0] is < 'a' or > 'z' || normalized[^1] == '-')
+        reason = string.Empty;
+        if (normalized.Length is < 4 or > 63)
         {
+            reason = "A slug must contain 4 to 63 characters.";
+            return false;
+        }
+        if (normalized[0] is < 'a' or > 'z')
+        {
+            reason = "A slug must start with a letter.";
+            return false;
+        }
+        if (normalized[^1] == '-')
+        {
+            reason = "A slug must end with a letter or digit.";
             return false;
         }
 
@@ -35,14 +53,23 @@ public static class TenantSlugs
             if (!(character is >= 'a' and <= 'z' or >= '0' and <= '9') && !hyphen ||
                 hyphen && previousHyphen)
             {
+                reason = hyphen && previousHyphen
+                    ? "A slug cannot contain consecutive hyphens."
+                    : "A slug may contain only lowercase letters, digits, and hyphens.";
                 return false;
             }
 
             previousHyphen = hyphen;
         }
 
-        if (ReservedRoutes.Contains(normalized) || Uuid.TryParse(normalized, null, out _))
+        if (ReservedRoutes.Contains(normalized))
         {
+            reason = "A slug cannot use a reserved route.";
+            return false;
+        }
+        if (Uuid.TryParse(normalized, null, out _))
+        {
+            reason = "A slug cannot match a tenant_id.";
             return false;
         }
 

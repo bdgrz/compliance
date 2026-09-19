@@ -12,7 +12,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldAllowSystemActorRegardlessOfPermissions()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false));
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, RequestActor.System);
 
@@ -24,7 +24,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutBdgrzIdentity()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true));
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant());
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(
             request,
@@ -41,7 +41,7 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldAllowActorWithTenantAccessPermission()
     {
         var permissions = new FakePermissionAuthorizer(true);
-        var authorizer = new TenantAccessAuthorizer(permissions);
+        var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant());
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -55,7 +55,7 @@ public sealed class TenantAccessAuthorizerTests
     [Fact]
     public async Task ShouldRejectActorWithoutTenantAccessPermission()
     {
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false));
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant());
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -67,6 +67,12 @@ public sealed class TenantAccessAuthorizerTests
 
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
+
+    sealed class ActiveTenant : ITenantActivity
+    {
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(true);
+    }
 
     sealed class FakePermissionAuthorizer(bool allowed) : IPermissionAuthorizer
     {

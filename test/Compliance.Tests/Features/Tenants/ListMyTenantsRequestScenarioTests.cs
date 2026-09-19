@@ -154,6 +154,10 @@ public sealed class ListMyTenantsRequestScenarioTests
             ValueTask.FromResult(
                 Members.TryGetValue(Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture), out var members) &&
                 members.Contains(userId));
+
+        public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<TenantMembershipView>([], null));
     }
 
     sealed class FakeTenantDirectoryReader : ITenantDirectoryReader

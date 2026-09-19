@@ -53,6 +53,7 @@ public sealed class DeleteTeamRequestScenarioTests
         var services = new ServiceCollection();
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IPermissionAuthorizer>(new FakePermissionAuthorizer(allowed));
+        services.AddSingleton<ITenantActivity, ActiveTenant>();
         services.AddPortia()
             .AddRequestHandler<DeleteTeamHandler>()
             .AddRequestAuthorizer<RbacManagementAuthorizer>();

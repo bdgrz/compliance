@@ -7,6 +7,7 @@ public sealed class Member : Aggregate
     readonly Uuid _tenantId;
     readonly Uuid _userId;
     bool _isRegistered;
+    string? _affiliation;
 
     public Member(Uuid tenantId, Uuid userId)
         : base(
@@ -15,13 +16,22 @@ public sealed class Member : Aggregate
     {
         _tenantId = tenantId;
         _userId = userId;
-        On<MemberRegistered>(_ => _isRegistered = true);
+        On<MemberRegistered>(registered =>
+        {
+            _isRegistered = true;
+            _affiliation = registered.Affiliation;
+        });
     }
 
-    public Result Register()
+    public Result Register(string affiliation = "client_personnel")
     {
+        if (affiliation is not ("client_personnel" or "firm_staff"))
+            return Result.Failure(new RequestError(RequestErrorKind.Validation, "Invalid membership affiliation."));
         if (!_isRegistered)
-            RaiseEvent(new MemberRegistered(_tenantId, Id, _userId));
+            RaiseEvent(new MemberRegistered(_tenantId, Id, _userId, affiliation));
+        else if (_affiliation != affiliation)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "This membership has a different affiliation."));
         return Result.Success;
     }
 }

@@ -49,6 +49,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RemoveTeamRole>(tool => tool.Destructive())
         .AddMcpTool<ListRoleTeams>(tool => tool.ReadOnly())
         .AddMcpTool<ListMyTenants>(tool => tool.ReadOnly())
+        .AddMcpTool<RegisterTenant>()
+        .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
+        .AddMcpTool<ReactivateTenant>(tool => tool.Idempotent())
+        .AddMcpTool<InviteTenantMember>()
+        .AddMcpTool<GetTenant>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTenantMembers>(tool => tool.ReadOnly())
+        .AddMcpTool<ChangeTenantSlug>()
+        .AddMcpTool<ResolveMyTenantSlug>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -145,6 +153,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
         .RequireAuthorization()
         .WithTags("Tenants");
+    app.MapPortiaPost<SuspendTenant>("/api/v1/tenants/{tenantId}/suspensions")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenantId}/suspensions")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenantId}/invitations")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaPost<AcceptTenantInvitation>("/api/v1/tenants/{tenantId}/invitations/acceptance")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaGet<GetTenant, TenantView>("/api/v1/tenants/{tenantId}")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaGet<ListTenantMembers, Page<TenantMembershipView>>("/api/v1/tenants/{tenantId}/members")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaPost<ChangeTenantSlug>("/api/v1/tenants/{tenantId}/slug-changes")
+        .RequireAuthorization()
+        .WithTags("Tenants");
+    app.MapPortiaGet<ResolveMyTenantSlug, TenantSlugResolution>("/api/v1/tenant-slugs/{slug}/mine")
+        .RequireAuthorization()
+        .WithTags("Tenants");
     app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
         .RequireAuthorization()
         .WithTags("Email addresses");
@@ -161,9 +193,6 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization()
         .WithTags("Email addresses");
     app.MapPortiaGet<ListMyTenants, Page<TenantMembershipSummary>>("/api/v1/tenants/mine")
-        .RequireAuthorization()
-        .WithTags("Tenants");
-    app.MapPortiaDelete<RequestTenantSlugSurrender>("/api/v1/tenants/{tenantId}/slugs/{slug}")
         .RequireAuthorization()
         .WithTags("Tenants");
     app.MapPortiaPost<DefineTeam>("/api/v1/tenants/{tenantId}/teams/{teamId}")

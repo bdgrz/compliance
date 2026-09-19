@@ -21,9 +21,13 @@ public static class ComplianceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
+        services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<MockEmailChallengeDelivery>();
         services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
+        services.AddSingleton<MockTenantInvitationDelivery>();
+        services.AddSingleton<ITenantInvitationDelivery>(provider =>
+            provider.GetRequiredService<MockTenantInvitationDelivery>());
         services.AddScoped<FitzEmailAddressDirectory>();
         services.AddScoped<IEmailAddressDirectoryProjection>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
@@ -44,6 +48,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTenantDirectoryReader>();
         services.AddScoped<ITenantDirectoryProjection>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
         services.AddScoped<ITenantDirectoryReader>(provider => provider.GetRequiredService<FitzTenantDirectoryReader>());
+        services.AddScoped<ITenantActivity, EventSourcedTenantActivity>();
         services.AddScoped<FitzTenantMembershipDirectoryReader>();
         services.AddScoped<ITenantMembershipDirectoryProjection>(
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
@@ -97,7 +102,19 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRoleTeamsHandler>()
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
-            .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestHandler<SuspendTenantHandler>()
+            .AddRequestHandler<ReactivateTenantHandler>()
+            .AddRequestHandler<InviteTenantMemberHandler>()
+            .AddRequestHandler<AcceptTenantInvitationHandler>()
+            .AddRequestHandler<GetTenantHandler>()
+            .AddRequestHandler<ListTenantMembersHandler>()
+            .AddRequestHandler<ChangeTenantSlugHandler>()
+            .AddRequestHandler<ResolveMyTenantSlugHandler>()
+            .AddRequestAuthorizer<ResolveMyTenantSlugAuthorizer>()
+            .AddRequestAuthorizer<AcceptTenantInvitationAuthorizer>()
+            .AddRequestHandler<ActivateTenantHandler>()
+            .AddRequestAuthorizer<ActivateTenantAuthorizer>()
+            .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
             .AddRequestHandler<ListMyTenantsHandler>()
             .AddRequestAuthorizer<ListMyTenantsAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>()
@@ -110,6 +127,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ConfirmTenantSlugSurrenderHandler>()
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
+            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
