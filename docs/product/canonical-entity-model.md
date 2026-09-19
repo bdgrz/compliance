@@ -33,8 +33,8 @@ under [Standards references](#standards-references). `SCIM` means RFC 7643
 (and RFC 7644 only for protocol behavior), `OpenID Connect` means Core 1.0
 incorporating errata set 2, `NIST RBAC` means NIST IR 6192, `W3C PROV` means
 the April 2013 PROV-O Recommendation, and `IETF hardware model` means RFC 8348.
-A table entry labeled
-as an original product decision is not a standards-conformance claim. No
+A table entry labeled as an original product decision is not a
+standards-conformance claim. No
 schema, standard prose, or test corpus is copied into this catalog.
 
 ## Modeling principles
@@ -184,6 +184,89 @@ matters:
 - `superseded_at`: when a governed successor replaced it.
 
 ## Relationship spine
+
+### Identity and reference contract
+
+This contract applies to every entity above. Each governed record has one
+immutable, platform-generated ID and a required owning tenant ID; an
+`Organization` used as a tenant owns its own realm. A global
+`PlatformUser` and `FederatedIdentity` instead have a platform realm; their
+tenant access exists only through `Membership`. A `SourceSystem` and its
+observations are tenant-owned even when two tenants configure the same
+provider. An external identifier is unique only within its source system,
+namespace, and object type; it never grants access or proves a correlation.
+References must resolve to live or historical records in the same tenant,
+unless an explicitly named global identity reference is permitted. Missing,
+unresolved, and redacted references are distinct states. An imported source
+may report an unresolved target, but no governed relationship is asserted
+until the target is resolved. Labels and contact values are mutable display
+attributes and cannot be foreign keys.
+
+For all tenant records, `id`, `tenant_id`, `created_at`, and lifecycle state are
+required. Creation and retirement retain actor, time, and source. Optional
+fields in the tables above remain optional; a blank string is not a substitute
+for a missing value. A record may be `active`, `inactive`, or `retired`; source
+observations additionally have `unresolved` and `superseded` states. Retirement
+does not delete identity, source attribution, or references captured in a
+historical decision. Domain-specific lifecycles refine these states in the
+owning story; this vocabulary does not imply a workflow transition or command
+boundary.
+
+### Relationship cardinality and time contract
+
+The following are canonical relationship rules, not aggregate or storage
+boundaries. `1` requires an existing endpoint at the relationship's effective
+time; `0..1` and `0..*` allow absence. Where a relationship is observed from a
+source, its direct assertion retains `source_system_id`, source record ID,
+`observed_at`, and the source's effective interval when known. A governed
+relationship also retains decision actor and `recorded_at`. Intervals are
+half-open `[effective_from, effective_to)`; an absent end means open, not
+infinite source certainty. Overlap is allowed only when the rows represent
+distinct relationships or separately attributed, conflicting observations.
+
+| Relationship | Endpoints and cardinality | Constraint |
+| --- | --- | --- |
+| Organization hierarchy | child `Organization` 0..1 parent; parent 0..* children | Same tenant realm; no cycles; legal independence is not inferred from hierarchy. |
+| Organizational structure | `OrganizationalUnit` 1 organization, 0..1 parent unit; organization 0..* units | Parent unit belongs to the same organization; no cycles. |
+| Workforce affiliation | `WorkRelationship` 1 `Person`, 1 `Organization`; each endpoint 0..* relationships | Parallel and successive relationships are distinct; employee number is source-scoped. |
+| Workforce manager | relationship 1 subordinate and 1 manager `WorkRelationship`; each 0..* over history | Compatible organization and effective intervals; no self-management or effective cycles. |
+| Job and unit assignment | `WorkRelationship` 0..1 `JobProfile`, 0..* units | Profile and units belong to an applicable organization; effective dates are retained. |
+| Accountable work | `Responsibility` 1 assignee (`Person`, `Membership`, `Team`, or `OrganizationalUnit`), 1 governed object and scope | Assignee type, authority, and effective interval are explicit; a person need not sign in to be accountable. |
+| Login binding | `FederatedIdentity` 1 `PlatformUser`; user 0..* identities | Exact issuer and subject are globally unique; rebinding requires an attributable governed decision. |
+| Person correlation | `Person` 0..* identities, platform users, and accounts; each correlated identity/account 0..1 person | Correlation is explicit, revocable, and tenant-scoped; neither email nor name proves it. |
+| Tenant membership | `Membership` 1 `PlatformUser`, 1 `Organization`; each endpoint 0..* over history | At most one active membership for the same user and organization; suspension revokes effective access immediately. |
+| Team membership | `Team` 1 organization, 0..* memberships; member 1 `Membership` | Team and membership belong to the same tenant; membership intervals cannot outlive the tenant affiliation. |
+| Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; a global user reference alone grants no tenant role. |
+| Application deployment | `SystemInstance` 1 `Application`; application 0..* instances | Instance is tenant-owned; provider and operator are separately attributable references. |
+| Integration connection | `IntegrationEndpoint` 1 `SystemInstance`, 1 connector type; instance 0..* endpoints | Credential reference names a secret location, never secret bytes; a connector's authority is explicit. |
+| Service boundary | `ClientService` 0..* system instances, providers, locations, processes, and information assets | Inclusion is an effective-dated scope assertion, not ownership transfer; references stay tenant-local. |
+| Provider dependency | `Provider` 0..* client services and system instances | Relationship records service supplied, scope treatment, source, and effective interval; a provider is never inferred from a connector. |
+| Protected resource | `Resource` 1 `SystemInstance`, 0..1 parent `Resource`; instance 0..* resources | Parent belongs to the same instance; no cycles. |
+| Physical containment | `DeviceComponent` 1 `Device`, 0..1 parent component; device 0..* components | Parent belongs to the same device; no cycles. |
+| Compute hosting | `ComputeInstance` 0..1 host (`Device` or another `ComputeInstance`); host 0..* guests | Unknown host is explicit; no containment cycles. |
+| Network attachment | `NetworkInterface` 1 parent (`Device` or `ComputeInstance`); parent 0..* interfaces | Exactly one parent type per interface at a time. |
+| Network topology | `NetworkConnection` 2 typed endpoints (`NetworkInterface` or governed network endpoint) | Endpoints are distinct and tenant-local; observed and declared connections remain separately attributed. |
+| Software installation | `SoftwareInstallation` 1 target (`Device`, `DeviceComponent`, or `ComputeInstance`), 1 software `Application` or versioned release | Original package and version identifiers remain source observations. |
+| External account | `Account` 1 `SystemInstance`; instance 0..* accounts; account 0..1 `Person` or `ServiceIdentity` correlation | Shared and unresolved accounts need no subject correlation. |
+| Source group membership | `GroupMember` 1 `Group`, 1 member (`Account`, `Group`, or supported `ServiceIdentity`) | Member kind is explicit; nested cycles are retained as incomplete expansion, not flattened truth. |
+| External role permission | `RoleEntitlement` 1 `Role`, 1 `Entitlement`; each endpoint 0..* edges | Both endpoints belong to the same system instance unless the source explicitly models a cross-instance grant. |
+| Direct access grant | `AccessAssignment` 1 grantee (`Account` or `ServiceIdentity`), 1 grantable (`Group`, `Role`, or `Entitlement`), 0..1 `Resource` | Grant is direct and attributed; derived `EffectiveAccess` includes every contributing edge and a completeness status. |
+| Source identity | `ExternalIdentifier` 1 canonical entity, 1 `SourceSystem`; entity 0..* identifiers | Source namespace, object type, and value are required; reuse over time is represented with separate intervals. |
+| Source assertion | `Observation` 1 `SourceSystem`, 1 source record; source 0..* observations | Payload identity and observed time are required; no silent promotion to a governed fact. |
+| Incident source reference | `IncidentReference` 1 `SourceSystem`, 1 source incident ID; source 0..* references | Occurrence and observation times are distinct; the reference is not an approved internal incident record. |
+| Correlation decision | `Correlation` 2 typed records and 1 decision actor or source | Records may disagree; status and effective time preserve reversal history. |
+| Frozen population | `Snapshot` 1 definition, 0..* immutable row references | Cutoff, content identity, completeness, and amendment chain are required before use in a decision. |
+| Risk treatment | `ControlRiskTreatment` 1 risk, 1 exact control version | Review decision, rationale, and effective interval are retained; later control edits do not rewrite history. |
+
+`SourceSystem` identifies one tenant-owned producer or manually governed
+source; it has 0..* observations and identifiers. `SourceSystem` authority is
+declared by field or question and can change over time without rewriting prior
+observations. `Permission` belongs to one platform `AccessRole` through an
+attributed 0..* assignment; neither a role nor a permission grants tenant
+access without an effective `RoleAssignment`. `OperationalProcess`,
+`InformationAsset`, and `Location` are independent tenant-owned records;
+their inclusion in a client service or program is a separate, effective-dated
+scope relationship. No arbitrary UUID is a valid reference.
 
 ```text
 Person --< WorkRelationship >-- Organization --< OrganizationalUnit
