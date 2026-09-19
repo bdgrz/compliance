@@ -72,8 +72,8 @@ microservices.
 | Firm methodology | Platform-level templates, template versions, and template application provenance | Client-owned controls, policies, risks, or evidence created from templates |
 | Program and scope | Programs, stages, system boundaries, inclusions, exclusions, engagement plans | Criteria source content or control operation |
 | Workforce assurance | People, employment or engagement lifecycle facts, managers, workforce populations, NHI ownership | Platform access or provider accounts |
-| Application inventory | Applications, concrete reviewed-system instances, ownership, classification, lifecycle, review scope | Observed accounts, permissions, and campaign decisions |
-| Technology and information inventory | Material system components, information sets, data stores and flows, classifications, ownership, lifecycle, source reconciliation | Operational configuration management or data processing |
+| Application inventory | Applications, concrete system instances, ownership, classification, lifecycle, review scope | Observed accounts, permissions, and campaign decisions |
+| Technology and information inventory | Material system components, information sets, data stores and flows, locations, operational processes, classifications, ownership, lifecycle, source reconciliation | Operational configuration management or data processing |
 | Commitments and requirements | Service commitments, system requirements, CUECs, CSOCs, applicability and effective history | Source contract management or proof that controls operated |
 | Criteria | Catalog editions, criteria, categories, selected scope, mapping provenance | Organization-authored controls |
 | Control environment | Controls, control versions, mappings, responsibilities, cadence, occurrences | Evidence content or external directory populations |
@@ -81,29 +81,27 @@ microservices.
 | Evidence | Evidence artifacts, content identity, provenance, requests, support relationships, review state | The control or decision that evidence supports |
 | Risk and provider oversight | Risk assessments and treatments, vendors, subservice organizations, assurance reviews and boundary treatment | Procurement transactions or auditor opinions over providers |
 | Assurance work | Reviews, decisions, findings, exceptions, corrective actions, work projections, risk acceptance, verification | Authentication, source workflows, or provider directory state |
-| External access governance | Reviewed systems, external principals, entitlements, access grants, population snapshots, campaigns | Platform membership and platform authorization |
+| External access governance | Source accounts and groups, entitlements, access assignments, population snapshots, campaigns | Platform membership, platform authorization, or system-instance ownership |
 | Engagements and handoffs | Type I baselines, Type II periods, populations, samples, requests, packages, amendments, outcomes | Mutable source records after they have been snapshotted |
 
 Cross-context references use stable identities and explicit versions or
 snapshots when history matters. One context must not silently mutate another
 context's aggregate.
 
-### Unresolved ownership
+### Ownership decisions and remaining questions
 
 The 2026-09-14 backlog design review found concepts that this model and the
-backlog assign to more than one owner, or to none. M0-D23 has an
-[accepted assurance vocabulary](decisions/m0-d23-assurance-vocabulary.md)
-for the assurance rows below. Other
-rows remain open decisions before their dependent stories are ready:
+backlog assign to more than one owner, or to none. [M0-D22's ownership
+decision](decisions/m0-d22-canonical-ownership.md) assigns application and
+system-instance records to R1-10, people and service identities to R1-11,
+client services to R1-02, locations and operational processes to R1-12,
+early incident references and control-to-risk treatment to R1-07.
+[M0-D23's assurance vocabulary](decisions/m0-d23-assurance-vocabulary.md)
+assigns the assurance records and readiness rules below. Other rows remain
+open decisions before their dependent stories are ready:
 
 | Concern | Conflict | Decision |
 | --- | --- | --- |
-| `ReviewedSystem` | Listed under both Application inventory and External access governance | M0-D22 |
-| `AccessSubject` and `Person` | R2-06 imports an access-subject roster with employment status and manager, duplicating the workforce roster in R1-11 | M0-D22 |
-| NHI records | Workforce assurance owns NHI ownership, but the NHI `AccessSubject` is first created by access governance | M0-D22 |
-| Service, location, and process | Referenced by the boundary, commitments, providers, and system description, but not defined by any context | M0-D22 |
-| Incident reference | Used by risk reassessment in readiness, but defined only for the Type II period | M0-D22 |
-| Control-to-risk relationship | Could belong to control applicability or to risk treatment | M0-D22 |
 | Gap, finding, deviation, and coverage gap | Separate context-owned records link through source and remediation references | M0-D23 |
 | "Exception" | An approved `Waiver` differs from an auditor-found `AuditTestException` | M0-D23 |
 | Risk acceptance | R1-07 owns the decision; R2-07 links to it | M0-D23 |
@@ -115,7 +113,7 @@ rows remain open decisions before their dependent stories are ready:
 | "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
 When a decision is made, update this document, the affected stories, and the
-issue, and remove the row.
+issue. Keep a resolved row only while it clarifies shared ownership.
 
 ## Tenancy and firm services
 
@@ -288,7 +286,7 @@ Joiner, mover, and leaver facts may trigger compliance work, but imported facts
 do not silently grant platform access, revoke provider access, or decide a
 review outcome.
 
-An NHI is still an `AccessSubject`, not a person. Its accountable human or team
+An NHI is a `ServiceIdentity`, not a person. Its accountable human or team
 owner, approved purpose, environment, lifecycle, and review date are governed
 relationships. Provider observations can propose an NHI or owner correlation;
 an authorized user accepts or rejects it.
@@ -302,9 +300,9 @@ and whether and why access review applies. Discovery source and confidence are
 preserved so that declared, imported, discovered, duplicate, unknown, and
 retired applications can be reconciled rather than silently merged.
 
-A `ReviewedSystem` is a concrete tenant, organization, account, environment, or
+A `SystemInstance` is a concrete tenant, organization, account, environment, or
 other access boundary for an application. One application may have multiple
-reviewed systems, and one reviewed system must not be reused for unrelated
+system instances, and one instance must not be reused for unrelated
 applications merely because the provider is the same.
 
 The inventory links applications and reviewed systems to the program boundary,
@@ -376,18 +374,19 @@ source of commercial transactions.
 
 ## External systems and access governance
 
-A `ReviewedSystem` records the source identity and access boundary whose
+A `SystemInstance` records the source identity and access boundary whose
 principals and entitlements are examined. Its application, owner, sensitivity,
-review scope, and review cadence come from the application inventory.
+and lifecycle come from the application inventory. Review inclusion and cadence
+belong to the access campaign or governed review-scope relationship.
 
-An `AccessSubject` is the organization-level human or non-human identity (NHI)
-whose access may span several reviewed systems. A human subject may represent
-an employee, contractor, or external collaborator and may come from an
-authoritative people roster. An NHI may represent a workload, service,
+`Person` is the governed human identity and `ServiceIdentity` is the governed
+non-human identity (NHI) whose access may span several system instances. The
+workforce roster owns accepted human lifecycle and manager facts and the first
+service-identity/owner relationship. An NHI may represent a workload, service,
 integration, automation, or bot and must have an accountable human or team
 owner, approved purpose, environment, lifecycle, and authentication or
-credential model. A subject is not a platform member and does not receive
-Compliance access merely because the two records are correlated.
+credential model. Neither record is a platform member or receives Compliance
+access merely because an observed account is correlated with it.
 
 A `DirectoryPrincipal` is an observed provider object that can receive, convey,
 or participate in access. Provider-neutral principal kinds begin with account,

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Bdgrz.Compliance;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -162,6 +164,84 @@ public sealed class ComplianceWebTests
         Assert.Equal(HttpStatusCode.OK, readiness.StatusCode);
         Assert.Equal(HttpStatusCode.OK, openApi.StatusCode);
         Assert.Contains("/api/v1/developer-user-sessions", openApiDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShouldDescribeServiceAndBoundaryContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+        Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
+            .GetProperty("post").TryGetProperty("requestBody", out _));
+    }
+
+    [Fact]
+    public async Task ShouldUseSnakeCaseGivenApiRouteQueryAndJsonNames()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        foreach (var path in paths.EnumerateObject())
+        {
+            foreach (Match token in Regex.Matches(path.Name, @"\{([^}]+)\}"))
+                Assert.Matches("^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$", token.Groups[1].Value);
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                if (!operation.Value.TryGetProperty("parameters", out var parameters))
+                    continue;
+                foreach (var parameter in parameters.EnumerateArray())
+                    Assert.Matches("^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                        parameter.GetProperty("name").GetString()!);
+            }
+        }
+
+        AssertSnakeCaseJsonProperties(document.RootElement);
+    }
+
+    static void AssertSnakeCaseJsonProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in element.EnumerateArray())
+                AssertSnakeCaseJsonProperties(child);
+            return;
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            return;
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.NameEquals("properties"))
+                foreach (var jsonProperty in property.Value.EnumerateObject())
+                    Assert.Matches("^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$", jsonProperty.Name);
+            AssertSnakeCaseJsonProperties(property.Value);
+        }
     }
 
     static WebApplicationFactory<Program> CreateBrokerFreeFactory(string environment) =>

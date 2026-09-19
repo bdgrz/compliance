@@ -12,6 +12,7 @@ criteria, but record the remaining gaps explicitly.
 
 1. Open a focused branch and keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
+   Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
 3. Run the local gates before opening a pull request:
 
    ```console
@@ -29,6 +30,8 @@ criteria, but record the remaining gaps explicitly.
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
 
 Tests use `Should<Outcome>Given<State>` names, with `When<Action>` when it clarifies the case. Block-bodied tests mark their Arrange, Act, and Assert phases. The Cntryl.Conventions analyzers enforce these rules as build errors.
+
+HTTP route parameter names, query parameter names, and JSON property names use `snake_case`. Keep the OpenAPI wire-name test current when adding operations.
 
 ## Code organization
 

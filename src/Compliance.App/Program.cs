@@ -62,6 +62,24 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateClientService>()
+        .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
+        .AddMcpTool<RetireClientService>(tool => tool.Destructive())
+        .AddMcpTool<GetClientService>(tool => tool.ReadOnly())
+        .AddMcpTool<ListClientServices>(tool => tool.ReadOnly())
+        .AddMcpTool<ListClientServiceRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateBoundary>()
+        .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
+        .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
+        .AddMcpTool<GetBoundary>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramBoundaries>(tool => tool.ReadOnly())
+        .AddMcpTool<GetBoundaryVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListBoundaryVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEffectiveBoundaryVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetBoundaryDecision>(tool => tool.ReadOnly())
+        .AddMcpTool<ListBoundaryDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewBoundaryImpact>(tool => tool.ReadOnly())
+        .AddMcpTool<ProposeBoundarySuccessor>()
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -166,114 +184,194 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<SuspendTenant>("/api/v1/tenants/{tenantId}/suspensions")
+    app.MapPortiaPost<SuspendTenant>("/api/v1/tenants/{tenant_id}/suspensions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenantId}/suspensions")
+    app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenant_id}/suspensions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenantId}/invitations")
+    app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenant_id}/invitations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<AcceptTenantInvitation>("/api/v1/tenants/{tenantId}/invitations/acceptance")
+    app.MapPortiaPost<AcceptTenantInvitation>("/api/v1/tenants/{tenant_id}/invitations/acceptance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaGet<GetTenant, TenantView>("/api/v1/tenants/{tenantId}")
+    app.MapPortiaGet<GetTenant, TenantView>("/api/v1/tenants/{tenant_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaGet<ListTenantMembers, Page<TenantMembershipView>>("/api/v1/tenants/{tenantId}/members")
+    app.MapPortiaGet<ListTenantMembers, Page<TenantMembershipView>>("/api/v1/tenants/{tenant_id}/members")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<ChangeTenantSlug>("/api/v1/tenants/{tenantId}/slug-changes")
+    app.MapPortiaPost<ChangeTenantSlug>("/api/v1/tenants/{tenant_id}/slug-changes")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
     app.MapPortiaGet<ResolveMyTenantSlug, TenantSlugResolution>("/api/v1/tenant-slugs/{slug}/mine")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<CreateProgram, ProgramRegistration>("/api/v1/tenants/{tenantId}/programs")
+    app.MapPortiaPost<CreateProgram, ProgramRegistration>("/api/v1/tenants/{tenant_id}/programs")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
-    app.MapPortiaPut<ReviseProgram>("/api/v1/tenants/{tenantId}/programs/{programId}")
+    app.MapPortiaPut<ReviseProgram>("/api/v1/tenants/{tenant_id}/programs/{program_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
-    app.MapPortiaGet<GetProgram, ProgramView>("/api/v1/tenants/{tenantId}/programs/{programId}")
+    app.MapPortiaGet<GetProgram, ProgramView>("/api/v1/tenants/{tenant_id}/programs/{program_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
-    app.MapPortiaGet<ListPrograms, Page<ProgramView>>("/api/v1/tenants/{tenantId}/programs")
+    app.MapPortiaGet<ListPrograms, Page<ProgramView>>("/api/v1/tenants/{tenant_id}/programs")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
     app.MapPortiaGet<ListProgramRevisions, Page<ProgramRevisionView>>(
-            "/api/v1/tenants/{tenantId}/programs/{programId}/revisions")
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
-    app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
+    app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
+            "/api/v1/tenants/{tenant_id}/client-services")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaPut<ReviseClientService>(
+            "/api/v1/tenants/{tenant_id}/client-services/{service_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaPost<RetireClientService>(
+            "/api/v1/tenants/{tenant_id}/client-services/{service_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<GetClientService, ClientServiceView>(
+            "/api/v1/tenants/{tenant_id}/client-services/{service_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<ListClientServices, Page<ClientServiceView>>(
+            "/api/v1/tenants/{tenant_id}/client-services")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<ListClientServiceRevisions, Page<ClientServiceRevisionView>>(
+            "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<ListProgramBoundaries, Page<BoundaryView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPut<ReviseBoundaryDraft>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPost<DiscardBoundaryDraft>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/discards")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundary, BoundaryView>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundaryVersion, BoundaryVersionView>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<ListBoundaryVersions, Page<BoundaryVersionView>>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetEffectiveBoundaryVersion, BoundaryVersionView>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<GetBoundaryDecision, BoundaryDecisionView>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions/{decision_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<ListBoundaryDecisions, Page<BoundaryDecisionView>>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ReviewBoundary>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ApproveBoundary>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ProposeBoundarySuccessor, BoundaryRegistration>(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/successors")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Boundaries");
+    app.MapPortiaPost<ReserveEmail>("/api/v1/users/{user_id}/email-addresses/{email_address}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
-    app.MapPortiaPost<IssueEmailChallenge>("/api/v1/users/{userId}/email-addresses/{emailAddress}/challenges")
+    app.MapPortiaPost<IssueEmailChallenge>("/api/v1/users/{user_id}/email-addresses/{email_address}/challenges")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
-    app.MapPortiaPost<CompleteEmailChallenge>("/api/v1/users/{userId}/email-addresses/{emailAddress}/verifications")
+    app.MapPortiaPost<CompleteEmailChallenge>("/api/v1/users/{user_id}/email-addresses/{email_address}/verifications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
-    app.MapPortiaGet<GetEmailAddress, EmailAddressView>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
+    app.MapPortiaGet<GetEmailAddress, EmailAddressView>("/api/v1/users/{user_id}/email-addresses/{email_address}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
-    app.MapPortiaGet<ListEmailAddresses, Page<EmailAddressView>>("/api/v1/users/{userId}/email-addresses")
+    app.MapPortiaGet<ListEmailAddresses, Page<EmailAddressView>>("/api/v1/users/{user_id}/email-addresses")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
     app.MapPortiaGet<ListMyTenants, Page<TenantMembershipSummary>>("/api/v1/tenants/mine")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
-    app.MapPortiaPost<DefineTeam>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+    app.MapPortiaPost<DefineTeam>("/api/v1/tenants/{tenant_id}/teams/{team_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaDelete<DeleteTeam>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+    app.MapPortiaDelete<DeleteTeam>("/api/v1/tenants/{tenant_id}/teams/{team_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaGet<GetTeam, TeamView>("/api/v1/tenants/{tenantId}/teams/{teamId}")
+    app.MapPortiaGet<GetTeam, TeamView>("/api/v1/tenants/{tenant_id}/teams/{team_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaGet<ListTeams, Page<TeamView>>("/api/v1/tenants/{tenantId}/teams")
+    app.MapPortiaGet<ListTeams, Page<TeamView>>("/api/v1/tenants/{tenant_id}/teams")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaPost<AssignTeamMember>("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
+    app.MapPortiaPost<AssignTeamMember>("/api/v1/tenants/{tenant_id}/teams/{team_id}/members/{member_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaDelete<RemoveTeamMember>("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
+    app.MapPortiaDelete<RemoveTeamMember>("/api/v1/tenants/{tenant_id}/teams/{team_id}/members/{member_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaGet<ListTeamMembers, Page<TeamMemberView>>("/api/v1/tenants/{tenantId}/teams/{teamId}/members")
+    app.MapPortiaGet<ListTeamMembers, Page<TeamMemberView>>("/api/v1/tenants/{tenant_id}/teams/{team_id}/members")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaPost<AssignTeamRole>("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
+    app.MapPortiaPost<AssignTeamRole>("/api/v1/tenants/{tenant_id}/teams/{team_id}/roles/{role_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaDelete<RemoveTeamRole>("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
+    app.MapPortiaDelete<RemoveTeamRole>("/api/v1/tenants/{tenant_id}/teams/{team_id}/roles/{role_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Teams");
-    app.MapPortiaPost<DefineRole>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+    app.MapPortiaPost<DefineRole>("/api/v1/tenants/{tenant_id}/roles/{role_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaDelete<DeleteRole>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+    app.MapPortiaDelete<DeleteRole>("/api/v1/tenants/{tenant_id}/roles/{role_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaGet<GetRole, RoleView>("/api/v1/tenants/{tenantId}/roles/{roleId}")
+    app.MapPortiaGet<GetRole, RoleView>("/api/v1/tenants/{tenant_id}/roles/{role_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaGet<ListRoles, Page<RoleView>>("/api/v1/tenants/{tenantId}/roles")
+    app.MapPortiaGet<ListRoles, Page<RoleView>>("/api/v1/tenants/{tenant_id}/roles")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaPost<AssignRolePermission>("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
+    app.MapPortiaPost<AssignRolePermission>("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions/{permission}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaDelete<RemoveRolePermission>("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
+    app.MapPortiaDelete<RemoveRolePermission>("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions/{permission}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
     app.MapPortiaGet<ListRolePermissions, Page<RolePermissionView>>(
-            "/api/v1/tenants/{tenantId}/roles/{roleId}/permissions")
+            "/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
-    app.MapPortiaGet<ListRoleTeams, Page<RoleTeamView>>("/api/v1/tenants/{tenantId}/roles/{roleId}/teams")
+    app.MapPortiaGet<ListRoleTeams, Page<RoleTeamView>>("/api/v1/tenants/{tenant_id}/roles/{role_id}/teams")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
     app.MapMethods(

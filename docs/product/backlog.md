@@ -120,6 +120,12 @@ Area: audit
 
 Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
+The delegated product defaults and the remaining organization-owned facts are
+separated in [the M0-D01 decision record](decisions/m0-d01-program-targets.md).
+Program dates remain optional targets; no target becomes a confirmed auditor
+date or a milestone due date without attributable evidence. The issue remains
+open until management and the audit firm supply the first engagement facts.
+
 Questions to answer:
 
 - [ ] Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
@@ -739,6 +745,10 @@ Source: T2-07 validation subtask.
 
 ### M0-D22 Resolve ownership of shared identity and inventory concepts
 
+Backend modeling decision recorded 2026-09-19 in
+[M0-D22 canonical ownership](decisions/m0-d22-canonical-ownership.md).
+Organization-specific workforce and NHI authority remain with M0-D06.
+
 Priority: P0
 
 Type: Product discovery
@@ -1325,6 +1335,7 @@ Domain slice:
 - Supplies versioned scope references to criteria selection, controls, risks,
   evidence, engagements, and impact analysis.
 - Sequencing: a boundary version may record services, people, technology, information, and providers as explicit unresolved references before their governed inventories exist. R1-10 through R1-14 replace those references with governed relationships, and each replacement goes through this story's impact preview and review.
+- Owns the client `Service` identity and uses the governed `SystemInstance`, `Person`, `ServiceIdentity`, `Location`, and operational `Process` identities assigned in M0-D22; unresolved references cannot claim a governed record exists.
 
 Acceptance criteria:
 
@@ -1539,6 +1550,8 @@ Domain slice:
 
 - Owns `Control`, immutable `ControlVersion`, lifecycle, implementation
   narrative, expected evidence definition, and applicability relationships.
+- R1-07 owns the versioned assertion that a control version treats a risk;
+  control applicability alone does not establish risk coverage (M0-D22).
 - Uses program scope, members, systems, processes, and source-aware templates.
 - Supplies approved versions to criteria mappings, responsibilities, cadence,
   occurrences, evidence expectations, readiness, and engagement snapshots.
@@ -1648,6 +1661,8 @@ Domain slice:
 - Owns stable `Risk`, versioned `RiskAssessment`, explicit assessment method,
   `RiskTreatment`, its time-bounded `RiskAcceptance` decision, review decision,
   and reassessment state.
+- Owns the reviewed control-version-to-risk-treatment relationship and an
+  attributable external incident reference for pre-T2-07 reassessment (M0-D22).
 - Uses the program boundary, commitments, workforce context, applications,
   system components, information assets, providers, criteria, controls,
   incidents, findings, evidence, and responsibilities.
@@ -1864,6 +1879,8 @@ Requirements:
   time, and with what unresolved confidence or ownership questions.
 - Represent each concrete tenant, organization, account, or environment as a
   reviewed system with its own source identifier and access boundary.
+- Own each such `SystemInstance`; access governance references it and never
+  creates a competing instance record (M0-D22).
 - Link applications and reviewed systems to the system boundary, system
   components, information assets, data flows, vendors or subservice
   organizations, commitments, processes, controls, policies, evidence sources,
@@ -1985,6 +2002,8 @@ Requirements:
 - Record accountable human or team ownership, approved purpose, environment,
   lifecycle, and review date for each in-scope NHI without classifying groups or
   roles as people or NHIs.
+- Own governed `Person`, `WorkRelationship`, and `ServiceIdentity` records;
+  access governance correlates observed accounts to them (M0-D22).
 - Freeze the applicable roster used by an access review, policy campaign,
   training population, control evaluation, or audit population.
 - Minimize sensitive workforce data and prevent a source observation from
@@ -2100,6 +2119,8 @@ Requirements:
 - Describe material data flows between people, applications, components,
   providers, and locations, including protection expectations and versioned
   boundary relevance.
+- Own governed `Location` and operational `Process` identities used by scope,
+  descriptions, and risk; written procedures remain policy content (M0-D22).
 - Link components, information, and flows to applications, reviewed systems,
   services, providers, risks, controls, policies, evidence sources, and scope.
 - Support manual entry and reviewed import or discovery with stable source
@@ -2899,9 +2920,10 @@ Requirements:
 - Select applications and reviewed systems from the governed inventory and
   identify the system owner, access owner, required population sources, review
   cadence, and privileged or otherwise sensitive entitlements.
-- Import an authoritative access-subject roster where available, preserving
-  employment or engagement status, manager or owner, source identifiers,
-  capture time, and unresolved identity questions.
+- Use the governed R1-11 person and service-identity roster with its accepted
+  lifecycle, manager or owner, source identifiers, capture time, and unresolved
+  identity questions; reconcile provider observations without creating a
+  competing roster (M0-D22).
 - Classify access subjects explicitly as human or non-human identities (NHIs).
   Human subjects include employees, contractors, and external collaborators;
   NHIs include workloads, services, integrations, automation, and bots and
@@ -4015,6 +4037,8 @@ Business objective: prevent material operational change from invalidating contro
 Requirements:
 
 - Capture source, time, description, owner, affected systems, severity, and current status.
+- Correlate earlier attributable R1-07 incident references without rewriting
+  their risk-assessment history (M0-D22).
 - Assess impact on scope, risks, vendors, controls, evidence expectations, and system description.
 - Decide whether the active system description needs a successor version and
   preserve the significant-change narrative applicable to the Type II period.

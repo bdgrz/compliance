@@ -59,6 +59,21 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
+        services.AddScoped<FitzClientServiceDirectory>();
+        services.AddScoped<IClientServiceDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzClientServiceDirectory>());
+        services.AddScoped<IClientServiceDirectoryReader>(
+            provider => provider.GetRequiredService<FitzClientServiceDirectory>());
+        services.AddScoped<IClientServiceActivity, EventSourcedClientServiceActivity>();
+        services.AddScoped<FitzBoundaryDirectory>();
+        services.AddScoped<IBoundaryDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<IBoundaryDirectoryReader>(
+            provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
+        services.AddScoped<BoundaryImpactService>();
+        services.AddScoped<IBoundaryReferenceValidator,
+            GovernedBoundaryReferenceValidator>();
         services.AddScoped<FitzRoleDirectoryReader>();
         services.AddScoped<IRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
         services.AddScoped<IRoleDirectoryReader>(provider => provider.GetRequiredService<FitzRoleDirectoryReader>());
@@ -111,6 +126,26 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
             .AddRequestHandler<ListProgramRevisionsHandler>()
+            .AddRequestHandler<CreateClientServiceHandler>()
+            .AddRequestHandler<ReviseClientServiceHandler>()
+            .AddRequestHandler<RetireClientServiceHandler>()
+            .AddRequestHandler<GetClientServiceHandler>()
+            .AddRequestHandler<ListClientServicesHandler>()
+            .AddRequestHandler<ListClientServiceRevisionsHandler>()
+            .AddRequestHandler<CreateBoundaryHandler>()
+            .AddRequestHandler<ReviseBoundaryDraftHandler>()
+            .AddRequestHandler<DiscardBoundaryDraftHandler>()
+            .AddRequestHandler<GetBoundaryHandler>()
+            .AddRequestHandler<ListProgramBoundariesHandler>()
+            .AddRequestHandler<GetBoundaryVersionHandler>()
+            .AddRequestHandler<ListBoundaryVersionsHandler>()
+            .AddRequestHandler<GetEffectiveBoundaryVersionHandler>()
+            .AddRequestHandler<GetBoundaryDecisionHandler>()
+            .AddRequestHandler<ListBoundaryDecisionsHandler>()
+            .AddRequestHandler<PreviewBoundaryImpactHandler>()
+            .AddRequestHandler<ReviewBoundaryHandler>()
+            .AddRequestHandler<ApproveBoundaryHandler>()
+            .AddRequestHandler<ProposeBoundarySuccessorHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
@@ -155,6 +190,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
             .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
+            .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));
