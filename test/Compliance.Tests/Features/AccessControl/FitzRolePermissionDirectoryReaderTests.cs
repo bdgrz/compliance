@@ -10,47 +10,56 @@ public sealed class FitzRolePermissionDirectoryReaderTests
     static readonly Uuid RoleId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ListAsyncShouldReturnEveryPermissionOfTheRole()
+    public async Task ShouldReturnEveryPermissionGivenRoleQuery()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, RoleId, "controls.read");
         await SeedAsync(client, RoleId, "controls.manage");
         var reader = new FitzRolePermissionDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, RoleId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         Assert.Equal(2, page.Items.Count);
         Assert.Null(page.NextCursor);
     }
 
     [Fact]
-    public async Task ListAsyncShouldOnlyReturnPermissionsOfTheRequestedRole()
+    public async Task ShouldReturnPermissionsOnlyGivenRequestedRole()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherRoleId = Uuid.CreateVersion4();
         await SeedAsync(client, RoleId, "controls.read");
         await SeedAsync(client, otherRoleId, "controls.manage");
         var reader = new FitzRolePermissionDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, RoleId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         var result = Assert.Single(page.Items);
         Assert.Equal("controls.read", result.Permission);
     }
 
     [Fact]
-    public async Task ListAsyncShouldFilterByPermissionSubstring()
+    public async Task ShouldFilterPermissionsGivenSubstring()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, RoleId, "controls.read");
         await SeedAsync(client, RoleId, "tenant.access");
         var reader = new FitzRolePermissionDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, RoleId, null, null, "trols", descending: false, CancellationToken.None);
 
+        // Assert
         var result = Assert.Single(page.Items);
         Assert.Equal("controls.read", result.Permission);
     }

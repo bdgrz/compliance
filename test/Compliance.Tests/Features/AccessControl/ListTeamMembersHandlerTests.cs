@@ -10,31 +10,37 @@ public sealed class ListTeamMembersHandlerTests
     static readonly Uuid MemberId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ShouldReturnThePageFromTheReader()
+    public async Task ShouldReturnPageGivenReaderResult()
     {
+        // Arrange
         var reader = new FakeTeamMemberDirectoryReader();
         reader.Members[(TenantId, TeamId)] = [new TeamMemberView(TeamId, MemberId)];
         var handler = new ListTeamMembersHandler(reader);
         var context = new RequestContext<ListTeamMembers>(new ListTeamMembers(TenantId, TeamId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var member = Assert.Single(result.Value.Items);
         Assert.Equal(MemberId, member.MemberId);
     }
 
     [Fact]
-    public async Task ShouldBuildANormalizedQueryFromTheRequest()
+    public async Task ShouldBuildNormalizedQueryGivenRequest()
     {
+        // Arrange
         var reader = new FakeTeamMemberDirectoryReader();
         var handler = new ListTeamMembersHandler(reader);
         var context = new RequestContext<ListTeamMembers>(
             new ListTeamMembers(TenantId, TeamId, Limit: 5, Cursor: "opaque", Search: "  abc  ", Sort: "member_id:desc"),
             Actor());
 
+        // Act
         _ = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(5, reader.LastLimit);
         Assert.Equal("opaque", reader.LastCursor);
         Assert.Equal("abc", reader.LastSearch);

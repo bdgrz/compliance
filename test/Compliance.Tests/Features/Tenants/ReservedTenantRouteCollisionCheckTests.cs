@@ -10,34 +10,45 @@ public sealed class ReservedTenantRouteCollisionCheckTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ClaimedCurrentOrRetiredSlugBlocksANewTopLevelRoute(bool retired)
+    public async Task ShouldBlockTopLevelRouteGivenClaimedSlug(bool retired)
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var owner = Uuid.CreateVersion4();
         var slug = await fixture.Repository.HydrateAsync(new TenantSlug("reports"), CancellationToken.None);
         _ = slug.Register(owner);
         if (retired)
             _ = slug.Surrender(owner);
+
+        // Act
         await fixture.Repository.SaveAsync(slug,
             new RequestDispatchContext(RequestActor.System), CancellationToken.None);
 
+        // Assert
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await ReservedTenantRouteCollisionCheck.CheckAsync(
                 fixture.Repository, ["reports"], CancellationToken.None));
     }
 
     [Fact]
-    public async Task UnclaimedRouteDoesNotBlockStartup()
+    public async Task ShouldAllowStartupGivenUnclaimedRoute()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
 
-        await ReservedTenantRouteCollisionCheck.CheckAsync(
-            fixture.Repository, ["reports"], CancellationToken.None);
+        // Act
+        var error = await Record.ExceptionAsync(() =>
+            ReservedTenantRouteCollisionCheck.CheckAsync(
+                fixture.Repository, ["reports"], CancellationToken.None));
+
+        // Assert
+        Assert.Null(error);
     }
 
     [Fact]
-    public async Task HostedStartupUsesTheCurrentReservedRouteRegistry()
+    public async Task ShouldUseReservedRouteRegistryGivenHostedStartup()
     {
+        // Arrange
         await using var fixture = new StoreFixture();
         var reservedSlug = new TenantSlug("login", allowReserved: true);
         DomainEvent historicalClaim = new TenantSlugRegistered(Uuid.CreateVersion4(), "login");
@@ -49,9 +60,12 @@ public sealed class ReservedTenantRouteCollisionCheckTests
         var services = new ServiceCollection();
         services.AddSingleton<IAggregateReader>(fixture.Repository);
         using var provider = services.BuildServiceProvider();
+
+        // Act
         var hostedCheck = new ReservedTenantRouteCollisionCheck(
             provider.GetRequiredService<IServiceScopeFactory>());
 
+        // Assert
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => hostedCheck.StartAsync(CancellationToken.None));
 

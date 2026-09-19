@@ -13,8 +13,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task FirstAdministratorMustVerifyAndAcceptBeforeTenantAccess()
+    public async Task ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var operatorClient = factory.CreateClient();
         using var administratorClient = factory.CreateClient();
@@ -22,6 +23,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         var administratorEmail = $"admin-{Guid.NewGuid():N}@example.com";
         await LoginAsync(operatorClient, operatorEmail);
 
+        // Act
         using var registered = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Invitation E2E",
@@ -29,6 +31,8 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
             legal_name = "Invitation E2E Legal LLC",
             first_administrator_email = administratorEmail,
         });
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
         var registration = await registered.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(registration);

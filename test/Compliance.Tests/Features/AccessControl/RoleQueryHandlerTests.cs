@@ -9,41 +9,50 @@ public sealed class RoleQueryHandlerTests
     static readonly Uuid RoleId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task GetRoleShouldReturnTheRoleGivenItExists()
+    public async Task ShouldReturnRoleGivenItExists()
     {
+        // Arrange
         var reader = new FakeRoleDirectoryReader();
         reader.Roles[(TenantId, RoleId)] = new RoleView(RoleId, "Reviewer");
         var handler = new GetRoleHandler(reader);
         var context = new RequestContext<GetRole>(new GetRole(TenantId, RoleId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(new RoleView(RoleId, "Reviewer"), result.Value);
     }
 
     [Fact]
-    public async Task GetRoleShouldReturnNotFoundGivenNoSuchRole()
+    public async Task ShouldReturnNotFoundGivenNoSuchRole()
     {
+        // Arrange
         var handler = new GetRoleHandler(new FakeRoleDirectoryReader());
         var context = new RequestContext<GetRole>(new GetRole(TenantId, RoleId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
     [Fact]
-    public async Task ListRolesShouldReturnThePageFromTheReader()
+    public async Task ShouldReturnRolePageGivenReaderResult()
     {
+        // Arrange
         var reader = new FakeRoleDirectoryReader();
         reader.Roles[(TenantId, RoleId)] = new RoleView(RoleId, "Reviewer");
         var handler = new ListRolesHandler(reader);
         var context = new RequestContext<ListRoles>(new ListRoles(TenantId), Actor());
 
+        // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var role = Assert.Single(result.Value.Items);
         Assert.Equal(RoleId, role.RoleId);
@@ -51,16 +60,19 @@ public sealed class RoleQueryHandlerTests
     }
 
     [Fact]
-    public async Task ListRolesShouldBuildANormalizedQueryFromTheRequest()
+    public async Task ShouldBuildNormalizedRoleQueryGivenRequest()
     {
+        // Arrange
         var reader = new FakeRoleDirectoryReader();
         var handler = new ListRolesHandler(reader);
         var context = new RequestContext<ListRoles>(
             new ListRoles(TenantId, Limit: 5, Cursor: "opaque", Search: "  review  ", Sort: "name:desc"),
             Actor());
 
+        // Act
         _ = await handler.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(5, reader.LastLimit);
         Assert.Equal("opaque", reader.LastCursor);
         Assert.Equal("review", reader.LastSearch);

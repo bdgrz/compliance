@@ -10,8 +10,9 @@ public sealed class FitzRoleTeamDirectoryReaderTests
     static readonly Uuid RoleId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ListAsyncShouldReturnEveryTeamHoldingTheRole()
+    public async Task ShouldReturnEveryTeamGivenRoleQuery()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var first = Uuid.CreateVersion4();
         var second = Uuid.CreateVersion4();
@@ -19,16 +20,19 @@ public sealed class FitzRoleTeamDirectoryReaderTests
         await SeedAsync(client, RoleId, second);
         var reader = new FitzRoleTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, RoleId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         Assert.Equal(2, page.Items.Count);
         Assert.Null(page.NextCursor);
     }
 
     [Fact]
-    public async Task ListAsyncShouldOnlyReturnTeamsForTheRequestedRole()
+    public async Task ShouldReturnTeamsOnlyGivenRequestedRole()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherRoleId = Uuid.CreateVersion4();
         var team = Uuid.CreateVersion4();
@@ -37,9 +41,11 @@ public sealed class FitzRoleTeamDirectoryReaderTests
         await SeedAsync(client, otherRoleId, otherTeam);
         var reader = new FitzRoleTeamDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, RoleId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         var result = Assert.Single(page.Items);
         Assert.Equal(team, result.TeamId);
     }

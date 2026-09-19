@@ -10,20 +10,24 @@ public sealed class TenantAccessAuthorizerTests
     static readonly Uuid UserId = Uuid.Parse("0862062f-97e9-45de-a312-0f884c48180d", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task ShouldAllowSystemActorRegardlessOfPermissions()
+    public async Task ShouldAllowSystemActorGivenMissingMemberPermission()
     {
+        // Arrange
         var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, RequestActor.System);
 
+        // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
-    public async Task ShouldRejectActorWithoutBdgrzIdentity()
+    public async Task ShouldRejectActorGivenMissingBdgrzIdentity()
     {
+        // Arrange
         var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(
@@ -31,36 +35,44 @@ public sealed class TenantAccessAuthorizerTests
             new ClaimsPrincipal(new ClaimsIdentity(
                 [new Claim("iss", "https://issuer.example/"), new Claim("sub", "provider-subject")], "oidc")));
 
+        // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Unauthorized, result.Error.Kind);
     }
 
     [Fact]
-    public async Task ShouldAllowActorWithTenantAccessPermission()
+    public async Task ShouldAllowActorGivenTenantAccessPermission()
     {
+        // Arrange
         var permissions = new FakePermissionAuthorizer(true);
         var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
+        // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(RbacIds.Member(TenantId, UserId), permissions.LastMemberId);
         Assert.Equal(RbacPermissions.TenantAccess, permissions.LastPermission);
     }
 
     [Fact]
-    public async Task ShouldRejectActorWithoutTenantAccessPermission()
+    public async Task ShouldRejectActorGivenMissingTenantAccessPermission()
     {
+        // Arrange
         var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
+        // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
     }
@@ -69,14 +81,17 @@ public sealed class TenantAccessAuthorizerTests
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 
     [Fact]
-    public async Task ShouldHideTenantFromNonmember()
+    public async Task ShouldHideTenantGivenNonmemberActor()
     {
+        // Arrange
         var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(false));
         var context = new RequestContext<ITenantAccessRequest>(
             new GetTeam(TenantId, Uuid.CreateVersion4()), BdgrzActor());
 
+        // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }

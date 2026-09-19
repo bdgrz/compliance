@@ -13,14 +13,18 @@ public sealed class GetTenantAuthorizerTests
     [InlineData(false, true, true, RequestErrorKind.NotFound)]
     [InlineData(true, false, true, RequestErrorKind.Forbidden)]
     [InlineData(true, true, false, RequestErrorKind.Forbidden)]
-    public async Task MemberAccessRequiresMembershipActiveTenantAndPermission(
+    public async Task ShouldRequireMembershipActivityAndPermissionGivenMemberAccess(
         bool member, bool active, bool permitted, RequestErrorKind? expectedError)
     {
+        // Arrange
         var authorizer = new GetTenantAuthorizer(new PlatformOperatorAuthority([]),
             new Memberships(member), new TenantActivity(active), new Permissions(permitted));
+
+        // Act
         var result = await authorizer.AuthorizeAsync(
             new RequestContext<GetTenant>(new GetTenant(TenantId), Actor()), CancellationToken.None);
 
+        // Assert
         if (expectedError is null)
             Assert.True(result.IsSuccess);
         else
@@ -31,14 +35,17 @@ public sealed class GetTenantAuthorizerTests
     }
 
     [Fact]
-    public async Task OperatorMayReadTenantWithoutMembership()
+    public async Task ShouldAllowOperatorReadGivenNoTenantMembership()
     {
+        // Arrange
         var authorizer = new GetTenantAuthorizer(new PlatformOperatorAuthority([UserId]),
             new Memberships(false), new TenantActivity(false), new Permissions(false));
 
+        // Act
         var result = await authorizer.AuthorizeAsync(
             new RequestContext<GetTenant>(new GetTenant(TenantId), Actor()), CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsSuccess);
     }
 

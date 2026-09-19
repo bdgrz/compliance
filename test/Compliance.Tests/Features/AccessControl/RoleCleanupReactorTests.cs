@@ -10,8 +10,9 @@ public sealed class RoleCleanupReactorTests
     static readonly Uuid RoleId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ShouldRemoveEveryPermissionAndTeamAssignmentOfTheDeletedRole()
+    public async Task ShouldRemoveRelationshipsGivenDeletedRole()
     {
+        // Arrange
         var firstTeam = Uuid.CreateVersion4();
         var secondTeam = Uuid.CreateVersion4();
         var permissions = new FakeRolePermissionDirectoryReader(
@@ -22,8 +23,10 @@ public sealed class RoleCleanupReactorTests
         var reactor = new RoleCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, permissions, teams);
         var context = new FakeReactorContext(new RoleDeleted(TenantId, RoleId));
 
+        // Act
         await reactor.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Equal(4, bus.Dispatched.Count);
         Assert.Contains(bus.Dispatched, request =>
             request is RemoveRolePermission removal && removal.Permission == "controls.read");
@@ -38,14 +41,17 @@ public sealed class RoleCleanupReactorTests
     [Fact]
     public async Task ShouldDispatchNothingGivenAnAlreadyEmptyRole()
     {
+        // Arrange
         var permissions = new FakeRolePermissionDirectoryReader();
         var teams = new FakeRoleTeamDirectoryReader();
         var bus = new RecordingRequestBus();
         var reactor = new RoleCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, permissions, teams);
         var context = new FakeReactorContext(new RoleDeleted(TenantId, RoleId));
 
+        // Act
         await reactor.HandleAsync(context, CancellationToken.None);
 
+        // Assert
         Assert.Empty(bus.Dispatched);
     }
 

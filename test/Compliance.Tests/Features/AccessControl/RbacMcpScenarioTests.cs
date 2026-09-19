@@ -24,14 +24,19 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class RbacMcpScenarioTests
 {
     [Fact]
-    public async Task ShouldListRbacToolsAndDenyAnUnprivilegedCall()
+    public async Task ShouldListToolsAndDenyCallGivenUnprivilegedMcpActor()
     {
+        // Arrange
         await using var factory = CreateFactory();
         using var client = factory.CreateClient();
+
+        // Act
         using var login = await client.PostAsJsonAsync(
             "/api/v1/developer-user-sessions",
             new RegistrationDocument("mcp-caller@example.com"),
             CancellationToken.None);
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         await using var scenario = await McpScenario.ConnectAsync(client, new Uri(client.BaseAddress!, "/mcp"));

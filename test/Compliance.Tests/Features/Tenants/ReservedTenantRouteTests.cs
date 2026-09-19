@@ -5,11 +5,16 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class ReservedTenantRouteTests
 {
     [Fact]
-    public void EveryTopLevelServerAndClientRouteMustBeReserved()
+    public void ShouldReserveEveryTopLevelRouteGivenServerAndClientRoutes()
     {
+        // Arrange
         var root = new DirectoryInfo(AppContext.BaseDirectory);
+
+        // Act
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Compliance.slnx")))
             root = root.Parent;
+
+        // Assert
         Assert.NotNull(root);
 
         var server = File.ReadAllText(Path.Combine(root.FullName, "src/Compliance.App/Program.cs"));

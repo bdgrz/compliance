@@ -11,14 +11,18 @@ public sealed class RolePermissionTests
     const string Permission = "controls.read";
 
     [Fact]
-    public void ShouldAssignIdempotently()
+    public void ShouldAssignOnceGivenRepeatedAssignment()
     {
+        // Arrange
         var rolePermission = new RolePermission(TenantId, RoleId, Permission);
         var scenario = new AggregateScenario<RolePermission>(rolePermission);
 
         var first = scenario.Aggregate.Assign();
+
+        // Act
         var second = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(first.IsSuccess);
         Assert.True(second.IsSuccess);
         var assigned = Assert.Single(scenario.PendingEvents);
@@ -26,15 +30,18 @@ public sealed class RolePermissionTests
     }
 
     [Fact]
-    public void ShouldRemoveAnAssignedPermission()
+    public void ShouldRemovePermissionGivenExistingAssignment()
     {
+        // Arrange
         var rolePermission = new RolePermission(TenantId, RoleId, Permission);
         var scenario = new AggregateScenario<RolePermission>(rolePermission)
             .Given(DomainEventSeed.Attach(
                 new RolePermissionAssigned(TenantId, RoleId, Permission), rolePermission.Id, 1));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var removed = Assert.Single(scenario.PendingEvents);
         Assert.Equal("RolePermissionRemoved", removed.GetType().Name);
@@ -43,10 +50,13 @@ public sealed class RolePermissionTests
     [Fact]
     public void ShouldReturnNotFoundGivenAnUnassignedPermission()
     {
+        // Arrange
         var rolePermission = new RolePermission(TenantId, RoleId, Permission);
 
+        // Act
         var result = rolePermission.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
@@ -54,29 +64,35 @@ public sealed class RolePermissionTests
     [Fact]
     public void ShouldReturnNotFoundGivenARepeatedRemoval()
     {
+        // Arrange
         var rolePermission = new RolePermission(TenantId, RoleId, Permission);
         var scenario = new AggregateScenario<RolePermission>(rolePermission)
             .Given(
                 DomainEventSeed.Attach(new RolePermissionAssigned(TenantId, RoleId, Permission), rolePermission.Id, 1),
                 DomainEventSeed.Attach(new RolePermissionRemoved(TenantId, RoleId, Permission), rolePermission.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
     [Fact]
-    public void ShouldAllowReassigningAfterRemoval()
+    public void ShouldAllowReassignmentGivenPriorRemoval()
     {
+        // Arrange
         var rolePermission = new RolePermission(TenantId, RoleId, Permission);
         var scenario = new AggregateScenario<RolePermission>(rolePermission)
             .Given(
                 DomainEventSeed.Attach(new RolePermissionAssigned(TenantId, RoleId, Permission), rolePermission.Id, 1),
                 DomainEventSeed.Attach(new RolePermissionRemoved(TenantId, RoleId, Permission), rolePermission.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var reassigned = Assert.Single(scenario.PendingEvents);
         Assert.Equal("RolePermissionAssigned", reassigned.GetType().Name);

@@ -14,12 +14,15 @@ public sealed class RemoveRolePermissionRequestScenarioTests
     [Fact]
     public async Task ShouldRemoveAnAssignedPermissionGivenTenantRbacManagePermission()
     {
+        // Arrange
         await using var provider = BuildProvider(allowed: true);
         await Seed(provider);
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RemoveRolePermission(TenantId, RoleId, Permission))
+            // Assert
             .ExpectAuthorized()
             .ExpectHandled()
             .ExpectSuccess();
@@ -28,12 +31,15 @@ public sealed class RemoveRolePermissionRequestScenarioTests
     [Fact]
     public async Task ShouldDenyGivenAnActorWithoutTheTenantRbacManagePermission()
     {
+        // Arrange
         await using var provider = BuildProvider(allowed: false);
         await Seed(provider);
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RemoveRolePermission(TenantId, RoleId, Permission))
+            // Assert
             .ExpectDenied(RequestErrorKind.Forbidden)
             .ExpectNotHandled();
     }

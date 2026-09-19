@@ -8,12 +8,16 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class EmailAddressTests
 {
     [Fact]
-    public void ReservationIsIdempotentForItsOwner()
+    public void ShouldReserveOnceGivenSameOwnerRetry()
     {
+        // Arrange
         var owner = Uuid.CreateVersion4();
         var address = new EmailAddress("Person@Example.com");
+
+        // Act
         var scenario = new AggregateScenario<EmailAddress>(address);
 
+        // Assert
         Assert.True(scenario.Aggregate.Reserve(owner).IsSuccess);
         Assert.True(scenario.Aggregate.Reserve(owner).IsSuccess);
 
@@ -22,10 +26,15 @@ public sealed class EmailAddressTests
     }
 
     [Fact]
-    public void AnotherUserCannotTakeAnAddress()
+    public void ShouldRejectTakeoverGivenAnotherUserOwnsAddress()
     {
+        // Arrange
         var address = new EmailAddress("person@example.com");
+
+        // Act
         var scenario = new AggregateScenario<EmailAddress>(address);
+
+        // Assert
         Assert.True(scenario.Aggregate.Reserve(Uuid.CreateVersion4()).IsSuccess);
 
         var conflict = scenario.Aggregate.Reserve(Uuid.CreateVersion4());
@@ -36,19 +45,35 @@ public sealed class EmailAddressTests
     }
 
     [Fact]
-    public void DistinctAddressesHaveDistinctAggregateIds()
+    public void ShouldUseDistinctIdsGivenDistinctAddresses()
     {
-        Assert.NotEqual(new EmailAddress("first@example.com").Id, new EmailAddress("second@example.com").Id);
-        Assert.Equal(new EmailAddress("Person@Example.com").Id, new EmailAddress("person@example.com").Id);
+        // Arrange
+        const string firstAddress = "first@example.com";
+        const string secondAddress = "second@example.com";
+
+        // Act
+        var first = new EmailAddress(firstAddress).Id;
+        var second = new EmailAddress(secondAddress).Id;
+        var mixedCase = new EmailAddress("Person@Example.com").Id;
+        var lowerCase = new EmailAddress("person@example.com").Id;
+
+        // Assert
+        Assert.NotEqual(first, second);
+        Assert.Equal(mixedCase, lowerCase);
     }
 
     [Fact]
-    public void OnlyTheOwnerCanCompleteAnUnexpiredChallenge()
+    public void ShouldAllowCompletionGivenOwnerAndUnexpiredChallenge()
     {
+        // Arrange
         var owner = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
         var address = new EmailAddress("person@example.com");
+
+        // Act
         var scenario = new AggregateScenario<EmailAddress>(address);
+
+        // Assert
         Assert.True(scenario.Aggregate.Reserve(owner).IsSuccess);
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("secret")));
         Assert.True(scenario.Aggregate.IssueChallenge(owner, Uuid.CreateVersion4(), hash, now.AddMinutes(15), now)
@@ -65,12 +90,17 @@ public sealed class EmailAddressTests
     }
 
     [Fact]
-    public void ReissuedChallengeInvalidatesThePreviousToken()
+    public void ShouldInvalidateOldTokenGivenReissuedChallenge()
     {
+        // Arrange
         var owner = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
         var address = new EmailAddress("person@example.com");
+
+        // Act
         var scenario = new AggregateScenario<EmailAddress>(address);
+
+        // Assert
         Assert.True(scenario.Aggregate.Reserve(owner).IsSuccess);
         var oldHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("old")));
         var newHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("new")));

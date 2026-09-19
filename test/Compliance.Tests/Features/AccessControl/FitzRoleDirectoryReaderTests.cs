@@ -13,68 +13,83 @@ public sealed class FitzRoleDirectoryReaderTests
     static readonly Uuid TenantId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task GetAsyncShouldReturnTheStoredRole()
+    public async Task ShouldReturnStoredRoleGivenMatchingId()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var roleId = Uuid.CreateVersion4();
         await SeedAsync(client, roleId, "Reviewer");
         var reader = new FitzRoleDirectoryReader(client);
 
+        // Act
         var role = await reader.GetAsync(TenantId, roleId, CancellationToken.None);
 
+        // Assert
         Assert.NotNull(role);
         Assert.Equal("Reviewer", role.Name);
     }
 
     [Fact]
-    public async Task GetAsyncShouldReturnNullGivenNoSuchRole()
+    public async Task ShouldReturnNullGivenNoSuchRole()
     {
+        // Arrange
         var reader = new FitzRoleDirectoryReader(new InMemoryKvClient());
 
+        // Act
         var role = await reader.GetAsync(TenantId, Uuid.CreateVersion4(), CancellationToken.None);
 
+        // Assert
         Assert.Null(role);
     }
 
     [Fact]
-    public async Task ListAsyncShouldReturnEveryRoleInNameOrder()
+    public async Task ShouldReturnRolesInNameOrderGivenTenantQuery()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Beta");
         await SeedAsync(client, Uuid.CreateVersion4(), "Alpha");
         var reader = new FitzRoleDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(TenantId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         Assert.Equal(["Alpha", "Beta"], page.Items.Select(role => role.Name));
         Assert.Null(page.NextCursor);
     }
 
     [Fact]
-    public async Task ListAsyncShouldFilterByNameSubstring()
+    public async Task ShouldFilterRolesGivenNameSubstring()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, Uuid.CreateVersion4(), "Site Reviewer");
         await SeedAsync(client, Uuid.CreateVersion4(), "Administrator");
         var reader = new FitzRoleDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(TenantId, null, null, "review", descending: false, CancellationToken.None);
 
+        // Assert
         var role = Assert.Single(page.Items);
         Assert.Equal("Site Reviewer", role.Name);
     }
 
     [Fact]
-    public async Task ListAsyncShouldOnlyReturnRolesForTheRequestedTenant()
+    public async Task ShouldReturnRolesOnlyGivenRequestedTenant()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherTenantId = Uuid.CreateVersion4();
         await SeedAsync(client, Uuid.CreateVersion4(), "Mine", TenantId);
         await SeedAsync(client, Uuid.CreateVersion4(), "Theirs", otherTenantId);
         var reader = new FitzRoleDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(TenantId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         var role = Assert.Single(page.Items);
         Assert.Equal("Mine", role.Name);
     }

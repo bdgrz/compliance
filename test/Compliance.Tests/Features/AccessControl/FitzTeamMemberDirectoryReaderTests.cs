@@ -10,8 +10,9 @@ public sealed class FitzTeamMemberDirectoryReaderTests
     static readonly Uuid TeamId = Uuid.CreateVersion4();
 
     [Fact]
-    public async Task ListAsyncShouldReturnEveryMemberOfTheTeam()
+    public async Task ShouldReturnEveryMemberGivenTeamQuery()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var first = Uuid.CreateVersion4();
         var second = Uuid.CreateVersion4();
@@ -19,16 +20,19 @@ public sealed class FitzTeamMemberDirectoryReaderTests
         await SeedAsync(client, TeamId, second);
         var reader = new FitzTeamMemberDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, TeamId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         Assert.Equal(2, page.Items.Count);
         Assert.Null(page.NextCursor);
     }
 
     [Fact]
-    public async Task ListAsyncShouldOnlyReturnMembersOfTheRequestedTeam()
+    public async Task ShouldReturnMembersOnlyGivenRequestedTeam()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var otherTeamId = Uuid.CreateVersion4();
         var member = Uuid.CreateVersion4();
@@ -37,23 +41,29 @@ public sealed class FitzTeamMemberDirectoryReaderTests
         await SeedAsync(client, otherTeamId, otherMember);
         var reader = new FitzTeamMemberDirectoryReader(client);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, TeamId, null, null, null, descending: false, CancellationToken.None);
 
+        // Assert
         var result = Assert.Single(page.Items);
         Assert.Equal(member, result.MemberId);
     }
 
     [Fact]
-    public async Task ListAsyncShouldPaginateUsingTheReturnedCursorWithoutAnExtraEmptyPage()
+    public async Task ShouldAvoidEmptyPageGivenReturnedCursor()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         await SeedAsync(client, TeamId, Uuid.CreateVersion4());
         await SeedAsync(client, TeamId, Uuid.CreateVersion4());
         var reader = new FitzTeamMemberDirectoryReader(client);
 
+        // Act
         var firstPage = await reader.ListAsync(
             TenantId, TeamId, 1, null, null, descending: false, CancellationToken.None);
+
+        // Assert
         Assert.Single(firstPage.Items);
         Assert.NotNull(firstPage.NextCursor);
 
@@ -68,8 +78,9 @@ public sealed class FitzTeamMemberDirectoryReaderTests
     // the KvDirectory 1.3.0 migration briefly narrowed this to prefix-only before being caught and
     // fixed.
     [Fact]
-    public async Task ListAsyncShouldFilterByMemberIdSubstringNotJustPrefix()
+    public async Task ShouldFilterMembersGivenIdSubstring()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var member = Uuid.CreateVersion4();
         var otherMember = Uuid.CreateVersion4();
@@ -78,9 +89,11 @@ public sealed class FitzTeamMemberDirectoryReaderTests
         var reader = new FitzTeamMemberDirectoryReader(client);
         var middleOfMemberId = member.ToString().Substring(9, 8);
 
+        // Act
         var page = await reader.ListAsync(
             TenantId, TeamId, null, null, middleOfMemberId, descending: false, CancellationToken.None);
 
+        // Assert
         var result = Assert.Single(page.Items);
         Assert.Equal(member, result.MemberId);
     }

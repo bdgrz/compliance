@@ -12,8 +12,9 @@ public sealed class InternalRbacTests
     static readonly Uuid RoleId = Id("c1b1b99d-2c52-46c6-ad58-55fe90bf53b3");
 
     [Fact]
-    public void ShouldGrantAdditivePermissionsOnlyThroughTeamRolePath()
+    public void ShouldGrantAdditivePermissionsGivenTeamRolePath()
     {
+        // Arrange
         var member = new Member(TenantId, UserId);
         var team = new Team(TenantId, TeamId);
         var teamMember = new TeamMember(TenantId, TeamId, member.Id);
@@ -29,45 +30,62 @@ public sealed class InternalRbacTests
         _ = manage.Assign();
         _ = teamRole.Assign();
 
+        // Act
         var permissions = Rbac(member, team, teamMember, role, read, manage, teamRole)
             .GetPermissions(member.Id);
 
+        // Assert
         Assert.Equal(["controls.manage", "controls.read"], permissions);
     }
 
     [Fact]
-    public void ShouldNotGrantRoleDirectlyToMember()
+    public void ShouldRejectDirectRoleGrantGivenMember()
     {
+        // Arrange
+        var assembly = typeof(Role).Assembly;
+
+        // Act
+        var roleTypes = assembly.GetTypes();
+
+        // Assert
         Assert.DoesNotContain(
-            typeof(Role).Assembly.GetTypes(),
+            roleTypes,
             type => type.Namespace == typeof(Role).Namespace && type.Name == "MemberRole");
     }
 
     [Fact]
-    public void ShouldNormalizePermissionAndRelationshipIdentities()
+    public void ShouldNormalizeIdentitiesGivenPermissionRelationships()
     {
+        // Arrange
         var first = new RolePermission(TenantId, RoleId, " Controls.Read ");
         var repeated = new RolePermission(TenantId, RoleId, "controls.read");
         var member = new Member(TenantId, UserId);
 
+        // Act
+        var assignment = first.Assign();
+
+        // Assert
         Assert.Equal(first.Id, repeated.Id);
         Assert.Equal(member.Id, new Member(TenantId, UserId).Id);
-        Assert.True(first.Assign().IsSuccess);
+        Assert.True(assignment.IsSuccess);
         var assigned = Assert.Single(new AggregateScenario<RolePermission>(first).PendingEvents);
         Assert.Equal("controls.read", assigned.GetType().GetProperty("Permission")?.GetValue(assigned));
     }
 
     [Fact]
-    public void ShouldProtectBuiltInTeamsAndRolesFromDeletion()
+    public void ShouldProtectBuiltInsGivenDeletionAttempt()
     {
+        // Arrange
         var team = new Team(TenantId, BuiltInRbac.AdministratorsTeamId(TenantId));
         var role = new Role(TenantId, BuiltInRbac.TenantAdministrationRoleId(TenantId));
         _ = team.Define(BuiltInRbac.AdministratorsTeamName);
         _ = role.Define(BuiltInRbac.TenantAdministrationRoleName);
 
+        // Act
         var teamDeletion = team.Delete();
         var roleDeletion = role.Delete();
 
+        // Assert
         Assert.False(teamDeletion.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, teamDeletion.Error.Kind);
         Assert.False(roleDeletion.IsSuccess);
@@ -75,8 +93,9 @@ public sealed class InternalRbacTests
     }
 
     [Fact]
-    public void ShouldMaterializeAndRevokePermissionWithoutWalkingGraphAtCheckTime()
+    public void ShouldMaterializeAndRevokePermissionGivenRelationshipChanges()
     {
+        // Arrange
         var memberId = RbacIds.Member(TenantId, UserId);
         var state = new PermissionProjectionState();
         state.Apply(new MemberRegistered(TenantId, memberId, UserId));
@@ -84,18 +103,22 @@ public sealed class InternalRbacTests
         state.Apply(new RoleDefined(TenantId, RoleId, "Control reviewer"));
         state.Apply(new TeamMemberAssigned(TenantId, TeamId, memberId));
         state.Apply(new TeamRoleAssigned(TenantId, TeamId, RoleId));
-        state.Apply(new RolePermissionAssigned(TenantId, RoleId, "controls.read"));
 
+        state.Apply(new RolePermissionAssigned(TenantId, RoleId, "controls.read"));
         Assert.Contains(new PermissionGrant(memberId, "controls.read"), state.Materialize());
 
+        // Act
         state.Apply(new RoleDeleted(TenantId, RoleId));
 
+        // Assert
+
         Assert.Empty(state.Materialize());
     }
 
     [Fact]
-    public void ShouldRevokePermissionWhenAMemberLeavesATeam()
+    public void ShouldRevokePermissionGivenMemberLeavesTeam()
     {
+        // Arrange
         var memberId = RbacIds.Member(TenantId, UserId);
         var state = new PermissionProjectionState();
         state.Apply(new MemberRegistered(TenantId, memberId, UserId));
@@ -103,20 +126,30 @@ public sealed class InternalRbacTests
         state.Apply(new RoleDefined(TenantId, RoleId, "Control reviewer"));
         state.Apply(new TeamMemberAssigned(TenantId, TeamId, memberId));
         state.Apply(new TeamRoleAssigned(TenantId, TeamId, RoleId));
+
         state.Apply(new RolePermissionAssigned(TenantId, RoleId, "controls.read"));
         Assert.Contains(new PermissionGrant(memberId, "controls.read"), state.Materialize());
 
+        // Act
         state.Apply(new TeamMemberRemoved(TenantId, TeamId, memberId));
+
+        // Assert
 
         Assert.Empty(state.Materialize());
     }
 
     [Fact]
-    public void ShouldUseTheSamePermissionKeyForEquivalentPermissionStrings()
+    public void ShouldReusePermissionKeyGivenEquivalentStrings()
     {
-        Assert.Equal(
-            PermissionProjectionKeys.Grant(RbacIds.Member(TenantId, UserId), " Controls.Read ").ToArray(),
-            PermissionProjectionKeys.Grant(RbacIds.Member(TenantId, UserId), "controls.read").ToArray());
+        // Arrange
+        var memberId = RbacIds.Member(TenantId, UserId);
+
+        // Act
+        var first = PermissionProjectionKeys.Grant(memberId, " Controls.Read ").ToArray();
+        var second = PermissionProjectionKeys.Grant(memberId, "controls.read").ToArray();
+
+        // Assert
+        Assert.Equal(first, second);
     }
 
     static RbacGraph Rbac(params Aggregate[] aggregates)

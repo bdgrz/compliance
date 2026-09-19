@@ -11,14 +11,18 @@ public sealed class TeamMemberTests
     static readonly Uuid MemberId = Uuid.Parse("0862062f-97e9-45de-a312-0f884c48180d", CultureInfo.InvariantCulture);
 
     [Fact]
-    public void ShouldAssignIdempotently()
+    public void ShouldAssignOnceGivenRepeatedAssignment()
     {
+        // Arrange
         var teamMember = new TeamMember(TenantId, TeamId, MemberId);
         var scenario = new AggregateScenario<TeamMember>(teamMember);
 
         var first = scenario.Aggregate.Assign();
+
+        // Act
         var second = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(first.IsSuccess);
         Assert.True(second.IsSuccess);
         var assigned = Assert.Single(scenario.PendingEvents);
@@ -26,14 +30,17 @@ public sealed class TeamMemberTests
     }
 
     [Fact]
-    public void ShouldRemoveAnAssignedMember()
+    public void ShouldRemoveMemberGivenExistingAssignment()
     {
+        // Arrange
         var teamMember = new TeamMember(TenantId, TeamId, MemberId);
         var scenario = new AggregateScenario<TeamMember>(teamMember)
             .Given(DomainEventSeed.Attach(new TeamMemberAssigned(TenantId, TeamId, MemberId), teamMember.Id, 1));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var removed = Assert.Single(scenario.PendingEvents);
         Assert.Equal("TeamMemberRemoved", removed.GetType().Name);
@@ -42,10 +49,13 @@ public sealed class TeamMemberTests
     [Fact]
     public void ShouldReturnNotFoundGivenAnUnassignedMember()
     {
+        // Arrange
         var teamMember = new TeamMember(TenantId, TeamId, MemberId);
 
+        // Act
         var result = teamMember.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
@@ -53,29 +63,35 @@ public sealed class TeamMemberTests
     [Fact]
     public void ShouldReturnNotFoundGivenARepeatedRemoval()
     {
+        // Arrange
         var teamMember = new TeamMember(TenantId, TeamId, MemberId);
         var scenario = new AggregateScenario<TeamMember>(teamMember)
             .Given(
                 DomainEventSeed.Attach(new TeamMemberAssigned(TenantId, TeamId, MemberId), teamMember.Id, 1),
                 DomainEventSeed.Attach(new TeamMemberRemoved(TenantId, TeamId, MemberId), teamMember.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
     [Fact]
-    public void ShouldAllowRejoiningAfterLeaving()
+    public void ShouldAllowRejoiningGivenPriorDeparture()
     {
+        // Arrange
         var teamMember = new TeamMember(TenantId, TeamId, MemberId);
         var scenario = new AggregateScenario<TeamMember>(teamMember)
             .Given(
                 DomainEventSeed.Attach(new TeamMemberAssigned(TenantId, TeamId, MemberId), teamMember.Id, 1),
                 DomainEventSeed.Attach(new TeamMemberRemoved(TenantId, TeamId, MemberId), teamMember.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var rejoined = Assert.Single(scenario.PendingEvents);
         Assert.Equal("TeamMemberAssigned", rejoined.GetType().Name);

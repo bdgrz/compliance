@@ -14,8 +14,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class ProgramE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task IndependentWorkerProjectsProgramCreationAndRevision()
+    public async Task ShouldProjectProgramChangesGivenIndependentWorker()
     {
+        // Arrange
         var applicationName = $"compliance-program-split-{Guid.NewGuid():N}";
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -26,7 +27,11 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         using var worker = builder.Build();
+
+        // Act
         await worker.StartAsync();
+
+        // Assert
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
@@ -115,19 +120,23 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
-    public async Task CreateReviseAndReadProgramRemainScopedToItsTenant()
+    public async Task ShouldKeepProgramChangesScopedGivenTwoTenants()
     {
+        // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();
         using var outsider = factory.CreateClient();
         await TenantInvitationE2ETests.LoginAsync(owner, $"program-owner-{Guid.NewGuid():N}@example.com");
         await TenantInvitationE2ETests.LoginAsync(outsider, $"program-outsider-{Guid.NewGuid():N}@example.com");
 
+        // Act
         using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Program E2E",
             slug = $"program-{Guid.NewGuid():N}"[..24],
         });
+
+        // Assert
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(tenant);

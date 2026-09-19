@@ -16,11 +16,14 @@ public sealed class RegisterTenantRequestScenarioTests
     [Fact]
     public async Task ShouldAuthorizeGuardAndHandleGivenAnAvailableSlug()
     {
+        // Arrange
         await using var provider = BuildProvider();
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RegisterTenant("Acme", "acme"))
+            // Assert
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
@@ -30,30 +33,37 @@ public sealed class RegisterTenantRequestScenarioTests
     [Fact]
     public async Task ShouldDenyGivenAnActorWithoutABdgrzIdentity()
     {
+        // Arrange
         await using var provider = BuildProvider();
 
         await RequestScenario.For(provider)
             .GivenActor(RequestActor.Anonymous)
+            // Act
             .When(new RegisterTenant("Acme", "acme"))
+            // Assert
             .ExpectDenied(RequestErrorKind.Unauthorized)
             .ExpectNotHandled();
     }
 
     [Fact]
-    public async Task ShouldDenyAPlatformUserWithoutAnOperatorGrant()
+    public async Task ShouldDenyUserGivenMissingOperatorGrant()
     {
+        // Arrange
         await using var provider = BuildProvider(developerAuthentication: false);
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RegisterTenant("Acme", "acme"))
+            // Assert
             .ExpectDenied(RequestErrorKind.Forbidden)
             .ExpectNotHandled();
     }
 
     [Fact]
-    public async Task ProductionOperatorMustProvideLegalNameAndFirstAdministrator()
+    public async Task ShouldRequireLegalNameAndAdministratorGivenProductionOperator()
     {
+        // Arrange
         var operatorId = Uuid.CreateVersion4();
         await using var provider = BuildProvider(developerAuthentication: false,
             operatorId: operatorId);
@@ -61,7 +71,9 @@ public sealed class RegisterTenantRequestScenarioTests
 
         await RequestScenario.For(provider)
             .GivenActor(actor)
+            // Act
             .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
+            // Assert
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
@@ -85,6 +97,7 @@ public sealed class RegisterTenantRequestScenarioTests
     [Fact]
     public async Task ShouldShortCircuitAtTheGuardGivenAnOccupiedSlug()
     {
+        // Arrange
         await using var provider = BuildProvider();
         await using (var seed = provider.CreateAsyncScope())
         {
@@ -97,7 +110,9 @@ public sealed class RegisterTenantRequestScenarioTests
 
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor())
+            // Act
             .When(new RegisterTenant("Acme", "acme"))
+            // Assert
             .ExpectAuthorized()
             .ExpectGuardFailed<RegisterTenantSlugAvailabilityGuard>(RequestErrorKind.Conflict)
             .ExpectNotHandled();

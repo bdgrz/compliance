@@ -6,8 +6,9 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class FitzEmailAddressDirectoryTests
 {
     [Fact]
-    public async Task ListsOnlyAnOwnersAddressesAndTracksVerification()
+    public async Task ShouldListOwnAddressesGivenVerificationUpdates()
     {
+        // Arrange
         var client = new InMemoryKvClient();
         var directory = new FitzEmailAddressDirectory(client);
         var owner = Uuid.CreateVersion4();
@@ -23,8 +24,11 @@ public sealed class FitzEmailAddressDirectoryTests
         }
 
         var first = await directory.GetAsync("first@example.com");
+
+        // Act
         var page = await directory.ListAsync(owner, null, null);
 
+        // Assert
         Assert.True(first?.Verified);
         Assert.Equal(2, page.Items.Count);
         Assert.DoesNotContain(page.Items, address => address.UserId == other);

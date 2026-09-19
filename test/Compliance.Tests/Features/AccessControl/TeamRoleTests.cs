@@ -11,14 +11,18 @@ public sealed class TeamRoleTests
     static readonly Uuid RoleId = Uuid.Parse("c1b1b99d-2c52-46c6-ad58-55fe90bf53b3", CultureInfo.InvariantCulture);
 
     [Fact]
-    public void ShouldAssignIdempotently()
+    public void ShouldAssignOnceGivenRepeatedAssignment()
     {
+        // Arrange
         var teamRole = new TeamRole(TenantId, TeamId, RoleId);
         var scenario = new AggregateScenario<TeamRole>(teamRole);
 
         var first = scenario.Aggregate.Assign();
+
+        // Act
         var second = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(first.IsSuccess);
         Assert.True(second.IsSuccess);
         var assigned = Assert.Single(scenario.PendingEvents);
@@ -26,14 +30,17 @@ public sealed class TeamRoleTests
     }
 
     [Fact]
-    public void ShouldRemoveAnAssignedRole()
+    public void ShouldRemoveRoleGivenExistingAssignment()
     {
+        // Arrange
         var teamRole = new TeamRole(TenantId, TeamId, RoleId);
         var scenario = new AggregateScenario<TeamRole>(teamRole)
             .Given(DomainEventSeed.Attach(new TeamRoleAssigned(TenantId, TeamId, RoleId), teamRole.Id, 1));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var removed = Assert.Single(scenario.PendingEvents);
         Assert.Equal("TeamRoleRemoved", removed.GetType().Name);
@@ -42,10 +49,13 @@ public sealed class TeamRoleTests
     [Fact]
     public void ShouldReturnNotFoundGivenAnUnassignedRole()
     {
+        // Arrange
         var teamRole = new TeamRole(TenantId, TeamId, RoleId);
 
+        // Act
         var result = teamRole.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
@@ -53,29 +63,35 @@ public sealed class TeamRoleTests
     [Fact]
     public void ShouldReturnNotFoundGivenARepeatedRemoval()
     {
+        // Arrange
         var teamRole = new TeamRole(TenantId, TeamId, RoleId);
         var scenario = new AggregateScenario<TeamRole>(teamRole)
             .Given(
                 DomainEventSeed.Attach(new TeamRoleAssigned(TenantId, TeamId, RoleId), teamRole.Id, 1),
                 DomainEventSeed.Attach(new TeamRoleRemoved(TenantId, TeamId, RoleId), teamRole.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Remove();
 
+        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
     [Fact]
-    public void ShouldAllowReassigningAfterRemoval()
+    public void ShouldAllowReassignmentGivenPriorRemoval()
     {
+        // Arrange
         var teamRole = new TeamRole(TenantId, TeamId, RoleId);
         var scenario = new AggregateScenario<TeamRole>(teamRole)
             .Given(
                 DomainEventSeed.Attach(new TeamRoleAssigned(TenantId, TeamId, RoleId), teamRole.Id, 1),
                 DomainEventSeed.Attach(new TeamRoleRemoved(TenantId, TeamId, RoleId), teamRole.Id, 2));
 
+        // Act
         var result = scenario.Aggregate.Assign();
 
+        // Assert
         Assert.True(result.IsSuccess);
         var reassigned = Assert.Single(scenario.PendingEvents);
         Assert.Equal("TeamRoleAssigned", reassigned.GetType().Name);

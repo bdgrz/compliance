@@ -21,7 +21,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class PermissionGrantE2ETests(BrokerStackFixture broker)
 {
     [Fact]
-    public async Task ShouldGrantTheCreatorTenantAccessThroughRealRolePermissionMaterialization()
+    public async Task ShouldGrantCreatorTenantAccessGivenMaterializedRolePermission()
     {
         // Arrange
         await using var factory = E2EAppFactory.Create(broker);

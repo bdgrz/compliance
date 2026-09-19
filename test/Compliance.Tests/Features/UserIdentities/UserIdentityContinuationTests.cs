@@ -81,7 +81,7 @@ public sealed class UserIdentityContinuationTests
     }
 
     [Fact]
-    public async Task ShouldNotLinkNewOidcIdentityFromAnExistingSession()
+    public async Task ShouldKeepIdentitySeparateGivenExistingSessionAndNewIssuer()
     {
         // Arrange
         await using var fixture = new StoreFixture();

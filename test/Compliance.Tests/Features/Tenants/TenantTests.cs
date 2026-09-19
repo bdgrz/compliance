@@ -16,11 +16,14 @@ public sealed class TenantTests
     [Fact]
     public void ShouldRequestSlugRegistrationGivenTenantRegistration()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
         var scenario = new AggregateScenario<Tenant>(tenant);
 
+        // Act
         var result = tenant.Register(OwnerUserId, "Acme, Inc.", "acme");
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(TenantId, result.Value.TenantId);
         Assert.Equal("acme", result.Value.Slug);
@@ -32,14 +35,17 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void ShouldConfirmOrRejectTheRequestedSlugFromChoreography()
+    public void ShouldResolveSlugGivenChoreographyDecision()
     {
+        // Arrange
         var confirmed = new Tenant(TenantId);
         _ = confirmed.Register(OwnerUserId, "Acme", "acme");
         var confirmedScenario = new AggregateScenario<Tenant>(confirmed);
 
+        // Act
         var confirmResult = confirmed.ConfirmSlug("acme");
 
+        // Assert
         Assert.True(confirmResult.IsSuccess);
         Assert.IsType<TenantSlugConfirmed>(confirmedScenario.PendingEvents[^1]);
 
@@ -54,15 +60,19 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void ShouldRequestSurrenderOnlyForConfirmedSlug()
+    public void ShouldRequestSurrenderGivenConfirmedSlug()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
         _ = tenant.Register(OwnerUserId, "Acme", "acme");
 
         var beforeConfirmation = tenant.RequestSlugSurrender("acme");
         _ = tenant.ConfirmSlug("acme");
+
+        // Act
         var afterConfirmation = tenant.RequestSlugSurrender("acme");
 
+        // Assert
         Assert.False(beforeConfirmation.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, beforeConfirmation.Error.Kind);
         Assert.True(afterConfirmation.IsSuccess);
@@ -73,23 +83,32 @@ public sealed class TenantTests
     [Fact]
     public void ShouldRestoreConfirmedSlugGivenSurrenderIsRejected()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
         _ = tenant.Register(OwnerUserId, "Acme", "acme");
         _ = tenant.ConfirmSlug("acme");
         _ = tenant.RequestSlugSurrender("acme");
 
         var rejected = tenant.RejectSlugSurrender("acme");
+
+        // Act
         var retry = tenant.RequestSlugSurrender("acme");
 
+        // Assert
         Assert.True(rejected.IsSuccess);
         Assert.True(retry.IsSuccess);
     }
 
     [Fact]
-    public void ShouldBlockAndRestoreAccessWithoutDiscardingTenantHistory()
+    public void ShouldPreserveHistoryGivenSuspensionAndReactivation()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
+
+        // Act
         _ = tenant.Register(OwnerUserId, "Acme", "acme");
+
+        // Assert
         Assert.False(tenant.IsActive);
         _ = tenant.ConfirmSlug("acme");
         Assert.True(tenant.IsActive);
@@ -106,10 +125,15 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void InvitedFirstAdministratorMustAcceptBeforeTenantIsActive()
+    public void ShouldRequireAcceptanceGivenInvitedFirstAdministrator()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
+
+        // Act
         var result = tenant.Register(OwnerUserId, "Acme", "acme", "Acme Legal LLC", "admin@example.com");
+
+        // Assert
         Assert.True(result.IsSuccess);
         _ = tenant.ConfirmSlug("acme");
 
@@ -121,12 +145,16 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void SlugChangeKeepsOldSlugUntilReplacementIsConfirmed()
+    public void ShouldKeepOldSlugGivenPendingReplacement()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
         _ = tenant.Register(OwnerUserId, "Acme", "acme");
+
+        // Act
         _ = tenant.ConfirmSlug("acme");
 
+        // Assert
         Assert.True(tenant.RequestSlugChange("acme-new").IsSuccess);
         Assert.Equal("acme", tenant.CurrentSlug);
         Assert.True(tenant.ConfirmSlug("acme-new").IsSuccess);
@@ -137,13 +165,17 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void RejectedSlugChangeRetainsCurrentSlug()
+    public void ShouldRetainCurrentSlugGivenRejectedChange()
     {
+        // Arrange
         var tenant = new Tenant(TenantId);
         _ = tenant.Register(OwnerUserId, "Acme", "acme");
         _ = tenant.ConfirmSlug("acme");
+
+        // Act
         _ = tenant.RequestSlugChange("taken-slug");
 
+        // Assert
         Assert.True(tenant.RejectSlug("taken-slug").IsSuccess);
         Assert.Equal("acme", tenant.CurrentSlug);
         Assert.True(tenant.IsActive);

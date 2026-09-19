@@ -21,19 +21,23 @@ public sealed class ListMyTenantsRequestScenarioTests
     [Fact]
     public async Task ShouldDenyGivenAnActorWithoutABdgrzIdentity()
     {
+        // Arrange
         await using var provider = BuildProvider(
             new FakeTenantDirectory(), new FakeTenantMembershipDirectoryReader(), new FakeTenantDirectoryReader());
 
         await RequestScenario.For(provider)
             .GivenActor(RequestActor.Anonymous)
+            // Act
             .When(new ListMyTenants())
+            // Assert
             .ExpectDenied(RequestErrorKind.Unauthorized)
             .ExpectNotHandled();
     }
 
     [Fact]
-    public async Task ShouldReturnOnlyTheCallersOwnTenants()
+    public async Task ShouldReturnOwnTenantsGivenMemberQuery()
     {
+        // Arrange
         var activeTenants = new FakeTenantDirectory(TenantId, OtherTenantId);
         var memberships = new FakeTenantMembershipDirectoryReader();
         memberships.Members[TenantId] = [CallerUserId];
@@ -43,6 +47,7 @@ public sealed class ListMyTenantsRequestScenarioTests
         tenants.ById[OtherTenantId] = new TenantView(OtherTenantId, "Other", "other");
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
 
+        // Act
         var scenario = await RequestScenario.For(provider)
             .GivenActor(BdgrzActor(CallerUserId))
             .When(new ListMyTenants())
@@ -50,6 +55,7 @@ public sealed class ListMyTenantsRequestScenarioTests
             .ExpectHandled()
             .ExpectSuccess();
 
+        // Assert
         var summary = Assert.Single(scenario.Value.Items);
         Assert.Equal(TenantId, summary.TenantId);
         Assert.Equal("Acme", summary.Name);
@@ -57,8 +63,9 @@ public sealed class ListMyTenantsRequestScenarioTests
     }
 
     [Fact]
-    public async Task ShouldPaginateTheTenantScanUsingTheReturnedCursor()
+    public async Task ShouldPaginateTenantsGivenReturnedCursor()
     {
+        // Arrange
         var tenantIds = new[] { Uuid.CreateVersion4(), Uuid.CreateVersion4(), Uuid.CreateVersion4() };
         var activeTenants = new FakeTenantDirectory(tenantIds);
         var memberships = new FakeTenantMembershipDirectoryReader();
@@ -74,6 +81,8 @@ public sealed class ListMyTenantsRequestScenarioTests
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
         var seen = new List<Uuid>();
         string? cursor = null;
+
+        // Act
         do
         {
             var scenario = await RequestScenario.For(provider)
@@ -84,18 +93,21 @@ public sealed class ListMyTenantsRequestScenarioTests
             cursor = scenario.Value.NextCursor;
         } while (cursor is not null);
 
+        // Assert
         Assert.Equal(tenantIds.OrderBy(id => id.ToString(), StringComparer.Ordinal), seen);
     }
 
     [Fact]
-    public async Task ShouldSkipAMembershipWhoseTenantHasNotProjectedYet()
+    public async Task ShouldSkipMembershipGivenTenantProjectionLag()
     {
+        // Arrange
         var activeTenants = new FakeTenantDirectory(TenantId);
         var memberships = new FakeTenantMembershipDirectoryReader();
         memberships.Members[TenantId] = [CallerUserId];
         var tenants = new FakeTenantDirectoryReader();
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
 
+        // Act
         var scenario = await RequestScenario.For(provider)
             .GivenActor(BdgrzActor(CallerUserId))
             .When(new ListMyTenants())
@@ -103,6 +115,7 @@ public sealed class ListMyTenantsRequestScenarioTests
             .ExpectHandled()
             .ExpectSuccess();
 
+        // Assert
         Assert.Empty(scenario.Value.Items);
     }
 

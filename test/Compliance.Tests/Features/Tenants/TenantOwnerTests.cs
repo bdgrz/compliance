@@ -7,8 +7,9 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class TenantOwnerTests
 {
     [Fact]
-    public void ShouldRegisterTenantOwnerRelationshipIdempotently()
+    public void ShouldRegisterOnceGivenRepeatedOwnerRelationship()
     {
+        // Arrange
         var tenantId = Uuid.Parse("46ca06ed-bddb-4283-9482-b8667ed89e86", CultureInfo.InvariantCulture);
         var userId = Uuid.Parse("0862062f-97e9-45de-a312-0f884c48180d", CultureInfo.InvariantCulture);
         var owner = new TenantOwner(tenantId, userId);
@@ -16,8 +17,11 @@ public sealed class TenantOwnerTests
         var scenario = new AggregateScenario<TenantOwner>(owner);
 
         var registered = owner.Register();
+
+        // Act
         var repeated = owner.Register();
 
+        // Assert
         Assert.True(registered.IsSuccess);
         Assert.True(repeated.IsSuccess);
         Assert.Equal(owner.Id, sameOwner.Id);
