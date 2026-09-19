@@ -135,6 +135,21 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
         .RequireAuthorization()
         .WithTags("Tenants");
+    app.MapPortiaPost<ReserveEmail>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
+        .RequireAuthorization()
+        .WithTags("Email addresses");
+    app.MapPortiaPost<IssueEmailChallenge>("/api/v1/users/{userId}/email-addresses/{emailAddress}/challenges")
+        .RequireAuthorization()
+        .WithTags("Email addresses");
+    app.MapPortiaPost<CompleteEmailChallenge>("/api/v1/users/{userId}/email-addresses/{emailAddress}/verifications")
+        .RequireAuthorization()
+        .WithTags("Email addresses");
+    app.MapPortiaGet<GetEmailAddress, EmailAddressView>("/api/v1/users/{userId}/email-addresses/{emailAddress}")
+        .RequireAuthorization()
+        .WithTags("Email addresses");
+    app.MapPortiaGet<ListEmailAddresses, Page<EmailAddressView>>("/api/v1/users/{userId}/email-addresses")
+        .RequireAuthorization()
+        .WithTags("Email addresses");
     app.MapPortiaGet<ListMyTenants, Page<TenantMembershipSummary>>("/api/v1/tenants/mine")
         .RequireAuthorization()
         .WithTags("Tenants");

@@ -21,6 +21,14 @@ public static class ComplianceServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<MockEmailChallengeDelivery>();
+        services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
+        services.AddScoped<FitzEmailAddressDirectory>();
+        services.AddScoped<IEmailAddressDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
+        services.AddScoped<IEmailAddressDirectoryReader>(
+            provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
         services.AddScoped<UserIdentityContinuation>();
         services.AddScoped<FitzPermissionAuthorizer>();
         services.AddScoped<IPermissionProjection>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
@@ -62,6 +70,12 @@ public static class ComplianceServiceCollectionExtensions
             .AddPortia()
             .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
             .AddRequestHandler<ContinueWithOidcProviderHandler>()
+            .AddRequestHandler<ReserveEmailHandler>()
+            .AddRequestHandler<IssueEmailChallengeHandler>()
+            .AddRequestHandler<CompleteEmailChallengeHandler>()
+            .AddRequestHandler<GetEmailAddressHandler>()
+            .AddRequestHandler<ListEmailAddressesHandler>()
+            .AddRequestAuthorizer<EmailOwnershipAuthorizer>()
             .AddRequestHandler<RegisterMemberHandler>()
             .AddRequestHandler<DefineTeamHandler>()
             .AddRequestHandler<DeleteTeamHandler>()
@@ -96,6 +110,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ConfirmTenantSlugSurrenderHandler>()
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
+            .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
+            .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
