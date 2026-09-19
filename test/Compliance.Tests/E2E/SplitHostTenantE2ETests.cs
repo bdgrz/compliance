@@ -326,7 +326,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                 new { email_address = $"other-{Guid.NewGuid():N}@example.com" });
             Assert.Equal(HttpStatusCode.OK, otherLogin.StatusCode);
             using var denied = await otherClient.GetAsync($"/api/v1/tenants/{registration.TenantId}/teams");
-            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+            using var missing = await otherClient.GetAsync($"/api/v1/tenants/{Uuid.CreateVersion4()}/teams");
+            Assert.Equal(denied.StatusCode, missing.StatusCode);
+            var deniedProblem = await denied.Content.ReadFromJsonAsync<Problem>();
+            var missingProblem = await missing.Content.ReadFromJsonAsync<Problem>();
+            Assert.Equal(deniedProblem?.Title, missingProblem?.Title);
+            Assert.Equal(deniedProblem?.Detail, missingProblem?.Detail);
             using var ownTenants = await otherClient.GetAsync("/api/v1/tenants/mine");
             Assert.Equal(HttpStatusCode.OK, ownTenants.StatusCode);
             var ownTenantList = await ownTenants.Content.ReadFromJsonAsync<TenantList>();
@@ -424,6 +430,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     sealed record Members(IReadOnlyList<Member> Items);
     sealed record Member([property: JsonPropertyName("user_id")] string UserId,
         string Affiliation);
+    sealed record Problem(string? Title, string? Detail);
 
     sealed class FailingOnceInvitationDelivery : ITenantInvitationDelivery
     {

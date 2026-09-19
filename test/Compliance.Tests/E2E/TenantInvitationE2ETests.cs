@@ -36,7 +36,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
         using var operatorDenied = await operatorClient.GetAsync(
             $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
-        Assert.Equal(HttpStatusCode.Forbidden, operatorDenied.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, operatorDenied.StatusCode);
 
         var invitationDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
         string? invitationToken = null;

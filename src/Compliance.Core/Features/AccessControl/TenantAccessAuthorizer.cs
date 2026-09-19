@@ -3,7 +3,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 /// <summary>Row-level authorization for tenant-scoped reads: requires <see cref="RbacPermissions.TenantAccess" />.</summary>
-sealed class TenantAccessAuthorizer(IPermissionAuthorizer permissions, ITenantActivity tenants) : IRequestAuthorizer<ITenantAccessRequest>
+sealed class TenantAccessAuthorizer(IPermissionAuthorizer permissions, ITenantActivity tenants,
+    ITenantMembershipDirectoryReader memberships) : IRequestAuthorizer<ITenantAccessRequest>
 {
     public async ValueTask<Result> AuthorizeAsync(IRequestContext<ITenantAccessRequest> context, CancellationToken ct)
     {
@@ -16,6 +17,8 @@ sealed class TenantAccessAuthorizer(IPermissionAuthorizer permissions, ITenantAc
                 "Tenant access requires a Bdgrz user identity."));
 
         var tenantId = context.Request.TenantId;
+        if (!await memberships.IsMemberAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false))
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
