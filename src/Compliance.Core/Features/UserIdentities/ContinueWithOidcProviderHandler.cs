@@ -32,7 +32,9 @@ public sealed class ContinueWithOidcProviderHandler(UserIdentityContinuation con
             provider.Trim(),
             identifier.Trim(),
             emailAddress,
-            UserIdentityClaims.TryGetBdgrzSubject(actor, out var userId) ? userId : null,
+            // An existing session is not consent to link a second external identity.
+            // Identity linking needs its own reviewed, authorized request.
+            existingUserId: null,
             context,
             ct);
     }

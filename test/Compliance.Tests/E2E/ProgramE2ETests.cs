@@ -295,6 +295,29 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal("SOC 2 continuing program", Assert.Single(firstTenantPrograms?.Items ?? []).Name);
         Assert.Equal("Second tenant program", Assert.Single(secondTenantPrograms?.Items ?? []).Name);
+
+        using var conflictingTenant = await owner.PostAsJsonAsync(path, new
+        {
+            tenant_id = secondTenant.TenantId,
+            name = "Conflicting tenant body",
+            plan = create.plan,
+        });
+        Assert.Equal(HttpStatusCode.OK, conflictingTenant.StatusCode);
+        ProgramPageDocument? firstAfterConflict = null;
+        ProgramPageDocument? secondAfterConflict = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var firstList = await owner.GetAsync(path);
+            using var secondList = await owner.GetAsync(secondPath);
+            firstAfterConflict = await firstList.Content.ReadFromJsonAsync<ProgramPageDocument>();
+            secondAfterConflict = await secondList.Content.ReadFromJsonAsync<ProgramPageDocument>();
+            if (firstAfterConflict?.Items.Count == 2 || secondAfterConflict?.Items.Count == 2)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(2, firstAfterConflict?.Items.Count);
+        Assert.Single(secondAfterConflict?.Items ?? []);
     }
 
     sealed record TenantRegistrationDocument([property: JsonPropertyName("tenant_id")] string TenantId);

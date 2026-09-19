@@ -16,6 +16,44 @@ Decision owner: product owner and tech lead; acceptance remains tracked in M0-D2
 - API startup checks each newly reserved top-level route against event-sourced slug ownership, including retired slugs, and fails if an organization claimed it before the route was added. Registration cannot claim a reserved route even through a direct system command. Resolve a collision before deploying the new route.
 - One platform user is bound to an exact issuer-plus-subject identity and can hold several memberships. A future multi-organization identity broker with per-organization connections is preferred over trusting arbitrary issuers in each tenant request. The current single-authority login remains the initial deployment configuration; issuer federation and identity linking require a separate security review before more authorities are enabled.
 
+## M0-A07 tenant-context contract
+
+The URL's opaque `tenant_id` selects the tenant for an organization-scoped HTTP
+operation. Portia's route binding wins if JSON also includes `tenant_id`; the
+handler, authorizer, and stream use the route value. The two-tenant program
+broker test supplies a conflicting body value and verifies that only the URL
+tenant changes. API clients should omit the redundant body field. MCP tools
+carry one explicit tenant ID in their typed input and run the same request
+authorizer. The server never accepts an IdP organization or role claim as a
+membership grant.
+
+Fitz tenant-owned streams use the immutable tenant UUID as their realm. A
+reactor keeps that realm, its triggering event, and a named system actor when
+dispatching a follow-up request. Projector reads and checkpoints use a tenant
+realm. New cache keys, search indexes, artifact paths, exports, jobs, and
+notifications must include the tenant UUID, and their backend children must
+prove that cross-tenant resources, counts, and delivery targets stay separate.
+Logs and telemetry should carry the opaque tenant UUID and correlation ID,
+while excluding invitation tokens, evidence content, and client names from
+routine labels. This is a contract for later features, not a claim that every
+future surface already exists.
+
+The first deployment trusts one configured OIDC authority. The selected
+expansion path is an identity broker with organization-specific connections
+and one application-trusted issuer; enabling another authority requires an
+issuer-validation and account-linking review. An external identity is keyed by
+exact issuer plus subject and belongs to one `PlatformUser`. Two identities
+with the same email do not merge automatically. Until a reviewed linking flow
+exists, they remain distinct platform users and memberships are granted
+separately. This avoids treating a mutable or unverified email as identity
+proof.
+
+Client-provided slugs can reveal a name in browser history or server logs.
+`Referrer-Policy: no-referrer` prevents browser referrer disclosure, and
+operators should use a neutral slug when a client name is confidential. The
+firm's client-naming and log-retention policy remains an M0-A07 product
+decision; the service cannot infer confidentiality from the slug string.
+
 ## Alternatives and consequences
 
 Self-service organization creation would turn any signup into a tenant administrator, so provisioning remains operator controlled. Granting the operator tenant access by default would create an unrequested cross-client access path. Using email or slug as a tenant identity would make renames and identity-provider changes unsafe. Storing roles in identity-provider tokens would delay revocation and blur the tenant boundary.

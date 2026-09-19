@@ -81,7 +81,7 @@ public sealed class UserIdentityContinuationTests
     }
 
     [Fact]
-    public async Task ShouldReuseExistingUserGivenAdditionalOidcProvider()
+    public async Task ShouldNotLinkNewOidcIdentityFromAnExistingSession()
     {
         // Arrange
         await using var fixture = new StoreFixture();
@@ -112,7 +112,7 @@ public sealed class UserIdentityContinuationTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(existingUserId, result.Value.UserId);
+        Assert.NotEqual(existingUserId, result.Value.UserId);
     }
 
     [Fact]
