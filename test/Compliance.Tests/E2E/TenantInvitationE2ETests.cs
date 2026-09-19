@@ -72,6 +72,11 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal(HttpStatusCode.OK, access);
 
+        using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
+        Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
+        using var otherTenant = await administratorClient.GetAsync($"/api/v1/tenants/{Uuid.CreateVersion4()}");
+        Assert.Equal(HttpStatusCode.NotFound, otherTenant.StatusCode);
+
         using var tenantResponse = await operatorClient.GetAsync($"/api/v1/tenants/{tenantId}");
         Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();

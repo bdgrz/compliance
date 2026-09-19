@@ -191,11 +191,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                         $"/api/v1/tenants/{tenantId}/suspensions", null);
                     using var reactivateDenied = await nonOperator.DeleteAsync(
                         $"/api/v1/tenants/{tenantId}/suspensions");
+                    using var viewDenied = await nonOperator.GetAsync($"/api/v1/tenants/{tenantId}");
                     Assert.Equal(HttpStatusCode.Forbidden, createDenied.StatusCode);
                     Assert.Equal(HttpStatusCode.Forbidden, inviteDenied.StatusCode);
                     Assert.Equal(HttpStatusCode.Forbidden, slugDenied.StatusCode);
                     Assert.Equal(HttpStatusCode.Forbidden, suspendDenied.StatusCode);
                     Assert.Equal(HttpStatusCode.Forbidden, reactivateDenied.StatusCode);
+                    Assert.Equal(HttpStatusCode.NotFound, viewDenied.StatusCode);
                 }
             }
 
@@ -230,6 +232,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.Equal(HttpStatusCode.OK, access);
+            using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
+            Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 
             var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
             using var invitedStaff = await operatorClient.PostAsJsonAsync(
