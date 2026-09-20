@@ -26,18 +26,21 @@ The invitation-status bundle adds administrator-authorized
 `bdgrz.tenant-invitation.list`. The tenant-routed Fitz projector stores email,
 affiliation, selected role, expiry, inviter, and accepted user; it never stores
 or returns a token or token hash. A filtered query normalizes `email_address`.
-`expected_status` reports a conflict while the invitation or downstream
-activation projections lag. `pending` and `expired` are calculated from the
-latest invitation and current time. Acceptance reports
-`accepted_pending_activation` until the member projection and selected role's
-effective tenant-access grant are visible; only then does it report `active`.
-Firm-staff invitations require membership but have no standing role grant.
+The list is eventually consistent: a prior pending row can remain visible while
+a reissued invitation has not yet projected. Callers may poll for a known
+change but must not treat a status match as a causal revision fence.
+`pending` and `expired` are calculated from the latest projected invitation
+and current time. Acceptance reports `accepted_pending_activation` until the
+member registration projects, then `active` even if a role is later removed.
+Role readiness is exposed separately by `GetMemberAccess` with
+`expected_built_in_role`. Firm-staff invitations require membership but have
+no standing role grant.
 The status endpoint is an administrative view; acceptance remains HTTP-only.
 
 `TenantInvitationDirectoryTests` covers reissue, replay, expiration,
-tenant-routed storage, activation lag, and omission of token hashes.
+tenant-routed storage, membership activation lag, and omission of token hashes.
 `MemberAccessE2ETests` verifies pending and active reads, denied reads,
-projection lag, and MCP parity in standalone and split API/worker modes.
+eventual projection, and MCP parity in standalone and split API/worker modes.
 Delivery failures are not represented as a durable status: delivery currently
 occurs after the invitation event commits and the mock sender has no outbox.
 

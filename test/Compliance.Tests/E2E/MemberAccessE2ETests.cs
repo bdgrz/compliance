@@ -86,6 +86,9 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal(HttpStatusCode.OK, adminAccess);
+                using var beforeInvitation = await administrator.GetAsync(invitationStatusPath);
+                Assert.Equal(HttpStatusCode.OK, beforeInvitation.StatusCode);
+                Assert.Empty((await beforeInvitation.Content.ReadFromJsonAsync<InvitationPageDocument>())!.Items);
 
                 // Act
                 using var deniedInvite = await invitee.PostAsJsonAsync(invitePath, new
@@ -110,9 +113,6 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.NoContent, invited.StatusCode);
                 using var deniedStatus = await invitee.GetAsync(invitationStatusPath);
                 Assert.Equal(HttpStatusCode.NotFound, deniedStatus.StatusCode);
-                using var pendingButExpectedActive = await administrator.GetAsync(
-                    $"{invitationStatusPath}&expected_status=active");
-                Assert.Equal(HttpStatusCode.Conflict, pendingButExpectedActive.StatusCode);
                 InvitationPageDocument? pendingInvitations = null;
                 var invitationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 while (DateTimeOffset.UtcNow < invitationDeadline)
@@ -171,14 +171,11 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 var activationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 while (DateTimeOffset.UtcNow < activationDeadline)
                 {
-                    using var response = await administrator.GetAsync(
-                        $"{invitationStatusPath}&expected_status=active");
-                    if (response.StatusCode == HttpStatusCode.OK)
-                    {
-                        activeInvitations = await response.Content.ReadFromJsonAsync<InvitationPageDocument>();
+                    using var response = await administrator.GetAsync(invitationStatusPath);
+                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                    activeInvitations = await response.Content.ReadFromJsonAsync<InvitationPageDocument>();
+                    if (activeInvitations?.Items.SingleOrDefault()?.Status == "active")
                         break;
-                    }
-                    Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
                     await Task.Delay(250);
                 }
                 Assert.Equal("active", Assert.Single(activeInvitations!.Items).Status);
@@ -204,7 +201,6 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 {
                     ["tenant_id"] = tenantId,
                     ["email_address"] = inviteeEmail,
-                    ["expected_status"] = "active",
                 }).ExpectSuccess();
             }
         }

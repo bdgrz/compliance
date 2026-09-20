@@ -276,7 +276,7 @@ public sealed class ComplianceWebTests
         var parameterNames = operation.GetProperty("parameters").EnumerateArray()
             .Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
         Assert.Contains("email_address", parameterNames);
-        Assert.Contains("expected_status", parameterNames);
+        Assert.DoesNotContain("expected_status", parameterNames);
     }
 
     static void AssertSnakeCaseJsonProperties(JsonElement element)

@@ -11,5 +11,5 @@ public sealed record TenantInvitationView(Uuid TenantId, string EmailAddress,
 
 [Discriminator("bdgrz.tenant-invitation.list", 1)]
 public sealed record ListTenantInvitations(Uuid TenantId, int? Limit = null,
-    string? Cursor = null, string? EmailAddress = null, string? ExpectedStatus = null)
+    string? Cursor = null, string? EmailAddress = null)
     : IRequest<Page<TenantInvitationView>>, IRbacManagementRequest, ICallable;

@@ -58,7 +58,7 @@ public sealed class TenantInvitationDirectoryTests
     }
 
     [Fact]
-    public async Task ShouldRemainPendingActivationUntilMemberAndRoleProjectGivenAcceptance()
+    public async Task ShouldBecomeActiveGivenMembershipWithoutCurrentRoleGrant()
     {
         // Arrange
         var userId = Uuid.CreateVersion4();
@@ -67,9 +67,8 @@ public sealed class TenantInvitationDirectoryTests
             Now.AddDays(7), InvitedBy, userId);
         var reader = new FakeInvitationDirectory(entry);
         var membership = new FakeMembershipDirectory();
-        var access = new FakeMemberAccessReader();
         var clock = new FixedTimeProvider(Now);
-        var handler = new ListTenantInvitationsHandler(reader, membership, access, clock);
+        var handler = new ListTenantInvitationsHandler(reader, membership, clock);
         var request = new ListTenantInvitations(TenantId, EmailAddress: "Invitee@Example.com");
 
         // Act
@@ -80,35 +79,58 @@ public sealed class TenantInvitationDirectoryTests
         Assert.Equal("accepted_pending_activation", Assert.Single(accepted.Value.Items).Status);
 
         membership.IsMember = true;
-        var memberOnly = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
-            request, Actor()), CancellationToken.None);
-        Assert.Equal("accepted_pending_activation", Assert.Single(memberOnly.Value.Items).Status);
-
-        access.Edges = [new MemberAccessEdge(
-            BuiltInRbac.PowerUsersTeamId(TenantId),
-            BuiltInRbac.ComplianceManagementRoleId(TenantId),
-            [RbacPermissions.TenantAccess, RbacPermissions.ProgramManage])];
         var active = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
-            request with { ExpectedStatus = "active" }, Actor()), CancellationToken.None);
+            request, Actor()), CancellationToken.None);
         Assert.Equal("active", Assert.Single(active.Value.Items).Status);
     }
 
     [Fact]
-    public async Task ShouldReturnConflictGivenExpectedInvitationNotProjected()
+    public async Task ShouldReturnEmptyGivenInvitationNotProjected()
     {
         // Arrange
         var handler = new ListTenantInvitationsHandler(new FakeInvitationDirectory(null),
-            new FakeMembershipDirectory(), new FakeMemberAccessReader(), new FixedTimeProvider(Now));
-        var request = new ListTenantInvitations(TenantId, EmailAddress: "invitee@example.com",
-            ExpectedStatus: "pending");
+            new FakeMembershipDirectory(), new FixedTimeProvider(Now));
+        var request = new ListTenantInvitations(TenantId, EmailAddress: "invitee@example.com");
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
             request, Actor()), CancellationToken.None);
 
         // Assert
-        Assert.False(result.IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value.Items);
+    }
+
+    [Fact]
+    public async Task ShouldExposeCurrentProjectionGivenReissueStillPending()
+    {
+        // Arrange
+        var prior = new TenantInvitationDirectoryEntry(TenantId, "invitee@example.com",
+            "client_personnel", false, BuiltInRbac.ComplianceParticipationRole,
+            Now.AddDays(1), InvitedBy, null);
+        var directory = new FakeInvitationDirectory(prior);
+        var handler = new ListTenantInvitationsHandler(directory,
+            new FakeMembershipDirectory(), new FixedTimeProvider(Now));
+        var request = new ListTenantInvitations(TenantId, EmailAddress: prior.EmailAddress);
+
+        // Act
+        var beforeProjection = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
+            request, Actor()), CancellationToken.None);
+        directory.Entry = prior with
+        {
+            BuiltInRole = BuiltInRbac.ComplianceManagementRole,
+            ExpiresAt = Now.AddDays(7),
+        };
+        var afterProjection = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
+            request, Actor()), CancellationToken.None);
+
+        // Assert
+        var stale = Assert.Single(beforeProjection.Value.Items);
+        var current = Assert.Single(afterProjection.Value.Items);
+        Assert.Equal("pending", stale.Status);
+        Assert.Equal("pending", current.Status);
+        Assert.Equal(BuiltInRbac.ComplianceParticipationRole, stale.BuiltInRole);
+        Assert.Equal(BuiltInRbac.ComplianceManagementRole, current.BuiltInRole);
     }
 
     [Fact]
@@ -119,7 +141,7 @@ public sealed class TenantInvitationDirectoryTests
             "client_personnel", false, BuiltInRbac.ComplianceParticipationRole,
             Now, InvitedBy, null);
         var handler = new ListTenantInvitationsHandler(new FakeInvitationDirectory(entry),
-            new FakeMembershipDirectory(), new FakeMemberAccessReader(), new FixedTimeProvider(Now));
+            new FakeMembershipDirectory(), new FixedTimeProvider(Now));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
@@ -141,15 +163,17 @@ public sealed class TenantInvitationDirectoryTests
     sealed class FakeInvitationDirectory(TenantInvitationDirectoryEntry? entry)
         : ITenantInvitationDirectoryReader
     {
+        public TenantInvitationDirectoryEntry? Entry { get; set; } = entry;
+
         public ValueTask<TenantInvitationDirectoryEntry?> GetAsync(Uuid tenantId,
             string emailAddress, CancellationToken ct = default) =>
-            ValueTask.FromResult(entry is not null && entry.TenantId == tenantId &&
-                entry.EmailAddress == emailAddress ? entry : null);
+            ValueTask.FromResult(Entry is not null && Entry.TenantId == tenantId &&
+                Entry.EmailAddress == emailAddress ? Entry : null);
 
         public ValueTask<Page<TenantInvitationDirectoryEntry>> ListAsync(Uuid tenantId,
             int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<TenantInvitationDirectoryEntry>(
-                entry is not null && entry.TenantId == tenantId ? [entry] : [], null));
+                Entry is not null && Entry.TenantId == tenantId ? [Entry] : [], null));
     }
 
     sealed class FakeMembershipDirectory : ITenantMembershipDirectoryReader
@@ -164,11 +188,4 @@ public sealed class TenantInvitationDirectoryTests
             ValueTask.FromResult(new Page<TenantMembershipView>([], null));
     }
 
-    sealed class FakeMemberAccessReader : IMemberAccessReader
-    {
-        public IReadOnlyList<MemberAccessEdge> Edges { get; set; } = [];
-
-        public ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId, Uuid memberId,
-            CancellationToken ct = default) => ValueTask.FromResult(Edges);
-    }
 }

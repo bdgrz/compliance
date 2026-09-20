@@ -1,25 +1,16 @@
-using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
 public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReader directory,
-    ITenantMembershipDirectoryReader memberships, IMemberAccessReader access,
+    ITenantMembershipDirectoryReader memberships,
     TimeProvider clock) : IRequestHandler<ListTenantInvitations, Page<TenantInvitationView>>
 {
     public async ValueTask<Result<Page<TenantInvitationView>>> HandleAsync(
         IRequestContext<ListTenantInvitations> context, CancellationToken ct)
     {
         var request = context.Request;
-        if (request.ExpectedStatus is not null &&
-            request.ExpectedStatus is not ("pending" or "expired" or
-                "accepted_pending_activation" or "active"))
-            return Failure(RequestErrorKind.Validation, "The expected status is not supported.");
-        if (request.ExpectedStatus is not null && request.EmailAddress is null)
-            return Failure(RequestErrorKind.Validation,
-                "An email address is required when expecting an invitation status.");
-
         var now = clock.GetUtcNow();
         if (request.EmailAddress is not null)
         {
@@ -28,14 +19,8 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
             var invitation = await directory.GetAsync(request.TenantId, normalized, ct)
                 .ConfigureAwait(false);
             if (invitation is null)
-                return request.ExpectedStatus is null
-                    ? Result<Page<TenantInvitationView>>.Success(new Page<TenantInvitationView>([], null))
-                    : Failure(RequestErrorKind.Conflict,
-                        "The expected invitation has not reached the projection.");
+                return Result<Page<TenantInvitationView>>.Success(new Page<TenantInvitationView>([], null));
             var view = await ToViewAsync(invitation, now, ct).ConfigureAwait(false);
-            if (request.ExpectedStatus is not null && view.Status != request.ExpectedStatus)
-                return Failure(RequestErrorKind.Conflict,
-                    "The expected invitation status has not reached the projection.");
             return Result<Page<TenantInvitationView>>.Success(new Page<TenantInvitationView>([view], null));
         }
 
@@ -57,24 +42,7 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
             status = "accepted_pending_activation";
             if (await memberships.IsMemberAsync(entry.TenantId.ToString(), userId, ct)
                     .ConfigureAwait(false))
-            {
-                var expectedRoleId = entry.Administrator
-                    ? BuiltInRbac.TenantAdministrationRoleId(entry.TenantId)
-                    : entry.BuiltInRole is { } role
-                        ? BuiltInRbac.RoleIdForRole(entry.TenantId, role)
-                        : null;
-                if (expectedRoleId is null)
-                    status = "active";
-                else
-                {
-                    var edges = await access.ReadAsync(entry.TenantId,
-                        RbacIds.Member(entry.TenantId, userId), ct).ConfigureAwait(false);
-                    if (edges.Any(edge => edge.RoleId == expectedRoleId &&
-                        edge.Permissions.Contains(RbacPermissions.TenantAccess,
-                            StringComparer.Ordinal)))
-                        status = "active";
-                }
-            }
+                status = "active";
         }
         return new TenantInvitationView(entry.TenantId, entry.EmailAddress,
             entry.Affiliation, entry.Administrator, entry.BuiltInRole, status,
