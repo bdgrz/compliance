@@ -34,6 +34,10 @@ public sealed class ScopeSnapshotFreezer(IProgramDirectoryReader programs,
         if (programRevision is null)
             return Failure(RequestErrorKind.Conflict,
                 "The program revision projection has not reached the requested revision.");
+        if (programRevision.ProgramId != programId ||
+            programRevision.Revision != expectedProgramRevision)
+            return Failure(RequestErrorKind.Conflict,
+                "The program revision projection returned inconsistent content.");
 
         var boundary = await reader.HydrateAsync(new SystemBoundary(tenantId, boundaryId), ct)
             .ConfigureAwait(false);
@@ -67,11 +71,9 @@ public sealed class ScopeSnapshotFreezer(IProgramDirectoryReader programs,
                 .ConfigureAwait(false);
             if (!prior.IsFrozen)
                 return Failure(RequestErrorKind.NotFound, "The prior snapshot was not found.");
-            var frozen = prior.Frozen;
-            if (frozen.ProgramId != programId ||
-                frozen.Kind != "program_scope")
+            if (prior.ProgramId != programId)
                 return Failure(RequestErrorKind.NotFound, "The prior snapshot was not found.");
-            rootSnapshotId = frozen.RootSnapshotId;
+            rootSnapshotId = prior.RootSnapshotId;
         }
 
         var manifest = new ProgramScopeManifest(1, tenantId, programId,
@@ -148,7 +150,11 @@ public sealed class GetSnapshotHandler(ISnapshotDirectoryReader directory,
         return view is null
             ? Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The snapshot was not found."))
-            : Result<SnapshotView>.Success(view);
+            : SnapshotContentIdentity.MatchesManifest(view.Manifest, view.CanonicalManifest,
+                view.ContentSha256)
+                ? Result<SnapshotView>.Success(view)
+                : Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The stored snapshot manifest failed integrity verification."));
     }
 }
 
@@ -164,8 +170,13 @@ public sealed class ListProgramSnapshotsHandler(ISnapshotDirectoryReader directo
         if (!program.IsCreated)
             return Result<Page<SnapshotView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
-        return Result<Page<SnapshotView>>.Success(await directory.ListProgramAsync(
+        var page = await directory.ListProgramAsync(
             request.TenantId, request.ProgramId, request.Limit ?? 50, request.Cursor,
-            ct).ConfigureAwait(false));
+            ct).ConfigureAwait(false);
+        if (page.Items.Any(item => !SnapshotContentIdentity.MatchesManifest(item.Manifest,
+                item.CanonicalManifest, item.ContentSha256)))
+            return Result<Page<SnapshotView>>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "A stored snapshot manifest failed integrity verification."));
+        return Result<Page<SnapshotView>>.Success(page);
     }
 }

@@ -19,6 +19,9 @@ static class SnapshotContentIdentity
 
     public static (string Json, string Digest) Manifest(ProgramScopeManifest manifest)
     {
+        if (manifest.FormatVersion != 1)
+            throw new ArgumentOutOfRangeException(nameof(manifest),
+                "Only program scope manifest format v1 is supported.");
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
@@ -38,6 +41,15 @@ static class SnapshotContentIdentity
         var bytes = stream.ToArray();
         return (Encoding.UTF8.GetString(bytes),
             Digest("bdgrz.snapshot.manifest.program_scope.v1\0", bytes));
+    }
+
+    public static bool MatchesManifest(ProgramScopeManifest manifest, string json, string digest)
+    {
+        if (manifest.FormatVersion != 1)
+            return false;
+        var expected = Manifest(manifest);
+        return string.Equals(json, expected.Json, StringComparison.Ordinal) &&
+               string.Equals(digest, expected.Digest, StringComparison.Ordinal);
     }
 
     static byte[] CanonicalSource<T>(T source, JsonTypeInfo<T> typeInfo)

@@ -36,7 +36,10 @@ that regeneration verification is not implemented by this thin spike.
 
 An amendment is a new snapshot linked to its immediate predecessor and root,
 with an attributable reason. The original and every intermediate manifest stay
-immutable. Freeze validates all source references before committing its event;
+immutable. The reason, actor, and linkage are event metadata outside the
+content digest. Amendments of unchanged source versions therefore share a
+digest; downstream impact assessment compares the manifests and amendment
+chain. Freeze validates all source references before committing its event;
 an incomplete attempt creates no visible snapshot. The snapshot event stream
 uses the tenant realm. Its Fitz projector commits the query record, list index,
 and checkpoint in one transaction. Source commits and projection may be

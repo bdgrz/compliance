@@ -87,6 +87,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListBoundaryDecisions>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewBoundaryImpact>(tool => tool.ReadOnly())
         .AddMcpTool<ProposeBoundarySuccessor>()
+        .AddMcpTool<FreezeProgramScopeSnapshot>()
+        .AddMcpTool<AmendProgramScopeSnapshot>()
+        .AddMcpTool<GetSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -326,6 +330,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaPost<FreezeProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaPost<AmendProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<GetSnapshot, SnapshotView>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
