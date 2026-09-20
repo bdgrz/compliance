@@ -1357,6 +1357,15 @@ Implementation subtasks:
 - [ ] Connect boundary changes to affected controls, evidence, risks, vendors, readiness, and engagement snapshots before approval.
 - [ ] Prove version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior end to end.
 
+Backend delivery is split between the [R1-02a boundary baseline](https://github.com/bdgrz/compliance/issues/162)
+and [R1-02b downstream impact completion](https://github.com/bdgrz/compliance/issues/246).
+The baseline exposes an incomplete preview and blocks successor approval while
+downstream contexts are absent. The second child depends on the owning control,
+evidence, risk, provider, readiness, and engagement records; those owning
+children depend on the baseline, avoiding a circular completion dependency.
+The [frontend child](https://github.com/bdgrz/compliance/issues/178) depends on
+both backend slices. The product story remains open for the complete workflow.
+
 ### R1-03 Select a traceable SOC 2 criteria catalog
 
 Priority: P0
@@ -4896,16 +4905,16 @@ listed separately below it.
 
 ### Active feature delivery children
 
-| Product story | Backend child | Frontend child | Milestone |
+| Product story | Backend children | Frontend child | Milestone |
 | --- | --- | --- | --- |
 | R1-15 [#127](https://github.com/bdgrz/compliance/issues/127) | [#152](https://github.com/bdgrz/compliance/issues/152) | [#176](https://github.com/bdgrz/compliance/issues/176) | R1 |
 | R1-01 [#7](https://github.com/bdgrz/compliance/issues/7) | [#158](https://github.com/bdgrz/compliance/issues/158) | [#177](https://github.com/bdgrz/compliance/issues/177) | R1 |
-| R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | [#162](https://github.com/bdgrz/compliance/issues/162) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
+| R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | Baseline [#162](https://github.com/bdgrz/compliance/issues/162), downstream impact [#246](https://github.com/bdgrz/compliance/issues/246) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
 
 Shared enablers EN-01, EN-02, and EN-04 retain backend children #157, #160,
 and #161. Their first consuming feature supplies the browser workflow; these
 enablers have no separate frontend child. The active backend dependency chain
-uses these children and #152, #158, and #162, rather than their UI-dependent
+uses these children and #152, #158, and the #162 baseline, rather than their UI-dependent
 product parents. Frontend children #176 through #178 depend on their
 corresponding backend children and M0-D24, and record other applicable product
 and UI dependencies directly in GitHub.

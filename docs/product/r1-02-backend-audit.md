@@ -1,9 +1,11 @@
 # R1-02 backend acceptance audit
 
-The backend child is [#162](https://github.com/bdgrz/compliance/issues/162). The
-product parent [#8](https://github.com/bdgrz/compliance/issues/8) retains UI work.
-This audit records partial backend delivery and does not claim that either issue
-is complete.
+The baseline backend child is
+[#162](https://github.com/bdgrz/compliance/issues/162). Downstream impact and
+successor completion belong to
+[#246](https://github.com/bdgrz/compliance/issues/246). The product parent
+[#8](https://github.com/bdgrz/compliance/issues/8) retains UI work. This audit
+records partial backend delivery and does not claim these issues are complete.
 
 ## Delivered slices
 
@@ -32,6 +34,12 @@ is complete.
   version remains not found.
 
 ## Remaining backend acceptance
+
+The owning inventory, evidence, risk, provider, readiness, and engagement
+children consume the #162 boundary baseline. Their completed impact
+contributions and historical engagement binding are tracked in #246, which
+depends on those later contexts. Until they exist, an incomplete preview blocks
+successor approval rather than claiming a complete impact result.
 
 - Implement governing inventories for person, component,
   information, data flow, process, location, provider, and commitment references
@@ -67,6 +75,7 @@ uses a unique Compose project and mapped port. This bounds test-history
 contention; it does not establish production startup performance with many
 tenants. That investigation remains in
 [Portia #58](https://github.com/cntryl/portia/issues/58). Backend children
-[#160](https://github.com/bdgrz/compliance/issues/160) and
-[#162](https://github.com/bdgrz/compliance/issues/162) remain open for the
+[#160](https://github.com/bdgrz/compliance/issues/160),
+[#162](https://github.com/bdgrz/compliance/issues/162), and
+[#246](https://github.com/bdgrz/compliance/issues/246) remain open for the
 acceptance gaps above and their inherited decisions.
