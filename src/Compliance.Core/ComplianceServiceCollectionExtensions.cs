@@ -66,11 +66,13 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
+        services.AddScoped<ProgramHistoryReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
         services.AddScoped<IClientServiceDirectoryReader>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
+        services.AddScoped<ClientServiceHistoryReadConsistency>();
         services.AddScoped<IClientServiceActivity, EventSourcedClientServiceActivity>();
         services.AddScoped<FitzBoundaryDirectory>();
         services.AddScoped<IBoundaryDirectoryProjection>(
@@ -142,6 +144,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
             .AddRequestHandler<ListProgramRevisionsHandler>()
+            .AddRequestHandler<GetProgramRevisionHandler>()
             .AddRequestHandler<GetProgramSetupWorkHandler>()
             .AddRequestHandler<CreateClientServiceHandler>()
             .AddRequestHandler<ReviseClientServiceHandler>()
@@ -150,6 +153,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListClientServicesHandler>()
             .AddRequestHandler<ListProgramClientServicesHandler>()
             .AddRequestHandler<ListClientServiceRevisionsHandler>()
+            .AddRequestHandler<GetClientServiceRevisionHandler>()
             .AddRequestHandler<CreateBoundaryHandler>()
             .AddRequestHandler<ReviseBoundaryDraftHandler>()
             .AddRequestHandler<DiscardBoundaryDraftHandler>()

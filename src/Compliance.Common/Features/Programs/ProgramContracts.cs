@@ -43,8 +43,12 @@ public sealed record ListPrograms(Uuid TenantId, int? Limit = null, string? Curs
 
 [Discriminator("bdgrz.program.revisions.list", 1)]
 public sealed record ListProgramRevisions(Uuid TenantId, Uuid ProgramId,
-    int? Limit = null, string? Cursor = null)
+    int? Limit = null, string? Cursor = null, long? MinimumProgramRevision = null)
     : IRequest<Page<ProgramRevisionView>>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.program.revision.get", 1)]
+public sealed record GetProgramRevision(Uuid TenantId, Uuid ProgramId, long Revision)
+    : IRequest<ProgramRevisionView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.program.created", 1)]
 public sealed record ProgramCreated(Uuid TenantId, Uuid ProgramId, string Name, ProgramPlan Plan,

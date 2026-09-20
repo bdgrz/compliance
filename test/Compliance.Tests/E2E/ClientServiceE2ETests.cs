@@ -90,6 +90,8 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         }
         Assert.NotNull(service);
         var servicePath = $"{path}/{service.ServiceId}";
+        var exactRevisionPath =
+            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/1";
         ServiceDocument? projected = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -151,6 +153,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         using var deniedRetire = await outsider.PostAsJsonAsync($"{servicePath}/retirements",
             new { expected_revision = 1, rationale = "Outsider" });
         using var deniedHistory = await outsider.GetAsync($"{servicePath}/revisions");
+        using var deniedExactHistory = await outsider.GetAsync(exactRevisionPath);
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         Assert.Equal(denied.StatusCode, deniedFresh.StatusCode);
         Assert.Equal(hidden.StatusCode, denied.StatusCode);
@@ -160,6 +163,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, deniedRevise.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedRetire.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedHistory.StatusCode);
+        Assert.Equal(deniedHistory.StatusCode, deniedExactHistory.StatusCode);
 
         using var changed = await owner.PutAsJsonAsync(servicePath, new
         {
@@ -205,6 +209,44 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
         var revisions = await history.Content.ReadFromJsonAsync<ServiceRevisionPageDocument>();
         Assert.Equal([1L, 2L, 3L], revisions?.Items.Select(item => item.Revision));
         Assert.Equal("Service ended", revisions?.Items[2].RetirementRationale);
+        using var exact = await owner.GetAsync(exactRevisionPath);
+        Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
+        var original = await exact.Content.ReadFromJsonAsync<ServiceRevisionDocument>();
+        Assert.Equal(1, original?.Revision);
+        Assert.Null(original?.RetirementRationale);
+        using var anchoredHistory = await owner.GetAsync(
+            $"{servicePath}/revisions?minimum_service_revision=3");
+        using var futureHistory = await owner.GetAsync(
+            $"{servicePath}/revisions?minimum_service_revision=4");
+        using var invalidHistory = await owner.GetAsync(
+            $"{servicePath}/revisions?minimum_service_revision=0");
+        using var futureExact = await owner.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/4");
+        using var invalidExact = await owner.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/0");
+        Assert.Equal(HttpStatusCode.OK, anchoredHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, futureHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, futureExact.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidExact.StatusCode);
+        var exactToolInput = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenant.TenantId,
+            ["service_id"] = service.ServiceId,
+            ["revision"] = 1,
+        };
+        await using (var ownerMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await ownerMcp.When("bdgrz.client-service.revision.get", exactToolInput)
+                .ExpectSuccess();
+        }
+        await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+        {
+            _ = await outsiderMcp.When("bdgrz.client-service.revision.get", exactToolInput)
+                .ExpectFailure();
+        }
     }
 
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] string TenantId);

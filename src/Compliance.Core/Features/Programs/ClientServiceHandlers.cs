@@ -133,15 +133,69 @@ public sealed class ListProgramClientServicesHandler(IClientServiceDirectoryRead
     }
 }
 
-public sealed class ListClientServiceRevisionsHandler(IClientServiceDirectoryReader directory)
+public sealed class ClientServiceHistoryReadConsistency(IClientServiceDirectoryReader directory,
+    IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid serviceId,
+        long minimumRevision, CancellationToken ct)
+    {
+        if (minimumRevision < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum service revision must be positive."));
+        var view = await directory.GetAsync(tenantId, serviceId, ct).ConfigureAwait(false);
+        if (view is not null && view.Revision >= minimumRevision)
+            return Result.Success;
+        var source = await reader.HydrateAsync(new ClientService(tenantId, serviceId), ct)
+            .ConfigureAwait(false);
+        if (!source.IsCreated)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The service was not found."));
+        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+            source.Revision < minimumRevision
+                ? $"The service source has not reached revision {minimumRevision}."
+                : $"The service projection has not reached revision {minimumRevision}."));
+    }
+}
+
+public sealed class GetClientServiceRevisionHandler(IClientServiceDirectoryReader directory,
+    ClientServiceHistoryReadConsistency consistency)
+    : IRequestHandler<GetClientServiceRevision, ClientServiceRevisionView>
+{
+    public async ValueTask<Result<ClientServiceRevisionView>> HandleAsync(
+        IRequestContext<GetClientServiceRevision> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var freshness = await consistency.EnsureAsync(request.TenantId, request.ServiceId,
+            request.Revision, ct).ConfigureAwait(false);
+        if (!freshness.IsSuccess)
+            return Result<ClientServiceRevisionView>.Failure(freshness.Error);
+        var revision = await directory.GetRevisionAsync(request.TenantId, request.ServiceId,
+            request.Revision, ct).ConfigureAwait(false);
+        return revision is null
+            ? Result<ClientServiceRevisionView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The service revision was not found."))
+            : Result<ClientServiceRevisionView>.Success(revision);
+    }
+}
+
+public sealed class ListClientServiceRevisionsHandler(IClientServiceDirectoryReader directory,
+    ClientServiceHistoryReadConsistency consistency)
     : IRequestHandler<ListClientServiceRevisions, Page<ClientServiceRevisionView>>
 {
     public async ValueTask<Result<Page<ClientServiceRevisionView>>> HandleAsync(
         IRequestContext<ListClientServiceRevisions> context, CancellationToken ct)
     {
-        var page = await directory.ListRevisionsAsync(context.Request.TenantId,
-            context.Request.ServiceId, context.Request.Limit ?? 50,
-            context.Request.Cursor, ct).ConfigureAwait(false);
+        var request = context.Request;
+        if (request.MinimumServiceRevision is { } minimum)
+        {
+            var freshness = await consistency.EnsureAsync(request.TenantId, request.ServiceId,
+                minimum, ct).ConfigureAwait(false);
+            if (!freshness.IsSuccess)
+                return Result<Page<ClientServiceRevisionView>>.Failure(freshness.Error);
+        }
+        var page = await directory.ListRevisionsAsync(request.TenantId,
+            request.ServiceId, request.Limit ?? 50,
+            request.Cursor, ct).ConfigureAwait(false);
         return page is null
             ? Result<Page<ClientServiceRevisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The service was not found."))

@@ -211,6 +211,22 @@ public sealed class ComplianceWebTests
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_program_revision");
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_service_revision");
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")

@@ -11,6 +11,8 @@ public interface IProgramDirectoryReader
         CancellationToken ct = default);
     ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId, Uuid programId,
         int limit, string? cursor, CancellationToken ct = default);
+    ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid programId,
+        long revision, CancellationToken ct = default);
 }
 
 public interface IProgramDirectoryProjection : IProjectionStore
@@ -115,6 +117,15 @@ sealed class FitzProgramDirectory(IKvClient client)
         return await ProgramDirectorySchema.Revisions.QueryAsync(tx,
             ProgramDirectorySchema.RevisionsByProgram.Query()
                 .WithPrefix(programId.ToString()).Take(Math.Clamp(limit, 1, 200)).After(cursor), ct)
+            .ConfigureAwait(false);
+    }
+
+    public async ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
+        Uuid programId, long revision, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await ProgramDirectorySchema.Revisions.GetAsync(tx,
+            $"{programId}:{revision.ToString("D20", CultureInfo.InvariantCulture)}", ct)
             .ConfigureAwait(false);
     }
 }

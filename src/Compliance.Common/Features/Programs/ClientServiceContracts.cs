@@ -45,8 +45,12 @@ public sealed record ListProgramClientServices(Uuid TenantId, Uuid ProgramId,
 
 [Discriminator("bdgrz.client-service.revisions.list", 1)]
 public sealed record ListClientServiceRevisions(Uuid TenantId, Uuid ServiceId,
-    int? Limit = null, string? Cursor = null)
+    int? Limit = null, string? Cursor = null, long? MinimumServiceRevision = null)
     : IRequest<Page<ClientServiceRevisionView>>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.client-service.revision.get", 1)]
+public sealed record GetClientServiceRevision(Uuid TenantId, Uuid ServiceId, long Revision)
+    : IRequest<ClientServiceRevisionView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.client-service.created", 1)]
 public sealed record ClientServiceCreated(Uuid TenantId, Uuid ServiceId, string Name,

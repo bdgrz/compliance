@@ -122,6 +122,12 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 }
                 Assert.Equal("Split program revised", projected?.Name);
                 Assert.Equal(2, projected?.Revision);
+                using var splitExactRevision = await owner.GetAsync(
+                    $"{programPath}/revisions/2");
+                using var splitHistoryAnchor = await owner.GetAsync(
+                    $"{programPath}/revisions?minimum_program_revision=2");
+                Assert.Equal(HttpStatusCode.OK, splitExactRevision.StatusCode);
+                Assert.Equal(HttpStatusCode.OK, splitHistoryAnchor.StatusCode);
                 using var currentSplitRevision = await owner.GetAsync(
                     $"{programPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.OK, currentSplitRevision.StatusCode);
@@ -157,6 +163,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     await Task.Delay(250);
                 }
                 Assert.Equal("active", serviceView?.Status);
+                using var splitServiceRevision = await owner.GetAsync(
+                    $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/1");
+                Assert.Equal(HttpStatusCode.OK, splitServiceRevision.StatusCode);
 
                 var boundariesPath = $"{programPath}/boundaries";
                 using var boundaryCreated = await owner.PostAsJsonAsync(boundariesPath, new
@@ -522,6 +531,40 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal("Advisor A", revisions?.Items[0].Plan.ReadinessAdvisor);
         Assert.Equal("Advisor B", revisions?.Items[1].Plan.ReadinessAdvisor);
         Assert.All(revisions?.Items ?? [], item => Assert.False(string.IsNullOrWhiteSpace(item.ActorDisplay)));
+        var exactRevisionPath = $"{programPath}/revisions/1";
+        using var exactRevision = await owner.GetAsync(exactRevisionPath);
+        Assert.Equal(HttpStatusCode.OK, exactRevision.StatusCode);
+        var immutableRevision = await exactRevision.Content.ReadFromJsonAsync<ProgramRevisionDocument>();
+        Assert.Equal("Advisor A", immutableRevision?.Plan.ReadinessAdvisor);
+        using var anchoredHistory = await owner.GetAsync(
+            $"{programPath}/revisions?minimum_program_revision=2");
+        using var futureHistory = await owner.GetAsync(
+            $"{programPath}/revisions?minimum_program_revision=3");
+        using var invalidHistory = await owner.GetAsync(
+            $"{programPath}/revisions?minimum_program_revision=0");
+        using var futureExact = await owner.GetAsync($"{programPath}/revisions/3");
+        using var invalidExact = await owner.GetAsync($"{programPath}/revisions/0");
+        Assert.Equal(HttpStatusCode.OK, anchoredHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, futureHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, futureExact.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidExact.StatusCode);
+        var exactToolInput = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId,
+            ["program_id"] = registration.ProgramId,
+            ["revision"] = 1,
+        };
+        await using (var ownerMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await ownerMcp.When("bdgrz.program.revision.get", exactToolInput).ExpectSuccess();
+        }
+        await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+        {
+            _ = await outsiderMcp.When("bdgrz.program.revision.get", exactToolInput).ExpectFailure();
+        }
         using var firstRevisionPage = await owner.GetAsync($"{programPath}/revisions?limit=1");
         var firstRevision = await firstRevisionPage.Content.ReadFromJsonAsync<ProgramRevisionPageDocument>();
         Assert.Equal(1, Assert.Single(firstRevision?.Items ?? []).Revision);
@@ -531,7 +574,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         var nextRevision = await nextRevisionPage.Content.ReadFromJsonAsync<ProgramRevisionPageDocument>();
         Assert.Equal(2, Assert.Single(nextRevision?.Items ?? []).Revision);
         using var deniedRevisions = await outsider.GetAsync($"{programPath}/revisions");
+        using var deniedExactRevision = await outsider.GetAsync(exactRevisionPath);
         Assert.Equal(HttpStatusCode.NotFound, deniedRevisions.StatusCode);
+        Assert.Equal(deniedRevisions.StatusCode, deniedExactRevision.StatusCode);
         using var listed = await owner.GetAsync(path);
         Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
         var page = await listed.Content.ReadFromJsonAsync<ProgramPageDocument>();
@@ -578,6 +623,9 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal("SOC 2 continuing program", Assert.Single(firstTenantPrograms?.Items ?? []).Name);
         Assert.Equal("Second tenant program", Assert.Single(secondTenantPrograms?.Items ?? []).Name);
+        using var wrongTenantRevision = await owner.GetAsync(
+            $"{secondPath}/{registration.ProgramId}/revisions/1");
+        Assert.Equal(HttpStatusCode.NotFound, wrongTenantRevision.StatusCode);
 
         using var conflictingTenant = await owner.PostAsJsonAsync(path, new
         {

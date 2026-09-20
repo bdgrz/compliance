@@ -104,6 +104,75 @@ public sealed class ProjectionFreshnessTests
             StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(1, "projection")]
+    [InlineData(2, "source")]
+    public async Task ShouldReportProgramHistoryLagGivenSourceAndProjectionRevisions(
+        long requestedRevision, string laggingLayer)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var source = new ComplianceProgram(tenantId, programId);
+        Assert.True(source.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        var directory = new EmptyProgramDirectory();
+        var consistency = new ProgramHistoryReadConsistency(directory, new SourceReader(source));
+
+        // Act
+        var exact = await new GetProgramRevisionHandler(directory, consistency).HandleAsync(
+            new RequestContext<GetProgramRevision>(
+                new GetProgramRevision(tenantId, programId, requestedRevision),
+                new ClaimsPrincipal()), CancellationToken.None);
+        var listed = await new ListProgramRevisionsHandler(directory, consistency).HandleAsync(
+            new RequestContext<ListProgramRevisions>(new ListProgramRevisions(tenantId, programId,
+                MinimumProgramRevision: requestedRevision), new ClaimsPrincipal()),
+            CancellationToken.None);
+
+        // Assert
+        var exactError = Assert.IsType<RequestError>(exact.Error);
+        var listError = Assert.IsType<RequestError>(listed.Error);
+        Assert.Equal(RequestErrorKind.Conflict, exactError.Kind);
+        Assert.Contains(laggingLayer, exactError.Message, StringComparison.Ordinal);
+        Assert.Equal(RequestErrorKind.Conflict, listError.Kind);
+        Assert.Contains(laggingLayer, listError.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(1, "projection")]
+    [InlineData(2, "source")]
+    public async Task ShouldReportServiceHistoryLagGivenSourceAndProjectionRevisions(
+        long requestedRevision, string laggingLayer)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var serviceId = Uuid.CreateVersion4();
+        var source = new ClientService(tenantId, serviceId);
+        Assert.True(source.Create(Uuid.CreateVersion4(), "Payroll", "Run payroll", "Operations",
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        var directory = new EmptyServiceDirectory();
+        var consistency = new ClientServiceHistoryReadConsistency(directory, new SourceReader(source));
+
+        // Act
+        var exact = await new GetClientServiceRevisionHandler(directory, consistency).HandleAsync(
+            new RequestContext<GetClientServiceRevision>(
+                new GetClientServiceRevision(tenantId, serviceId, requestedRevision),
+                new ClaimsPrincipal()), CancellationToken.None);
+        var listed = await new ListClientServiceRevisionsHandler(directory, consistency).HandleAsync(
+            new RequestContext<ListClientServiceRevisions>(
+                new ListClientServiceRevisions(tenantId, serviceId,
+                    MinimumServiceRevision: requestedRevision), new ClaimsPrincipal()),
+            CancellationToken.None);
+
+        // Assert
+        var exactError = Assert.IsType<RequestError>(exact.Error);
+        var listError = Assert.IsType<RequestError>(listed.Error);
+        Assert.Equal(RequestErrorKind.Conflict, exactError.Kind);
+        Assert.Contains(laggingLayer, exactError.Message, StringComparison.Ordinal);
+        Assert.Equal(RequestErrorKind.Conflict, listError.Kind);
+        Assert.Contains(laggingLayer, listError.Message, StringComparison.Ordinal);
+    }
+
     sealed class SourceReader(Aggregate source) : IAggregateReader
     {
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
@@ -123,6 +192,10 @@ public sealed class ProjectionFreshnessTests
         public ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId,
             Uuid programId, int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult<Page<ProgramRevisionView>?>(null);
+
+        public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid programId, long revision, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProgramRevisionView?>(null);
     }
 
     sealed class EmptyBoundaryDirectory : IBoundaryDirectoryReader
@@ -171,5 +244,9 @@ public sealed class ProjectionFreshnessTests
         public ValueTask<Page<ClientServiceRevisionView>?> ListRevisionsAsync(Uuid tenantId,
             Uuid serviceId, int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult<Page<ClientServiceRevisionView>?>(null);
+
+        public ValueTask<ClientServiceRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid serviceId, long revision, CancellationToken ct = default) =>
+            ValueTask.FromResult<ClientServiceRevisionView?>(null);
     }
 }
