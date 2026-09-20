@@ -76,6 +76,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetSystemInstance>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
+        .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -303,6 +305,18 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<ListSystemInstances, Page<SystemInstanceView>>(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<ListApplicationBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for an application")
+        .WithTags("Applications");
+    app.MapPortiaGet<ListSystemInstanceBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for a system instance")
         .WithTags("System instances");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")

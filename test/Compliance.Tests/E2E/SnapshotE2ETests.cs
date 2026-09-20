@@ -14,7 +14,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class SnapshotE2ETests(BrokerStackFixture broker)
+public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     static readonly string[] SecurityCategory = ["security"];
 

@@ -1,9 +1,8 @@
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
-///     Shared across every test in <see cref="BrokerCollectionDefinition" /> so the e2e broker
-///     stack starts once per test run, not once per test class -- docker compose startup is the
-///     expensive part.
+///     Shared across tests in one e2e class. Each class gets a fresh broker history while
+///     <see cref="BrokerCollectionDefinition" /> keeps the broker tests sequential.
 /// </summary>
 public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
 {
@@ -19,7 +18,7 @@ public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
 }
 
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class BrokerCollectionDefinition : ICollectionFixture<BrokerStackFixture>
+public sealed class BrokerCollectionDefinition
 {
     public const string Name = "Broker e2e";
 }

@@ -390,6 +390,22 @@ public sealed class ComplianceWebTests
         Assert.True(paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        foreach (var path in new[]
+                 {
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references",
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references",
+                 })
+        {
+            var operation = paths.GetProperty(path).GetProperty("get");
+            Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
+            Assert.True(operation.GetProperty("responses").TryGetProperty("409", out _));
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() == "limit" &&
+                             parameter.GetProperty("in").GetString() == "query");
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() == "cursor" &&
+                             parameter.GetProperty("in").GetString() == "query");
+        }
     }
 
     [Theory]
