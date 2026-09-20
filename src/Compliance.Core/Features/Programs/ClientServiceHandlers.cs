@@ -69,7 +69,7 @@ static class ClientServiceActor
             _ => throw new InvalidOperationException("A service command requires tenant scope."),
         };
         return (RbacIds.Member(tenantId, userId),
-            context.Actor.FindFirst("email")?.Value ?? userId.ToString());
+            UserIdentityClaims.BdgrzDisplay(context.Actor, userId));
     }
 }
 

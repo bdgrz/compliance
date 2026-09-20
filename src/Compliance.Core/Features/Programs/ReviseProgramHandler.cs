@@ -15,7 +15,7 @@ public sealed class ReviseProgramHandler(IAggregateExecutor executor, TimeProvid
             program => AggregateOutcome.CommitOnSuccess(program.Revise(context.Request.ExpectedRevision,
                 context.Request.Name, context.Request.Plan,
                 RbacIds.Member(context.Request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
     }
 }

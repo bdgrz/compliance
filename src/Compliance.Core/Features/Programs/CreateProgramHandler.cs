@@ -14,7 +14,7 @@ public sealed class CreateProgramHandler(IAggregateExecutor executor, TimeProvid
         return executor.ExecuteAsync(new ComplianceProgram(context.Request.TenantId, context.RequestId),
             program => AggregateOutcome.CommitOnSuccess(program.Create(context.Request.Name,
                 context.Request.Plan, RbacIds.Member(context.Request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
     }
 }
