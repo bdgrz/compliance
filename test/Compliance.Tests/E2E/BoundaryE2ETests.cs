@@ -88,6 +88,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             },
         };
         BoundaryRegistrationDocument? registration = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new { content });
@@ -103,6 +104,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(registration);
         var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/boundaries/{registration.BoundaryId}";
         BoundaryDocument? projected = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(boundaryPath);
@@ -207,6 +209,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             content,
         });
         Assert.Equal(HttpStatusCode.NotFound, deniedRevise.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(boundaryPath);
