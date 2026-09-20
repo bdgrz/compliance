@@ -3,14 +3,16 @@
 ## Change workflow
 
 For each validated product story or existing delivery slice entering delivery,
-track backend and frontend work in separate child issues under the product
-parent. Give both children the parent's milestone and record applicable
-dependencies explicitly. Backend children omit the UI-only M0-D24 blocker;
-frontend children depend on M0-D24 and the corresponding backend child. Keep
-the product parent open until both children and their integrated acceptance
-criteria are complete. Do not schedule delivery children for unvalidated P2
-hypotheses.
-For an upstream feature or enabler, link a backend child to its backend child;
+create an initial backend child and a frontend child under the product parent.
+Add a later backend child when downstream records are required to finish backend
+acceptance, so the baseline can be consumed before its follow-up is complete.
+Give every child the parent's milestone and record applicable dependencies
+explicitly. Backend children omit the UI-only M0-D24 blocker; frontend children
+depend on M0-D24 and all applicable backend children. Keep the product parent
+open until all children and the integrated acceptance criteria are complete. Do
+not schedule delivery children for unvalidated P2 hypotheses.
+For an upstream feature or enabler, link a backend child to its applicable
+backend child or children;
 link a frontend child to an upstream frontend child when that browser workflow
 is required. Do not let a still-open product parent make backend work wait for
 UI completion.
