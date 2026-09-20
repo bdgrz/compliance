@@ -1,4 +1,5 @@
 using System.Globalization;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Fitz;
 using Cntryl.Portia;
 
@@ -153,6 +154,10 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     approvedCurrent.LatestDecision?.DecisionId != approved.AcceptedReviewDecisionId)
                     throw new InvalidOperationException(
                         "A boundary approval cannot project before its accepted review.");
+                if (approvedCurrent.LatestApprovedVersion?.EffectiveFrom is { } priorFrom &&
+                    !EffectiveInterval.CanFollow(priorFrom, approved.EffectiveFrom))
+                    throw new InvalidOperationException(
+                        "A successor boundary version must become effective after its predecessor.");
                 var approvedVersion = approvedCurrent.Draft with
                 {
                     Status = "approved",
@@ -243,7 +248,7 @@ sealed class FitzBoundaryDirectory(IKvClient client)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         string? cursor = null;
-        BoundaryVersionView? effective = null;
+        BoundaryVersionView? previous = null;
         do
         {
             var page = await BoundaryDirectorySchema.Versions.QueryAsync(tx,
@@ -252,13 +257,21 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                 .ConfigureAwait(false);
             foreach (var version in page.Items)
             {
-                if (version.EffectiveFrom > effectiveOn)
-                    return effective;
-                effective = version;
+                var from = version.EffectiveFrom ?? throw new InvalidOperationException(
+                    "An approved boundary version requires an effective date.");
+                if (previous is null && from > effectiveOn)
+                    return null;
+                if (previous is { EffectiveFrom: { } previousFrom } &&
+                    new EffectiveInterval(previousFrom, from).Contains(effectiveOn))
+                    return previous;
+                previous = version;
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
-        return effective;
+        return previous is { EffectiveFrom: { } lastFrom } &&
+               new EffectiveInterval(lastFrom, null).Contains(effectiveOn)
+            ? previous
+            : null;
     }
 
     public async ValueTask<BoundaryDecisionView?> GetDecisionAsync(Uuid tenantId,

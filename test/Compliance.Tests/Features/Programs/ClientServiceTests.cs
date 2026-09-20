@@ -92,8 +92,10 @@ public sealed class ClientServiceTests
         // Assert
         Assert.True(service.Create(programId, "Payroll", "Process payroll", "Operations",
             actorId, "Owner", now).IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(service.Revise(0,
-            "Payroll", "Changed", "Operations", actorId, "Owner", now).Error).Kind);
+        var stale = Assert.IsType<RequestError>(service.Revise(0,
+            "Payroll", "Changed", "Operations", actorId, "Owner", now).Error);
+        Assert.Equal(RequestErrorKind.Conflict, stale.Kind);
+        Assert.Contains("revision: 1", stale.Message, StringComparison.Ordinal);
         Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
             actorId, "Owner", now.AddDays(1)).IsSuccess);
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(service.Retire(2,

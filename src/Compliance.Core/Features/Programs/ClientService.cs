@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -91,8 +92,8 @@ public sealed class ClientService : Aggregate
             return new RequestError(RequestErrorKind.NotFound, "The service was not found.");
         if (_retired)
             return new RequestError(RequestErrorKind.Conflict, "The service is retired.");
-        return expectedRevision == _revision ? null : new RequestError(RequestErrorKind.Conflict,
-            "The service changed. Reload it before revising.");
+        return expectedRevision == _revision ? null :
+            VersionedRecordRules.StaleRevision("service", _revision);
     }
 
     static RequestError? Validate(string name, string purpose, string ownerReference)

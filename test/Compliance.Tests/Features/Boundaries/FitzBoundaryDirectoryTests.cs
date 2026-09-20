@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Snapshots;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 
@@ -171,6 +172,16 @@ public sealed class FitzBoundaryDirectoryTests
             await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
                 originalId, 1, approvalId, reviewId, reviewerId, "Reviewer",
                 "Approved", new DateOnly(2027, 1, 1), now.AddMinutes(2), "digest-1"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var predecessorBefore = await directory.GetVersionAsync(tenantId, boundaryId,
+            originalId);
+        var predecessorHash = SnapshotContentIdentity.ApprovedBoundaryVersion(
+            Assert.IsType<BoundaryVersionView>(predecessorBefore));
+
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
             await directory.ApplyAsync(new BoundarySuccessorProposed(tenantId, boundaryId,
                 successorId, originalId, successor, authorId, "Author", now.AddDays(1)));
             await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId,
@@ -191,6 +202,12 @@ public sealed class FitzBoundaryDirectoryTests
             boundaryId, new DateOnly(2027, 2, 1)))?.VersionId);
         Assert.Equal(successorId, (await directory.GetEffectiveVersionAsync(tenantId,
             boundaryId, new DateOnly(2028, 1, 1)))?.VersionId);
+        Assert.Equal(successorId, (await directory.GetEffectiveVersionAsync(tenantId,
+            boundaryId, DateOnly.MaxValue))?.VersionId);
+        var predecessorAfter = await directory.GetVersionAsync(tenantId, boundaryId,
+            originalId);
+        Assert.Equal(predecessorHash, SnapshotContentIdentity.ApprovedBoundaryVersion(
+            Assert.IsType<BoundaryVersionView>(predecessorAfter)));
         Assert.Equal([originalId, successorId],
             (await directory.ListVersionsAsync(tenantId, boundaryId, 20, null))?
             .Items.Select(item => item.VersionId));
@@ -202,5 +219,123 @@ public sealed class FitzBoundaryDirectoryTests
             boundaryId, originalId));
         Assert.Null(await directory.GetDecisionAsync(Uuid.CreateVersion4(),
             boundaryId, approvalId));
+    }
+
+    [Fact]
+    public async Task ShouldRejectOverlappingEffectiveDateGivenReplayedSuccessor()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var originalId = Uuid.CreateVersion4();
+        var successorId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var originalReviewId = Uuid.CreateVersion4();
+        var successorReviewId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        var content = new BoundaryContent("Original scope", "readiness", ["security"], []);
+        var effectiveFrom = new DateOnly(2027, 1, 1);
+        var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        var originalCheckpoint = new ProjectionCheckpoint(new EventCursor("original-approved"));
+        await using (var first = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, originalId, content, authorId, "Author", now));
+            await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId,
+                originalId, 1, originalReviewId, "accept", reviewerId, "Reviewer",
+                "Reviewed", now));
+            await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
+                originalId, 1, Uuid.CreateVersion4(), originalReviewId, reviewerId,
+                "Reviewer", "Approved", effectiveFrom, now, "digest"));
+            await first.CommitAsync(originalCheckpoint);
+        }
+
+        // Act
+        await using (var successor = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, originalCheckpoint)))
+        {
+            await directory.ApplyAsync(new BoundarySuccessorProposed(tenantId,
+                boundaryId, successorId, originalId, content, authorId, "Author", now));
+            await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId,
+                successorId, 1, successorReviewId, "accept", reviewerId, "Reviewer",
+                "Reviewed", now));
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
+                    successorId, 1, Uuid.CreateVersion4(), successorReviewId,
+                    reviewerId, "Reviewer", "Approved", effectiveFrom, now, "digest")));
+        }
+
+        // Assert
+        var current = await directory.GetAsync(tenantId, boundaryId);
+        Assert.Equal(originalId, current?.LatestApprovedVersion?.VersionId);
+        Assert.Null(current?.Draft);
+        Assert.Null(await directory.GetDecisionAsync(tenantId, boundaryId,
+            successorReviewId));
+        Assert.Null(await directory.GetVersionAsync(tenantId, boundaryId, successorId));
+        Assert.Equal(originalId, (await directory.GetEffectiveVersionAsync(tenantId,
+            boundaryId, effectiveFrom))?.VersionId);
+        Assert.Equal(originalCheckpoint, await directory.LoadCheckpointAsync(identity));
+    }
+
+    [Fact]
+    public async Task ShouldSelectEffectiveVersionGivenHistoryAcrossProjectionPages()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var firstDate = new DateOnly(2027, 1, 1);
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+        var content = new BoundaryContent("Scope", "readiness", ["security"], []);
+        var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        var versionIds = new List<Uuid>();
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            Uuid? predecessorId = null;
+            for (var index = 0; index < 201; index++)
+            {
+                var versionId = Uuid.CreateVersion4();
+                var reviewId = Uuid.CreateVersion4();
+                versionIds.Add(versionId);
+                if (predecessorId is { } prior)
+                    await directory.ApplyAsync(new BoundarySuccessorProposed(tenantId,
+                        boundaryId, versionId, prior, content, authorId, "Author", now));
+                else
+                    await directory.ApplyAsync(new BoundaryDraftCreated(tenantId,
+                        boundaryId, programId, versionId, content, authorId, "Author", now));
+                await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId,
+                    versionId, 1, reviewId, "accept", reviewerId, "Reviewer", "Reviewed", now));
+                await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
+                    versionId, 1, Uuid.CreateVersion4(), reviewId, reviewerId, "Reviewer",
+                    "Approved", firstDate.AddDays(index), now, "digest"));
+                predecessorId = versionId;
+            }
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var firstPage = await directory.ListVersionsAsync(tenantId, boundaryId, 200, null);
+        var nextPage = await directory.ListVersionsAsync(tenantId, boundaryId, 200,
+            firstPage?.NextCursor);
+
+        // Assert
+        Assert.Null(await directory.GetEffectiveVersionAsync(tenantId, boundaryId,
+            firstDate.AddDays(-1)));
+        Assert.Equal(versionIds[199], (await directory.GetEffectiveVersionAsync(tenantId,
+            boundaryId, firstDate.AddDays(199)))?.VersionId);
+        Assert.Equal(versionIds[200], (await directory.GetEffectiveVersionAsync(tenantId,
+            boundaryId, firstDate.AddDays(200)))?.VersionId);
+        Assert.Equal(200, firstPage?.Items.Count);
+        Assert.Single(Assert.IsType<Page<BoundaryVersionView>>(nextPage).Items);
     }
 }

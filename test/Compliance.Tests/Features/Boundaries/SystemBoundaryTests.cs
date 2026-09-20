@@ -185,6 +185,13 @@ public sealed class SystemBoundaryTests
             Assert.IsType<RequestError>(overlap.Error).Kind);
         Assert.True(boundary.Approve(successorId, 1, Uuid.CreateVersion4(), nextDecisionId,
             new DateOnly(2027, 2, 1), "Approved", "digest", reviewer, "Reviewer", Now).IsSuccess);
+
+        var staleSuccessor = boundary.ProposeSuccessor(VersionId, Uuid.CreateVersion4(),
+            Content() with { Statement = "Stale successor" }, AuthorId, "Author", Now);
+        Assert.Equal(RequestErrorKind.Conflict,
+            Assert.IsType<RequestError>(staleSuccessor.Error).Kind);
+        Assert.Contains(successorId.ToString(),
+            Assert.IsType<RequestError>(staleSuccessor.Error).Message, StringComparison.Ordinal);
     }
 
     [Fact]

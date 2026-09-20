@@ -157,6 +157,7 @@ public sealed class ComplianceProgramTests
         Assert.False(reversed.IsSuccess);
         Assert.False(reversedStages.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, stale.Error.Kind);
+        Assert.Contains("revision: 1", stale.Error.Message, StringComparison.Ordinal);
         Assert.Equal(RequestErrorKind.Validation, reversed.Error.Kind);
         Assert.Equal(RequestErrorKind.Validation, reversedStages.Error.Kind);
         Assert.Single(new AggregateScenario<ComplianceProgram>(program).PendingEvents);

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -105,8 +106,8 @@ public sealed class DeclaredApplication : Aggregate
 
     RequestError? CheckChange(long expectedRevision) => !_created
         ? new RequestError(RequestErrorKind.NotFound, "The application was not found.")
-        : expectedRevision == _revision ? null : new RequestError(RequestErrorKind.Conflict,
-            "The application changed. Reload it before editing.");
+        : expectedRevision == _revision ? null :
+            VersionedRecordRules.StaleRevision("application", _revision);
 
     static RequestError? Validate(string name, string purpose, string? ownerReference)
     {

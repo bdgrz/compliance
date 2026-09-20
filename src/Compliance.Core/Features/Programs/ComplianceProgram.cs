@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -50,8 +51,7 @@ public sealed class ComplianceProgram : Aggregate
         if (!_created)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The program was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The program changed. Reload it before revising."));
+            return Result.Failure(VersionedRecordRules.StaleRevision("program", _revision));
         var error = Validate(name, plan);
         if (error is not null)
             return Result.Failure(error);
