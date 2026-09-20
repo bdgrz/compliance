@@ -4,7 +4,7 @@ Status: proposed for M0-A06 review. This is a technical design and contract
 draft, not an accepted ADR or a completed thin spike. Decision owner: tech lead
 and product owner. Date: 2026-09-20.
 
-## Decision for the first consumer
+## Proposed common constraints for the first consumer
 
 The first consumer accepts bounded, tenant-supplied Application rows as an
 original product input. An import is an observation from a named source, not
@@ -45,20 +45,57 @@ batch is still staging or its projection is behind. The preview also checks
 the tenant Application-directory checkpoint against its event source before
 claiming that no existing Application matches a source claim.
 
-## Acceptance and failure semantics
+## Unresolved product acceptance: failure and cancellation
+
+The [EN-05 backlog acceptance](../../product/backlog.md#en-05-import-with-preview-reconciliation-and-safe-replay)
+and [backend child #195](https://github.com/bdgrz/compliance/issues/195)
+require a failed or canceled import to leave no partial active records. The
+same backlog permits atomic **or explicit-subset acceptance**. Those words do
+not resolve what happens when one accepted row has already become active and
+a later row fails or the batch is canceled. Portia's one-stream commits and
+reactor effects cannot make all Application streams atomic. This is a product
+acceptance decision, not a technical default delegated by this ADR.
+
+Two viable directions need product-owner review:
+
+1. **Strict no-partial visibility:** keep every imported Application effect
+   invisible to all governed reads and validators until a durable batch
+   visibility barrier commits. Failure/cancellation before that barrier must
+   leave no active record. This needs a proven visibility and recovery protocol
+   across all consumers; writing rows and hiding them only in one list would
+   not satisfy the existing acceptance.
+2. **Explicit per-row subset:** each accepted row becomes active after its own
+   durable effect. The authoritative batch aggregate rejects cancellation
+   once any row intent is accepted, including one whose effect is pending.
+   Terminal `failed` and `canceled` are possible only with zero accepted
+   intents. A later row failure leaves the batch `partially_accepted` with
+   row-level retry or resolution state. Whether that state meets the backlog
+   phrase "a failed import" needs an explicit product interpretation or
+   acceptance amendment. It is the candidate contract below, **not an
+   approved decision**.
+
+The acceptance and cancellation commands, their terminal states, and any
+claim of EN-05 backend completion are blocked until the product owner selects
+and records a path. Staging, preview, source identity, tenant isolation, and
+replay design can be reviewed independently.
+
+## Candidate B: acceptance and failure semantics
 
 Acceptance is an explicit subset of **one row per decision**. A decision says
 `create`, `link_existing`, or `skip`, identifies the target when needed, and
 requires the exact batch revision and, for an existing Application, its
 expected revision. Duplicate identifiers, ambiguous matches, invalid rows,
-and unresolved links cannot be applied. `link_existing` adds a source
+and unresolved links cannot be applied. `skip` records an attributed decision
+without reserving or binding a source claim; a later submission may resolve
+that source ID. `link_existing` adds a source
 observation; it does not overwrite governed name, purpose, owner, or scope.
 `create` makes a new Application with its imported provenance and unresolved
 owner/classification where appropriate. No batch-wide atomicity is claimed:
 Portia commits one aggregate stream at a time, and a reactor cannot make the
 batch and Application streams one transaction.
 
-The row decision first records a durable intent with a deterministic effect ID
+For `create` or `link_existing`, the row decision first records a durable intent
+with a deterministic effect ID
 derived from the batch, row, and immutable decision sequence, rather than Portia's
 reaction request ID, which can change on replay. A source-claim binding keyed
 by the exact source tuple serializes correlation: its first accepted decision
@@ -80,7 +117,9 @@ An authorized human may then supersede that exact decision with a new
 expected batch revision, new target/expected Application revision or `skip`,
 and a rationale. The old decision and outcome remain immutable. The source
 claim stream transitions its reservation to the new decision only after the
-terminal nonapplied proof; the reactor checks the current reservation before
+terminal nonapplied proof. Supersession by `skip` records a reviewed
+release/unbound transition after that proof while retaining the earlier
+reservation in history. The reactor checks the current reservation before
 each effect. A competing target otherwise conflicts. A failure without a
 terminal nonapplied proof never releases a claim. The claim,
 Application, and batch commits are separate; neither the reservation nor a
@@ -96,12 +135,14 @@ is retried against the same identity and completed without a second
 Application. A conflict with a changed target is visible and requires the
 explicit superseding decision above; it is never silently rematched. A
 `create` or `link_existing` row is visible
-only after its own Application command commits. A failed or canceled batch
-with **no accepted row decisions** leaves no active Application. If rows were
-explicitly accepted earlier, those committed records remain attributable;
-the batch reports `partially_accepted` or `canceled_with_accepted_rows`, not
-an atomic failure or a rollback. Cancellation prevents new decisions and
-settles already recorded intents before reporting its terminal state.
+only after its own Application command commits. The batch aggregate permits
+cancellation only before its first durable accepted row intent, so a canceled
+batch has no active imported Application. A cancellation after any accepted
+intent returns 409, even if the effect has not committed. A terminal `failed`
+batch likewise has zero accepted intents. If a later row effect fails after
+an earlier row commits, the batch remains `partially_accepted` with the
+failed row visible for retry or resolution; no atomic rollback is claimed.
+The interpretation of this partial state remains the product decision above.
 
 A row absent from a later submission is never deleted or retired. With
 `coverage: partial`, absence carries no missing-row meaning. With
@@ -144,7 +185,8 @@ all-or-nothing activation but is not provided by Portia/Fitz. A projection
 write as the authoritative import would bypass aggregate invariants. Matching
 by name would merge unrelated systems. Treating a missing source row as a
 tombstone would erase governed facts from an unverified observation. The
-accepted-subset design exposes each consequence and its recovery state.
+candidate accepted-subset design exposes each consequence and its recovery
+state but awaits the product interpretation above.
 
 M0-D28 must approve canonical source-observation and correlation vocabulary;
 M0-D05 must validate the governed Application and SystemInstance boundaries;

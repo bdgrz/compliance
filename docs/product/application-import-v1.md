@@ -6,6 +6,15 @@ tenant-supplied rows only; it grants no source authority or reviewed scope.
 The technical decision is
 [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md).
 
+The [EN-05 backlog acceptance](backlog.md#en-05-import-with-preview-reconciliation-and-safe-replay)
+and [backend child #195](https://github.com/bdgrz/compliance/issues/195)
+require failed or canceled imports to leave no partial active records. The
+row-acceptance and cancellation operations below are a **conditional
+candidate**, not approved for implementation or backend acceptance until the
+product owner records how `partially_accepted` after a row failure satisfies
+or changes that requirement. Staging and read contracts can be reviewed
+independently.
+
 ## Common rules
 
 - All HTTP paths and query names, JSON property names and enum values below
@@ -39,7 +48,7 @@ The technical decision is
 | --- | --- | --- | --- |
 | `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
 | `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
-| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204; prevent new decisions and settle recorded intents | none |
+| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none |
 
 `StageApplicationImport` body:
 
@@ -95,7 +104,9 @@ that ID returns 409. The response is:
 }
 ```
 
-`resolution` is `create`, `link_existing`, or `skip`. `target_application_id`
+`resolution` is `create`, `link_existing`, or `skip`. `skip` records a decision
+without a source-claim reservation or Application effect; a later submission
+may resolve that source ID. `target_application_id`
 and `expected_application_revision` are required only for `link_existing`;
 they are forbidden for the other resolutions. `rationale` is required for
 `link_existing` and `skip`. `create` uses a deterministic application ID from
@@ -122,7 +133,9 @@ and failure remain in immutable history. The worker may mark
 finds no prior effect ID and a current revision strictly beyond the prior
 expected revision. A timeout or lagging projection cannot prove this. The
 source-claim reservation transitions to the new decision only after that
-terminal nonapplied proof; otherwise the old intent remains pending. A
+terminal nonapplied proof. Supersession by `skip` records a reviewed
+release/unbound source-claim transition, retaining the old reservation in
+history. Otherwise the old intent remains pending. A
 repeated identical decision returns the same receipt. The receipt
 contains `decision_id`, `batch_id`, `row_id`, `revision`, and `state` (`pending`,
 `applied`, or `skipped`); it does not claim an Application is active while its
@@ -131,9 +144,12 @@ reactor intent remains pending. The row status query supplies the eventual
 stable across reactor replay, independent of Portia reaction request IDs.
 
 `CancelApplicationImport` body has `expected_batch_revision` and a nonblank
-`reason`. Cancellation before acceptance leaves no active Application. If
-accepted rows already exist, they remain linked and the batch reports
-`canceled_with_accepted_rows`; cancellation is not a silent undo.
+`reason`. The authoritative batch aggregate rejects cancellation with 409
+after **any** accepted row intent, including a pending effect. Cancellation
+before acceptance leaves no active Application. A terminal `failed` batch
+also has zero accepted intents. A row failure after earlier accepted effects
+keeps the batch `partially_accepted` with a retryable or `needs_resolution`
+row; whether this satisfies #195 requires the product decision above.
 
 ## Read operations and MCP
 
@@ -154,8 +170,8 @@ unauthorized calls must be denied before projection data is read.
 `submitted_by_display`, `submitted_at`, `row_count`, `invalid_count`,
 `pending_count`, `applied_count`, `skipped_count`, `failed_count`, and
 `last_progress_at`. States are `staging`, `preview_ready`, `accepting`,
-`partially_accepted`, `accepted`, `canceling`, `canceled`,
-`canceled_with_accepted_rows`, or `failed_retryable`. Counts are scoped to
+`partially_accepted`, `accepted`, `canceling`, `canceled`, or
+`failed_retryable` (before any accepted intent). Counts are scoped to
 that batch and never published before authorization or a freshness check.
 
 `ApplicationImportRowView` includes `tenant_id`, `batch_id`, `row_id`,
@@ -164,10 +180,11 @@ that batch and never published before authorization or a freshness check.
 `application_id` when linked, and attributable decision/observation times.
 The row can report `needs_resolution`; its decision history retains every
 superseded intent and terminal nonapplied result.
-`ApplicationImportPreviewRow` adds `match_state` (`new`, `unchanged`,
+`ApplicationImportPreviewRow` adds `match_state` (`unmatched`, `unchanged`,
 `changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
 candidate Application IDs, changed field names, and `acceptance_blockers`.
-Candidates are suggestions only; the acceptance command rechecks the exact
+`unmatched` means no accepted source-claim binding, not that no governed
+Application exists. Candidates are suggestions only; the acceptance command rechecks the exact
 target and revisions from authoritative streams. A complete-source omission
 is a synthetic preview row with no staged `row_id` and cannot be accepted;
 its stable source-claim ID identifies the prior observation. It is never an
@@ -183,7 +200,7 @@ claiming no match; otherwise it reports a retryable 409.
 | No authenticated Bdgrz identity | 401 |
 | Member lacks interim inventory grant or tenant is suspended | 403 |
 | Unknown tenant to nonmember, missing batch/row, or wrong-tenant ID | 404 with no existence/count disclosure |
-| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, pending prior effect, or state transition conflict | 409 |
+| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, pending prior effect, cancellation after an accepted intent, or state transition conflict | 409 |
 | Requested revision not yet projected or worker intent still pending where a completed result was requested | 409, `transient: true` where retry can resolve it |
 | Body exceeds Portia JSON limit / unsupported media type | 413 / 415 |
 
@@ -192,8 +209,8 @@ duplicate source IDs; no active Application before explicit row acceptance;
 idempotent create/link retry after worker failure; stale target revisions;
 authoritative nonapplied proof followed by a superseding human decision, with
 every prior decision retained; no supersession on timeout or projection lag;
-declared-complete missing rows without deletion; cancellation before and
-after accepted decisions; cross-tenant non-disclosure for batch IDs, rows,
+declared-complete missing rows without deletion; cancellation before first
+acceptance and 409 after any accepted intent; cross-tenant non-disclosure for batch IDs, rows,
 counts and MCP; source/projection lag; and standalone/split API-worker parity.
 OpenAPI, Native AOT, formatting, and the full applicable suites remain gates
 for implementation, not evidence supplied by this contract draft. A real
