@@ -52,6 +52,16 @@ static class SnapshotContentIdentity
                string.Equals(digest, expected.Digest, StringComparison.Ordinal);
     }
 
+    public static bool MatchesView(SnapshotView view) =>
+        view.Kind == "program_scope" && view.Revision == 1 &&
+        view.Manifest.TenantId == view.TenantId &&
+        view.Manifest.ProgramId == view.ProgramId &&
+        (view.AmendsSnapshotId is null
+            ? view.RootSnapshotId == view.SnapshotId
+            : view.RootSnapshotId != view.SnapshotId &&
+              view.AmendsSnapshotId != view.SnapshotId) &&
+        MatchesManifest(view.Manifest, view.CanonicalManifest, view.ContentSha256);
+
     static byte[] CanonicalSource<T>(T source, JsonTypeInfo<T> typeInfo)
     {
         var element = JsonSerializer.SerializeToElement(source, typeInfo);

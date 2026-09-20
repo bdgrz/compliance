@@ -138,6 +138,11 @@ public sealed class ScopeSnapshotTests
             new SnapshotSourceReader(source)).HandleAsync(
             new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId)),
             CancellationToken.None);
+        var foreign = await new GetSnapshotHandler(new SnapshotDirectoryStub(
+                corrupted with { TenantId = Uuid.CreateVersion4() }),
+            new SnapshotSourceReader(source)).HandleAsync(
+            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId)),
+            CancellationToken.None);
 
         // Assert
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(lag.Error).Kind);
@@ -145,6 +150,8 @@ public sealed class ScopeSnapshotTests
         Assert.Equal(RequestErrorKind.Conflict,
             Assert.IsType<RequestError>(corrupt.Error).Kind);
         Assert.Contains("integrity", corrupt.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(RequestErrorKind.NotFound,
+            Assert.IsType<RequestError>(foreign.Error).Kind);
     }
 
     [Fact]

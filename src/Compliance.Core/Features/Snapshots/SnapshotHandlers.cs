@@ -147,14 +147,14 @@ public sealed class GetSnapshotHandler(ISnapshotDirectoryReader directory,
                     ? "The snapshot source has not reached the requested revision."
                     : "The snapshot projection has not reached the requested revision."));
         }
-        return view is null
-            ? Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The snapshot was not found."))
-            : SnapshotContentIdentity.MatchesManifest(view.Manifest, view.CanonicalManifest,
-                view.ContentSha256)
-                ? Result<SnapshotView>.Success(view)
-                : Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The stored snapshot manifest failed integrity verification."));
+        if (view is null || view.TenantId != request.TenantId ||
+            view.SnapshotId != request.SnapshotId)
+            return Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The snapshot was not found."));
+        return SnapshotContentIdentity.MatchesView(view)
+            ? Result<SnapshotView>.Success(view)
+            : Result<SnapshotView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The stored snapshot manifest failed integrity verification."));
     }
 }
 
@@ -173,8 +173,8 @@ public sealed class ListProgramSnapshotsHandler(ISnapshotDirectoryReader directo
         var page = await directory.ListProgramAsync(
             request.TenantId, request.ProgramId, request.Limit ?? 50, request.Cursor,
             ct).ConfigureAwait(false);
-        if (page.Items.Any(item => !SnapshotContentIdentity.MatchesManifest(item.Manifest,
-                item.CanonicalManifest, item.ContentSha256)))
+        if (page.Items.Any(item => item.TenantId != request.TenantId ||
+                item.ProgramId != request.ProgramId || !SnapshotContentIdentity.MatchesView(item)))
             return Result<Page<SnapshotView>>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "A stored snapshot manifest failed integrity verification."));
         return Result<Page<SnapshotView>>.Success(page);
