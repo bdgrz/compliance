@@ -22,7 +22,7 @@ records partial backend delivery and does not claim these issues are complete.
   projector replays retained boundary events into current-draft and approved
   history rows. Reads return a conflict while that projector trails the source,
   including when an empty page would otherwise appear complete. Earlier
-  revised or discarded drafts are read through boundary history.
+  revised or discarded drafts remain in retained boundary event history.
 - Current-boundary reads accept `minimum_revision`. Immutable version, version
   list, and `/effective_version` reads accept `minimum_boundary_revision` over
   snake_case HTTP query strings and read-only MCP tool arguments. Boundary
@@ -70,8 +70,8 @@ and arm64. PR #245 additionally proved a stopped split worker returns a
 projection-lag conflict, then reads both governed references after replay.
 
 The broker integration suite now gives each test class fresh broker history
-through xUnit class fixtures within a nonparallel collection. Each fixture
-uses a unique Compose project and mapped port. This bounds test-history
+through class or dedicated collection fixtures within a nonparallel collection.
+Each fixture uses a unique Compose project and mapped port. This bounds test-history
 contention; it does not establish production startup performance with many
 tenants. That investigation remains in
 [Portia #58](https://github.com/cntryl/portia/issues/58). Backend children
