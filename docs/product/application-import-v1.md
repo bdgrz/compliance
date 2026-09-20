@@ -1,0 +1,187 @@
+# Application import v1 contract draft
+
+Status: proposed for M0-A06 / EN-05 / R1-10b review, 2026-09-20. No route
+or tool in this document is implemented yet. This contract covers bounded
+tenant-supplied rows only; it grants no source authority or reviewed scope.
+The technical decision is
+[ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md).
+
+## Common rules
+
+- All HTTP paths and query names, JSON property names and enum values below
+  use `snake_case`. The Portia request record will use `TenantId` only from
+  `{tenant_id}`; a body `tenant_id` is invalid. Each route requires the
+  existing API-user authentication policy and a Portia request authorizer.
+- `batch_id`, `submission_id`, `row_id`, and `application_id` are opaque UUIDs.
+  `source_key`, `source_namespace`, and `source_record_id` are tenant
+  declarations, not verified external authority. A source claim is identified
+  by tenant, source key, namespace, object kind `application`, and exact source
+  record ID. Names are never match keys.
+- Initial authorization uses the existing Application inventory boundary:
+  active tenant membership and `program.manage`. A nonmember or wrong-tenant
+  batch returns 404 before metadata or row counts are read; an active member
+  without the grant receives 403. `program.manage` is an interim grant, not a
+  final restricted-inventory policy.
+- Success responses use Portia's current result mapping: 200 for a value and
+  204 for an empty command result. `Page<T>` has `items` and `next_cursor`.
+  `limit` defaults to 50 and is bounded to 1–200. An invalid or route-mismatched
+  cursor returns 400. All listed GETs can report 409 with `transient: true`
+  when their requested `minimum_revision` is ahead of the source or projection.
+- OpenAPI 3.1 must list each mapped operation, parameters, schema, 200/204,
+  400/401/403/404/409/413/415/500 results as applicable, and the API-user
+  security requirement. The current global Portia JSON-body cap is 10 MiB.
+  An overlarge request returns 413; non-JSON media returns 415. The host's
+  existing problem body and `Portia-Transient` header apply.
+
+## Write operations
+
+| HTTP operation | Portia request/result | Success and purpose | MCP |
+| --- | --- | --- | --- |
+| `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
+| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
+| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204; prevent new decisions and settle recorded intents | none |
+
+`StageApplicationImport` body:
+
+```json
+{
+  "submission_id": "018f0ed4-5d29-7e91-86bb-31a137fd6a6d",
+  "source_key": "tenant_maintained_application_list",
+  "source_namespace": "primary",
+  "coverage": "partial",
+  "rows": [
+    {
+      "source_record_id": "app_0042",
+      "name": "Payroll",
+      "purpose": "Payroll administration",
+      "owner_reference": "Finance operations"
+    }
+  ]
+}
+```
+
+`coverage` is `partial` or `declared_complete`. A complete declaration is
+attributed to the caller; it does not verify the source. The body has 1–200
+rows. `source_key` and `source_namespace` are nonblank and at most 128
+characters each; `source_record_id` is nonblank and at most 256; `name` is nonblank and at most
+200; `purpose` is nonblank and at most 2,000; nullable `owner_reference` is at
+most 2,000. Reject surrounding whitespace in source identity fields; compare
+them exactly and case-sensitively. Trim display and description fields before
+canonical hashing and retain the supplied values for provenance. Duplicate
+`source_record_id` values remain staged as separate rows with a blocking
+validation finding. The server computes `content_sha256`; a client cannot
+assert it. Repeating the same tenant/source/namespace/submission ID with identical
+canonical content returns the original registration. Different content with
+that ID returns 409. The response is:
+
+```json
+{
+  "batch_id": "018f0ed4-5d29-7e91-86bb-31a137fd6a6e",
+  "revision": 1,
+  "content_sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+}
+```
+
+`AcceptApplicationImportRow` body:
+
+```json
+{
+  "expected_batch_revision": 4,
+  "resolution": "link_existing",
+  "target_application_id": "018f0ed4-5d29-7e91-86bb-31a137fd6a6f",
+  "expected_application_revision": 2,
+  "rationale": "Same operated application under an older label"
+}
+```
+
+`resolution` is `create`, `link_existing`, or `skip`. `target_application_id`
+and `expected_application_revision` are required only for `link_existing`;
+they are forbidden for the other resolutions. `rationale` is required for
+`link_existing` and `skip`. `create` uses a deterministic application ID from
+the exact source-claim tuple, stable across batches; it cannot overwrite
+another tenant's record. A source-claim binding serializes competing
+correlations before an Application effect is attempted. A stale batch
+or Application revision returns 409 with the current revision in the detail.
+Once a source claim is bound, another batch cannot `create` it again; its
+preview reports the existing binding and any changed source fields.
+`link_existing` only attaches an attributed source observation to the exact
+target; it does not replace the governed Application's name, purpose, owner,
+classification, or scope. Adopting changed source fields requires a separate
+authorized, reviewed Application revision with its own expected revision.
+Which fields and source authority can support that adoption remains a product
+decision under M0-D28 and M0-D05. A pending source-claim reservation tied to
+another target is a visible conflict, not an automatic rematch.
+Invalid, duplicate, already decided, or ambiguously matched rows cannot be
+applied. A repeated identical decision returns the same receipt. The receipt
+contains `decision_id`, `batch_id`, `row_id`, `revision`, and `state` (`pending`,
+`applied`, or `skipped`); it does not claim an Application is active while its
+reactor intent remains pending. The row status query supplies the eventual
+`application_id` and any recoverable failure.
+
+`CancelApplicationImport` body has `expected_batch_revision` and a nonblank
+`reason`. Cancellation before acceptance leaves no active Application. If
+accepted rows already exist, they remain linked and the batch reports
+`canceled_with_accepted_rows`; cancellation is not a silent undo.
+
+## Read operations and MCP
+
+| HTTP operation | Portia request/result | Read-only MCP discriminator |
+| --- | --- | --- |
+| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}?minimum_revision={n}` | `GetApplicationImport` → `ApplicationImportView` | `bdgrz.application_import.get` |
+| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
+| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
+
+Register the stage command as `Idempotent` and each query as `ReadOnly` with
+Portia MCP. Tool arguments use the same snake_case input names and return the
+same result fields. No MCP tool makes an acceptance decision for a staged row
+or performs a personal sign-off. Discovery must show all four tools;
+unauthorized calls must be denied before projection data is read.
+
+`ApplicationImportView` includes `tenant_id`, `batch_id`, `submission_id`,
+`source_key`, `source_namespace`, `coverage`, `content_sha256`, `revision`, `state`, `submitted_by_member_id`,
+`submitted_by_display`, `submitted_at`, `row_count`, `invalid_count`,
+`pending_count`, `applied_count`, `skipped_count`, `failed_count`, and
+`last_progress_at`. States are `staging`, `preview_ready`, `accepting`,
+`partially_accepted`, `accepted`, `canceling`, `canceled`,
+`canceled_with_accepted_rows`, or `failed_retryable`. Counts are scoped to
+that batch and never published before authorization or a freshness check.
+
+`ApplicationImportRowView` includes `tenant_id`, `batch_id`, `row_id`,
+`row_number`, `source_record_id`, original `name`, `purpose`, and
+`owner_reference`, validation findings, decision and processing state,
+`application_id` when linked, and attributable decision/observation times.
+`ApplicationImportPreviewRow` adds `match_state` (`new`, `unchanged`,
+`changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
+candidate Application IDs, changed field names, and `acceptance_blockers`.
+Candidates are suggestions only; the acceptance command rechecks the exact
+target and revisions from authoritative streams. A complete-source omission
+is a synthetic preview row with no staged `row_id` and cannot be accepted;
+its stable source-claim ID identifies the prior observation. It is never an
+automatic deletion or retirement. The preview checks that the Application
+inventory projection has caught up with its tenant source area before
+claiming no match; otherwise it reports a retryable 409.
+
+## Error and verification contract
+
+| Situation | Result |
+| --- | --- |
+| Malformed UUID, invalid field/coverage/decision, too many rows, unsupported cursor | 400 validation problem |
+| No authenticated Bdgrz identity | 401 |
+| Member lacks interim inventory grant or tenant is suspended | 403 |
+| Unknown tenant to nonmember, missing batch/row, or wrong-tenant ID | 404 with no existence/count disclosure |
+| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, or state transition conflict | 409 |
+| Requested revision not yet projected or worker intent still pending where a completed result was requested | 409, `transient: true` where retry can resolve it |
+| Body exceeds Portia JSON limit / unsupported media type | 413 / 415 |
+
+Focused tests must prove exact content replay and changed-content conflict;
+duplicate source IDs; no active Application before explicit row acceptance;
+idempotent create/link retry after worker failure; stale target revisions;
+declared-complete missing rows without deletion; cancellation before and
+after accepted decisions; cross-tenant non-disclosure for batch IDs, rows,
+counts and MCP; source/projection lag; and standalone/split API-worker parity.
+OpenAPI, Native AOT, formatting, and the full applicable suites remain gates
+for implementation, not evidence supplied by this contract draft. A real
+simultaneous append race may still surface as a transport 500 until
+[Portia #60](https://github.com/cntryl/portia/issues/60) supplies supported
+commit-time conflict mapping; implementation must not mask it with an
+application catch or claim the 409 race contract prematurely.
