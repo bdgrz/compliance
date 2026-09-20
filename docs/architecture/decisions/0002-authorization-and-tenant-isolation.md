@@ -30,6 +30,9 @@ marking M0-A04 accepted.
   mapped endpoints. The specific request authorizer remains the source of the
   row-level decision.
 - Consequential events retain a stable actor identifier and display snapshot.
+  The display comes from the same authenticated Bdgrz session identity as the
+  member subject; an external provider claim on a combined principal cannot
+  supply the event's actor display.
   A later identity rename or provider replacement must not rewrite historical
   authorship. System processes use a distinguishable actor, and personal
   acknowledgements, attestations, approvals, and sign-offs require a human

@@ -29,7 +29,7 @@ public sealed class CreateBoundaryHandler(IAggregateExecutor executor,
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, boundaryId),
             boundary => AggregateOutcome.CommitOnSuccess(boundary.Create(request.ProgramId,
                 draftVersionId, request.Content, RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct).ConfigureAwait(false);
     }
 }
@@ -59,7 +59,7 @@ public sealed class ReviseBoundaryDraftHandler(IAggregateExecutor executor,
             boundary => AggregateOutcome.CommitOnSuccess(boundary.Revise(request.DraftVersionId,
                 request.ExpectedRevision, request.Content,
                 RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct).ConfigureAwait(false);
     }
 }
@@ -78,7 +78,7 @@ public sealed class DiscardBoundaryDraftHandler(IAggregateExecutor executor,
             boundary => AggregateOutcome.CommitOnSuccess(boundary.DiscardDraft(
                 request.DraftVersionId, request.ExpectedRevision, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
     }
 }
@@ -228,7 +228,7 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, TimeProvi
             boundary => AggregateOutcome.CommitOnSuccess(boundary.Review(request.DraftVersionId,
                 request.ExpectedRevision, context.RequestId, request.Outcome, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
     }
 }
@@ -273,7 +273,7 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
                 request.ExpectedRevision, context.RequestId, request.AcceptedReviewDecisionId,
                 request.EffectiveFrom, request.Rationale, request.ImpactDigest,
                 RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct).ConfigureAwait(false);
     }
 }
@@ -304,7 +304,7 @@ public sealed class ProposeBoundarySuccessorHandler(IAggregateExecutor executor,
             boundary => AggregateOutcome.CommitOnSuccess(boundary.ProposeSuccessor(
                 request.ExpectedApprovedVersionId, draftVersionId, request.Content,
                 RbacIds.Member(request.TenantId, userId),
-                context.Actor.FindFirst("email")?.Value ?? userId.ToString(), clock.GetUtcNow())),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct).ConfigureAwait(false);
     }
 }

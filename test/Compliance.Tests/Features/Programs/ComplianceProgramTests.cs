@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -9,6 +10,73 @@ public sealed class ComplianceProgramTests
     static readonly Uuid ProgramId = Uuid.CreateVersion4();
     static readonly Uuid MemberId = Uuid.CreateVersion4();
     static readonly DateTimeOffset Now = new(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task ShouldAttributeProgramToSessionGivenProviderClaimsAppearFirst()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new[]
+        {
+            new ClaimsIdentity(new[]
+            {
+                new Claim("iss", "https://issuer.example/"),
+                new Claim("sub", "external-subject"),
+                new Claim("email", "provider@example.com"),
+            }, "oidc"),
+            new ClaimsIdentity(new[]
+            {
+                new Claim("iss", "bdgrz"),
+                new Claim("sub", userId.ToString()),
+                new Claim("email", "session@example.com"),
+            }, "BdgrzSession"),
+        });
+        var context = new RequestContext<CreateProgram>(
+            new CreateProgram(TenantId, "SOC 2", new ProgramPlan(null, null, null, null,
+                null, null)), actor);
+        var handler = new CreateProgramHandler(fixture.Repository, TimeProvider.System);
+
+        // Act
+        var result = await handler.HandleAsync(context, CancellationToken.None);
+        DomainEvent? created = null;
+        await foreach (var record in fixture.Store.ReadAsync(
+                           new ComplianceProgram(TenantId, context.RequestId).Stream, 0,
+                           CancellationToken.None))
+            created = Assert.IsType<ProgramCreated>(record.Event);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(created);
+        Assert.Equal(RbacIds.Member(TenantId, userId),
+            Assert.IsType<ProgramCreated>(created).ActorMemberId);
+        Assert.Equal("session@example.com", Assert.IsType<ProgramCreated>(created).ActorDisplay);
+    }
+
+    [Fact]
+    public void ShouldUseSessionSubjectGivenUntrustedEmailAndNoSessionEmail()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new[]
+        {
+            new ClaimsIdentity(new[] { new Claim("iss", "bdgrz"),
+                new Claim("email", "unauthenticated@example.com") }),
+            new ClaimsIdentity(new[] { new Claim("iss", "https://issuer.example/"),
+                new Claim("email", "provider@example.com") }, "oidc"),
+            new ClaimsIdentity(new[] { new Claim("iss", "bdgrz"),
+                new Claim("sub", userId.ToString()) }, "BdgrzSession"),
+        });
+
+        // Act
+        var found = UserIdentityClaims.TryGetBdgrzSubject(actor, out var subject);
+        var display = UserIdentityClaims.BdgrzDisplay(actor, subject);
+
+        // Assert
+        Assert.True(found);
+        Assert.Equal(userId, subject);
+        Assert.Equal(userId.ToString(), display);
+    }
 
     [Fact]
     public void ShouldPreserveEventsAndActorSnapshotGivenProgramRevision()
@@ -92,5 +160,19 @@ public sealed class ComplianceProgramTests
         Assert.Equal(RequestErrorKind.Validation, reversed.Error.Kind);
         Assert.Equal(RequestErrorKind.Validation, reversedStages.Error.Kind);
         Assert.Single(new AggregateScenario<ComplianceProgram>(program).PendingEvents);
+    }
+
+    sealed class RequestContext<TRequest>(TRequest request, ClaimsPrincipal actor)
+        : IRequestContext<TRequest>
+    {
+        public TRequest Request { get; } = request;
+        public ClaimsPrincipal Actor => actor;
+        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
+        public Uuid RequestId { get; } = Uuid.CreateVersion4();
+        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
+        public Uuid? CausationId => null;
+        public Uuid CauseId => RequestId;
+        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+        public RequestInvocation Invocation { get; } = new DirectInvocation();
     }
 }
