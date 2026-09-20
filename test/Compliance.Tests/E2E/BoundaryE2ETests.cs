@@ -449,15 +449,28 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, secondTenantResponse.StatusCode);
         var secondTenant = await secondTenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(secondTenant);
+        var secondTenantId = Uuid.Parse(secondTenant.TenantId, CultureInfo.InvariantCulture);
+        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(secondTenantId);
+        var secondTenantReady = false;
+        string? lastReadinessResponse = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(30);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(
-                $"/api/v1/tenants/{secondTenant.TenantId}");
+                $"/api/v1/tenants/{secondTenant.TenantId}/teams/{administratorsTeamId}");
             if (response.StatusCode == HttpStatusCode.OK)
+            {
+                secondTenantReady = true;
                 break;
+            }
+            lastReadinessResponse = $"{(int)response.StatusCode} " +
+                                    await response.Content.ReadAsStringAsync();
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                lastReadinessResponse);
             await Task.Delay(250);
         }
+        Assert.True(secondTenantReady,
+            $"The second tenant's administration was not readable: {lastReadinessResponse}");
         using var crossTenantBoundary = await owner.GetAsync(
             $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}");
         using var crossTenantList = await owner.GetAsync(
