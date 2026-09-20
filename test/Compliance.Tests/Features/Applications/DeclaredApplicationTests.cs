@@ -41,6 +41,8 @@ public sealed class DeclaredApplicationTests
         Assert.True(replay.IsSuccess);
         Assert.Equal(instance.Value.SystemInstanceId, replay.Value.SystemInstanceId);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(stale.Error).Kind);
+        Assert.Contains("revision: 3", Assert.IsType<RequestError>(stale.Error).Message,
+            StringComparison.Ordinal);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(collision.Error).Kind);
         Assert.Equal(3, application.Revision);
         Assert.Collection(new AggregateScenario<DeclaredApplication>(application).PendingEvents,

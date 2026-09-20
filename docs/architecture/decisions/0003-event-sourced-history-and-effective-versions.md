@@ -33,6 +33,10 @@ Decision owner: tech lead and product owner. Date: 2026-09-19.
   effective-date query selects an approved version whose half-open interval
   contains the requested date. Overlapping approved intervals for one logical
   record are rejected by the owning aggregate.
+  The interval end is derived from the next approved version's effective start;
+  a successor never changes its predecessor's immutable version payload or a
+  frozen snapshot's content identity. The boundary projector also rejects an
+  overlapping approval during replay, rolling back that projection batch.
 - Fitz KV read models and Portia projectors serve lists, search, and historical
   version queries. Projection data and its checkpoint commit atomically. A
   read model can lag its source stream, so a command's invariant uses the
