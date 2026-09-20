@@ -13,8 +13,9 @@ records partial backend delivery and does not claim these issues are complete.
   effective-date history, and impact preview use Portia requests and
   event-sourced `SystemBoundary` state with Fitz projections. Personal review
   and approval are HTTP-only; machine authoring and reads use MCP where suitable.
-- Client services are governed within a program. Manual Applications and
-  SystemInstances have tenant-owned aggregates and validated boundary links.
+- Client services are governed within a program. Manual Applications have
+  tenant-owned aggregates containing SystemInstance records, with validated
+  boundary links.
   Remaining subject types stay explicit unresolved references until their
   owning inventories and source authority exist.
 - Applications and SystemInstances expose authorized, paged reverse boundary
