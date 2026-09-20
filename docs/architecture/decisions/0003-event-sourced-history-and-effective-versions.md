@@ -39,6 +39,11 @@ Decision owner: tech lead and product owner. Date: 2026-09-19.
   aggregate rather than a projection. A query that promises a minimum version
   must wait for or report projection lag; it must not silently return an older
   version as current.
+  Derived program setup-work reads accept a minimum program revision and,
+  when a caller has just changed a boundary, that boundary's ID and minimum
+  revision. They report source or projection lag before returning derived work.
+  These expectations do not create a global snapshot across every boundary in
+  a program; each changed boundary needs its own freshness check.
 - Stream events and projection schemas are versioned separately. New event
   readers retain support for all stored event types or run a verified
   migration before deployment. A projection change creates a new projection
