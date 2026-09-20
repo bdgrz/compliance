@@ -42,6 +42,18 @@ public sealed class ImmutableSnapshot : Aggregate
         string actorDisplay, DateTimeOffset frozenAt)
     {
         amendmentReason = amendmentReason?.Trim();
+        if (rootSnapshotId == Uuid.Empty || programId == Uuid.Empty ||
+            actorMemberId == Uuid.Empty || string.IsNullOrWhiteSpace(canonicalManifest) ||
+            string.IsNullOrWhiteSpace(contentSha256) ||
+            (amendsSnapshotId is null) != (amendmentReason is null) ||
+            (amendmentReason is not null && string.IsNullOrWhiteSpace(amendmentReason)) ||
+            (amendsSnapshotId is null && rootSnapshotId != Id) ||
+            (amendsSnapshotId is not null &&
+             (amendsSnapshotId == Id || rootSnapshotId == Id)) ||
+            manifest.TenantId != _tenantId || manifest.ProgramId != programId ||
+            !SnapshotContentIdentity.MatchesManifest(manifest, canonicalManifest, contentSha256))
+            return Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The snapshot requires a complete source manifest and amendment linkage."));
         if (_isFrozen)
             return _rootSnapshotId == rootSnapshotId &&
                    _amendsSnapshotId == amendsSnapshotId &&
@@ -54,16 +66,6 @@ public sealed class ImmutableSnapshot : Aggregate
                     _contentSha256!))
                 : Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The snapshot already exists with different content."));
-        if (rootSnapshotId == Uuid.Empty || programId == Uuid.Empty ||
-            actorMemberId == Uuid.Empty || string.IsNullOrWhiteSpace(canonicalManifest) ||
-            string.IsNullOrWhiteSpace(contentSha256) ||
-            (amendsSnapshotId is null) != (amendmentReason is null) ||
-            (amendmentReason is not null && string.IsNullOrWhiteSpace(amendmentReason)) ||
-            manifest.TenantId != _tenantId || manifest.ProgramId != programId ||
-            !SnapshotContentIdentity.MatchesManifest(manifest, canonicalManifest, contentSha256))
-            return Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
-                "The snapshot requires a complete source manifest and amendment linkage."));
-
         RaiseEvent(new SnapshotFrozen(_tenantId, Id, rootSnapshotId, amendsSnapshotId,
             programId, "program_scope", manifest, canonicalManifest, contentSha256,
             amendmentReason?.Trim(), actorMemberId, actorDisplay, frozenAt));

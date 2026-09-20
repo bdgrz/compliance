@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Snapshots;
@@ -31,6 +32,9 @@ public sealed class ScopeSnapshotTests
             null, actorId, "Lead", now);
         var repeated = initial.Freeze(initialId, null, programId, manifest, json, digest,
             null, actorId, "Lead", now);
+        var unsupportedRetry = initial.Freeze(initialId, null, programId,
+            manifest with { FormatVersion = 2 }, json, digest,
+            null, actorId, "Lead", now);
         var forged = amendment.Freeze(initialId, initialId, programId,
             revisedManifest, json, "different-content-digest",
             "Corrected scope", actorId, "Lead", now.AddMinutes(1));
@@ -49,6 +53,8 @@ public sealed class ScopeSnapshotTests
         // Assert
         Assert.True(first.IsSuccess);
         Assert.True(repeated.IsSuccess);
+        Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(unsupportedRetry.Error).Kind);
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(forged.Error).Kind);
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(unsupported.Error).Kind);
         Assert.True(revised.IsSuccess);
@@ -106,6 +112,42 @@ public sealed class ScopeSnapshotTests
     }
 
     [Fact]
+    public async Task ShouldRejectCorruptProjectionAndReportLagGivenFrozenSource()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var source = new ImmutableSnapshot(tenantId, snapshotId);
+        Assert.True(source.Freeze(snapshotId, null, programId, manifest, json, digest,
+            null, actorId, "Lead", now).IsSuccess);
+        var corrupted = new SnapshotView(tenantId, snapshotId, snapshotId, null,
+            programId, "program_scope", 1, manifest, json + " ", digest,
+            null, actorId, "Lead", now);
+
+        // Act
+        var lag = await new GetSnapshotHandler(new SnapshotDirectoryStub(null),
+            new SnapshotSourceReader(source)).HandleAsync(
+            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId, 1)),
+            CancellationToken.None);
+        var corrupt = await new GetSnapshotHandler(new SnapshotDirectoryStub(corrupted),
+            new SnapshotSourceReader(source)).HandleAsync(
+            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId)),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(lag.Error).Kind);
+        Assert.Contains("projection", lag.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(RequestErrorKind.Conflict,
+            Assert.IsType<RequestError>(corrupt.Error).Kind);
+        Assert.Contains("integrity", corrupt.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ShouldProjectTenantScopedImmutableSnapshotGivenFitzBatch()
     {
         // Arrange
@@ -149,4 +191,34 @@ public sealed class ScopeSnapshotTests
     static ProgramScopeManifest Manifest(Uuid tenantId, Uuid programId) =>
         new(1, tenantId, programId, 1, new string('a', 64), Uuid.CreateVersion4(),
             Uuid.CreateVersion4(), new string('b', 64));
+
+    sealed class SnapshotDirectoryStub(SnapshotView? view) : ISnapshotDirectoryReader
+    {
+        public ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
+            CancellationToken ct = default) => ValueTask.FromResult(view);
+
+        public ValueTask<Page<SnapshotView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<SnapshotView>(view is null ? [] : [view], null));
+    }
+
+    sealed class SnapshotSourceReader(Aggregate source) : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult((TAggregate)source);
+    }
+
+    sealed class SnapshotRequestContext<TRequest>(TRequest request) : IRequestContext<TRequest>
+    {
+        public TRequest Request { get; } = request;
+        public ClaimsPrincipal Actor { get; } = new();
+        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
+        public Uuid RequestId { get; } = Uuid.CreateVersion4();
+        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
+        public Uuid? CausationId => null;
+        public Uuid CauseId => RequestId;
+        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+        public RequestInvocation Invocation { get; } = new DirectInvocation();
+    }
 }
