@@ -1,13 +1,12 @@
 # Broker + storage for the e2e suite only (test/Compliance.Tests/E2E). This is deliberately
 # separate from the root compose.yml, which is for running the whole app locally -- this file
-# owns nothing but the two backing services the e2e tests need, on ports and a project name that
-# never collide with the root stack, so both can run at the same time.
+# owns nothing but the two backing services the e2e tests need. BrokerStack assigns a distinct
+# project name per fixture and discovers Docker's mapped HTTP port, so concurrent test processes
+# and the root stack can run without sharing broker state.
 #
 # Lifecycle is owned by BrokerStack (BrokerStack.cs), not run by hand:
-#   docker compose -p bdgrz-compliance-e2e -f test/Compliance.Tests/E2E/compose.yml up -d
-#   docker compose -p bdgrz-compliance-e2e -f test/Compliance.Tests/E2E/compose.yml down --volumes
-
-name: bdgrz-compliance-e2e
+#   docker compose -p <unique-project> -f test/Compliance.Tests/E2E/compose.yml up -d
+#   docker compose -p <unique-project> -f test/Compliance.Tests/E2E/compose.yml down --volumes
 
 services:
   broker:
@@ -30,8 +29,9 @@ services:
       FITZ_STORAGE_CLOUD_DURABILITY: background
       RUST_LOG: info,fitz=info
     ports:
-      - "127.0.0.1:14090:4090"
-      - "127.0.0.1:14091:4091"
+      - target: 4090
+        host_ip: 127.0.0.1
+        protocol: tcp
 
   storage:
     image: ghcr.io/sqrzl/sqrzl-emulator:latest@sha256:786d910514727d7e26a9c26266a2232cfbcd9b31609d088b08a473326dc22c16
@@ -40,6 +40,3 @@ services:
       SQRZL_ACCESS_KEY_ID: admin
       SQRZL_SECRET_ACCESS_KEY: sqrzl-secret
       SQRZL_BUCKET_LIST: compliance-fitz-e2e
-    ports:
-      - "127.0.0.1:19000:9000"
-      - "127.0.0.1:19001:9001"

@@ -12,19 +12,26 @@ namespace Bdgrz.Compliance.Tests.E2E;
 /// </summary>
 sealed class BrokerStack : IAsyncDisposable
 {
-    const string ProjectName = "bdgrz-compliance-e2e";
-    const int HttpPort = 14090;
+    readonly string _projectName = $"bdgrz-compliance-e2e-{Guid.NewGuid():N}";
+    int _httpPort;
 
-    // The app connects over the broker's HTTP port, which upgrades /ws -- same as the root
-    // compose.yml's Fitz__Endpoint. compose.yml also maps a separate raw-TCP port the app doesn't use.
-    public string WebSocketEndpoint { get; } = $"ws://127.0.0.1:{HttpPort}/ws";
+    // The app connects over the broker's mapped HTTP port, which upgrades /ws.
+    public string WebSocketEndpoint => _httpPort > 0
+        ? $"ws://127.0.0.1:{_httpPort}/ws"
+        : throw new InvalidOperationException("The e2e broker has not started.");
 
     bool _started;
 
     public async Task StartAsync(CancellationToken ct = default)
     {
-        await RunComposeAsync("up --detach", ct).ConfigureAwait(false);
+        await RunComposeAsync(ct, "up", "--detach").ConfigureAwait(false);
         _started = true;
+        var portBinding = (await RunComposeAsync(ct, "port", "broker", "4090")
+            .ConfigureAwait(false)).Trim();
+        var separator = portBinding.LastIndexOf(':');
+        if (separator < 0 || !int.TryParse(portBinding[(separator + 1)..], out _httpPort) ||
+            _httpPort is < 1 or > 65535)
+            throw new InvalidOperationException($"Unexpected e2e broker port binding: {portBinding}");
         await WaitUntilReadyAsync(ct).ConfigureAwait(false);
     }
 
@@ -33,10 +40,10 @@ sealed class BrokerStack : IAsyncDisposable
         if (!_started)
             return;
 
-        await RunComposeAsync("down --volumes", CancellationToken.None).ConfigureAwait(false);
+        await RunComposeAsync(CancellationToken.None, "down", "--volumes").ConfigureAwait(false);
     }
 
-    static async Task WaitUntilReadyAsync(CancellationToken ct)
+    async Task WaitUntilReadyAsync(CancellationToken ct)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
@@ -46,7 +53,7 @@ sealed class BrokerStack : IAsyncDisposable
             try
             {
                 var health = await http.GetFromJsonAsync<BrokerHealth>(
-                    $"http://127.0.0.1:{HttpPort}/health", ct).ConfigureAwait(false);
+                    $"http://127.0.0.1:{_httpPort}/health", ct).ConfigureAwait(false);
                 if (health?.Status == "ready")
                     return;
             }
@@ -61,18 +68,18 @@ sealed class BrokerStack : IAsyncDisposable
         throw new TimeoutException("The e2e Fitz broker did not report ready within 60 seconds.");
     }
 
-    static async Task RunComposeAsync(string arguments, CancellationToken ct)
+    async Task<string> RunComposeAsync(CancellationToken ct, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo("docker")
         {
             ArgumentList =
             {
-                "compose", "-p", ProjectName, "-f", ComposeFilePath(),
+                "compose", "-p", _projectName, "-f", ComposeFilePath(),
             },
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
-        foreach (var argument in arguments.Split(' '))
+        foreach (var argument in arguments)
             startInfo.ArgumentList.Add(argument);
 
         using var process = Process.Start(startInfo)
@@ -84,9 +91,11 @@ sealed class BrokerStack : IAsyncDisposable
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                $"docker compose {arguments} failed (exit {process.ExitCode}):\n" +
+                $"docker compose {string.Join(' ', arguments)} failed (exit {process.ExitCode}):\n" +
                 $"{await stdout.ConfigureAwait(false)}\n{await stderr.ConfigureAwait(false)}");
         }
+
+        return await stdout.ConfigureAwait(false);
     }
 
     static string ComposeFilePath() =>
