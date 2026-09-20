@@ -225,6 +225,27 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     $"{setupAnchor}&minimum_boundary_revision=2");
                 Assert.Equal(HttpStatusCode.OK, currentBoundarySetup.StatusCode);
                 Assert.Equal(HttpStatusCode.Conflict, futureBoundarySetup.StatusCode);
+                var versionPath = $"{boundaryPath}/versions/{boundary.DraftVersionId}";
+                var versionsPath = $"{boundaryPath}/versions";
+                var effectivePath = $"{boundaryPath}/effective_version?effective_on=2027-01-01";
+                using var splitVersion = await owner.GetAsync(
+                    $"{versionPath}?minimum_boundary_revision=1");
+                using var splitVersions = await owner.GetAsync(
+                    $"{versionsPath}?minimum_boundary_revision=1");
+                using var splitEffective = await owner.GetAsync(
+                    $"{effectivePath}&minimum_boundary_revision=1");
+                using var splitFutureVersion = await owner.GetAsync(
+                    $"{versionPath}?minimum_boundary_revision=2");
+                using var splitFutureVersions = await owner.GetAsync(
+                    $"{versionsPath}?minimum_boundary_revision=2");
+                using var splitFutureEffective = await owner.GetAsync(
+                    $"{effectivePath}&minimum_boundary_revision=2");
+                Assert.Equal(HttpStatusCode.NotFound, splitVersion.StatusCode);
+                Assert.Equal(HttpStatusCode.OK, splitVersions.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, splitEffective.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, splitFutureVersion.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, splitFutureVersions.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, splitFutureEffective.StatusCode);
                 ProgramSetupDocument? draftSetup = null;
                 while (DateTimeOffset.UtcNow < deadline)
                 {

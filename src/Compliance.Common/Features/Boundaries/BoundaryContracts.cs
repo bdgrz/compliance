@@ -86,17 +86,18 @@ public sealed record ListProgramBoundaries(Uuid TenantId, Uuid ProgramId,
     : IRequest<Page<BoundaryView>>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.version.get", 1)]
-public sealed record GetBoundaryVersion(Uuid TenantId, Uuid BoundaryId, Uuid VersionId)
+public sealed record GetBoundaryVersion(Uuid TenantId, Uuid BoundaryId, Uuid VersionId,
+    long? MinimumBoundaryRevision = null)
     : IRequest<BoundaryVersionView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.versions.list", 1)]
 public sealed record ListBoundaryVersions(Uuid TenantId, Uuid BoundaryId,
-    int? Limit = null, string? Cursor = null)
+    int? Limit = null, string? Cursor = null, long? MinimumBoundaryRevision = null)
     : IRequest<Page<BoundaryVersionView>>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.version.effective.get", 1)]
 public sealed record GetEffectiveBoundaryVersion(Uuid TenantId, Uuid BoundaryId,
-    DateOnly EffectiveOn)
+    DateOnly EffectiveOn, long? MinimumBoundaryRevision = null)
     : IRequest<BoundaryVersionView>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.boundary.decision.get", 1)]

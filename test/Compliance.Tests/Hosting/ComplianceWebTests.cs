@@ -217,6 +217,24 @@ public sealed class ComplianceWebTests
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
             .GetProperty("post").TryGetProperty("requestBody", out _));
+        foreach (var route in new[]
+                 {
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}",
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions",
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version",
+                 })
+            Assert.Contains(paths.GetProperty(route).GetProperty("get")
+                    .GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() ==
+                             "minimum_boundary_revision");
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.False(paths.TryGetProperty(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version", out _));
+        Assert.False(paths.TryGetProperty(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview",
+            out _));
     }
 
     [Theory]

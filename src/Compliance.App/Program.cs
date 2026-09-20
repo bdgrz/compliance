@@ -305,7 +305,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetEffectiveBoundaryVersion, BoundaryVersionView>(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version")
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundaryDecision, BoundaryDecisionView>(
@@ -317,7 +317,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview")
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ReviewBoundary>(
