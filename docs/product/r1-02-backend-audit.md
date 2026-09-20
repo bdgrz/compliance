@@ -11,8 +11,16 @@ is complete.
   effective-date history, and impact preview use Portia requests and
   event-sourced `SystemBoundary` state with Fitz projections. Personal review
   and approval are HTTP-only; machine authoring and reads use MCP where suitable.
-- Client services are governed within a program. Other scope subjects remain
-  explicit unresolved references until their owning inventories exist.
+- Client services are governed within a program. Manual Applications and
+  SystemInstances have tenant-owned aggregates and validated boundary links.
+  Remaining subject types stay explicit unresolved references until their
+  owning inventories and source authority exist.
+- Applications and SystemInstances expose authorized, paged reverse boundary
+  references over snake_case HTTP and read-only MCP. A separate per-tenant Fitz
+  projector replays retained boundary events into current-draft and approved
+  history rows. Reads return a conflict while that projector trails the source,
+  including when an empty page would otherwise appear complete. Earlier
+  revised or discarded drafts are read through boundary history.
 - Current-boundary reads accept `minimum_revision`. Immutable version, version
   list, and `/effective_version` reads accept `minimum_boundary_revision` over
   snake_case HTTP query strings and read-only MCP tool arguments. Boundary
@@ -25,7 +33,7 @@ is complete.
 
 ## Remaining backend acceptance
 
-- Implement governing inventories for person, application, component,
+- Implement governing inventories for person, component,
   information, data flow, process, location, provider, and commitment references
   in their owning stories, then validate those references on boundary writes.
 - Add real impact contributors for controls, evidence, risks, providers,
@@ -41,13 +49,24 @@ snapshot across downstream inventories. The impact digest and approval guard
 remain the change gate; a client must not treat a version read as a readiness or
 auditor opinion.
 
-## Local verification for the history-read slice
+## Verification and tracking
 
-Locked restore, warning-free Release build, `dotnet format`, client checks,
-265 nonbroker tests, and 17 broker tests passed. A real Fitz broker test proves
-that an approved-version read reports projection lag before the approval event
-projects and succeeds after its projection commits. OpenAPI checks confirm the
-snake_case `/effective_version` and `/impact_preview` routes and the absence of
-their earlier kebab-case paths. The broker suite uses one fixed Compose project
-and port, so it must run without another local broker suite. Hosted exact-head
-checks and merge evidence remain pending.
+The original history-read slice proved approved-version lag and catch-up with
+a real Fitz broker and live OpenAPI checks for snake_case
+`/effective_version` and `/impact_preview` routes. The later manual inventory
+and boundary-reference slices were reviewed and merged in
+[PR #244](https://github.com/bdgrz/compliance/pull/244) and
+[PR #245](https://github.com/bdgrz/compliance/pull/245). Their exact-head CI
+runs passed Validate, dependency review, and Native AOT containers on amd64
+and arm64. PR #245 additionally proved a stopped split worker returns a
+projection-lag conflict, then reads both governed references after replay.
+
+The broker integration suite now gives each test class fresh broker history
+through xUnit class fixtures within a nonparallel collection. Each fixture
+uses a unique Compose project and mapped port. This bounds test-history
+contention; it does not establish production startup performance with many
+tenants. That investigation remains in
+[Portia #58](https://github.com/cntryl/portia/issues/58). Backend children
+[#160](https://github.com/bdgrz/compliance/issues/160) and
+[#162](https://github.com/bdgrz/compliance/issues/162) remain open for the
+acceptance gaps above and their inherited decisions.
