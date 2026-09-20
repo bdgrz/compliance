@@ -44,7 +44,11 @@ public sealed class VerifyProgramScopeSnapshotHandler(ISnapshotDirectoryReader s
             projected.RootSnapshotId == source.RootSnapshotId &&
             projected.AmendsSnapshotId == source.AmendsSnapshotId &&
             projected.CanonicalManifest == source.CanonicalManifest &&
-            projected.ContentSha256 == source.ContentSha256
+            projected.ContentSha256 == source.ContentSha256 &&
+            projected.AmendmentReason == source.AmendmentReason &&
+            projected.ActorMemberId == source.ActorMemberId &&
+            projected.ActorDisplay == source.ActorDisplay &&
+            projected.FrozenAt == source.FrozenAt
                 ? "verified"
                 : "digest_mismatch";
         var snapshotCheck = new SnapshotSourceCheck(snapshotStatus,

@@ -15,6 +15,8 @@ public sealed class ImmutableSnapshot : Aggregate
     string? _canonicalManifest;
     string? _amendmentReason;
     Uuid _actorMemberId;
+    string? _actorDisplay;
+    DateTimeOffset _frozenAt;
 
     public bool IsFrozen => _isFrozen;
     public Uuid RootSnapshotId => _rootSnapshotId;
@@ -24,6 +26,10 @@ public sealed class ImmutableSnapshot : Aggregate
     public ProgramScopeManifest? Manifest => _manifest;
     public string? CanonicalManifest => _canonicalManifest;
     public string? ContentSha256 => _contentSha256;
+    public string? AmendmentReason => _amendmentReason;
+    public Uuid ActorMemberId => _actorMemberId;
+    public string? ActorDisplay => _actorDisplay;
+    public DateTimeOffset FrozenAt => _frozenAt;
 
     public ImmutableSnapshot(Uuid tenantId, Uuid snapshotId)
         : base(snapshotId, new EventStreamAddress(tenantId.ToString(), "snapshots",
@@ -42,6 +48,8 @@ public sealed class ImmutableSnapshot : Aggregate
             _canonicalManifest = ev.CanonicalManifest;
             _amendmentReason = ev.AmendmentReason;
             _actorMemberId = ev.ActorMemberId;
+            _actorDisplay = ev.ActorDisplay;
+            _frozenAt = ev.FrozenAt;
         });
     }
 

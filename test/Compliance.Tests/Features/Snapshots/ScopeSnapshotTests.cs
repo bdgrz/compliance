@@ -325,6 +325,14 @@ public sealed class ScopeSnapshotTests
         var digestMismatch = await VerifyAsync(view with { CanonicalManifest = json + " " },
             programRevision with { Name = "Changed" },
             boundaryVersion with { Content = content with { Statement = "Changed" } });
+        var changedReason = await VerifyAsync(view with { AmendmentReason = "Changed" },
+            programRevision, boundaryVersion);
+        var changedActor = await VerifyAsync(view with { ActorMemberId = reviewerId },
+            programRevision, boundaryVersion);
+        var changedDisplay = await VerifyAsync(view with { ActorDisplay = "Changed" },
+            programRevision, boundaryVersion);
+        var changedFreezeTime = await VerifyAsync(view with { FrozenAt = now.AddMinutes(1) },
+            programRevision, boundaryVersion);
         var staleApproval = await VerifyAsync(view, programRevision,
             boundaryVersion with { Status = "draft" });
         var missing = await VerifyAsync(view, programRevision, boundaryVersion,
@@ -347,6 +355,12 @@ public sealed class ScopeSnapshotTests
         Assert.Equal("digest_mismatch", digestMismatch.Snapshot.Status);
         Assert.Equal("digest_mismatch", digestMismatch.ProgramRevision.Status);
         Assert.Equal("digest_mismatch", digestMismatch.ApprovedBoundaryVersion.Status);
+        Assert.All([changedReason, changedActor, changedDisplay, changedFreezeTime],
+            result =>
+            {
+                Assert.False(result.Verified);
+                Assert.Equal("digest_mismatch", result.Snapshot.Status);
+            });
         Assert.Equal("lag", staleApproval.ApprovedBoundaryVersion.Status);
         Assert.False(missing.Verified);
         Assert.Equal("missing", missing.ProgramRevision.Status);
