@@ -68,9 +68,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.application.list",
             "bdgrz.application.revision.get",
             "bdgrz.application.revision.list",
+            "bdgrz.application.boundary_references.list",
             "bdgrz.system_instance.declare",
             "bdgrz.system_instance.get",
             "bdgrz.system_instance.list",
+            "bdgrz.system_instance.boundary_references.list",
             "bdgrz.program.create",
             "bdgrz.program.revise",
             "bdgrz.program.get",
@@ -117,6 +119,10 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application.revision.get").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.revision.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.boundary_references.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 
         var registration = new Dictionary<string, object?>
         {
@@ -131,6 +137,19 @@ public sealed class RbacMcpScenarioTests
                 "bdgrz.rbac.team.list",
                 new Dictionary<string, object?> { ["tenant_id"] = Uuid.CreateVersion4().ToString() })
             .ExpectFailure();
+        _ = await scenario.When("bdgrz.application.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = Uuid.CreateVersion4().ToString(),
+                    ["application_id"] = Uuid.CreateVersion4().ToString(),
+                }).ExpectFailure();
+        _ = await scenario.When("bdgrz.system_instance.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = Uuid.CreateVersion4().ToString(),
+                    ["application_id"] = Uuid.CreateVersion4().ToString(),
+                    ["system_instance_id"] = Uuid.CreateVersion4().ToString(),
+                }).ExpectFailure();
     }
 
     static WebApplicationFactory<Program> CreateFactory() =>

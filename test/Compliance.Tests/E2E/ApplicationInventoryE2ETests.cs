@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
@@ -81,7 +82,18 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         }
         Assert.True(firstProjected);
         var programId = await CreateProgramAsync(owner, tenant.TenantId);
+        var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
+        var applicationReferencesPath =
+            $"{applicationsPath}/{first.ApplicationId}/boundary_references";
         await worker.StopAsync();
+        using var applicationBoundaryResponse = await owner.PostAsJsonAsync(boundaryPath,
+            new { content = BoundaryContent("application", first.ApplicationId) });
+        Assert.Equal(HttpStatusCode.OK, applicationBoundaryResponse.StatusCode);
+        var applicationBoundary = await applicationBoundaryResponse.Content
+            .ReadFromJsonAsync<BoundaryRegistrationDocument>();
+        Assert.NotNull(applicationBoundary);
+        using (var pendingReferences = await owner.GetAsync(applicationReferencesPath))
+            Assert.Equal(HttpStatusCode.Conflict, pendingReferences.StatusCode);
         using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(
             $"{applicationsPath}/{first.ApplicationId}/system_instances", new
             {
@@ -94,7 +106,6 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var unprojectedInstance = await unprojectedInstanceResponse.Content
             .ReadFromJsonAsync<SystemInstanceRegistrationDocument>();
         Assert.NotNull(unprojectedInstance);
-        var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
         var instanceContent = BoundaryContent("system_instance",
             unprojectedInstance.SystemInstanceId);
         using var laggingReference = await owner.PostAsJsonAsync(boundaryPath,
@@ -151,6 +162,37 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.True(boundaryProjected);
+            var instanceReferencesPath =
+                $"{applicationsPath}/{first.ApplicationId}/system_instances/" +
+                $"{unprojectedInstance.SystemInstanceId}/boundary_references";
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var instanceReferenceProjected = false;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await owner.GetAsync(instanceReferencesPath);
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+                    instanceReferenceProjected = body.Contains(
+                        linkedBoundary.BoundaryId.ToString(), StringComparison.OrdinalIgnoreCase);
+                    if (instanceReferenceProjected)
+                        break;
+                }
+                else
+                    Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                await Task.Delay(250);
+            }
+            Assert.True(instanceReferenceProjected);
+            using (var applicationReferences = await owner.GetAsync(applicationReferencesPath))
+            {
+                Assert.Equal(HttpStatusCode.OK, applicationReferences.StatusCode);
+                using var document = JsonDocument.Parse(
+                    await applicationReferences.Content.ReadAsStringAsync());
+                var reference = Assert.Single(document.RootElement.GetProperty("items")
+                    .EnumerateArray());
+                Assert.Equal(applicationBoundary.BoundaryId.ToString(),
+                    reference.GetProperty("boundary_id").GetString());
+            }
             await using (var mcp = await McpScenario.ConnectAsync(owner,
                              new Uri(owner.BaseAddress!, "/mcp")))
             {
@@ -159,6 +201,19 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                     ["tenant_id"] = tenant.TenantId,
                     ["boundary_id"] = linkedBoundary.BoundaryId,
                 }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.application.boundary_references.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["application_id"] = first.ApplicationId,
+                    }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["application_id"] = first.ApplicationId,
+                        ["system_instance_id"] = unprojectedInstance.SystemInstanceId,
+                    }).ExpectSuccess();
             }
             using var secondResponse = await owner.PostAsJsonAsync(applicationsPath, new
             {
@@ -420,6 +475,19 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 ["tenant_id"] = tenant.TenantId,
                 ["application_id"] = registration.ApplicationId,
             }).ExpectFailure();
+            _ = await mcp.When("bdgrz.application.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["application_id"] = registration.ApplicationId,
+                }).ExpectFailure();
+            _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["application_id"] = registration.ApplicationId,
+                    ["system_instance_id"] = Uuid.CreateVersion4(),
+                }).ExpectFailure();
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
@@ -472,6 +540,16 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Contains("access_boundary_missing", projected!.Unresolved);
         Assert.Equal("payroll-prod", projected.SourceIdentifier);
         Assert.Contains("source_identifier_unverified", projected.Unresolved);
+        using var deniedApplicationReferences = await outsider.GetAsync(
+            $"{applicationPath}/boundary_references");
+        using var deniedInstanceReferences = await outsider.GetAsync(
+            $"{instancePath}/boundary_references");
+        using var wrongParentReferences = await owner.GetAsync(
+            $"{applicationsPath}/{Guid.NewGuid()}/system_instances/" +
+            $"{instance.SystemInstanceId}/boundary_references");
+        Assert.Equal(HttpStatusCode.NotFound, deniedApplicationReferences.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedInstanceReferences.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, wrongParentReferences.StatusCode);
         ApplicationRevisionDocument? instanceRevision = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
