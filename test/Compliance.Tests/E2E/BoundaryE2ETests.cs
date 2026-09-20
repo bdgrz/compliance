@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
+[Collection(BoundaryBrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 {
@@ -664,4 +664,12 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     sealed record BoundaryAffectedRecordDocument(
         [property: JsonPropertyName("record_type")] string RecordType,
         [property: JsonPropertyName("record_id")] string RecordId);
+}
+
+// Boundary lifecycle tests exercise a fresh broker so tenant bootstrap cannot queue behind
+// the unrelated tenant histories accumulated by the rest of the broker suite.
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class BoundaryBrokerCollectionDefinition : ICollectionFixture<BrokerStackFixture>
+{
+    public const string Name = "Boundary broker e2e";
 }
