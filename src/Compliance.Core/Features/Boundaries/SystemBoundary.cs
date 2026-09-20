@@ -246,6 +246,7 @@ public sealed class SystemBoundary : Aggregate
                 entry is null || entry.EntryId == Uuid.Empty ||
                 entry.Kind is not ("inclusion" or "exclusion" or "assumption" or "question") ||
                 entry.SubjectType is not ("service" or "person" or "application" or
+                    "system_instance" or
                     "component" or "information" or "data_flow" or "process" or
                     "location" or "provider" or "commitment") ||
                 string.IsNullOrWhiteSpace(entry.Subject) ||

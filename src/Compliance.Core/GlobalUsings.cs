@@ -1,4 +1,5 @@
 global using Bdgrz.Compliance.Features.AccessControl;
+global using Bdgrz.Compliance.Features.Applications;
 global using Bdgrz.Compliance.Features.Boundaries;
 global using Bdgrz.Compliance.Features.Programs;
 global using Bdgrz.Compliance.Features.Snapshots;

@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
+[Collection(BoundaryBrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 {
@@ -44,6 +44,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         ProgramDocument? program = null;
+        string? lastBootstrapResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(programsPath, new
@@ -64,10 +65,14 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 program = await response.Content.ReadFromJsonAsync<ProgramDocument>();
                 break;
             }
+            lastBootstrapResponse = $"{(int)response.StatusCode} " +
+                                    await response.Content.ReadAsStringAsync();
             Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
-                await response.Content.ReadAsStringAsync());
+                lastBootstrapResponse);
             await Task.Delay(250);
         }
+        Assert.True(program is not null,
+            $"Program creation remained unavailable after tenant bootstrap; last response: {lastBootstrapResponse}");
         Assert.NotNull(program);
         var path = $"{programsPath}/{program.ProgramId}/boundaries";
         var entryId = Uuid.CreateVersion4();
@@ -659,4 +664,12 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     sealed record BoundaryAffectedRecordDocument(
         [property: JsonPropertyName("record_type")] string RecordType,
         [property: JsonPropertyName("record_id")] string RecordId);
+}
+
+// Boundary lifecycle tests exercise a fresh broker so tenant bootstrap cannot queue behind
+// the unrelated tenant histories accumulated by the rest of the broker suite.
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class BoundaryBrokerCollectionDefinition : ICollectionFixture<BrokerStackFixture>
+{
+    public const string Name = "Boundary broker e2e";
 }

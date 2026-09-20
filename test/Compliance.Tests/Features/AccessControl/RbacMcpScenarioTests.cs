@@ -62,6 +62,15 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.client-service.program.list",
             "bdgrz.client-service.revisions.list",
             "bdgrz.client-service.revision.get",
+            "bdgrz.application.declare",
+            "bdgrz.application.revise",
+            "bdgrz.application.get",
+            "bdgrz.application.list",
+            "bdgrz.application.revision.get",
+            "bdgrz.application.revision.list",
+            "bdgrz.system_instance.declare",
+            "bdgrz.system_instance.get",
+            "bdgrz.system_instance.list",
             "bdgrz.program.create",
             "bdgrz.program.revise",
             "bdgrz.program.get",
@@ -103,6 +112,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.tenant-member.list",
             "bdgrz.tenant.change-slug",
             "bdgrz.tenant-slug.resolve-mine");
+        var tools = await scenario.ListTools();
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.revision.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.revision.list").ReadOnly);
 
         var registration = new Dictionary<string, object?>
         {
