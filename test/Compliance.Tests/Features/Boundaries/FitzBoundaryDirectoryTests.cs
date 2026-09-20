@@ -240,6 +240,7 @@ public sealed class FitzBoundaryDirectoryTests
         var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
         var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
+        var originalCheckpoint = new ProjectionCheckpoint(new EventCursor("original-approved"));
         await using (var first = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
@@ -251,12 +252,12 @@ public sealed class FitzBoundaryDirectoryTests
             await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
                 originalId, 1, Uuid.CreateVersion4(), originalReviewId, reviewerId,
                 "Reviewer", "Approved", effectiveFrom, now, "digest"));
-            await first.CommitAsync(ProjectionCheckpoint.Start);
+            await first.CommitAsync(originalCheckpoint);
         }
 
         // Act
         await using (var successor = await directory.BeginAsync(
-                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+                         new ProjectionBatchContext(identity, originalCheckpoint)))
         {
             await directory.ApplyAsync(new BoundarySuccessorProposed(tenantId,
                 boundaryId, successorId, originalId, content, authorId, "Author", now));
@@ -270,9 +271,15 @@ public sealed class FitzBoundaryDirectoryTests
         }
 
         // Assert
+        var current = await directory.GetAsync(tenantId, boundaryId);
+        Assert.Equal(originalId, current?.LatestApprovedVersion?.VersionId);
+        Assert.Null(current?.Draft);
+        Assert.Null(await directory.GetDecisionAsync(tenantId, boundaryId,
+            successorReviewId));
         Assert.Null(await directory.GetVersionAsync(tenantId, boundaryId, successorId));
         Assert.Equal(originalId, (await directory.GetEffectiveVersionAsync(tenantId,
             boundaryId, effectiveFrom))?.VersionId);
+        Assert.Equal(originalCheckpoint, await directory.LoadCheckpointAsync(identity));
     }
 
     [Fact]
