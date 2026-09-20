@@ -227,7 +227,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.Conflict, futureBoundarySetup.StatusCode);
                 var versionPath = $"{boundaryPath}/versions/{boundary.DraftVersionId}";
                 var versionsPath = $"{boundaryPath}/versions";
-                var effectivePath = $"{boundaryPath}/effective-version?effective_on=2027-01-01";
+                var effectivePath = $"{boundaryPath}/effective_version?effective_on=2027-01-01";
                 using var splitVersion = await owner.GetAsync(
                     $"{versionPath}?minimum_boundary_revision=1");
                 using var splitVersions = await owner.GetAsync(

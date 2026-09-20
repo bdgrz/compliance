@@ -14,8 +14,9 @@ is complete.
 - Client services are governed within a program. Other scope subjects remain
   explicit unresolved references until their owning inventories exist.
 - Current-boundary reads accept `minimum_revision`. Immutable version, version
-  list, and effective-version reads accept `minimum_boundary_revision` over
-  snake_case HTTP query strings and read-only MCP tool arguments. A caller may
+  list, and `/effective_version` reads accept `minimum_boundary_revision` over
+  snake_case HTTP query strings and read-only MCP tool arguments. Boundary
+  `/impact_preview` uses the same route convention. A caller may
   anchor these reads to a boundary stream revision returned by an earlier
   operation. When the source has reached that revision but Fitz has not, the
   query returns a recoverable conflict. When the source itself has not reached
@@ -43,6 +44,10 @@ auditor opinion.
 ## Local verification for the history-read slice
 
 Locked restore, warning-free Release build, `dotnet format`, client checks,
-265 nonbroker tests, and 16 broker tests passed. The broker suite uses one fixed
-Compose project and port, so it must run without another local broker suite.
-Hosted exact-head checks and merge evidence remain pending.
+265 nonbroker tests, and 17 broker tests passed. A real Fitz broker test proves
+that an approved-version read reports projection lag before the approval event
+projects and succeeds after its projection commits. OpenAPI checks confirm the
+snake_case `/effective_version` and `/impact_preview` routes and the absence of
+their earlier kebab-case paths. The broker suite uses one fixed Compose project
+and port, so it must run without another local broker suite. Hosted exact-head
+checks and merge evidence remain pending.

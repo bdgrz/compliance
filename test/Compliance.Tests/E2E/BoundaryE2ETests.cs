@@ -1,9 +1,12 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Tenants;
+using Cntryl.Fitz;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -167,7 +170,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.Conflict, unsupportedGovernedLink.StatusCode);
         var draftPath = $"{boundaryPath}/drafts/{registration.DraftVersionId}";
         using var initialPreviewResponse = await owner.GetAsync(
-            $"{draftPath}/impact-preview?expected_revision=1");
+            $"{draftPath}/impact_preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.OK, initialPreviewResponse.StatusCode);
         var initialPreview = await initialPreviewResponse.Content
             .ReadFromJsonAsync<BoundaryImpactPreviewDocument>();
@@ -175,7 +178,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Contains(initialPreview?.Changes ?? [], change =>
             change.Field == "scope_entry" && change.ChangeType == "added");
         using var deniedPreview = await outsider.GetAsync(
-            $"{draftPath}/impact-preview?expected_revision=1");
+            $"{draftPath}/impact_preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.NotFound, deniedPreview.StatusCode);
 
         using var deniedRead = await outsider.GetAsync(boundaryPath);
@@ -225,10 +228,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, revisedRevision.StatusCode);
         Assert.Equal("Service A and its provider are in scope.", projected?.Draft?.Content.Statement);
         using var stalePreview = await owner.GetAsync(
-            $"{draftPath}/impact-preview?expected_revision=1");
+            $"{draftPath}/impact_preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.Conflict, stalePreview.StatusCode);
         using var reviewedPreviewResponse = await owner.GetAsync(
-            $"{draftPath}/impact-preview?expected_revision=2");
+            $"{draftPath}/impact_preview?expected_revision=2");
         Assert.Equal(HttpStatusCode.OK, reviewedPreviewResponse.StatusCode);
         var reviewedPreview = await reviewedPreviewResponse.Content
             .ReadFromJsonAsync<BoundaryImpactPreviewDocument>();
@@ -352,7 +355,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         var versions = await versionsResponse.Content.ReadFromJsonAsync<BoundaryVersionPageDocument>();
         Assert.Equal(registration.DraftVersionId, Assert.Single(versions?.Items ?? []).VersionId);
         using var effective = await owner.GetAsync(
-            $"{boundaryPath}/effective-version?effective_on=2027-01-01&minimum_boundary_revision=4");
+            $"{boundaryPath}/effective_version?effective_on=2027-01-01&minimum_boundary_revision=4");
         Assert.True(effective.StatusCode == HttpStatusCode.OK,
             await effective.Content.ReadAsStringAsync());
         var effectiveVersion = await effective.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
@@ -361,7 +364,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                  {
                      $"{boundaryPath}/versions/{registration.DraftVersionId}",
                      $"{boundaryPath}/versions",
-                     $"{boundaryPath}/effective-version?effective_on=2027-01-01",
+                     $"{boundaryPath}/effective_version?effective_on=2027-01-01",
                  })
         {
             using var future = await owner.GetAsync(route +
@@ -416,10 +419,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                     ["minimum_boundary_revision"] = 4,
                 }).ExpectFailure();
         using var beforeEffective = await owner.GetAsync(
-            $"{boundaryPath}/effective-version?effective_on=2026-12-31");
+            $"{boundaryPath}/effective_version?effective_on=2026-12-31");
         Assert.Equal(HttpStatusCode.NotFound, beforeEffective.StatusCode);
         using var deniedEffective = await outsider.GetAsync(
-            $"{boundaryPath}/effective-version?effective_on=2027-01-01");
+            $"{boundaryPath}/effective_version?effective_on=2027-01-01");
         Assert.Equal(HttpStatusCode.NotFound, deniedEffective.StatusCode);
         using var decisionsResponse = await owner.GetAsync($"{boundaryPath}/decisions");
         Assert.Equal(HttpStatusCode.OK, decisionsResponse.StatusCode);
@@ -499,7 +502,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(
-                $"{successorDraft}/impact-preview?expected_revision=1");
+                $"{successorDraft}/impact_preview?expected_revision=1");
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 successorPreview = await response.Content
@@ -551,6 +554,77 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             impact_digest = successorPreview.Digest,
         });
         Assert.Equal(HttpStatusCode.Conflict, incompleteApproval.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldRecoverApprovedHistoryReadGivenFitzProjectionLag()
+    {
+        // Arrange
+        await using var factory = E2EAppFactory.Create(broker);
+        using var scope = factory.Services.CreateScope();
+        var directory = Assert.IsType<FitzBoundaryDirectory>(scope.ServiceProvider
+            .GetRequiredService<IBoundaryDirectoryReader>());
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var versionId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var reviewId = Uuid.CreateVersion4();
+        var approvalId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("System boundary", "readiness", ["security"], []);
+        var source = new SystemBoundary(tenantId, boundaryId);
+        Assert.True(source.Create(programId, versionId, content, authorId,
+            "Author", now).IsSuccess);
+        Assert.True(source.Review(versionId, 1, reviewId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now.AddMinutes(1)).IsSuccess);
+        Assert.True(source.Approve(versionId, 1, approvalId, reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", reviewerId,
+            "Reviewer", now.AddMinutes(2)).IsSuccess);
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, versionId, content, authorId, "Author", now));
+            await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId,
+                versionId, 1, reviewId, "accept", reviewerId, "Reviewer", "Reviewed",
+                now.AddMinutes(1)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var handler = new GetBoundaryVersionHandler(directory,
+            new BoundaryHistoryReadConsistency(directory, new SourceReader(source)));
+        var request = new RequestContext<GetBoundaryVersion>(new GetBoundaryVersion(
+            tenantId, boundaryId, versionId, 3), new ClaimsPrincipal());
+
+        // Act
+        var lagged = await handler.HandleAsync(request, CancellationToken.None);
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryApproved(tenantId, boundaryId,
+                versionId, 1, approvalId, reviewId, reviewerId, "Reviewer", "Approved",
+                new DateOnly(2027, 1, 1), now.AddMinutes(2), "digest"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var caughtUp = await handler.HandleAsync(request, CancellationToken.None);
+
+        // Assert
+        var lagError = Assert.IsType<RequestError>(lagged.Error);
+        Assert.Equal(RequestErrorKind.Conflict, lagError.Kind);
+        Assert.Contains("projection", lagError.Message, StringComparison.Ordinal);
+        Assert.True(caughtUp.IsSuccess);
+        Assert.Equal("approved", caughtUp.Value.Status);
+        Assert.Equal(versionId, caughtUp.Value.VersionId);
+    }
+
+    sealed class SourceReader(Aggregate source) : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult((TAggregate)source);
     }
 
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] string TenantId);
