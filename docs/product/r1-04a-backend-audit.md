@@ -15,7 +15,8 @@ not gain standing access through this command.
 `MemberAccessE2ETests.ShouldExplainSelectedRoleGivenAcceptedMemberInvitation`
 proves the flow in standalone and independent API/worker modes with mocked
 email delivery. `TenantInvitationTests` covers invalid roles, pending reissue,
-token replacement, and accepted role history. `PermissionProjectionStateTests`
+token replacement, unchanged affiliation and purpose on reissue, and accepted
+role history. `PermissionProjectionStateTests`
 checks explanations against grant removal. A caller may use
 `expected_built_in_role` to receive a conflict while the access projection is
 behind the accepted invitation.

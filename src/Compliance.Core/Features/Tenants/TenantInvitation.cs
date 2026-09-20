@@ -53,6 +53,10 @@ public sealed class TenantInvitation : Aggregate
                 "A built-in role requires client personnel and a supported role value.");
         if (_accepted)
             return Failure(RequestErrorKind.Conflict, "The invitation has already been accepted.");
+        if (_affiliation is not null &&
+            (_affiliation != affiliation || _administrator != administrator))
+            return Failure(RequestErrorKind.Conflict,
+                "The pending invitation has a different affiliation or administrator purpose.");
         if (tokenHash.Length != 64 || expiresAt <= now || invitedBy == Uuid.Empty)
             return Failure(RequestErrorKind.Validation, "A valid invitation is required.");
 

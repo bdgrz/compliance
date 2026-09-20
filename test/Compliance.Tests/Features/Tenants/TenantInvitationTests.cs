@@ -127,4 +127,31 @@ public sealed class TenantInvitationTests
             Assert.Single(new AggregateScenario<TenantInvitation>(invitation).PendingEvents
                 .OfType<TenantInvitationAccepted>()).BuiltInRole);
     }
+
+    [Fact]
+    public void ShouldPreserveAffiliationAndPurposeGivenPendingInvitationReissue()
+    {
+        // Arrange
+        var invitation = new TenantInvitation(Uuid.CreateVersion4(), "person@example.com");
+        var now = DateTimeOffset.UtcNow;
+        var hash = new string('A', 64);
+        var invitedBy = Uuid.CreateVersion4();
+        Assert.True(invitation.Invite("firm_staff", false, hash, now.AddDays(7),
+            now, invitedBy).IsSuccess);
+        var clientInvitation = new TenantInvitation(Uuid.CreateVersion4(), "client@example.com");
+        Assert.True(clientInvitation.Invite("client_personnel", false, hash,
+            now.AddDays(7), now, invitedBy).IsSuccess);
+
+        // Act
+        var promoted = invitation.Invite("client_personnel", false, hash,
+            now.AddDays(7), now, invitedBy, BuiltInRbac.ComplianceManagementRole);
+        var administrator = clientInvitation.Invite("client_personnel", true, hash,
+            now.AddDays(7), now, invitedBy);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(promoted.Error).Kind);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(administrator.Error).Kind);
+        Assert.Single(new AggregateScenario<TenantInvitation>(invitation).PendingEvents);
+        Assert.Single(new AggregateScenario<TenantInvitation>(clientInvitation).PendingEvents);
+    }
 }
