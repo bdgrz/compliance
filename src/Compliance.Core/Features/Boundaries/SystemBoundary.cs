@@ -23,6 +23,7 @@ public sealed class SystemBoundary : Aggregate
     public bool IsVisible => _draftContent is not null || _latestApprovedVersionId != Uuid.Empty;
     public Uuid ProgramId => _programId;
     public long Revision => _revision;
+    public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
 
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))

@@ -77,6 +77,12 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
         services.AddScoped<IBoundaryDirectoryReader>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<FitzSnapshotDirectory>();
+        services.AddScoped<ISnapshotDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzSnapshotDirectory>());
+        services.AddScoped<ISnapshotDirectoryReader>(
+            provider => provider.GetRequiredService<FitzSnapshotDirectory>());
+        services.AddScoped<ScopeSnapshotFreezer>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<BoundaryImpactService>();
@@ -158,6 +164,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviewBoundaryHandler>()
             .AddRequestHandler<ApproveBoundaryHandler>()
             .AddRequestHandler<ProposeBoundarySuccessorHandler>()
+            .AddRequestHandler<FreezeProgramScopeSnapshotHandler>()
+            .AddRequestHandler<AmendProgramScopeSnapshotHandler>()
+            .AddRequestHandler<GetSnapshotHandler>()
+            .AddRequestHandler<ListProgramSnapshotsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
@@ -209,6 +219,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
+            .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));
