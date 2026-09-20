@@ -1,0 +1,187 @@
+using Cntryl.Fitz.Extensions;
+using Cntryl.Portia;
+
+namespace Bdgrz.Compliance.Features.Applications;
+
+sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader memberships,
+    ITenantActivity tenants, IPermissionAuthorizer permissions)
+    : IRequestAuthorizer<IApplicationInventoryRequest>
+{
+    // R1-10a uses the existing program-management grant for manual declarations.
+    // A dedicated inventory grant needs a replay-safe migration for existing tenants
+    // and the unresolved record-level policy before it can replace this boundary.
+    public async ValueTask<Result> AuthorizeAsync(
+        IRequestContext<IApplicationInventoryRequest> context, CancellationToken ct)
+    {
+        if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
+            return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
+                "Application inventory requires a Bdgrz user identity."));
+        var tenantId = context.Request.TenantId;
+        if (!await memberships.IsMemberAsync(tenantId.ToString(), userId, ct)
+                .ConfigureAwait(false))
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The tenant was not found."));
+        if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The tenant is not active."));
+        return await permissions.IsAllowedAsync(tenantId,
+                RbacIds.Member(tenantId, userId), RbacPermissions.ProgramManage, ct)
+            .ConfigureAwait(false)
+            ? Result.Success
+            : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The actor may not inspect or manage this inventory."));
+    }
+}
+
+static class ApplicationActor
+{
+    public static (Uuid MemberId, string Display) From<T>(IRequestContext<T> context)
+        where T : IRequestBase
+    {
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : throw new InvalidOperationException("ApplicationInventoryAuthorizer must reject this actor.");
+        var tenantId = ((IApplicationInventoryRequest)context.Request).TenantId;
+        return (RbacIds.Member(tenantId, userId),
+            UserIdentityClaims.BdgrzDisplay(context.Actor, userId));
+    }
+}
+
+public sealed class DeclareApplicationHandler(IAggregateExecutor executor, TimeProvider clock)
+    : IRequestHandler<DeclareApplication, ApplicationRegistration>
+{
+    public ValueTask<Result<ApplicationRegistration>> HandleAsync(
+        IRequestContext<DeclareApplication> context, CancellationToken ct)
+    {
+        var (memberId, display) = ApplicationActor.From(context);
+        var request = context.Request;
+        return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, context.RequestId),
+            app => AggregateOutcome.CommitOnSuccess(app.Declare(request.Name, request.Purpose,
+                request.OwnerReference, memberId, display, clock.GetUtcNow())), context, ct);
+    }
+}
+
+public sealed class ReviseApplicationHandler(IAggregateExecutor executor, TimeProvider clock)
+    : IRequestHandler<ReviseApplication>
+{
+    public ValueTask<Result> HandleAsync(IRequestContext<ReviseApplication> context,
+        CancellationToken ct)
+    {
+        var (memberId, display) = ApplicationActor.From(context);
+        var request = context.Request;
+        return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, request.ApplicationId),
+            app => AggregateOutcome.CommitOnSuccess(app.Revise(request.ExpectedRevision,
+                request.Name, request.Purpose, request.OwnerReference,
+                memberId, display, clock.GetUtcNow())), context, ct);
+    }
+}
+
+public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor, TimeProvider clock)
+    : IRequestHandler<DeclareSystemInstance, SystemInstanceRegistration>
+{
+    public ValueTask<Result<SystemInstanceRegistration>> HandleAsync(
+        IRequestContext<DeclareSystemInstance> context, CancellationToken ct)
+    {
+        var (memberId, display) = ApplicationActor.From(context);
+        var request = context.Request;
+        return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, request.ApplicationId),
+            app => AggregateOutcome.CommitOnSuccess(app.DeclareInstance(
+                request.ExpectedApplicationRevision, context.RequestId,
+                request.Name, request.Kind, request.AccessBoundaryReference,
+                request.SourceIdentifier,
+                memberId, display, clock.GetUtcNow())), context, ct);
+    }
+}
+
+public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
+    IAggregateReader reader) : IRequestHandler<GetApplication, ApplicationView>
+{
+    public async ValueTask<Result<ApplicationView>> HandleAsync(
+        IRequestContext<GetApplication> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (request.MinimumRevision is < 1)
+            return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum application revision must be positive."));
+        var view = await directory.GetAsync(request.TenantId, request.ApplicationId, ct)
+            .ConfigureAwait(false);
+        if (view is not null && (view.TenantId != request.TenantId ||
+                                 view.ApplicationId != request.ApplicationId))
+            return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The application was not found."));
+        if (request.MinimumRevision is { } minimum && (view is null || view.Revision < minimum))
+        {
+            var source = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
+                request.ApplicationId), ct).ConfigureAwait(false);
+            if (!source.IsCreated)
+                return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The application was not found."));
+            return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                source.Revision < minimum
+                    ? $"The application source has not reached revision {minimum}."
+                    : $"The application projection has not reached revision {minimum}."));
+        }
+        return view is null
+            ? Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The application was not found."))
+            : Result<ApplicationView>.Success(view);
+    }
+}
+
+public sealed class ListApplicationsHandler(IApplicationDirectoryReader directory)
+    : IRequestHandler<ListApplications, Page<ApplicationView>>
+{
+    public async ValueTask<Result<Page<ApplicationView>>> HandleAsync(
+        IRequestContext<ListApplications> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var page = await directory.ListAsync(request.TenantId,
+            Math.Clamp(request.Limit ?? 50, 1, 200), request.Cursor, ct).ConfigureAwait(false);
+        return page.Items.Any(item => item.TenantId != request.TenantId)
+            ? Result<Page<ApplicationView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The applications were not found."))
+            : Result<Page<ApplicationView>>.Success(page);
+    }
+}
+
+public sealed class GetSystemInstanceHandler(IApplicationDirectoryReader directory)
+    : IRequestHandler<GetSystemInstance, SystemInstanceView>
+{
+    public async ValueTask<Result<SystemInstanceView>> HandleAsync(
+        IRequestContext<GetSystemInstance> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var view = await directory.GetInstanceAsync(request.TenantId, request.SystemInstanceId, ct)
+            .ConfigureAwait(false);
+        return view is null || view.TenantId != request.TenantId ||
+               view.ApplicationId != request.ApplicationId ||
+               view.SystemInstanceId != request.SystemInstanceId
+            ? Result<SystemInstanceView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The system instance was not found."))
+            : Result<SystemInstanceView>.Success(view);
+    }
+}
+
+public sealed class ListSystemInstancesHandler(IApplicationDirectoryReader directory)
+    : IRequestHandler<ListSystemInstances, Page<SystemInstanceView>>
+{
+    public async ValueTask<Result<Page<SystemInstanceView>>> HandleAsync(
+        IRequestContext<ListSystemInstances> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var application = await directory.GetAsync(request.TenantId, request.ApplicationId, ct)
+            .ConfigureAwait(false);
+        if (application is null || application.TenantId != request.TenantId ||
+            application.ApplicationId != request.ApplicationId)
+            return Result<Page<SystemInstanceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The application was not found."));
+        var page = await directory.ListInstancesAsync(
+            request.TenantId, request.ApplicationId,
+            Math.Clamp(request.Limit ?? 50, 1, 200), request.Cursor, ct).ConfigureAwait(false);
+        return page.Items.Any(item => item.TenantId != request.TenantId ||
+                                      item.ApplicationId != request.ApplicationId)
+            ? Result<Page<SystemInstanceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The system instances were not found."))
+            : Result<Page<SystemInstanceView>>.Success(page);
+    }
+}

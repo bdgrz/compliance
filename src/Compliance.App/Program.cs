@@ -67,6 +67,13 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetProgramRevision>(tool => tool.ReadOnly())
         .AddMcpTool<GetProgramSetupWork>(tool => tool.ReadOnly())
+        .AddMcpTool<DeclareApplication>()
+        .AddMcpTool<ReviseApplication>(tool => tool.Idempotent())
+        .AddMcpTool<DeclareSystemInstance>()
+        .AddMcpTool<GetApplication>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplications>(tool => tool.ReadOnly())
+        .AddMcpTool<GetSystemInstance>(tool => tool.ReadOnly())
+        .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -259,6 +266,34 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
+            "/api/v1/tenants/{tenant_id}/applications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaPut<ReviseApplication>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<GetApplication, ApplicationView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplications, Page<ApplicationView>>(
+            "/api/v1/tenants/{tenant_id}/applications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaPost<DeclareSystemInstance, SystemInstanceRegistration>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<GetSystemInstance, SystemInstanceView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<ListSystemInstances, Page<SystemInstanceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

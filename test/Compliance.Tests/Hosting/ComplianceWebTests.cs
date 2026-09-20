@@ -318,6 +318,56 @@ public sealed class ComplianceWebTests
         Assert.True(list.GetProperty("responses").TryGetProperty("200", out _));
     }
 
+    [Fact]
+    public async Task ShouldDescribeManualApplicationInventoryGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var applications = paths.GetProperty("/api/v1/tenants/{tenant_id}/applications");
+        var declare = applications.GetProperty("post");
+        var declareSchema = declare.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "name", "purpose" })
+        {
+            Assert.True(declareSchema.GetProperty("properties").TryGetProperty(name, out _));
+            Assert.Contains(declareSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        }
+        Assert.True(declare.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(applications.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("200", out _));
+        var application = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}");
+        Assert.True(application.GetProperty("put").TryGetProperty("requestBody", out _));
+        Assert.Contains(application.GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() == "minimum_revision" &&
+                         parameter.GetProperty("in").GetString() == "query");
+        var instances = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances");
+        var instanceSchema = instances.GetProperty("post").GetProperty("requestBody")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "expected_application_revision", "name", "kind" })
+            Assert.Contains(instanceSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        Assert.True(instanceSchema.GetProperty("properties")
+            .TryGetProperty("source_identifier", out _));
+        Assert.True(instances.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+    }
+
     [Theory]
     [InlineData("Development")]
     [InlineData("Production")]
