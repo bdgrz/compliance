@@ -59,15 +59,30 @@ Portia commits one aggregate stream at a time, and a reactor cannot make the
 batch and Application streams one transaction.
 
 The row decision first records a durable intent with a deterministic effect ID
-derived from the source tuple and accepted decision, rather than Portia's
+derived from the batch, row, and immutable decision sequence, rather than Portia's
 reaction request ID, which can change on replay. A source-claim binding keyed
 by the exact source tuple serializes correlation: its first accepted decision
 fixes one governed Application ID, and a competing binding conflicts rather
 than creating a duplicate across batches. The claim stream first records a
 pending reservation tied to the accepted intent and target. A retry with that
-same intent resumes it; a different target conflicts. If the target effect
-fails, the reservation remains visible and cannot be released until a
-reviewed resolution verifies that no Application effect committed. The claim,
+same intent resumes it; a different target conflicts. The internal Application
+command checks its effect ID before its expected revision, so a committed
+effect whose batch outcome was lost can be recognized on replay. A transient
+or unknown failure keeps the intent pending and cannot be re-decided. A
+permanent stale-target conflict records a terminal `needs_resolution` outcome
+only after rehydrating the authoritative target Application stream, finding
+no event with that effect ID, and proving its current revision is strictly
+greater than the old expected revision. Because Application revisions are
+monotonic, the old expected revision cannot later succeed. A timeout, stale
+projection, or absent batch outcome is never this proof; crash ambiguity
+remains pending until authoritative stream readback resolves it.
+An authorized human may then supersede that exact decision with a new
+expected batch revision, new target/expected Application revision or `skip`,
+and a rationale. The old decision and outcome remain immutable. The source
+claim stream transitions its reservation to the new decision only after the
+terminal nonapplied proof; the reactor checks the current reservation before
+each effect. A competing target otherwise conflicts. A failure without a
+terminal nonapplied proof never releases a claim. The claim,
 Application, and batch commits are separate; neither the reservation nor a
 later `bound` state makes them atomic. A tenant-scoped reactor
 applies the intent through a distinct internal import-effect command and
@@ -78,8 +93,9 @@ the original importing member's attribution as well as the named system actor.
 Its target Application ID is stable across retry and re-import. It then records
 the row outcome. A crash after the Application commit but before the outcome
 is retried against the same identity and completed without a second
-Application. A conflict with a changed target is visible and requires a new
-human decision; it is never silently rematched. An accepted row is visible
+Application. A conflict with a changed target is visible and requires the
+explicit superseding decision above; it is never silently rematched. A
+`create` or `link_existing` row is visible
 only after its own Application command commits. A failed or canceled batch
 with **no accepted row decisions** leaves no active Application. If rows were
 explicitly accepted earlier, those committed records remain attributable;

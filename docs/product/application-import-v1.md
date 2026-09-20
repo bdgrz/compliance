@@ -90,6 +90,7 @@ that ID returns 409. The response is:
   "resolution": "link_existing",
   "target_application_id": "018f0ed4-5d29-7e91-86bb-31a137fd6a6f",
   "expected_application_revision": 2,
+  "supersedes_decision_id": null,
   "rationale": "Same operated application under an older label"
 }
 ```
@@ -111,12 +112,23 @@ authorized, reviewed Application revision with its own expected revision.
 Which fields and source authority can support that adoption remains a product
 decision under M0-D28 and M0-D05. A pending source-claim reservation tied to
 another target is a visible conflict, not an automatic rematch.
-Invalid, duplicate, already decided, or ambiguously matched rows cannot be
-applied. A repeated identical decision returns the same receipt. The receipt
+Invalid, duplicate, already applied, or ambiguously matched rows cannot be
+applied. An outstanding effect cannot be replaced. A row in `needs_resolution`
+may receive a new decision only with `supersedes_decision_id` identifying its
+exact prior decision, current `expected_batch_revision`, a new target and
+expected target revision when applicable, and a rationale. The prior decision
+and failure remain in immutable history. The worker may mark
+`needs_resolution` only after an authoritative target Application stream read
+finds no prior effect ID and a current revision strictly beyond the prior
+expected revision. A timeout or lagging projection cannot prove this. The
+source-claim reservation transitions to the new decision only after that
+terminal nonapplied proof; otherwise the old intent remains pending. A
+repeated identical decision returns the same receipt. The receipt
 contains `decision_id`, `batch_id`, `row_id`, `revision`, and `state` (`pending`,
 `applied`, or `skipped`); it does not claim an Application is active while its
 reactor intent remains pending. The row status query supplies the eventual
-`application_id` and any recoverable failure.
+`application_id` and any recoverable failure. Decision IDs and effect IDs are
+stable across reactor replay, independent of Portia reaction request IDs.
 
 `CancelApplicationImport` body has `expected_batch_revision` and a nonblank
 `reason`. Cancellation before acceptance leaves no active Application. If
@@ -148,8 +160,10 @@ that batch and never published before authorization or a freshness check.
 
 `ApplicationImportRowView` includes `tenant_id`, `batch_id`, `row_id`,
 `row_number`, `source_record_id`, original `name`, `purpose`, and
-`owner_reference`, validation findings, decision and processing state,
+`owner_reference`, validation findings, current decision and processing state,
 `application_id` when linked, and attributable decision/observation times.
+The row can report `needs_resolution`; its decision history retains every
+superseded intent and terminal nonapplied result.
 `ApplicationImportPreviewRow` adds `match_state` (`new`, `unchanged`,
 `changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
 candidate Application IDs, changed field names, and `acceptance_blockers`.
@@ -169,13 +183,15 @@ claiming no match; otherwise it reports a retryable 409.
 | No authenticated Bdgrz identity | 401 |
 | Member lacks interim inventory grant or tenant is suspended | 403 |
 | Unknown tenant to nonmember, missing batch/row, or wrong-tenant ID | 404 with no existence/count disclosure |
-| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, or state transition conflict | 409 |
+| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, pending prior effect, or state transition conflict | 409 |
 | Requested revision not yet projected or worker intent still pending where a completed result was requested | 409, `transient: true` where retry can resolve it |
 | Body exceeds Portia JSON limit / unsupported media type | 413 / 415 |
 
 Focused tests must prove exact content replay and changed-content conflict;
 duplicate source IDs; no active Application before explicit row acceptance;
 idempotent create/link retry after worker failure; stale target revisions;
+authoritative nonapplied proof followed by a superseding human decision, with
+every prior decision retained; no supersession on timeout or projection lag;
 declared-complete missing rows without deletion; cancellation before and
 after accepted decisions; cross-tenant non-disclosure for batch IDs, rows,
 counts and MCP; source/projection lag; and standalone/split API-worker parity.
