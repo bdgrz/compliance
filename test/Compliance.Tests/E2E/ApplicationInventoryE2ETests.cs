@@ -80,12 +80,86 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         Assert.True(firstProjected);
+        var programId = await CreateProgramAsync(owner, tenant.TenantId);
         await worker.StopAsync();
+        using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(
+            $"{applicationsPath}/{first.ApplicationId}/system_instances", new
+            {
+                expected_application_revision = 1,
+                name = "Payroll production",
+                kind = "production",
+                source_identifier = "payroll-prod",
+            });
+        Assert.Equal(HttpStatusCode.OK, unprojectedInstanceResponse.StatusCode);
+        var unprojectedInstance = await unprojectedInstanceResponse.Content
+            .ReadFromJsonAsync<SystemInstanceRegistrationDocument>();
+        Assert.NotNull(unprojectedInstance);
+        var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
+        var instanceContent = BoundaryContent("system_instance",
+            unprojectedInstance.SystemInstanceId);
+        using var laggingReference = await owner.PostAsJsonAsync(boundaryPath,
+            new { content = instanceContent });
+        Assert.Equal(HttpStatusCode.Conflict, laggingReference.StatusCode);
         using var restarted = BuildWorker(applicationName);
         await restarted.StartAsync();
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         try
         {
+            var instanceProjected = false;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await owner.GetAsync(
+                    $"{applicationsPath}/{first.ApplicationId}/system_instances/" +
+                    unprojectedInstance.SystemInstanceId);
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    instanceProjected = true;
+                    break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.True(instanceProjected);
+            using var linked = await owner.PostAsJsonAsync(boundaryPath,
+                new { content = instanceContent });
+            Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
+            var linkedBoundary = await linked.Content
+                .ReadFromJsonAsync<BoundaryRegistrationDocument>();
+            Assert.NotNull(linkedBoundary);
+            using var wrongRecordType = await owner.PostAsJsonAsync(boundaryPath,
+                new { content = BoundaryContent("system_instance", first.ApplicationId) });
+            using var absentRecord = await owner.PostAsJsonAsync(boundaryPath,
+                new { content = BoundaryContent("system_instance", Guid.NewGuid()) });
+            Assert.Equal(HttpStatusCode.Conflict, wrongRecordType.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, absentRecord.StatusCode);
+            const string missingReference =
+                "The governed system instance reference is unavailable in this tenant.";
+            Assert.Contains(missingReference,
+                await wrongRecordType.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            Assert.Contains(missingReference,
+                await absentRecord.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var boundaryProjected = false;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await owner.GetAsync(
+                    $"/api/v1/tenants/{tenant.TenantId}/boundaries/{linkedBoundary.BoundaryId}");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    boundaryProjected = true;
+                    break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.True(boundaryProjected);
+            await using (var mcp = await McpScenario.ConnectAsync(owner,
+                             new Uri(owner.BaseAddress!, "/mcp")))
+            {
+                _ = await mcp.When("bdgrz.boundary.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["boundary_id"] = linkedBoundary.BoundaryId,
+                }).ExpectSuccess();
+            }
             using var secondResponse = await owner.PostAsJsonAsync(applicationsPath, new
             {
                 name = "Benefits",
@@ -172,6 +246,60 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         return builder.Build();
     }
+
+    static async Task<Guid> CreateProgramAsync(HttpClient owner, Guid tenantId)
+    {
+        var path = $"/api/v1/tenants/{tenantId}/programs";
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.PostAsJsonAsync(path, new
+            {
+                name = "Application boundary program",
+                plan = new
+                {
+                    target_readiness_date = "2027-01-31",
+                    target_type_i_as_of_date = "2027-03-31",
+                    target_type_ii_start_date = "2027-04-01",
+                    target_type_ii_end_date = "2028-03-31",
+                    readiness_advisor = "Advisor",
+                    audit_firm = (string?)null,
+                },
+            });
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var program = await response.Content
+                    .ReadFromJsonAsync<ProgramRegistrationDocument>();
+                Assert.NotNull(program);
+                return program.ProgramId;
+            }
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("Program creation remained unauthorized after bootstrap.");
+    }
+
+    static object BoundaryContent(string subjectType, Guid governedRecordId) => new
+    {
+        statement = "Declared application inventory boundary.",
+        engagement_stage = "readiness",
+        trust_services_categories = new[] { "security" },
+        entries = new[]
+        {
+            new
+            {
+                entry_id = Guid.NewGuid(),
+                kind = "inclusion",
+                subject_type = subjectType,
+                subject = "Payroll production",
+                governed_record_id = governedRecordId,
+                owner_reference = "Operations",
+                rationale = "Declared as in scope; ownership and classification remain unresolved.",
+                unresolved = false,
+            },
+        },
+    };
 
     [Fact]
     public async Task ShouldDeclareApplicationAndSystemInstanceGivenAuthorizedBrokerHost()
@@ -314,6 +442,17 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Contains("source_identifier_unverified", projected.Unresolved);
         using var deniedInstance = await outsider.GetAsync(instancePath);
         Assert.Equal(HttpStatusCode.NotFound, deniedInstance.StatusCode);
+        var programId = await CreateProgramAsync(owner, tenant.TenantId);
+        var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
+        using var applicationBoundary = await owner.PostAsJsonAsync(boundaryPath,
+            new { content = BoundaryContent("application", registration.ApplicationId) });
+        using var instanceBoundary = await owner.PostAsJsonAsync(boundaryPath,
+            new { content = BoundaryContent("system_instance", instance.SystemInstanceId) });
+        Assert.Equal(HttpStatusCode.OK, applicationBoundary.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, instanceBoundary.StatusCode);
+        using var deniedBoundary = await outsider.PostAsJsonAsync(boundaryPath,
+            new { content = BoundaryContent("system_instance", instance.SystemInstanceId) });
+        Assert.Equal(HttpStatusCode.NotFound, deniedBoundary.StatusCode);
         using var otherTenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Other application tenant",
@@ -353,9 +492,31 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             $"{otherApplicationsPath}/{registration.ApplicationId}/system_instances/{instance.SystemInstanceId}");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantApplication.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantInstance.StatusCode);
+        var otherProgramId = await CreateProgramAsync(owner, otherTenant.TenantId);
+        var otherBoundaryPath = $"/api/v1/tenants/{otherTenant.TenantId}/programs/" +
+            $"{otherProgramId}/boundaries";
+        using var foreignApplication = await owner.PostAsJsonAsync(otherBoundaryPath,
+            new { content = BoundaryContent("application", registration.ApplicationId) });
+        using var foreignInstance = await owner.PostAsJsonAsync(otherBoundaryPath,
+            new { content = BoundaryContent("system_instance", instance.SystemInstanceId) });
+        using var absentInstance = await owner.PostAsJsonAsync(otherBoundaryPath,
+            new { content = BoundaryContent("system_instance", Guid.NewGuid()) });
+        Assert.Equal(HttpStatusCode.Conflict, foreignApplication.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, foreignInstance.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, absentInstance.StatusCode);
+        const string missingReference =
+            "The governed system instance reference is unavailable in this tenant.";
+        Assert.Contains(missingReference,
+            await foreignInstance.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Contains(missingReference,
+            await absentInstance.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] Guid TenantId);
+    sealed record ProgramRegistrationDocument(
+        [property: JsonPropertyName("program_id")] Guid ProgramId);
+    sealed record BoundaryRegistrationDocument(
+        [property: JsonPropertyName("boundary_id")] Guid BoundaryId);
     sealed record ApplicationRegistrationDocument(
         [property: JsonPropertyName("application_id")] Guid ApplicationId);
     sealed record ApplicationDocument(

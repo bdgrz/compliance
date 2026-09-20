@@ -16,6 +16,7 @@ public sealed class DeclaredApplication : Aggregate
 
     public bool IsCreated => _created;
     public long Revision => _revision;
+    public bool HasInstance(Uuid instanceId) => _created && _instances.ContainsKey(instanceId);
 
     public DeclaredApplication(Uuid tenantId, Uuid applicationId)
         : base(applicationId, new EventStreamAddress(tenantId.ToString(), "applications",

@@ -67,6 +67,8 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzApplicationDirectory>());
         services.AddScoped<IApplicationDirectoryReader>(provider =>
             provider.GetRequiredService<FitzApplicationDirectory>());
+        services.AddScoped<IApplicationInventoryActivity,
+            EventSourcedApplicationInventoryActivity>();
         services.AddScoped<IProgramDirectoryProjection>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
