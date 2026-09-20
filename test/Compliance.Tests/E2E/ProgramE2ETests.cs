@@ -125,6 +125,12 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 using var currentSplitRevision = await owner.GetAsync(
                     $"{programPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.OK, currentSplitRevision.StatusCode);
+                using var currentSetupRevision = await owner.GetAsync(
+                    $"{programPath}/setup-work?minimum_program_revision=2");
+                using var futureSetupRevision = await owner.GetAsync(
+                    $"{programPath}/setup-work?minimum_program_revision=3");
+                Assert.Equal(HttpStatusCode.OK, currentSetupRevision.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, futureSetupRevision.StatusCode);
 
                 var servicesPath = $"/api/v1/tenants/{tenant.TenantId}/client-services";
                 using var serviceCreated = await owner.PostAsJsonAsync(
@@ -212,6 +218,13 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                     $"{boundaryPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.OK, currentBoundaryRevision.StatusCode);
                 Assert.Equal(HttpStatusCode.Conflict, futureBoundaryRevision.StatusCode);
+                var setupAnchor = $"{programPath}/setup-work?boundary_id={boundary.BoundaryId}";
+                using var currentBoundarySetup = await owner.GetAsync(
+                    $"{setupAnchor}&minimum_boundary_revision=1");
+                using var futureBoundarySetup = await owner.GetAsync(
+                    $"{setupAnchor}&minimum_boundary_revision=2");
+                Assert.Equal(HttpStatusCode.OK, currentBoundarySetup.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, futureBoundarySetup.StatusCode);
                 ProgramSetupDocument? draftSetup = null;
                 while (DateTimeOffset.UtcNow < deadline)
                 {
@@ -275,6 +288,10 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
                 var otherProgram = await otherProgramCreated.Content
                     .ReadFromJsonAsync<ProgramRegistrationDocument>();
                 Assert.NotNull(otherProgram);
+                using var unrelatedBoundarySetup = await owner.GetAsync(
+                    $"{path}/{otherProgram.ProgramId}/setup-work?boundary_id={boundary.BoundaryId}" +
+                    "&minimum_boundary_revision=1");
+                Assert.Equal(HttpStatusCode.NotFound, unrelatedBoundarySetup.StatusCode);
                 using var crossProgramBoundary = await owner.PostAsJsonAsync(
                     $"{path}/{otherProgram.ProgramId}/boundaries", new
                     {
@@ -390,10 +407,23 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, setupResponse.StatusCode);
         var setup = await setupResponse.Content.ReadFromJsonAsync<ProgramSetupDocument>();
         Assert.Contains(setup?.Items ?? [], item => item.Code == "define_system_boundary");
+        using var invalidSetupRevision = await owner.GetAsync(
+            $"{programPath}/setup-work?minimum_program_revision=0");
+        using var unpairedBoundaryRevision = await owner.GetAsync(
+            $"{programPath}/setup-work?minimum_boundary_revision=1");
+        using var missingBoundaryRevision = await owner.GetAsync(
+            $"{programPath}/setup-work?boundary_id={Uuid.CreateVersion4()}" +
+            "&minimum_boundary_revision=1");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidSetupRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, unpairedBoundaryRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missingBoundaryRevision.StatusCode);
         using var deniedSetup = await outsider.GetAsync($"{programPath}/setup-work");
+        using var deniedFreshSetup = await outsider.GetAsync(
+            $"{programPath}/setup-work?minimum_program_revision=1");
         using var missingSetup = await outsider.GetAsync($"{path}/{Uuid.CreateVersion4()}/setup-work");
         Assert.Equal(HttpStatusCode.NotFound, deniedSetup.StatusCode);
         Assert.Equal(deniedSetup.StatusCode, missingSetup.StatusCode);
+        Assert.Equal(deniedSetup.StatusCode, deniedFreshSetup.StatusCode);
         var setupToolInput = new Dictionary<string, object?>
         {
             ["tenant_id"] = tenantId,

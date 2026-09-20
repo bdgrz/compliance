@@ -12,5 +12,7 @@ public sealed record ProgramSetupWorkView(Uuid TenantId, Uuid ProgramId,
 
 [Discriminator("bdgrz.program.setup-work.get", 1)]
 public sealed record GetProgramSetupWork(Uuid TenantId, Uuid ProgramId,
-    int? BoundaryLimit = null, string? BoundaryCursor = null)
+    int? BoundaryLimit = null, string? BoundaryCursor = null,
+    long? MinimumProgramRevision = null, Uuid? BoundaryId = null,
+    long? MinimumBoundaryRevision = null)
     : IRequest<ProgramSetupWorkView>, ITenantAccessRequest, ICallable;

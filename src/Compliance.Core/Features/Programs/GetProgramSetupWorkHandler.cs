@@ -4,18 +4,60 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Programs;
 
 public sealed class GetProgramSetupWorkHandler(IProgramDirectoryReader programs,
-    IBoundaryDirectoryReader boundaries)
+    IBoundaryDirectoryReader boundaries, IAggregateReader reader)
     : IRequestHandler<GetProgramSetupWork, ProgramSetupWorkView>
 {
     public async ValueTask<Result<ProgramSetupWorkView>> HandleAsync(
         IRequestContext<GetProgramSetupWork> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.MinimumProgramRevision is < 1 ||
+            request.MinimumBoundaryRevision is < 1 ||
+            (request.BoundaryId is null) != (request.MinimumBoundaryRevision is null) ||
+            request.BoundaryId == Uuid.Empty)
+            return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Validation,
+                "A revision expectation must be positive and identify its boundary."));
+
         var program = await programs.GetAsync(request.TenantId, request.ProgramId, ct)
             .ConfigureAwait(false);
+        if (request.MinimumProgramRevision is { } programRevision &&
+            (program is null || program.Revision < programRevision))
+        {
+            var current = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
+                request.ProgramId), ct).ConfigureAwait(false);
+            if (!current.IsCreated)
+                return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The program was not found."));
+            return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                current.Revision < programRevision
+                    ? $"The program source has not reached revision {programRevision}."
+                    : $"The program projection has not reached revision {programRevision}."));
+        }
         if (program is null)
             return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
+
+        if (request.BoundaryId is { } boundaryId &&
+            request.MinimumBoundaryRevision is { } boundaryRevision)
+        {
+            var boundary = await boundaries.GetAsync(request.TenantId, boundaryId, ct)
+                .ConfigureAwait(false);
+            if (boundary is null || boundary.Revision < boundaryRevision)
+            {
+                var current = await reader.HydrateAsync(new SystemBoundary(request.TenantId,
+                    boundaryId), ct).ConfigureAwait(false);
+                if (!current.IsCreated || !current.IsVisible || current.ProgramId != request.ProgramId)
+                    return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                        "The boundary was not found."));
+                return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    current.Revision < boundaryRevision
+                        ? $"The boundary source has not reached revision {boundaryRevision}."
+                        : $"The boundary projection has not reached revision {boundaryRevision}."));
+            }
+            if (boundary.ProgramId != request.ProgramId)
+                return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The boundary was not found."));
+        }
 
         var work = new List<ProgramSetupWorkItem>();
         var page = await boundaries.ListProgramAsync(request.TenantId, request.ProgramId,
