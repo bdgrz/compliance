@@ -29,10 +29,15 @@ JSON bytes. The three prefixes are `bdgrz.snapshot.source.program_revision.v1`,
 
 The format version and canonical manifest bytes are retained with the snapshot,
 so its stored manifest digest can be verified without reconstructing sources.
-The source digests bind the manifest to immutable source revisions. A later
-regeneration path must resolve exact source versions, apply the original v1
-canonicalizer, compare source digests, and fail on missing or changed content;
-that regeneration verification is not implemented by this thin spike.
+The source digests bind the manifest to immutable source revisions. The
+read-only verification operation resolves the exact Program revision and
+approved Boundary version in tenant-scoped Fitz directories, checks their
+canonical v1 digests, and reports `verified`, `missing`, `lag`, or
+`digest_mismatch` for each source. It also compares the projected snapshot
+against its event-sourced manifest. Overall `verified` is true only when all
+three checks pass. A later package regeneration operation must consume this
+result and fail on any other status; package regeneration itself is not
+implemented by this slice.
 
 An amendment is a new snapshot linked to its immediate predecessor and root,
 with an attributable reason. The original and every intermediate manifest stay

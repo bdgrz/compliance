@@ -264,6 +264,151 @@ public sealed class ScopeSnapshotTests
         Assert.Null(foreign);
     }
 
+    [Fact]
+    public async Task ShouldReportExactSourceStateGivenSnapshotVerification()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var versionId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var plan = new ProgramPlan(null, null, null, null, null, null);
+        var program = new ComplianceProgram(tenantId, programId);
+        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
+            actorId, "Lead", now);
+        var boundary = new SystemBoundary(tenantId, boundaryId);
+        var content = new BoundaryContent("Scope", "readiness", ["security"], []);
+        Assert.True(boundary.Create(programId, versionId, content, actorId, "Lead", now).IsSuccess);
+        var decisionId = Uuid.CreateVersion4();
+        Assert.True(boundary.Review(versionId, 1, decisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now).IsSuccess);
+        Assert.True(boundary.Approve(versionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now)
+            .IsSuccess);
+        var boundaryVersion = new BoundaryVersionView(tenantId, boundaryId, programId,
+            versionId, 1, content, "approved", new DateOnly(2027, 1, 1), actorId,
+            "Lead", now);
+        var manifest = new ProgramScopeManifest(1, tenantId, programId, 1,
+            SnapshotContentIdentity.ProgramRevision(programRevision), boundaryId, versionId,
+            SnapshotContentIdentity.ApprovedBoundaryVersion(boundaryVersion));
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var snapshot = new ImmutableSnapshot(tenantId, snapshotId);
+        Assert.True(snapshot.Freeze(snapshotId, null, programId, manifest, json, digest,
+            null, actorId, "Lead", now).IsSuccess);
+        var view = new SnapshotView(tenantId, snapshotId, snapshotId, null, programId,
+            "program_scope", 1, manifest, json, digest, null, actorId, "Lead", now);
+
+        async Task<ProgramScopeSnapshotVerification> VerifyAsync(SnapshotView? projectedSnapshot,
+            ProgramRevisionView? projectedProgram, BoundaryVersionView? projectedBoundary,
+            ComplianceProgram? programSource = null, SystemBoundary? boundarySource = null)
+        {
+            var handler = new VerifyProgramScopeSnapshotHandler(
+                new SnapshotDirectoryStub(projectedSnapshot),
+                new OptionalProgramRevisionReader(projectedProgram),
+                new LaggingBoundaryDirectory(projectedBoundary),
+                new VerificationSourcesReader(snapshot, programSource ?? program,
+                    boundarySource ?? boundary));
+            var result = await handler.HandleAsync(
+                new SnapshotRequestContext<VerifyProgramScopeSnapshot>(
+                    new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
+            return Assert.IsType<ProgramScopeSnapshotVerification>(result.Value);
+        }
+
+        // Act
+        var verified = await VerifyAsync(view, programRevision, boundaryVersion);
+        var lag = await VerifyAsync(null, null, null);
+        var digestMismatch = await VerifyAsync(view with { CanonicalManifest = json + " " },
+            programRevision with { Name = "Changed" },
+            boundaryVersion with { Content = content with { Statement = "Changed" } });
+        var changedReason = await VerifyAsync(view with { AmendmentReason = "Changed" },
+            programRevision, boundaryVersion);
+        var changedActor = await VerifyAsync(view with { ActorMemberId = reviewerId },
+            programRevision, boundaryVersion);
+        var changedDisplay = await VerifyAsync(view with { ActorDisplay = "Changed" },
+            programRevision, boundaryVersion);
+        var changedFreezeTime = await VerifyAsync(view with { FrozenAt = now.AddMinutes(1) },
+            programRevision, boundaryVersion);
+        var staleApproval = await VerifyAsync(view, programRevision,
+            boundaryVersion with { Status = "draft" });
+        var missing = await VerifyAsync(view, programRevision, boundaryVersion,
+            new ComplianceProgram(tenantId, programId),
+            new SystemBoundary(tenantId, boundaryId));
+        var inconsistent = await VerifyAsync(view,
+            programRevision with { ProgramId = Uuid.CreateVersion4() },
+            boundaryVersion with { TenantId = Uuid.CreateVersion4() });
+
+        // Assert
+        Assert.True(verified.Verified);
+        Assert.Equal("verified", verified.Snapshot.Status);
+        Assert.Equal("verified", verified.ProgramRevision.Status);
+        Assert.Equal("verified", verified.ApprovedBoundaryVersion.Status);
+        Assert.False(lag.Verified);
+        Assert.Equal("lag", lag.Snapshot.Status);
+        Assert.Equal("lag", lag.ProgramRevision.Status);
+        Assert.Equal("lag", lag.ApprovedBoundaryVersion.Status);
+        Assert.False(digestMismatch.Verified);
+        Assert.Equal("digest_mismatch", digestMismatch.Snapshot.Status);
+        Assert.Equal("digest_mismatch", digestMismatch.ProgramRevision.Status);
+        Assert.Equal("digest_mismatch", digestMismatch.ApprovedBoundaryVersion.Status);
+        Assert.All([changedReason, changedActor, changedDisplay, changedFreezeTime],
+            result =>
+            {
+                Assert.False(result.Verified);
+                Assert.Equal("digest_mismatch", result.Snapshot.Status);
+            });
+        Assert.Equal("lag", staleApproval.ApprovedBoundaryVersion.Status);
+        Assert.False(missing.Verified);
+        Assert.Equal("missing", missing.ProgramRevision.Status);
+        Assert.Equal("missing", missing.ApprovedBoundaryVersion.Status);
+        Assert.False(inconsistent.Verified);
+        Assert.Equal("digest_mismatch", inconsistent.ProgramRevision.Status);
+        Assert.Equal("digest_mismatch", inconsistent.ApprovedBoundaryVersion.Status);
+        Assert.Null(inconsistent.ProgramRevision.ObservedContentSha256);
+        Assert.Null(inconsistent.ApprovedBoundaryVersion.ObservedContentSha256);
+        Assert.Equal(digest, verified.Snapshot.ExpectedContentSha256);
+        Assert.Equal(manifest.ProgramContentSha256,
+            verified.ProgramRevision.ObservedContentSha256);
+    }
+
+    [Fact]
+    public async Task ShouldReportDigestMismatchGivenCorruptSnapshotSourceAndProjectionLag()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var source = new ImmutableSnapshot(tenantId, snapshotId);
+        new AggregateScenario<ImmutableSnapshot>(source).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, snapshotId, snapshotId, null, programId,
+                "program_scope", manifest, json + " ", digest, null,
+                Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow), snapshotId, 1));
+        var handler = new VerifyProgramScopeSnapshotHandler(
+            new SnapshotDirectoryStub(null), new OptionalProgramRevisionReader(null),
+            new LaggingBoundaryDirectory(null),
+            new VerificationSourcesReader(source,
+                new ComplianceProgram(tenantId, programId),
+                new SystemBoundary(tenantId, manifest.BoundaryId)));
+
+        // Act
+        var result = await handler.HandleAsync(
+            new SnapshotRequestContext<VerifyProgramScopeSnapshot>(
+                new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
+
+        // Assert
+        var verification = Assert.IsType<ProgramScopeSnapshotVerification>(result.Value);
+        Assert.False(verification.Verified);
+        Assert.Equal("digest_mismatch", verification.Snapshot.Status);
+        Assert.Equal("missing", verification.ProgramRevision.Status);
+        Assert.Equal("missing", verification.ApprovedBoundaryVersion.Status);
+    }
+
     static ProgramScopeManifest Manifest(Uuid tenantId, Uuid programId) =>
         new(1, tenantId, programId, 1, new string('a', 64), Uuid.CreateVersion4(),
             Uuid.CreateVersion4(), new string('b', 64));
@@ -306,6 +451,35 @@ public sealed class ScopeSnapshotTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
             Uuid programId, long requestedRevision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(revision);
+    }
+
+    sealed class OptionalProgramRevisionReader(ProgramRevisionView? revision)
+        : IProgramDirectoryReader
+    {
+        public ValueTask<ProgramView?> GetAsync(Uuid tenantId, Uuid programId,
+            CancellationToken ct = default) => throw new NotImplementedException();
+        public ValueTask<Page<ProgramView>> ListAsync(Uuid tenantId, int limit,
+            string? cursor, CancellationToken ct = default) => throw new NotImplementedException();
+        public ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId,
+            Uuid programId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid programId, long requestedRevision, CancellationToken ct = default) =>
+            ValueTask.FromResult(revision);
+    }
+
+    sealed class VerificationSourcesReader(ImmutableSnapshot snapshot, ComplianceProgram program,
+        SystemBoundary boundary) : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult((TAggregate)(Aggregate)(aggregate switch
+            {
+                ImmutableSnapshot => snapshot,
+                ComplianceProgram => program,
+                SystemBoundary => boundary,
+                _ => throw new NotSupportedException(),
+            }));
     }
 
     sealed class LaggingBoundaryDirectory(BoundaryVersionView? version)

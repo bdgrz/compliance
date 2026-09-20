@@ -208,6 +208,9 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                 var original = await WaitForAsync(owner,
                     $"{snapshotPath}?minimum_revision=1",
                     static view => view.GetProperty("revision").GetInt64() == 1);
+                var verificationPath = $"{snapshotPath}/verification";
+                var verification = await WaitForAsync(owner, verificationPath,
+                    static view => view.GetProperty("verified").GetBoolean());
 
                 // Assert
                 Assert.Equal(64, originalDigest.Length);
@@ -215,6 +218,12 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                 Assert.Equal(1, original.GetProperty("manifest")
                     .GetProperty("program_revision").GetInt64());
                 Assert.Equal(originalDigest, original.GetProperty("content_sha256").GetString());
+                Assert.Equal("verified", verification.GetProperty("snapshot")
+                    .GetProperty("status").GetString());
+                Assert.Equal("verified", verification.GetProperty("program_revision")
+                    .GetProperty("status").GetString());
+                Assert.Equal("verified", verification.GetProperty("approved_boundary_version")
+                    .GetProperty("status").GetString());
                 using var listedResponse = await owner.GetAsync(
                     $"{programPath}/scope_snapshots");
                 Assert.Equal(HttpStatusCode.OK, listedResponse.StatusCode);
@@ -222,12 +231,26 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                 Assert.Contains(listed.GetProperty("items").EnumerateArray(), item =>
                     item.GetProperty("snapshot_id").GetString() == snapshotId);
                 using var deniedRead = await outsider.GetAsync(snapshotPath);
+                using var deniedVerification = await outsider.GetAsync(verificationPath);
                 using var deniedList = await outsider.GetAsync(
                     $"{programPath}/scope_snapshots");
                 using var deniedFreeze = await outsider.PostAsJsonAsync(freezePath, freezeBody);
                 Assert.Equal(HttpStatusCode.NotFound, deniedRead.StatusCode);
+                Assert.Equal(deniedRead.StatusCode, deniedVerification.StatusCode);
                 Assert.Equal(deniedRead.StatusCode, deniedList.StatusCode);
                 Assert.Equal(deniedRead.StatusCode, deniedFreeze.StatusCode);
+                using var secondTenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants",
+                    new
+                    {
+                        name = "Second snapshot tenant",
+                        slug = $"snapshot-other-{Guid.NewGuid():N}"[..24],
+                    });
+                Assert.Equal(HttpStatusCode.OK, secondTenantResponse.StatusCode);
+                var secondTenant = await ReadAsync(secondTenantResponse);
+                var secondTenantId = secondTenant.GetProperty("tenant_id").GetString()!;
+                using var foreignRealm = await owner.GetAsync(
+                    $"/api/v1/tenants/{secondTenantId}/scope_snapshots/{snapshotId}/verification");
+                Assert.Equal(HttpStatusCode.NotFound, foreignRealm.StatusCode);
                 using var future = await owner.GetAsync($"{snapshotPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
                 using var invalid = await owner.GetAsync($"{snapshotPath}?minimum_revision=0");
@@ -243,6 +266,12 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                                  new Uri(owner.BaseAddress!, "/mcp")))
                 {
                     _ = await ownerMcp.When("bdgrz.snapshot.get", input).ExpectSuccess();
+                    _ = await ownerMcp.When("bdgrz.snapshot.program_scope.verify",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectSuccess();
                     _ = await ownerMcp.When("bdgrz.snapshot.program_scope.freeze",
                         new Dictionary<string, object?>
                         {
@@ -257,6 +286,12 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                                  new Uri(outsider.BaseAddress!, "/mcp")))
                 {
                     _ = await outsiderMcp.When("bdgrz.snapshot.get", input).ExpectFailure();
+                    _ = await outsiderMcp.When("bdgrz.snapshot.program_scope.verify",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectFailure();
                     _ = await outsiderMcp.When("bdgrz.snapshot.program_scope.freeze",
                         new Dictionary<string, object?>
                         {
@@ -299,6 +334,10 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.OK, originalAgain.StatusCode);
                 var unchanged = await ReadAsync(originalAgain);
                 Assert.Equal(originalDigest, unchanged.GetProperty("content_sha256").GetString());
+                using var verifiedAfterAmendment = await owner.GetAsync(verificationPath);
+                Assert.Equal(HttpStatusCode.OK, verifiedAfterAmendment.StatusCode);
+                Assert.True((await ReadAsync(verifiedAfterAmendment))
+                    .GetProperty("verified").GetBoolean());
             }
         }
         finally

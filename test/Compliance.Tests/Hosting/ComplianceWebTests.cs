@@ -301,6 +301,14 @@ public sealed class ComplianceWebTests
             parameter.GetProperty("in").GetString() == "query");
         Assert.True(get.GetProperty("responses").TryGetProperty("200", out _));
 
+        var verification = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+            .GetProperty("get");
+        Assert.True(verification.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(verification.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "snapshot_id" &&
+            parameter.GetProperty("in").GetString() == "path");
+
         var list = paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
             .GetProperty("get");
