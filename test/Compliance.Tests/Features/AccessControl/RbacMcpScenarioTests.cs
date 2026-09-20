@@ -91,6 +91,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.tenant.reactivate",
             "bdgrz.tenant-member.invite",
             "bdgrz.organization-member.invite",
+            "bdgrz.tenant-invitation.list",
             "bdgrz.tenant.get",
             "bdgrz.tenant-member.list",
             "bdgrz.tenant.change-slug",

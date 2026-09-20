@@ -56,6 +56,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
         services.AddScoped<ITenantMembershipDirectoryReader>(
             provider => provider.GetRequiredService<FitzTenantMembershipDirectoryReader>());
+        services.AddScoped<FitzTenantInvitationDirectory>();
+        services.AddScoped<ITenantInvitationDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzTenantInvitationDirectory>());
+        services.AddScoped<ITenantInvitationDirectoryReader>(
+            provider => provider.GetRequiredService<FitzTenantInvitationDirectory>());
         services.AddScoped<FitzProgramDirectory>();
         services.AddScoped<IProgramDirectoryProjection>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
@@ -158,6 +163,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
             .AddRequestHandler<InviteOrganizationMemberHandler>()
+            .AddRequestHandler<ListTenantInvitationsHandler>()
             .AddRequestHandler<GetMemberAccessHandler>()
             .AddRequestHandler<AcceptTenantInvitationHandler>()
             .AddRequestHandler<GetTenantHandler>()
@@ -197,6 +203,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<RoleTeamDirectoryProjector>("RoleTeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
             .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
+            .AddProjector<TenantInvitationDirectoryProjector>("TenantInvitationDirectory",
+                WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)

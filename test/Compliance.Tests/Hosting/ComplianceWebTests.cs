@@ -255,6 +255,30 @@ public sealed class ComplianceWebTests
         AssertSnakeCaseJsonProperties(document.RootElement);
     }
 
+    [Fact]
+    public async Task ShouldDescribeInvitationStatusGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/tenants/{tenant_id}/member_invitations")
+            .GetProperty("get");
+        Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
+        var parameterNames = operation.GetProperty("parameters").EnumerateArray()
+            .Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
+        Assert.Contains("email_address", parameterNames);
+        Assert.DoesNotContain("expected_status", parameterNames);
+    }
+
     static void AssertSnakeCaseJsonProperties(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Array)
