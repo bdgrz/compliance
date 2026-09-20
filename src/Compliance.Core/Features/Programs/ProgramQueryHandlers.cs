@@ -46,15 +46,69 @@ public sealed class ListProgramsHandler(IProgramDirectoryReader directory)
     }
 }
 
-public sealed class ListProgramRevisionsHandler(IProgramDirectoryReader directory)
+public sealed class ProgramHistoryReadConsistency(IProgramDirectoryReader directory,
+    IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid programId,
+        long minimumRevision, CancellationToken ct)
+    {
+        if (minimumRevision < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum program revision must be positive."));
+        var view = await directory.GetAsync(tenantId, programId, ct).ConfigureAwait(false);
+        if (view is not null && view.Revision >= minimumRevision)
+            return Result.Success;
+        var source = await reader.HydrateAsync(new ComplianceProgram(tenantId, programId), ct)
+            .ConfigureAwait(false);
+        if (!source.IsCreated)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program was not found."));
+        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+            source.Revision < minimumRevision
+                ? $"The program source has not reached revision {minimumRevision}."
+                : $"The program projection has not reached revision {minimumRevision}."));
+    }
+}
+
+public sealed class GetProgramRevisionHandler(IProgramDirectoryReader directory,
+    ProgramHistoryReadConsistency consistency)
+    : IRequestHandler<GetProgramRevision, ProgramRevisionView>
+{
+    public async ValueTask<Result<ProgramRevisionView>> HandleAsync(
+        IRequestContext<GetProgramRevision> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var freshness = await consistency.EnsureAsync(request.TenantId, request.ProgramId,
+            request.Revision, ct).ConfigureAwait(false);
+        if (!freshness.IsSuccess)
+            return Result<ProgramRevisionView>.Failure(freshness.Error);
+        var revision = await directory.GetRevisionAsync(request.TenantId, request.ProgramId,
+            request.Revision, ct).ConfigureAwait(false);
+        return revision is null
+            ? Result<ProgramRevisionView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program revision was not found."))
+            : Result<ProgramRevisionView>.Success(revision);
+    }
+}
+
+public sealed class ListProgramRevisionsHandler(IProgramDirectoryReader directory,
+    ProgramHistoryReadConsistency consistency)
     : IRequestHandler<ListProgramRevisions, Page<ProgramRevisionView>>
 {
     public async ValueTask<Result<Page<ProgramRevisionView>>> HandleAsync(
         IRequestContext<ListProgramRevisions> context, CancellationToken ct)
     {
-        var page = await directory.ListRevisionsAsync(context.Request.TenantId,
-            context.Request.ProgramId, context.Request.Limit ?? 50,
-            context.Request.Cursor, ct).ConfigureAwait(false);
+        var request = context.Request;
+        if (request.MinimumProgramRevision is { } minimum)
+        {
+            var freshness = await consistency.EnsureAsync(request.TenantId, request.ProgramId,
+                minimum, ct).ConfigureAwait(false);
+            if (!freshness.IsSuccess)
+                return Result<Page<ProgramRevisionView>>.Failure(freshness.Error);
+        }
+        var page = await directory.ListRevisionsAsync(request.TenantId,
+            request.ProgramId, request.Limit ?? 50,
+            request.Cursor, ct).ConfigureAwait(false);
         return page is null
             ? Result<Page<ProgramRevisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."))

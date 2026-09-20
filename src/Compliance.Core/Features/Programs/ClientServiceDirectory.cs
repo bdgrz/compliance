@@ -13,6 +13,8 @@ public interface IClientServiceDirectoryReader
         int limit, string? cursor, CancellationToken ct = default);
     ValueTask<Page<ClientServiceRevisionView>?> ListRevisionsAsync(Uuid tenantId, Uuid serviceId,
         int limit, string? cursor, CancellationToken ct = default);
+    ValueTask<ClientServiceRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid serviceId,
+        long revision, CancellationToken ct = default);
 }
 
 public interface IClientServiceDirectoryProjection : IProjectionStore
@@ -149,5 +151,14 @@ sealed class FitzClientServiceDirectory(IKvClient client)
         return await ClientServiceDirectorySchema.Revisions.QueryAsync(tx,
             ClientServiceDirectorySchema.RevisionsByService.Query().WithPrefix(serviceId.ToString())
                 .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<ClientServiceRevisionView?> GetRevisionAsync(Uuid tenantId,
+        Uuid serviceId, long revision, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await ClientServiceDirectorySchema.Revisions.GetAsync(tx,
+            $"{serviceId}:{revision.ToString("D20", CultureInfo.InvariantCulture)}", ct)
+            .ConfigureAwait(false);
     }
 }

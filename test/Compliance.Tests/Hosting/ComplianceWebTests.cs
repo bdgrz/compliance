@@ -211,6 +211,22 @@ public sealed class ComplianceWebTests
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_program_revision");
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_service_revision");
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")
@@ -235,6 +251,63 @@ public sealed class ComplianceWebTests
         Assert.False(paths.TryGetProperty(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview",
             out _));
+    }
+
+    [Fact]
+    public async Task ShouldDescribeScopeSnapshotContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var freeze = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots")
+            .GetProperty("post");
+        var freezeSchema = freeze.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[]
+                 {
+                     "program_id", "expected_program_revision", "boundary_id",
+                     "approved_boundary_version_id",
+                 })
+        {
+            Assert.True(freezeSchema.GetProperty("properties").TryGetProperty(name, out _));
+            Assert.Contains(freezeSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        }
+        Assert.True(freeze.GetProperty("responses").TryGetProperty("409", out _));
+
+        var amendment = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+            .GetProperty("post");
+        var amendmentSchema = amendment.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        Assert.True(amendmentSchema.GetProperty("properties").TryGetProperty("reason", out _));
+        Assert.Contains(amendmentSchema.GetProperty("required").EnumerateArray(),
+            required => required.GetString() == "reason");
+        Assert.True(amendment.GetProperty("responses").TryGetProperty("200", out _));
+
+        var get = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+            .GetProperty("get");
+        Assert.Contains(get.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "minimum_revision" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.True(get.GetProperty("responses").TryGetProperty("200", out _));
+
+        var list = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+            .GetProperty("get");
+        Assert.Contains(list.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "cursor" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.True(list.GetProperty("responses").TryGetProperty("200", out _));
     }
 
     [Theory]

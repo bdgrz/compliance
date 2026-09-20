@@ -66,17 +66,25 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
+        services.AddScoped<ProgramHistoryReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
         services.AddScoped<IClientServiceDirectoryReader>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
+        services.AddScoped<ClientServiceHistoryReadConsistency>();
         services.AddScoped<IClientServiceActivity, EventSourcedClientServiceActivity>();
         services.AddScoped<FitzBoundaryDirectory>();
         services.AddScoped<IBoundaryDirectoryProjection>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
         services.AddScoped<IBoundaryDirectoryReader>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<FitzSnapshotDirectory>();
+        services.AddScoped<ISnapshotDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzSnapshotDirectory>());
+        services.AddScoped<ISnapshotDirectoryReader>(
+            provider => provider.GetRequiredService<FitzSnapshotDirectory>());
+        services.AddScoped<ScopeSnapshotFreezer>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<BoundaryImpactService>();
@@ -136,6 +144,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
             .AddRequestHandler<ListProgramRevisionsHandler>()
+            .AddRequestHandler<GetProgramRevisionHandler>()
             .AddRequestHandler<GetProgramSetupWorkHandler>()
             .AddRequestHandler<CreateClientServiceHandler>()
             .AddRequestHandler<ReviseClientServiceHandler>()
@@ -144,6 +153,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListClientServicesHandler>()
             .AddRequestHandler<ListProgramClientServicesHandler>()
             .AddRequestHandler<ListClientServiceRevisionsHandler>()
+            .AddRequestHandler<GetClientServiceRevisionHandler>()
             .AddRequestHandler<CreateBoundaryHandler>()
             .AddRequestHandler<ReviseBoundaryDraftHandler>()
             .AddRequestHandler<DiscardBoundaryDraftHandler>()
@@ -158,6 +168,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviewBoundaryHandler>()
             .AddRequestHandler<ApproveBoundaryHandler>()
             .AddRequestHandler<ProposeBoundarySuccessorHandler>()
+            .AddRequestHandler<FreezeProgramScopeSnapshotHandler>()
+            .AddRequestHandler<AmendProgramScopeSnapshotHandler>()
+            .AddRequestHandler<GetSnapshotHandler>()
+            .AddRequestHandler<ListProgramSnapshotsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
@@ -209,6 +223,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
+            .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));

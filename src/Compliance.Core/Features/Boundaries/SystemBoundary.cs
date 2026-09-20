@@ -16,6 +16,7 @@ public sealed class SystemBoundary : Aggregate
     bool _draftEverReviewed;
     Uuid _acceptedReviewDecisionId;
     Uuid _latestApprovedVersionId;
+    readonly HashSet<Uuid> _approvedVersionIds = [];
     DateOnly? _latestApprovedEffectiveFrom;
     long _revision;
 
@@ -23,6 +24,8 @@ public sealed class SystemBoundary : Aggregate
     public bool IsVisible => _draftContent is not null || _latestApprovedVersionId != Uuid.Empty;
     public Uuid ProgramId => _programId;
     public long Revision => _revision;
+    public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
+    public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
 
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))
@@ -65,6 +68,7 @@ public sealed class SystemBoundary : Aggregate
         On<BoundaryApproved>(ev =>
         {
             _revision++;
+            _approvedVersionIds.Add(ev.DraftVersionId);
             _latestApprovedVersionId = ev.DraftVersionId;
             _latestApprovedEffectiveFrom = ev.EffectiveFrom;
             _draftVersionId = Uuid.Empty;

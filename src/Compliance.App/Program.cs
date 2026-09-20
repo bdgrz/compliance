@@ -65,6 +65,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetProgramRevision>(tool => tool.ReadOnly())
         .AddMcpTool<GetProgramSetupWork>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
@@ -73,6 +74,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListClientServices>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramClientServices>(tool => tool.ReadOnly())
         .AddMcpTool<ListClientServiceRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetClientServiceRevision>(tool => tool.ReadOnly())
         .AddMcpTool<CreateBoundary>()
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
         .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
@@ -85,6 +87,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListBoundaryDecisions>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewBoundaryImpact>(tool => tool.ReadOnly())
         .AddMcpTool<ProposeBoundarySuccessor>()
+        .AddMcpTool<FreezeProgramScopeSnapshot>()
+        .AddMcpTool<AmendProgramScopeSnapshot>()
+        .AddMcpTool<GetSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -244,6 +250,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaGet<GetProgramRevision, ProgramRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Programs");
     app.MapPortiaGet<GetProgramSetupWork, ProgramSetupWorkView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -274,6 +284,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Client services");
     app.MapPortiaGet<ListClientServiceRevisions, Page<ClientServiceRevisionView>>(
             "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<GetClientServiceRevision, ClientServiceRevisionView>(
+            "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Client services");
     app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
@@ -316,6 +330,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaPost<FreezeProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaPost<AmendProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<GetSnapshot, SnapshotView>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
