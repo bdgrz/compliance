@@ -130,6 +130,11 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker)
                 };
                 using var incomplete = await owner.PostAsJsonAsync(freezePath, freezeBody);
                 Assert.Equal(HttpStatusCode.NotFound, incomplete.StatusCode);
+                using var beforeFreeze = await owner.GetAsync(
+                    $"{programPath}/scope_snapshots");
+                Assert.Equal(HttpStatusCode.OK, beforeFreeze.StatusCode);
+                var emptyHistory = await ReadAsync(beforeFreeze);
+                Assert.Empty(emptyHistory.GetProperty("items").EnumerateArray());
 
                 using var previewResponse = await owner.GetAsync(
                     $"{draftPath}/impact_preview?expected_revision=1");
