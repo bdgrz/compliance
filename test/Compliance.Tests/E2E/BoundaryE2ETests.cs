@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
@@ -339,22 +340,81 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Null(projected?.Draft);
         Assert.Equal(registration.DraftVersionId, projected?.LatestApprovedVersion?.VersionId);
         using var versionResponse = await owner.GetAsync(
-            $"{boundaryPath}/versions/{registration.DraftVersionId}");
+            $"{boundaryPath}/versions/{registration.DraftVersionId}?minimum_boundary_revision=4");
         Assert.Equal(HttpStatusCode.OK, versionResponse.StatusCode);
         var version = await versionResponse.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
         Assert.Equal("approved", version?.Status);
         Assert.Equal("2027-01-01", version?.EffectiveFrom);
         Assert.Equal("Service A and its provider are in scope.", version?.Content.Statement);
-        using var versionsResponse = await owner.GetAsync($"{boundaryPath}/versions");
+        using var versionsResponse = await owner.GetAsync(
+            $"{boundaryPath}/versions?minimum_boundary_revision=4");
         Assert.Equal(HttpStatusCode.OK, versionsResponse.StatusCode);
         var versions = await versionsResponse.Content.ReadFromJsonAsync<BoundaryVersionPageDocument>();
         Assert.Equal(registration.DraftVersionId, Assert.Single(versions?.Items ?? []).VersionId);
         using var effective = await owner.GetAsync(
-            $"{boundaryPath}/effective-version?effective_on=2027-01-01");
+            $"{boundaryPath}/effective-version?effective_on=2027-01-01&minimum_boundary_revision=4");
         Assert.True(effective.StatusCode == HttpStatusCode.OK,
             await effective.Content.ReadAsStringAsync());
         var effectiveVersion = await effective.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
         Assert.Equal(registration.DraftVersionId, effectiveVersion?.VersionId);
+        foreach (var route in new[]
+                 {
+                     $"{boundaryPath}/versions/{registration.DraftVersionId}",
+                     $"{boundaryPath}/versions",
+                     $"{boundaryPath}/effective-version?effective_on=2027-01-01",
+                 })
+        {
+            using var future = await owner.GetAsync(route +
+                (route.Contains('?') ? "&" : "?") +
+                "minimum_boundary_revision=5");
+            using var invalid = await owner.GetAsync(route +
+                (route.Contains('?') ? "&" : "?") +
+                "minimum_boundary_revision=0");
+            using var denied = await outsider.GetAsync(route +
+                (route.Contains('?') ? "&" : "?") +
+                "minimum_boundary_revision=4");
+            Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        }
+        using var absentVersion = await owner.GetAsync(
+            $"{boundaryPath}/versions/{Uuid.CreateVersion4()}?minimum_boundary_revision=4");
+        using var absentBoundary = await owner.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/boundaries/{Uuid.CreateVersion4()}/versions" +
+            "?minimum_boundary_revision=4");
+        Assert.Equal(HttpStatusCode.NotFound, absentVersion.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, absentBoundary.StatusCode);
+        await using (var mcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            var anchor = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["boundary_id"] = registration.BoundaryId,
+                ["minimum_boundary_revision"] = 4,
+            };
+            _ = await mcp.When("bdgrz.boundary.version.get",
+                new Dictionary<string, object?>(anchor)
+                {
+                    ["version_id"] = registration.DraftVersionId,
+                }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.boundary.versions.list", anchor).ExpectSuccess();
+            _ = await mcp.When("bdgrz.boundary.version.effective.get",
+                new Dictionary<string, object?>(anchor)
+                {
+                    ["effective_on"] = "2027-01-01",
+                }).ExpectSuccess();
+        }
+        await using (var mcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+            _ = await mcp.When("bdgrz.boundary.version.get",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["boundary_id"] = registration.BoundaryId,
+                    ["version_id"] = registration.DraftVersionId,
+                    ["minimum_boundary_revision"] = 4,
+                }).ExpectFailure();
         using var beforeEffective = await owner.GetAsync(
             $"{boundaryPath}/effective-version?effective_on=2026-12-31");
         Assert.Equal(HttpStatusCode.NotFound, beforeEffective.StatusCode);
@@ -395,7 +455,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         using var crossTenantList = await owner.GetAsync(
             $"/api/v1/tenants/{secondTenant.TenantId}/programs/{program.ProgramId}/boundaries");
         using var crossTenantVersion = await owner.GetAsync(
-            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}/versions/{registration.DraftVersionId}");
+            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}/versions/{registration.DraftVersionId}?minimum_boundary_revision=4");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantBoundary.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantVersion.StatusCode);

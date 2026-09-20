@@ -77,6 +77,7 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
         services.AddScoped<IBoundaryDirectoryReader>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
