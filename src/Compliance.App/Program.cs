@@ -53,6 +53,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
         .AddMcpTool<ReactivateTenant>(tool => tool.Idempotent())
         .AddMcpTool<InviteTenantMember>()
+        .AddMcpTool<InviteOrganizationMember>()
+        .AddMcpTool<GetMemberAccess>(tool => tool.ReadOnly())
         .AddMcpTool<GetTenant>(tool => tool.ReadOnly())
         .AddMcpTool<ListTenantMembers>(tool => tool.ReadOnly())
         .AddMcpTool<ChangeTenantSlug>()
@@ -199,6 +201,13 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenant_id}/invitations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
+    app.MapPortiaPost<InviteOrganizationMember>("/api/v1/tenants/{tenant_id}/member_invitations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Tenants");
+    app.MapPortiaGet<GetMemberAccess, MemberAccessView>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/access")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
     app.MapPortiaPost<AcceptTenantInvitation>("/api/v1/tenants/{tenant_id}/invitations/acceptance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");

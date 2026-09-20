@@ -93,4 +93,36 @@ public sealed class PermissionProjectionStateTests
         // Assert
         Assert.Empty(state.Materialize());
     }
+
+    [Fact]
+    public void ShouldExplainCurrentRolePathGivenPermissionChanges()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var memberId = Uuid.CreateVersion4();
+        var teamId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var state = new PermissionProjectionState();
+        state.Apply(new MemberRegistered(tenantId, memberId, Uuid.CreateVersion4()));
+        state.Apply(new TeamDefined(tenantId, teamId, "Reviewers"));
+        state.Apply(new RoleDefined(tenantId, roleId, "Reviewer"));
+        state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId));
+        state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
+        state.Apply(new RolePermissionAssigned(tenantId, roleId, "tenant.access"));
+        state.Apply(new RolePermissionAssigned(tenantId, roleId, "program.manage"));
+
+        // Act
+        var before = Assert.Single(state.Explain(memberId));
+        state.Apply(new RolePermissionRemoved(tenantId, roleId, "program.manage"));
+        var after = Assert.Single(state.Explain(memberId));
+        state.Apply(new TeamMemberRemoved(tenantId, teamId, memberId));
+
+        // Assert
+        Assert.Equal(teamId, before.TeamId);
+        Assert.Equal(roleId, before.RoleId);
+        Assert.Equal(["program.manage", "tenant.access"], before.Permissions);
+        Assert.Equal(["tenant.access"], after.Permissions);
+        Assert.Empty(state.Explain(memberId));
+        Assert.Empty(state.Explain(Uuid.CreateVersion4()));
+    }
 }

@@ -71,4 +71,22 @@ sealed class PermissionProjectionState
 
         return grants;
     }
+
+    public IReadOnlyList<MemberAccessEdge> Explain(Uuid memberId)
+    {
+        if (!Members.Contains(memberId))
+            return [];
+        var rolesByTeam = TeamRoles.Where(item => Teams.Contains(item.TeamId) &&
+                Roles.Contains(item.RoleId))
+            .ToLookup(item => item.TeamId);
+        var permissionsByRole = RolePermissions.ToLookup(item => item.RoleId);
+        return TeamMembers.Where(item => item.MemberId == memberId && Teams.Contains(item.TeamId))
+            .SelectMany(item => rolesByTeam[item.TeamId].Select(role => new MemberAccessEdge(
+                item.TeamId, role.RoleId, permissionsByRole[role.RoleId]
+                    .Select(permission => permission.Permission)
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray())))
+            .OrderBy(item => item.TeamId.ToString(), StringComparer.Ordinal)
+            .ThenBy(item => item.RoleId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+    }
 }

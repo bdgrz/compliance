@@ -14,6 +14,9 @@ public static class BuiltInRbac
     public const string TenantAdministrationRoleName = "Tenant Administration";
     public const string ComplianceManagementRoleName = "Compliance Management";
     public const string ComplianceParticipationRoleName = "Compliance Participation";
+    public const string TenantAdministrationRole = "tenant_administration";
+    public const string ComplianceManagementRole = "compliance_management";
+    public const string ComplianceParticipationRole = "compliance_participation";
 
     public static Uuid AdministratorsTeamId(Uuid tenantId) => Id(tenantId, "team:administrators");
     public static Uuid PowerUsersTeamId(Uuid tenantId) => Id(tenantId, "team:power-users");
@@ -29,6 +32,22 @@ public static class BuiltInRbac
     public static bool IsBuiltInRole(Uuid tenantId, Uuid roleId) =>
         roleId == TenantAdministrationRoleId(tenantId) || roleId == ComplianceManagementRoleId(tenantId) ||
         roleId == ComplianceParticipationRoleId(tenantId);
+
+    public static Uuid? TeamIdForRole(Uuid tenantId, string role) => role switch
+    {
+        TenantAdministrationRole => AdministratorsTeamId(tenantId),
+        ComplianceManagementRole => PowerUsersTeamId(tenantId),
+        ComplianceParticipationRole => StandardUsersTeamId(tenantId),
+        _ => null,
+    };
+
+    public static Uuid? RoleIdForRole(Uuid tenantId, string role) => role switch
+    {
+        TenantAdministrationRole => TenantAdministrationRoleId(tenantId),
+        ComplianceManagementRole => ComplianceManagementRoleId(tenantId),
+        ComplianceParticipationRole => ComplianceParticipationRoleId(tenantId),
+        _ => null,
+    };
 
     static Uuid Id(Uuid tenantId, string name) => Uuid.CreateVersion5(NamespaceId, $"{tenantId}\n{name}");
 }
