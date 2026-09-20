@@ -24,15 +24,33 @@ sealed class BrokerStack : IAsyncDisposable
 
     public async Task StartAsync(CancellationToken ct = default)
     {
-        await RunComposeAsync(ct, "up", "--detach").ConfigureAwait(false);
+        // Compose can create containers before `up` exits. Claim cleanup ownership before the
+        // command so a failed or canceled startup still tears down this fixture's project.
         _started = true;
-        var portBinding = (await RunComposeAsync(ct, "port", "broker", "4090")
-            .ConfigureAwait(false)).Trim();
-        var separator = portBinding.LastIndexOf(':');
-        if (separator < 0 || !int.TryParse(portBinding[(separator + 1)..], out _httpPort) ||
-            _httpPort is < 1 or > 65535)
-            throw new InvalidOperationException($"Unexpected e2e broker port binding: {portBinding}");
-        await WaitUntilReadyAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await RunComposeAsync(ct, "up", "--detach").ConfigureAwait(false);
+            var portBinding = (await RunComposeAsync(ct, "port", "broker", "4090")
+                .ConfigureAwait(false)).Trim();
+            var separator = portBinding.LastIndexOf(':');
+            if (separator < 0 || !int.TryParse(portBinding[(separator + 1)..], out _httpPort) ||
+                _httpPort is < 1 or > 65535)
+                throw new InvalidOperationException($"Unexpected e2e broker port binding: {portBinding}");
+            await WaitUntilReadyAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception startupError)
+        {
+            try
+            {
+                await DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanupError)
+            {
+                throw new AggregateException("The e2e broker failed to start and clean up.",
+                    startupError, cleanupError);
+            }
+            throw;
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -41,6 +59,8 @@ sealed class BrokerStack : IAsyncDisposable
             return;
 
         await RunComposeAsync(CancellationToken.None, "down", "--volumes").ConfigureAwait(false);
+        _started = false;
+        _httpPort = 0;
     }
 
     async Task WaitUntilReadyAsync(CancellationToken ct)
@@ -86,7 +106,17 @@ sealed class BrokerStack : IAsyncDisposable
             ?? throw new InvalidOperationException("Failed to start the docker compose process.");
         var stdout = process.StandardOutput.ReadToEndAsync(ct);
         var stderr = process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
 
         if (process.ExitCode != 0)
         {
