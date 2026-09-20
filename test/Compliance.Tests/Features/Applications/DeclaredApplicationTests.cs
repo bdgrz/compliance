@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class DeclaredApplicationTests
 {
     [Fact]
-    public void ShouldPreserveDeclaredHistoryGivenReplayAndConcurrentRevision()
+    public void ShouldPreserveDeclaredEventsGivenRetryAndStaleRevision()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -50,7 +50,7 @@ public sealed class DeclaredApplicationTests
     }
 
     [Fact]
-    public void ShouldRequireSourceAndBoundaryIdentityGivenNewDeclaration()
+    public void ShouldValidateRequiredFieldsAndParentGivenDeclarations()
     {
         // Arrange
         var application = new DeclaredApplication(Uuid.CreateVersion4(), Uuid.CreateVersion4());
