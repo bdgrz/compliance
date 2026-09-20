@@ -13,7 +13,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
+public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldRetryDirectInvitationGivenDeliveryFailure()
