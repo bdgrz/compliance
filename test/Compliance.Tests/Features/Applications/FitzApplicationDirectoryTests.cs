@@ -83,6 +83,7 @@ public sealed class FitzApplicationDirectoryTests
 
         // Assert
         Assert.Null(await directory.GetAsync(tenantId, applicationId));
+        Assert.Null(await directory.GetRevisionAsync(tenantId, applicationId, 1));
         await using (var retry = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
@@ -91,5 +92,59 @@ public sealed class FitzApplicationDirectoryTests
             await retry.CommitAsync(ProjectionCheckpoint.Start);
         }
         Assert.NotNull(await directory.GetAsync(tenantId, applicationId));
+        var history = await directory.ListRevisionsAsync(tenantId, applicationId, 10, null);
+        Assert.Single(history!.Items);
+    }
+
+    [Fact]
+    public async Task ShouldKeepEachApplicationRevisionGivenDeclarationRevisionAndInstance()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var otherTenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var instanceId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.Zero);
+        var identity = new CheckpointIdentity("ApplicationDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, actorId, "Manager", now));
+            await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId, 2,
+                "Payroll", "Run monthly payroll", "Finance", actorId, "Manager",
+                now.AddMinutes(1)));
+            await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
+                instanceId, 3, "Production", "production", null, "payroll-prod",
+                actorId, "Manager", now.AddMinutes(2)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var first = await directory.GetRevisionAsync(tenantId, applicationId, 1);
+        var second = await directory.GetRevisionAsync(tenantId, applicationId, 2);
+        var third = await directory.GetRevisionAsync(tenantId, applicationId, 3);
+        var firstPage = await directory.ListRevisionsAsync(tenantId, applicationId, 2, null);
+        var nextPage = await directory.ListRevisionsAsync(tenantId, applicationId, 2,
+            firstPage?.NextCursor);
+
+        // Assert
+        Assert.Equal("Run payroll", first?.Purpose);
+        Assert.Equal("declared", first?.ChangeKind);
+        Assert.False(first?.HasSystemInstances);
+        Assert.Equal("Run monthly payroll", second?.Purpose);
+        Assert.Equal("revised", second?.ChangeKind);
+        Assert.Equal("system_instance_declared", third?.ChangeKind);
+        Assert.Equal(instanceId, third?.SystemInstanceId);
+        Assert.Equal("payroll-prod", third?.SystemInstance?.SourceIdentifier);
+        Assert.True(third?.HasSystemInstances);
+        Assert.Equal([1L, 2L], firstPage?.Items.Select(item => item.Revision));
+        Assert.NotNull(firstPage?.NextCursor);
+        Assert.Equal([3L], nextPage?.Items.Select(item => item.Revision));
+        Assert.Null(await directory.GetRevisionAsync(otherTenantId, applicationId, 1));
+        Assert.Null(await directory.ListRevisionsAsync(otherTenantId, applicationId, 2, null));
     }
 }

@@ -18,6 +18,14 @@ public sealed record ApplicationView(Uuid TenantId, Uuid ApplicationId, long Rev
     IReadOnlyList<string> Unresolved, Uuid LastChangedByMemberId,
     string LastChangedByDisplay, DateTimeOffset LastChangedAt);
 
+/// <summary>An immutable tenant-authored application state after one aggregate event.</summary>
+public sealed record ApplicationRevisionView(Uuid TenantId, Uuid ApplicationId, long Revision,
+    string Name, string Purpose, string? OwnerReference,
+    string SourceKind, string SourceIdentifier, bool HasSystemInstances,
+    IReadOnlyList<string> Unresolved, Uuid LastChangedByMemberId,
+    string LastChangedByDisplay, DateTimeOffset LastChangedAt,
+    string ChangeKind, Uuid? SystemInstanceId, SystemInstanceView? SystemInstance);
+
 /// <summary>A declared concrete application boundary, not an access-review inclusion decision.</summary>
 public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, string Name, string Kind, string? AccessBoundaryReference,
@@ -49,6 +57,15 @@ public sealed record GetApplication(Uuid TenantId, Uuid ApplicationId,
 [Discriminator("bdgrz.application.list", 1)]
 public sealed record ListApplications(Uuid TenantId, int? Limit = null, string? Cursor = null)
     : IRequest<Page<ApplicationView>>, IApplicationInventoryRequest, ICallable;
+
+[Discriminator("bdgrz.application.revision.get", 1)]
+public sealed record GetApplicationRevision(Uuid TenantId, Uuid ApplicationId, long Revision)
+    : IRequest<ApplicationRevisionView>, IApplicationInventoryRequest, ICallable;
+
+[Discriminator("bdgrz.application.revision.list", 1)]
+public sealed record ListApplicationRevisions(Uuid TenantId, Uuid ApplicationId,
+    int? Limit = null, string? Cursor = null, long? MinimumApplicationRevision = null)
+    : IRequest<Page<ApplicationRevisionView>>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.system_instance.get", 1)]
 public sealed record GetSystemInstance(Uuid TenantId, Uuid ApplicationId, Uuid SystemInstanceId)

@@ -69,6 +69,7 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzApplicationDirectory>());
         services.AddScoped<IApplicationInventoryActivity,
             EventSourcedApplicationInventoryActivity>();
+        services.AddScoped<ApplicationHistoryReadConsistency>();
         services.AddScoped<IProgramDirectoryProjection>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
@@ -151,6 +152,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<DeclareSystemInstanceHandler>()
             .AddRequestHandler<GetApplicationHandler>()
             .AddRequestHandler<ListApplicationsHandler>()
+            .AddRequestHandler<GetApplicationRevisionHandler>()
+            .AddRequestHandler<ListApplicationRevisionsHandler>()
             .AddRequestHandler<GetSystemInstanceHandler>()
             .AddRequestHandler<ListSystemInstancesHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()

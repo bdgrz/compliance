@@ -352,6 +352,30 @@ public sealed class ComplianceWebTests
         Assert.Contains(application.GetProperty("get").GetProperty("parameters").EnumerateArray(),
             parameter => parameter.GetProperty("name").GetString() == "minimum_revision" &&
                          parameter.GetProperty("in").GetString() == "query");
+        var history = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions");
+        var historyResponse = history.GetProperty("get").GetProperty("responses")
+            .GetProperty("200").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var historySchema = schemas.GetProperty(historyResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        Assert.True(historySchema.GetProperty("properties").TryGetProperty("next_cursor", out _));
+        var historyItem = historySchema.GetProperty("properties").GetProperty("items")
+            .GetProperty("items");
+        Assert.True(historyItem.GetProperty("properties").TryGetProperty("change_kind", out _));
+        Assert.Contains(history.GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_application_revision" &&
+                         parameter.GetProperty("in").GetString() == "query");
+        var exactResponse = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var exactSchema = schemas.GetProperty(exactResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance_id", out _));
+        Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance", out _));
         var instances = paths.GetProperty(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances");
         var instanceSchema = instances.GetProperty("post").GetProperty("requestBody")

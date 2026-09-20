@@ -144,6 +144,80 @@ public sealed class ListApplicationsHandler(IApplicationDirectoryReader director
     }
 }
 
+public sealed class ApplicationHistoryReadConsistency(IApplicationDirectoryReader directory,
+    IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid applicationId,
+        long? minimumRevision, CancellationToken ct)
+    {
+        if (minimumRevision is < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum application revision must be positive."));
+        var view = await directory.GetAsync(tenantId, applicationId, ct)
+            .ConfigureAwait(false);
+        if (view is not null && view.TenantId == tenantId &&
+            view.ApplicationId == applicationId &&
+            (minimumRevision is null || view.Revision >= minimumRevision))
+            return Result.Success;
+        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId,
+            applicationId), ct).ConfigureAwait(false);
+        if (!source.IsCreated)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The application was not found."));
+        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+            minimumRevision is { } minimum && source.Revision < minimum
+                ? $"The application source has not reached revision {minimum}."
+                : "The application projection has not reached the requested revision."));
+    }
+}
+
+public sealed class GetApplicationRevisionHandler(IApplicationDirectoryReader directory,
+    ApplicationHistoryReadConsistency consistency)
+    : IRequestHandler<GetApplicationRevision, ApplicationRevisionView>
+{
+    public async ValueTask<Result<ApplicationRevisionView>> HandleAsync(
+        IRequestContext<GetApplicationRevision> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var freshness = await consistency.EnsureAsync(request.TenantId,
+            request.ApplicationId, request.Revision, ct).ConfigureAwait(false);
+        if (!freshness.IsSuccess)
+            return Result<ApplicationRevisionView>.Failure(freshness.Error);
+        var revision = await directory.GetRevisionAsync(request.TenantId,
+            request.ApplicationId, request.Revision, ct).ConfigureAwait(false);
+        return revision is not null && revision.TenantId == request.TenantId &&
+               revision.ApplicationId == request.ApplicationId &&
+               revision.Revision == request.Revision
+            ? Result<ApplicationRevisionView>.Success(revision)
+            : Result<ApplicationRevisionView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The application revision projection is incomplete."));
+    }
+}
+
+public sealed class ListApplicationRevisionsHandler(IApplicationDirectoryReader directory,
+    ApplicationHistoryReadConsistency consistency)
+    : IRequestHandler<ListApplicationRevisions, Page<ApplicationRevisionView>>
+{
+    public async ValueTask<Result<Page<ApplicationRevisionView>>> HandleAsync(
+        IRequestContext<ListApplicationRevisions> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var freshness = await consistency.EnsureAsync(request.TenantId,
+            request.ApplicationId, request.MinimumApplicationRevision, ct)
+            .ConfigureAwait(false);
+        if (!freshness.IsSuccess)
+            return Result<Page<ApplicationRevisionView>>.Failure(freshness.Error);
+        var page = await directory.ListRevisionsAsync(request.TenantId,
+            request.ApplicationId, Math.Clamp(request.Limit ?? 50, 1, 200),
+            request.Cursor, ct).ConfigureAwait(false);
+        if (page is null || page.Items.Any(item => item.TenantId != request.TenantId ||
+            item.ApplicationId != request.ApplicationId))
+            return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "The application revision projection is incomplete."));
+        return Result<Page<ApplicationRevisionView>>.Success(page);
+    }
+}
+
 public sealed class GetSystemInstanceHandler(IApplicationDirectoryReader directory)
     : IRequestHandler<GetSystemInstance, SystemInstanceView>
 {

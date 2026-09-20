@@ -211,6 +211,23 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.Equal("benefits-prod", projectedInstance?.SourceIdentifier);
+            ApplicationRevisionDocument? splitRevision = null;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await owner.GetAsync(
+                    $"{applicationsPath}/{second.ApplicationId}/revisions/2");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    splitRevision = await response.Content
+                        .ReadFromJsonAsync<ApplicationRevisionDocument>();
+                    break;
+                }
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                await Task.Delay(250);
+            }
+            Assert.Equal("system_instance_declared", splitRevision?.ChangeKind);
+            Assert.Equal(instance.SystemInstanceId, splitRevision?.SystemInstanceId);
             using var wrongApplication = await owner.GetAsync(
                 $"{applicationsPath}/{first.ApplicationId}/system_instances/{instance.SystemInstanceId}");
             Assert.Equal(HttpStatusCode.NotFound, wrongApplication.StatusCode);
@@ -392,6 +409,21 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
         {
+            _ = await mcp.When("bdgrz.application.revision.get", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["revision"] = 1,
+            }).ExpectFailure();
+            _ = await mcp.When("bdgrz.application.revision.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+            }).ExpectFailure();
+        }
+        await using (var mcp = await McpScenario.ConnectAsync(outsider,
+                         new Uri(outsider.BaseAddress!, "/mcp")))
+        {
             _ = await mcp.When("bdgrz.application.get", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenant.TenantId,
@@ -440,8 +472,88 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Contains("access_boundary_missing", projected!.Unresolved);
         Assert.Equal("payroll-prod", projected.SourceIdentifier);
         Assert.Contains("source_identifier_unverified", projected.Unresolved);
+        ApplicationRevisionDocument? instanceRevision = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync($"{applicationPath}/revisions/2");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                instanceRevision = await response.Content
+                    .ReadFromJsonAsync<ApplicationRevisionDocument>();
+                break;
+            }
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            await Task.Delay(250);
+        }
+        Assert.Equal("system_instance_declared", instanceRevision?.ChangeKind);
+        Assert.Equal(instance.SystemInstanceId, instanceRevision?.SystemInstanceId);
+        Assert.Equal("payroll-prod", instanceRevision?.SystemInstance?.SourceIdentifier);
+        using var revisedResponse = await owner.PutAsJsonAsync(applicationPath, new
+        {
+            expected_revision = 2,
+            name = "Payroll",
+            purpose = "Run monthly payroll",
+            owner_reference = "Finance",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, revisedResponse.StatusCode);
+        ApplicationRevisionDocument? revisedRevision = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync($"{applicationPath}/revisions/3");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                revisedRevision = await response.Content
+                    .ReadFromJsonAsync<ApplicationRevisionDocument>();
+                break;
+            }
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            await Task.Delay(250);
+        }
+        Assert.Equal("revised", revisedRevision?.ChangeKind);
+        Assert.Equal("Run monthly payroll", revisedRevision?.Purpose);
+        using var firstRevisionResponse = await owner.GetAsync($"{applicationPath}/revisions/1");
+        Assert.Equal(HttpStatusCode.OK, firstRevisionResponse.StatusCode);
+        var firstRevision = await firstRevisionResponse.Content
+            .ReadFromJsonAsync<ApplicationRevisionDocument>();
+        Assert.Equal("Run payroll", firstRevision?.Purpose);
+        Assert.Equal("declared", firstRevision?.ChangeKind);
+        using var historyResponse = await owner.GetAsync(
+            $"{applicationPath}/revisions?limit=2&minimum_application_revision=3");
+        Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+        var history = await historyResponse.Content
+            .ReadFromJsonAsync<ApplicationRevisionPageDocument>();
+        Assert.Equal([1L, 2L], history?.Items.Select(item => item.Revision));
+        Assert.NotNull(history?.NextCursor);
+        using var nextHistoryResponse = await owner.GetAsync(
+            $"{applicationPath}/revisions?limit=2&cursor={Uri.EscapeDataString(history.NextCursor)}");
+        Assert.Equal(HttpStatusCode.OK, nextHistoryResponse.StatusCode);
+        var nextHistory = await nextHistoryResponse.Content
+            .ReadFromJsonAsync<ApplicationRevisionPageDocument>();
+        Assert.Equal([3L], nextHistory?.Items.Select(item => item.Revision));
         using var deniedInstance = await outsider.GetAsync(instancePath);
+        using var deniedHistory = await outsider.GetAsync($"{applicationPath}/revisions/1");
+        using var deniedHistoryList = await outsider.GetAsync($"{applicationPath}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, deniedInstance.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedHistoryList.StatusCode);
+        await using (var mcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await mcp.When("bdgrz.application.revision.get", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["revision"] = 1,
+            }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.application.revision.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["minimum_application_revision"] = 3,
+            }).ExpectSuccess();
+        }
         var programId = await CreateProgramAsync(owner, tenant.TenantId);
         var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
         using var applicationBoundary = await owner.PostAsJsonAsync(boundaryPath,
@@ -490,8 +602,14 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             $"{otherApplicationsPath}/{registration.ApplicationId}");
         using var crossTenantInstance = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/system_instances/{instance.SystemInstanceId}");
+        using var crossTenantHistory = await owner.GetAsync(
+            $"{otherApplicationsPath}/{registration.ApplicationId}/revisions/1");
+        using var crossTenantHistoryList = await owner.GetAsync(
+            $"{otherApplicationsPath}/{registration.ApplicationId}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantApplication.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantInstance.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantHistoryList.StatusCode);
         var otherProgramId = await CreateProgramAsync(owner, otherTenant.TenantId);
         var otherBoundaryPath = $"/api/v1/tenants/{otherTenant.TenantId}/programs/" +
             $"{otherProgramId}/boundaries";
@@ -526,6 +644,15 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("unresolved")] string[] Unresolved);
     sealed record ApplicationPageDocument(
         [property: JsonPropertyName("items")] ApplicationDocument[] Items,
+        [property: JsonPropertyName("next_cursor")] string? NextCursor);
+    sealed record ApplicationRevisionDocument(
+        [property: JsonPropertyName("revision")] long Revision,
+        [property: JsonPropertyName("purpose")] string Purpose,
+        [property: JsonPropertyName("change_kind")] string ChangeKind,
+        [property: JsonPropertyName("system_instance_id")] Guid? SystemInstanceId,
+        [property: JsonPropertyName("system_instance")] SystemInstanceDocument? SystemInstance);
+    sealed record ApplicationRevisionPageDocument(
+        [property: JsonPropertyName("items")] ApplicationRevisionDocument[] Items,
         [property: JsonPropertyName("next_cursor")] string? NextCursor);
     sealed record SystemInstanceRegistrationDocument(
         [property: JsonPropertyName("system_instance_id")] Guid SystemInstanceId);

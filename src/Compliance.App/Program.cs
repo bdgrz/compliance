@@ -72,6 +72,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<DeclareSystemInstance>()
         .AddMcpTool<GetApplication>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplications>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetSystemInstance>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
@@ -280,6 +282,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Applications");
     app.MapPortiaGet<ListApplications, Page<ApplicationView>>(
             "/api/v1/tenants/{tenant_id}/applications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<GetApplicationRevision, ApplicationRevisionView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplicationRevisions, Page<ApplicationRevisionView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Applications");
     app.MapPortiaPost<DeclareSystemInstance, SystemInstanceRegistration>(
