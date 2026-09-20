@@ -72,6 +72,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 var expectedAccessPath = $"{accessPath}?expected_built_in_role=" +
                     BuiltInRbac.ComplianceManagementRole;
                 var invitePath = $"/api/v1/tenants/{tenantId}/member_invitations";
+                var invitationStatusPath = $"{invitePath}?email_address=" +
+                    Uri.EscapeDataString(inviteeEmail);
                 var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 var adminAccess = HttpStatusCode.Forbidden;
                 while (DateTimeOffset.UtcNow < deadline)
@@ -106,6 +108,26 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.NotFound, deniedInvite.StatusCode);
                 Assert.Equal(HttpStatusCode.BadRequest, invalidRole.StatusCode);
                 Assert.Equal(HttpStatusCode.NoContent, invited.StatusCode);
+                using var deniedStatus = await invitee.GetAsync(invitationStatusPath);
+                Assert.Equal(HttpStatusCode.NotFound, deniedStatus.StatusCode);
+                using var pendingButExpectedActive = await administrator.GetAsync(
+                    $"{invitationStatusPath}&expected_status=active");
+                Assert.Equal(HttpStatusCode.Conflict, pendingButExpectedActive.StatusCode);
+                InvitationPageDocument? pendingInvitations = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await administrator.GetAsync(invitationStatusPath);
+                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                    pendingInvitations = await response.Content.ReadFromJsonAsync<InvitationPageDocument>();
+                    if (pendingInvitations?.Items.SingleOrDefault()?.Status == "pending")
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
+                        break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.Equal("pending", Assert.Single(pendingInvitations!.Items).Status);
                 var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
                 while (DateTimeOffset.UtcNow < deadline &&
@@ -142,6 +164,21 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 Assert.Contains(explanation.Paths, path =>
                     path.TeamName == BuiltInRbac.PowerUsersTeamName &&
                     path.RoleName == BuiltInRbac.ComplianceManagementRoleName);
+                InvitationPageDocument? activeInvitations = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await administrator.GetAsync(
+                        $"{invitationStatusPath}&expected_status=active");
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        activeInvitations = await response.Content.ReadFromJsonAsync<InvitationPageDocument>();
+                        break;
+                    }
+                    Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                    await Task.Delay(250);
+                }
+                Assert.Equal("active", Assert.Single(activeInvitations!.Items).Status);
+                Assert.Equal(inviteeId, activeInvitations.Items[0].AcceptedUserId);
                 using var deniedRead = await invitee.GetAsync(accessPath);
                 using var missingRead = await administrator.GetAsync(
                     $"/api/v1/tenants/{tenantId}/members/{Uuid.CreateVersion4()}/access");
@@ -158,6 +195,12 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                     ["tenant_id"] = tenantId,
                     ["user_id"] = Uuid.Parse(inviteeId, CultureInfo.InvariantCulture),
                     ["expected_built_in_role"] = BuiltInRbac.ComplianceManagementRole,
+                }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.tenant-invitation.list", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["email_address"] = inviteeEmail,
+                    ["expected_status"] = "active",
                 }).ExpectSuccess();
             }
         }
@@ -182,4 +225,11 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
     sealed record MemberAccessPathDocument(
         [property: JsonPropertyName("team_name")] string TeamName,
         [property: JsonPropertyName("role_name")] string RoleName);
+
+    sealed record InvitationPageDocument(
+        [property: JsonPropertyName("items")] IReadOnlyList<InvitationDocument> Items);
+
+    sealed record InvitationDocument(
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("accepted_user_id")] string? AcceptedUserId);
 }
