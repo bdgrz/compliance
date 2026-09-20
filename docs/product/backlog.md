@@ -29,11 +29,11 @@ Three kinds of non-story issue are explicit exceptions:
 - Architecture decision issues (`M0-A..`) record an accepted ADR and a thin technical spike for a concern the domain model depends on.
 - Enablers (`EN-..`) deliver a shared platform primitive that several stories would otherwise define inconsistently or too late. An enabler is not independently releasable; it is done only when its first consuming story uses it end to end, and consuming stories must not build feature-local substitutes. New enablers require the same product-owner approval as the six listed below.
 
-A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice retains an API-to-UI outcome whose acceptance criteria come from the parent story. When a validated feature story or product slice enters delivery, create **two delivery children** under it: one backend child and one frontend child. Give both the parent's milestone and record their applicable GitHub dependencies explicitly, because sub-issues do not inherit dependency relationships. Do not schedule children for an unvalidated P2 hypothesis.
+A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice retains an API-to-UI outcome whose acceptance criteria come from the parent story. When a validated feature story or product slice enters delivery, create an initial backend child and a frontend child. If downstream records are required to finish backend acceptance, add a later backend delivery child under the same story rather than making the baseline depend on its own consumers. Give every child the parent's milestone and record its applicable GitHub dependencies explicitly, because sub-issues do not inherit dependency relationships. Do not schedule children for an unvalidated P2 hypothesis.
 
-The backend child owns the authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and non-UI acceptance evidence. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has a backend child, depend on that child rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and integration with the delivered API. It depends on the backend child and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
+Each backend child owns its authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and non-UI acceptance evidence. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has backend children, depend on the applicable backend child or children rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and integration with the delivered API. It depends on all applicable backend children and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
 
-Close each child only when its own acceptance evidence is complete. Keep the product parent open until both children and the integrated product outcome pass. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers. Backfill the pair for active stories first; create children for other validated stories when scheduled.
+Close each child only when its own acceptance evidence is complete. Keep the product parent open until all backend and frontend children and the integrated product outcome pass. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers. Backfill the initial pair for active stories first; create children for other validated stories when scheduled.
 
 Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The first bundle covers the R1-15 remainder, EN-01, and R1-01; its tracking issues are #152, #157, and #158.
 
@@ -1356,6 +1356,15 @@ Implementation subtasks:
 - [ ] Deliver authorized author, review, approve, and revise behavior through the API and accessible browser workflow.
 - [ ] Connect boundary changes to affected controls, evidence, risks, vendors, readiness, and engagement snapshots before approval.
 - [ ] Prove version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior end to end.
+
+Backend delivery is split between the [R1-02a boundary baseline](https://github.com/bdgrz/compliance/issues/162)
+and [R1-02b downstream impact completion](https://github.com/bdgrz/compliance/issues/246).
+The baseline exposes an incomplete preview and blocks successor approval while
+downstream contexts are absent. The second child depends on the owning control,
+evidence, risk, provider, readiness, and engagement records. Boundary-consuming
+backend children use the baseline without requiring the second child first.
+The [frontend child](https://github.com/bdgrz/compliance/issues/178) depends on
+both backend slices. The product story remains open for the complete workflow.
 
 ### R1-03 Select a traceable SOC 2 criteria catalog
 
@@ -4896,16 +4905,16 @@ listed separately below it.
 
 ### Active feature delivery children
 
-| Product story | Backend child | Frontend child | Milestone |
+| Product story | Backend children | Frontend child | Milestone |
 | --- | --- | --- | --- |
 | R1-15 [#127](https://github.com/bdgrz/compliance/issues/127) | [#152](https://github.com/bdgrz/compliance/issues/152) | [#176](https://github.com/bdgrz/compliance/issues/176) | R1 |
 | R1-01 [#7](https://github.com/bdgrz/compliance/issues/7) | [#158](https://github.com/bdgrz/compliance/issues/158) | [#177](https://github.com/bdgrz/compliance/issues/177) | R1 |
-| R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | [#162](https://github.com/bdgrz/compliance/issues/162) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
+| R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | Baseline [#162](https://github.com/bdgrz/compliance/issues/162), downstream impact [#246](https://github.com/bdgrz/compliance/issues/246) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
 
 Shared enablers EN-01, EN-02, and EN-04 retain backend children #157, #160,
 and #161. Their first consuming feature supplies the browser workflow; these
 enablers have no separate frontend child. The active backend dependency chain
-uses these children and #152, #158, and #162, rather than their UI-dependent
+uses these children and #152, #158, and the #162 baseline, rather than their UI-dependent
 product parents. Frontend children #176 through #178 depend on their
 corresponding backend children and M0-D24, and record other applicable product
 and UI dependencies directly in GitHub.
