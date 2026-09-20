@@ -304,6 +304,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("System instances");
+    app.MapPortiaGet<ListApplicationBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListSystemInstanceBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

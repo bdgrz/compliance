@@ -70,6 +70,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IApplicationInventoryActivity,
             EventSourcedApplicationInventoryActivity>();
         services.AddScoped<ApplicationHistoryReadConsistency>();
+        services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
+        services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
+            provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
+        services.AddScoped<IApplicationBoundaryReferenceDirectory>(provider =>
+            provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
+        services.AddScoped<ApplicationBoundaryReferenceReadConsistency>();
         services.AddScoped<IProgramDirectoryProjection>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
@@ -156,6 +162,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListApplicationRevisionsHandler>()
             .AddRequestHandler<GetSystemInstanceHandler>()
             .AddRequestHandler<ListSystemInstancesHandler>()
+            .AddRequestHandler<ListApplicationBoundaryReferencesHandler>()
+            .AddRequestHandler<ListSystemInstanceBoundaryReferencesHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ReviseProgramHandler>()
@@ -241,6 +249,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ApplicationBoundaryReferenceProjector>(
+                "ApplicationBoundaryReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)

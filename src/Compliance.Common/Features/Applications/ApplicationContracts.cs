@@ -33,6 +33,12 @@ public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
     Uuid DeclaredByMemberId,
     string DeclaredByDisplay, DateTimeOffset DeclaredAt);
 
+/// <summary>A governed application or instance reference in one exact boundary version.</summary>
+public sealed record ApplicationBoundaryReferenceView(Uuid TenantId, string SubjectType,
+    Uuid GovernedRecordId, Uuid BoundaryId, Uuid ProgramId, Uuid VersionId,
+    Uuid EntryId, long Revision, string Status, DateOnly? EffectiveFrom,
+    string Kind, string Subject, string OwnerReference, string Rationale);
+
 [Discriminator("bdgrz.application.declare", 1)]
 public sealed record DeclareApplication(Uuid TenantId, string Name, string Purpose,
     string? OwnerReference = null)
@@ -75,6 +81,16 @@ public sealed record GetSystemInstance(Uuid TenantId, Uuid ApplicationId, Uuid S
 public sealed record ListSystemInstances(Uuid TenantId, Uuid ApplicationId,
     int? Limit = null, string? Cursor = null)
     : IRequest<Page<SystemInstanceView>>, IApplicationInventoryRequest, ICallable;
+
+[Discriminator("bdgrz.application.boundary_references.list", 1)]
+public sealed record ListApplicationBoundaryReferences(Uuid TenantId, Uuid ApplicationId,
+    int? Limit = null, string? Cursor = null)
+    : IRequest<Page<ApplicationBoundaryReferenceView>>, IApplicationInventoryRequest, ICallable;
+
+[Discriminator("bdgrz.system_instance.boundary_references.list", 1)]
+public sealed record ListSystemInstanceBoundaryReferences(Uuid TenantId, Uuid ApplicationId,
+    Uuid SystemInstanceId, int? Limit = null, string? Cursor = null)
+    : IRequest<Page<ApplicationBoundaryReferenceView>>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.application.declared", 1)]
 public sealed record ApplicationDeclared(Uuid TenantId, Uuid ApplicationId,
