@@ -35,8 +35,8 @@ records partial backend delivery and does not claim these issues are complete.
 
 ## Remaining backend acceptance
 
-The owning inventory, evidence, risk, provider, readiness, and engagement
-children consume the #162 boundary baseline. Their completed impact
+Boundary-consuming inventory, evidence, risk, provider, readiness, and
+engagement children can use the #162 baseline. Their completed impact
 contributions and historical engagement binding are tracked in #246, which
 depends on those later contexts. Until they exist, an incomplete preview blocks
 successor approval rather than claiming a complete impact result.

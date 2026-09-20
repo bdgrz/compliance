@@ -1361,8 +1361,8 @@ Backend delivery is split between the [R1-02a boundary baseline](https://github.
 and [R1-02b downstream impact completion](https://github.com/bdgrz/compliance/issues/246).
 The baseline exposes an incomplete preview and blocks successor approval while
 downstream contexts are absent. The second child depends on the owning control,
-evidence, risk, provider, readiness, and engagement records; those owning
-children depend on the baseline, avoiding a circular completion dependency.
+evidence, risk, provider, readiness, and engagement records. Boundary-consuming
+backend children use the baseline without requiring the second child first.
 The [frontend child](https://github.com/bdgrz/compliance/issues/178) depends on
 both backend slices. The product story remains open for the complete workflow.
 
