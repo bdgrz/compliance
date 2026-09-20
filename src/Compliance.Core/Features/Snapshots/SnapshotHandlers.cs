@@ -46,13 +46,13 @@ public sealed class ScopeSnapshotFreezer(IProgramDirectoryReader programs,
         var approved = await boundaries.GetVersionAsync(tenantId, boundaryId,
             approvedBoundaryVersionId, ct).ConfigureAwait(false);
         if (approved is null)
-            return boundary.LatestApprovedVersionId == approvedBoundaryVersionId
+            return boundary.IsVersionApproved(approvedBoundaryVersionId)
                 ? Failure(RequestErrorKind.Conflict,
                     "The approved boundary version projection has not caught up.")
                 : Failure(RequestErrorKind.NotFound,
                     "The approved boundary version was not found.");
         if (approved.Status != "approved" &&
-            boundary.LatestApprovedVersionId == approvedBoundaryVersionId)
+            boundary.IsVersionApproved(approvedBoundaryVersionId))
             return Failure(RequestErrorKind.Conflict,
                 "The approved boundary version projection has not caught up.");
         if (approved.Status != "approved" || approved.TenantId != tenantId ||

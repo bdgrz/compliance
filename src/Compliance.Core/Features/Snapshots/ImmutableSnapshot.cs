@@ -16,6 +16,7 @@ public sealed class ImmutableSnapshot : Aggregate
 
     public bool IsFrozen => _isFrozen;
     public Uuid RootSnapshotId => _rootSnapshotId;
+    public Uuid? AmendsSnapshotId => _amendsSnapshotId;
     public Uuid ProgramId => _programId;
 
     public ImmutableSnapshot(Uuid tenantId, Uuid snapshotId)

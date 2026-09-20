@@ -18,6 +18,7 @@ public sealed class ScopeSnapshotTests
         var programId = Uuid.CreateVersion4();
         var initialId = Uuid.CreateVersion4();
         var amendedId = Uuid.CreateVersion4();
+        var siblingId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var manifest = Manifest(tenantId, programId);
         var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
@@ -25,6 +26,7 @@ public sealed class ScopeSnapshotTests
         var (revisedJson, revisedDigest) = SnapshotContentIdentity.Manifest(revisedManifest);
         var initial = new ImmutableSnapshot(tenantId, initialId);
         var amendment = new ImmutableSnapshot(tenantId, amendedId);
+        var sibling = new ImmutableSnapshot(tenantId, siblingId);
         var now = DateTimeOffset.UtcNow;
 
         // Act
@@ -49,6 +51,9 @@ public sealed class ScopeSnapshotTests
             "Corrected scope", actorId, "Lead", now.AddMinutes(1));
         var changed = amendment.Freeze(initialId, initialId, programId,
             manifest, json, digest, "Corrected scope", actorId, "Lead", now);
+        var branched = sibling.Freeze(initialId, initialId, programId,
+            revisedManifest, revisedJson, revisedDigest,
+            "Alternative correction", actorId, "Lead", now.AddMinutes(2));
 
         // Assert
         Assert.True(first.IsSuccess);
@@ -59,11 +64,15 @@ public sealed class ScopeSnapshotTests
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(unsupported.Error).Kind);
         Assert.True(revised.IsSuccess);
         Assert.True(retried.IsSuccess);
+        Assert.True(branched.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict,
             Assert.IsType<RequestError>(changed.Error).Kind);
         Assert.True(initial.IsFrozen);
         Assert.Equal(initialId, initial.RootSnapshotId);
         Assert.Equal(initialId, amendment.RootSnapshotId);
+        Assert.Equal(initialId, amendment.AmendsSnapshotId);
+        Assert.Equal(initialId, sibling.RootSnapshotId);
+        Assert.Equal(initialId, sibling.AmendsSnapshotId);
         Assert.Equal(programId, amendment.ProgramId);
     }
 
@@ -154,6 +163,66 @@ public sealed class ScopeSnapshotTests
             Assert.IsType<RequestError>(foreign.Error).Kind);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldReportLagGivenHistoricalApprovalBeforeProjectedVersion(bool projectedDraft)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var firstVersionId = Uuid.CreateVersion4();
+        var secondVersionId = Uuid.CreateVersion4();
+        var authorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var plan = new ProgramPlan(null, null, null, null, null, null);
+        var program = new ComplianceProgram(tenantId, programId);
+        Assert.True(program.Create("SOC 2", plan, authorId, "Lead", now).IsSuccess);
+        var boundary = new SystemBoundary(tenantId, boundaryId);
+        var content = new BoundaryContent("Scope", "readiness", ["security"], []);
+        Assert.True(boundary.Create(programId, firstVersionId, content,
+            authorId, "Lead", now).IsSuccess);
+        var firstDecisionId = Uuid.CreateVersion4();
+        Assert.True(boundary.Review(firstVersionId, 1, firstDecisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now).IsSuccess);
+        Assert.True(boundary.Approve(firstVersionId, 1, Uuid.CreateVersion4(), firstDecisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact-1", reviewerId, "Reviewer", now)
+            .IsSuccess);
+        Assert.True(boundary.ProposeSuccessor(firstVersionId, secondVersionId, content,
+            authorId, "Lead", now).IsSuccess);
+        var secondDecisionId = Uuid.CreateVersion4();
+        Assert.True(boundary.Review(secondVersionId, 1, secondDecisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now).IsSuccess);
+        Assert.True(boundary.Approve(secondVersionId, 1, Uuid.CreateVersion4(), secondDecisionId,
+            new DateOnly(2027, 2, 1), "Approved", "impact-2", reviewerId, "Reviewer", now)
+            .IsSuccess);
+        var projected = projectedDraft
+            ? new BoundaryVersionView(tenantId, boundaryId, programId, firstVersionId, 1,
+                content, "draft", null, authorId, "Lead", now)
+            : null;
+        var freezer = new ScopeSnapshotFreezer(
+            new ProgramRevisionReader(new ProgramRevisionView(programId, 1, "SOC 2",
+                plan, authorId, "Lead", now)),
+            new LaggingBoundaryDirectory(projected),
+            new SnapshotSourcesReader(program, boundary), null!, TimeProvider.System);
+        var request = new FreezeProgramScopeSnapshot(tenantId, programId, 1,
+            boundaryId, firstVersionId);
+
+        // Act
+        var result = await freezer.FreezeAsync(new SnapshotRequestContext<FreezeProgramScopeSnapshot>(
+            request), tenantId, programId, 1, boundaryId, firstVersionId,
+            null, null, CancellationToken.None);
+
+        // Assert
+        Assert.True(boundary.IsVersionApproved(firstVersionId));
+        Assert.True(boundary.IsVersionApproved(secondVersionId));
+        Assert.Equal(secondVersionId, boundary.LatestApprovedVersionId);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Contains("projection", result.Error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task ShouldProjectTenantScopedImmutableSnapshotGivenFitzBatch()
     {
@@ -214,6 +283,53 @@ public sealed class ScopeSnapshotTests
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate =>
             ValueTask.FromResult((TAggregate)source);
+    }
+
+    sealed class SnapshotSourcesReader(ComplianceProgram program, SystemBoundary boundary)
+        : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult((TAggregate)(Aggregate)(aggregate is ComplianceProgram
+                ? program : boundary));
+    }
+
+    sealed class ProgramRevisionReader(ProgramRevisionView revision) : IProgramDirectoryReader
+    {
+        public ValueTask<ProgramView?> GetAsync(Uuid tenantId, Uuid programId,
+            CancellationToken ct = default) => throw new NotImplementedException();
+        public ValueTask<Page<ProgramView>> ListAsync(Uuid tenantId, int limit,
+            string? cursor, CancellationToken ct = default) => throw new NotImplementedException();
+        public ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId,
+            Uuid programId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid programId, long requestedRevision, CancellationToken ct = default) =>
+            ValueTask.FromResult<ProgramRevisionView?>(revision);
+    }
+
+    sealed class LaggingBoundaryDirectory(BoundaryVersionView? version)
+        : IBoundaryDirectoryReader
+    {
+        public ValueTask<BoundaryView?> GetAsync(Uuid tenantId, Uuid boundaryId,
+            CancellationToken ct = default) => throw new NotImplementedException();
+        public ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<BoundaryVersionView?> GetVersionAsync(Uuid tenantId, Uuid boundaryId,
+            Uuid versionId, CancellationToken ct = default) => ValueTask.FromResult(version);
+        public ValueTask<Page<BoundaryVersionView>?> ListVersionsAsync(Uuid tenantId,
+            Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<BoundaryVersionView?> GetEffectiveVersionAsync(Uuid tenantId,
+            Uuid boundaryId, DateOnly effectiveOn, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<BoundaryDecisionView?> GetDecisionAsync(Uuid tenantId,
+            Uuid boundaryId, Uuid decisionId, CancellationToken ct = default) =>
+            throw new NotImplementedException();
+        public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
+            Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotImplementedException();
     }
 
     sealed class SnapshotRequestContext<TRequest>(TRequest request) : IRequestContext<TRequest>
