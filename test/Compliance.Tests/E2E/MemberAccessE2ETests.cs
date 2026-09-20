@@ -74,9 +74,9 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 var invitePath = $"/api/v1/tenants/{tenantId}/member_invitations";
                 var invitationStatusPath = $"{invitePath}?email_address=" +
                     Uri.EscapeDataString(inviteeEmail);
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var administratorDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 var adminAccess = HttpStatusCode.Forbidden;
-                while (DateTimeOffset.UtcNow < deadline)
+                while (DateTimeOffset.UtcNow < administratorDeadline)
                 {
                     using var response = await administrator.GetAsync(
                         $"/api/v1/tenants/{tenantId}/teams/{BuiltInRbac.AdministratorsTeamId(tenantId)}");
@@ -114,7 +114,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                     $"{invitationStatusPath}&expected_status=active");
                 Assert.Equal(HttpStatusCode.Conflict, pendingButExpectedActive.StatusCode);
                 InvitationPageDocument? pendingInvitations = null;
-                while (DateTimeOffset.UtcNow < deadline)
+                var invitationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                while (DateTimeOffset.UtcNow < invitationDeadline)
                 {
                     using var response = await administrator.GetAsync(invitationStatusPath);
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -130,7 +131,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 Assert.Equal("pending", Assert.Single(pendingInvitations!.Items).Status);
                 var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
-                while (DateTimeOffset.UtcNow < deadline &&
+                var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                while (DateTimeOffset.UtcNow < deliveryDeadline &&
                        !delivery.TryGetLatest(tenantId, inviteeEmail, out token))
                     await Task.Delay(250);
                 Assert.NotNull(token);
@@ -142,7 +144,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
 
                 MemberAccessDocument? explanation = null;
-                while (DateTimeOffset.UtcNow < deadline)
+                var accessDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                while (DateTimeOffset.UtcNow < accessDeadline)
                 {
                     using var response = await administrator.GetAsync(expectedAccessPath);
                     if (response.StatusCode == HttpStatusCode.OK)
@@ -165,7 +168,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
                     path.TeamName == BuiltInRbac.PowerUsersTeamName &&
                     path.RoleName == BuiltInRbac.ComplianceManagementRoleName);
                 InvitationPageDocument? activeInvitations = null;
-                while (DateTimeOffset.UtcNow < deadline)
+                var activationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                while (DateTimeOffset.UtcNow < activationDeadline)
                 {
                     using var response = await administrator.GetAsync(
                         $"{invitationStatusPath}&expected_status=active");
