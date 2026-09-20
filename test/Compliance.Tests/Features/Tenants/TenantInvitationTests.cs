@@ -47,4 +47,84 @@ public sealed class TenantInvitationTests
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Validation, result.Error.Kind);
     }
+
+    [Fact]
+    public void ShouldCarrySelectedRoleGivenClientPersonnelInvitation()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var invitation = new TenantInvitation(tenantId, "member@example.com");
+        var now = DateTimeOffset.UtcNow;
+        var token = "selected-role-token";
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+        // Act
+        var invited = invitation.Invite("client_personnel", false, hash,
+            now.AddDays(7), now, Uuid.CreateVersion4(),
+            BuiltInRbac.ComplianceManagementRole);
+        var accepted = invitation.Accept(Uuid.CreateVersion4(), token, now);
+        var events = new AggregateScenario<TenantInvitation>(invitation).PendingEvents;
+
+        // Assert
+        Assert.True(invited.IsSuccess);
+        Assert.True(accepted.IsSuccess);
+        Assert.Equal(BuiltInRbac.ComplianceManagementRole,
+            Assert.IsType<TenantMemberInvited>(events[0]).BuiltInRole);
+        Assert.Equal(BuiltInRbac.ComplianceManagementRole,
+            Assert.IsType<TenantInvitationAccepted>(events[1]).BuiltInRole);
+    }
+
+    [Fact]
+    public void ShouldRejectRoleGivenUnsupportedValueOrFirmStaff()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var hash = new string('A', 64);
+        var invitedBy = Uuid.CreateVersion4();
+        var client = new TenantInvitation(tenantId, "client@example.com");
+        var firm = new TenantInvitation(tenantId, "firm@example.com");
+
+        // Act
+        var unknown = client.Invite("client_personnel", false, hash,
+            now.AddDays(7), now, invitedBy, "unknown_role");
+        var firmRole = firm.Invite("firm_staff", false, hash,
+            now.AddDays(7), now, invitedBy, BuiltInRbac.ComplianceParticipationRole);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(unknown.Error).Kind);
+        Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(firmRole.Error).Kind);
+        Assert.Empty(new AggregateScenario<TenantInvitation>(client).PendingEvents);
+        Assert.Empty(new AggregateScenario<TenantInvitation>(firm).PendingEvents);
+    }
+
+    [Fact]
+    public void ShouldReplacePendingRoleAndTokenGivenInvitationReissue()
+    {
+        // Arrange
+        var invitation = new TenantInvitation(Uuid.CreateVersion4(), "member@example.com");
+        var now = DateTimeOffset.UtcNow;
+        var firstToken = "first-token";
+        var secondToken = "second-token";
+        var invitedBy = Uuid.CreateVersion4();
+        static string Hash(string token) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        Assert.True(invitation.Invite("client_personnel", false, Hash(firstToken),
+            now.AddDays(7), now, invitedBy, BuiltInRbac.ComplianceParticipationRole).IsSuccess);
+        Assert.True(invitation.Invite("client_personnel", false, Hash(secondToken),
+            now.AddDays(7), now, invitedBy, BuiltInRbac.ComplianceManagementRole).IsSuccess);
+
+        // Act
+        var stale = invitation.Accept(Uuid.CreateVersion4(), firstToken, now);
+        var accepted = invitation.Accept(Uuid.CreateVersion4(), secondToken, now);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(stale.Error).Kind);
+        Assert.True(accepted.IsSuccess);
+        Assert.Equal(BuiltInRbac.ComplianceManagementRole,
+            Assert.Single(new AggregateScenario<TenantInvitation>(invitation).PendingEvents
+                .OfType<TenantInvitationAccepted>()).BuiltInRole);
+    }
 }

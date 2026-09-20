@@ -34,9 +34,11 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IEmailAddressDirectoryReader>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
         services.AddScoped<UserIdentityContinuation>();
+        services.AddScoped<TenantInvitationIssuer>();
         services.AddScoped<FitzPermissionAuthorizer>();
         services.AddScoped<IPermissionProjection>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IPermissionAuthorizer>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
+        services.AddScoped<IMemberAccessReader>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<FitzTeamDirectoryReader>();
         services.AddScoped<ITeamDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
         services.AddScoped<ITeamDirectoryReader>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
@@ -155,6 +157,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
+            .AddRequestHandler<InviteOrganizationMemberHandler>()
+            .AddRequestHandler<GetMemberAccessHandler>()
             .AddRequestHandler<AcceptTenantInvitationHandler>()
             .AddRequestHandler<GetTenantHandler>()
             .AddRequestAuthorizer<GetTenantAuthorizer>()

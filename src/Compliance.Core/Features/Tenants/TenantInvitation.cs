@@ -17,6 +17,7 @@ public sealed class TenantInvitation : Aggregate
     DateTimeOffset _expiresAt;
     string? _affiliation;
     bool _administrator;
+    string? _builtInRole;
     bool _accepted;
     Uuid _acceptedUserId;
 
@@ -36,19 +37,27 @@ public sealed class TenantInvitation : Aggregate
     }
 
     public Result Invite(string affiliation, bool administrator, string tokenHash,
-        DateTimeOffset expiresAt, DateTimeOffset now, Uuid invitedBy)
+        DateTimeOffset expiresAt, DateTimeOffset now, Uuid invitedBy,
+        string? builtInRole = null)
     {
         if (affiliation is not ("client_personnel" or "firm_staff"))
             return Failure(RequestErrorKind.Validation, "Affiliation must be client_personnel or firm_staff.");
         if (administrator && affiliation != "client_personnel")
             return Failure(RequestErrorKind.Validation, "The first administrator must be client personnel.");
+        if (administrator && builtInRole is not null)
+            return Failure(RequestErrorKind.Validation,
+                "A first-administrator invitation cannot select a second role.");
+        if (builtInRole is not null &&
+            (affiliation != "client_personnel" || BuiltInRbac.TeamIdForRole(_tenantId, builtInRole) is null))
+            return Failure(RequestErrorKind.Validation,
+                "A built-in role requires client personnel and a supported role value.");
         if (_accepted)
             return Failure(RequestErrorKind.Conflict, "The invitation has already been accepted.");
         if (tokenHash.Length != 64 || expiresAt <= now || invitedBy == Uuid.Empty)
             return Failure(RequestErrorKind.Validation, "A valid invitation is required.");
 
         RaiseEvent(new TenantMemberInvited(_tenantId, _emailAddress, affiliation,
-            administrator, tokenHash, expiresAt, invitedBy));
+            administrator, tokenHash, expiresAt, invitedBy, builtInRole));
         return Result.Success;
     }
 
@@ -69,7 +78,7 @@ public sealed class TenantInvitation : Aggregate
             return Failure(RequestErrorKind.Validation, "The invitation token is invalid.");
 
         RaiseEvent(new TenantInvitationAccepted(_tenantId, userId, _emailAddress,
-            _affiliation!, _administrator));
+            _affiliation!, _administrator, _builtInRole));
         return Result.Success;
     }
 
@@ -81,6 +90,7 @@ public sealed class TenantInvitation : Aggregate
         _expiresAt = invited.ExpiresAt;
         _affiliation = invited.Affiliation;
         _administrator = invited.Administrator;
+        _builtInRole = invited.BuiltInRole;
     }
 
     static Uuid CreateId(Uuid tenantId, string emailAddress) =>

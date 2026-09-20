@@ -10,7 +10,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     given tenant.
 /// </summary>
 sealed class FitzPermissionAuthorizer(IKvClient client)
-    : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection, IPermissionAuthorizer
+    : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection,
+      IPermissionAuthorizer, IMemberAccessReader
 {
     internal const string Route = "kv://bdgrz/permissions/projection";
 
@@ -51,5 +52,17 @@ sealed class FitzPermissionAuthorizer(IKvClient client)
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         var grant = await tx.GetAsync(PermissionProjectionKeys.Grant(memberId, permission), ct).ConfigureAwait(false);
         return grant.Found;
+    }
+
+    public async ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId,
+        Uuid memberId, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        var stored = await tx.GetAsync(PermissionProjectionKeys.State, ct).ConfigureAwait(false);
+        if (!stored.Found)
+            return [];
+        var state = JsonSerializer.Deserialize(stored.Value!.Value.Span,
+            ComplianceCoreJsonContext.Default.PermissionProjectionState);
+        return state?.Explain(memberId) ?? [];
     }
 }
