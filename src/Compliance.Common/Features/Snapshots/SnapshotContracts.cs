@@ -17,6 +17,13 @@ public sealed record SnapshotView(Uuid TenantId, Uuid SnapshotId, Uuid RootSnaps
     string? AmendmentReason, Uuid ActorMemberId, string ActorDisplay,
     DateTimeOffset FrozenAt);
 
+public sealed record SnapshotSourceCheck(string Status, string ExpectedContentSha256,
+    string? ObservedContentSha256);
+
+public sealed record ProgramScopeSnapshotVerification(Uuid TenantId, Uuid SnapshotId,
+    bool Verified, SnapshotSourceCheck Snapshot, SnapshotSourceCheck ProgramRevision,
+    SnapshotSourceCheck ApprovedBoundaryVersion);
+
 [Discriminator("bdgrz.snapshot.program_scope.freeze", 1)]
 public sealed record FreezeProgramScopeSnapshot(Uuid TenantId, Uuid ProgramId,
     long ExpectedProgramRevision, Uuid BoundaryId, Uuid ApprovedBoundaryVersionId)
@@ -31,6 +38,10 @@ public sealed record AmendProgramScopeSnapshot(Uuid TenantId, Uuid SnapshotId,
 [Discriminator("bdgrz.snapshot.get", 1)]
 public sealed record GetSnapshot(Uuid TenantId, Uuid SnapshotId, long? MinimumRevision = null)
     : IRequest<SnapshotView>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.snapshot.program_scope.verify", 1)]
+public sealed record VerifyProgramScopeSnapshot(Uuid TenantId, Uuid SnapshotId)
+    : IRequest<ProgramScopeSnapshotVerification>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.snapshot.program.list", 1)]
 public sealed record ListProgramSnapshots(Uuid TenantId, Uuid ProgramId,

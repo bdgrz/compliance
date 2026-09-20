@@ -72,6 +72,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
+            "bdgrz.snapshot.program_scope.verify",
             "bdgrz.snapshot.program.list",
             "bdgrz.member.access.get",
             "bdgrz.rbac.team.define",

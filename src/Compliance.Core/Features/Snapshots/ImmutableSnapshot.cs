@@ -9,6 +9,8 @@ public sealed class ImmutableSnapshot : Aggregate
     Uuid _rootSnapshotId;
     Uuid? _amendsSnapshotId;
     Uuid _programId;
+    string? _kind;
+    ProgramScopeManifest? _manifest;
     string? _contentSha256;
     string? _canonicalManifest;
     string? _amendmentReason;
@@ -18,6 +20,10 @@ public sealed class ImmutableSnapshot : Aggregate
     public Uuid RootSnapshotId => _rootSnapshotId;
     public Uuid? AmendsSnapshotId => _amendsSnapshotId;
     public Uuid ProgramId => _programId;
+    public string? Kind => _kind;
+    public ProgramScopeManifest? Manifest => _manifest;
+    public string? CanonicalManifest => _canonicalManifest;
+    public string? ContentSha256 => _contentSha256;
 
     public ImmutableSnapshot(Uuid tenantId, Uuid snapshotId)
         : base(snapshotId, new EventStreamAddress(tenantId.ToString(), "snapshots",
@@ -30,6 +36,8 @@ public sealed class ImmutableSnapshot : Aggregate
             _rootSnapshotId = ev.RootSnapshotId;
             _amendsSnapshotId = ev.AmendsSnapshotId;
             _programId = ev.ProgramId;
+            _kind = ev.Kind;
+            _manifest = ev.Manifest;
             _contentSha256 = ev.ContentSha256;
             _canonicalManifest = ev.CanonicalManifest;
             _amendmentReason = ev.AmendmentReason;
