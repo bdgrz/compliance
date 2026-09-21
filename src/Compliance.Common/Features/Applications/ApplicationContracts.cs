@@ -42,6 +42,15 @@ public sealed record ApplicationBoundaryReferenceView(Uuid TenantId, string Subj
     Uuid EntryId, long Revision, string Status, DateOnly? EffectiveFrom,
     string Kind, string Subject, string OwnerReference, string Rationale);
 
+/// <summary>A bounded observation, not an approval or a complete retirement clearance.</summary>
+public sealed record ApplicationChangePreview(Uuid TenantId, Uuid ApplicationId,
+    long ApplicationRevision, string ChangeKind,
+    IReadOnlyList<ApplicationFieldChange> Changes,
+    IReadOnlyList<ApplicationBoundaryReferenceView> BoundaryReferences,
+    IReadOnlyList<string> PendingContexts, bool Complete);
+
+public sealed record ApplicationFieldChange(string Field, string? Before, string? After);
+
 [Discriminator("bdgrz.application.declare", 1)]
 public sealed record DeclareApplication(Uuid TenantId, string Name, string Purpose,
     string? OwnerReference = null)
@@ -97,6 +106,12 @@ public sealed record ListApplicationBoundaryReferences(Uuid TenantId, Uuid Appli
 public sealed record ListSystemInstanceBoundaryReferences(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, int? Limit = null, string? Cursor = null)
     : IRequest<Page<ApplicationBoundaryReferenceView>>, IApplicationInventoryRequest, ICallable;
+
+[Discriminator("bdgrz.application.change.preview", 1)]
+public sealed record PreviewApplicationChange(Uuid TenantId, Uuid ApplicationId,
+    long ExpectedApplicationRevision, string ChangeKind, string? Name = null,
+    string? Purpose = null, string? OwnerReference = null)
+    : IRequest<ApplicationChangePreview>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.application.declared", 1)]
 public sealed record ApplicationDeclared(Uuid TenantId, Uuid ApplicationId,
