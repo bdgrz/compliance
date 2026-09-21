@@ -18,6 +18,9 @@ public sealed class TenantInvitation : Aggregate
     string? _affiliation;
     bool _administrator;
     string? _builtInRole;
+    Uuid? _deliveryAttemptId;
+    string _deliveryStatus = "pending";
+    bool _created;
     bool _accepted;
     Uuid _acceptedUserId;
 
@@ -34,11 +37,23 @@ public sealed class TenantInvitation : Aggregate
             _accepted = true;
             _acceptedUserId = accepted.UserId;
         });
+        On<TenantInvitationDeliverySent>(sent =>
+        {
+            if (_deliveryAttemptId != sent.DeliveryAttemptId)
+                throw new InvalidOperationException("The invitation delivery outcome is stale.");
+            _deliveryStatus = "delivered";
+        });
+        On<TenantInvitationDeliveryFailed>(failed =>
+        {
+            if (_deliveryAttemptId != failed.DeliveryAttemptId)
+                throw new InvalidOperationException("The invitation delivery outcome is stale.");
+            _deliveryStatus = "failed";
+        });
     }
 
     public Result Invite(string affiliation, bool administrator, string tokenHash,
         DateTimeOffset expiresAt, DateTimeOffset now, Uuid invitedBy,
-        string? builtInRole = null)
+        string? builtInRole = null, Uuid? deliveryAttemptId = null)
     {
         if (affiliation is not ("client_personnel" or "firm_staff"))
             return Failure(RequestErrorKind.Validation, "Affiliation must be client_personnel or firm_staff.");
@@ -60,8 +75,43 @@ public sealed class TenantInvitation : Aggregate
         if (tokenHash.Length != 64 || expiresAt <= now || invitedBy == Uuid.Empty)
             return Failure(RequestErrorKind.Validation, "A valid invitation is required.");
 
+        deliveryAttemptId ??= Uuid.CreateVersion4();
         RaiseEvent(new TenantMemberInvited(_tenantId, _emailAddress, affiliation,
-            administrator, tokenHash, expiresAt, invitedBy, builtInRole));
+            administrator, tokenHash, expiresAt, invitedBy, builtInRole, deliveryAttemptId));
+        return Result.Success;
+    }
+
+    public Result RecordDeliverySent(Uuid deliveryAttemptId, DateTimeOffset sentAt)
+    {
+        var check = CheckDeliveryAttempt(deliveryAttemptId, sentAt);
+        if (check is not null)
+            return Result.Failure(check);
+        if (_deliveryStatus == "delivered")
+            return Result.Success;
+        if (_deliveryStatus == "failed")
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The invitation delivery attempt has already failed."));
+        RaiseEvent(new TenantInvitationDeliverySent(_tenantId, _emailAddress,
+            deliveryAttemptId, sentAt));
+        return Result.Success;
+    }
+
+    public Result RecordDeliveryFailure(Uuid deliveryAttemptId, string failureCode,
+        DateTimeOffset failedAt)
+    {
+        var check = CheckDeliveryAttempt(deliveryAttemptId, failedAt);
+        if (check is not null)
+            return Result.Failure(check);
+        if (string.IsNullOrWhiteSpace(failureCode) || failureCode.Length > 100)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "A delivery failure code is required and must be at most 100 characters."));
+        if (_deliveryStatus == "failed")
+            return Result.Success;
+        if (_deliveryStatus == "delivered")
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The invitation delivery attempt has already succeeded."));
+        RaiseEvent(new TenantInvitationDeliveryFailed(_tenantId, _emailAddress,
+            deliveryAttemptId, failureCode.Trim(), failedAt));
         return Result.Success;
     }
 
@@ -90,12 +140,26 @@ public sealed class TenantInvitation : Aggregate
     {
         if (invited.TenantId != _tenantId || invited.EmailAddress != _emailAddress)
             throw new InvalidOperationException("The invitation does not match its tenant and email address.");
+        _created = true;
         _tokenHash = invited.TokenHash;
         _expiresAt = invited.ExpiresAt;
         _affiliation = invited.Affiliation;
         _administrator = invited.Administrator;
         _builtInRole = invited.BuiltInRole;
+        _deliveryAttemptId = invited.DeliveryAttemptId;
+        _deliveryStatus = "pending";
     }
+
+    RequestError? CheckDeliveryAttempt(Uuid deliveryAttemptId, DateTimeOffset attemptedAt) =>
+        !_created
+            ? new RequestError(RequestErrorKind.NotFound, "The invitation does not exist.")
+            : deliveryAttemptId == Uuid.Empty || attemptedAt == default
+                ? new RequestError(RequestErrorKind.Validation,
+                    "A delivery attempt requires an identity and timestamp.")
+                : _deliveryAttemptId != deliveryAttemptId
+                    ? new RequestError(RequestErrorKind.Conflict,
+                        "The invitation delivery attempt is stale.")
+                    : null;
 
     static Uuid CreateId(Uuid tenantId, string emailAddress) =>
         Uuid.CreateVersion5(InvitationNamespaceId, $"{tenantId}\n{Normalize(emailAddress)}");

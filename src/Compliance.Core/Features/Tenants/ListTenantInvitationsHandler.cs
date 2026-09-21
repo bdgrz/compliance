@@ -46,7 +46,10 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
         }
         return new TenantInvitationView(entry.TenantId, entry.EmailAddress,
             entry.Affiliation, entry.Administrator, entry.BuiltInRole, status,
-            entry.ExpiresAt, entry.InvitedBy, entry.AcceptedUserId);
+            entry.ExpiresAt, entry.InvitedBy, entry.AcceptedUserId)
+        {
+            DeliveryStatus = entry.DeliveryStatus,
+        };
     }
 
     static Result<Page<TenantInvitationView>> Failure(RequestErrorKind kind, string message) =>

@@ -27,7 +27,10 @@ sealed class FitzTenantInvitationDirectory(IKvClient client)
             case TenantMemberInvited invited:
                 var next = new TenantInvitationDirectoryEntry(invited.TenantId,
                     invited.EmailAddress, invited.Affiliation, invited.Administrator,
-                    invited.BuiltInRole, invited.ExpiresAt, invited.InvitedBy, null);
+                    invited.BuiltInRole, invited.ExpiresAt, invited.InvitedBy, null)
+                {
+                    DeliveryStatus = "pending",
+                };
                 var prior = await TenantInvitationDirectorySchema.Directory.GetAsync(Transaction,
                     invited.EmailAddress, ct).ConfigureAwait(false);
                 if (prior is null)
@@ -45,6 +48,26 @@ sealed class FitzTenantInvitationDirectory(IKvClient client)
                         "An invitation cannot be accepted before it is projected.");
                 await TenantInvitationDirectorySchema.Directory.ReplaceAsync(Transaction,
                     current, current with { AcceptedUserId = accepted.UserId }, ct)
+                    .ConfigureAwait(false);
+                break;
+            case TenantInvitationDeliverySent sent:
+                var delivered = await TenantInvitationDirectorySchema.Directory.GetAsync(
+                    Transaction, sent.EmailAddress, ct).ConfigureAwait(false);
+                if (delivered is null || delivered.TenantId != sent.TenantId)
+                    throw new InvalidOperationException(
+                        "A delivery outcome cannot be projected before its invitation.");
+                await TenantInvitationDirectorySchema.Directory.ReplaceAsync(Transaction,
+                    delivered, delivered with { DeliveryStatus = "delivered" }, ct)
+                    .ConfigureAwait(false);
+                break;
+            case TenantInvitationDeliveryFailed failed:
+                var failedInvitation = await TenantInvitationDirectorySchema.Directory.GetAsync(
+                    Transaction, failed.EmailAddress, ct).ConfigureAwait(false);
+                if (failedInvitation is null || failedInvitation.TenantId != failed.TenantId)
+                    throw new InvalidOperationException(
+                        "A delivery outcome cannot be projected before its invitation.");
+                await TenantInvitationDirectorySchema.Directory.ReplaceAsync(Transaction,
+                    failedInvitation, failedInvitation with { DeliveryStatus = "failed" }, ct)
                     .ConfigureAwait(false);
                 break;
         }

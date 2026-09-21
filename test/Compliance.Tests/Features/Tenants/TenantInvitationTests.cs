@@ -129,6 +129,40 @@ public sealed class TenantInvitationTests
     }
 
     [Fact]
+    public void ShouldPersistDeliveryOutcomeAndAllowNewAttemptGivenFailure()
+    {
+        // Arrange
+        var invitation = new TenantInvitation(Uuid.CreateVersion4(), "member@example.com");
+        var now = DateTimeOffset.UtcNow;
+        var invitedBy = Uuid.CreateVersion4();
+        var firstAttempt = Uuid.CreateVersion4();
+        var secondAttempt = Uuid.CreateVersion4();
+
+        // Act
+        Assert.True(invitation.Invite("client_personnel", false, new string('A', 64),
+            now.AddDays(7), now, invitedBy, deliveryAttemptId: firstAttempt).IsSuccess);
+        var failed = invitation.RecordDeliveryFailure(firstAttempt, "delivery_failed", now);
+        var replayedFailure = invitation.RecordDeliveryFailure(firstAttempt, "delivery_failed",
+            now);
+        var staleSent = invitation.RecordDeliverySent(firstAttempt, now);
+        Assert.True(invitation.Invite("client_personnel", false, new string('B', 64),
+            now.AddDays(7), now, invitedBy, deliveryAttemptId: secondAttempt).IsSuccess);
+        var sent = invitation.RecordDeliverySent(secondAttempt, now.AddMinutes(1));
+        var replayedSent = invitation.RecordDeliverySent(secondAttempt, now.AddMinutes(1));
+
+        // Assert
+        Assert.True(failed.IsSuccess);
+        Assert.True(replayedFailure.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(staleSent.Error).Kind);
+        Assert.True(sent.IsSuccess);
+        Assert.True(replayedSent.IsSuccess);
+        var events = new AggregateScenario<TenantInvitation>(invitation).PendingEvents;
+        Assert.Equal(2, events.OfType<TenantMemberInvited>().Count());
+        Assert.Single(events.OfType<TenantInvitationDeliveryFailed>());
+        Assert.Single(events.OfType<TenantInvitationDeliverySent>());
+    }
+
+    [Fact]
     public void ShouldPreserveAffiliationAndPurposeGivenPendingInvitationReissue()
     {
         // Arrange
