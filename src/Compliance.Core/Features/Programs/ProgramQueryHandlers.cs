@@ -1,3 +1,4 @@
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -40,9 +41,25 @@ public sealed class ListProgramsHandler(IProgramDirectoryReader directory)
     public async ValueTask<Result<Page<ProgramView>>> HandleAsync(
         IRequestContext<ListPrograms> context, CancellationToken ct)
     {
-        var page = await directory.ListAsync(context.Request.TenantId,
-            context.Request.Limit ?? 50, context.Request.Cursor, ct).ConfigureAwait(false);
-        return Result<Page<ProgramView>>.Success(page);
+        var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ProgramView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The program list limit must be between 1 and 200."));
+        Page<ProgramView> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, request.Limit ?? 50,
+                request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ProgramView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The program cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId)
+            ? Result<Page<ProgramView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The programs were not found."))
+            : Result<Page<ProgramView>>.Success(page);
     }
 }
 
@@ -99,6 +116,10 @@ public sealed class ListProgramRevisionsHandler(IProgramDirectoryReader director
         IRequestContext<ListProgramRevisions> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ProgramRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The program revision list limit must be between 1 and 200."));
         if (request.MinimumProgramRevision is { } minimum)
         {
             var freshness = await consistency.EnsureAsync(request.TenantId, request.ProgramId,
@@ -106,12 +127,23 @@ public sealed class ListProgramRevisionsHandler(IProgramDirectoryReader director
             if (!freshness.IsSuccess)
                 return Result<Page<ProgramRevisionView>>.Failure(freshness.Error);
         }
-        var page = await directory.ListRevisionsAsync(request.TenantId,
-            request.ProgramId, request.Limit ?? 50,
-            request.Cursor, ct).ConfigureAwait(false);
+        Page<ProgramRevisionView>? page;
+        try
+        {
+            page = await directory.ListRevisionsAsync(request.TenantId, request.ProgramId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ProgramRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The program revision cursor is invalid."));
+        }
         return page is null
             ? Result<Page<ProgramRevisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."))
+            : page.Items.Any(item => item.ProgramId != request.ProgramId)
+                ? Result<Page<ProgramRevisionView>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict, "The program revision projection is incomplete."))
             : Result<Page<ProgramRevisionView>>.Success(page);
     }
 }

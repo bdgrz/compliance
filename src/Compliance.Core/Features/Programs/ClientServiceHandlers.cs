@@ -1,3 +1,4 @@
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -110,9 +111,29 @@ public sealed class ListClientServicesHandler(IClientServiceDirectoryReader dire
     : IRequestHandler<ListClientServices, Page<ClientServiceView>>
 {
     public async ValueTask<Result<Page<ClientServiceView>>> HandleAsync(
-        IRequestContext<ListClientServices> context, CancellationToken ct) =>
-        Result<Page<ClientServiceView>>.Success(await directory.ListAsync(context.Request.TenantId,
-            context.Request.Limit ?? 50, context.Request.Cursor, ct).ConfigureAwait(false));
+        IRequestContext<ListClientServices> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ClientServiceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The client service list limit must be between 1 and 200."));
+        Page<ClientServiceView> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, request.Limit ?? 50,
+                request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ClientServiceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The client service cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId)
+            ? Result<Page<ClientServiceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The services were not found."))
+            : Result<Page<ClientServiceView>>.Success(page);
+    }
 }
 
 public sealed class ListProgramClientServicesHandler(IClientServiceDirectoryReader directory,
@@ -122,14 +143,31 @@ public sealed class ListProgramClientServicesHandler(IClientServiceDirectoryRead
         IRequestContext<ListProgramClientServices> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ClientServiceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The program client service list limit must be between 1 and 200."));
         var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
             request.ProgramId), ct).ConfigureAwait(false);
         if (!program.IsCreated)
             return Result<Page<ClientServiceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
-        return Result<Page<ClientServiceView>>.Success(await directory.ListProgramAsync(
-            request.TenantId, request.ProgramId, request.Limit ?? 50, request.Cursor, ct)
-            .ConfigureAwait(false));
+        Page<ClientServiceView> page;
+        try
+        {
+            page = await directory.ListProgramAsync(request.TenantId, request.ProgramId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ClientServiceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The program client service cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId ||
+                                      item.ProgramId != request.ProgramId)
+            ? Result<Page<ClientServiceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The program services were not found."))
+            : Result<Page<ClientServiceView>>.Success(page);
     }
 }
 
@@ -186,6 +224,10 @@ public sealed class ListClientServiceRevisionsHandler(IClientServiceDirectoryRea
         IRequestContext<ListClientServiceRevisions> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ClientServiceRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The client service revision list limit must be between 1 and 200."));
         if (request.MinimumServiceRevision is { } minimum)
         {
             var freshness = await consistency.EnsureAsync(request.TenantId, request.ServiceId,
@@ -193,12 +235,23 @@ public sealed class ListClientServiceRevisionsHandler(IClientServiceDirectoryRea
             if (!freshness.IsSuccess)
                 return Result<Page<ClientServiceRevisionView>>.Failure(freshness.Error);
         }
-        var page = await directory.ListRevisionsAsync(request.TenantId,
-            request.ServiceId, request.Limit ?? 50,
-            request.Cursor, ct).ConfigureAwait(false);
+        Page<ClientServiceRevisionView>? page;
+        try
+        {
+            page = await directory.ListRevisionsAsync(request.TenantId, request.ServiceId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ClientServiceRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The client service revision cursor is invalid."));
+        }
         return page is null
             ? Result<Page<ClientServiceRevisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The service was not found."))
+            : page.Items.Any(item => item.ServiceId != request.ServiceId)
+                ? Result<Page<ClientServiceRevisionView>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict, "The service revision projection is incomplete."))
             : Result<Page<ClientServiceRevisionView>>.Success(page);
     }
 }
