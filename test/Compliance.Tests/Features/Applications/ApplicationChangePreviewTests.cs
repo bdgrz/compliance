@@ -105,6 +105,65 @@ public sealed class ApplicationChangePreviewTests
             Assert.IsType<RequestError>(invalid.Error).Kind);
     }
 
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenBoundarySourceAheadOfProjection()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var source = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(source.Declare("Payroll", "Run payroll", null, actorId, "Manager", now)
+            .IsSuccess);
+        var kv = new InMemoryKvClient();
+        var applications = new FitzApplicationDirectory(kv);
+        var references = new FitzApplicationBoundaryReferenceDirectory(kv);
+        await ProjectApplicationAsync(applications, tenantId, new ApplicationDeclared(
+            tenantId, applicationId, "Payroll", "Run payroll", null, actorId, "Manager", now));
+        var events = new InMemoryEventStore();
+        var stream = new EventStreamAddress(tenantId.ToString(), "boundaries",
+            boundaryId.ToString());
+        DomainEvent boundary = new BoundaryDraftCreated(tenantId, boundaryId,
+            Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+            new BoundaryContent("Payroll", "readiness", ["security"],
+                [new BoundaryScopeEntry(Uuid.CreateVersion4(), "inclusion",
+                    "application", "Payroll", applicationId, "Operations", "In scope", false)]),
+            actorId, "Manager", now);
+        boundary.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), boundaryId,
+            1, now));
+        await events.AppendAsync(stream, 0, [boundary]);
+        var handler = new PreviewApplicationChangeHandler(new SourceReader(source),
+            applications, references, new ApplicationBoundaryReferenceReadConsistency(
+                references, events));
+        var request = new RequestContext<PreviewApplicationChange>(
+            new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
+            new ClaimsPrincipal());
+
+        // Act
+        var lagged = await handler.HandleAsync(request, CancellationToken.None);
+        await using (var cursor = events.ReadAsync(EventStreamPattern.ForPattern(
+                         tenantId.ToString(), "boundaries"), EventCursor.Start,
+                     CancellationToken.None).GetAsyncEnumerator())
+        {
+            Assert.True(await cursor.MoveNextAsync());
+            await using var batch = await references.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity("ApplicationBoundaryReferencesV1",
+                    EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries")),
+                ProjectionCheckpoint.Start));
+            await references.ApplyAsync(boundary);
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor.Current.NextCursor));
+        }
+        var recovered = await handler.HandleAsync(request, CancellationToken.None);
+
+        // Assert
+        var lagError = Assert.IsType<RequestError>(lagged.Error);
+        Assert.Equal(RequestErrorKind.Conflict, lagError.Kind);
+        Assert.True(lagError.IsTransient);
+        Assert.Equal(boundaryId, Assert.Single(recovered.Value.BoundaryReferences).BoundaryId);
+    }
+
     static async Task ProjectApplicationAsync(FitzApplicationDirectory directory,
         Uuid tenantId, DomainEvent domainEvent)
     {

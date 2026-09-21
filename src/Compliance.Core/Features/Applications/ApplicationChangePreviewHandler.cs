@@ -48,7 +48,8 @@ public sealed class PreviewApplicationChangeHandler(
         var caughtUp = await boundaryConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
             .ConfigureAwait(false);
         if (!caughtUp.IsSuccess)
-            return Result<ApplicationChangePreview>.Failure(caughtUp.Error);
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                caughtUp.Error.Kind, caughtUp.Error.Message, isTransient: true));
         var page = await references.ListAsync(request.TenantId, "application",
             request.ApplicationId, 200, null, ct).ConfigureAwait(false);
         if (page.Items.Any(item => item.TenantId != request.TenantId ||

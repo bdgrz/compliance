@@ -106,7 +106,10 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             expected_application_revision = 1,
             change_kind = "retire",
         }))
+        {
             Assert.Equal(HttpStatusCode.Conflict, pendingPreview.StatusCode);
+            Assert.Equal("true", pendingPreview.Headers.GetValues("Portia-Transient").Single());
+        }
         using (var pendingReferences = await owner.GetAsync(applicationReferencesPath))
             Assert.Equal(HttpStatusCode.Conflict, pendingReferences.StatusCode);
         using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(
