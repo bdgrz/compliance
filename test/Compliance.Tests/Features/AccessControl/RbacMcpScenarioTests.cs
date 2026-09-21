@@ -92,6 +92,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.commitment.draft.get",
             "bdgrz.commitment.draft.list",
             "bdgrz.commitment.draft.revision.get",
+            "bdgrz.risk.draft.create",
+            "bdgrz.risk.draft.revise",
+            "bdgrz.risk.draft.get",
+            "bdgrz.risk.draft.list",
+            "bdgrz.risk.draft.revision.get",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -159,6 +164,16 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
         Assert.NotEqual(true, Assert.Single(tools, tool =>
             tool.Name == "bdgrz.commitment.draft.revise").ReadOnly);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.risk.draft.get", "bdgrz.risk.draft.list",
+                     "bdgrz.risk.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.Null(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.risk.draft.create").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.risk.draft.revise").Idempotent);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 

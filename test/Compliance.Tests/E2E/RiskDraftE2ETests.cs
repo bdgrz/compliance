@@ -58,6 +58,9 @@ public sealed class RiskDraftE2ETests(BrokerStackFixture broker)
         using var outsiderWrite = await outsider.PostAsJsonAsync(path, Draft("R-02"));
         using var otherProgram = await owner.GetAsync(
             $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/risks/{riskId}/draft");
+        var otherTenant = await CreateProgramAsync(owner);
+        using var otherTenantRead = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/risks/{riskId}/draft");
         using var invalidLimit = await owner.GetAsync($"{path}?limit=201");
         using var invalidCursor = await owner.GetAsync($"{path}?cursor=invalid");
         using var listed = await owner.GetAsync(path);
@@ -81,6 +84,7 @@ public sealed class RiskDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, outsiderList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderWrite.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherProgram.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantRead.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidLimit.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidCursor.StatusCode);
         Assert.Single((await ReadAsync(listed)).GetProperty("items").EnumerateArray());
