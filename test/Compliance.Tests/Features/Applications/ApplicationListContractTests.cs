@@ -65,6 +65,34 @@ public sealed class ApplicationListContractTests
         AssertValidation(instanceResult.Error);
     }
 
+    [Fact]
+    public async Task ShouldRejectForeignTenantCursorGivenApplicationList()
+    {
+        // Arrange
+        var firstTenantId = Uuid.CreateVersion4();
+        var secondTenantId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        await ProjectAsync(directory, firstTenantId,
+            new ApplicationDeclared(firstTenantId, Uuid.CreateVersion4(), "Payroll",
+                "Run payroll", null, actorId, "Manager", now),
+            new ApplicationDeclared(firstTenantId, Uuid.CreateVersion4(), "Benefits",
+                "Administer benefits", null, actorId, "Manager", now));
+        await ProjectAsync(directory, secondTenantId,
+            new ApplicationDeclared(secondTenantId, Uuid.CreateVersion4(), "Finance",
+                "Close books", null, actorId, "Manager", now));
+        var firstPage = await directory.ListAsync(firstTenantId, 1, null);
+        var handler = new ListApplicationsHandler(directory);
+
+        // Act
+        var result = await handler.HandleAsync(Context(new ListApplications(secondTenantId,
+            Cursor: firstPage.NextCursor)), CancellationToken.None);
+
+        // Assert
+        AssertValidation(result.Error);
+    }
+
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
 
@@ -94,6 +122,18 @@ public sealed class ApplicationListContractTests
             2, "Production", "production", null, "payroll-prod", actorId, "Manager", now));
         await batch.CommitAsync(ProjectionCheckpoint.Start);
         return new Scenario(tenantId, applicationId, source, directory);
+    }
+
+    static async Task ProjectAsync(FitzApplicationDirectory directory, Uuid tenantId,
+        params DomainEvent[] events)
+    {
+        var identity = new CheckpointIdentity("ApplicationDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        await using var batch = await directory.BeginAsync(
+            new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+        foreach (var domainEvent in events)
+            await directory.ApplyAsync(domainEvent);
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 
     sealed record Scenario(Uuid TenantId, Uuid ApplicationId, DeclaredApplication Source,
