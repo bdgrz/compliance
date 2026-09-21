@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class TenantRbacBootstrapReactorTests
 {
     [Fact]
-    public async Task ShouldGrantApplicationInventoryManagementGivenRegisteredTenant()
+    public async Task ShouldLeaveInventoryGrantToDedicatedReactorGivenRegisteredTenant()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -21,16 +21,10 @@ public sealed class TenantRbacBootstrapReactorTests
         await reactor.HandleAsync(context, CancellationToken.None);
 
         // Assert
-        Assert.Contains(bus.Dispatched, request => request is AssignRolePermission
+        Assert.DoesNotContain(bus.Dispatched, request => request is AssignRolePermission
         {
-            RoleId: var roleId,
             Permission: RbacPermissions.ApplicationInventoryManage,
-        } && roleId == BuiltInRbac.TenantAdministrationRoleId(tenantId));
-        Assert.Contains(bus.Dispatched, request => request is AssignRolePermission
-        {
-            RoleId: var roleId,
-            Permission: RbacPermissions.ApplicationInventoryManage,
-        } && roleId == BuiltInRbac.ComplianceManagementRoleId(tenantId));
+        });
     }
 
     sealed class RecordingRequestBus : IRequestBus
