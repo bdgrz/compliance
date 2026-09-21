@@ -6,8 +6,8 @@
   <ItemGroup>
     <PackageVersion Include="Cntryl.Conventions.Testing.Analyzers" Version="1.0.0" />
     <PackageVersion Include="Cntryl.Conventions.Testing.CodeFixes" Version="1.0.0" />
-    <PackageVersion Include="Cntryl.Fitz.Extensions" Version="1.4.0" />
-    <PackageVersion Include="Cntryl.Fitz.Testing" Version="1.4.0" />
+    <PackageVersion Include="Cntryl.Fitz.Extensions" Version="1.4.1" />
+    <PackageVersion Include="Cntryl.Fitz.Testing" Version="1.4.1" />
     <PackageVersion Include="Cntryl.LexKey" Version="0.1.2" />
     <PackageVersion Include="Cntryl.Portia.Abstractions" Version="0.5.2" />
     <PackageVersion Include="Cntryl.Portia.AspNetCore" Version="0.5.2" />

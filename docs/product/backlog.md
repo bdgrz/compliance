@@ -188,6 +188,8 @@ Source: Product brief open decision on criteria source and permitted use; R1-03 
 
 ### M0-D03 Decide platform roles, separation of duties, and team membership rules
 
+The platform operator is the platform super administrator for platform operations, held by an explicitly configured platform user. It is separate from tenant RBAC roles. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending access, audit, and separation-of-duties decision.
+
 Priority: P0
 
 Type: Product discovery
@@ -862,6 +864,8 @@ Done when:
 Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
 
 ### M0-D25 Define the client tenancy boundary, firm-staff affiliation, and data ownership
+
+Platform operators are super administrators for platform operations, including organization lifecycle and a paginated platform tenant portfolio. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending decision.
 
 Priority: P0
 
