@@ -72,4 +72,12 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
         await using var tx = await BeginReadAsync(Realm, ct).ConfigureAwait(false);
         return await TenantDirectorySchema.Directory.GetAsync(tx, tenantId, ct).ConfigureAwait(false);
     }
+
+    public async ValueTask<Page<TenantView>> ListAsync(int limit, string? cursor,
+        CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(Realm, ct).ConfigureAwait(false);
+        return await TenantDirectorySchema.Directory.QueryPrimaryAsync(tx, limit, cursor, ct)
+            .ConfigureAwait(false);
+    }
 }

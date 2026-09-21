@@ -258,6 +258,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AcceptTenantInvitationHandler>()
             .AddRequestHandler<GetTenantHandler>()
             .AddRequestAuthorizer<GetTenantAuthorizer>()
+            .AddRequestHandler<ListTenantsHandler>()
             .AddRequestHandler<ListTenantMembersHandler>()
             .AddRequestHandler<ChangeTenantSlugHandler>()
             .AddRequestHandler<ResolveMyTenantSlugHandler>()

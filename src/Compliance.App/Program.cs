@@ -57,6 +57,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListTenantInvitations>(tool => tool.ReadOnly())
         .AddMcpTool<GetMemberAccess>(tool => tool.ReadOnly())
         .AddMcpTool<GetTenant>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTenants>(tool => tool.ReadOnly())
         .AddMcpTool<ListTenantMembers>(tool => tool.ReadOnly())
         .AddMcpTool<ChangeTenantSlug>()
         .AddMcpTool<ResolveMyTenantSlug>(tool => tool.ReadOnly())
@@ -253,6 +254,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
     app.MapPortiaGet<GetTenant, TenantView>("/api/v1/tenants/{tenant_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Tenants");
+    app.MapPortiaGet<ListTenants, Page<TenantView>>("/api/v1/platform/tenants")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
     app.MapPortiaGet<ListTenantMembers, Page<TenantMembershipView>>("/api/v1/tenants/{tenant_id}/members")

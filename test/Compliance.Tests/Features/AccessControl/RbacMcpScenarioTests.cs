@@ -128,6 +128,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.organization-member.invite",
             "bdgrz.tenant-invitation.list",
             "bdgrz.tenant.get",
+            "bdgrz.platform.tenant.list",
             "bdgrz.tenant-member.list",
             "bdgrz.tenant.change-slug",
             "bdgrz.tenant-slug.resolve-mine");

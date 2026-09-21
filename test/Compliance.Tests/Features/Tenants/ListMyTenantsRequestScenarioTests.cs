@@ -179,5 +179,9 @@ public sealed class ListMyTenantsRequestScenarioTests
 
         public ValueTask<TenantView?> GetAsync(Uuid tenantId, CancellationToken ct = default) =>
             ValueTask.FromResult(ById.TryGetValue(tenantId, out var tenant) ? tenant : null);
+
+        public ValueTask<Page<TenantView>> ListAsync(int limit, string? cursor,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<TenantView>([], null));
     }
 }

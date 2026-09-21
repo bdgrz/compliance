@@ -530,6 +530,29 @@ public sealed class ComplianceWebTests
         Assert.DoesNotContain("expected_status", parameterNames);
     }
 
+    [Fact]
+    public async Task ShouldDescribeOperatorPortfolioGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/platform/tenants").GetProperty("get");
+        Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
+        Assert.Contains("limit", parameters);
+        Assert.Contains("cursor", parameters);
+    }
+
     static void AssertSnakeCaseJsonProperties(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Array)

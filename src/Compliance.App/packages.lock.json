@@ -46,8 +46,8 @@
       },
       "Cntryl.Fitz.Abstractions": {
         "type": "Transitive",
-        "resolved": "1.4.0",
-        "contentHash": "EoezlfU+/Gl8JR/T/hZQl2yjbByqso8bLPB930L8bpBkzMo7ntW7CWl+xQDUCGjUrrooOkOUGAWtAw7jah+LBw=="
+        "resolved": "1.4.1",
+        "contentHash": "jmG9Ef5auBUsyBelLquz1hEyE/bzhXmaX1x8yF1xjofpASihwgp4TuYf6BWRnCz8jW2wFP64OuokQV4S5hyprg=="
       },
       "Cntryl.Fitz.Core": {
         "type": "Transitive",
@@ -180,7 +180,7 @@
       "Bdgrz.Compliance.Common": {
         "type": "Project",
         "dependencies": {
-          "Cntryl.Fitz.Extensions": "[1.4.0, )",
+          "Cntryl.Fitz.Extensions": "[1.4.1, )",
           "Cntryl.Portia.Abstractions": "[0.5.2, )"
         }
       },
@@ -188,18 +188,18 @@
         "type": "Project",
         "dependencies": {
           "Bdgrz.Compliance.Common": "[1.0.0, )",
-          "Cntryl.Fitz.Extensions": "[1.4.0, )",
+          "Cntryl.Fitz.Extensions": "[1.4.1, )",
           "Cntryl.LexKey": "[0.1.2, )",
           "Cntryl.Portia.Fitz": "[0.5.2, )"
         }
       },
       "Cntryl.Fitz.Extensions": {
         "type": "CentralTransitive",
-        "requested": "[1.4.0, )",
-        "resolved": "1.4.0",
-        "contentHash": "jjygQPK04flUIUwe1xAcQtnpmi6n91YHUUIid4DKOwZII7jCEfF2xXktv1p9ZY8kZj+f0b4Nho+TUep+8BseLg==",
+        "requested": "[1.4.1, )",
+        "resolved": "1.4.1",
+        "contentHash": "rfI0Hp87h5MkiO3qk7dex5Himyqzeh1JrrpIGMklgIc/XFG6xLttPzkrbrpaziR7Kxo6pjKgzmv7jz4BtZS5NA==",
         "dependencies": {
-          "Cntryl.Fitz.Abstractions": "1.4.0",
+          "Cntryl.Fitz.Abstractions": "1.4.1",
           "Cntryl.LexKey": "0.1.2"
         }
       },
