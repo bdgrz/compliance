@@ -69,6 +69,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.application.revision.get",
             "bdgrz.application.revision.list",
             "bdgrz.application.boundary_references.list",
+            "bdgrz.application_import.get",
+            "bdgrz.application_import.rows.list",
+            "bdgrz.application_import.preview",
             "bdgrz.system_instance.declare",
             "bdgrz.system_instance.get",
             "bdgrz.system_instance.list",
@@ -121,6 +124,12 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application.revision.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.boundary_references.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.rows.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 
