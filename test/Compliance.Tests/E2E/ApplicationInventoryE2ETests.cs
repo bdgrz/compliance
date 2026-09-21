@@ -520,6 +520,15 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Equal("internal", application.Classification);
         Assert.Contains("classification_unverified", application.Unresolved);
         Assert.Contains("owner_unverified", application.Unresolved);
+        using (var zeroLimit = await owner.GetAsync($"{applicationsPath}?limit=0"))
+        using (var oversizedLimit = await owner.GetAsync($"{applicationsPath}?limit=201"))
+        using (var malformedCursor = await owner.GetAsync(
+                   $"{applicationsPath}?cursor=not-a-cursor"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, zeroLimit.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, oversizedLimit.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, malformedCursor.StatusCode);
+        }
         using var future = await owner.GetAsync($"{applicationPath}?minimum_revision=2");
         Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
         using var denied = await outsider.GetAsync(applicationPath);
@@ -548,6 +557,16 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 ["purpose"] = "Administer benefits",
                 ["classification"] = "internal",
             }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.application.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["limit"] = 0,
+            }).ExpectFailure();
+            _ = await mcp.When("bdgrz.application.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["cursor"] = "not-a-cursor",
+            }).ExpectFailure();
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))

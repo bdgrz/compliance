@@ -284,6 +284,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            // This narrow backfill has its own checkpoint so it can safely replay historical
+            // registrations without restoring intentionally removed memberships or grants.
+            .AddReactor<ApplicationInventoryGrantBackfillReactor>(
+                "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)

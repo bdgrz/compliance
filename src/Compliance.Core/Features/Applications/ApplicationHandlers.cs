@@ -7,9 +7,8 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
     ITenantActivity tenants, IPermissionAuthorizer permissions)
     : IRequestAuthorizer<IApplicationInventoryRequest>
 {
-    // R1-10a uses the existing program-management grant for manual declarations.
-    // A dedicated inventory grant needs a replay-safe migration for existing tenants
-    // and the unresolved record-level policy before it can replace this boundary.
+    // A narrow V1 grant-backfill checkpoint replays TenantRegistered without replaying broader
+    // tenant bootstrap side effects. Record-level policy remains a later authority decision.
     public async ValueTask<Result> AuthorizeAsync(
         IRequestContext<IApplicationInventoryRequest> context, CancellationToken ct)
     {
@@ -25,7 +24,7 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
         return await permissions.IsAllowedAsync(tenantId,
-                RbacIds.Member(tenantId, userId), RbacPermissions.ProgramManage, ct)
+                RbacIds.Member(tenantId, userId), RbacPermissions.ApplicationInventoryManage, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
@@ -136,8 +135,20 @@ public sealed class ListApplicationsHandler(IApplicationDirectoryReader director
         IRequestContext<ListApplications> context, CancellationToken ct)
     {
         var request = context.Request;
-        var page = await directory.ListAsync(request.TenantId,
-            Math.Clamp(request.Limit ?? 50, 1, 200), request.Cursor, ct).ConfigureAwait(false);
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ApplicationView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The application list limit must be between 1 and 200."));
+        Page<ApplicationView> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, request.Limit ?? 50,
+                request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ApplicationView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The application cursor is invalid."));
+        }
         return page.Items.Any(item => item.TenantId != request.TenantId)
             ? Result<Page<ApplicationView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The applications were not found."))
@@ -203,14 +214,27 @@ public sealed class ListApplicationRevisionsHandler(IApplicationDirectoryReader 
         IRequestContext<ListApplicationRevisions> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The application revision list limit must be between 1 and 200."));
         var freshness = await consistency.EnsureAsync(request.TenantId,
             request.ApplicationId, request.MinimumApplicationRevision, ct)
             .ConfigureAwait(false);
         if (!freshness.IsSuccess)
             return Result<Page<ApplicationRevisionView>>.Failure(freshness.Error);
-        var page = await directory.ListRevisionsAsync(request.TenantId,
-            request.ApplicationId, Math.Clamp(request.Limit ?? 50, 1, 200),
-            request.Cursor, ct).ConfigureAwait(false);
+        Page<ApplicationRevisionView>? page;
+        try
+        {
+            page = await directory.ListRevisionsAsync(request.TenantId,
+                request.ApplicationId, request.Limit ?? 50, request.Cursor, ct)
+                .ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The application revision cursor is invalid."));
+        }
         if (page is null || page.Items.Any(item => item.TenantId != request.TenantId ||
             item.ApplicationId != request.ApplicationId))
             return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
@@ -285,13 +309,25 @@ public sealed class ListSystemInstancesHandler(IApplicationDirectoryReader direc
         IRequestContext<ListSystemInstances> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<SystemInstanceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The system instance list limit must be between 1 and 200."));
         var freshness = await consistency.EnsureAsync(request.TenantId, request.ApplicationId,
             request.MinimumApplicationRevision, null, ct).ConfigureAwait(false);
         if (!freshness.IsSuccess)
             return Result<Page<SystemInstanceView>>.Failure(freshness.Error);
-        var page = await directory.ListInstancesAsync(
-            request.TenantId, request.ApplicationId,
-            Math.Clamp(request.Limit ?? 50, 1, 200), request.Cursor, ct).ConfigureAwait(false);
+        Page<SystemInstanceView> page;
+        try
+        {
+            page = await directory.ListInstancesAsync(request.TenantId, request.ApplicationId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<SystemInstanceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The system instance cursor is invalid."));
+        }
         return page.Items.Any(item => item.TenantId != request.TenantId ||
                                       item.ApplicationId != request.ApplicationId)
             ? Result<Page<SystemInstanceView>>.Failure(new RequestError(RequestErrorKind.NotFound,
