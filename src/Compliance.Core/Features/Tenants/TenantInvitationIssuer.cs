@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using Cntryl.Portia;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
