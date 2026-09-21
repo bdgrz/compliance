@@ -45,6 +45,12 @@ close each only when its own backend criteria pass. The first bundle tracks
 R1-15, EN-01, and R1-01 in #152, #157, and #158. Avoid PRs that deliver only
 one test or one technical layer of that capability.
 
+The [backend delivery ledger](backend-delivery-ledger.md) records merged
+capability bundles, completed records, and remaining acceptance gaps. For a
+child that is already complete, a synthetic documentation PR records the exact
+implementation or decision commit and evidence without inventing additional
+behavior or changing the state of unrelated product parents.
+
 ## Evidence levels
 
 - Confirmed: directly supported by the target customer statement in this product conversation.
