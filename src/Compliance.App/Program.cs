@@ -61,6 +61,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ChangeTenantSlug>()
         .AddMcpTool<ResolveMyTenantSlug>(tool => tool.ReadOnly())
         .AddMcpTool<CreateProgram>()
+        .AddMcpTool<GetControlDraft>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlDrafts>(tool => tool.ReadOnly())
+        .AddMcpTool<GetControlDraftRevision>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
@@ -274,6 +277,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaPost<CreateControlDraft, ControlRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPut<ReviseControlDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlDraft, ControlDraftView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<ListControlDrafts, Page<ControlDraftView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlDraftRevision, ControlDraftRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
