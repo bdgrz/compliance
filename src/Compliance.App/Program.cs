@@ -78,6 +78,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
+        // Portia 0.5.2 MCP binding rejects object arrays; register staging after the framework fix.
+        .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -318,6 +322,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("List current draft and approved boundary references for a system instance")
         .WithTags("System instances");
+    app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
+            "/api/v1/tenants/{tenant_id}/application_imports")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<GetApplicationImport, ApplicationImportView>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<ListApplicationImportRows, Page<ApplicationImportRowView>>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<PreviewApplicationImport, Page<ApplicationImportPreviewRow>>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
