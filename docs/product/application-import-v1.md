@@ -54,7 +54,7 @@ independently.
 
 | HTTP operation | Portia request/result | Success and purpose | MCP |
 | --- | --- | --- | --- |
-| `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | Pending `bdgrz.application_import.stage` (idempotent, bounded JSON); Portia 0.5.2 cannot bind the `rows` array |
+| `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
 | `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
 | `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none; HTTP-only |
 
@@ -176,16 +176,15 @@ row; whether this satisfies #195 requires the product decision above.
 | `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
 | `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
 
-The three read queries are registered as `ReadOnly` with Portia MCP. Cancellation
-is HTTP-only. Portia
-0.5.2 `McpToolRegistration.Bind<TRequest>` calls `JsonValue.Create` on the
-`rows` JSON array and fails before Portia authorization or the stage handler.
-After Portia supports object arrays in tool arguments, register the stage command as
-`Idempotent`. Tool arguments use the same snake_case input names and return the
-same result fields. No MCP tool makes an acceptance decision for a staged row
-or performs a personal sign-off. Discovery currently shows three read tools;
-it must show the fourth after the binder fix. Unauthorized calls must be denied
-before projection data is read.
+The three read queries are registered as `ReadOnly` with Portia MCP, and staging
+is registered as an `Idempotent` command. Portia 0.5.3 fixes the MCP binder so
+object and array arguments are parsed from their raw JSON before source-generated
+request binding. The application verifies the bounded `rows` array through a real
+broker call, including tenant authorization. Cancellation is HTTP-only. Tool
+arguments use the same snake_case input names and return the same result fields.
+No MCP tool makes an acceptance decision for a staged row or performs a personal
+sign-off. Discovery shows the stage command and the three read tools. Unauthorized
+calls must be denied before projection data is read.
 
 `ApplicationImportView` includes `tenant_id`, `batch_id`, `submission_id`,
 `source_key`, `source_namespace`, `coverage`, `content_sha256`, `revision`, `state`, `submitted_by_member_id`,

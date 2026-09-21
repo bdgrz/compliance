@@ -70,6 +70,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.application.revision.list",
             "bdgrz.application.boundary_references.list",
             "bdgrz.application.change.preview",
+            "bdgrz.application_import.stage",
             "bdgrz.application_import.get",
             "bdgrz.application_import.rows.list",
             "bdgrz.application_import.preview",
@@ -141,6 +142,8 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application.boundary_references.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.change.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.stage").Idempotent);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.get").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
