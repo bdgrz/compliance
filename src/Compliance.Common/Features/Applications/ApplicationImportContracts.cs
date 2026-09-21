@@ -49,6 +49,11 @@ public sealed record PreviewApplicationImport(Uuid TenantId, Uuid BatchId,
     int? Limit = null, string? Cursor = null, long? MinimumRevision = null)
     : IRequest<Page<ApplicationImportPreviewRow>>, IApplicationInventoryRequest, ICallable;
 
+[Discriminator("bdgrz.application_import.cancel", 1)]
+public sealed record CancelApplicationImport(Uuid TenantId, Uuid BatchId,
+    long ExpectedBatchRevision, string Reason)
+    : IRequest, IApplicationInventoryRequest, ICallable;
+
 public sealed record ApplicationImportStagedRow(Uuid RowId, int RowNumber,
     string? SourceRecordId, string? Name, string? Purpose, string? OwnerReference,
     IReadOnlyList<string> ValidationFindings);
@@ -58,3 +63,8 @@ public sealed record ApplicationImportStaged(Uuid TenantId, Uuid BatchId,
     Uuid SubmissionId, string SourceKey, string SourceNamespace, string Coverage,
     string ContentSha256, IReadOnlyList<ApplicationImportStagedRow> Rows,
     Uuid ActorMemberId, string ActorDisplay, DateTimeOffset SubmittedAt) : DomainEvent;
+
+[Discriminator("bdgrz.application_import.canceled", 1)]
+public sealed record ApplicationImportCanceled(Uuid TenantId, Uuid BatchId, long Revision,
+    string Reason, Uuid ActorMemberId, string ActorDisplay,
+    DateTimeOffset CanceledAt) : DomainEvent;

@@ -115,6 +115,25 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
             $"{secondTenantPath}/{first.GetProperty("batch_id").GetString()}/rows");
         using var crossTenantPreview = await owner.GetAsync(
             $"{secondTenantPath}/{first.GetProperty("batch_id").GetString()}/preview");
+        using var cancellation = await owner.PostAsJsonAsync(
+            $"{batchPath}/cancellations", new
+            {
+                expected_batch_revision = 1,
+                reason = "The source was superseded before acceptance.",
+            });
+        var canceled = await WaitForBatchRevisionAsync(owner, batchPath, 2);
+        using var futureCancellation = await owner.PostAsJsonAsync(
+            $"{batchPath}/cancellations", new
+            {
+                expected_batch_revision = 3,
+                reason = "A stale cancellation must not win.",
+            });
+        using var deniedCancellation = await outsider.PostAsJsonAsync(
+            $"{batchPath}/cancellations", new
+            {
+                expected_batch_revision = 2,
+                reason = "Unauthorized",
+            });
         using var applications = await owner.GetAsync($"/api/v1/tenants/{tenantId}/applications");
         var applicationsBody = await ReadAsync(applications);
         var applicationEvents = new List<DomainEvent>();
@@ -158,9 +177,14 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, crossTenantBatch.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantRows.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantPreview.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, cancellation.StatusCode);
+        Assert.Equal(2, canceled.GetProperty("revision").GetInt64());
+        Assert.Equal("canceled", canceled.GetProperty("state").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, futureCancellation.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedCancellation.StatusCode);
         Assert.Empty(applicationsBody.GetProperty("items").EnumerateArray());
         Assert.Empty(applicationEvents);
-        Assert.Equal(2, importEvents.Count);
+        Assert.Equal(3, importEvents.Count);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
                          new Uri(owner.BaseAddress!, "/mcp")))
         {
@@ -320,6 +344,22 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("Import projection did not catch up with the staged source.");
+    }
+
+    static async Task<JsonElement> WaitForBatchRevisionAsync(HttpClient owner, string batchPath,
+        long revision)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(
+                $"{batchPath}?minimum_revision={revision}");
+            if (response.StatusCode == HttpStatusCode.OK)
+                return await ReadAsync(response);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("Import projection did not catch up with the cancellation.");
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>

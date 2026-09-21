@@ -409,6 +409,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/application_imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Application imports");
+    app.MapPortiaPost<CancelApplicationImport>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
     app.MapPortiaGet<GetApplicationImport, ApplicationImportView>(
             "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
