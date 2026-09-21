@@ -69,8 +69,11 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 var declaredView = new ApplicationView(declared.TenantId,
                     declared.ApplicationId, 1, declared.Name, declared.Purpose,
                     declared.OwnerReference, "manual", declared.ApplicationId.ToString(),
-                    false, Gaps(declared.OwnerReference, false), declared.ActorMemberId,
-                    declared.ActorDisplay, declared.ChangedAt);
+                    false, Gaps(declared.OwnerReference, declared.Classification, false),
+                    declared.ActorMemberId, declared.ActorDisplay, declared.ChangedAt)
+                {
+                    Classification = declared.Classification,
+                };
                 await ApplicationDirectorySchema.Applications.InsertAsync(Transaction,
                     declaredView, ct).ConfigureAwait(false);
                 await InsertRevisionAsync(declaredView, "declared", null, ct)
@@ -85,7 +88,9 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     Name = revised.Name,
                     Purpose = revised.Purpose,
                     OwnerReference = revised.OwnerReference,
-                    Unresolved = Gaps(revised.OwnerReference, before.HasSystemInstances),
+                    Classification = revised.Classification,
+                    Unresolved = Gaps(revised.OwnerReference, revised.Classification,
+                        before.HasSystemInstances),
                     LastChangedByMemberId = revised.ActorMemberId,
                     LastChangedByDisplay = revised.ActorDisplay,
                     LastChangedAt = revised.ChangedAt,
@@ -112,7 +117,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 {
                     Revision = instance.ApplicationRevision,
                     HasSystemInstances = true,
-                    Unresolved = Gaps(application.OwnerReference, true),
+                    Unresolved = Gaps(application.OwnerReference, application.Classification, true),
                     LastChangedByMemberId = instance.ActorMemberId,
                     LastChangedByDisplay = instance.ActorDisplay,
                     LastChangedAt = instance.ChangedAt,
@@ -132,12 +137,16 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 view.Name, view.Purpose, view.OwnerReference, view.SourceKind,
                 view.SourceIdentifier, view.HasSystemInstances, view.Unresolved,
                 view.LastChangedByMemberId, view.LastChangedByDisplay, view.LastChangedAt,
-                changeKind, systemInstance?.SystemInstanceId, systemInstance), ct)
+                changeKind, systemInstance?.SystemInstanceId, systemInstance)
+            {
+                Classification = view.Classification,
+            }, ct)
             .ConfigureAwait(false);
 
-    static IReadOnlyList<string> Gaps(string? owner, bool hasInstances) =>
+    static IReadOnlyList<string> Gaps(string? owner, string? classification, bool hasInstances) =>
         [string.IsNullOrWhiteSpace(owner) ? "owner_missing" : "owner_unverified",
-            "classification_unresolved",
+            string.IsNullOrWhiteSpace(classification)
+                ? "classification_unresolved" : "classification_unverified",
             hasInstances ? "access_boundary_review_pending" : "system_instances_missing"];
 
     async ValueTask<ApplicationView> RequireApplicationAsync(Uuid applicationId, CancellationToken ct) =>

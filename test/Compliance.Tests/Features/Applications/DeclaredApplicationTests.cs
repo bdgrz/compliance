@@ -74,4 +74,32 @@ public sealed class DeclaredApplicationTests
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(missingKind.Error).Kind);
         Assert.Single(new AggregateScenario<DeclaredApplication>(application).PendingEvents);
     }
+
+    [Fact]
+    public void ShouldPreserveDeclaredClassificationGivenReplayAndRevision()
+    {
+        // Arrange
+        var application = new DeclaredApplication(Uuid.CreateVersion4(), Uuid.CreateVersion4());
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+
+        // Act
+        var declared = application.Declare("Payroll", "Run payroll", "Finance", actorId,
+            "Manager", now, " Internal ");
+        var replay = application.Declare("Payroll", "Run payroll", "Finance", actorId,
+            "Manager", now, " Internal ");
+        var revised = application.Revise(1, "Payroll", "Run payroll", "Finance", actorId,
+            "Manager", now.AddMinutes(1), " Restricted ");
+        var oversized = application.Revise(2, "Payroll", "Run payroll", "Finance", actorId,
+            "Manager", now.AddMinutes(2), new string('x', 201));
+
+        // Assert
+        Assert.True(declared.IsSuccess);
+        Assert.True(replay.IsSuccess);
+        Assert.True(revised.IsSuccess);
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(oversized.Error).Kind);
+        Assert.Collection(new AggregateScenario<DeclaredApplication>(application).PendingEvents,
+            ev => Assert.Equal("Internal", Assert.IsType<ApplicationDeclared>(ev).Classification),
+            ev => Assert.Equal("Restricted", Assert.IsType<ApplicationRevised>(ev).Classification));
+    }
 }

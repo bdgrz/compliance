@@ -46,13 +46,14 @@ public sealed class ApplicationChangePreviewTests
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
             new PreviewApplicationChange(tenantId, applicationId, 1, "revise", "Payroll v2",
-                "Run payroll", "Finance"), new ClaimsPrincipal()), CancellationToken.None);
+                "Run payroll", "Finance", "internal"), new ClaimsPrincipal()),
+            CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess);
         Assert.False(result.Value.Complete);
-        Assert.Equal(2, result.Value.Changes.Count);
-        Assert.Equal(["name", "owner_reference"],
+        Assert.Equal(3, result.Value.Changes.Count);
+        Assert.Equal(["name", "owner_reference", "classification"],
             result.Value.Changes.Select(static change => change.Field));
         Assert.Equal(boundaryId, Assert.Single(result.Value.BoundaryReferences).BoundaryId);
         Assert.Contains("engagements", result.Value.PendingContexts);
