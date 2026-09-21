@@ -7,8 +7,8 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
     ITenantActivity tenants, IPermissionAuthorizer permissions)
     : IRequestAuthorizer<IApplicationInventoryRequest>
 {
-    // The bootstrap V2 checkpoint replays TenantRegistered safely: role-permission aggregates
-    // make repeated grants idempotent. Record-level policy remains a later authority decision.
+    // A narrow V1 grant-backfill checkpoint replays TenantRegistered without replaying broader
+    // tenant bootstrap side effects. Record-level policy remains a later authority decision.
     public async ValueTask<Result> AuthorizeAsync(
         IRequestContext<IApplicationInventoryRequest> context, CancellationToken ct)
     {

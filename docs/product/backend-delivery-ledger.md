@@ -57,8 +57,8 @@ child issue's complete acceptance evidence.
 The current application-inventory authorization slice is
 [PR #266](https://github.com/bdgrz/compliance/pull/266). It assigns the dedicated
 `application_inventory.manage` grant to built-in tenant administrators and
-compliance managers, then versions the idempotent bootstrap reactor so existing
-tenants receive it through replay. It advances [R1-10a #211](https://github.com/bdgrz/compliance/issues/211)
+compliance managers, then adds a narrow idempotent grant-backfill reactor so
+existing tenants receive it through replay. It advances [R1-10a #211](https://github.com/bdgrz/compliance/issues/211)
 without claiming completion.
 
 The next dependency-ready bundle is R1-05 control-draft MCP authoring. Keep
