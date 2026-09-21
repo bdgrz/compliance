@@ -85,6 +85,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.program.revisions.list",
             "bdgrz.program.revision.get",
             "bdgrz.program.setup-work.get",
+            "bdgrz.control.draft.create",
+            "bdgrz.control.draft.revise",
             "bdgrz.control.draft.get",
             "bdgrz.control.draft.list",
             "bdgrz.control.draft.revision.get",
@@ -156,8 +158,10 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.control.draft.revision.get",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
-        Assert.DoesNotContain(tools, tool => tool.Name is
-            "bdgrz.control.draft.create" or "bdgrz.control.draft.revise");
+        Assert.Null(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.control.draft.create").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.control.draft.revise").Idempotent);
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
