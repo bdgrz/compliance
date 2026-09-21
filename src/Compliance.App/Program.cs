@@ -69,6 +69,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
         .AddMcpTool<ListCommitmentDrafts>(tool => tool.ReadOnly())
         .AddMcpTool<GetCommitmentDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateRiskDraft>()
+        .AddMcpTool<ReviseRiskDraft>(tool => tool.Idempotent())
+        .AddMcpTool<GetRiskDraft>(tool => tool.ReadOnly())
+        .AddMcpTool<ListRiskDrafts>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskDraftRevision>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
@@ -323,6 +328,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Commitments");
+    app.MapPortiaPost<CreateRiskDraft, RiskRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPut<ReviseRiskDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskDraft, RiskDraftView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<ListRiskDrafts, Page<RiskDraftView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskDraftRevision, RiskDraftRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
