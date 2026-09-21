@@ -420,6 +420,15 @@ public sealed class ComplianceWebTests
                 parameter => parameter.GetProperty("name").GetString() == "cursor" &&
                              parameter.GetProperty("in").GetString() == "query");
         }
+        var changePreview = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews")
+            .GetProperty("post");
+        var previewSchema = changePreview.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "expected_application_revision", "change_kind" })
+            Assert.True(previewSchema.GetProperty("properties").TryGetProperty(name, out _));
+        Assert.True(changePreview.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(changePreview.GetProperty("responses").TryGetProperty("409", out _));
     }
 
     [Theory]

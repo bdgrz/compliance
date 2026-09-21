@@ -100,6 +100,13 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var applicationBoundary = await applicationBoundaryResponse.Content
             .ReadFromJsonAsync<BoundaryRegistrationDocument>();
         Assert.NotNull(applicationBoundary);
+        var previewPath = $"{applicationsPath}/{first.ApplicationId}/change_previews";
+        using (var pendingPreview = await owner.PostAsJsonAsync(previewPath, new
+        {
+            expected_application_revision = 1,
+            change_kind = "retire",
+        }))
+            Assert.Equal(HttpStatusCode.Conflict, pendingPreview.StatusCode);
         using (var pendingReferences = await owner.GetAsync(applicationReferencesPath))
             Assert.Equal(HttpStatusCode.Conflict, pendingReferences.StatusCode);
         using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(
@@ -233,9 +240,37 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 Assert.Equal(applicationBoundary.BoundaryId.ToString(),
                     reference.GetProperty("boundary_id").GetString());
             }
+            using (var previewResponse = await owner.PostAsJsonAsync(previewPath, new
+            {
+                expected_application_revision = 2,
+                change_kind = "revise",
+                name = "Payroll revised",
+                purpose = "Run payroll",
+            }))
+            {
+                Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+                using var preview = JsonDocument.Parse(
+                    await previewResponse.Content.ReadAsStringAsync());
+                Assert.False(preview.RootElement.GetProperty("complete").GetBoolean());
+                Assert.Equal("name", Assert.Single(preview.RootElement
+                    .GetProperty("changes").EnumerateArray()).GetProperty("field").GetString());
+                Assert.Equal(applicationBoundary.BoundaryId.ToString(),
+                    Assert.Single(preview.RootElement.GetProperty("boundary_references")
+                        .EnumerateArray()).GetProperty("boundary_id").GetString());
+                Assert.Contains(preview.RootElement.GetProperty("pending_contexts")
+                    .EnumerateArray(), item => item.GetString() == "engagements");
+            }
             await using (var mcp = await McpScenario.ConnectAsync(owner,
                              new Uri(owner.BaseAddress!, "/mcp")))
             {
+                _ = await mcp.When("bdgrz.application.change.preview",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["application_id"] = first.ApplicationId,
+                        ["expected_application_revision"] = 2,
+                        ["change_kind"] = "retire",
+                    }).ExpectSuccess();
                 _ = await mcp.When("bdgrz.boundary.get", new Dictionary<string, object?>
                 {
                     ["tenant_id"] = tenant.TenantId,
@@ -484,8 +519,15 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
         using var denied = await outsider.GetAsync(applicationPath);
         using var deniedList = await outsider.GetAsync(applicationsPath);
+        using var deniedPreview = await outsider.PostAsJsonAsync(
+            $"{applicationPath}/change_previews", new
+            {
+                expected_application_revision = 1,
+                change_kind = "retire",
+            });
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedList.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedPreview.StatusCode);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
                          new Uri(owner.BaseAddress!, "/mcp")))
         {
@@ -520,6 +562,14 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 {
                     ["tenant_id"] = tenant.TenantId,
                     ["application_id"] = registration.ApplicationId,
+                }).ExpectFailure();
+            _ = await mcp.When("bdgrz.application.change.preview",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["application_id"] = registration.ApplicationId,
+                    ["expected_application_revision"] = 1,
+                    ["change_kind"] = "retire",
                 }).ExpectFailure();
             _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
                 new Dictionary<string, object?>
@@ -759,6 +809,12 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(otherRegistration);
         using var crossTenantApplication = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}");
+        using var crossTenantPreview = await owner.PostAsJsonAsync(
+            $"{otherApplicationsPath}/{registration.ApplicationId}/change_previews", new
+            {
+                expected_application_revision = 3,
+                change_kind = "retire",
+            });
         using var crossTenantInstance = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/system_instances/{instance.SystemInstanceId}");
         using var crossTenantInstances = await owner.GetAsync(
@@ -768,6 +824,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         using var crossTenantHistoryList = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantApplication.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantPreview.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantInstance.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantInstances.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantHistory.StatusCode);

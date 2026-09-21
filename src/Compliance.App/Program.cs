@@ -81,6 +81,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
         // Portia 0.5.2 MCP binding rejects object arrays; register staging after the framework fix.
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
@@ -345,6 +346,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("List current draft and approved boundary references for a system instance")
         .WithTags("System instances");
+    app.MapPortiaPost<PreviewApplicationChange, ApplicationChangePreview>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview the known impact of a proposed application change")
+        .WithTags("Applications");
     app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
             "/api/v1/tenants/{tenant_id}/application_imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
