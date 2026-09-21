@@ -188,6 +188,25 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         await using (var mcp = await McpScenario.ConnectAsync(owner,
                          new Uri(owner.BaseAddress!, "/mcp")))
         {
+            var stagedByMcp = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["submission_id"] = Guid.NewGuid(),
+                ["source_key"] = "tenant_list",
+                ["source_namespace"] = "mcp",
+                ["coverage"] = "partial",
+                ["rows"] = new[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["source_record_id"] = "mcp-record-1",
+                        ["name"] = "MCP inventory row",
+                        ["purpose"] = "MCP binder coverage",
+                        ["owner_reference"] = null,
+                    },
+                },
+            };
+            _ = await mcp.When("bdgrz.application_import.stage", stagedByMcp).ExpectSuccess();
             var arguments = new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenantId,
@@ -200,6 +219,24 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
         {
+            _ = await mcp.When("bdgrz.application_import.stage", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["submission_id"] = Guid.NewGuid(),
+                ["source_key"] = "tenant_list",
+                ["source_namespace"] = "mcp",
+                ["coverage"] = "partial",
+                ["rows"] = new[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["source_record_id"] = "outsider-record-1",
+                        ["name"] = "Unauthorized row",
+                        ["purpose"] = "Authorization coverage",
+                        ["owner_reference"] = null,
+                    },
+                },
+            }).ExpectFailure();
             _ = await mcp.When("bdgrz.application_import.get", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenantId,

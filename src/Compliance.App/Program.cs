@@ -93,7 +93,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
-        // Portia 0.5.2 MCP binding rejects object arrays; register staging after the framework fix.
+        .AddMcpTool<StageApplicationImport>(tool => tool.Idempotent())
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
