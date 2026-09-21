@@ -86,6 +86,14 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var applicationReferencesPath =
             $"{applicationsPath}/{first.ApplicationId}/boundary_references";
         await worker.StopAsync();
+        using (var emptyInstances = await owner.GetAsync(
+                   $"{applicationsPath}/{first.ApplicationId}/system_instances?minimum_application_revision=1"))
+        {
+            Assert.Equal(HttpStatusCode.OK, emptyInstances.StatusCode);
+            var emptyPage = await emptyInstances.Content
+                .ReadFromJsonAsync<SystemInstancePageDocument>();
+            Assert.Empty(emptyPage!.Items);
+        }
         using var applicationBoundaryResponse = await owner.PostAsJsonAsync(boundaryPath,
             new { content = BoundaryContent("application", first.ApplicationId) });
         Assert.Equal(HttpStatusCode.OK, applicationBoundaryResponse.StatusCode);
@@ -106,6 +114,29 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var unprojectedInstance = await unprojectedInstanceResponse.Content
             .ReadFromJsonAsync<SystemInstanceRegistrationDocument>();
         Assert.NotNull(unprojectedInstance);
+        var instancePath = $"{applicationsPath}/{first.ApplicationId}/system_instances/" +
+            unprojectedInstance.SystemInstanceId;
+        using (var pendingExact = await owner.GetAsync(
+                   $"{instancePath}?minimum_application_revision=2"))
+        using (var pendingList = await owner.GetAsync(
+                   $"{applicationsPath}/{first.ApplicationId}/system_instances?minimum_application_revision=2"))
+        using (var future = await owner.GetAsync(
+                   $"{instancePath}?minimum_application_revision=3"))
+        using (var unknown = await owner.GetAsync(
+                   $"{applicationsPath}/{first.ApplicationId}/system_instances/{Guid.NewGuid()}"))
+        using (var invalid = await owner.GetAsync(
+                   $"{instancePath}?minimum_application_revision=0"))
+        {
+            Assert.Equal(HttpStatusCode.Conflict, pendingExact.StatusCode);
+            Assert.Equal("true", pendingExact.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, pendingList.StatusCode);
+            Assert.Equal("true", pendingList.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
+            Assert.Contains("source", await future.Content.ReadAsStringAsync(),
+                StringComparison.Ordinal);
+            Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        }
         var instanceContent = BoundaryContent("system_instance",
             unprojectedInstance.SystemInstanceId);
         using var laggingReference = await owner.PostAsJsonAsync(boundaryPath,
@@ -130,6 +161,15 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.True(instanceProjected);
+            using (var caughtUpList = await owner.GetAsync(
+                       $"{applicationsPath}/{first.ApplicationId}/system_instances?minimum_application_revision=2"))
+            {
+                Assert.Equal(HttpStatusCode.OK, caughtUpList.StatusCode);
+                var page = await caughtUpList.Content
+                    .ReadFromJsonAsync<SystemInstancePageDocument>();
+                Assert.Equal(unprojectedInstance.SystemInstanceId,
+                    Assert.Single(page!.Items).SystemInstanceId);
+            }
             using var linked = await owner.PostAsJsonAsync(boundaryPath,
                 new { content = instanceContent });
             Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
@@ -488,6 +528,19 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                     ["application_id"] = registration.ApplicationId,
                     ["system_instance_id"] = Uuid.CreateVersion4(),
                 }).ExpectFailure();
+            _ = await mcp.When("bdgrz.system_instance.get", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["system_instance_id"] = Uuid.CreateVersion4(),
+                ["minimum_application_revision"] = 1,
+            }).ExpectFailure();
+            _ = await mcp.When("bdgrz.system_instance.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["minimum_application_revision"] = 1,
+            }).ExpectFailure();
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
@@ -591,6 +644,18 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal("revised", revisedRevision?.ChangeKind);
         Assert.Equal("Run monthly payroll", revisedRevision?.Purpose);
+        using (var freshInstance = await owner.GetAsync(
+                   $"{instancePath}?minimum_application_revision=3"))
+        using (var freshInstances = await owner.GetAsync(
+                   $"{applicationPath}/system_instances?minimum_application_revision=3"))
+        {
+            Assert.Equal(HttpStatusCode.OK, freshInstance.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, freshInstances.StatusCode);
+            var page = await freshInstances.Content
+                .ReadFromJsonAsync<SystemInstancePageDocument>();
+            Assert.Equal(instance.SystemInstanceId,
+                Assert.Single(page!.Items).SystemInstanceId);
+        }
         using var firstRevisionResponse = await owner.GetAsync($"{applicationPath}/revisions/1");
         Assert.Equal(HttpStatusCode.OK, firstRevisionResponse.StatusCode);
         var firstRevision = await firstRevisionResponse.Content
@@ -611,9 +676,12 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             .ReadFromJsonAsync<ApplicationRevisionPageDocument>();
         Assert.Equal([3L], nextHistory?.Items.Select(item => item.Revision));
         using var deniedInstance = await outsider.GetAsync(instancePath);
+        using var deniedInstances = await outsider.GetAsync(
+            $"{applicationPath}/system_instances?minimum_application_revision=3");
         using var deniedHistory = await outsider.GetAsync($"{applicationPath}/revisions/1");
         using var deniedHistoryList = await outsider.GetAsync($"{applicationPath}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, deniedInstance.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedInstances.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedHistoryList.StatusCode);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
@@ -626,6 +694,19 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 ["revision"] = 1,
             }).ExpectSuccess();
             _ = await mcp.When("bdgrz.application.revision.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["minimum_application_revision"] = 3,
+            }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.system_instance.get", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["application_id"] = registration.ApplicationId,
+                ["system_instance_id"] = instance.SystemInstanceId,
+                ["minimum_application_revision"] = 3,
+            }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.system_instance.list", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenant.TenantId,
                 ["application_id"] = registration.ApplicationId,
@@ -680,12 +761,15 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             $"{otherApplicationsPath}/{registration.ApplicationId}");
         using var crossTenantInstance = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/system_instances/{instance.SystemInstanceId}");
+        using var crossTenantInstances = await owner.GetAsync(
+            $"{otherApplicationsPath}/{registration.ApplicationId}/system_instances?minimum_application_revision=3");
         using var crossTenantHistory = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/revisions/1");
         using var crossTenantHistoryList = await owner.GetAsync(
             $"{otherApplicationsPath}/{registration.ApplicationId}/revisions");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantApplication.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantInstance.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantInstances.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantHistoryList.StatusCode);
         var otherProgramId = await CreateProgramAsync(owner, otherTenant.TenantId);
@@ -735,9 +819,12 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     sealed record SystemInstanceRegistrationDocument(
         [property: JsonPropertyName("system_instance_id")] Guid SystemInstanceId);
     sealed record SystemInstanceDocument(
+        [property: JsonPropertyName("system_instance_id")] Guid SystemInstanceId,
         [property: JsonPropertyName("source_kind")] string SourceKind,
         [property: JsonPropertyName("source_identifier")] string? SourceIdentifier,
         [property: JsonPropertyName("unresolved")] string[] Unresolved);
+    sealed record SystemInstancePageDocument(
+        [property: JsonPropertyName("items")] SystemInstanceDocument[] Items);
 }
 
 // Keep inventory bootstrap timing independent of tenant history from other broker tests.
