@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Controls;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -129,6 +130,27 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         await using (var mcp = await McpScenario.ConnectAsync(owner,
                          new Uri(owner.BaseAddress!, "/mcp")))
         {
+            var mcpControlId = ControlDraft.IdFor(Uuid.FromGuid(tenantId),
+                Uuid.FromGuid(programId), "MCP-01");
+            _ = await mcp.When("bdgrz.control.draft.create", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["program_id"] = programId,
+                ["identifier"] = "MCP-01",
+                ["content"] = Content("Review access through MCP"),
+            }).ExpectSuccess();
+            _ = await WaitForRevisionAsync(owner, $"{path}/{mcpControlId}/draft", 1);
+            _ = await mcp.When("bdgrz.control.draft.revise", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["program_id"] = programId,
+                ["control_id"] = mcpControlId,
+                ["expected_revision"] = 1,
+                ["content"] = Content("Review access through MCP monthly"),
+            }).ExpectSuccess();
+            var mcpRevised = await WaitForRevisionAsync(owner, $"{path}/{mcpControlId}/draft", 2);
+            Assert.Equal("Review access through MCP monthly", mcpRevised.GetProperty("content")
+                .GetProperty("title").GetString());
             _ = await mcp.When("bdgrz.control.draft.get", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenantId,
@@ -152,6 +174,21 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
         {
+            _ = await mcp.When("bdgrz.control.draft.create", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["program_id"] = programId,
+                ["identifier"] = "MCP-NO-ACCESS",
+                ["content"] = Content("Unauthorized MCP control"),
+            }).ExpectFailure();
+            _ = await mcp.When("bdgrz.control.draft.revise", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["program_id"] = programId,
+                ["control_id"] = controlId,
+                ["expected_revision"] = 2,
+                ["content"] = Content("Unauthorized MCP revision"),
+            }).ExpectFailure();
             _ = await mcp.When("bdgrz.control.draft.get", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenantId,
