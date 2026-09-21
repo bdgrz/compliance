@@ -344,8 +344,13 @@ public sealed class ComplianceWebTests
                 required => required.GetString() == name);
         }
         Assert.True(declare.GetProperty("responses").TryGetProperty("200", out _));
-        Assert.True(applications.GetProperty("get").GetProperty("responses")
-            .TryGetProperty("200", out _));
+        var applicationList = applications.GetProperty("get");
+        Assert.True(applicationList.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(applicationList.GetProperty("responses").TryGetProperty("400", out _));
+        foreach (var name in new[] { "limit", "cursor" })
+            Assert.Contains(applicationList.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == name &&
+                parameter.GetProperty("in").GetString() == "query");
         var application = paths.GetProperty(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}");
         Assert.True(application.GetProperty("put").TryGetProperty("requestBody", out _));
@@ -368,6 +373,8 @@ public sealed class ComplianceWebTests
             parameter => parameter.GetProperty("name").GetString() ==
                          "minimum_application_revision" &&
                          parameter.GetProperty("in").GetString() == "query");
+        Assert.True(history.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("400", out _));
         var exactResponse = paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
             .GetProperty("get").GetProperty("responses").GetProperty("200")
@@ -387,6 +394,8 @@ public sealed class ComplianceWebTests
             .TryGetProperty("source_identifier", out _));
         Assert.True(instances.GetProperty("get").GetProperty("responses")
             .TryGetProperty("200", out _));
+        Assert.True(instances.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("400", out _));
         foreach (var operation in new[]
                  {
                      instances.GetProperty("get"),
