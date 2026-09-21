@@ -83,6 +83,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.program.revisions.list",
             "bdgrz.program.revision.get",
             "bdgrz.program.setup-work.get",
+            "bdgrz.control.draft.get",
+            "bdgrz.control.draft.list",
+            "bdgrz.control.draft.revision.get",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -130,6 +133,14 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application_import.rows.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.preview").ReadOnly);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.control.draft.get", "bdgrz.control.draft.list",
+                     "bdgrz.control.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name is
+            "bdgrz.control.draft.create" or "bdgrz.control.draft.revise");
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 
