@@ -59,7 +59,9 @@ The current application-inventory authorization slice is
 `application_inventory.manage` grant to built-in tenant administrators and
 compliance managers, then adds a narrow idempotent grant-backfill reactor so
 existing tenants receive it through replay. It advances [R1-10a #211](https://github.com/bdgrz/compliance/issues/211)
-without claiming completion.
+without claiming completion. The same bundle makes all application list limits
+explicit and turns malformed or cross-tenant opaque cursors into validation
+errors on the Portia HTTP and MCP surfaces.
 
 The next dependency-ready bundle is R1-05 control-draft MCP authoring. Keep
 #126, #123, #139, #60, and #161 visible as blockers for source authority,
