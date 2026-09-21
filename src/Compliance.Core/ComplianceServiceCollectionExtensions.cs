@@ -88,6 +88,13 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<ProgramHistoryReadConsistency>();
+        services.AddScoped<FitzControlDraftDirectory>();
+        services.AddScoped<IControlDraftDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzControlDraftDirectory>());
+        services.AddScoped<IControlDraftDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzControlDraftDirectory>());
+        services.AddScoped<ControlDraftReadConsistency>();
+        services.AddScoped<ControlDraftListReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
@@ -177,6 +184,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<PreviewApplicationImportHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
+            .AddRequestHandler<CreateControlDraftHandler>()
+            .AddRequestHandler<ReviseControlDraftHandler>()
+            .AddRequestHandler<GetControlDraftHandler>()
+            .AddRequestHandler<ListControlDraftsHandler>()
+            .AddRequestHandler<GetControlDraftRevisionHandler>()
             .AddRequestHandler<ReviseProgramHandler>()
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
@@ -259,6 +271,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<TenantInvitationDirectoryProjector>("TenantInvitationDirectory",
                 WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ControlDraftDirectoryProjector>("ControlDraftDirectory", WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectory", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
