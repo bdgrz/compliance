@@ -1,6 +1,6 @@
 # Backend delivery ledger
 
-Status: reviewed against `main` at `bd63bad` on 2026-09-21.
+Status: reviewed against `main` at `9c7de96` on 2026-09-21.
 
 This ledger keeps the GitHub backlog honest while backend work is delivered in
 capability-sized pull requests. A pull request may cover several dependent
@@ -54,11 +54,17 @@ child issue's complete acceptance evidence.
 
 ## Next grouped implementation loop
 
-The next implementation bundle is the remaining dependency-ordered R1-10a
-application inventory work, grouped with any shared authorization or
-source-authority contracts it needs. Keep #126, #123, and #139 visible as
-blockers until their organization-specific or canonical-model questions are
-resolved. The existing application history, classification, import, and
+The current application-inventory authorization slice is
+[PR #266](https://github.com/bdgrz/compliance/pull/266). It assigns the dedicated
+`application_inventory.manage` grant to built-in tenant administrators and
+compliance managers, then versions the idempotent bootstrap reactor so existing
+tenants receive it through replay. It advances [R1-10a #211](https://github.com/bdgrz/compliance/issues/211)
+without claiming completion.
+
+The next dependency-ready bundle is R1-05 control-draft MCP authoring. Keep
+#126, #123, #139, #60, and #161 visible as blockers for source authority,
+organization-specific role policy, reviewed-scope decisions, and governed
+retirement. The existing application history, classification, import, and
 bounded impact slices remain useful evidence, but their children stay open
 until the issue-specific acceptance gates pass.
 
