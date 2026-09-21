@@ -1,16 +1,12 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Boundaries;
 
-public interface IBoundaryImpactContributor
-{
-    string Context { get; }
-
-    ValueTask<BoundaryImpactContribution> ContributeAsync(BoundaryView boundary,
-        IReadOnlyList<BoundaryChange> changes, CancellationToken ct);
-}
+public interface IBoundaryImpactContributor :
+    IImpactContributor<BoundaryView, BoundaryChange, BoundaryImpactContribution>;
 
 public sealed class ProgramBoundaryImpactContributor : IBoundaryImpactContributor
 {

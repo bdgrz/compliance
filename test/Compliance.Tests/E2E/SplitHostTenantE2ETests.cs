@@ -13,7 +13,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
+public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldRetryDirectInvitationGivenDeliveryFailure()
@@ -90,11 +90,43 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             using var first = await operatorClient.PostAsJsonAsync(path, request);
             Assert.Equal(HttpStatusCode.InternalServerError, first.StatusCode);
             Assert.False(delivery.TryGetLatest(tenantId, email, out _));
+            InvitationPage? failedInvitation = null;
+            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < failureDeadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/member_invitations?email_address=" +
+                    Uri.EscapeDataString(email));
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    failedInvitation = await response.Content.ReadFromJsonAsync<InvitationPage>();
+                    if (failedInvitation?.Items.SingleOrDefault()?.DeliveryStatus == "failed")
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal("failed", Assert.Single(failedInvitation!.Items).DeliveryStatus);
             using var retry = await operatorClient.PostAsJsonAsync(path, request);
             Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
             Assert.True(delivery.TryGetLatest(tenantId, email, out var token));
             Assert.False(string.IsNullOrEmpty(token));
             Assert.Equal(2, delivery.Attempts);
+            InvitationPage? deliveredInvitation = null;
+            var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deliveryDeadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/member_invitations?email_address=" +
+                    Uri.EscapeDataString(email));
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    deliveredInvitation = await response.Content.ReadFromJsonAsync<InvitationPage>();
+                    if (deliveredInvitation?.Items.SingleOrDefault()?.DeliveryStatus == "delivered")
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal("delivered", Assert.Single(deliveredInvitation!.Items).DeliveryStatus);
 
             using var inviteeClient = factory.CreateClient();
             var inviteeId = await TenantInvitationE2ETests.LoginAsync(inviteeClient, email);
@@ -609,6 +641,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     sealed record Members(IReadOnlyList<Member> Items);
     sealed record Member([property: JsonPropertyName("user_id")] string UserId,
         string Affiliation);
+    sealed record InvitationPage([property: JsonPropertyName("items")] Invitation[] Items);
+    sealed record Invitation([property: JsonPropertyName("delivery_status")] string DeliveryStatus);
     sealed record Problem(string? Title, string? Detail);
 
     sealed class FailingOnceInvitationDelivery : ITenantInvitationDelivery

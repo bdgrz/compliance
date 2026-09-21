@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Boundaries;
@@ -16,6 +17,7 @@ public sealed class SystemBoundary : Aggregate
     bool _draftEverReviewed;
     Uuid _acceptedReviewDecisionId;
     Uuid _latestApprovedVersionId;
+    readonly HashSet<Uuid> _approvedVersionIds = [];
     DateOnly? _latestApprovedEffectiveFrom;
     long _revision;
 
@@ -23,6 +25,8 @@ public sealed class SystemBoundary : Aggregate
     public bool IsVisible => _draftContent is not null || _latestApprovedVersionId != Uuid.Empty;
     public Uuid ProgramId => _programId;
     public long Revision => _revision;
+    public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
+    public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
 
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))
@@ -65,6 +69,7 @@ public sealed class SystemBoundary : Aggregate
         On<BoundaryApproved>(ev =>
         {
             _revision++;
+            _approvedVersionIds.Add(ev.DraftVersionId);
             _latestApprovedVersionId = ev.DraftVersionId;
             _latestApprovedEffectiveFrom = ev.EffectiveFrom;
             _draftVersionId = Uuid.Empty;
@@ -115,8 +120,8 @@ public sealed class SystemBoundary : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The approved boundary is immutable. Propose a successor draft."));
         if (draftVersionId != _draftVersionId || expectedRevision != _draftRevision)
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                $"The boundary draft changed. Current draft version: {_draftVersionId}; revision: {_draftRevision}."));
+            return Result.Failure(VersionedRecordRules.StaleDraft("boundary", _draftVersionId,
+                _draftRevision));
         var validation = Validate(content);
         if (validation is not null)
             return Result.Failure(validation);
@@ -150,9 +155,8 @@ public sealed class SystemBoundary : Aggregate
         var current = CheckDraft(draftVersionId, expectedRevision);
         if (current is not null)
             return Result.Failure(current);
-        if (_draftEverReviewed)
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "A reviewed draft is referenced by an immutable decision and cannot be discarded."));
+        if (VersionedRecordRules.DraftDiscardConflict(_draftEverReviewed) is { } referenced)
+            return Result.Failure(referenced);
         if (string.IsNullOrWhiteSpace(rationale))
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Discarding a draft requires a rationale."));
@@ -181,7 +185,8 @@ public sealed class SystemBoundary : Aggregate
         if (string.IsNullOrWhiteSpace(impactDigest))
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Approval requires the acknowledged impact preview digest."));
-        if (_latestApprovedEffectiveFrom is { } prior && effectiveFrom <= prior)
+        if (_latestApprovedEffectiveFrom is { } prior &&
+            !EffectiveInterval.CanFollow(prior, effectiveFrom))
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "A successor must become effective after the previous approved version."));
         RaiseEvent(new BoundaryApproved(_tenantId, Id, draftVersionId, expectedRevision,
@@ -197,10 +202,15 @@ public sealed class SystemBoundary : Aggregate
         if (!_created)
             return Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The boundary was not found."));
-        if (_latestApprovedVersionId == Uuid.Empty ||
-            expectedApprovedVersionId != _latestApprovedVersionId || _draftVersionId != Uuid.Empty)
+        if (_latestApprovedVersionId == Uuid.Empty)
             return Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The boundary has a different approved version or an open successor draft."));
+                "The boundary has no approved version."));
+        if (expectedApprovedVersionId != _latestApprovedVersionId)
+            return Result<BoundaryRegistration>.Failure(
+                VersionedRecordRules.StaleApprovedVersion("boundary", _latestApprovedVersionId));
+        if (_draftVersionId != Uuid.Empty)
+            return Result<BoundaryRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The boundary already has an open successor draft."));
         var validation = Validate(content);
         if (validation is not null)
             return Result<BoundaryRegistration>.Failure(validation);
@@ -218,8 +228,7 @@ public sealed class SystemBoundary : Aggregate
                 "The approved boundary is immutable. Propose a successor draft.");
         return draftVersionId == _draftVersionId && expectedRevision == _draftRevision
             ? null
-            : new RequestError(RequestErrorKind.Conflict,
-                $"The boundary draft changed. Current draft version: {_draftVersionId}; revision: {_draftRevision}.");
+            : VersionedRecordRules.StaleDraft("boundary", _draftVersionId, _draftRevision);
     }
 
     static RequestError? Validate(BoundaryContent? content)
@@ -242,6 +251,7 @@ public sealed class SystemBoundary : Aggregate
                 entry is null || entry.EntryId == Uuid.Empty ||
                 entry.Kind is not ("inclusion" or "exclusion" or "assumption" or "question") ||
                 entry.SubjectType is not ("service" or "person" or "application" or
+                    "system_instance" or
                     "component" or "information" or "data_flow" or "process" or
                     "location" or "provider" or "commitment") ||
                 string.IsNullOrWhiteSpace(entry.Subject) ||

@@ -211,12 +211,224 @@ public sealed class ComplianceWebTests
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_program_revision");
+        Assert.Contains(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+                .GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_service_revision");
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")
             .GetProperty("post").TryGetProperty("requestBody", out _));
         Assert.True(paths.GetProperty("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
             .GetProperty("post").TryGetProperty("requestBody", out _));
+        foreach (var route in new[]
+                 {
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}",
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions",
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version",
+                 })
+            Assert.Contains(paths.GetProperty(route).GetProperty("get")
+                    .GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() ==
+                             "minimum_boundary_revision");
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        Assert.False(paths.TryGetProperty(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version", out _));
+        Assert.False(paths.TryGetProperty(
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview",
+            out _));
+    }
+
+    [Fact]
+    public async Task ShouldDescribeScopeSnapshotContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var freeze = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots")
+            .GetProperty("post");
+        var freezeSchema = freeze.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[]
+                 {
+                     "program_id", "expected_program_revision", "boundary_id",
+                     "approved_boundary_version_id",
+                 })
+        {
+            Assert.True(freezeSchema.GetProperty("properties").TryGetProperty(name, out _));
+            Assert.Contains(freezeSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        }
+        Assert.True(freeze.GetProperty("responses").TryGetProperty("409", out _));
+
+        var amendment = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+            .GetProperty("post");
+        var amendmentSchema = amendment.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        Assert.True(amendmentSchema.GetProperty("properties").TryGetProperty("reason", out _));
+        Assert.Contains(amendmentSchema.GetProperty("required").EnumerateArray(),
+            required => required.GetString() == "reason");
+        Assert.True(amendment.GetProperty("responses").TryGetProperty("200", out _));
+
+        var get = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+            .GetProperty("get");
+        Assert.Contains(get.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "minimum_revision" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.True(get.GetProperty("responses").TryGetProperty("200", out _));
+
+        var verification = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+            .GetProperty("get");
+        Assert.True(verification.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(verification.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "snapshot_id" &&
+            parameter.GetProperty("in").GetString() == "path");
+
+        var list = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+            .GetProperty("get");
+        Assert.Contains(list.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "cursor" &&
+            parameter.GetProperty("in").GetString() == "query");
+        Assert.True(list.GetProperty("responses").TryGetProperty("200", out _));
+    }
+
+    [Fact]
+    public async Task ShouldDescribeManualApplicationInventoryGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var applications = paths.GetProperty("/api/v1/tenants/{tenant_id}/applications");
+        var declare = applications.GetProperty("post");
+        var declareSchema = declare.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "name", "purpose" })
+        {
+            Assert.True(declareSchema.GetProperty("properties").TryGetProperty(name, out _));
+            Assert.Contains(declareSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        }
+        Assert.True(declare.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(applications.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("200", out _));
+        var application = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}");
+        Assert.True(application.GetProperty("put").TryGetProperty("requestBody", out _));
+        Assert.Contains(application.GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() == "minimum_revision" &&
+                         parameter.GetProperty("in").GetString() == "query");
+        var history = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions");
+        var historyResponse = history.GetProperty("get").GetProperty("responses")
+            .GetProperty("200").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var historySchema = schemas.GetProperty(historyResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        Assert.True(historySchema.GetProperty("properties").TryGetProperty("next_cursor", out _));
+        var historyItem = historySchema.GetProperty("properties").GetProperty("items")
+            .GetProperty("items");
+        Assert.True(historyItem.GetProperty("properties").TryGetProperty("change_kind", out _));
+        Assert.Contains(history.GetProperty("get").GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_application_revision" &&
+                         parameter.GetProperty("in").GetString() == "query");
+        var exactResponse = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
+            .GetProperty("get").GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var exactSchema = schemas.GetProperty(exactResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance_id", out _));
+        Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance", out _));
+        var instances = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances");
+        var instanceSchema = instances.GetProperty("post").GetProperty("requestBody")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "expected_application_revision", "name", "kind" })
+            Assert.Contains(instanceSchema.GetProperty("required").EnumerateArray(),
+                required => required.GetString() == name);
+        Assert.True(instanceSchema.GetProperty("properties")
+            .TryGetProperty("source_identifier", out _));
+        Assert.True(instances.GetProperty("get").GetProperty("responses")
+            .TryGetProperty("200", out _));
+        foreach (var operation in new[]
+                 {
+                     instances.GetProperty("get"),
+                     paths.GetProperty(
+                         "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+                         .GetProperty("get"),
+                 })
+        {
+            Assert.True(operation.GetProperty("responses").TryGetProperty("409", out _));
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() ==
+                             "minimum_application_revision" &&
+                             parameter.GetProperty("in").GetString() == "query");
+        }
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        foreach (var path in new[]
+                 {
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references",
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references",
+                 })
+        {
+            var operation = paths.GetProperty(path).GetProperty("get");
+            Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
+            Assert.True(operation.GetProperty("responses").TryGetProperty("409", out _));
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() == "limit" &&
+                             parameter.GetProperty("in").GetString() == "query");
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() == "cursor" &&
+                             parameter.GetProperty("in").GetString() == "query");
+        }
+        var changePreview = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews")
+            .GetProperty("post");
+        var previewSchema = changePreview.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "expected_application_revision", "change_kind" })
+            Assert.True(previewSchema.GetProperty("properties").TryGetProperty(name, out _));
+        Assert.True(changePreview.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(changePreview.GetProperty("responses").TryGetProperty("409", out _));
     }
 
     [Theory]
@@ -256,6 +468,52 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldDescribeStageAndPreviewOnlyGivenApplicationImportOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var collection = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports");
+        var stage = collection.GetProperty("post");
+        var body = stage.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "submission_id", "source_key", "source_namespace",
+                     "coverage", "rows" })
+            Assert.True(body.GetProperty("properties").TryGetProperty(name, out _));
+        Assert.False(body.GetProperty("properties").TryGetProperty("tenant_id", out _));
+        Assert.True(stage.GetProperty("responses").TryGetProperty("200", out _));
+        var batch = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports/{batch_id}");
+        Assert.True(batch.TryGetProperty("get", out _));
+        var cancellation = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations");
+        Assert.True(cancellation.TryGetProperty("post", out var cancel));
+        var cancelBody = cancel.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        Assert.True(cancelBody.GetProperty("properties")
+            .TryGetProperty("expected_batch_revision", out _));
+        Assert.True(cancelBody.GetProperty("properties").TryGetProperty("reason", out _));
+        foreach (var suffix in new[] { "/rows", "/preview" })
+        {
+            var read = paths.GetProperty(
+                $"/api/v1/tenants/{{tenant_id}}/application_imports/{{batch_id}}{suffix}")
+                .GetProperty("get");
+            Assert.Contains(read.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == "minimum_revision");
+        }
+        Assert.DoesNotContain(paths.EnumerateObject(), path =>
+            path.Name.Contains("acceptances", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ShouldDescribeInvitationStatusGivenOpenApi()
     {
         // Arrange
@@ -277,6 +535,29 @@ public sealed class ComplianceWebTests
             .Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
         Assert.Contains("email_address", parameterNames);
         Assert.DoesNotContain("expected_status", parameterNames);
+    }
+
+    [Fact]
+    public async Task ShouldDescribeOperatorPortfolioGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/platform/tenants").GetProperty("get");
+        Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .Select(parameter => parameter.GetProperty("name").GetString()).ToArray();
+        Assert.Contains("limit", parameters);
+        Assert.Contains("cursor", parameters);
     }
 
     static void AssertSnakeCaseJsonProperties(JsonElement element)

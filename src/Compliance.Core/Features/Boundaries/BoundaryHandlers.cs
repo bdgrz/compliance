@@ -134,13 +134,45 @@ public sealed class ListProgramBoundariesHandler(IBoundaryDirectoryReader direct
     }
 }
 
-public sealed class GetBoundaryVersionHandler(IBoundaryDirectoryReader directory)
+public sealed class BoundaryHistoryReadConsistency(IBoundaryDirectoryReader directory,
+    IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid boundaryId,
+        long minimumRevision, CancellationToken ct)
+    {
+        if (minimumRevision < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum boundary revision must be positive."));
+        var view = await directory.GetAsync(tenantId, boundaryId, ct).ConfigureAwait(false);
+        if (view is not null && view.Revision >= minimumRevision)
+            return Result.Success;
+        var source = await reader.HydrateAsync(new SystemBoundary(tenantId, boundaryId), ct)
+            .ConfigureAwait(false);
+        if (!source.IsCreated || !source.IsVisible)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The boundary was not found."));
+        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+            source.Revision < minimumRevision
+                ? $"The boundary source has not reached revision {minimumRevision}."
+                : $"The boundary projection has not reached revision {minimumRevision}."));
+    }
+}
+
+public sealed class GetBoundaryVersionHandler(IBoundaryDirectoryReader directory,
+    BoundaryHistoryReadConsistency consistency)
     : IRequestHandler<GetBoundaryVersion, BoundaryVersionView>
 {
     public async ValueTask<Result<BoundaryVersionView>> HandleAsync(
         IRequestContext<GetBoundaryVersion> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.MinimumBoundaryRevision is { } minimum)
+        {
+            var freshness = await consistency.EnsureAsync(request.TenantId, request.BoundaryId,
+                minimum, ct).ConfigureAwait(false);
+            if (!freshness.IsSuccess)
+                return Result<BoundaryVersionView>.Failure(freshness.Error);
+        }
         var version = await directory.GetVersionAsync(request.TenantId, request.BoundaryId,
             request.VersionId, ct).ConfigureAwait(false);
         return version is null
@@ -150,13 +182,21 @@ public sealed class GetBoundaryVersionHandler(IBoundaryDirectoryReader directory
     }
 }
 
-public sealed class ListBoundaryVersionsHandler(IBoundaryDirectoryReader directory)
+public sealed class ListBoundaryVersionsHandler(IBoundaryDirectoryReader directory,
+    BoundaryHistoryReadConsistency consistency)
     : IRequestHandler<ListBoundaryVersions, Page<BoundaryVersionView>>
 {
     public async ValueTask<Result<Page<BoundaryVersionView>>> HandleAsync(
         IRequestContext<ListBoundaryVersions> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.MinimumBoundaryRevision is { } minimum)
+        {
+            var freshness = await consistency.EnsureAsync(request.TenantId, request.BoundaryId,
+                minimum, ct).ConfigureAwait(false);
+            if (!freshness.IsSuccess)
+                return Result<Page<BoundaryVersionView>>.Failure(freshness.Error);
+        }
         var page = await directory.ListVersionsAsync(request.TenantId,
             request.BoundaryId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
         return page is null
@@ -166,13 +206,21 @@ public sealed class ListBoundaryVersionsHandler(IBoundaryDirectoryReader directo
     }
 }
 
-public sealed class GetEffectiveBoundaryVersionHandler(IBoundaryDirectoryReader directory)
+public sealed class GetEffectiveBoundaryVersionHandler(IBoundaryDirectoryReader directory,
+    BoundaryHistoryReadConsistency consistency)
     : IRequestHandler<GetEffectiveBoundaryVersion, BoundaryVersionView>
 {
     public async ValueTask<Result<BoundaryVersionView>> HandleAsync(
         IRequestContext<GetEffectiveBoundaryVersion> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.MinimumBoundaryRevision is { } minimum)
+        {
+            var freshness = await consistency.EnsureAsync(request.TenantId, request.BoundaryId,
+                minimum, ct).ConfigureAwait(false);
+            if (!freshness.IsSuccess)
+                return Result<BoundaryVersionView>.Failure(freshness.Error);
+        }
         var version = await directory.GetEffectiveVersionAsync(request.TenantId,
             request.BoundaryId, request.EffectiveOn, ct).ConfigureAwait(false);
         return version is null

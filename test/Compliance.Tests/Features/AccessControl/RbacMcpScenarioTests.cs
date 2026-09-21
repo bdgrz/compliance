@@ -61,12 +61,48 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.client-service.list",
             "bdgrz.client-service.program.list",
             "bdgrz.client-service.revisions.list",
+            "bdgrz.client-service.revision.get",
+            "bdgrz.application.declare",
+            "bdgrz.application.revise",
+            "bdgrz.application.get",
+            "bdgrz.application.list",
+            "bdgrz.application.revision.get",
+            "bdgrz.application.revision.list",
+            "bdgrz.application.boundary_references.list",
+            "bdgrz.application.change.preview",
+            "bdgrz.application_import.stage",
+            "bdgrz.application_import.get",
+            "bdgrz.application_import.rows.list",
+            "bdgrz.application_import.preview",
+            "bdgrz.system_instance.declare",
+            "bdgrz.system_instance.get",
+            "bdgrz.system_instance.list",
+            "bdgrz.system_instance.boundary_references.list",
             "bdgrz.program.create",
             "bdgrz.program.revise",
             "bdgrz.program.get",
             "bdgrz.program.list",
             "bdgrz.program.revisions.list",
+            "bdgrz.program.revision.get",
             "bdgrz.program.setup-work.get",
+            "bdgrz.control.draft.get",
+            "bdgrz.control.draft.list",
+            "bdgrz.control.draft.revision.get",
+            "bdgrz.commitment.draft.create",
+            "bdgrz.commitment.draft.revise",
+            "bdgrz.commitment.draft.get",
+            "bdgrz.commitment.draft.list",
+            "bdgrz.commitment.draft.revision.get",
+            "bdgrz.risk.draft.create",
+            "bdgrz.risk.draft.revise",
+            "bdgrz.risk.draft.get",
+            "bdgrz.risk.draft.list",
+            "bdgrz.risk.draft.revision.get",
+            "bdgrz.snapshot.program_scope.freeze",
+            "bdgrz.snapshot.program_scope.amend",
+            "bdgrz.snapshot.get",
+            "bdgrz.snapshot.program_scope.verify",
+            "bdgrz.snapshot.program.list",
             "bdgrz.member.access.get",
             "bdgrz.rbac.team.define",
             "bdgrz.rbac.team.delete",
@@ -93,9 +129,57 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.organization-member.invite",
             "bdgrz.tenant-invitation.list",
             "bdgrz.tenant.get",
+            "bdgrz.platform.tenant.list",
             "bdgrz.tenant-member.list",
             "bdgrz.tenant.change-slug",
             "bdgrz.tenant-slug.resolve-mine");
+        var tools = await scenario.ListTools();
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.revision.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.revision.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.boundary_references.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application.change.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.stage").Idempotent);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.rows.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.preview").ReadOnly);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.control.draft.get", "bdgrz.control.draft.list",
+                     "bdgrz.control.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name is
+            "bdgrz.control.draft.create" or "bdgrz.control.draft.revise");
+        foreach (var name in new[]
+                 {
+                     "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
+                     "bdgrz.commitment.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.NotEqual(true, Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
+        Assert.NotEqual(true, Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.commitment.draft.revise").ReadOnly);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.risk.draft.get", "bdgrz.risk.draft.list",
+                     "bdgrz.risk.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.Null(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.risk.draft.create").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.risk.draft.revise").Idempotent);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 
         var registration = new Dictionary<string, object?>
         {
@@ -110,6 +194,27 @@ public sealed class RbacMcpScenarioTests
                 "bdgrz.rbac.team.list",
                 new Dictionary<string, object?> { ["tenant_id"] = Uuid.CreateVersion4().ToString() })
             .ExpectFailure();
+        _ = await scenario.When("bdgrz.application.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = Uuid.CreateVersion4().ToString(),
+                    ["application_id"] = Uuid.CreateVersion4().ToString(),
+                }).ExpectFailure();
+        _ = await scenario.When("bdgrz.application.change.preview",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = Uuid.CreateVersion4().ToString(),
+                    ["application_id"] = Uuid.CreateVersion4().ToString(),
+                    ["expected_application_revision"] = 1,
+                    ["change_kind"] = "retire",
+                }).ExpectFailure();
+        _ = await scenario.When("bdgrz.system_instance.boundary_references.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = Uuid.CreateVersion4().ToString(),
+                    ["application_id"] = Uuid.CreateVersion4().ToString(),
+                    ["system_instance_id"] = Uuid.CreateVersion4().ToString(),
+                }).ExpectFailure();
     }
 
     static WebApplicationFactory<Program> CreateFactory() =>

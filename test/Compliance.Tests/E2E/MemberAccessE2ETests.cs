@@ -11,7 +11,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
+public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]

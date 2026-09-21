@@ -57,15 +57,46 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListTenantInvitations>(tool => tool.ReadOnly())
         .AddMcpTool<GetMemberAccess>(tool => tool.ReadOnly())
         .AddMcpTool<GetTenant>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTenants>(tool => tool.ReadOnly())
         .AddMcpTool<ListTenantMembers>(tool => tool.ReadOnly())
         .AddMcpTool<ChangeTenantSlug>()
         .AddMcpTool<ResolveMyTenantSlug>(tool => tool.ReadOnly())
         .AddMcpTool<CreateProgram>()
+        .AddMcpTool<GetControlDraft>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlDrafts>(tool => tool.ReadOnly())
+        .AddMcpTool<GetControlDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateCommitmentDraft>()
+        .AddMcpTool<ReviseCommitmentDraft>()
+        .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCommitmentDrafts>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCommitmentDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateRiskDraft>()
+        .AddMcpTool<ReviseRiskDraft>(tool => tool.Idempotent())
+        .AddMcpTool<GetRiskDraft>(tool => tool.ReadOnly())
+        .AddMcpTool<ListRiskDrafts>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskDraftRevision>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetProgramRevision>(tool => tool.ReadOnly())
         .AddMcpTool<GetProgramSetupWork>(tool => tool.ReadOnly())
+        .AddMcpTool<DeclareApplication>()
+        .AddMcpTool<ReviseApplication>(tool => tool.Idempotent())
+        .AddMcpTool<DeclareSystemInstance>()
+        .AddMcpTool<GetApplication>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplications>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetSystemInstance>(tool => tool.ReadOnly())
+        .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
+        .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
+        .AddMcpTool<StageApplicationImport>(tool => tool.Idempotent())
+        .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
+        .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -73,6 +104,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListClientServices>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramClientServices>(tool => tool.ReadOnly())
         .AddMcpTool<ListClientServiceRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetClientServiceRevision>(tool => tool.ReadOnly())
         .AddMcpTool<CreateBoundary>()
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
         .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
@@ -85,6 +117,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListBoundaryDecisions>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewBoundaryImpact>(tool => tool.ReadOnly())
         .AddMcpTool<ProposeBoundarySuccessor>()
+        .AddMcpTool<FreezeProgramScopeSnapshot>()
+        .AddMcpTool<AmendProgramScopeSnapshot>()
+        .AddMcpTool<GetSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<VerifyProgramScopeSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -219,6 +256,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<GetTenant, TenantView>("/api/v1/tenants/{tenant_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
+    app.MapPortiaGet<ListTenants, Page<TenantView>>("/api/v1/platform/tenants")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Tenants");
     app.MapPortiaGet<ListTenantMembers, Page<TenantMembershipView>>("/api/v1/tenants/{tenant_id}/members")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
@@ -244,10 +284,147 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaGet<GetProgramRevision, ProgramRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Programs");
     app.MapPortiaGet<GetProgramSetupWork, ProgramSetupWorkView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
+    app.MapPortiaPost<CreateControlDraft, ControlRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPut<ReviseControlDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlDraft, ControlDraftView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<ListControlDrafts, Page<ControlDraftView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlDraftRevision, ControlDraftRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPost<CreateCommitmentDraft, CommitmentDraftRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaPut<ReviseCommitmentDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<GetCommitmentDraft, CommitmentDraftView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<ListCommitmentDrafts, Page<CommitmentDraftView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<GetCommitmentDraftRevision, CommitmentDraftRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaPost<CreateRiskDraft, RiskRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPut<ReviseRiskDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskDraft, RiskDraftView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<ListRiskDrafts, Page<RiskDraftView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskDraftRevision, RiskDraftRevisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
+            "/api/v1/tenants/{tenant_id}/applications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaPut<ReviseApplication>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<GetApplication, ApplicationView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplications, Page<ApplicationView>>(
+            "/api/v1/tenants/{tenant_id}/applications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<GetApplicationRevision, ApplicationRevisionView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplicationRevisions, Page<ApplicationRevisionView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaPost<DeclareSystemInstance, SystemInstanceRegistration>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<GetSystemInstance, SystemInstanceView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<ListSystemInstances, Page<SystemInstanceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("System instances");
+    app.MapPortiaGet<ListApplicationBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for an application")
+        .WithTags("Applications");
+    app.MapPortiaGet<ListSystemInstanceBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for a system instance")
+        .WithTags("System instances");
+    app.MapPortiaPost<PreviewApplicationChange, ApplicationChangePreview>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview the known impact of a proposed application change")
+        .WithTags("Applications");
+    app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
+            "/api/v1/tenants/{tenant_id}/application_imports")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaPost<CancelApplicationImport>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<GetApplicationImport, ApplicationImportView>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<ListApplicationImportRows, Page<ApplicationImportRowView>>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<PreviewApplicationImport, Page<ApplicationImportPreviewRow>>(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -274,6 +451,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Client services");
     app.MapPortiaGet<ListClientServiceRevisions, Page<ClientServiceRevisionView>>(
             "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Client services");
+    app.MapPortiaGet<GetClientServiceRevision, ClientServiceRevisionView>(
+            "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Client services");
     app.MapPortiaPost<CreateBoundary, BoundaryRegistration>(
@@ -305,7 +486,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetEffectiveBoundaryVersion, BoundaryVersionView>(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version")
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaGet<GetBoundaryDecision, BoundaryDecisionView>(
@@ -316,8 +497,28 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaPost<FreezeProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaPost<AmendProgramScopeSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<GetSnapshot, SnapshotView>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<VerifyProgramScopeSnapshot, ProgramScopeSnapshotVerification>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview")
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<ReviewBoundary>(

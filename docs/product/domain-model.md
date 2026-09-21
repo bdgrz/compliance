@@ -298,7 +298,11 @@ It records business purpose, owner, vendor or internal ownership, lifecycle,
 criticality, data sensitivity, authentication method, known user population,
 and whether and why access review applies. Discovery source and confidence are
 preserved so that declared, imported, discovered, duplicate, unknown, and
-retired applications can be reconciled rather than silently merged.
+retired applications can be reconciled rather than silently merged. The manual
+inventory slice may record a tenant-declared classification; that statement is
+attributed but remains `classification_unverified` until the classification
+vocabulary and authority decisions are approved. An absent classification stays
+an explicit `classification_unresolved` gap.
 
 A `SystemInstance` is a concrete tenant, organization, account, environment, or
 other access boundary for an application. One application may have multiple

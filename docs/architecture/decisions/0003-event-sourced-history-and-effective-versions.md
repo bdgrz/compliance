@@ -33,6 +33,10 @@ Decision owner: tech lead and product owner. Date: 2026-09-19.
   effective-date query selects an approved version whose half-open interval
   contains the requested date. Overlapping approved intervals for one logical
   record are rejected by the owning aggregate.
+  The interval end is derived from the next approved version's effective start;
+  a successor never changes its predecessor's immutable version payload or a
+  frozen snapshot's content identity. The boundary projector also rejects an
+  overlapping approval during replay, rolling back that projection batch.
 - Fitz KV read models and Portia projectors serve lists, search, and historical
   version queries. Projection data and its checkpoint commit atomically. A
   read model can lag its source stream, so a command's invariant uses the
@@ -114,3 +118,18 @@ existing `BoundaryDirectory` checkpoints cannot be reused with this schema.
 Until the new projector catches up, revision-aware reads report a conflict and
 ordinary reads may show no boundary. The previous projection remains available
 for rollback and can be removed after replay and operational readback.
+
+Application and system-instance reverse boundary references use their own
+`ApplicationBoundaryReferencesV1` per-tenant projector, checkpoint, and Fitz
+resource. The projector replays retained boundary events from the beginning
+without changing `BoundaryDirectoryV2`. It indexes the current draft and each
+approved boundary version by exact governed record ID. Revising or discarding
+a draft replaces or removes its prior reference rows; the reverse query is not
+a complete history of draft revisions. Approved-version rows remain and are
+marked historical when a successor is approved. The boundary event stream is
+the source for earlier draft revisions. An empty reverse query is returned only
+after the projector checkpoint has reached the boundary-area event source at
+the time of the query; otherwise it returns a retryable conflict.
+An application query returns direct application references. A concrete
+system-instance reference is queried through that instance's route because a
+boundary scope entry does not carry the instance's owning application ID.

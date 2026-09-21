@@ -18,7 +18,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class IdentityLinkE2ETests(BrokerStackFixture broker)
+public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     const string SessionSecret = "bdgrz-link-e2e-session-signing-key-0001";
     const string ProviderSecret = "bdgrz-link-e2e-provider-signing-key-001";
