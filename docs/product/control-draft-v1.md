@@ -21,15 +21,18 @@ activation, successors, impact preview, retirement, and deletion rules.
   latest source revision, and collection `GET` checks the control-area
   projector checkpoint before returning even an empty page. Both return
   transient conflict while the worker is behind. Results and OpenAPI use
-  snake_case. Read-only MCP tools expose these three queries.
+  snake_case. MCP tools expose create, idempotent revise, and these three
+  read-only queries. Create and revise use the same nested `content` object as
+  HTTP.
   Collection `limit` must be 1–200; malformed or scope-mismatched cursors
   return validation errors.
 
-All five HTTP operations require an active tenant membership with the existing
-`program.manage` grant. This deliberately limits draft narratives to current
-program administrators while [M0-D03 #60](https://github.com/bdgrz/compliance/issues/60)
-and scoped access [#186](https://github.com/bdgrz/compliance/issues/186) remain
-open. An owner or general tenant member has no draft read grant from this slice.
+All five HTTP operations and their MCP counterparts require an active tenant
+membership with the existing `program.manage` grant. This deliberately limits
+draft narratives to current program administrators while
+[M0-D03 #60](https://github.com/bdgrz/compliance/issues/60) and scoped access
+[#186](https://github.com/bdgrz/compliance/issues/186) remain open. An owner or
+general tenant member has no draft read grant from this slice.
 
 The normalized identifier is unique within a tenant and program. It selects
 the authoritative Control stream, so a lagging list projection cannot permit
@@ -48,11 +51,8 @@ validation before any event is appended.
 
 ## Framework dependency
 
-Portia [#61](https://github.com/cntryl/portia/issues/61) rejects nested object
-arguments before an MCP request reaches authorization. The `content` contract
-is intentionally nested and shared with HTTP, so create and revise tools are
-not advertised until Portia supports that shape. No application binder or
-alternate write path is added. Portia [#60](https://github.com/cntryl/portia/issues/60)
-also tracks commit-time stream concurrency error translation; the domain
-enforces expected revisions, while simultaneous append transport behavior
-remains a framework dependency.
+Portia 0.5.3 resolves [#61](https://github.com/cntryl/portia/issues/61), so
+the nested `content` object now binds before authorization without an
+application binder or alternate write path. The integration test covers an
+authorized nested create and revision plus denied write calls. The aggregate
+continues to enforce expected revisions for stale edits.
