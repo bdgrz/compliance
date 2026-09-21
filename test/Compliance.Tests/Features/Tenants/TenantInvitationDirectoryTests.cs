@@ -85,6 +85,50 @@ public sealed class TenantInvitationDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldProjectDeliveryFailureAndRecoveryGivenReissue()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var directory = new FitzTenantInvitationDirectory(client);
+        var now = Now;
+        var firstAttempt = Uuid.CreateVersion4();
+        var secondAttempt = Uuid.CreateVersion4();
+        var invited = new TenantMemberInvited(TenantId, "invitee@example.com",
+            "client_personnel", false, new string('A', 64), now.AddDays(7), InvitedBy,
+            BuiltInRbac.ComplianceParticipationRole, firstAttempt);
+        var identity = new CheckpointIdentity("TenantInvitationDirectory",
+            EventStreamPattern.ForPattern(TenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(invited);
+            await directory.ApplyAsync(new TenantInvitationDeliveryFailed(TenantId,
+                invited.EmailAddress, firstAttempt, "delivery_failed", now));
+            await directory.ApplyAsync(invited);
+            await directory.ApplyAsync(new TenantMemberInvited(TenantId,
+                invited.EmailAddress, invited.Affiliation, invited.Administrator,
+                new string('B', 64), now.AddDays(7), InvitedBy,
+                BuiltInRbac.ComplianceManagementRole, secondAttempt));
+            await directory.ApplyAsync(new TenantInvitationDeliverySent(TenantId,
+                invited.EmailAddress, secondAttempt, now.AddMinutes(1)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var page = await directory.ListAsync(TenantId, 50, null);
+
+        // Assert
+        var current = Assert.Single(page.Items);
+        Assert.Equal("delivered", current.DeliveryStatus);
+        Assert.Equal(BuiltInRbac.ComplianceManagementRole, current.BuiltInRole);
+        var stored = JsonSerializer.Serialize(current,
+            ComplianceCoreJsonContext.Default.TenantInvitationDirectoryEntry);
+        Assert.DoesNotContain("token", stored, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(new string('A', 64), stored, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('B', 64), stored, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ShouldReturnEmptyGivenInvitationNotProjected()
     {
         // Arrange

@@ -202,6 +202,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(MemberAccessPath))]
 [JsonSerializable(typeof(AcceptTenantInvitation))]
 [JsonSerializable(typeof(TenantMemberInvited))]
+[JsonSerializable(typeof(TenantInvitationDeliverySent))]
+[JsonSerializable(typeof(TenantInvitationDeliveryFailed))]
 [JsonSerializable(typeof(TenantInvitationAccepted))]
 [JsonSerializable(typeof(GetTenant))]
 [JsonSerializable(typeof(ListTenants))]
