@@ -7,9 +7,8 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
     ITenantActivity tenants, IPermissionAuthorizer permissions)
     : IRequestAuthorizer<IApplicationInventoryRequest>
 {
-    // R1-10a uses the existing program-management grant for manual declarations.
-    // A dedicated inventory grant needs a replay-safe migration for existing tenants
-    // and the unresolved record-level policy before it can replace this boundary.
+    // The bootstrap V2 checkpoint replays TenantRegistered safely: role-permission aggregates
+    // make repeated grants idempotent. Record-level policy remains a later authority decision.
     public async ValueTask<Result> AuthorizeAsync(
         IRequestContext<IApplicationInventoryRequest> context, CancellationToken ct)
     {
@@ -25,7 +24,7 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
         return await permissions.IsAllowedAsync(tenantId,
-                RbacIds.Member(tenantId, userId), RbacPermissions.ProgramManage, ct)
+                RbacIds.Member(tenantId, userId), RbacPermissions.ApplicationInventoryManage, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,

@@ -46,7 +46,7 @@ public sealed class ApplicationInventoryAuthorizerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(RbacPermissions.ProgramManage, permissions.LastPermission);
+        Assert.Equal(RbacPermissions.ApplicationInventoryManage, permissions.LastPermission);
         Assert.Equal(RbacIds.Member(tenantId, userId), permissions.LastMemberId);
     }
 
