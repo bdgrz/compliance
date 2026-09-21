@@ -4,7 +4,8 @@ Status: proposed for M0-A06 / EN-05 / R1-10b review, 2026-09-20. The bounded
 stage HTTP route and three batch/row/preview HTTP and read-only MCP queries
 are implemented as a first slice. The stage MCP tool is pending
 [Portia #61](https://github.com/cntryl/portia/issues/61) for nested-array
-binding; acceptance and cancellation remain proposed. This
+binding; row acceptance and reconciliation remain proposed. Pre-acceptance
+cancellation is implemented as an HTTP-only terminal transition. This
 contract covers bounded tenant-supplied rows only; it grants no source
 authority or reviewed scope.
 The technical decision is
@@ -55,7 +56,7 @@ independently.
 | --- | --- | --- | --- |
 | `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | Pending `bdgrz.application_import.stage` (idempotent, bounded JSON); Portia 0.5.2 cannot bind the `rows` array |
 | `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
-| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none |
+| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none; HTTP-only |
 
 `StageApplicationImport` body:
 
@@ -175,7 +176,8 @@ row; whether this satisfies #195 requires the product decision above.
 | `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
 | `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
 
-The three read queries are registered as `ReadOnly` with Portia MCP. Portia
+The three read queries are registered as `ReadOnly` with Portia MCP. Cancellation
+is HTTP-only. Portia
 0.5.2 `McpToolRegistration.Bind<TRequest>` calls `JsonValue.Create` on the
 `rows` JSON array and fails before Portia authorization or the stage handler.
 After Portia supports object arrays in tool arguments, register the stage command as

@@ -194,6 +194,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListSystemInstanceBoundaryReferencesHandler>()
             .AddRequestHandler<PreviewApplicationChangeHandler>()
             .AddRequestHandler<StageApplicationImportHandler>()
+            .AddRequestHandler<CancelApplicationImportHandler>()
             .AddRequestHandler<GetApplicationImportHandler>()
             .AddRequestHandler<ListApplicationImportRowsHandler>()
             .AddRequestHandler<PreviewApplicationImportHandler>()

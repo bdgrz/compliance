@@ -493,6 +493,14 @@ public sealed class ComplianceWebTests
         Assert.True(stage.GetProperty("responses").TryGetProperty("200", out _));
         var batch = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports/{batch_id}");
         Assert.True(batch.TryGetProperty("get", out _));
+        var cancellation = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations");
+        Assert.True(cancellation.TryGetProperty("post", out var cancel));
+        var cancelBody = cancel.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        Assert.True(cancelBody.GetProperty("properties")
+            .TryGetProperty("expected_batch_revision", out _));
+        Assert.True(cancelBody.GetProperty("properties").TryGetProperty("reason", out _));
         foreach (var suffix in new[] { "/rows", "/preview" })
         {
             var read = paths.GetProperty(
@@ -502,8 +510,7 @@ public sealed class ComplianceWebTests
                 parameter.GetProperty("name").GetString() == "minimum_revision");
         }
         Assert.DoesNotContain(paths.EnumerateObject(), path =>
-            path.Name.Contains("acceptances", StringComparison.Ordinal) ||
-            path.Name.Contains("cancellations", StringComparison.Ordinal));
+            path.Name.Contains("acceptances", StringComparison.Ordinal));
     }
 
     [Fact]

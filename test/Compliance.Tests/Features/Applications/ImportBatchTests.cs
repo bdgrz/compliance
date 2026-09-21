@@ -118,6 +118,44 @@ public sealed class ImportBatchTests
     }
 
     [Fact]
+    public void ShouldCancelOnceAndRejectStaleCancellationGivenProjectedBatch()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var request = new StageApplicationImport(tenantId, Uuid.CreateVersion4(), "source",
+            "primary", "partial", [new ApplicationImportInputRow("record", "Payroll",
+                "Purpose", null)]);
+        var batch = new ImportBatch(tenantId, ImportBatch.BatchIdFor(request));
+        Assert.True(batch.Stage(request, Uuid.CreateVersion4(), "Manager",
+            DateTimeOffset.UtcNow).IsSuccess);
+        var actorId = Uuid.CreateVersion4();
+
+        // Act
+        var canceled = batch.Cancel(1, "The source was superseded.", actorId, "Manager",
+            DateTimeOffset.UtcNow);
+        var replay = batch.Cancel(1, "The source was superseded.", actorId, "Manager",
+            DateTimeOffset.UtcNow.AddMinutes(1));
+        var future = batch.Cancel(3, "A stale cancellation.", actorId, "Manager",
+            DateTimeOffset.UtcNow.AddMinutes(2));
+
+        // Assert
+        Assert.True(canceled.IsSuccess);
+        Assert.True(replay.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict,
+            Assert.IsType<RequestError>(future.Error).Kind);
+        Assert.True(batch.IsCanceled);
+        Assert.Equal(2, batch.Revision);
+        Assert.Collection(new AggregateScenario<ImportBatch>(batch).PendingEvents,
+            ev => Assert.IsType<ApplicationImportStaged>(ev),
+            ev =>
+            {
+                Assert.Equal("ApplicationImportCanceled", ev.GetType().Name);
+                Assert.Equal("The source was superseded.",
+                    ev.GetType().GetProperty("Reason")?.GetValue(ev));
+            });
+    }
+
+    [Fact]
     public void ShouldRejectWithoutWritingAnEventGivenRowsExceedStreamFrame()
     {
         // Arrange
