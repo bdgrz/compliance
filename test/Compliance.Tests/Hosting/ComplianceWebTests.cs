@@ -387,6 +387,20 @@ public sealed class ComplianceWebTests
             .TryGetProperty("source_identifier", out _));
         Assert.True(instances.GetProperty("get").GetProperty("responses")
             .TryGetProperty("200", out _));
+        foreach (var operation in new[]
+                 {
+                     instances.GetProperty("get"),
+                     paths.GetProperty(
+                         "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+                         .GetProperty("get"),
+                 })
+        {
+            Assert.True(operation.GetProperty("responses").TryGetProperty("409", out _));
+            Assert.Contains(operation.GetProperty("parameters").EnumerateArray(),
+                parameter => parameter.GetProperty("name").GetString() ==
+                             "minimum_application_revision" &&
+                             parameter.GetProperty("in").GetString() == "query");
+        }
         Assert.True(paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));

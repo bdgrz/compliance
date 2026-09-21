@@ -77,12 +77,13 @@ public sealed record ListApplicationRevisions(Uuid TenantId, Uuid ApplicationId,
     : IRequest<Page<ApplicationRevisionView>>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.system_instance.get", 1)]
-public sealed record GetSystemInstance(Uuid TenantId, Uuid ApplicationId, Uuid SystemInstanceId)
+public sealed record GetSystemInstance(Uuid TenantId, Uuid ApplicationId, Uuid SystemInstanceId,
+    long? MinimumApplicationRevision = null)
     : IRequest<SystemInstanceView>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.system_instance.list", 1)]
 public sealed record ListSystemInstances(Uuid TenantId, Uuid ApplicationId,
-    int? Limit = null, string? Cursor = null)
+    int? Limit = null, string? Cursor = null, long? MinimumApplicationRevision = null)
     : IRequest<Page<SystemInstanceView>>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.application.boundary_references.list", 1)]

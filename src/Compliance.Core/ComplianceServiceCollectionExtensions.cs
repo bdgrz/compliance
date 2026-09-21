@@ -76,6 +76,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IApplicationInventoryActivity,
             EventSourcedApplicationInventoryActivity>();
         services.AddScoped<ApplicationHistoryReadConsistency>();
+        services.AddScoped<SystemInstanceReadConsistency>();
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
         services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
