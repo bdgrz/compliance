@@ -37,6 +37,8 @@ Close each child only when its own acceptance evidence is complete. Keep the pro
 
 Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The first bundle covers the R1-15 remainder, EN-01, and R1-01; its tracking issues are #152, #157, and #158.
 
+Keep the merged implementation trail in the [backend delivery ledger](backend-delivery-ledger.md). When a child or discovery issue is already complete, use a synthetic documentation PR to record its exact implementation or decision commit, acceptance evidence, and known limits. That PR improves tracking; it does not close an open child or substitute for missing backend proof.
+
 Every story is a vertical slice from authorized API behavior through the usable browser experience. Its backend and frontend children track separate delivery and may close at different times; completing either child alone does not complete the story.
 
 Every story must include:
