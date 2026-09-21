@@ -445,6 +445,45 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldDescribeStageAndPreviewOnlyGivenApplicationImportOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var collection = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports");
+        var stage = collection.GetProperty("post");
+        var body = stage.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "submission_id", "source_key", "source_namespace",
+                     "coverage", "rows" })
+            Assert.True(body.GetProperty("properties").TryGetProperty(name, out _));
+        Assert.False(body.GetProperty("properties").TryGetProperty("tenant_id", out _));
+        Assert.True(stage.GetProperty("responses").TryGetProperty("200", out _));
+        var batch = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports/{batch_id}");
+        Assert.True(batch.TryGetProperty("get", out _));
+        foreach (var suffix in new[] { "/rows", "/preview" })
+        {
+            var read = paths.GetProperty(
+                $"/api/v1/tenants/{{tenant_id}}/application_imports/{{batch_id}}{suffix}")
+                .GetProperty("get");
+            Assert.Contains(read.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == "minimum_revision");
+        }
+        Assert.DoesNotContain(paths.EnumerateObject(), path =>
+            path.Name.Contains("acceptances", StringComparison.Ordinal) ||
+            path.Name.Contains("cancellations", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ShouldDescribeInvitationStatusGivenOpenApi()
     {
         // Arrange
