@@ -87,6 +87,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control.draft.get",
             "bdgrz.control.draft.list",
             "bdgrz.control.draft.revision.get",
+            "bdgrz.commitment.draft.create",
+            "bdgrz.commitment.draft.revise",
+            "bdgrz.commitment.draft.get",
+            "bdgrz.commitment.draft.list",
+            "bdgrz.commitment.draft.revision.get",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -144,6 +149,16 @@ public sealed class RbacMcpScenarioTests
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.DoesNotContain(tools, tool => tool.Name is
             "bdgrz.control.draft.create" or "bdgrz.control.draft.revise");
+        foreach (var name in new[]
+                 {
+                     "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
+                     "bdgrz.commitment.draft.revision.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.NotEqual(true, Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
+        Assert.NotEqual(true, Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.commitment.draft.revise").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
 
