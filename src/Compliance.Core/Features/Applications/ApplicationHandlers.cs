@@ -57,7 +57,8 @@ public sealed class DeclareApplicationHandler(IAggregateExecutor executor, TimeP
         var request = context.Request;
         return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, context.RequestId),
             app => AggregateOutcome.CommitOnSuccess(app.Declare(request.Name, request.Purpose,
-                request.OwnerReference, memberId, display, clock.GetUtcNow())), context, ct);
+                request.OwnerReference, memberId, display, clock.GetUtcNow(),
+                request.Classification)), context, ct);
     }
 }
 
@@ -72,7 +73,7 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor, TimePr
         return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, request.ApplicationId),
             app => AggregateOutcome.CommitOnSuccess(app.Revise(request.ExpectedRevision,
                 request.Name, request.Purpose, request.OwnerReference,
-                memberId, display, clock.GetUtcNow())), context, ct);
+                memberId, display, clock.GetUtcNow(), request.Classification)), context, ct);
     }
 }
 

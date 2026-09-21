@@ -25,7 +25,7 @@ public sealed class FitzApplicationDirectoryTests
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
-                "Payroll", "Run payroll", null, actorId, "Manager", now));
+                "Payroll", "Run payroll", null, actorId, "Manager", now, "internal"));
             await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
                 instanceId, 2, "Production", "production", null, "payroll-prod",
                 actorId, "Manager", now));
@@ -43,7 +43,8 @@ public sealed class FitzApplicationDirectoryTests
         // Assert
         Assert.Equal(3, application?.Revision);
         Assert.Contains("owner_missing", application!.Unresolved);
-        Assert.Contains("classification_unresolved", application.Unresolved);
+        Assert.Equal("internal", application.Classification);
+        Assert.Contains("classification_unverified", application.Unresolved);
         Assert.Contains("access_boundary_review_pending", application.Unresolved);
         Assert.Equal("manual", application.SourceKind);
         Assert.Equal("manual", instance?.SourceKind);
@@ -118,7 +119,7 @@ public sealed class FitzApplicationDirectoryTests
                 "Payroll", "Run payroll", null, actorId, "Manager", now));
             await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId, 2,
                 "Payroll", "Run monthly payroll", "Finance", actorId, "Manager",
-                now.AddMinutes(1)));
+                now.AddMinutes(1), "internal"));
             await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
                 instanceId, 3, "Production", "production", null, "payroll-prod",
                 actorId, "Manager", now.AddMinutes(2)));
@@ -136,6 +137,7 @@ public sealed class FitzApplicationDirectoryTests
         Assert.Equal("declared", first?.ChangeKind);
         Assert.False(first?.HasSystemInstances);
         Assert.Equal("Run monthly payroll", second?.Purpose);
+        Assert.Equal("internal", second?.Classification);
         Assert.Equal("revised", second?.ChangeKind);
         Assert.Equal("system_instance_declared", third?.ChangeKind);
         Assert.Equal(instanceId, third?.SystemInstanceId);

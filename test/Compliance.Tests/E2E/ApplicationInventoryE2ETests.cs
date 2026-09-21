@@ -483,6 +483,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 name = "Payroll",
                 purpose = "Run payroll",
                 owner_reference = "Finance",
+                classification = "internal",
             });
             if (response.StatusCode == HttpStatusCode.OK)
             {
@@ -516,7 +517,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(application);
         Assert.Equal(1, application.Revision);
         Assert.Equal("manual", application.SourceKind);
-        Assert.Contains("classification_unresolved", application.Unresolved);
+        Assert.Equal("internal", application.Classification);
+        Assert.Contains("classification_unverified", application.Unresolved);
         Assert.Contains("owner_unverified", application.Unresolved);
         using var future = await owner.GetAsync($"{applicationPath}?minimum_revision=2");
         Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
@@ -544,6 +546,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 ["tenant_id"] = tenant.TenantId,
                 ["name"] = "Benefits",
                 ["purpose"] = "Administer benefits",
+                ["classification"] = "internal",
             }).ExpectSuccess();
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
@@ -679,6 +682,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             name = "Payroll",
             purpose = "Run monthly payroll",
             owner_reference = "Finance",
+            classification = "restricted",
         });
         Assert.Equal(HttpStatusCode.NoContent, revisedResponse.StatusCode);
         ApplicationRevisionDocument? revisedRevision = null;
@@ -697,6 +701,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal("revised", revisedRevision?.ChangeKind);
         Assert.Equal("Run monthly payroll", revisedRevision?.Purpose);
+        Assert.Equal("restricted", revisedRevision?.Classification);
         using (var freshInstance = await owner.GetAsync(
                    $"{instancePath}?minimum_application_revision=3"))
         using (var freshInstances = await owner.GetAsync(
@@ -863,6 +868,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("application_id")] Guid ApplicationId,
         [property: JsonPropertyName("revision")] long Revision,
         [property: JsonPropertyName("source_kind")] string SourceKind,
+        [property: JsonPropertyName("classification")] string? Classification,
         [property: JsonPropertyName("unresolved")] string[] Unresolved);
     sealed record ApplicationPageDocument(
         [property: JsonPropertyName("items")] ApplicationDocument[] Items,
@@ -870,6 +876,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     sealed record ApplicationRevisionDocument(
         [property: JsonPropertyName("revision")] long Revision,
         [property: JsonPropertyName("purpose")] string Purpose,
+        [property: JsonPropertyName("classification")] string? Classification,
         [property: JsonPropertyName("change_kind")] string ChangeKind,
         [property: JsonPropertyName("system_instance_id")] Guid? SystemInstanceId,
         [property: JsonPropertyName("system_instance")] SystemInstanceDocument? SystemInstance);

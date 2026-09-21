@@ -16,7 +16,10 @@ public sealed record ApplicationView(Uuid TenantId, Uuid ApplicationId, long Rev
     string Name, string Purpose, string? OwnerReference,
     string SourceKind, string SourceIdentifier, bool HasSystemInstances,
     IReadOnlyList<string> Unresolved, Uuid LastChangedByMemberId,
-    string LastChangedByDisplay, DateTimeOffset LastChangedAt);
+    string LastChangedByDisplay, DateTimeOffset LastChangedAt)
+{
+    public string? Classification { get; init; }
+}
 
 /// <summary>An immutable tenant-authored application state after one aggregate event.</summary>
 public sealed record ApplicationRevisionView(Uuid TenantId, Uuid ApplicationId, long Revision,
@@ -24,7 +27,10 @@ public sealed record ApplicationRevisionView(Uuid TenantId, Uuid ApplicationId, 
     string SourceKind, string SourceIdentifier, bool HasSystemInstances,
     IReadOnlyList<string> Unresolved, Uuid LastChangedByMemberId,
     string LastChangedByDisplay, DateTimeOffset LastChangedAt,
-    string ChangeKind, Uuid? SystemInstanceId, SystemInstanceView? SystemInstance);
+    string ChangeKind, Uuid? SystemInstanceId, SystemInstanceView? SystemInstance)
+{
+    public string? Classification { get; init; }
+}
 
 /// <summary>A declared concrete application boundary, not an access-review inclusion decision.</summary>
 public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
@@ -53,12 +59,12 @@ public sealed record ApplicationFieldChange(string Field, string? Before, string
 
 [Discriminator("bdgrz.application.declare", 1)]
 public sealed record DeclareApplication(Uuid TenantId, string Name, string Purpose,
-    string? OwnerReference = null)
+    string? OwnerReference = null, string? Classification = null)
     : IRequest<ApplicationRegistration>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.application.revise", 1)]
 public sealed record ReviseApplication(Uuid TenantId, Uuid ApplicationId, long ExpectedRevision,
-    string Name, string Purpose, string? OwnerReference)
+    string Name, string Purpose, string? OwnerReference, string? Classification = null)
     : IRequest, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.system_instance.declare", 1)]
@@ -110,18 +116,20 @@ public sealed record ListSystemInstanceBoundaryReferences(Uuid TenantId, Uuid Ap
 [Discriminator("bdgrz.application.change.preview", 1)]
 public sealed record PreviewApplicationChange(Uuid TenantId, Uuid ApplicationId,
     long ExpectedApplicationRevision, string ChangeKind, string? Name = null,
-    string? Purpose = null, string? OwnerReference = null)
+    string? Purpose = null, string? OwnerReference = null, string? Classification = null)
     : IRequest<ApplicationChangePreview>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.application.declared", 1)]
 public sealed record ApplicationDeclared(Uuid TenantId, Uuid ApplicationId,
     string Name, string Purpose, string? OwnerReference,
-    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt,
+    string? Classification = null) : DomainEvent;
 
 [Discriminator("bdgrz.application.revised", 1)]
 public sealed record ApplicationRevised(Uuid TenantId, Uuid ApplicationId, long Revision,
     string Name, string Purpose, string? OwnerReference,
-    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt,
+    string? Classification = null) : DomainEvent;
 
 [Discriminator("bdgrz.system_instance.declared", 1)]
 public sealed record SystemInstanceDeclared(Uuid TenantId, Uuid ApplicationId,

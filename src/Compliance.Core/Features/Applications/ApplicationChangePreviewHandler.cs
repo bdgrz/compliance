@@ -83,7 +83,7 @@ public sealed class PreviewApplicationChangeHandler(
                 "The expected application revision must be positive.");
         if (request.ChangeKind == "retire")
             return request.Name is null && request.Purpose is null &&
-                   request.OwnerReference is null ? null :
+                   request.OwnerReference is null && request.Classification is null ? null :
                 new RequestError(RequestErrorKind.Validation,
                     "A retirement preview cannot include revised application fields.");
         if (request.ChangeKind != "revise")
@@ -91,9 +91,10 @@ public sealed class PreviewApplicationChangeHandler(
                 "The change kind must be revise or retire.");
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200 ||
             string.IsNullOrWhiteSpace(request.Purpose) || request.Purpose.Length > 2000 ||
-            request.OwnerReference is { Length: > 2000 })
+            request.OwnerReference is { Length: > 2000 } ||
+            request.Classification is { Length: > 200 })
             return new RequestError(RequestErrorKind.Validation,
-                "A revision preview requires a bounded name, purpose, and optional owner reference.");
+                "A revision preview requires bounded name, purpose, owner, and classification fields.");
         return null;
     }
 
@@ -108,6 +109,9 @@ public sealed class PreviewApplicationChangeHandler(
         Add("owner_reference", current.OwnerReference,
             string.IsNullOrWhiteSpace(request.OwnerReference) ? null :
                 request.OwnerReference.Trim());
+        Add("classification", current.Classification,
+            string.IsNullOrWhiteSpace(request.Classification) ? null :
+                request.Classification.Trim());
         return changes;
 
         void Add(string field, string? before, string? after)
