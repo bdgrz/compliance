@@ -68,6 +68,23 @@ public sealed class BoundaryPagedReadContractTests
         AssertValidation(decisionResult.Error);
     }
 
+    [Fact]
+    public async Task ShouldHideForeignProgramGivenBoundaryList()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var handler = new ListProgramBoundariesHandler(new BoundaryDirectory(),
+            new ProgramDirectory(Program(Uuid.CreateVersion4(), programId)));
+
+        // Act
+        var result = await handler.HandleAsync(Context(new ListProgramBoundaries(tenantId,
+            programId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
 

@@ -128,8 +128,10 @@ public sealed class ListProgramBoundariesHandler(IBoundaryDirectoryReader direct
         if (request.Limit is < 1 or > 200)
             return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The boundary list limit must be between 1 and 200."));
-        if (await programs.GetAsync(request.TenantId, request.ProgramId, ct)
-                .ConfigureAwait(false) is null)
+        var program = await programs.GetAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        if (program is null || program.TenantId != request.TenantId ||
+            program.ProgramId != request.ProgramId)
             return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
         Page<BoundaryView> page;
