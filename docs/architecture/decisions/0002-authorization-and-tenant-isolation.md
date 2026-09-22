@@ -28,7 +28,15 @@ marking M0-A04 accepted.
   pipeline for Native AOT compatibility. Every business `/api/v1` endpoint
   declares authorization metadata; a host-level architecture test checks the
   mapped endpoints. The specific request authorizer remains the source of the
-  row-level decision.
+  row-level decision. The shared Compliance composition enables Portia's
+  fail-closed `RequireAuthorization()` check: hosted startup and direct
+  dispatch reject a registered request that has no applicable authorizer or
+  declared permission. Developer identity continuation has a Portia authorizer
+  that permits it only when developer authentication is enabled, and it has no
+  MCP tool. OIDC continuation has a Portia authorizer that requires an
+  authenticated external issuer and subject. Tenant slug and owner lifecycle
+  commands carry a narrow marker and accept only Portia's trusted system actor,
+  which the lifecycle reactors use; they are not HTTP or MCP operations.
 - Consequential events retain a stable actor identifier and display snapshot.
   The display comes from the same authenticated Bdgrz session identity as the
   member subject; an external provider claim on a combined principal cannot
@@ -62,4 +70,10 @@ grants are implemented. Workforce and evidence stories must define sensitive
 field classes and field-level redaction. Their search, artifacts, exports,
 notifications, and background jobs will supply further isolation tests as
 those paths are delivered. Denied-action telemetry needs a concrete logging
-contract that does not leak client data.
+contract that does not leak client data. Portia pipeline behaviors run after
+request authorization, so they cannot observe a failed authorizer decision.
+Portia emits bounded authorization outcome telemetry, but it has no
+request-context callback for an application-owned durable denial record. This
+bundle intentionally does not add inconsistent per-authorizer logging. M0-A04
+retains the logging contract until a native observation seam or an approved
+host-level logging design has its own denial and non-disclosure evidence.

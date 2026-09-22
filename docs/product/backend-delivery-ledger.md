@@ -69,6 +69,19 @@ cannot close [EN-03 #194](https://github.com/bdgrz/compliance/issues/194)
 before the workforce consumer, content-identity decision acceptance, and
 snapshot-specific recovery proof exist.
 
+The next unblocked authorization bundle is tracked by
+[EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324). It advances
+[M0-A04 #84](https://github.com/bdgrz/compliance/issues/84),
+[M0-A07 #126](https://github.com/bdgrz/compliance/issues/126),
+[R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152),
+[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157), and
+[R1-01 backend #158](https://github.com/bdgrz/compliance/issues/158). It makes
+the shared Portia composition fail closed, protects OIDC continuation in the
+Portia pipeline, and restricts tenant lifecycle reactions to the system actor.
+It does not settle field restrictions, cross-client firm access, federation
+expansion, the durable denied-action logging contract, or each later feature's
+tenant-isolation evidence; those records remain open.
+
 Keep the artifact, authorization, and import work visible as decision-bound
 slices. M0-A03 needs a selected production content store; M0-A04 needs its
 field-restriction and firm-access policy; and EN-05 needs an accepted
