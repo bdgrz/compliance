@@ -1,6 +1,6 @@
 # Product backlog triage
 
-Status: working product-owner review, updated 2026-09-14
+Status: working product-owner review, updated 2026-09-22
 
 This review prevents the backlog from becoming a catalog of plausible features. A story may describe a sensible capability and still be the wrong thing to build now.
 
@@ -94,7 +94,7 @@ Milestone and priority are intentionally different. A Type II story can be essen
 | R1-06 | P0 | Derived | Mappings make criteria coverage explainable; the review workflow must be validated. |
 | R1-07 | P0 | Derived | Promoted 2026-09-14: the R1 exit, R1-08, and R2-09 require an assessed risk register, and risk assessment (CC3) is tested in Type I. The method and authority are resolved in M0-D10. |
 | R1-08 | P0 | Confirmed | The product must begin with readiness and show an owned route forward. |
-| R1-09 | P0 | Confirmed | The live readiness engagement already has material that must be adopted without restarting. |
+| R1-09 | P1 | Confirmed | Demoted 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md): the first client has no existing readiness material, and import work waits until the canonical data shape and storage internals are settled. Sample collection is tracked in #338. |
 | R1-10 | P0 | Confirmed | Access governance requires a known, owned application and reviewed-system universe. |
 | R1-11 | P0 | Confirmed | Human and NHI access review requires an authoritative roster and accountable identity ownership. |
 | R1-12 | P0 | Derived | The boundary and system description require material technology, information, and data-flow inventory beyond applications. |
@@ -125,10 +125,10 @@ Milestone and priority are intentionally different. A Type II story can be essen
 | T2-03 | P1 | Derived | Complete occurrence populations are central to sustained evidence, but sampling details need audit input. |
 | T2-04 | P1 | Derived | Continuous visibility supports intervention during the observation period. |
 | T2-05 | P1 | Derived | Recurring access reviews extend a confirmed job into the Type II period. |
-| T2-06 | P2 | Hypothesis | A separate governance-review feature may duplicate the general control calendar. |
+| T2-06 | P2 | Hypothesis | Closed 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md): periodic policy, risk, and vendor reviews are ordinary recurring controls covered by T2-02. |
 | T2-07 | P1 | Derived | Significant-change and incident impact must feed Type II history and the system description without replacing source systems. |
-| T2-08 | P2 | Hypothesis | Inventory, access, population, and evidence sources and savings must be observed before connector work starts. |
-| T2-09 | P2 | Hypothesis | Management review may be an ordinary recurring control rather than a dedicated product surface. |
+| T2-08 | P2 | Hypothesis | Inventory, access, population, and evidence sources and savings must be observed before connector work starts. [M0-D20](decisions/m0-d20-integration-sources.md) defers connectors; #342 measures effort and ranks them. |
+| T2-09 | P2 | Hypothesis | Closed 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md): management review is an ordinary recurring control covered by T2-02. |
 | T3-01 | P1 | Confirmed | Supporting the Type II examination is part of the explicitly stated journey. |
 | T3-02 | P1 | Derived | Reconciled source-backed populations are required for sampling, but their definitions and formats need auditor input. |
 | T3-03 | P1 | Derived | Type II sampling extends the request workflow and must be validated with a real examination. |
