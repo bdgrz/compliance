@@ -1,9 +1,10 @@
 # Artifact content storage and inspection boundary
 
-Status: accepted boundary decision for M0-A03, 2026-09-21. It closes #83 by
-rejecting a single-value Fitz KV implementation for the 256 KiB content target.
-It does not choose a production blob provider or make EN-06 or its backend
-child [#196](https://github.com/bdgrz/compliance/issues/196) ready to close.
+Status: technical evidence for M0-A03, 2026-09-21. It records the rejected
+single-value Fitz KV option for the 256 KiB content target. #83 remains open
+because selecting a production store and proving it in standalone and split
+API/worker hosts are unresolved. It does not make EN-06 or its backend child
+[#196](https://github.com/bdgrz/compliance/issues/196) ready to close.
 
 ## Proposed content contract
 
@@ -47,7 +48,7 @@ DI registration is introduced by this spike. In particular, it does not grant
 artifact access from a related record, make a download decision, record a
 delivery, classify content, quarantine a file, or claim a malware inspection.
 
-## Decision and Fitz evidence
+## Rejected Fitz option and evidence
 
 Fitz encodes each KV operation in a wire payload whose length is a 16-bit
 value. A KV insert carries its transaction identifier, route, key, and value
@@ -76,11 +77,13 @@ and recovery evidence.
 
 ## Consequences and follow-up
 
-The 256 KiB content-store contract remains blocked. #196 stays open until the
-team chooses and proves a storage mechanism that can meet the cap and the
-immutable, tenant-isolated write/read semantics above. Its future implementation
-must then add the content-store interfaces and a real broker or selected-store
-test that proves both the supported bound and cross-tenant isolation.
+The 256 KiB content-store contract remains blocked. #83 stays open until the
+team chooses a production storage mechanism and proves it in standalone and
+split API/worker hosts. #196 stays open until that mechanism also proves the
+cap and immutable, tenant-isolated write/read semantics above. Its future
+implementation must then add the content-store interfaces and a real broker or
+selected-store test that proves both the supported bound and cross-tenant
+isolation.
 
 M0-D16 still owns retention, holds, disposition, and backup expectations.
 EN-06 still owns upload validation, inspection, quarantine, artifact-level
