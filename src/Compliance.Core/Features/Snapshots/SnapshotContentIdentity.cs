@@ -71,7 +71,7 @@ static class SnapshotContentIdentity
         return stream.ToArray();
     }
 
-    static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
+    internal static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
     {
         switch (element.ValueKind)
         {
@@ -95,7 +95,9 @@ static class SnapshotContentIdentity
                 writer.WriteStringValue(element.GetString()!.Normalize(NormalizationForm.FormC));
                 break;
             case JsonValueKind.Number:
-                writer.WriteNumberValue(element.GetInt64());
+                if (!element.TryGetInt64(out var number))
+                    throw new InvalidOperationException("Snapshot content numbers must be integral.");
+                writer.WriteNumberValue(number);
                 break;
             case JsonValueKind.True:
                 writer.WriteBooleanValue(true);

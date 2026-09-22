@@ -1101,15 +1101,18 @@ Done when:
 
 Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
 
-Technical evidence: [ADR 0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md)
-defines a proposed retained-source regeneration operation for the first
-program-scope consumer. It recomputes the retained v1 manifest after Portia
-tenant authorization rather than reading a snapshot projection or mutable
-current sources. The operation limits each amendment lineage to eight links and
-each regeneration to nine snapshot hydrations. This evidence does not accept
-the ADR or settle the remaining snapshot types, workforce consumer,
-size/performance, package, signing, retention, or recovery requirements; M0-A02
-and EN-03 remain open.
+Decision: accepted 2026-09-22 in [ADR 0004](../architecture/decisions/0004-immutable-snapshots.md)
+with [ADR 0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md).
+Snapshots are exact immutable references plus domain-separated canonical
+SHA-256 digests; amendments are linked, branchable, immutable snapshots whose
+impact is the set of changed source references; regeneration recomputes the
+retained manifest with at most eight amendment links. Large populations are
+immutable source records referenced by a streamed, chunked population digest
+with a 250,000-row technical bound, revised with M0-D07 evidence. Package
+composition, signing, retention, holds, and recovery targets stay with their
+own stories; the workforce, access-population, and engagement snapshots adopt
+the mechanism in R1-11d, R2-06, T1-01, and T3-01. EN-03 remains open for its
+own acceptance criteria.
 
 ### M0-A03 ADR: Evidence and artifact storage, inspection, and access
 
