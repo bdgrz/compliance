@@ -111,7 +111,22 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             Assert.Equal("true", pendingPreview.Headers.GetValues("Portia-Transient").Single());
         }
         using (var pendingReferences = await owner.GetAsync(applicationReferencesPath))
+        {
             Assert.Equal(HttpStatusCode.Conflict, pendingReferences.StatusCode);
+            Assert.Equal("true", pendingReferences.Headers.GetValues("Portia-Transient").Single());
+        }
+        await using (var pendingMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            var pendingReferences = await pendingMcp.When(
+                "bdgrz.application.boundary_references.list", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["application_id"] = first.ApplicationId,
+                }).ExpectFailure("Conflict");
+            var structured = Assert.IsType<JsonElement>(pendingReferences.StructuredJson);
+            Assert.True(structured.GetProperty("isTransient").GetBoolean());
+        }
         using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(
             $"{applicationsPath}/{first.ApplicationId}/system_instances", new
             {

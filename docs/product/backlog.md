@@ -1195,6 +1195,16 @@ Done when:
 
 Source: R1-08, R2-11, T2-04 acceptance criteria.
 
+Technical evidence: [ADR 0007](../architecture/decisions/0007-read-models-projections-and-as-of-calculations.md)
+records the tenant-scoped asynchronous projection, replay, authorization, and
+source-cursor catch-up contract. It also defines the contract for a future
+explicit revision-anchor read; the boundary-reference evidence does not
+exercise that separate contract. It does not decide readiness rules,
+calculation states, work-queue semantics, or cross-client authority, and it
+does not close this decision before M0-A01 recovery acceptance, a dedicated
+projection-derived-read spike in standalone and split hosts, and the remaining
+product-owned calculation and cross-client rules are complete.
+
 ### M0-A06 ADR: Import, reconciliation, and background processing
 
 Priority: P0

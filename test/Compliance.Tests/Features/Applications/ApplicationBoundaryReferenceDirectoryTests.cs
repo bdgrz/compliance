@@ -184,6 +184,7 @@ public sealed class ApplicationBoundaryReferenceDirectoryTests
         Assert.True(noSource.IsSuccess);
         Assert.False(lagged.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, lagged.Error.Kind);
+        Assert.True(lagged.Error.IsTransient);
         Assert.True(caughtUp.IsSuccess);
         Assert.Empty((await directory.ListAsync(tenantId, "application",
             Uuid.CreateVersion4(), 20, null)).Items);
