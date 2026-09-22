@@ -1,6 +1,6 @@
 # Compliance domain model
 
-Status: working product and domain contract, updated 2026-09-14
+Status: working product and domain contract, updated 2026-09-22
 
 This document defines the shared language and relationships used by the
 Compliance product backlog. It is a product model, not a database schema or a
@@ -8,8 +8,10 @@ commitment to separate services. The bounded contexts below should begin as
 cohesive modules inside the existing application.
 
 Canonical identity, workforce, access, application, device, infrastructure,
-and provenance terms are refined in
-[canonical-entity-model.md](canonical-entity-model.md) through M0-D28. Only
+and provenance terms are defined by the approved
+[canonical entity model](canonical-entity-model.md) (M0-D28, 2026-09-22). Where
+this document and that catalog differ, the catalog's names and relationship
+rules govern. Only
 public sources approved by
 [source-reference-policy.md](source-reference-policy.md) may shape that model;
 information without acceptable use rights is excluded.
@@ -67,7 +69,7 @@ microservices.
 
 | Context | Owns | Does not own |
 | --- | --- | --- |
-| Platform access | Client organizations (tenants), platform users, members and affiliation, teams, identity bindings, access roles, access grants | External accounts and entitlements being audited |
+| Platform access | Client organizations (tenants), platform users, memberships and affiliation, teams, federated identities, access roles, role assignments, engagement assignments, operator grants | External accounts and entitlements being audited |
 | Firm services | Service engagements, engagement acceptance, staff assignment, nonattest service records, independence rule sets and evaluations, advisory and attest compartments | Client management records or the firm's system of quality management |
 | Firm methodology | Platform-level templates, template versions, and template application provenance | Client-owned controls, policies, risks, or evidence created from templates |
 | Program and scope | Programs, stages, system boundaries, inclusions, exclusions, engagement plans | Criteria source content or control operation |
@@ -130,18 +132,19 @@ directory. A tenant may copy from platform-level content with provenance, but
 client data never flows back into it except through an explicit, reviewed,
 de-identified contribution.
 
-A `PlatformUser` is a person who can sign in. One `ExternalIdentity` (issuer
-plus subject) binds to one platform user, who may hold a `Member` record in
-several organizations. Each membership has an affiliation of client personnel or
-firm staff. A firm staff member's practice designation (advisory or attest) is
-recorded at the platform level, as defined in M0-D25.
+A `PlatformUser` is a person who can sign in. One `FederatedIdentity` (issuer
+plus subject) binds to one platform user, who may hold a `Membership` in
+several organizations. Each membership has an affiliation of client personnel,
+firm staff, or guest (an external consultant engaged directly by the client).
+A firm staff member's practice (advisory or attest) is carried by each
+`EngagementAssignment`, as decided in M0-D25 and M0-D26.
 
 Every request, job, message, projection, and notification resolves exactly one
 active organization. The proposed routing, confirmed or amended by M0-A07, is:
 
 - after sign-in, a user is sent to their only organization, chooses among
-  several, or sees a no-access page; creating an organization is limited to
-  authorized users (R1-15, M0-D25);
+  several, or creates one; any signed-in user may create an organization and
+  becomes its first Org Admin (M0-D25);
 - browser routes identify the organization by a unique, URL-friendly slug;
 - organization-scoped APIs identify it by an opaque, immutable `tenant_id` path
   parameter, and the server verifies membership for that `tenant_id` on every
@@ -158,7 +161,10 @@ The firm provides advisory and attest services. A `ServiceEngagement` records a
 service the firm provides to one client organization, its type, scope, period,
 team, and acceptance decision (F1-07). It is distinct from the client's Type I
 or Type II audit engagement, whose auditor may be an external firm. Firm staff
-reach client records through engagement assignment.
+reach client records only through an `EngagementAssignment` to an accepted
+engagement; ending the assignment revokes that access. A platform operator's
+`PlatformOperatorGrant` covers tenant lifecycle, administrator roster, and usage
+metadata only, never business records.
 
 Independence walls (F1-08) are enforced platform behavior:
 
@@ -180,15 +186,15 @@ human being.
 
 ```text
 External identity provider       Compliance platform        Access-governance data
-Auth0 or Entra subject     ->     Member and access grants    Access subject or account
+OIDC issuer and subject    ->     Membership and assignments  Person, ServiceIdentity, or Account
 IdP group or claim         ->     Team or role mapping        Group, role, or entitlement
 Authenticates the caller          Governs Compliance          Describes access under review
 ```
 
 ### Authentication identity
 
-A `UserIdentity` is a binding between a provider identity and a `User`, who may
-hold memberships in several organizations.
+A `FederatedIdentity` is a binding between a provider identity and a
+`PlatformUser`, who may hold memberships in several organizations.
 
 - Its stable provider key is issuer plus subject.
 - Email, display name, and claim values are descriptive and may change.
@@ -204,8 +210,8 @@ boundary for one client. A `Program` belongs to exactly one organization. The
 model must not merge organization membership with a single program, and nothing
 from one organization is visible to another.
 
-A `Member` is an organization-local membership of a `PlatformUser`, with an
-affiliation of client personnel or firm staff. Its lifecycle is pending, active, suspended, or deprovisioned.
+A `Membership` is an organization-local affiliation of a `PlatformUser`, with an
+affiliation of client personnel, firm staff, or guest. Its lifecycle is pending, active, suspended, or deprovisioned.
 Deprovisioning blocks new access immediately while preserving authorship,
 decisions, comments, and historical assignments.
 
@@ -214,22 +220,27 @@ It is not an Auth0 or Entra group and is not a group being reviewed in an
 external access campaign.
 
 An `AccessRole` is a stable bundle of platform permissions. The first release
-uses a small built-in catalog rather than user-defined permissions:
+uses a small built-in catalog rather than user-defined permissions (M0-D03):
 
-- organization administrator;
-- compliance lead;
-- contributor;
-- reviewer;
-- management approver;
-- read-only advisor.
+- Org Admin;
+- Compliance Lead;
+- Contributor;
+- Viewer;
+- Advisor and Attest, the firm-staff practice roles, effective only through an
+  `EngagementAssignment`.
 
-An `AccessGrant` gives a member or team an access role within an organization,
-program, engagement, or deliberately shared resource. A grant records its
-source, effective interval, grantor, and revocation.
+Review, approval, and ownership duties are responsibilities, not additional
+roles.
 
-An IdP group or claim may later be mapped to a platform team or access grant.
-Such a mapping is explicit, source-aware, and reviewable. Provider claim values
-must not become implicit platform primary keys.
+A `RoleAssignment` gives a platform user, membership, or team an access role
+within an organization, program, engagement, or deliberately shared resource.
+An assignment records its source, effective interval, grantor, and revocation.
+
+Identity-provider group mapping is not in the first release; teams are managed
+in the product. A later mapping of an IdP group or claim to a platform team or
+role assignment (F1, with per-client identity providers) is explicit,
+source-aware, and reviewable. Provider claim values must not become implicit
+platform primary keys.
 
 ### Responsibility and separation of duties
 
@@ -242,7 +253,7 @@ member is expected to do. Authorization evaluates both where appropriate:
 
 ```text
 active membership
-  + scoped access grant
+  + scoped role assignment
   + relevant responsibility
   + resource state
   + separation-of-duties policy
@@ -272,7 +283,7 @@ external-author reference. It is not fabricated as platform activity.
 
 A `Person` is an organization-level subject whose employment or engagement
 facts help the team evaluate controls and access. It is not a Compliance
-`Member`, an authentication identity, or a provider `DirectoryPrincipal`.
+`Membership`, a `FederatedIdentity`, or a provider `Account`.
 
 A person keeps a stable source-aware identity, worker type, lifecycle status,
 manager, organization attributes needed for review, relevant start or end
@@ -309,7 +320,7 @@ other access boundary for an application. One application may have multiple
 system instances, and one instance must not be reused for unrelated
 applications merely because the provider is the same.
 
-The inventory links applications and reviewed systems to the program boundary,
+The inventory links applications and system instances to the program boundary,
 vendors or subservice organizations, data and process scope, controls, evidence
 sources, system owners, access owners, review cadence, and explicit inclusion or
 exclusion decisions. An application cannot silently disappear from review scope
@@ -351,7 +362,7 @@ organization control (CSOC) or other dependency. These remain distinct from the
 organization's controls and from evidence that anyone performed them.
 
 Commitments and requirements may relate to services, scope, criteria, risks,
-applications, reviewed systems, components, information assets, providers,
+applications, system instances, components, information assets, providers,
 controls, and policies. The approved applicable versions supply structured
 source material to the system description and engagement snapshots.
 
@@ -392,13 +403,15 @@ owner, approved purpose, environment, lifecycle, and authentication or
 credential model. Neither record is a platform member or receives Compliance
 access merely because an observed account is correlated with it.
 
-A `DirectoryPrincipal` is an observed provider object that can receive, convey,
-or participate in access. Provider-neutral principal kinds begin with account,
-group, role, service principal, and workload identity. An account or service
-principal may correlate to a human or NHI access subject; a group or role is an
-access structure and does not become a human or NHI merely because members or
-assumers use it. Its identity is the reviewed system plus the source object's
-immutable identifier; email and display name are attributes.
+Observed provider objects are `Account`, `Group`, `Role`, and `Entitlement`
+records, connected by `GroupMember`, `RoleEntitlement`, and `AccessAssignment`
+relationships. A provider service principal or workload identity is an
+`Account`-like source object correlated to a governed `ServiceIdentity`. An
+account may correlate to a `Person` or a `ServiceIdentity`; a group or role is
+an access structure and does not become a human or NHI merely because members
+or assumers use it. Each observed object's identity is its system instance
+plus the source object type and immutable identifier; email and display name
+are attributes.
 
 Human-versus-NHI classification is explicit, attributable, and reviewable.
 Provider hints can propose a classification but cannot silently decide it.
@@ -406,27 +419,28 @@ Ambiguous, shared, generic, dormant, ownerless, and mixed-use principals remain
 visible. A change of classification preserves the prior decision and identifies
 affected expectations, campaigns, and findings.
 
-An `Entitlement` describes access available within a reviewed system, including
+An `Entitlement` describes access available within a system instance, including
 a role, group membership, license, permission set, repository role, or similar
 grantable access. External groups and roles retain their source identifiers and
 relationships. Direct, group-derived, nested-group, and other inherited grant
 paths remain distinguishable.
 
-An `ExternalAccessGrant` is the reviewable relationship:
+An `AccessAssignment` is the observed direct grant, and `EffectiveAccess` is
+the reviewable derived relationship:
 
 ```text
-directory principal + entitlement + resource + reviewed system
+account or service identity + entitlement + resource + system instance + grant path
 ```
 
-An access review population contains frozen snapshots of access subjects,
-directory principals, group and role relationships, effective access grants,
-and their grant paths—not live platform members. A member and an access subject
-or directory principal may be explicitly correlated, but none owns or replaces
+An access review population contains frozen snapshots of persons, service
+identities, accounts, group and role relationships, effective access, and grant
+paths—not live platform memberships. A membership and a person, service
+identity, or account may be explicitly correlated, but none owns or replaces
 the others.
 
 An `AccessExpectation` is an approved, time-bounded assertion about access that
 should or should not exist. It identifies the applicable subject or governed
-population, reviewed system, entitlement or access profile, rationale, source,
+population, system instance, entitlement or access profile, rationale, source,
 approver, effective interval, and any exception. Expectations can highlight
 expected, unexpected, missing, expired, privileged, or unresolved access, but
 they never pre-decide a review item. A human reviewer remains accountable for
@@ -455,7 +469,7 @@ facts.
 
 | Category | Purpose | Initial examples |
 | --- | --- | --- |
-| Definition | States what should exist or happen | Criterion, Control, Policy, ReviewedSystem, Entitlement |
+| Definition | States what should exist or happen | Criterion, Control, Policy, SystemInstance, Entitlement |
 | Version | Preserves approved content over time | BoundaryVersion, ControlVersion, PolicyVersion, CatalogEdition |
 | Relationship | Makes a supported assertion between records | ControlCriterionMapping, EvidenceSupport, ScopeInclusion |
 | Responsibility | Assigns accountable work | ControlOwner, AssignedReviewer, RemediationOwner |
@@ -468,8 +482,8 @@ facts.
 | Provenance | Explains where data came from | SourceReference, ImportBatch, CollectionRun, content identity |
 | Attribution | Explains who or what acted and when | ActorReference, external author, occurred time, effective time |
 
-Application, AccessSubject, DirectoryPrincipal, external group membership,
-ExternalAccessGrant, grant path, and AccessExpectation use these same
+Application, Person, ServiceIdentity, Account, Group, GroupMember,
+AccessAssignment, EffectiveAccess, grant path, and AccessExpectation use these same
 categories; they are not an isolated access-review data model.
 
 The exact state machine belongs to the workflow that owns the record. Do not
@@ -505,7 +519,7 @@ projections that reconcile to source records and show their as-of time.
 
 ### Program and engagement
 
-- An organization owns members, teams, access grants, and programs.
+- An organization owns memberships, teams, role assignments, and programs.
 - A program carries the continuing control environment through readiness,
   Type I, Type II, and later periods.
 - An engagement or period references stable versions and snapshots from the
@@ -558,7 +572,7 @@ projections that reconcile to source records and show their as-of time.
 - A policy version may contain authored content or identify an immutable source
   artifact. It records its effective interval and exact approval decision.
 - `PolicyApplicability` relationships associate an exact policy version with
-  applications or reviewed systems, controls, criteria, risks, vendors,
+  applications or system instances, controls, criteria, risks, vendors,
   processes, and organizational scope where useful for navigation and impact
   analysis. Direct policy-to-criterion association never counts as control
   coverage, and a policy never proves that a control operated.
@@ -651,7 +665,7 @@ its downstream impact.
 - Every work assignment resolves to an active member or team and exposes
   orphaned work after membership changes.
 - Every access campaign starts from the governed application inventory and
-  accounts for every in-scope reviewed system. Missing or failed source data is
+  accounts for every in-scope system instance. Missing or failed source data is
   unknown, never evidence of zero accounts or zero access.
 - Every observed access relationship remains distinct from the approved
   expectation and human review decision applied to it.
@@ -715,4 +729,4 @@ tracked as an M0 discovery issue:
 | Independence rules for advisory and attest services | M0-D26 |
 | Whether the firm's own attest workpapers belong in the platform | M0-D27 |
 | Tenant resolution, slug and `tenant_id` routing, the reserved-route registry, and client identity federation | M0-A07 |
-| The complete canonical entity and relationship model, provider mappings, public sources, and acceptable-use decisions | M0-D28 |
+| The complete canonical entity and relationship model, public sources, and acceptable-use decisions | Approved in M0-D28 (2026-09-22); provider-specific source mappings are delivery work in the consuming story |
