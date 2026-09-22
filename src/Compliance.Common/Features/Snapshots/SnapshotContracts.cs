@@ -24,6 +24,9 @@ public sealed record ProgramScopeSnapshotVerification(Uuid TenantId, Uuid Snapsh
     bool Verified, SnapshotSourceCheck Snapshot, SnapshotSourceCheck ProgramRevision,
     SnapshotSourceCheck ApprovedBoundaryVersion);
 
+public sealed record ProgramScopeSnapshotManifestRegeneration(Uuid TenantId, Uuid SnapshotId,
+    string CanonicalManifest, string ContentSha256);
+
 [Discriminator("bdgrz.snapshot.program_scope.freeze", 1)]
 public sealed record FreezeProgramScopeSnapshot(Uuid TenantId, Uuid ProgramId,
     long ExpectedProgramRevision, Uuid BoundaryId, Uuid ApprovedBoundaryVersionId)
@@ -42,6 +45,10 @@ public sealed record GetSnapshot(Uuid TenantId, Uuid SnapshotId, long? MinimumRe
 [Discriminator("bdgrz.snapshot.program_scope.verify", 1)]
 public sealed record VerifyProgramScopeSnapshot(Uuid TenantId, Uuid SnapshotId)
     : IRequest<ProgramScopeSnapshotVerification>, ITenantAccessRequest, ICallable;
+
+[Discriminator("bdgrz.snapshot.program_scope.manifest_regenerate", 1)]
+public sealed record RegenerateProgramScopeSnapshotManifest(Uuid TenantId, Uuid SnapshotId)
+    : IRequest<ProgramScopeSnapshotManifestRegeneration>, ITenantAccessRequest, ICallable;
 
 [Discriminator("bdgrz.snapshot.program.list", 1)]
 public sealed record ListProgramSnapshots(Uuid TenantId, Uuid ProgramId,

@@ -62,10 +62,16 @@ advances [M0-A05 #85](https://github.com/bdgrz/compliance/issues/85) and
 [EN-02 #160](https://github.com/bdgrz/compliance/issues/160) without claiming
 a readiness calculation, a work queue, or cross-client authority.
 
-The next M0 evidence bundle is [M0-A02 #82](https://github.com/bdgrz/compliance/issues/82): prove deterministic regeneration of the existing immutable
-snapshot manifest from retained source in standalone and split API/worker
-hosts. It may advance the snapshot decision while #81 remains open, but it
-cannot close [EN-03 #194](https://github.com/bdgrz/compliance/issues/194)
+The active M0-A02 bundle advances [M0-A02 #82](https://github.com/bdgrz/compliance/issues/82)
+with proposed retained-source manifest regeneration. It recomputes a frozen
+program-scope manifest from its event-sourced record after tenant authorization,
+without relying on the snapshot projection or mutable source state. The
+operation permits eight amendment links at most, bounding one regeneration to
+nine snapshot hydrations; both new amendments and regeneration enforce the
+limit. The standalone and split API/worker broker flow proves authorized and
+denied HTTP/MCP behavior, projection lag recovery, concurrent bounded reads,
+and original identity after an amendment. It advances the snapshot decision
+while #81 remains open, but cannot close [EN-03 #194](https://github.com/bdgrz/compliance/issues/194)
 before the workforce consumer, content-identity decision acceptance, and
 snapshot-specific recovery proof exist.
 

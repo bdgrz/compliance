@@ -126,6 +126,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<AmendProgramScopeSnapshot>()
         .AddMcpTool<GetSnapshot>(tool => tool.ReadOnly())
         .AddMcpTool<VerifyProgramScopeSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<RegenerateProgramScopeSnapshotManifest>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -515,23 +516,28 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
     app.MapPortiaPost<FreezeProgramScopeSnapshot, SnapshotRegistration>(
-            "/api/v1/tenants/{tenant_id}/scope_snapshots")
+            "/api/v1/tenants/{tenant_id}/scope-snapshots")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaPost<AmendProgramScopeSnapshot, SnapshotRegistration>(
-            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+            "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/amendments")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<GetSnapshot, SnapshotView>(
-            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+            "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<VerifyProgramScopeSnapshot, ProgramScopeSnapshotVerification>(
-            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+            "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/verification")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<RegenerateProgramScopeSnapshotManifest,
+            ProgramScopeSnapshotManifestRegeneration>(
+            "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/manifest-regeneration")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(
-            "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope-snapshots")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(

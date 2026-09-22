@@ -121,6 +121,216 @@ public sealed class ScopeSnapshotTests
     }
 
     [Fact]
+    public async Task ShouldRegenerateEquivalentManifestGivenRetainedFrozenSource()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var source = new ImmutableSnapshot(tenantId, snapshotId);
+        Assert.True(source.Freeze(snapshotId, null, programId, manifest, json, digest,
+            null, Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        var handler = new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(source));
+
+        // Act
+        var result = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+
+        // Assert
+        var regenerated = Assert.IsType<ProgramScopeSnapshotManifestRegeneration>(result.Value);
+        Assert.Equal(tenantId, regenerated.TenantId);
+        Assert.Equal(snapshotId, regenerated.SnapshotId);
+        Assert.Equal(json, regenerated.CanonicalManifest);
+        Assert.Equal(digest, regenerated.ContentSha256);
+    }
+
+    [Fact]
+    public async Task ShouldRegenerateEighthAmendmentGivenCompleteBoundedLineage()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var rootId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var snapshots = CreateLineage(tenantId, programId, actorId, rootId, manifest, json,
+            digest, 8);
+        var leaf = snapshots[^1];
+        var reader = new SnapshotSourceReader(snapshots.ToArray());
+        var handler = new RegenerateProgramScopeSnapshotManifestHandler(reader);
+
+        // Act
+        var result = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, leaf.Id)),
+            CancellationToken.None);
+
+        // Assert
+        var regenerated = Assert.IsType<ProgramScopeSnapshotManifestRegeneration>(result.Value);
+        Assert.Equal(json, regenerated.CanonicalManifest);
+        Assert.Equal(digest, regenerated.ContentSha256);
+    }
+
+    [Fact]
+    public async Task ShouldRejectMalformedOrCyclicSourceGivenManifestRegeneration()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var otherTenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var rootId = Uuid.CreateVersion4();
+        var sourceId = Uuid.CreateVersion4();
+        var predecessorId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var missingId = Uuid.CreateVersion4();
+        var missing = new ImmutableSnapshot(tenantId, missingId);
+        var malformedId = Uuid.CreateVersion4();
+        var malformed = new ImmutableSnapshot(tenantId, malformedId);
+        new AggregateScenario<ImmutableSnapshot>(malformed).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, malformedId, malformedId, null, programId,
+                "program_scope", manifest, json + " ", digest, null, actorId, "Lead",
+                DateTimeOffset.UtcNow), malformedId, 1));
+        var crossTenantId = Uuid.CreateVersion4();
+        var crossTenant = new ImmutableSnapshot(tenantId, crossTenantId);
+        new AggregateScenario<ImmutableSnapshot>(crossTenant).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(otherTenantId, crossTenantId, crossTenantId, null, programId,
+                "program_scope", manifest, json, digest, null, actorId, "Lead",
+                DateTimeOffset.UtcNow), crossTenantId, 1));
+        var cyclicSource = new ImmutableSnapshot(tenantId, sourceId);
+        new AggregateScenario<ImmutableSnapshot>(cyclicSource).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, sourceId, rootId, predecessorId, programId,
+                "program_scope", manifest, json, digest, "Correction", actorId, "Lead",
+                DateTimeOffset.UtcNow), sourceId, 1));
+        var cyclicPredecessor = new ImmutableSnapshot(tenantId, predecessorId);
+        new AggregateScenario<ImmutableSnapshot>(cyclicPredecessor).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, predecessorId, rootId, sourceId, programId,
+                "program_scope", manifest, json, digest, "Earlier correction", actorId,
+                "Lead", DateTimeOffset.UtcNow), predecessorId, 1));
+        var reader = new SnapshotSourceReader(missing, malformed, crossTenant, cyclicSource,
+            cyclicPredecessor);
+        var handler = new RegenerateProgramScopeSnapshotManifestHandler(reader);
+
+        // Act
+        var missingResult = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, missingId)),
+            CancellationToken.None);
+        var malformedResult = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, malformedId)),
+            CancellationToken.None);
+        var crossTenantResult = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, crossTenantId)),
+            CancellationToken.None);
+        var cyclicResult = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, sourceId)),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(missingResult.Error).Kind);
+        Assert.All([malformedResult, crossTenantResult, cyclicResult], result =>
+        {
+            var error = Assert.IsType<RequestError>(result.Error);
+            Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+            Assert.False(error.IsTransient);
+        });
+    }
+
+    [Fact]
+    public async Task ShouldRejectNinthAmendmentGivenManifestRegeneration()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var rootId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var snapshots = CreateLineage(tenantId, programId, actorId, rootId, manifest, json,
+            digest, 9);
+        var predecessor = snapshots[^1];
+        var reader = new SnapshotSourceReader(snapshots.ToArray());
+        var handler = new RegenerateProgramScopeSnapshotManifestHandler(reader);
+
+        // Act
+        var result = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, predecessor.Id)),
+            CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.Contains("lineage", error.Message, StringComparison.Ordinal);
+        Assert.Equal(9, reader.HydrationCount);
+    }
+
+    [Fact]
+    public async Task ShouldRejectNinthAmendmentBeforeAppendGivenBoundedLineage()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var boundaryVersionId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var reviewerId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var plan = new ProgramPlan(null, null, null, null, null, null);
+        var program = new ComplianceProgram(tenantId, programId);
+        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
+            actorId, "Lead", now);
+        var boundary = new SystemBoundary(tenantId, boundaryId);
+        var content = new BoundaryContent("Scope", "readiness", ["security"], []);
+        Assert.True(boundary.Create(programId, boundaryVersionId, content, actorId, "Lead", now)
+            .IsSuccess);
+        var decisionId = Uuid.CreateVersion4();
+        Assert.True(boundary.Review(boundaryVersionId, 1, decisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now).IsSuccess);
+        Assert.True(boundary.Approve(boundaryVersionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now)
+            .IsSuccess);
+        var boundaryVersion = new BoundaryVersionView(tenantId, boundaryId, programId,
+            boundaryVersionId, 1, content, "approved", new DateOnly(2027, 1, 1), actorId,
+            "Lead", now);
+        var manifest = new ProgramScopeManifest(1, tenantId, programId, 1,
+            SnapshotContentIdentity.ProgramRevision(programRevision), boundaryId,
+            boundaryVersionId, SnapshotContentIdentity.ApprovedBoundaryVersion(boundaryVersion));
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var snapshots = CreateLineage(tenantId, programId, actorId, Uuid.CreateVersion4(),
+            manifest, json, digest, 8);
+        var predecessor = snapshots[^1];
+        var freezer = new ScopeSnapshotFreezer(new ProgramRevisionReader(programRevision),
+            new LaggingBoundaryDirectory(boundaryVersion),
+            new SnapshotCreationSourcesReader(program, boundary, snapshots), null!,
+            TimeProvider.System);
+        var request = new AmendProgramScopeSnapshot(tenantId, predecessor.Id, programId, 1,
+            boundaryId, boundaryVersionId, "Correction 9");
+
+        // Act
+        var result = await freezer.FreezeAsync(
+            new SnapshotRequestContext<AmendProgramScopeSnapshot>(request), tenantId, programId,
+            1, boundaryId, boundaryVersionId, predecessor.Id, request.Reason,
+            CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.Contains("lineage", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ShouldRejectCorruptProjectionAndReportLagGivenFrozenSource()
     {
         // Arrange
@@ -413,6 +623,28 @@ public sealed class ScopeSnapshotTests
         new(1, tenantId, programId, 1, new string('a', 64), Uuid.CreateVersion4(),
             Uuid.CreateVersion4(), new string('b', 64));
 
+    static List<ImmutableSnapshot> CreateLineage(Uuid tenantId, Uuid programId, Uuid actorId,
+        Uuid rootId, ProgramScopeManifest manifest, string json, string digest,
+        int amendmentCount)
+    {
+        var snapshots = new List<ImmutableSnapshot>();
+        var root = new ImmutableSnapshot(tenantId, rootId);
+        Assert.True(root.Freeze(rootId, null, programId, manifest, json, digest, null,
+            actorId, "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        snapshots.Add(root);
+        var predecessor = root;
+        for (var amendmentNumber = 1; amendmentNumber <= amendmentCount; amendmentNumber++)
+        {
+            var amendment = new ImmutableSnapshot(tenantId, Uuid.CreateVersion4());
+            Assert.True(amendment.Freeze(rootId, predecessor.Id, programId, manifest, json,
+                digest, $"Correction {amendmentNumber}", actorId, "Lead",
+                DateTimeOffset.UtcNow.AddMinutes(amendmentNumber)).IsSuccess);
+            snapshots.Add(amendment);
+            predecessor = amendment;
+        }
+        return snapshots;
+    }
+
     sealed class SnapshotDirectoryStub(SnapshotView? view) : ISnapshotDirectoryReader
     {
         public ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
@@ -423,11 +655,22 @@ public sealed class ScopeSnapshotTests
             ValueTask.FromResult(new Page<SnapshotView>(view is null ? [] : [view], null));
     }
 
-    sealed class SnapshotSourceReader(Aggregate source) : IAggregateReader
+    sealed class SnapshotSourceReader(params ImmutableSnapshot[] sources) : IAggregateReader
     {
+        readonly Dictionary<Uuid, ImmutableSnapshot> _sourceById = sources
+            .ToDictionary(static source => source.Id);
+
+        public int HydrationCount { get; private set; }
+
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
-            CancellationToken ct = default) where TAggregate : Aggregate =>
-            ValueTask.FromResult((TAggregate)source);
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            HydrationCount++;
+            return aggregate is ImmutableSnapshot snapshot && _sourceById.TryGetValue(snapshot.Id,
+                out var source)
+                ? ValueTask.FromResult((TAggregate)(Aggregate)source)
+                : ValueTask.FromResult(aggregate);
+        }
     }
 
     sealed class SnapshotSourcesReader(ComplianceProgram program, SystemBoundary boundary)
@@ -437,6 +680,24 @@ public sealed class ScopeSnapshotTests
             CancellationToken ct = default) where TAggregate : Aggregate =>
             ValueTask.FromResult((TAggregate)(Aggregate)(aggregate is ComplianceProgram
                 ? program : boundary));
+    }
+
+    sealed class SnapshotCreationSourcesReader(ComplianceProgram program, SystemBoundary boundary,
+        IEnumerable<ImmutableSnapshot> snapshots) : IAggregateReader
+    {
+        readonly Dictionary<Uuid, ImmutableSnapshot> _snapshots = snapshots.ToDictionary(
+            static snapshot => snapshot.Id);
+
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            aggregate switch
+            {
+                ImmutableSnapshot snapshot when _snapshots.TryGetValue(snapshot.Id,
+                    out var retained) => ValueTask.FromResult((TAggregate)(Aggregate)retained),
+                ComplianceProgram => ValueTask.FromResult((TAggregate)(Aggregate)program),
+                SystemBoundary => ValueTask.FromResult((TAggregate)(Aggregate)boundary),
+                _ => ValueTask.FromResult(aggregate),
+            };
     }
 
     sealed class ProgramRevisionReader(ProgramRevisionView revision) : IProgramDirectoryReader

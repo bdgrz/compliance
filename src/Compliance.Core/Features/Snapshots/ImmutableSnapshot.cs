@@ -14,6 +14,8 @@ public sealed class ImmutableSnapshot : Aggregate
     string? _contentSha256;
     string? _canonicalManifest;
     string? _amendmentReason;
+    Uuid _eventTenantId;
+    Uuid _eventSnapshotId;
     Uuid _actorMemberId;
     string? _actorDisplay;
     DateTimeOffset _frozenAt;
@@ -27,6 +29,8 @@ public sealed class ImmutableSnapshot : Aggregate
     public string? CanonicalManifest => _canonicalManifest;
     public string? ContentSha256 => _contentSha256;
     public string? AmendmentReason => _amendmentReason;
+    public Uuid EventTenantId => _eventTenantId;
+    public Uuid EventSnapshotId => _eventSnapshotId;
     public Uuid ActorMemberId => _actorMemberId;
     public string? ActorDisplay => _actorDisplay;
     public DateTimeOffset FrozenAt => _frozenAt;
@@ -47,6 +51,8 @@ public sealed class ImmutableSnapshot : Aggregate
             _contentSha256 = ev.ContentSha256;
             _canonicalManifest = ev.CanonicalManifest;
             _amendmentReason = ev.AmendmentReason;
+            _eventTenantId = ev.TenantId;
+            _eventSnapshotId = ev.SnapshotId;
             _actorMemberId = ev.ActorMemberId;
             _actorDisplay = ev.ActorDisplay;
             _frozenAt = ev.FrozenAt;
