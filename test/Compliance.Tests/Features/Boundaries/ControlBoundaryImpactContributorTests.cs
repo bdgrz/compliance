@@ -154,6 +154,72 @@ public sealed class ControlBoundaryImpactContributorTests
     }
 
     [Fact]
+    public async Task ShouldReturnTransientConflictGivenControlProjectionCatchesUpDuringImpactRead()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var controlId = Uuid.CreateVersion4();
+        var arrivingControlId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 22, 17, 30, 0, TimeSpan.Zero);
+        var previousApplication = ResolvedEntry(Uuid.CreateVersion4(), "application", applicationId);
+        var events = new InMemoryEventStore();
+        DomainEvent arriving = new ControlDraftCreated(tenantId, programId, arrivingControlId,
+            Uuid.CreateVersion4(), "AC-01", new ControlDraftContent("Access control",
+                "Restrict payroll access", "Payroll access control",
+                "Use approved access paths.", ["Access review log"]), Uuid.CreateVersion4(),
+            "Manager", now);
+        arriving.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), arrivingControlId, 1,
+            now));
+        var references = new ControlReferenceDirectory
+        {
+            Pages =
+            {
+                [("application", applicationId)] = new Page<ApplicationControlDraftReferenceView>([
+                    Reference(tenantId, applicationId, programId, controlId,
+                        Uuid.CreateVersion4()),
+                ], null),
+            },
+        };
+        references.OnListAsync = async ct =>
+        {
+            await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "controls",
+                arrivingControlId.ToString()), 0, [arriving], ct);
+            var current = references.Pages[("application", applicationId)];
+            references.Pages[("application", applicationId)] = new Page<
+                ApplicationControlDraftReferenceView>([
+                .. current.Items,
+                Reference(tenantId, applicationId, programId, arrivingControlId,
+                    Uuid.CreateVersion4()),
+            ], null);
+            references.Checkpoint = await CheckpointAfterAsync(events, tenantId, ct);
+        };
+        var contributor = new ControlBoundaryImpactContributor(references,
+            new ApplicationControlDraftReferenceReadConsistency(references, events));
+        var approved = new BoundaryVersionView(tenantId, boundaryId, programId,
+            Uuid.CreateVersion4(), 1, new BoundaryContent("Original", "readiness", ["security"],
+                [previousApplication]), "approved", new DateOnly(2026, 1, 1),
+            Uuid.CreateVersion4(), "Author", now);
+        var draft = new BoundaryVersionView(tenantId, boundaryId, programId,
+            Uuid.CreateVersion4(), 1, new BoundaryContent("Successor", "readiness", ["security"],
+                []), "draft", null, Uuid.CreateVersion4(), "Author", now);
+        var boundary = new BoundaryView(tenantId, boundaryId, programId, draft, approved, null, 2);
+        var impact = new BoundaryImpactService(new BoundaryDirectory(boundary),
+            [new ProgramBoundaryImpactContributor(), contributor]);
+
+        // Act
+        var result = await impact.PreviewAsync(new PreviewBoundaryImpact(tenantId, boundaryId,
+            draft.VersionId, draft.Revision), CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
     public async Task ShouldReturnTransientConflictGivenMismatchedControlReferenceProjection()
     {
         // Arrange
@@ -207,6 +273,16 @@ public sealed class ControlBoundaryImpactContributorTests
         new(tenantId, subjectType, recordId, programId, controlId, "AC-01", 1, entryId,
             subjectType, "The current draft applies to this scope.");
 
+    static async Task<ProjectionCheckpoint> CheckpointAfterAsync(InMemoryEventStore events,
+        Uuid tenantId, CancellationToken ct)
+    {
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(
+                           tenantId.ToString(), "controls"), cursor, ct))
+            cursor = record.NextCursor;
+        return new ProjectionCheckpoint(cursor);
+    }
+
     sealed class ControlReferenceDirectory : IApplicationControlDraftReferenceDirectory
     {
         public Dictionary<(string SubjectType, Uuid RecordId),
@@ -218,21 +294,23 @@ public sealed class ControlBoundaryImpactContributorTests
             get;
         } = [];
 
-        public Func<CancellationToken, ValueTask>? OnListAsync { get; init; }
+        public ProjectionCheckpoint Checkpoint { get; set; } = ProjectionCheckpoint.Start;
+        public Func<CancellationToken, ValueTask>? OnListAsync { get; set; }
 
         public async ValueTask<Page<ApplicationControlDraftReferenceView>> ListAsync(Uuid tenantId,
             string subjectType, Uuid recordId, int limit, string? cursor,
             CancellationToken ct = default)
         {
             Requests.Add((subjectType, recordId, limit, cursor));
+            var page = Pages.GetValueOrDefault((subjectType, recordId),
+                new Page<ApplicationControlDraftReferenceView>([], null));
             if (OnListAsync is not null)
                 await OnListAsync(ct);
-            return Pages.GetValueOrDefault((subjectType, recordId),
-                new Page<ApplicationControlDraftReferenceView>([], null));
+            return page;
         }
 
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
-            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+            CancellationToken ct = default) => ValueTask.FromResult(Checkpoint);
     }
 
     sealed class BoundaryDirectory(BoundaryView current) : IBoundaryDirectoryReader

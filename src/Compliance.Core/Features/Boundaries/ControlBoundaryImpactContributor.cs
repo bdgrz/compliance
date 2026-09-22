@@ -27,10 +27,11 @@ public sealed class ControlBoundaryImpactContributor(
             return Result<BoundaryImpactContribution>.Success(
                 new BoundaryImpactContribution(Context, [], false));
 
-        var beforeRead = await consistency.EnsureCaughtUpAsync(boundary.TenantId, ct)
+        var beforeRead = await consistency.CaptureAsync(boundary.TenantId, ct)
             .ConfigureAwait(false);
         if (!beforeRead.IsSuccess)
             return Result<BoundaryImpactContribution>.Failure(beforeRead.Error);
+        var fence = beforeRead.Value;
 
         var records = new List<BoundaryAffectedRecord>();
         var controlIds = new HashSet<Uuid>();
@@ -46,9 +47,10 @@ public sealed class ControlBoundaryImpactContributor(
                     item.SubjectType != target.SubjectType ||
                     item.GovernedRecordId != target.RecordId ||
                     item.ControlId == Uuid.Empty || item.ProgramId == Uuid.Empty))
-                return Result<BoundaryImpactContribution>.Failure(new RequestError(
-                    RequestErrorKind.Conflict,
-                    "The control draft reference projection is inconsistent.", isTransient: true));
+                return await ConfirmResultAsync(Result<BoundaryImpactContribution>.Failure(
+                    new RequestError(RequestErrorKind.Conflict,
+                        "The control draft reference projection is inconsistent.", isTransient: true)),
+                    fence, boundary.TenantId, ct).ConfigureAwait(false);
 
             scanBudget -= page.Items.Count;
             foreach (var reference in page.Items.Where(item => item.ProgramId == boundary.ProgramId)
@@ -63,13 +65,21 @@ public sealed class ControlBoundaryImpactContributor(
             }
         }
 
-        var afterRead = await consistency.EnsureCaughtUpAsync(boundary.TenantId, ct)
+        return await ConfirmResultAsync(Result<BoundaryImpactContribution>.Success(
+            new BoundaryImpactContribution(Context, [.. records.OrderBy(static item =>
+                item.RecordId.ToString(), StringComparer.Ordinal)], false)), fence, boundary.TenantId, ct)
             .ConfigureAwait(false);
-        if (!afterRead.IsSuccess)
-            return Result<BoundaryImpactContribution>.Failure(afterRead.Error);
+    }
 
-        return Result<BoundaryImpactContribution>.Success(new BoundaryImpactContribution(Context,
-            [.. records.OrderBy(static item => item.RecordId.ToString(), StringComparer.Ordinal)], false));
+    async ValueTask<Result<BoundaryImpactContribution>> ConfirmResultAsync(
+        Result<BoundaryImpactContribution> candidate, ProjectionCheckpoint fence, Uuid tenantId,
+        CancellationToken ct)
+    {
+        var confirmation = await consistency.ConfirmUnchangedAndCaughtUpAsync(tenantId, fence, ct)
+            .ConfigureAwait(false);
+        return confirmation.IsSuccess
+            ? candidate
+            : Result<BoundaryImpactContribution>.Failure(confirmation.Error);
     }
 
     static List<ScopeTarget> ChangedScopeTargets(IReadOnlyList<BoundaryChange> changes) =>
