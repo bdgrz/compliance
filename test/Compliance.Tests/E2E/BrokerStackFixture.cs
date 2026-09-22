@@ -17,6 +17,26 @@ public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
     ValueTask IAsyncDisposable.DisposeAsync() => _stack.DisposeAsync();
 }
 
+/// <summary>
+///     Owns the local-disk recovery fixture. Restarting recreates the broker container without
+///     removing its project-scoped volume so a test can distinguish process recovery from a warm
+///     in-memory broker.
+/// </summary>
+public sealed class RestartableBrokerStackFixture : IAsyncLifetime, IAsyncDisposable
+{
+    readonly BrokerStack _stack = new("recovery.compose.yml");
+
+    public string WebSocketEndpoint => _stack.WebSocketEndpoint;
+
+    public Task InitializeAsync() => _stack.StartAsync();
+
+    public Task RestartAsync() => _stack.RestartAsync();
+
+    public Task DisposeAsync() => _stack.DisposeAsync().AsTask();
+
+    ValueTask IAsyncDisposable.DisposeAsync() => _stack.DisposeAsync();
+}
+
 [CollectionDefinition(Name, DisableParallelization = true)]
 public sealed class BrokerCollectionDefinition
 {

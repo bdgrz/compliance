@@ -13,12 +13,15 @@ namespace Bdgrz.Compliance.Tests.E2E;
 static class E2EAppFactory
 {
     public static WebApplicationFactory<Program> Create(BrokerStackFixture broker,
+        string? applicationName = null) => Create(broker.WebSocketEndpoint, applicationName);
+
+    public static WebApplicationFactory<Program> Create(string webSocketEndpoint,
         string? applicationName = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("BDGRZ_DEVELOPER_AUTH", "true");
-            builder.UseSetting("Fitz:Endpoint", broker.WebSocketEndpoint);
+            builder.UseSetting("Fitz:Endpoint", webSocketEndpoint);
             builder.UseSetting("Fitz:ApplicationName", applicationName ?? $"compliance-e2e-{Guid.NewGuid():N}");
             builder.UseSetting("Fitz:StartupTimeoutSeconds", "30");
         });
