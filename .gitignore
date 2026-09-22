@@ -1,7 +1,7 @@
 **/bin/
 **/obj/
 TestResults/
-artifacts/
+/artifacts/
 coverage/
 coverage.*
 BenchmarkDotNet.Artifacts/
