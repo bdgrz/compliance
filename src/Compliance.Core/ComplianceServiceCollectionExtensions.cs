@@ -86,6 +86,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IApplicationBoundaryReferenceDirectory>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
         services.AddScoped<ApplicationBoundaryReferenceReadConsistency>();
+        services.AddScoped<FitzApplicationControlDraftReferenceDirectory>();
+        services.AddScoped<IApplicationControlDraftReferenceProjection>(provider =>
+            provider.GetRequiredService<FitzApplicationControlDraftReferenceDirectory>());
+        services.AddScoped<IApplicationControlDraftReferenceDirectory>(provider =>
+            provider.GetRequiredService<FitzApplicationControlDraftReferenceDirectory>());
+        services.AddScoped<ApplicationControlDraftReferenceReadConsistency>();
         services.AddScoped<IProgramDirectoryProjection>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<IProgramDirectoryReader>(
@@ -346,6 +352,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
                 "ApplicationBoundaryReferencesV1", WorkloadScope.PerTenant)
+            .AddProjector<ApplicationControlDraftReferenceProjector>(
+                "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)

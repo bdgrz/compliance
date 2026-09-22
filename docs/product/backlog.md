@@ -2006,8 +2006,8 @@ Depends on: R1-10a
 
 The bounded backend change-preview contract is documented in
 [application-change-preview-v1.md](application-change-preview-v1.md). It reports
-known boundary references and explicit pending contexts; governed successor
-approval and retirement remain open.
+known boundary and direct current Control-draft references with explicit pending
+contexts; governed successor approval and retirement remain open.
 
 Outcome: As a compliance lead, I can relate applications to the boundary, vendors, controls, policies, and evidence sources, and change or retire them only after seeing the impact.
 

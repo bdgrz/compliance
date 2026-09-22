@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -48,12 +49,23 @@ public sealed record ApplicationBoundaryReferenceView(Uuid TenantId, string Subj
     Uuid EntryId, long Revision, string Status, DateOnly? EffectiveFrom,
     string Kind, string Subject, string OwnerReference, string Rationale);
 
+/// <summary>
+/// A current Control draft relationship. It is not an approved ControlVersion, activation,
+/// historical relationship, or complete application-change impact result.
+/// </summary>
+public sealed record ApplicationControlDraftReferenceView(Uuid TenantId, string SubjectType,
+    Uuid GovernedRecordId, Uuid ProgramId, Uuid ControlId, string Identifier,
+    long Revision, Uuid EntryId, string Subject, string Rationale);
+
 /// <summary>A bounded observation, not an approval or a complete retirement clearance.</summary>
 public sealed record ApplicationChangePreview(Uuid TenantId, Uuid ApplicationId,
     long ApplicationRevision, string ChangeKind,
     IReadOnlyList<ApplicationFieldChange> Changes,
     IReadOnlyList<ApplicationBoundaryReferenceView> BoundaryReferences,
-    IReadOnlyList<string> PendingContexts, bool Complete);
+    IReadOnlyList<string> PendingContexts, bool Complete)
+{
+    public IReadOnlyList<ApplicationControlDraftReferenceView> ControlDraftReferences { get; init; } = [];
+}
 
 public sealed record ApplicationFieldChange(string Field, string? Before, string? After);
 
@@ -117,7 +129,8 @@ public sealed record ListSystemInstanceBoundaryReferences(Uuid TenantId, Uuid Ap
 public sealed record PreviewApplicationChange(Uuid TenantId, Uuid ApplicationId,
     long ExpectedApplicationRevision, string ChangeKind, string? Name = null,
     string? Purpose = null, string? OwnerReference = null, string? Classification = null)
-    : IRequest<ApplicationChangePreview>, IApplicationInventoryRequest, ICallable;
+    : IRequest<ApplicationChangePreview>, IApplicationInventoryRequest, IProgramManagementRequest,
+      ICallable;
 
 [Discriminator("bdgrz.application.declared", 1)]
 public sealed record ApplicationDeclared(Uuid TenantId, Uuid ApplicationId,

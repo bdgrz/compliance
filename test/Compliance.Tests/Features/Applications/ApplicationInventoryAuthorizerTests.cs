@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.Applications;
@@ -39,7 +40,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         var authorizer = new ApplicationInventoryAuthorizer(
             new Memberships(true), new ActiveTenant(), permissions);
         var context = new RequestContext<IApplicationInventoryRequest>(
-            new DeclareApplication(tenantId, "Payroll", "Run payroll"), BdgrzActor(userId));
+            new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
+            BdgrzActor(userId));
 
         // Act
         var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
@@ -47,6 +49,28 @@ public sealed class ApplicationInventoryAuthorizerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(RbacPermissions.ApplicationInventoryManage, permissions.LastPermission);
+        Assert.Equal(RbacIds.Member(tenantId, userId), permissions.LastMemberId);
+    }
+
+    [Fact]
+    public async Task ShouldRequireProgramManagementGivenControlReferencesInApplicationPreview()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var permissions = new Permissions(false);
+        var authorizer = new ProgramManagementAuthorizer(new Memberships(true), new ActiveTenant(),
+            permissions);
+        var context = new RequestContext<IProgramManagementRequest>(
+            new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
+            BdgrzActor(userId));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Equal(RbacPermissions.ProgramManage, permissions.LastPermission);
         Assert.Equal(RbacIds.Member(tenantId, userId), permissions.LastMemberId);
     }
 

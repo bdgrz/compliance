@@ -3,7 +3,7 @@
 This slice records organization-authored Control drafts in one tenant and program.
 It is partial delivery under [#197](https://github.com/bdgrz/compliance/issues/197),
 which remains open for verified owner assignment, activation, review and
-approval, successors, impact preview, retirement, and full in-use deletion
+approval, successors, complete impact preview, retirement, and full in-use deletion
 rules.
 
 ## Contract
@@ -67,6 +67,14 @@ evidence collection, or operating effectiveness. A draft with a current
 applicability entry cannot be discarded. Review has not landed yet, so this is
 a pre-review discard rule; the eventual review lifecycle must add its own
 historical-use guard.
+
+The bounded Application change preview reports current direct-Application
+applicability entries through `control_draft_references` after a separate
+Control-source catch-up check. That observation is not an approved or effective
+ControlVersion, activation, coverage conclusion, or complete lifecycle impact;
+instance applicability and all approval or retirement consequences remain
+explicitly pending in
+[application-change-preview-v1.md](application-change-preview-v1.md).
 
 Expected-evidence descriptions describe planned evidence, not a collection or
 effectiveness assertion. No risk coverage, criterion mapping, or source-template
