@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Bdgrz.Compliance;
@@ -22,8 +23,38 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ShouldRestoreProgramHistoryAndReplaySourceGivenFreshBrokerContainer(
+    public Task ShouldRestoreProgramHistoryAndReplaySourceGivenFreshBrokerContainer(
+        bool splitHosts) =>
+        AssertRestoresProgramHistoryAndReplaysSourceAsync(splitHosts, broker.RestartAsync);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRestoreProgramHistoryAndReplaySourceGivenPortableBackupAndFreshVolume(
         bool splitHosts)
+    {
+        // Arrange
+        PortableBrokerBackupRestore? restore = null;
+        var expectedEventReaderVersion = EventReaderVersion();
+
+        // Act
+        await AssertRestoresProgramHistoryAndReplaysSourceAsync(splitHosts, async () =>
+        {
+            restore = await broker.BackupAndRestoreAsync();
+        });
+
+        // Assert
+        var result = Assert.IsType<PortableBrokerBackupRestore>(restore);
+        Assert.NotEqual(result.SourceProject, result.RestoredProject);
+        Assert.NotEqual(result.SourceVolume, result.RestoredVolume);
+        Assert.Contains("@sha256:", result.BrokerImage, StringComparison.Ordinal);
+        Assert.Equal(result.BrokerImage, result.RestoredBrokerImage);
+        Assert.Equal(expectedEventReaderVersion, result.EventReaderVersion);
+        Assert.Matches("^[0-9A-F]{64}$", result.ArchiveSha256);
+    }
+
+    async Task AssertRestoresProgramHistoryAndReplaysSourceAsync(bool splitHosts,
+        Func<Task> restoreBroker)
     {
         // Arrange
         var applicationName = $"compliance-program-recovery-{Guid.NewGuid():N}";
@@ -65,7 +96,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             sourceFactory = null;
             await StopAndDisposeAsync(sourceWorker);
             sourceWorker = null;
-            await broker.RestartAsync();
+            await restoreBroker();
 
             if (splitHosts)
             {
@@ -318,6 +349,10 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         await worker.StopAsync();
         worker.Dispose();
     }
+
+    static string EventReaderVersion() => typeof(ProgramDirectoryProjector).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? throw new InvalidOperationException("The program event-reader has no version.");
 
     static async Task<JsonObject> ReadObjectAsync(HttpResponseMessage response) => Assert.IsType<JsonObject>(
         JsonNode.Parse(await response.Content.ReadAsStringAsync()));

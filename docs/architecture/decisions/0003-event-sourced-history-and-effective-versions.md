@@ -2,9 +2,11 @@
 
 Status: proposed for M0-A01. The existing tenant and program flows prove the
 storage shape in standalone and split API/worker hosts. A controlled local
-restart and isolated projection replay prove the retained-source recovery
-path. Operational recovery targets and portable backup and restore still need
-an owner and evidence before this ADR is accepted.
+restart and isolated projection replay prove the retained-source recovery path.
+A portable local-volume archive-to-fresh-volume restore now proves a bounded
+local-volume-loss path. Operational recovery targets and production
+backup-and-restore controls still need an owner and evidence before this ADR is
+accepted.
 
 Decision owner: tech lead and product owner. Date: 2026-09-19.
 
@@ -92,7 +94,7 @@ exact program stream before it dispatches a revision. That revision is rejected
 at stream session admission with `Cntryl.Fitz.StreamException` domain code
 `2002`, `StreamSessionAlreadyActive`, before it can attempt a stale append. This
 is the broker's intended per-resource append-session contention response. Portia
-0.5.4 translates that admission response into `EventStreamConcurrencyException`
+0.5.5 translates that admission response into `EventStreamConcurrencyException`
 before a session exists, while retaining the underlying Fitz exception. The
 real-broker contract proves a safe transient HTTP 409 and a structured transient
 MCP Conflict in both standalone and split API/worker coverage. After the held
@@ -103,7 +105,7 @@ durable.
 stale-append path and [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
 closed the `2002` session-admission path. No application catch or automatic
 retry has been added. M0-A01 remains proposed for recovery targets and a
-portable backup-and-restore exercise.
+production backup-and-restore exercise.
 
 ## Why this storage shape
 
@@ -123,15 +125,24 @@ when that store can meet the projector checkpoint contract.
 
 ## Recovery and operational gates
 
-`ProgramRecoveryE2ETests` is the current thin recovery evidence. It runs Fitz
-in local storage mode with one Compose-project-scoped volume mounted at
-`/data`. The test writes two tenants and a revised program, records the
-authorized current HTTP result, immutable history, and exact source event
-count, then gracefully stops and removes the broker container without removing
-that volume. A fresh broker container, API host, and independent worker host
-when selected reconnect to the retained source. Both standalone and split
-API/worker cases prove the same current result, history, source count, and a
-cross-tenant not-found response.
+`ProgramRecoveryE2ETests` supplies two complementary thin recovery probes. It
+runs Fitz in local storage mode with one Compose-project-scoped volume mounted
+at `/data`. Each probe writes two tenants and a revised program, then records
+the authorized current HTTP result, immutable history, and exact source event
+count. Both standalone and split API/worker cases prove the same current
+result, history, source count, and a cross-tenant not-found response.
+
+The retained-source probe gracefully stops and removes the broker container
+without removing that volume, then starts a fresh broker container against it.
+The portable-local-volume probe gracefully stops the source broker, streams
+`/data` to a temporary Docker tar with `docker container cp --archive`, hashes
+that tar, and writes an adjacent manifest containing the source broker image
+and production projector informational version. It destroys the source Compose
+project with `down --volumes`, verifies that the source volume no longer
+exists, creates a never-started broker in a distinct GUID-scoped Compose
+project, imports the tar into its empty `/data`, and only then starts it. The
+temporary tar and manifest are test artifacts deleted after the probe; they are
+evidence for a controlled local volume copy, not an operational backup product.
 
 The test then starts a miniature Portia worker with the restored real
 `IEventStore`, a fresh `InMemoryKvClient`, and only the restored tenant. It
@@ -142,22 +153,26 @@ must match the HTTP source representation. The fresh KV client is deliberate:
 using a rebuild ID alone changes a checkpoint identity, not the live projection
 data route.
 
-This proves that commit-visible Fitz Stream source state survives a controlled
-fresh-container restart against retained local storage, and that fresh
-application workers can reconstruct the authorized program projection from
-that source. The isolated replay confirms the same production projector can
-rebuild its current and revision rows from the retained stream. It does not
-distinguish preserved live KV or checkpoint rows from their normal replay,
-prove a backup export or restore, volume-loss recovery, cloud-provider
-recovery, broker-upgrade compatibility, numerical RPO or RTO, or a physical
+The retained-source probe proves that commit-visible Fitz Stream source state
+survives a controlled fresh-container restart against retained local storage.
+The portable-local-volume probe additionally proves that the same source can
+be restored from a Docker tar after intentional source-volume loss into a
+distinct fresh local volume. In both cases, fresh application workers can
+reconstruct the authorized program projection from that source. The isolated
+replay confirms the same production projector can rebuild its current and
+revision rows from the restored stream. These probes do not prove preserved
+live KV or checkpoint rows, a production backup export or restore process,
+non-rebuildable integration-state coverage, cloud-provider recovery,
+broker-upgrade compatibility, numerical RPO or RTO, or a physical
 per-organization restore.
 
-Fitz event streams are required to rebuild business projections. Back up the
-durable event store and any non-rebuildable integration state together with
-the deployed event-reader version. Test restoring them into an isolated broker,
-then replay projections and compare record counts and selected histories with
-the source. A projection-only backup is insufficient. Do not delete historical
-stream prefixes: Portia hydration requires contiguous physical offsets.
+Fitz event streams are required to rebuild business projections. A production
+backup must include the durable event store and any non-rebuildable integration
+state together with the deployed event-reader version. Test restoring them into
+an isolated broker, then replay projections and compare record counts and
+selected histories with the source. A projection-only backup is insufficient.
+Do not delete historical stream prefixes: Portia hydration requires contiguous
+physical offsets.
 
 The deployment owner must set numerical RPO and RTO targets and prove them with
 a timed restore exercise before this ADR is accepted for production. This

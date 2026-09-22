@@ -197,24 +197,25 @@ or source authority. Third-party schemas, connector mappings, and vendor
 content remain excluded unless their exact use is approved under the public
 source-reference policy. Product owners must confirm whether a declared
 complete list is meaningful for any specific source, and how long raw rows
-and rejected reports are retained. M0-A01 has a controlled local restart and
-isolated source-to-projection replay probe. Portable backup and restore,
-numerical recovery targets, and an operator-owned restore exercise remain
-open. None of these open points is silently answered by this proposal.
+and rejected reports are retained. M0-A01 has controlled local restart and
+portable-local-volume restore probes with isolated source-to-projection replay.
+Production backup and restore, numerical recovery targets, and an
+operator-owned restore exercise remain open. None of these open points is
+silently answered by this proposal.
 
 The upstream mapping work in
 [cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers a stale
 append after session acquisition, and
 [cntryl/portia#65](https://github.com/cntryl/portia/issues/65) closed the
 earlier `2002`, `StreamSessionAlreadyActive` session-admission path. Portia
-0.5.4 now translates that structured transient contention into its public
+0.5.5 now translates that structured transient contention into its public
 conflict surface before an append session exists. The real-broker Compliance
 test holds the exact program stream's append session before dispatching a
 revision, proving a safe transient HTTP conflict and a structured transient MCP
 Conflict in standalone and split API/worker hosts. Once that session rolls back,
 a normal revision succeeds and exactly one revised event is durable. This draft
 does not prescribe an application catch or automatic command retry. M0-A01
-remains proposed for recovery targets and portable backup-and-restore evidence.
+remains proposed for recovery targets and production backup-and-restore evidence.
 
 The first-consumer wire contract is
 [application-import-v1.md](../../product/application-import-v1.md). A thin

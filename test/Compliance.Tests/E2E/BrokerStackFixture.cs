@@ -1,3 +1,6 @@
+using System.Reflection;
+using Bdgrz.Compliance.Features.Programs;
+
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
@@ -31,6 +34,11 @@ public sealed class RestartableBrokerStackFixture : IAsyncLifetime, IAsyncDispos
     public Task InitializeAsync() => _stack.StartAsync();
 
     public Task RestartAsync() => _stack.RestartAsync();
+
+    public Task<PortableBrokerBackupRestore> BackupAndRestoreAsync() =>
+        _stack.BackupAndRestoreAsync(typeof(ProgramDirectoryProjector).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? throw new InvalidOperationException("The program event-reader has no version."));
 
     public Task DisposeAsync() => _stack.DisposeAsync().AsTask();
 
