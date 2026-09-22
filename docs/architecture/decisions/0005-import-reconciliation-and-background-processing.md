@@ -1,231 +1,210 @@
 # Import reconciliation and background processing
 
-Status: proposed for M0-A06 review. This is a technical design and contract
-draft, not an accepted ADR or a completed thin spike. Decision owner: tech lead
-and product owner. Date: 2026-09-20.
+Status: accepted for M0-A06 as a decision record, 2026-09-22. Decision owner:
+Jeff Repanich (product owner and tech lead). Date: 2026-09-22.
 
-## Proposed common constraints for the first consumer
+This ADR records the import semantics that every later import, collection, and
+reconciliation must follow. It does **not** deliver them. By product-owner
+decision, the implementation and the thin standalone/split API/worker spike
+that proves it move to
+[EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195), which
+keeps every existing acceptance criterion. No import or integration work is
+scheduled until the canonical data shape
+([M0-D28 #139](https://github.com/bdgrz/compliance/issues/139)) and the
+storage internals are settled. The staging and preview slice already on `main`
+(PRs #249, #258, #259) is unchanged and makes no Application effect.
 
-The first consumer accepts bounded, tenant-supplied Application rows as an
-original product input. An import is an observation from a named source, not
-an authoritative Application, verified owner, classification, or scope
-decision. The tenant chooses a stable `source_key` and `source_namespace`,
-then supplies a `source_record_id` per row. The source tuple is tenant ID,
-source key, namespace, object kind (`application`), and exact source record ID.
-These are claims by that tenant; they do not imply connector authentication
-or rights to third-party source material. The server
-records the submitter, submission time, source tuple, coverage declaration,
-ordered raw field values, and a server-computed SHA-256 of canonical input.
-Nothing reaches the governed Application inventory during staging or preview.
+## Decision
+
+1. **Staged, never active.** An import records an observation from a named
+   tenant source and never mutates governed records while it is staged or
+   previewed. The model is: stage, validate, preview, accept or cancel.
+2. **Acceptance is all-or-nothing.** A person accepts the whole batch as one
+   unit. No imported effect is visible to any governed reader or validator
+   until the batch commits. A failed or canceled import leaves no partial
+   active record. A batch with an invalid or duplicate row cannot be accepted;
+   the submitter corrects the source and stages again. The per-row
+   explicit-subset option is rejected.
+3. **A durable batch visibility barrier provides the atomicity.** Portia commits
+   one stream at a time, so no transaction spans a batch and its many target
+   streams. Visibility is decided by a single commit marker instead (see
+   [Barrier design](#barrier-design)).
+4. **Declared-complete sources propose tombstones.** For a batch with
+   `coverage: declared_complete`, previously imported records from the same
+   tenant source key and namespace that are missing from the batch are shown in
+   the preview as proposed retire or tombstone changes. They apply only when a
+   person accepts the batch, under the same all-or-nothing barrier. A `partial`
+   batch never implies removal, and nothing retires automatically.
+5. **Only the Compliance Lead or Org Admin decides.** Accepting and canceling
+   an import require inventory-management authority (the Compliance
+   Management and Tenant Administration built-in roles). A Contributor
+   (Compliance Participation) may stage an import and read its preview but
+   cannot accept or cancel it. Acceptance is a personal decision and stays
+   HTTP-only; no MCP tool accepts an import.
+6. **Raw rows are retained per M0-D16.** Staged raw rows and rejected-row
+   reports are retained for seven years under the
+   [M0-D16 #73](https://github.com/bdgrz/compliance/issues/73) evidence
+   retention decision. Import storage exposes a retention hook and defines no
+   period of its own; hold and disposition follow M0-D16.
+7. **Organization context is verified everywhere.** Every HTTP request, MCP
+   call, job, reactor message, retry, and progress report carries exactly one
+   `tenant_id` and re-verifies it against the authoritative batch before acting.
+   A system actor alone is not authority to accept a batch.
+
+## Barrier design
+
+This is the design for EN-05 to build and prove. It is recorded here, not
+built.
+
+- **Per-source ledger.** Each tenant source (tenant, source key, namespace) has
+  one event-sourced ledger stream. The ledger is the only serialization point
+  for that source: it records acceptance intent, cancellation, failure, and the
+  commit marker, and it owns committed source-record claims. Acceptance,
+  cancellation, and commit are optimistic-concurrency writes to the same
+  stream, so a cancellation and a commit can never both succeed. Only one batch
+  per source may be accepting at a time; a concurrent acceptance returns a
+  transient 409.
+- **Acceptance intent.** Accepting records a durable, frozen plan on the ledger:
+  each new record with a deterministic target ID derived from the batch and row,
+  each existing claim it links, and, for a declared-complete batch, each
+  proposed retirement. The plan is computed from the ledger's authoritative
+  claims, never from a projection.
+- **Pending-under-batch effects.** A tenant-scoped reactor writes each effect to
+  its target stream marked with the source and batch that must commit. Effects
+  are idempotent by batch and row, so replay after a crash writes nothing new.
+- **Commit marker.** After an authoritative read confirms every planned effect
+  is durable, one ledger event commits the batch. A missing effect is a
+  transient failure that the reactor retries; it never commits a partial batch.
+- **Governed reads and validators.** Every governed read (get, list, history,
+  instances) and every validator or command that references a target applies
+  the barrier. It hides a record whose origin batch has not committed and
+  applies a pending retirement only after its batch commits. Commit is
+  monotonic, so a check that sees a record as visible cannot be reversed.
+- **Recovery.** A crash mid-accept rolls forward: the reactor resumes from its
+  checkpoint and replays idempotent effects, then commits. A cancellation
+  before commit, or a permanent effect failure, rolls back by recording the
+  terminal state on the ledger. Effects already written stay permanently
+  invisible because their batch can never commit. Target IDs are per batch,
+  so a later batch never collides with rolled-back effects.
+- **Batch revision.** A batch's revision spans its staging stream and its
+  ledger events, so `expected_batch_revision` and `minimum_revision` keep one
+  monotonic meaning.
+- **Platform capability.** The barrier (pending-under-batch effects, a commit
+  marker, and barrier-aware reads) is generic. EN-05 should assess whether it
+  belongs in Portia, following the rule that reusable infrastructure lives
+  there, before building a Compliance-local version.
+
+## Staging contract (unchanged)
+
+The first consumer stages bounded, tenant-supplied Application rows as an
+original product input. An import is an observation from a named source, not an
+authoritative Application, verified owner, classification, or scope decision.
+The tenant chooses a stable `source_key` and `source_namespace`, then supplies a
+`source_record_id` per row. The source tuple is tenant ID, source key,
+namespace, object kind (`application`), and exact source record ID. These are
+claims by that tenant; they do not imply connector authentication or rights to
+third-party source material. The server records the submitter, submission time,
+source tuple, coverage declaration, ordered raw field values, and a
+server-computed SHA-256 of canonical input.
 
 A caller supplies a UUID `submission_id` for one intended observation. Within
 one tenant, source key, and namespace, repeating that ID with identical
-canonical input
-returns the same batch and state; changing the input returns a conflict. A new
-submission ID may repeat the same content and remains a new observation whose
-rows can be reported unchanged. A batch ID is deterministic from the tenant,
-source key, namespace, and submission ID; row IDs are deterministic from batch ID and row
-position so duplicate source identifiers remain reportable. Names and email
-addresses never become correlation keys. Source record IDs are compared exactly
-and ordinally; leading/trailing whitespace is rejected rather than rewritten.
-The canonical digest includes the source key, namespace, coverage declaration,
-row order, and every supplied field after
-the documented normalization; it excludes transport whitespace and request
-metadata. Changing any of those values under one submission ID conflicts.
+canonical input returns the same batch and state; changing the input returns a
+conflict. A new submission ID may repeat the same content and remains a new
+observation whose rows can be reported unchanged. A batch ID is deterministic
+from the tenant, source key, namespace, and submission ID; row IDs are
+deterministic from batch ID and row position, so duplicate source identifiers
+remain reportable. Names and email addresses never become correlation keys.
+Source record IDs are compared exactly and ordinally; leading and trailing
+whitespace is rejected rather than rewritten. The canonical digest includes the
+source key, namespace, coverage declaration, row order, and every supplied field
+after the documented normalization.
 
-Portia owns an event-sourced `ImportBatch` stream in the tenant realm. It
-records staged rows, validation findings, explicit row decisions, application
-intent and outcome, cancellation, and retries. Fitz projections serve paged
-preview and progress reads, with their checkpoint committed with rows.
-Commands rehydrate the batch and the target Application stream for invariants;
-they do not decide from a lagged projection. Queries that request a minimum
-batch revision report a retryable conflict until the source and projection
-reach it. Empty preview pages are never evidence of completion while the
-batch is still staging or its projection is behind. The preview also checks
-the tenant Application-directory checkpoint against its event source before
-claiming that no existing Application matches a source claim.
+Portia owns an event-sourced `ImportBatch` stream in the tenant realm for staged
+content. Fitz projections serve paged preview and progress reads, with their
+checkpoint committed with rows. Commands rehydrate authoritative streams for
+invariants; they do not decide from a lagged projection. Queries that request a
+minimum batch revision report a retryable conflict until the source and
+projection reach it. Empty preview pages are never evidence of completion while
+the batch is still staging or its projection is behind.
 
-## Unresolved product acceptance: failure and cancellation
-
-The [EN-05 backlog acceptance](../../product/backlog.md#en-05-import-with-preview-reconciliation-and-safe-replay)
-and [backend child #195](https://github.com/bdgrz/compliance/issues/195)
-require a failed or canceled import to leave no partial active records. The
-same backlog permits atomic **or explicit-subset acceptance**. Those words do
-not resolve what happens when one accepted row has already become active and
-a later row fails or the batch is canceled. Portia's one-stream commits and
-reactor effects cannot make all Application streams atomic. This is a product
-acceptance decision, not a technical default delegated by this ADR.
-
-Two viable directions need product-owner review:
-
-1. **Strict no-partial visibility:** keep every imported Application effect
-   invisible to all governed reads and validators until a durable batch
-   visibility barrier commits. Failure/cancellation before that barrier must
-   leave no active record. This needs a proven visibility and recovery protocol
-   across all consumers; writing rows and hiding them only in one list would
-   not satisfy the existing acceptance.
-2. **Explicit per-row subset:** each accepted row becomes active after its own
-   durable effect. The authoritative batch aggregate rejects cancellation
-   once any row intent is accepted, including one whose effect is pending.
-   Terminal `failed` and `canceled` are possible only with zero accepted
-   intents. A later row failure leaves the batch `partially_accepted` with
-   row-level retry or resolution state. Whether that state meets the backlog
-   phrase "a failed import" needs an explicit product interpretation or
-   acceptance amendment. It is the candidate contract below, **not an
-   approved decision**.
-
-The acceptance and cancellation commands, their terminal states, and any
-claim of EN-05 backend completion are blocked until the product owner selects
-and records a path. Staging, preview, source identity, tenant isolation, and
-replay design can be reviewed independently.
-
-## Candidate B: acceptance and failure semantics
-
-Acceptance is an explicit subset of **one row per decision**. A decision says
-`create`, `link_existing`, or `skip`, identifies the target when needed, and
-requires the exact batch revision and, for an existing Application, its
-expected revision. Duplicate identifiers, ambiguous matches, invalid rows,
-and unresolved links cannot be applied. `skip` records an attributed decision
-without reserving or binding a source claim; a later submission may resolve
-that source ID. `link_existing` adds a source
-observation; it does not overwrite governed name, purpose, owner, or scope.
-`create` makes a new Application with its imported provenance and unresolved
-owner/classification where appropriate. No batch-wide atomicity is claimed:
-Portia commits one aggregate stream at a time, and a reactor cannot make the
-batch and Application streams one transaction.
-
-For `create` or `link_existing`, the row decision first records a durable intent
-with a deterministic effect ID
-derived from the batch, row, and immutable decision sequence, rather than Portia's
-reaction request ID, which can change on replay. A source-claim binding keyed
-by the exact source tuple serializes correlation: its first accepted decision
-fixes one governed Application ID, and a competing binding conflicts rather
-than creating a duplicate across batches. The claim stream first records a
-pending reservation tied to the accepted intent and target. A retry with that
-same intent resumes it; a different target conflicts. The internal Application
-command checks its effect ID before its expected revision, so a committed
-effect whose batch outcome was lost can be recognized on replay. A transient
-or unknown failure keeps the intent pending and cannot be re-decided. A
-permanent stale-target conflict records a terminal `needs_resolution` outcome
-only after rehydrating the authoritative target Application stream, finding
-no event with that effect ID, and proving its current revision is strictly
-greater than the old expected revision. Because Application revisions are
-monotonic, the old expected revision cannot later succeed. A timeout, stale
-projection, or absent batch outcome is never this proof; crash ambiguity
-remains pending until authoritative stream readback resolves it.
-An authorized human may then supersede that exact decision with a new
-expected batch revision, new target/expected Application revision or `skip`,
-and a rationale. The old decision and outcome remain immutable. The source
-claim stream transitions its reservation to the new decision only after the
-terminal nonapplied proof. Supersession by `skip` records a reviewed
-release/unbound transition after that proof while retaining the earlier
-reservation in history. The reactor checks the current reservation before
-each effect. A competing target otherwise conflicts. A failure without a
-terminal nonapplied proof never releases a claim. The claim,
-Application, and batch commits are separate; neither the reservation nor a
-later `bound` state makes them atomic. A tenant-scoped reactor
-applies the intent through a distinct internal import-effect command and
-authorizer. That authorizer checks the persisted accepted batch row, tenant
-realm and target, rather than giving `RequestActor.System` blanket access to
-the existing user-only Application inventory commands. The effect preserves
-the original importing member's attribution as well as the named system actor.
-Its target Application ID is stable across retry and re-import. It then records
-the row outcome. A crash after the Application commit but before the outcome
-is retried against the same identity and completed without a second
-Application. A conflict with a changed target is visible and requires the
-explicit superseding decision above; it is never silently rematched. A
-`create` or `link_existing` row is visible
-only after its own Application command commits. The batch aggregate permits
-cancellation only before its first durable accepted row intent, so a canceled
-batch has no active imported Application. A cancellation after any accepted
-intent returns 409, even if the effect has not committed. A terminal `failed`
-batch likewise has zero accepted intents. If a later row effect fails after
-an earlier row commits, the batch remains `partially_accepted` with the
-failed row visible for retry or resolution; no atomic rollback is claimed.
-The interpretation of this partial state remains the product decision above.
-
-A row absent from a later submission is never deleted or retired. With
-`coverage: partial`, absence carries no missing-row meaning. With
-`coverage: declared_complete`, comparison against prior accepted observations
-from the same source key and namespace emits `missing_from_source` candidates, including the
-declaring actor and time. It remains an unverified source claim and cannot
-change governed scope, status, or inventory without a separate authorized
-decision. Rows from different source keys are never merged by name; aliases
+Rows absent from a later submission are never deleted or retired silently. With
+`coverage: partial`, absence carries no meaning. With
+`coverage: declared_complete`, absence produces proposed retirements under
+decision 4. Rows from different source keys are never merged by name; aliases
 and duplicate candidates require explicit resolution.
 
 ## Tenant, worker, and size boundaries
 
-Every HTTP or MCP request has exactly one `tenant_id` path/argument. Portia
-checks current membership, tenant activity, and the existing Application
-inventory permission before returning batch metadata, counts, rows, or
-reports. Missing and cross-tenant batch IDs have the same not-found result.
-The actor snapshot for staging and each decision is retained. Reactor
-messages carry the tenant ID, batch ID, row ID, and causal request ID; the
-worker rechecks batch intent, tenant, and target identity and uses a named
-system actor. A system actor alone is not authority to accept a new row.
-Fitz rows, checkpoints, and source correlations use the tenant realm. Standalone
-and split API/worker hosts share the same durable progress and retry state.
+Every HTTP or MCP request has exactly one `tenant_id` path or argument. Portia
+checks current membership, tenant activity, and the required permission before
+returning batch metadata, counts, rows, or reports. Missing and cross-tenant
+batch IDs have the same not-found result. Reactor messages carry the tenant ID,
+source, batch ID, and row ID, and the worker rechecks batch intent, tenant, and
+target identity under a named system actor. Fitz rows, checkpoints, and source
+correlations use the tenant realm. Standalone and split API/worker hosts share
+the same durable progress and retry state.
 
-The first HTTP or MCP staging payload is JSON with at most 200 rows. `source_key` is at most
-128 characters, `source_record_id` at most 256, Application `name` at most
-200, and `purpose` and `owner_reference` at most 2,000 each. `source_namespace`
-is at most 128 characters. The existing
-Portia HTTP JSON-body limit is 10 MiB; the row and field limits bound this
-first consumer below it. Validation rejects extra rows or overlong values;
-Portia returns 413 for an oversized body. There is no file upload, URL fetch,
-connector, or claim to support large files in this slice. A later file path
-requires EN-06 artifact inspection and a streaming, bounded worker parser
-with its own progress and retention rules. The batch records limits and
-failure states without pretending that path has been delivered.
+The first HTTP or MCP staging payload is JSON with at most 200 rows.
+`source_key` and `source_namespace` are at most 128 characters,
+`source_record_id` at most 256, Application `name` at most 200, and `purpose`
+and `owner_reference` at most 2,000 each. The staged event must fit 48 KiB
+under Fitz's event frame. There is no file upload, URL fetch, or connector.
+A later file path requires EN-06 artifact inspection and a streaming, bounded
+worker parser with its own progress and retention.
 
-## Alternatives and remaining decisions
+## Alternatives considered
 
-A transaction across an import batch and many Application streams would give
-all-or-nothing activation but is not provided by Portia/Fitz. A projection
-write as the authoritative import would bypass aggregate invariants. Matching
-by name would merge unrelated systems. Treating a missing source row as a
-tombstone would erase governed facts from an unverified observation. The
-candidate accepted-subset design exposes each consequence and its recovery
-state but awaits the product interpretation above.
+- **Explicit per-row subset acceptance.** Each accepted row activates after its
+  own durable effect, and a later failure leaves the batch
+  `partially_accepted`. Rejected: it cannot satisfy "a failed or canceled import
+  leaves no partial active records" without changing that acceptance criterion.
+- **A transaction across the batch and its target streams.** Not provided by
+  Portia or Fitz.
+- **Commit marker on the batch stream.** Rejected: it cannot serialize two
+  batches from the same source, so claims and declared-complete retirement plans
+  could be computed from stale state. The per-source ledger serializes both.
+- **Hiding pending records in one list projection only.** Rejected: validators,
+  history, and other consumers would still see them.
+- **Writing the projection as the authoritative import.** Rejected: it would
+  bypass aggregate invariants.
+- **Treating a missing source row as an automatic tombstone.** Rejected: it
+  would erase governed facts from an unverified observation.
 
-M0-D28 must approve canonical source-observation and correlation vocabulary;
-M0-D05 must validate the governed Application and SystemInstance boundaries;
-M0-D03 must settle any new import-specific grant and restricted-discovery
-policy. Until then the first consumer uses the existing `program.manage`
-inventory authorization and does not assert a verified owner, classification,
-or source authority. Third-party schemas, connector mappings, and vendor
-content remain excluded unless their exact use is approved under the public
-source-reference policy. Product owners must confirm whether a declared
-complete list is meaningful for any specific source, and how long raw rows
-and rejected reports are retained. M0-A01 accepts the application persistence
-and recovery boundary: its controlled local restart and portable-local-volume
-probes provide source-to-projection regression evidence, while whole-platform
-recovery delivery and its timed proof are owned by
-[cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and DevOps. None
-of those operational concerns is silently answered by this import proposal.
+## Consequences
 
-The upstream mapping work in
-[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers a stale
-append after session acquisition, and
-[cntryl/portia#65](https://github.com/cntryl/portia/issues/65) closed the
-earlier `2002`, `StreamSessionAlreadyActive` session-admission path. Portia
-0.5.5 now translates that structured transient contention into its public
-conflict surface before an append session exists. The real-broker Compliance
-test holds the exact program stream's append session before dispatching a
-revision, proving a safe transient HTTP conflict and a structured transient MCP
-Conflict in standalone and split API/worker hosts. Once that session rolls back,
-a normal revision succeeds and exactly one revised event is durable. This draft
-does not prescribe an application catch or automatic command retry. The accepted
-M0-A01 boundary keeps production recovery evidence in Portia/DevOps rather than
-making it an import implementation responsibility.
+- EN-05 #195 carries the full implementation and the standalone/split-host
+  spike, including a crash and restart mid-accept, cancellation before commit,
+  and barrier-aware governed reads. Its acceptance criteria are unchanged.
+- Every governed consumer of an importable record type must read through the
+  barrier. A new consumer that bypasses it breaks decision 2.
+- Declared-complete retirement introduces a retired lifecycle state for
+  imported record types; each owning story defines what retirement means for
+  its records.
+- A new import-staging permission lets Contributors stage and preview without
+  inventory-management authority.
+
+## Remaining decisions
+
+- [M0-D28 #139](https://github.com/bdgrz/compliance/issues/139) approves the
+  canonical source-observation and correlation vocabulary. This ADR uses the
+  current [canonical entity model](../../product/canonical-entity-model.md)
+  terms and will align with the approved catalog.
+- [M0-D05 #62](https://github.com/bdgrz/compliance/issues/62) validates the
+  governed Application and SystemInstance boundaries for the first consumer.
+- Third-party schemas, connector mappings, and vendor content remain excluded
+  unless their exact use is approved under the
+  [source-reference policy](../../product/source-reference-policy.md).
+- Whole-platform recovery remains owned by
+  [cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and DevOps
+  under accepted [ADR 0003](0003-event-sourced-history-and-effective-versions.md).
 
 The first-consumer wire contract is
-[application-import-v1.md](../../product/application-import-v1.md). A thin
-standalone/split spike, failed-intent replay, and exact source-to-projection
-proof are required before this ADR is accepted or #86 is closed.
+[application-import-v1.md](../../product/application-import-v1.md).
 
 ## Public references
 
-No external normative source; original product decision. The relevant
-internal model is [domain-model.md](../../product/domain-model.md), and source
-eligibility follows [source-reference-policy.md](../../product/source-reference-policy.md).
+No external normative source; original product decision. The relevant internal
+model is [domain-model.md](../../product/domain-model.md), and source
+eligibility follows
+[source-reference-policy.md](../../product/source-reference-policy.md).

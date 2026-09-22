@@ -11,14 +11,14 @@ authority or reviewed scope.
 The technical decision is
 [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md).
 
-The [EN-05 backlog acceptance](backlog.md#en-05-import-with-preview-reconciliation-and-safe-replay)
-and [backend child #195](https://github.com/bdgrz/compliance/issues/195)
-require failed or canceled imports to leave no partial active records. The
-row-acceptance and cancellation operations below are a **conditional
-candidate**, not approved for implementation or backend acceptance until the
-product owner records how `partially_accepted` after a row failure satisfies
-or changes that requirement. Staging and read contracts can be reviewed
-independently.
+Accepted ADR 0005 (2026-09-22) makes acceptance all-or-nothing behind a
+durable batch visibility barrier. The per-row acceptance candidate below
+(`AcceptApplicationImportRow`, `partially_accepted`, `needs_resolution`) is
+**rejected** and kept only as design history. A person with inventory
+management accepts or cancels the whole batch; a Contributor may stage and
+preview. [EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195)
+redefines the batch acceptance and cancellation contract when import work is
+scheduled. Staging and read contracts are unchanged.
 
 ## Common rules
 
@@ -94,8 +94,9 @@ event's serialized snake_case payload must also fit 48 KiB, leaving more than
 11 KiB for Portia's envelope, metadata, stream address and Fitz framing under
 Fitz's 61,247-byte event limit. A 200-row submission of individually legal
 but long values can therefore return 400. Raw row
-retention and deletion policy is unresolved under EN-06 and M0-A07; staging
-does not claim production retention acceptance. The server computes
+rows and rejected-row reports are retained for seven years per M0-D16
+([#73](https://github.com/bdgrz/compliance/issues/73)); staging does not yet
+implement disposition. The server computes
 `content_sha256`; a client cannot
 assert it. Repeating the same tenant/source/namespace/submission ID with identical
 canonical content returns the original registration. Different content with
@@ -109,7 +110,10 @@ that ID returns 409. The response is:
 }
 ```
 
-`AcceptApplicationImportRow` body:
+The rest of this section is the rejected per-row candidate, retained as
+design history. It is not a contract.
+
+`AcceptApplicationImportRow` body (rejected):
 
 ```json
 {
@@ -167,7 +171,8 @@ after **any** accepted row intent, including a pending effect. Cancellation
 before acceptance leaves no active Application. A terminal `failed` batch
 also has zero accepted intents. A row failure after earlier accepted effects
 keeps the batch `partially_accepted` with a retryable or `needs_resolution`
-row; whether this satisfies #195 requires the product decision above.
+row. ADR 0005 rejected that outcome: under the accepted barrier, cancellation
+is allowed until the batch commits and rolls back every pending effect.
 
 ## Read operations and MCP
 

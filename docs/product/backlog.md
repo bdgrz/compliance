@@ -1220,6 +1220,8 @@ and M0-D26.
 
 ### M0-A06 ADR: Import, reconciliation, and background processing
 
+Status: accepted 2026-09-22 as [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md). By product-owner decision, the thin standalone/split-host spike moved to EN-05 backend [#195](https://github.com/bdgrz/compliance/issues/195).
+
 Priority: P0
 
 Type: Architecture decision
@@ -2582,7 +2584,8 @@ Why: The criteria catalog, readiness material, application inventory, workforce 
 Scope:
 
 - Import batches with source and content identity.
-- Staged parsing, validation, preview, atomic or explicit-subset acceptance, cancellation, and retry, following M0-A06.
+- Staged parsing, validation, preview, all-or-nothing acceptance behind a durable batch visibility barrier, cancellation, and retry, following accepted M0-A06 (ADR 0005).
+- The M0-A06 standalone/split API/worker spike, transferred here by product-owner decision on 2026-09-22.
 - Rejected-item reports and replay detection (unchanged, changed, new, conflicting, missing).
 - Background processing with progress across host modes.
 
@@ -2607,6 +2610,7 @@ Implementation subtasks:
 - [ ] Implement worker execution and progress.
 - [ ] Prove it through R1-10b application import.
 - [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- [ ] Prove the ADR 0005 barrier in standalone and split API/worker hosts, including a worker crash and restart mid-accept (roll forward) and a cancellation before commit (nothing visible).
 
 First consumer: R1-10b application import
 
