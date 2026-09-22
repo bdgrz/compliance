@@ -128,11 +128,7 @@ Area: audit
 
 Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
-The delegated product defaults and the remaining organization-owned facts are
-separated in [the M0-D01 decision record](decisions/m0-d01-program-targets.md).
-Program dates remain optional targets; no target becomes a confirmed auditor
-date or a milestone due date without attributable evidence. The issue remains
-open until management and the audit firm supply the first engagement facts.
+Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisions/m0-d01-program-targets.md). Organization-specific facts moved to follow-up discovery #348 and #349.
 
 Questions to answer:
 
@@ -164,6 +160,8 @@ Type: Product discovery
 Area: controls
 
 Decision needed: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
+
+Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisions/m0-d02-criteria-content.md). Organization-specific facts moved to follow-up discovery #351.
 
 Questions to answer:
 
@@ -261,6 +259,8 @@ Area: applications
 
 Decision needed: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
 
+Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisions/m0-d05-application-inventory.md). Organization-specific facts moved to follow-up discovery #352.
+
 Questions to answer:
 
 - [ ] Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
@@ -321,6 +321,8 @@ Area: access-review
 
 Decision needed: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
 
+Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisions/m0-d07-access-review-population.md). Organization-specific facts moved to follow-up discovery #353.
+
 Questions to answer:
 
 - [ ] Choose the first reviewed systems and collect sample exports from each provider.
@@ -352,6 +354,8 @@ Area: inventory
 
 Decision needed: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
 
+Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisions/m0-d08-technology-inventory.md). No follow-up discovery is required.
+
 Questions to answer:
 
 - [ ] List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
@@ -380,6 +384,8 @@ Type: Product discovery
 Area: commitments
 
 Decision needed: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
+
+Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisions/m0-d09-commitments.md). Organization-specific facts moved to follow-up discovery #354.
 
 Questions to answer:
 
@@ -410,6 +416,8 @@ Area: risk
 
 Decision needed: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
 
+Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisions/m0-d10-risk-method.md). Organization-specific facts moved to follow-up discovery #355.
+
 Questions to answer:
 
 - [ ] Choose a qualitative or quantitative method and the likelihood and impact scales.
@@ -439,6 +447,8 @@ Type: Product discovery
 Area: providers
 
 Decision needed: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
+
+Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisions/m0-d11-vendors.md). Organization-specific facts moved to follow-up discovery #356.
 
 Questions to answer:
 
