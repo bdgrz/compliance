@@ -80,6 +80,15 @@ the projected rows. This retry-and-recovery proof is split-host only.
 the same read is undisclosed to an outsider over HTTP and MCP in the cohosted
 standalone host; it does not prove standalone lag and recovery.
 
+`ApplicationControlDraftReferencesV1` applies the same tenant-scoped
+source-cursor rule to current Control-draft applicability. It is a separate
+fresh projection and checkpoint, so an already-caught-up Control current-read
+projection cannot falsely certify a reverse-reference backfill. Application
+change preview returns a transient conflict while either its boundary or
+Control reference source is ahead. It returns only direct Application draft
+references and labels system-instance references plus approved-version and
+lifecycle impact as pending; it does not claim a cross-stream snapshot.
+
 [PR #321](https://github.com/bdgrz/compliance/pull/321) adds separate retained-
 source recovery evidence: a fresh broker and fresh hosts restore Program source
 state and replay the production tenant-scoped `ProgramDirectoryProjector` in

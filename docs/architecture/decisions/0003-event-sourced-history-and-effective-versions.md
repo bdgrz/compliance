@@ -237,3 +237,15 @@ the time of the query; otherwise it returns a retryable conflict.
 An application query returns direct application references. A concrete
 system-instance reference is queried through that instance's route because a
 boundary scope entry does not carry the instance's owning application ID.
+
+Current Control-draft applicability uses a separate
+`ApplicationControlDraftReferencesV1` per-tenant projector and
+`kv://bdgrz/application-control-draft-references-v1/projection` resource. It
+replays retained Control events from the beginning rather than adding rows to
+`ControlDraftDirectoryV2`, whose existing checkpoint cannot establish that a
+new reverse index has been backfilled. The projection replaces indexed current
+entries on a revision and removes them on a discard; legacy events without
+applicability yield no rows. Application change preview requires the Control
+area checkpoint to catch up and returns only direct Application entries. It is
+therefore advisory across separate Application, boundary, and Control streams,
+not a complete or atomic control-lifecycle calculation.

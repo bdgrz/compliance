@@ -83,6 +83,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.True(firstProjected);
         var programId = await CreateProgramAsync(owner, tenant.TenantId);
         var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/boundaries";
+        var controlsPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{programId}/controls";
         var applicationReferencesPath =
             $"{applicationsPath}/{first.ApplicationId}/boundary-references";
         await worker.StopAsync();
@@ -100,6 +101,16 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var applicationBoundary = await applicationBoundaryResponse.Content
             .ReadFromJsonAsync<BoundaryRegistrationDocument>();
         Assert.NotNull(applicationBoundary);
+        var controlEntryId = Guid.NewGuid();
+        using var applicationControlResponse = await owner.PostAsJsonAsync(controlsPath, new
+        {
+            identifier = "AC-APP-PREVIEW",
+            content = ControlContent(first.ApplicationId, controlEntryId),
+        });
+        Assert.Equal(HttpStatusCode.OK, applicationControlResponse.StatusCode);
+        var applicationControl = await applicationControlResponse.Content
+            .ReadFromJsonAsync<ControlRegistrationDocument>();
+        Assert.NotNull(applicationControl);
         var previewPath = $"{applicationsPath}/{first.ApplicationId}/change-previews";
         using (var pendingPreview = await owner.PostAsJsonAsync(previewPath, new
         {
@@ -278,30 +289,58 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 Assert.Equal(applicationBoundary.BoundaryId.ToString(),
                     reference.GetProperty("boundary_id").GetString());
             }
-            using (var previewResponse = await owner.PostAsJsonAsync(previewPath, new
+            string? previewJson = null;
+            HttpStatusCode? lastPreviewStatus = null;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
             {
-                expected_application_revision = 2,
-                change_kind = "revise",
-                name = "Payroll revised",
-                purpose = "Run payroll",
-            }))
+                using var previewResponse = await owner.PostAsJsonAsync(previewPath, new
+                {
+                    expected_application_revision = 2,
+                    change_kind = "revise",
+                    name = "Payroll revised",
+                    purpose = "Run payroll",
+                });
+                if (previewResponse.StatusCode == HttpStatusCode.OK)
+                {
+                    previewJson = await previewResponse.Content.ReadAsStringAsync();
+                    break;
+                }
+                lastPreviewStatus = previewResponse.StatusCode;
+                Assert.Equal(HttpStatusCode.Conflict, previewResponse.StatusCode);
+                Assert.Equal("true", previewResponse.Headers.GetValues("Portia-Transient").Single());
+                await Task.Delay(250);
+            }
+            Assert.True(previewJson is not null,
+                $"Application preview never reached the Control reference projection; last status: {lastPreviewStatus}.");
+            using (var preview = JsonDocument.Parse(previewJson))
             {
-                Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
-                using var preview = JsonDocument.Parse(
-                    await previewResponse.Content.ReadAsStringAsync());
                 Assert.False(preview.RootElement.GetProperty("complete").GetBoolean());
                 Assert.Equal("name", Assert.Single(preview.RootElement
                     .GetProperty("changes").EnumerateArray()).GetProperty("field").GetString());
                 Assert.Equal(applicationBoundary.BoundaryId.ToString(),
                     Assert.Single(preview.RootElement.GetProperty("boundary_references")
                         .EnumerateArray()).GetProperty("boundary_id").GetString());
+                var controlReference = Assert.Single(preview.RootElement
+                    .GetProperty("control_draft_references").EnumerateArray());
+                Assert.Equal(applicationControl.ControlId.ToString(),
+                    controlReference.GetProperty("control_id").GetString());
+                Assert.Equal(programId.ToString(), controlReference.GetProperty("program_id").GetString());
+                Assert.Equal("AC-APP-PREVIEW", controlReference.GetProperty("identifier").GetString());
+                Assert.Equal(1, controlReference.GetProperty("revision").GetInt64());
+                Assert.Equal(controlEntryId.ToString(), controlReference.GetProperty("entry_id").GetString());
+                Assert.Contains(preview.RootElement.GetProperty("pending_contexts")
+                    .EnumerateArray(), item => item.GetString() ==
+                        "approved_control_versions_and_lifecycle_impact");
+                Assert.DoesNotContain(preview.RootElement.GetProperty("pending_contexts")
+                    .EnumerateArray(), item => item.GetString() == "controls");
                 Assert.Contains(preview.RootElement.GetProperty("pending_contexts")
                     .EnumerateArray(), item => item.GetString() == "engagements");
             }
             await using (var mcp = await McpScenario.ConnectAsync(owner,
                              new Uri(owner.BaseAddress!, "/mcp")))
             {
-                _ = await mcp.When("bdgrz.application.change.preview",
+                var previewCall = await mcp.When("bdgrz.application.change.preview",
                     new Dictionary<string, object?>
                     {
                         ["tenant_id"] = tenant.TenantId,
@@ -309,6 +348,14 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                         ["expected_application_revision"] = 2,
                         ["change_kind"] = "retire",
                     }).ExpectSuccess();
+                var preview = Assert.IsType<JsonElement>(previewCall.StructuredJson)
+                    .GetProperty("result");
+                var controlReference = Assert.Single(preview.GetProperty("control_draft_references")
+                    .EnumerateArray());
+                Assert.Equal(applicationControl.ControlId.ToString(),
+                    controlReference.GetProperty("control_id").GetString());
+                Assert.Contains(preview.GetProperty("pending_contexts").EnumerateArray(),
+                    item => item.GetString() == "approved_control_versions_and_lifecycle_impact");
                 _ = await mcp.When("bdgrz.boundary.get", new Dictionary<string, object?>
                 {
                     ["tenant_id"] = tenant.TenantId,
@@ -496,6 +543,27 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 governed_record_id = governedRecordId,
                 owner_reference = "Operations",
                 rationale = "Declared as in scope; ownership and classification remain unresolved.",
+                unresolved = false,
+            },
+        },
+    };
+
+    static object ControlContent(Guid applicationId, Guid entryId) => new
+    {
+        title = "Review application access",
+        objective = "Ensure application access is reviewed",
+        description = "Payroll access is reviewed before changes are approved.",
+        implementation_narrative = "The compliance lead reviews the access listing.",
+        expected_evidence_descriptions = new[] { "Access review record" },
+        applicability = new[]
+        {
+            new
+            {
+                entry_id = entryId,
+                subject_type = "application",
+                subject = "Payroll",
+                governed_record_id = applicationId,
+                rationale = "The draft applies to the declared payroll application.",
                 unresolved = false,
             },
         },
@@ -931,6 +999,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("program_id")] Guid ProgramId);
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] Guid BoundaryId);
+    sealed record ControlRegistrationDocument(
+        [property: JsonPropertyName("control_id")] Guid ControlId);
     sealed record ApplicationRegistrationDocument(
         [property: JsonPropertyName("application_id")] Guid ApplicationId);
     sealed record ApplicationDocument(

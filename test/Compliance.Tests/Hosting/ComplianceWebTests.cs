@@ -517,6 +517,20 @@ public sealed class ComplianceWebTests
             Assert.True(previewSchema.GetProperty("properties").TryGetProperty(name, out _));
         Assert.True(changePreview.GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(changePreview.GetProperty("responses").TryGetProperty("409", out _));
+        var previewResponse = changePreview.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var previewResult = schemas.GetProperty(previewResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]).GetProperty("properties");
+        var controlReferences = previewResult.GetProperty("control_draft_references");
+        var controlReferenceItem = controlReferences.GetProperty("items");
+        var controlReference = controlReferenceItem.TryGetProperty("$ref", out var reference)
+            ? schemas.GetProperty(reference.GetString()!.Split('/')[^1])
+            : controlReferenceItem;
+        foreach (var name in new[]
+                 {
+                     "control_id", "program_id", "identifier", "revision", "entry_id",
+                 })
+            Assert.True(controlReference.GetProperty("properties").TryGetProperty(name, out _));
     }
 
     [Theory]

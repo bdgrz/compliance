@@ -6,11 +6,14 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed class PreviewApplicationChangeHandler(
     IAggregateReader aggregates, IApplicationDirectoryReader applications,
     IApplicationBoundaryReferenceDirectory references,
-    ApplicationBoundaryReferenceReadConsistency boundaryConsistency)
+    ApplicationBoundaryReferenceReadConsistency boundaryConsistency,
+    IApplicationControlDraftReferenceDirectory controls,
+    ApplicationControlDraftReferenceReadConsistency controlConsistency)
     : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>
 {
     static readonly string[] MissingContexts =
-        ["vendors", "controls", "policies", "evidence_sources", "access_populations",
+        ["vendors", "approved_control_versions_and_lifecycle_impact",
+            "system_instance_control_draft_references", "policies", "evidence_sources", "access_populations",
             "review_campaigns", "open_work", "readiness", "engagements"];
 
     public async ValueTask<Result<ApplicationChangePreview>> HandleAsync(
@@ -50,6 +53,11 @@ public sealed class PreviewApplicationChangeHandler(
         if (!caughtUp.IsSuccess)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 caughtUp.Error.Kind, caughtUp.Error.Message, isTransient: true));
+        var controlsCaughtUp = await controlConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
+            .ConfigureAwait(false);
+        if (!controlsCaughtUp.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                controlsCaughtUp.Error.Kind, controlsCaughtUp.Error.Message, isTransient: true));
         var page = await references.ListAsync(request.TenantId, "application",
             request.ApplicationId, 200, null, ct).ConfigureAwait(false);
         if (page.Items.Any(item => item.TenantId != request.TenantId ||
@@ -58,9 +66,31 @@ public sealed class PreviewApplicationChangeHandler(
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The application boundary reference projection is inconsistent.",
                 isTransient: true));
+        var controlPage = await controls.ListAsync(request.TenantId, "application",
+            request.ApplicationId, 200, null, ct).ConfigureAwait(false);
+        if (controlPage.Items.Any(item => item.TenantId != request.TenantId ||
+                                          item.SubjectType != "application" ||
+                                          item.GovernedRecordId != request.ApplicationId))
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                "The application control draft reference projection is inconsistent.",
+                isTransient: true));
 
-        // A second source check detects an edit that raced the projection reads. This preview
-        // remains advisory; future approval must use a complete, exact-version impact gate.
+        var boundaryCaughtUpAfterRead = await boundaryConsistency.EnsureCaughtUpAsync(
+            request.TenantId, ct).ConfigureAwait(false);
+        if (!boundaryCaughtUpAfterRead.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                boundaryCaughtUpAfterRead.Error.Kind, boundaryCaughtUpAfterRead.Error.Message,
+                isTransient: true));
+        var controlsCaughtUpAfterRead = await controlConsistency.EnsureCaughtUpAsync(
+            request.TenantId, ct).ConfigureAwait(false);
+        if (!controlsCaughtUpAfterRead.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                controlsCaughtUpAfterRead.Error.Kind, controlsCaughtUpAfterRead.Error.Message,
+                isTransient: true));
+
+        // Source rechecks catch a pending relationship write that raced either reverse-index read.
+        // This preview remains advisory; future approval must use a complete, exact-version impact gate.
         var latest = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
         if (latest.Revision != source.Revision)
@@ -68,12 +98,20 @@ public sealed class PreviewApplicationChangeHandler(
                 RequestErrorKind.Conflict, "The application changed during preview.",
                 isTransient: true));
 
-        IReadOnlyList<string> pending = page.NextCursor is null
-            ? MissingContexts
-            : ["boundary_references_over_limit", .. MissingContexts];
+        IReadOnlyList<string> pending = (page.NextCursor, controlPage.NextCursor) switch
+        {
+            (null, null) => MissingContexts,
+            (not null, null) => ["boundary_references_over_limit", .. MissingContexts],
+            (null, not null) => ["control_draft_references_over_limit", .. MissingContexts],
+            _ => ["boundary_references_over_limit", "control_draft_references_over_limit",
+                .. MissingContexts],
+        };
         return Result<ApplicationChangePreview>.Success(new ApplicationChangePreview(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
-            Changes(current, request), page.Items, pending, false));
+            Changes(current, request), page.Items, pending, false)
+        {
+            ControlDraftReferences = controlPage.Items,
+        });
     }
 
     static RequestError? Validate(PreviewApplicationChange request)
