@@ -201,13 +201,19 @@ and rejected reports are retained. M0-A01 recovery targets and an isolated
 restore exercise remain open. None of these open points is silently answered
 by this proposal.
 
-True simultaneous append races can currently propagate Portia's
-`EventStreamConcurrencyException` as HTTP 500 or an MCP internal failure;
-[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) tracks
-transport-consistent conflict mapping. This draft does not prescribe an
-application catch or automatic command retry. The implementation must not
-claim a complete 409 concurrency contract until that framework behavior is
-resolved and proved.
+The upstream mapping work in
+[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) is closed for a
+stale append after session acquisition. The current real-broker Compliance
+two-writer test is still red because the second program save is rejected first
+at append-session admission with `Cntryl.Fitz.StreamException` domain code
+`2002`, `StreamSessionAlreadyActive`. The Portia adapter does not yet translate
+that structured, transient stream-write contention into its public conflict
+surface, so HTTP returns 500 and MCP returns an internal failure. The same
+evidence occurs in standalone and split API/worker hosts. This draft does not
+prescribe an application catch or automatic command retry. The implementation
+must not claim a complete concurrency contract until the adapter behavior is
+corrected and proved with the real broker. The adapter work is tracked in
+[cntryl/portia#65](https://github.com/cntryl/portia/issues/65).
 
 The first-consumer wire contract is
 [application-import-v1.md](../../product/application-import-v1.md). A thin
