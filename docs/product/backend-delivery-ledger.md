@@ -36,6 +36,7 @@ does not reopen or close issues.
 | [M0-D23 #80](https://github.com/bdgrz/compliance/issues/80) | [PR #166](https://github.com/bdgrz/compliance/pull/166), merge `97c77fe850745ca37e1c7176d678ae42a7fb137b` | [Assurance vocabulary decision](decisions/m0-d23-assurance-vocabulary.md), ten dependent issue updates, and exact-head CI are recorded in the issue. Firm-specific approval and professional evaluation rules remain open in #60 and #70. |
 | [AUTH-01 #142](https://github.com/bdgrz/compliance/issues/142) | [PR #144](https://github.com/bdgrz/compliance/pull/144), merge `2b3bb8b375c741455160ddbad70aa0c240564c56`; session reflection in [PR #150](https://github.com/bdgrz/compliance/pull/150) | Development and OIDC identity registration, provider identity resolution, signed HTTP session cookies, and logout are backend-only. The issue records focused acceptance coverage; no browser UI is implied by this row. |
 | [AUTH-02 #143](https://github.com/bdgrz/compliance/issues/143) | [PR #149](https://github.com/bdgrz/compliance/pull/149), merge `e46157ff647db6ef6f092cd3b954b83cc5f022ab` | Normalized email ownership, idempotent reservation, challenge hashing, verification transitions, owner-scoped reads, and HTTP routes are covered. Delivery is `MockEmailChallengeDelivery`; no external email was sent and a production adapter remains a follow-up. |
+| [EN-01a #324](https://github.com/bdgrz/compliance/issues/324) | [PR #325](https://github.com/bdgrz/compliance/pull/325), merge `da2ffde6cb950b19a97877367982576480a3bfb4` | Shared Portia composition fails closed with `RequireAuthorization` validation before Fitz startup; full handler registration, developer/OIDC/system-actor paths, Native AOT builds, and exact-head plus post-merge main CI are recorded in the PR and closure comment. [EN-01 #157](https://github.com/bdgrz/compliance/issues/157) remains actively blocked by M0-D03, M0-A04, M0-D25, M0-A07, and M0-D28. |
 | [R1-15a #238](https://github.com/bdgrz/compliance/issues/238) | [PR #256](https://github.com/bdgrz/compliance/pull/256), merge `01590b1fc1f86657f3c6096bdcf382232720a577` | Operator-only tenant inventory uses Fitz 1.4.1 primary paging without request-path writes. Portia authorization, hyphenated HTTP path segments with snake_case interpolated/query/JSON values, and read-only MCP contracts, cross-tenant non-disclosure, standalone/split broker proof, focused tests, exact-head CI, and post-merge main CI are recorded in the issue closure comment. Product parent #237 and frontend child #239 remain open. |
 
 ## Merged capability bundles that remain partial
@@ -82,9 +83,10 @@ the Portia pipeline, and restricts tenant lifecycle reactions to the system
 actor. Its closure clears the composition implementation gate; it does not
 settle field restrictions, cross-client firm access, federation expansion, the
 durable denied-action logging contract, or later feature-specific tenant-
-isolation evidence. Those five broader decisions remain direct blockers of
-[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157), rather
-than inherited unfinished work in #324.
+isolation evidence. #324 remains a completed closed predecessor of
+[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157); those
+five broader decisions remain its active direct blockers rather than inherited
+unfinished work in #324.
 
 Keep the artifact, authorization, and import work visible as decision-bound
 slices. M0-A03 needs a selected production content store; M0-A04 needs its
