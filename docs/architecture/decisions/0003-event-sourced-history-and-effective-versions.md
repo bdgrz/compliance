@@ -83,23 +83,24 @@ They retain their own resources, schemas, and checkpoints while the V1 history
 projectors replay independently. That avoids reinterpreting a deployed
 checkpoint or making an in-place migration a prerequisite for historical pages.
 
-## Concurrency evidence still pending
+## Concurrency evidence
 
 The real-broker Compliance acceptance test pauses two already hydrated program
 writes and lets both saves reach Fitz. The second save is rejected at stream
 session admission with `Cntryl.Fitz.StreamException` domain code `2002`,
 `StreamSessionAlreadyActive`, before it can attempt a stale append. This is the
-broker's intended per-resource append-session contention response. The current
-Portia adapter translates a stale append (`2001`) after acquiring a session, but
-does not translate this earlier admission response. The observed HTTP result is
-a 500 and the MCP result is an internal failure, rather than the intended
-transient conflict, in both standalone and split API/worker coverage.
+broker's intended per-resource append-session contention response. Portia 0.5.4
+translates that admission response into `EventStreamConcurrencyException` before
+a session exists, while retaining the underlying Fitz exception. The real-broker
+contract proves one HTTP 204 and one safe transient HTTP 409, plus one MCP
+success and one structured transient Conflict, in both standalone and split
+API/worker coverage.
 
-[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) is closed for
-the stale-append path; [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
-tracks the `2002` session-admission path. No application catch or automatic
-retry has been added. M0-A01 remains proposed until the adapter behavior is
-corrected and the real-broker transport contract passes.
+[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers the
+stale-append path and [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
+closed the `2002` session-admission path. No application catch or automatic
+retry has been added. M0-A01 remains proposed for recovery targets and an
+isolated restore exercise.
 
 ## Why this storage shape
 

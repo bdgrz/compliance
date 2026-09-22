@@ -202,18 +202,17 @@ restore exercise remain open. None of these open points is silently answered
 by this proposal.
 
 The upstream mapping work in
-[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) is closed for a
-stale append after session acquisition. The current real-broker Compliance
-two-writer test is still red because the second program save is rejected first
-at append-session admission with `Cntryl.Fitz.StreamException` domain code
-`2002`, `StreamSessionAlreadyActive`. The Portia adapter does not yet translate
-that structured, transient stream-write contention into its public conflict
-surface, so HTTP returns 500 and MCP returns an internal failure. The same
-evidence occurs in standalone and split API/worker hosts. This draft does not
-prescribe an application catch or automatic command retry. The implementation
-must not claim a complete concurrency contract until the adapter behavior is
-corrected and proved with the real broker. The adapter work is tracked in
-[cntryl/portia#65](https://github.com/cntryl/portia/issues/65).
+[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers a stale
+append after session acquisition, and
+[cntryl/portia#65](https://github.com/cntryl/portia/issues/65) closed the
+earlier `2002`, `StreamSessionAlreadyActive` session-admission path. Portia
+0.5.4 now translates that structured transient contention into its public
+conflict surface before an append session exists. The real-broker Compliance
+two-writer test proves one HTTP success and one safe transient conflict, plus
+one MCP success and one structured transient Conflict, in standalone and split
+API/worker hosts. This draft does not prescribe an application catch or
+automatic command retry. M0-A01 remains proposed for recovery targets and an
+isolated restore exercise.
 
 The first-consumer wire contract is
 [application-import-v1.md](../../product/application-import-v1.md). A thin
