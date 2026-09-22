@@ -1042,17 +1042,20 @@ Type: Architecture decision
 
 Area: architecture
 
-Context: The repository has Portia and Fitz but no persistence. The domain model requires stable identities, immutable approved versions, successor proposals, effective intervals, optimistic concurrency, and distinct occurred, effective, covered, and observed times.
+Context: The repository uses Portia and Fitz event streams. The domain model
+requires stable identities, immutable approved versions, successor proposals,
+effective intervals, optimistic concurrency, and distinct occurred, effective,
+covered, and observed times.
 
 Questions to answer:
 
-- [ ] Document what Portia and Fitz provide for durable state, event logs, queries, and transactions.
-- [ ] Choose event-sourced, relational temporal, or hybrid storage, with rationale.
-- [ ] Choose the identifier strategy and how time semantics are represented.
-- [ ] Choose the optimistic concurrency and conflict-reporting approach, which many acceptance criteria require.
-- [ ] Define organization isolation at the storage layer.
-- [ ] Define the schema or stream migration strategy and the backup, restore, and RPO/RTO expectations.
-- [ ] Choose the tenant data-partitioning strategy (shared storage with an enforced organization key, or a schema or database per organization) and its effect on backup, restore, per-organization export, and deletion.
+- [x] Document what Portia and Fitz provide for durable state, event logs, queries, and transactions in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md).
+- [x] Choose event-sourced rather than relational-temporal or hybrid authoritative storage, with rationale in ADR 0003.
+- [x] Choose opaque UUID identities, immutable approved versions, and distinct occurred, effective, covered, and observed times.
+- [x] Choose optimistic stream concurrency with a transient conflict contract.
+- [x] Define organization isolation through immutable tenant realms and tenant-scoped projections.
+- [x] Define versioned events and projections, readers-before-writers migration, whole-platform recovery scope, a 15-minute RPO, and a 4-hour RTO. Portia/Fitz owns recovery plumbing; DevOps owns timed operational proof.
+- [x] Choose logical tenant partitions in the event store; physical per-tenant restore is out of scope, while export and deletion remain application workflows.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1060,9 +1063,9 @@ Blocks: M0-A02, M0-A05, M0-A06, EN-02, EN-03
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- [x] The accepted ADR, including options considered and consequences, is committed under `docs/architecture/decisions/`.
+- [x] Thin standalone and split API/worker probes prove durable source restart, local-volume restore, and projection replay in PRs #321 and #328.
+- [x] The blocked architecture records and enablers reference the accepted decision; production recovery delivery stays in [cntryl/portia#70](https://github.com/cntryl/portia/issues/70).
 
 Source: domain-model.md 'History, snapshots, and time'; backlog design review.
 
@@ -1211,9 +1214,9 @@ source-cursor catch-up contract. It also defines the contract for a future
 explicit revision-anchor read; the boundary-reference evidence does not
 exercise that separate contract. It does not decide readiness rules,
 calculation states, work-queue semantics, or cross-client authority, and it
-does not close this decision before M0-A01 recovery acceptance, a dedicated
-projection-derived-read spike in standalone and split hosts, and the remaining
-product-owned calculation and cross-client rules are complete.
+does not close this decision before a dedicated projection-derived-read spike
+in standalone and split hosts and the remaining product-owned calculation and
+cross-client rules are complete.
 
 ### M0-A06 ADR: Import, reconciliation, and background processing
 

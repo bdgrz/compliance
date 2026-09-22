@@ -3,9 +3,9 @@
 Status: proposed technical default for M0-A05, 2026-09-22. It records the
 tenant-scoped projection contract already exercised by Program, Boundary, draft
 history, and application boundary-reference reads. M0-A05 remains open pending
-accepted M0-A01 recovery prerequisites, a dedicated projection-derived-read
-spike in standalone and split hosts, and product-owned calculation and
-cross-client rules.
+a dedicated projection-derived-read spike in standalone and split hosts, and
+product-owned calculation and cross-client rules. M0-A01 is accepted; its
+whole-platform recovery delivery remains a separate Portia/DevOps gate.
 
 Decision owner: tech lead and product owner.
 
@@ -95,8 +95,8 @@ state and replay the production tenant-scoped `ProgramDirectoryProjector` in
 standalone and split API/worker modes. The later portable-local-volume probe
 extends that evidence through source-volume loss and restore into a fresh local
 volume. Neither probe establishes production backup or restore controls,
-numerical recovery targets, a global calculation snapshot, or cross-client
-authorization.
+measured achievement of the 15-minute RPO or 4-hour RTO, a global calculation
+snapshot, or cross-client authorization.
 
 ## Alternatives and limits
 
@@ -113,6 +113,8 @@ treatment, gaps, and historical assessment retention. M0-D15 and R2-11 own
 work-source mapping, due and blocked semantics, prioritization, reminders,
 assignment, and escalation. M0-D25, M0-D26, and F1-02 own firm-staff access,
 independence boundaries, and any cross-client portfolio authority. M0-A04 owns
-field-level restriction policy. M0-A01 still needs an accepted operational
-owner, timed production backup-and-restore exercise, RPO/RTO targets, and a per-
-organization recovery, export, and deletion procedure.
+field-level restriction policy. M0-A01 accepts the event-history and recovery
+boundary; whole-platform recovery implementation and timed operational evidence
+remain with [cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and
+DevOps. That external gate neither defines projection policy nor requires a
+physical per-tenant restore.

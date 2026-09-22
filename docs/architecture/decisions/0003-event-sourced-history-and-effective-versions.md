@@ -1,12 +1,14 @@
 # Event-sourced history and effective versions
 
-Status: proposed for M0-A01. The existing tenant and program flows prove the
-storage shape in standalone and split API/worker hosts. A controlled local
-restart and isolated projection replay prove the retained-source recovery path.
-A portable local-volume archive-to-fresh-volume restore now proves a bounded
-local-volume-loss path. Operational recovery targets and production
-backup-and-restore controls still need an owner and evidence before this ADR is
-accepted.
+Status: accepted for M0-A01 application architecture, 2026-09-22. The existing
+tenant and program flows prove the storage shape in standalone and split
+API/worker hosts. A controlled local restart and isolated projection replay
+prove the retained-source recovery path. A portable local-volume
+archive-to-fresh-volume restore proves a bounded local-volume-loss path. Those
+probes are regression evidence, not a production recovery claim. Whole-platform
+recovery delivery and its timed operational proof are external platform gates
+owned by [cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and
+DevOps; they do not keep this application-domain decision proposed.
 
 Decision owner: tech lead and product owner. Date: 2026-09-19.
 
@@ -114,8 +116,9 @@ durable.
 [cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers the
 stale-append path and [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
 closed the `2002` session-admission path. No application catch or automatic
-retry has been added. M0-A01 remains proposed for recovery targets and a
-production backup-and-restore exercise.
+retry has been added. The application-domain M0-A01 decision is accepted;
+whole-platform recovery delivery remains the external Portia/DevOps gate
+described below.
 
 ## Why this storage shape
 
@@ -174,23 +177,43 @@ replay confirms the same production projector can rebuild its current and
 revision rows from the restored stream. These probes do not prove preserved
 live KV or checkpoint rows, a production backup export or restore process,
 non-rebuildable integration-state coverage, cloud-provider recovery,
-broker-upgrade compatibility, numerical RPO or RTO, or a physical
-per-organization restore.
+broker-upgrade compatibility, measured achievement of the 15-minute RPO or
+4-hour RTO, or a physical per-organization restore.
 
-Fitz event streams are required to rebuild business projections. A production
-backup must include the durable event store and any non-rebuildable integration
-state together with the deployed event-reader version. Test restoring them into
-an isolated broker, then replay projections and compare record counts and
-selected histories with the source. A projection-only backup is insufficient.
+Fitz event streams are required to rebuild business projections. The upstream
+recovery capability must preserve compatible durable event state, declared
+non-rebuildable integration state, and the deployed event-reader version. Its
+clean-environment restore must replay projections and compare record counts and
+selected histories with the source; a projection-only backup is insufficient.
 Do not delete historical stream prefixes: Portia hydration requires contiguous
-physical offsets.
+physical offsets. Compliance declares the required business inventory and
+acceptance criteria, while Portia/Fitz implements the mechanism.
 
-The deployment owner must set numerical RPO and RTO targets and prove them with
-a timed restore exercise before this ADR is accepted for production. This
-repository does not establish those targets or demonstrate per-organization
-physical restore. Until then, per-organization export and deletion are
-application workflows requiring an inventory of all tenant-owned streams,
-projection data, artifact objects, and retained backups.
+## Whole-platform recovery boundary
+
+The application decision is to recover the whole platform, not independently
+recoverable physical tenant partitions. The production targets are a 15-minute
+RPO and a 4-hour RTO. DevOps owns the runbooks, on-call restore execution, and
+recurring timed recovery drills. Portia/Fitz owns the provider-neutral backup,
+restore, integrity-verification, and recovery-evidence plumbing in
+[cntryl/portia#70](https://github.com/cntryl/portia/issues/70). Compliance does
+not add provider SDK integrations, backup scripts, or restore orchestration.
+
+Compliance declares the business recovery inventory and acceptance criteria:
+durable Portia/Fitz event state; every tenant artifact bucket, where artifact
+storage provisions one, and its immutable objects; tenant bucket and
+encryption-key-reference mappings; and external integration state that cannot
+be replayed from events. Secrets are restored from their authoritative
+secret-management source and are not copied into backups.
+Per-tenant export and deletion remain explicit application workflows that
+inventory the tenant-owned records and artifacts; physical per-tenant restore is
+out of scope.
+
+This ADR does not claim production recovery readiness. That requires delivery
+of the upstream capability and a DevOps timed production-like restore that
+measures the targets above. The open platform gate does not alter the accepted
+Compliance persistence, versioning, tenancy, or projection decision, and it
+does not justify recovery plumbing in this repository.
 
 ## Consequences for EN-02 and R1-02
 

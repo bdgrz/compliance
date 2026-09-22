@@ -181,7 +181,7 @@ not before all product work.
 | M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. |
 | M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. |
 | M0-D28 | P0 | EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06 | Establishes the canonical entity and relationship vocabulary from direct public sources whose use is acceptable for the Apache-2.0 product; unusable or unclear sources are excluded. |
-| M0-A01 | P0 | EN-02, EN-03, M0-A02, M0-A05, M0-A06 | No persistence exists; versioning and effective history underpin every story. |
+| M0-A01 | P0 | EN-02, EN-03, M0-A02, M0-A05, M0-A06 | Accepted event-history, versioning, tenant-isolation, and whole-platform recovery boundary; Portia #70 and DevOps retain the separate production-recovery delivery gate. |
 | M0-A02 | P0 | EN-03 | Seven snapshot types need one provable freezing and amendment model. |
 | M0-A03 | P0 | EN-06 | Evidence and file handling need safe storage, inspection, and per-artifact access. |
 | M0-A04 | P0 | EN-01 | Authorization combines membership, grants, responsibility, state, and separation of duties. |
@@ -249,7 +249,7 @@ Counts above are user stories. Supporting issues are counted separately:
 The sequence follows the GitHub issue dependencies. Items in the same step have
 no dependency on one another and can proceed in parallel.
 
-0. Resolve the P0 discovery and architecture decisions: M0-D01 through M0-D15, M0-D22 through M0-D25, M0-D28, and M0-A01 through M0-A07. M0-D24 is a global readiness gate; M0-D28 gates stories that create or import canonical entities; each other blocked item waits only for its own blockers, so discovery and delivery otherwise overlap.
+0. Resolve the remaining P0 discovery and architecture decisions: M0-D01 through M0-D15, M0-D22 through M0-D25, M0-D28, and M0-A02 through M0-A07. M0-A01 is accepted. M0-D24 is a global readiness gate; M0-D28 gates stories that create or import canonical entities; each other blocked item waits only for its own blockers, so discovery and delivery otherwise overlap.
 1. Foundation enablers: EN-01 (including tenant isolation), EN-02, and EN-03.
 2. Remaining enablers and the tenant boundary: EN-04, EN-05, EN-06, and R1-15.
 3. Program and team inside the client organization: R1-01 and R1-04 (R1-04a first, then R1-04b through R1-04e).

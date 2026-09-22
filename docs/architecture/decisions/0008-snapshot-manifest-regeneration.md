@@ -89,6 +89,8 @@ signing, delivery, and retention with this source record.
 This decision selects only program-scope manifest regeneration. It does not set
 workforce population limits, package composition, signing, management approval,
 retention, holds, deletion, portable backup and restore, general request
-admission/rate limits, or recovery targets. M0-A01 owns the remaining
-operational recovery prerequisites, and M0-A02 cannot close until its broader
-consumer and performance requirements are accepted.
+admission/rate limits, or recovery targets. M0-A01 accepts the application
+recovery boundary; whole-platform recovery delivery and timed operational
+evidence are tracked in [cntryl/portia#70](https://github.com/cntryl/portia/issues/70)
+with DevOps. M0-A02 cannot close until its broader consumer and performance
+requirements are accepted.
