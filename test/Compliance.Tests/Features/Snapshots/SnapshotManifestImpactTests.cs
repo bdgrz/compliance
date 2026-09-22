@@ -28,10 +28,10 @@ public sealed class SnapshotManifestImpactTests
         var rehashed = SnapshotManifestImpact.ChangedSources(original, rehashedBoundary);
 
         // Assert
-        Assert.Empty(unchanged);
-        Assert.Equal(["program_revision"], program);
-        Assert.Equal(["approved_boundary_version"], boundary);
-        Assert.Equal(["approved_boundary_version"], rehashed);
+        Assert.Empty(unchanged.Value!);
+        Assert.Equal(["program_revision"], program.Value);
+        Assert.Equal(["approved_boundary_version"], boundary.Value);
+        Assert.Equal(["approved_boundary_version"], rehashed.Value);
     }
 
     [Fact]
@@ -42,13 +42,18 @@ public sealed class SnapshotManifestImpactTests
             new string('a', 64), Uuid.CreateVersion4(), Uuid.CreateVersion4(), new string('b', 64));
         var otherTenant = original with { TenantId = Uuid.CreateVersion4() };
         var otherProgram = original with { ProgramId = Uuid.CreateVersion4() };
+        var otherFormat = original with { FormatVersion = 2 };
 
         // Act
-        var tenantComparison = () => SnapshotManifestImpact.ChangedSources(original, otherTenant);
-        var programComparison = () => SnapshotManifestImpact.ChangedSources(original, otherProgram);
+        var results = new[]
+        {
+            SnapshotManifestImpact.ChangedSources(original, otherTenant),
+            SnapshotManifestImpact.ChangedSources(original, otherProgram),
+            SnapshotManifestImpact.ChangedSources(original, otherFormat)
+        };
 
         // Assert
-        Assert.Throws<ArgumentException>(tenantComparison);
-        Assert.Throws<ArgumentException>(programComparison);
+        Assert.All(results, result => Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(result.Error).Kind));
     }
 }

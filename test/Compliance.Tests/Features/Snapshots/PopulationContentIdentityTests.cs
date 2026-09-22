@@ -67,6 +67,81 @@ public sealed class PopulationContentIdentityTests
     }
 
     [Fact]
+    public void ShouldTreatPropertyNamesCanonicallyGivenUnicodeForms()
+    {
+        // Arrange
+        PopulationRow[] composed = [Row("a", """{"Café":1}""")];
+        PopulationRow[] decomposed = [Row("a", """{"Café":1}""")];
+        PopulationRow[] collision = [Row("a", """{"Café":1,"Café":2}""")];
+
+        // Act
+        var first = PopulationContentIdentity.Compute("access_population", composed);
+        var second = PopulationContentIdentity.Compute("access_population", decomposed);
+        var colliding = PopulationContentIdentity.Compute("access_population", collision);
+
+        // Assert
+        Assert.Equal(first.Value, second.Value);
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(colliding.Error).Kind);
+    }
+
+    [Fact]
+    public void ShouldFailClosedGivenLoneSurrogatesOrInvalidKind()
+    {
+        // Arrange
+        PopulationRow[] loneKey = [Row("user\uD800", "{}")];
+        PopulationRow[] loneContent = [Row("a", """{"name":"bad\uD800"}""")];
+        PopulationRow[] loneName = [Row("a", """{"bad\uD800":1}""")];
+
+        // Act
+        var results = new[]
+        {
+            PopulationContentIdentity.Compute("access_population", loneKey),
+            PopulationContentIdentity.Compute("access_population", loneContent),
+            PopulationContentIdentity.Compute("access_population", loneName),
+            PopulationContentIdentity.Compute("Access Population", []),
+            PopulationContentIdentity.Compute("access_populatioń", [])
+        };
+
+        // Assert
+        Assert.All(results, result => Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(result.Error).Kind));
+    }
+
+    [Fact]
+    public void ShouldOrderKeysByCodePointGivenSupplementaryCharacters()
+    {
+        // Arrange
+        PopulationRow[] codePointOrder = [Row("！", "{}"), Row("\U0001F600", "{}")];
+        PopulationRow[] utf16Order = [Row("\U0001F600", "{}"), Row("！", "{}")];
+
+        // Act
+        var accepted = PopulationContentIdentity.Compute("access_population", codePointOrder);
+        var rejected = PopulationContentIdentity.Compute("access_population", utf16Order);
+
+        // Assert
+        Assert.Equal(2, Assert.IsType<PopulationDigest>(accepted.Value).RowCount);
+        var error = Assert.IsType<RequestError>(rejected.Error);
+        Assert.Equal(RequestErrorKind.Validation, error.Kind);
+        Assert.Contains("row 2", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ShouldNotMaskDisposedContentGivenProgrammingError()
+    {
+        // Arrange
+        JsonElement disposed;
+        using (var document = JsonDocument.Parse("{}"))
+            disposed = document.RootElement;
+        PopulationRow[] rows = [new PopulationRow("a", disposed)];
+
+        // Act
+        Action compute = () => PopulationContentIdentity.Compute("access_population", rows);
+
+        // Assert
+        Assert.Throws<ObjectDisposedException>(compute);
+    }
+
+    [Fact]
     public void ShouldDigestEmptyPopulationGivenExplicitZeroRows()
     {
         // Arrange

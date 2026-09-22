@@ -17,8 +17,11 @@ assessment nor an examination baseline or management sign-off.
 
 Canonical format v1 serializes each exact source view with the repository's
 source-generated snake_case JSON contract, then writes UTF-8 JSON with object
-properties sorted by ordinal name, array order retained, strings normalized to
-Unicode NFC, integral numbers in decimal, and explicit JSON nulls. UUIDs and
+property names and strings normalized to Unicode NFC, properties sorted by
+code point, array order retained, signed 64-bit integers in decimal, explicit
+JSON nulls, and the pinned System.Text.Json default escaping. Existing
+contract property names are ASCII, so code-point and ordinal order agree for
+every v1 program-scope digest already recorded. UUIDs and
 `DateOnly` values use their persisted JSON string representations. A
 `DateTimeOffset` retains its persisted offset; this format does not silently
 convert it to UTC. The manifest has exactly this property order:
@@ -81,9 +84,18 @@ count.
 
 Population digest v1 is streamed and fails closed:
 
-- rows must arrive unique and in ascending ordinal order of their NFC stable
-  key; unordered, duplicate, or blank keys, non-integral numbers, and a blank
-  population kind are validation failures;
+- the population kind is lowercase ASCII `snake_case`;
+- rows must arrive unique and in ascending Unicode code-point order (equal to
+  UTF-8 byte order) of their NFC stable key; unordered, duplicate, blank, or
+  invalid-Unicode keys are validation failures that name the row position;
+- row content follows canonical v1 JSON: object property names and string
+  values are NFC-normalized and properties sorted by code point; names that
+  collide after normalization, lone surrogates, and numbers that are not
+  integers within the signed 64-bit range (including `1.0`, exponent forms,
+  and larger integers, which sources must carry as strings) are validation
+  failures; the writer pins the System.Text.Json default escaping, so
+  non-ASCII and HTML-sensitive characters appear as uppercase `\uXXXX`
+  escapes;
 - each row digest is SHA-256 over `bdgrz.snapshot.population.row.v1\0`, the
   UTF-8 key, a zero byte, and the row's canonical v1 JSON;
 - rows are grouped into chunks of 1,024; each chunk digest is SHA-256 over
@@ -160,9 +172,12 @@ reads. The Fitz directory is tenant-routed. Merged evidence:
 - PR #326 ([ADR 0008](0008-snapshot-manifest-regeneration.md)): deterministic
   manifest regeneration from the event-sourced record with a bounded lineage,
   concurrent over HTTP and MCP in split hosting under directory lag;
-- the M0-A02 acceptance PR: population digest v1 (stable across property order
-  and Unicode normalization, sensitive to row content, kind, and array order,
-  fail-closed on ordering and the 250,000-row bound) and manifest impact
-  comparison, as focused tests. These are pure, host-independent
-  computations, so the standalone and split-host proof above covers the
-  persistence and hosting path they plug into.
+- the M0-A02 acceptance PR: reference implementations of population digest
+  v1 (stable across property order and Unicode normalization of names and
+  values, sensitive to row content, kind, and array order, fail-closed on
+  ordering, invalid Unicode, and the 250,000-row bound) and of the manifest
+  impact comparison, with focused tests. Both are pure, host-independent
+  computations. No freeze, verify, or regenerate path calls them yet: EN-03
+  and the consuming stories (R1-11d first) wire them into the proven freeze
+  path and add a population reference to their manifest kinds, with their own
+  standalone and split-host evidence.

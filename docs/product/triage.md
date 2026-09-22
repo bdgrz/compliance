@@ -182,7 +182,7 @@ not before all product work.
 | M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. |
 | M0-D28 | P0 | EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06 | Establishes the canonical entity and relationship vocabulary from direct public sources whose use is acceptable for the Apache-2.0 product; unusable or unclear sources are excluded. |
 | M0-A01 | P0 | EN-02, EN-03, M0-A02, M0-A05, M0-A06 | Accepted event-history, versioning, tenant-isolation, and whole-platform recovery boundary; Portia #70 and DevOps retain the separate production-recovery delivery gate. |
-| M0-A02 | P0 | EN-03 | Accepted 2026-09-22 in ADR 0004 and ADR 0008: one freezing, content-identity, amendment, regeneration, and bounded-population model for all seven snapshot types. |
+| M0-A02 | P0 | EN-03 | Accepted 2026-09-22 in ADR 0004 and ADR 0008: one freezing, content-identity, amendment, regeneration, and bounded-population model that each snapshot type adopts in its consuming story. |
 | M0-A03 | P0 | EN-06 | Evidence and file handling need safe storage, inspection, and per-artifact access. |
 | M0-A04 | P0 | EN-01 | Authorization combines membership, grants, responsibility, state, and separation of duties. |
 | M0-A05 | P0 | R1-08, R2-11 | Readiness and work projections must reconcile to source records with an as-of time. |

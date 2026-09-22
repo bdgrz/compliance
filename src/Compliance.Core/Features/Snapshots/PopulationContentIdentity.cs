@@ -11,39 +11,46 @@ static class PopulationContentIdentity
     internal const int RowsPerChunk = 1024;
     internal const long MaximumRows = 250_000;
 
+    static readonly UTF8Encoding StrictUtf8 = new(false, true);
     static readonly byte[] RowDomain = Encoding.UTF8.GetBytes("bdgrz.snapshot.population.row.v1\0");
     static readonly byte[] ChunkDomain = Encoding.UTF8.GetBytes("bdgrz.snapshot.population.chunk.v1\0");
     static readonly byte[] PopulationDomain = Encoding.UTF8.GetBytes("bdgrz.snapshot.population.v1\0");
 
     public static Result<PopulationDigest> Compute(string kind, IEnumerable<PopulationRow> rows)
     {
-        if (string.IsNullOrWhiteSpace(kind) || kind != kind.Trim())
-            return Invalid("A population snapshot requires a kind.");
+        if (!IsKind(kind))
+            return Invalid("A population snapshot requires a lowercase snake_case kind.");
 
         using var population = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using var chunk = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var row = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using var content = new MemoryStream();
+        using var writer = new Utf8JsonWriter(content, SnapshotContentIdentity.CanonicalWriterOptions);
         var digest = new byte[SHA256.HashSizeInBytes];
-        string? previousKey = null;
+        byte[]? previousKey = null;
         var rowCount = 0L;
         var chunkCount = 0;
         var rowsInChunk = 0;
 
-        foreach (var row in rows)
+        foreach (var source in rows)
         {
+            var position = rowCount + 1;
             if (rowCount == MaximumRows)
-                return Invalid($"A population snapshot supports at most {MaximumRows} rows.");
-            if (string.IsNullOrWhiteSpace(row.Key) || row.Key != row.Key.Trim())
-                return Invalid("Every population row requires a stable key.");
-            var key = row.Key.Normalize(NormalizationForm.FormC);
-            if (previousKey is not null && string.CompareOrdinal(previousKey, key) >= 0)
-                return Invalid("Population rows must be unique and ordered by stable key.");
-            if (!TryWriteCanonical(content, row.Content))
-                return Invalid("Population row content must use canonical v1 JSON values.");
+                return Invalid($"A population snapshot supports at most {MaximumRows} rows; row {position} exceeds it.");
+            if (!TryEncodeKey(source.Key, out var key))
+                return Invalid($"Population row {position} requires a stable, valid Unicode key.");
+            if (previousKey is not null && previousKey.AsSpan().SequenceCompareTo(key) >= 0)
+                return Invalid($"Population row {position} is not unique and ordered by stable key.");
+            if (!TryWriteCanonical(writer, content, source.Content))
+                return Invalid($"Population row {position} content must use canonical v1 JSON values.");
 
+            row.AppendData(RowDomain);
+            row.AppendData(key);
+            row.AppendData([0]);
+            row.AppendData(content.GetBuffer(), 0, (int)content.Length);
+            row.GetHashAndReset(digest);
             if (rowsInChunk == 0)
                 chunk.AppendData(ChunkDomain);
-            WriteRowDigest(key, content, digest);
             chunk.AppendData(digest);
             previousKey = key;
             rowCount++;
@@ -73,29 +80,49 @@ static class PopulationContentIdentity
             Convert.ToHexStringLower(root.GetHashAndReset())));
     }
 
-    static bool TryWriteCanonical(MemoryStream destination, JsonElement content)
+    static bool IsKind(string kind)
     {
-        destination.SetLength(0);
+        if (string.IsNullOrEmpty(kind) || kind[0] is < 'a' or > 'z')
+            return false;
+        foreach (var character in kind)
+        {
+            if (character is not ((>= 'a' and <= 'z') or (>= '0' and <= '9') or '_'))
+                return false;
+        }
+        return true;
+    }
+
+    // Keys compare as UTF-8 bytes, which is Unicode code-point order.
+    static bool TryEncodeKey(string key, out byte[] encoded)
+    {
+        encoded = [];
+        if (string.IsNullOrWhiteSpace(key) || key != key.Trim())
+            return false;
         try
         {
-            using var writer = new Utf8JsonWriter(destination);
-            SnapshotContentIdentity.WriteCanonical(writer, content);
+            encoded = StrictUtf8.GetBytes(SnapshotContentIdentity.NormalizeText(key));
             return true;
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (exception is SnapshotContentException or EncoderFallbackException)
         {
             return false;
         }
     }
 
-    static void WriteRowDigest(string key, MemoryStream content, byte[] destination)
+    static bool TryWriteCanonical(Utf8JsonWriter writer, MemoryStream destination, JsonElement content)
     {
-        using var row = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        row.AppendData(RowDomain);
-        row.AppendData(Encoding.UTF8.GetBytes(key));
-        row.AppendData([0]);
-        row.AppendData(content.GetBuffer(), 0, (int)content.Length);
-        row.GetHashAndReset(destination);
+        destination.SetLength(0);
+        writer.Reset(destination);
+        try
+        {
+            SnapshotContentIdentity.WriteCanonical(writer, content);
+            writer.Flush();
+            return true;
+        }
+        catch (SnapshotContentException)
+        {
+            return false;
+        }
     }
 
     static void AppendChunk(IncrementalHash population, IncrementalHash chunk, byte[] digest)

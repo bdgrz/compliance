@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Bdgrz.Compliance.Features.Boundaries;
@@ -23,7 +24,7 @@ static class SnapshotContentIdentity
             throw new ArgumentOutOfRangeException(nameof(manifest),
                 "Only program scope manifest format v1 is supported.");
         using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
+        using (var writer = new Utf8JsonWriter(stream, CanonicalWriterOptions))
         {
             writer.WriteStartObject();
             writer.WriteNumber("format_version", manifest.FormatVersion);
@@ -66,9 +67,54 @@ static class SnapshotContentIdentity
     {
         var element = JsonSerializer.SerializeToElement(source, typeInfo);
         using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
+        using (var writer = new Utf8JsonWriter(stream, CanonicalWriterOptions))
             WriteCanonical(writer, element);
         return stream.ToArray();
+    }
+
+    // Canonical v1 pins the System.Text.Json default escaping: non-ASCII and
+    // HTML-sensitive characters are written as uppercase \uXXXX escapes.
+    internal static readonly JsonWriterOptions CanonicalWriterOptions =
+        new() { Encoder = JavaScriptEncoder.Default };
+
+    internal static string NormalizeText(string value)
+    {
+        try
+        {
+            return value.Normalize(NormalizationForm.FormC);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new SnapshotContentException("Snapshot text must be valid Unicode.", exception);
+        }
+    }
+
+    static string ReadText(Func<string> read)
+    {
+        try
+        {
+            return read();
+        }
+        catch (InvalidOperationException exception) when (exception is not ObjectDisposedException)
+        {
+            throw new SnapshotContentException("Snapshot text must be valid Unicode.", exception);
+        }
+    }
+
+    internal static int CompareCodePoints(string left, string right)
+    {
+        var leftRunes = left.EnumerateRunes();
+        var rightRunes = right.EnumerateRunes();
+        while (true)
+        {
+            var hasLeft = leftRunes.MoveNext();
+            var hasRight = rightRunes.MoveNext();
+            if (!hasLeft || !hasRight)
+                return hasLeft.CompareTo(hasRight);
+            var comparison = leftRunes.Current.Value.CompareTo(rightRunes.Current.Value);
+            if (comparison != 0)
+                return comparison;
+        }
     }
 
     internal static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
@@ -76,12 +122,19 @@ static class SnapshotContentIdentity
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
+                var properties = element.EnumerateObject()
+                    .Select(static property => (Name: NormalizeText(ReadText(() => property.Name)),
+                        property.Value))
+                    .ToList();
+                properties.Sort(static (left, right) => CompareCodePoints(left.Name, right.Name));
                 writer.WriteStartObject();
-                foreach (var property in element.EnumerateObject()
-                             .OrderBy(static property => property.Name, StringComparer.Ordinal))
+                for (var index = 0; index < properties.Count; index++)
                 {
-                    writer.WritePropertyName(property.Name);
-                    WriteCanonical(writer, property.Value);
+                    if (index > 0 && properties[index - 1].Name == properties[index].Name)
+                        throw new SnapshotContentException(
+                            "Snapshot object property names must be unique after normalization.");
+                    writer.WritePropertyName(properties[index].Name);
+                    WriteCanonical(writer, properties[index].Value);
                 }
                 writer.WriteEndObject();
                 break;
@@ -92,11 +145,12 @@ static class SnapshotContentIdentity
                 writer.WriteEndArray();
                 break;
             case JsonValueKind.String:
-                writer.WriteStringValue(element.GetString()!.Normalize(NormalizationForm.FormC));
+                writer.WriteStringValue(NormalizeText(ReadText(() => element.GetString()!)));
                 break;
             case JsonValueKind.Number:
                 if (!element.TryGetInt64(out var number))
-                    throw new InvalidOperationException("Snapshot content numbers must be integral.");
+                    throw new SnapshotContentException(
+                        "Snapshot content numbers must be integers within the signed 64-bit range.");
                 writer.WriteNumberValue(number);
                 break;
             case JsonValueKind.True:
@@ -109,7 +163,7 @@ static class SnapshotContentIdentity
                 writer.WriteNullValue();
                 break;
             default:
-                throw new InvalidOperationException("An unsupported JSON value entered a snapshot.");
+                throw new SnapshotContentException("An unsupported JSON value entered a snapshot.");
         }
     }
 
