@@ -85,16 +85,17 @@ checkpoint or making an in-place migration a prerequisite for historical pages.
 
 ## Concurrency evidence
 
-The real-broker Compliance acceptance test pauses two already hydrated program
-writes and lets both saves reach Fitz. The second save is rejected at stream
-session admission with `Cntryl.Fitz.StreamException` domain code `2002`,
-`StreamSessionAlreadyActive`, before it can attempt a stale append. This is the
-broker's intended per-resource append-session contention response. Portia 0.5.4
-translates that admission response into `EventStreamConcurrencyException` before
-a session exists, while retaining the underlying Fitz exception. The real-broker
-contract proves one HTTP 204 and one safe transient HTTP 409, plus one MCP
-success and one structured transient Conflict, in both standalone and split
-API/worker coverage.
+The real-broker Compliance acceptance test holds a real append session on the
+exact program stream before it dispatches a revision. That revision is rejected
+at stream session admission with `Cntryl.Fitz.StreamException` domain code
+`2002`, `StreamSessionAlreadyActive`, before it can attempt a stale append. This
+is the broker's intended per-resource append-session contention response. Portia
+0.5.4 translates that admission response into `EventStreamConcurrencyException`
+before a session exists, while retaining the underlying Fitz exception. The
+real-broker contract proves a safe transient HTTP 409 and a structured transient
+MCP Conflict in both standalone and split API/worker coverage. After the held
+session rolls back, a normal revision succeeds and exactly one revised event is
+durable.
 
 [cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers the
 stale-append path and [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
