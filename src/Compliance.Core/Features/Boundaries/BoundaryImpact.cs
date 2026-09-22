@@ -12,7 +12,7 @@ public sealed class ProgramBoundaryImpactContributor : IBoundaryImpactContributo
 {
     public string Context => "programs";
 
-    public ValueTask<BoundaryImpactContribution> ContributeAsync(BoundaryView boundary,
+    public ValueTask<Result<BoundaryImpactContribution>> ContributeAsync(BoundaryView boundary,
         IReadOnlyList<BoundaryChange> changes, CancellationToken ct)
     {
         IReadOnlyList<BoundaryAffectedRecord> records =
@@ -21,7 +21,8 @@ public sealed class ProgramBoundaryImpactContributor : IBoundaryImpactContributo
                     "program", boundary.ProgramId,
                     "The approved scope used by this program would change.")]
                 : [];
-        return ValueTask.FromResult(new BoundaryImpactContribution(Context, records, true));
+        return ValueTask.FromResult(Result<BoundaryImpactContribution>.Success(
+            new BoundaryImpactContribution(Context, records, true)));
     }
 }
 
@@ -50,8 +51,11 @@ public sealed class BoundaryImpactService(
         foreach (var contributor in contributors.OrderBy(static item => item.Context,
                      StringComparer.Ordinal))
         {
-            var contribution = await contributor.ContributeAsync(boundary, changes, ct)
+            var contributionResult = await contributor.ContributeAsync(boundary, changes, ct)
                 .ConfigureAwait(false);
+            if (!contributionResult.IsSuccess)
+                return Result<BoundaryImpactPreview>.Failure(contributionResult.Error);
+            var contribution = contributionResult.Value;
             if (contribution.Context != contributor.Context || contribution.Records is null ||
                 contribution.Records.Count > 200 ||
                 contribution.Records.Any(record => record.TenantId != request.TenantId ||
@@ -72,7 +76,8 @@ public sealed class BoundaryImpactService(
             .ToHashSet(StringComparer.Ordinal);
         var pending = boundary.LatestApprovedVersion is null
             ? Array.Empty<string>()
-            : ExpectedContexts.Where(contextName => !contributed.Contains(contextName)).ToArray();
+            : ExpectedContexts.Where(contextName => !contributed.Contains(contextName) ||
+                contributions.Any(item => item.Context == contextName && !item.Complete)).ToArray();
         var complete = pending.Length == 0 && contributions.All(static item => item.Complete);
         var preview = new BoundaryImpactPreview(request.TenantId,
             request.BoundaryId, request.DraftVersionId, request.ExpectedRevision,

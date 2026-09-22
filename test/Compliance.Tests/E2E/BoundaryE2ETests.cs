@@ -481,6 +481,69 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, crossTenantList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantVersion.StatusCode);
 
+        var applicationsPath = $"/api/v1/tenants/{tenant.TenantId}/applications";
+        ApplicationRegistrationDocument? application = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.PostAsJsonAsync(applicationsPath, new
+            {
+                name = "Payroll",
+                purpose = "Run payroll for the boundary impact preview.",
+            });
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                application = await response.Content.ReadFromJsonAsync<ApplicationRegistrationDocument>();
+                break;
+            }
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        Assert.NotNull(application);
+        var applicationPath = $"{applicationsPath}/{application.ApplicationId}";
+        var applicationProjected = false;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(applicationPath);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                applicationProjected = true;
+                break;
+            }
+            await Task.Delay(250);
+        }
+        Assert.True(applicationProjected);
+        var controlsPath = $"/api/v1/tenants/{tenant.TenantId}/programs/{program.ProgramId}/controls";
+        var controlEntryId = Uuid.CreateVersion4();
+        using var controlResponse = await owner.PostAsJsonAsync(controlsPath, new
+        {
+            identifier = "AC-BOUNDARY-IMPACT",
+            content = new
+            {
+                title = "Review payroll access",
+                objective = "Ensure payroll access is reviewed.",
+                description = "The current Control draft applies to the governed payroll application.",
+                implementation_narrative = "The compliance lead reviews the access listing.",
+                expected_evidence_descriptions = new List<string> { "Access review record" },
+                applicability = new[]
+                {
+                    new
+                    {
+                        entry_id = controlEntryId.ToString(),
+                        subject_type = "application",
+                        subject = "Payroll",
+                        governed_record_id = (string?)application.ApplicationId,
+                        rationale = "The draft applies to the declared payroll application.",
+                        unresolved = false,
+                    },
+                },
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, controlResponse.StatusCode);
+        var control = await controlResponse.Content.ReadFromJsonAsync<ControlRegistrationDocument>();
+        Assert.NotNull(control);
+        var applicationScopeEntryId = Uuid.CreateVersion4();
         using var discardedSuccessorResponse = await owner.PostAsJsonAsync(
             $"{boundaryPath}/successors", new
             {
@@ -504,10 +567,34 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             expected_approved_version_id = registration.DraftVersionId,
             content = new
             {
-                statement = "Service A and provider B are in scope.",
+                statement = "Service A, provider B, and payroll are in scope.",
                 content.engagement_stage,
                 content.trust_services_categories,
-                content.entries,
+                entries = new[]
+                {
+                    new
+                    {
+                        entry_id = entryId.ToString(),
+                        kind = "inclusion",
+                        subject_type = "service",
+                        subject = "Service A",
+                        governed_record_id = (string?)null,
+                        owner_reference = "Compliance lead",
+                        rationale = "It processes customer data.",
+                        unresolved = true,
+                    },
+                    new
+                    {
+                        entry_id = applicationScopeEntryId.ToString(),
+                        kind = "inclusion",
+                        subject_type = "application",
+                        subject = "Payroll",
+                        governed_record_id = (string?)application.ApplicationId,
+                        owner_reference = "Finance",
+                        rationale = "Payroll is in scope for the successor boundary.",
+                        unresolved = false,
+                    },
+                },
             },
         });
         Assert.Equal(HttpStatusCode.OK, successorResponse.StatusCode);
@@ -534,6 +621,11 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.False(successorPreview.Complete);
         Assert.Contains("controls", successorPreview.PendingContexts);
         Assert.Contains("evidence", successorPreview.PendingContexts);
+        var controlsContribution = Assert.Single(successorPreview.Contributions,
+            contribution => contribution.Context == "controls");
+        Assert.False(controlsContribution.Complete);
+        Assert.Contains(controlsContribution.Records, record =>
+            record.RecordType == "control_draft" && record.RecordId == control.ControlId);
         Assert.Contains(successorPreview.Contributions.SelectMany(item => item.Records),
             record => record.RecordType == "program" && record.RecordId == program.ProgramId);
         using var successorReview = await reviewer.PostAsJsonAsync($"{successorDraft}/reviews", new
@@ -650,6 +742,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("draft_version_id")] string DraftVersionId);
+    sealed record ApplicationRegistrationDocument(
+        [property: JsonPropertyName("application_id")] string ApplicationId);
+    sealed record ControlRegistrationDocument(
+        [property: JsonPropertyName("control_id")] string ControlId);
     sealed record BoundaryDocument(BoundaryVersionDocument? Draft,
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
         [property: JsonPropertyName("latest_approved_version")] BoundaryVersionDocument? LatestApprovedVersion,
@@ -673,7 +769,8 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("pending_contexts")] IReadOnlyList<string> PendingContexts);
     sealed record BoundaryChangeDocument(string Field,
         [property: JsonPropertyName("change_type")] string ChangeType);
-    sealed record BoundaryImpactContributionDocument(IReadOnlyList<BoundaryAffectedRecordDocument> Records);
+    sealed record BoundaryImpactContributionDocument(string Context, bool Complete,
+        IReadOnlyList<BoundaryAffectedRecordDocument> Records);
     sealed record BoundaryAffectedRecordDocument(
         [property: JsonPropertyName("record_type")] string RecordType,
         [property: JsonPropertyName("record_id")] string RecordId);
