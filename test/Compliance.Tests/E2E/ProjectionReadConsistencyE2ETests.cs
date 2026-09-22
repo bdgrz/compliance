@@ -28,6 +28,7 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
         var applicationName = $"compliance-projection-read-{Guid.NewGuid():N}";
         IHost? worker = null;
         IHost? restartedWorker = null;
+        var workerStopped = false;
         if (splitHosts)
         {
             worker = BuildWorker(applicationName);
@@ -82,7 +83,10 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 _ = await WaitForOkAsync(owner, referencesPath);
                 _ = await WaitForOkAsync(owner, applicationsB);
                 if (worker is not null)
+                {
                     await worker.StopAsync();
+                    workerStopped = true;
+                }
 
                 // Act
                 using var boundaryResponse = await owner.PostAsJsonAsync(
@@ -91,12 +95,10 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.OK, boundaryResponse.StatusCode);
                 var boundaryId = (await ReadAsync(boundaryResponse))
                     .GetProperty("boundary_id").GetString()!;
-                var observedLag = false;
                 if (splitHosts)
                 {
                     using var pending = await owner.GetAsync(referencesPath);
                     AssertTransientConflict(pending);
-                    observedLag = true;
                     restartedWorker = BuildWorker(applicationName);
                     await restartedWorker.StartAsync();
                 }
@@ -109,7 +111,6 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                     if (response.StatusCode == HttpStatusCode.Conflict)
                     {
                         AssertTransientConflict(response);
-                        observedLag = true;
                         await Task.Delay(100);
                         continue;
                     }
@@ -123,11 +124,12 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 // Assert
                 Assert.True(caughtUp is not null,
                     "The boundary-reference projection did not catch up before the deadline.");
-                Assert.True(observedLag || !splitHosts);
                 using (var crossTenantReferences = await owner.GetAsync(
                            $"{applicationsB}/{applicationId}/boundary-references"))
                 using (var crossTenantApplication = await owner.GetAsync(
                            $"{applicationsB}/{applicationId}"))
+                using (var absentInTenantB = await owner.GetAsync(
+                           $"{applicationsB}/{Guid.NewGuid()}/boundary-references"))
                 using (var tenantBApplications = await owner.GetAsync(applicationsB))
                 using (var outsiderReferences = await outsider.GetAsync(referencesPath))
                 using (var unknownTenantReferences = await outsider.GetAsync(
@@ -136,6 +138,13 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 {
                     Assert.Equal(HttpStatusCode.NotFound, crossTenantReferences.StatusCode);
                     Assert.Equal(HttpStatusCode.NotFound, crossTenantApplication.StatusCode);
+                    Assert.Equal(absentInTenantB.StatusCode, crossTenantReferences.StatusCode);
+                    var absentProblem = await ReadAsync(absentInTenantB);
+                    var crossTenantProblem = await ReadAsync(crossTenantReferences);
+                    Assert.Equal(absentProblem.GetProperty("title").GetString(),
+                        crossTenantProblem.GetProperty("title").GetString());
+                    Assert.Equal(absentProblem.GetProperty("detail").GetString(),
+                        crossTenantProblem.GetProperty("detail").GetString());
                     Assert.Equal(HttpStatusCode.OK, tenantBApplications.StatusCode);
                     Assert.Empty((await ReadAsync(tenantBApplications))
                         .GetProperty("items").EnumerateArray());
@@ -185,7 +194,8 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
             }
             if (worker is not null)
             {
-                await worker.StopAsync();
+                if (!workerStopped)
+                    await worker.StopAsync();
                 worker.Dispose();
             }
         }
@@ -246,7 +256,8 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
             using var response = await client.GetAsync(path);
             if (response.StatusCode == HttpStatusCode.OK)
                 return await ReadAsync(response);
-            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict,
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound
+                    or HttpStatusCode.Forbidden or HttpStatusCode.Conflict,
                 await response.Content.ReadAsStringAsync());
             await Task.Delay(250);
         }

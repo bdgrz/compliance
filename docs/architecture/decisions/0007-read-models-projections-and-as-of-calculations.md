@@ -95,7 +95,8 @@ never-stale invariant with its cohosted projector; it cannot pause that
 projector, so it does not deterministically force the conflict. In both modes
 one user who administers two client organizations receives `404` when reading
 organization A's application through organization B's HTTP route and MCP tool,
-and B's application list stays empty. An outsider receives the same HTTP
+with the same HTTP problem as an absent application in B, and B's application
+list stays empty. An outsider receives the same HTTP
 not-found problem as for an unknown organization, and the MCP tool fails with
 `NotFound`.
 
@@ -138,10 +139,6 @@ snapshot, or cross-client authorization.
 
 ## Deferred ownership
 
-Reusing a checkpoint after changing a projection schema would misrepresent
-what the checkpoint covers, so a changed projector always receives a new
-identity and replays into a new resource.
-
 This decision fixes the transport-level states: projection lag is a retryable
 transient conflict, and a missing or unauthorized resource is an
 indistinguishable not-found. How a browser presents a retrying read, and the
@@ -161,9 +158,11 @@ physical per-tenant restore.
 
 ## Consequences
 
-- Every new projection-derived read declares the source patterns or record
-  anchors it checks and returns a transient conflict, not a stale success,
-  while they are ahead of its checkpoint.
+- Every new read that accepts a source revision anchor or derives from other
+  records declares the source patterns or anchors it checks and returns a
+  transient conflict, not a stale success, while they are ahead of its
+  checkpoint. Reads that promise no source revision may stay eventually
+  consistent.
 - Every tenant-scoped read authorizes before touching a source aggregate or
   projection and checks returned rows against the request tenant.
 - Projection schema changes ship as new projector identities with replay and a
