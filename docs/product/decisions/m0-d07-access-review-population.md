@@ -17,9 +17,10 @@ follow-up [#353](https://github.com/bdgrz/compliance/issues/353).
 ## Data-shape rules
 
 - `AccessPopulationSnapshot`: `system_instance_id` (exact version), `observed_at`, `source` (a manual attestation until imports exist), and `content_hash`. It is immutable once accepted (M0-A02).
-- `Account`: `system_instance_id`, `provider_subject_id` (unique per instance), `principal_kind`, `display_name`, `status`, `classification` (`human | nhi | shared | unclassified`), and a correlation to a `Person` or `ServiceIdentity`.
-- `AccessAssignment` (direct): `account_id`, `entitlement_id`, and `granted_via` (`direct | group | role`), within a snapshot.
-- `EffectiveAccess` (derived): `account_id`, `entitlement_id`, the `path[]` of assignment hops, and `calculation_id`.
+- `Account`: `system_instance_id`, `provider_subject_id` (unique per instance), `principal_kind`, `display_name`, `status`, `classification` (`human | nhi | shared | unclassified`), a correlation to a `Person` or `ServiceIdentity` (required for `human` and `nhi`), and, for `shared` only, a required `accountable_owner_person_id` and `shared_justification`.
+- `GroupMember` (observed): `group_principal_id`, `member_principal_id`, within a snapshot. This is how nesting is recorded.
+- `AccessAssignment` (observed): `principal_id` (an account, group, or role principal) and `entitlement_id`, within a snapshot. It records exactly what the source asserts is granted directly to that principal. Inherited access is never stored as an assignment.
+- `EffectiveAccess` (derived, never stored as a source fact): `account_id`, `entitlement_id`, the `path[]` of `GroupMember`, role-assumption, and `AccessAssignment` hops, and `calculation_id`. One account–entitlement pair has one effective row with all of its paths, so review and remediation never see duplicates.
 - `AccessExpectation`: `system_instance_id`, `rule_kind` (`forbidden_principal_kind | privileged_entitlement | requires_expiry`), `parameters`, and an approver. It is versioned.
 
 ## Canonical model alignment

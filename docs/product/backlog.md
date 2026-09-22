@@ -128,7 +128,7 @@ Area: audit
 
 Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
-Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisions/m0-d01-program-targets.md). Organization-specific facts moved to follow-up discovery #348 and #349.
+Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisions/m0-d01-program-targets.md). Organization-specific facts moved to follow-up discovery #348 and #349. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -161,7 +161,7 @@ Area: controls
 
 Decision needed: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
 
-Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisions/m0-d02-criteria-content.md). Organization-specific facts moved to follow-up discovery #351.
+Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisions/m0-d02-criteria-content.md). Organization-specific facts moved to follow-up discovery #351. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -259,7 +259,7 @@ Area: applications
 
 Decision needed: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
 
-Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisions/m0-d05-application-inventory.md). Organization-specific facts moved to follow-up discovery #352.
+Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisions/m0-d05-application-inventory.md). Organization-specific facts moved to follow-up discovery #352. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -321,7 +321,7 @@ Area: access-review
 
 Decision needed: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
 
-Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisions/m0-d07-access-review-population.md). Organization-specific facts moved to follow-up discovery #353.
+Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisions/m0-d07-access-review-population.md). Organization-specific facts moved to follow-up discovery #353. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -354,7 +354,7 @@ Area: inventory
 
 Decision needed: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
 
-Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisions/m0-d08-technology-inventory.md). No follow-up discovery is required.
+Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisions/m0-d08-technology-inventory.md). No follow-up discovery is required. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -385,7 +385,7 @@ Area: commitments
 
 Decision needed: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
 
-Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisions/m0-d09-commitments.md). Organization-specific facts moved to follow-up discovery #354.
+Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisions/m0-d09-commitments.md). Organization-specific facts moved to follow-up discovery #354. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -416,7 +416,7 @@ Area: risk
 
 Decision needed: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
 
-Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisions/m0-d10-risk-method.md). Organization-specific facts moved to follow-up discovery #355.
+Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisions/m0-d10-risk-method.md). Organization-specific facts moved to follow-up discovery #355. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -448,7 +448,7 @@ Area: providers
 
 Decision needed: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
 
-Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisions/m0-d11-vendors.md). Organization-specific facts moved to follow-up discovery #356.
+Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisions/m0-d11-vendors.md). Organization-specific facts moved to follow-up discovery #356. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 

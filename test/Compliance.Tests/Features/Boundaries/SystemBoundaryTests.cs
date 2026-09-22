@@ -91,6 +91,60 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
+    public void ShouldRequireSecurityCategoryGivenRevisionOrSuccessor()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var reviewer = Uuid.CreateVersion4();
+        var decisionId = Uuid.CreateVersion4();
+        var withoutSecurity = Content() with { TrustServicesCategories = ["confidentiality"] };
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+
+
+        // Act
+        var revision = boundary.Revise(VersionId, 1, withoutSecurity, AuthorId, "Author", Now);
+        Assert.True(boundary.Review(VersionId, 1, decisionId, "accept", "Reviewed",
+            reviewer, "Reviewer", Now).IsSuccess);
+        Assert.True(boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", reviewer, "Reviewer", Now).IsSuccess);
+        var successor = boundary.ProposeSuccessor(VersionId, Uuid.CreateVersion4(),
+            withoutSecurity, AuthorId, "Author", Now);
+
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(revision.Error).Kind);
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(successor.Error).Kind);
+        Assert.Equal(3, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
+    }
+
+    [Fact]
+    public void ShouldRejectApprovalGivenLegacyDraftWithoutSecurityCategory()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var reviewer = Uuid.CreateVersion4();
+        var decisionId = Uuid.CreateVersion4();
+        var legacy = Content() with { TrustServicesCategories = ["availability"] };
+        new AggregateScenario<SystemBoundary>(boundary).Given(
+            DomainEventSeed.Attach(new BoundaryDraftCreated(TenantId, BoundaryId, ProgramId,
+                VersionId, legacy, AuthorId, "Author", Now), BoundaryId, 1),
+            DomainEventSeed.Attach(new BoundaryReviewed(TenantId, BoundaryId, VersionId, 1,
+                decisionId, "accept", reviewer, "Reviewer", "Reviewed", Now), BoundaryId, 2));
+
+
+        // Act
+        var result = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", reviewer, "Reviewer", Now);
+
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Validation, error.Kind);
+        Assert.Contains("security", error.Message);
+        Assert.Empty(new AggregateScenario<SystemBoundary>(boundary).PendingEvents);
+    }
+
+    [Fact]
     public void ShouldReturnExistingIdentityGivenReplayedCreate()
     {
         // Arrange

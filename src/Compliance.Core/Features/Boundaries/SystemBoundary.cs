@@ -175,6 +175,9 @@ public sealed class SystemBoundary : Aggregate
         if (approverMemberId == _draftAuthorMemberId)
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "A boundary author cannot approve their own draft."));
+        // Drafts recorded before a content rule existed must satisfy it before approval.
+        if (Validate(_draftContent) is { } invalidContent)
+            return Result.Failure(invalidContent);
         if (acceptedReviewDecisionId == Uuid.Empty ||
             acceptedReviewDecisionId != _acceptedReviewDecisionId)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,

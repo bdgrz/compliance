@@ -13,9 +13,10 @@ The first client's source artifacts and draft lists are gathered in
 
 ## Data-shape rules
 
-- `Commitment`: `kind`, `identifier` (unique per tenant, program, and kind), `statement`, `client_service_id`, `source_citation` {`artifact_kind`, `title`, `version_or_date`, `locator`, `artifact_id?`}, `owner_person_id`, `categories[]` (a subset of the boundary's categories), and `status` (`draft | approved | retired`).
+- `Commitment`: `program_id`, `kind`, `identifier` (unique per tenant, program, and kind), `statement`, `client_service_id`, `source_citation` {`artifact_kind`, `title`, `version_or_date`, `locator`, `artifact_id?`}, `owner_person_id`, `categories[]`, and `status` (`draft | approved | retired`).
+- `categories[]` is validated against the program's **current approved boundary version** when the commitment is created, revised, or approved. The approval records that `boundary_version_id`. When a later approved boundary version drops a category, affected commitments are flagged `category_out_of_scope` for review. They are never silently invalidated, deleted, or rewritten, and earlier approvals keep their original boundary version.
 - A `subservice_responsibility` requires `provider_id`. A `user_entity_responsibility` never counts as an internally performed control.
-- `CommitmentApproval`: `commitment_version_id`, `approver_member_id`, `approved_at`, and a `sod_exception_id` (nullable).
+- `CommitmentApproval`: `commitment_version_id`, `boundary_version_id`, `approver_member_id`, `approved_at`, and a `sod_exception_id` (nullable).
 - `Commitment` 0..* ↔ 0..* `Control` via versioned `CommitmentControlLink` (owned by R1-13 and referenced from R1-05).
 
 ## Canonical model alignment

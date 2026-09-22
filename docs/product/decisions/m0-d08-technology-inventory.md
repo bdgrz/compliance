@@ -11,7 +11,7 @@ Status: decided, 2026-09-22. Decision owner: Jeff Repanich, product owner.
 
 ## Data-shape rules
 
-- `InfrastructureComponent` (or the canonical equivalents): `component_category` ∈ `cloud_account | environment | network | data_store | repository | endpoint_class`, a governed name, an owner, an environment reference, a location reference, and a lifecycle. `cloud_account` components correspond one-to-one with `SystemInstance` records of kind `aws_account` and are not duplicated.
+- `InfrastructureComponent` (or the canonical equivalents): `component_category` ∈ `cloud_account | environment | network | data_store | repository | endpoint_class`, a governed name, an owner, an environment reference, a location reference, and a lifecycle. `cloud_account` components correspond one-to-one with `SystemInstance` records of kind `cloud_account` (any `platform`: AWS, Azure, GCP) and are not duplicated.
 - `InformationAsset.classification` ∈ `public | internal | confidential | restricted` (required).
 - `DataFlow`: `source` (a service or system instance), `destination` (a data store or external party), `information_asset_ids[]` (1..*), `purpose`, `encrypted_in_transit`, and `encrypted_at_rest`. It is effective-dated and versioned. It is invalid when a carried asset is `confidential` or `restricted` and either encryption flag is false, unless an approved exception is referenced.
 - An endpoint class (for example "managed macOS laptops") is a class record with a count and a management source. Individual devices are out of scope for R1.
