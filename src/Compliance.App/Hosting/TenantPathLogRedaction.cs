@@ -16,8 +16,10 @@ static class TenantPathLogRedaction
         services.PostConfigure<LoggerFilterOptions>(Apply);
 
     /// <summary>
-    /// Runs after configuration binding, so an operator-supplied category or provider-specific
-    /// level cannot re-enable path-bearing framework diagnostics below <see cref="LogLevel.Warning"/>.
+    /// Runs after configuration binding. Every configured rule that could select a
+    /// <c>Microsoft.AspNetCore</c> category ahead of the rules added here is removed, so neither a
+    /// category, a differently cased, a wildcard, nor a provider-specific override can re-enable
+    /// path-bearing framework diagnostics below <see cref="LogLevel.Warning"/>.
     /// </summary>
     internal static void Apply(LoggerFilterOptions options)
     {
@@ -27,34 +29,33 @@ static class TenantPathLogRedaction
         // rules, including a provider's Default, take precedence over provider-neutral rules.
         var providers = options.Rules.Select(rule => rule.ProviderName)
             .Append(null)
-            .Distinct(StringComparer.Ordinal)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        // The logger selects the matching rule with the longest category name, and the last one
+        // on a tie. A shorter matching rule already loses to the rules appended below.
         for (var index = options.Rules.Count - 1; index >= 0; index--)
         {
-            var rule = options.Rules[index];
-            if (IsAspNetCoreCategory(rule.CategoryName) &&
-                (rule.LogLevel is null || rule.LogLevel < LogLevel.Warning))
-            {
+            if (CouldOutrankRedaction(options.Rules[index].CategoryName))
                 options.Rules.RemoveAt(index);
-            }
         }
 
         foreach (var provider in providers)
         {
-            if (!options.Rules.Any(rule =>
-                    string.Equals(rule.ProviderName, provider, StringComparison.Ordinal) &&
-                    string.Equals(rule.CategoryName, AspNetCore, StringComparison.Ordinal)))
-            {
-                options.Rules.Add(new LoggerFilterRule(provider, AspNetCore, LogLevel.Warning, null));
-            }
-
+            options.Rules.Add(new LoggerFilterRule(provider, AspNetCore, LogLevel.Warning, null));
             options.Rules.Add(new LoggerFilterRule(provider, HostingDiagnostics, LogLevel.None, null));
         }
     }
 
-    static bool IsAspNetCoreCategory(string? category) =>
-        category is not null &&
-        (string.Equals(category, AspNetCore, StringComparison.Ordinal) ||
-            category.StartsWith(AspNetCore + ".", StringComparison.Ordinal));
+    static bool CouldOutrankRedaction(string? category)
+    {
+        if (category is null || category.Length < AspNetCore.Length)
+            return false;
+
+        // Category rules match case-insensitively and may contain one '*' wildcard.
+        var wildcard = category.IndexOf('*', StringComparison.Ordinal);
+        var prefix = wildcard < 0 ? category : category[..wildcard];
+        return prefix.StartsWith(AspNetCore, StringComparison.OrdinalIgnoreCase) ||
+            AspNetCore.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
 }

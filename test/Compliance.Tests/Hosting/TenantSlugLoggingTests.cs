@@ -11,23 +11,35 @@ public sealed class TenantSlugLoggingTests
 {
     const string Slug = "confidential-client-name";
 
+    public static TheoryData<string, string, string> Overrides => new()
+    {
+        { "Logging:LogLevel", "Microsoft.AspNetCore", "Trace" },
+        { "Logging:Capture:LogLevel", "Microsoft.AspNetCore", "Trace" },
+        { "Logging:LogLevel", "microsoft.aspnetcore.routing", "Debug" },
+        { "Logging:LogLevel", "Microsoft.AspNetCore*", "Trace" },
+        { "Logging:Capture:LogLevel", "Microsoft.AspNetCore.Hosting.Diagnostic*", "Critical" },
+    };
+
     [Theory]
-    [InlineData("Logging:LogLevel")]
-    [InlineData("Logging:Capture:LogLevel")]
-    public async Task ShouldKeepSlugOutOfLogsGivenVerboseLoggingConfiguration(string levels)
+    [MemberData(nameof(Overrides))]
+    public async Task ShouldKeepSlugOutOfLogsGivenVerboseLoggingConfiguration(string levels,
+        string category, string level)
     {
         // Arrange
         var capture = new CapturingLoggerProvider();
-        await using var factory = CreateFactory(capture, levels);
+        await using var factory = CreateFactory(capture, levels, category, level);
         using var client = factory.CreateClient();
 
         // Act
         using var browser = await client.GetAsync($"/{Slug}/controls", CancellationToken.None);
         using var root = await client.GetAsync($"/{Slug}", CancellationToken.None);
+        // Unauthenticated: this proves the framework request pipeline, not the resolution handler.
         using var resolution = await client.GetAsync($"/api/v1/tenant-slugs/{Slug}/mine",
             CancellationToken.None);
 
         // Assert
+        Assert.Equal(System.Net.HttpStatusCode.OK, browser.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resolution.StatusCode);
         Assert.NotEmpty(capture.Entries);
         var leaks = capture.Entries
             .Where(entry => entry.Contains(Slug, StringComparison.OrdinalIgnoreCase))
@@ -36,12 +48,14 @@ public sealed class TenantSlugLoggingTests
             $"Organization slug appeared in logs:{Environment.NewLine}{string.Join(Environment.NewLine, leaks)}");
     }
 
-    [Fact]
-    public async Task ShouldDisableRequestPathLoggingGivenOperatorOverride()
+    [Theory]
+    [MemberData(nameof(Overrides))]
+    public async Task ShouldDisableRequestPathLoggingGivenOperatorOverride(string levels,
+        string category, string level)
     {
         // Arrange
         var capture = new CapturingLoggerProvider();
-        await using var factory = CreateFactory(capture, "Logging:LogLevel");
+        await using var factory = CreateFactory(capture, levels, category, level);
         using var client = factory.CreateClient();
 
         // Act
@@ -60,7 +74,7 @@ public sealed class TenantSlugLoggingTests
     }
 
     static WebApplicationFactory<Program> CreateFactory(CapturingLoggerProvider capture,
-        string levels) =>
+        string levels, string category, string level) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
@@ -74,9 +88,7 @@ public sealed class TenantSlugLoggingTests
             // An operator raising framework verbosity, globally or for one provider, must not
             // re-enable request-path logging.
             builder.UseSetting($"{levels}:Default", "Trace");
-            builder.UseSetting($"{levels}:Microsoft.AspNetCore", "Trace");
-            builder.UseSetting($"{levels}:Microsoft.AspNetCore.Routing", "Debug");
-            builder.UseSetting($"{levels}:Microsoft.AspNetCore.Hosting.Diagnostics", "Trace");
+            builder.UseSetting($"{levels}:{category}", level);
             builder.ConfigureLogging(logging => logging.AddProvider(capture));
             builder.ConfigureServices(services =>
             {

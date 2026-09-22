@@ -50,8 +50,9 @@ R1-15 adopts the consequences below.
   `Microsoft.AspNetCore.Hosting.Diagnostics`, which emits request start and
   finish events and the `RequestPath` scope. It also holds every other
   `Microsoft.AspNetCore` category at `Warning` or above. This runs after
-  configuration binding, so neither a category override nor a
-  provider-specific override can re-enable path logging. Compliance code logs
+  configuration binding and removes any configured rule that could outrank
+  it. That covers exact, differently cased, wildcard, and provider-specific
+  overrides, so none of them can re-enable path logging. Compliance code logs
   `tenant_id` and correlation IDs, never slugs or client names.
 
 ### Identity and federation
@@ -113,9 +114,12 @@ Every tenant-owned surface is covered by these layers:
 4. **Split host.** At least one two-tenant proof per surface runs with
    independent API and worker hosts (`SplitHostTenantE2ETests`,
    `IdentityLinkE2ETests`, `ProgramRecoveryE2ETests`).
-5. **Telemetry.** A host test drives slug browser and slug-resolution requests
-   with verbose framework logging and fails if the slug appears in any log
-   message, state value, or scope.
+5. **Telemetry.** A host test drives slug browser routes and an
+   unauthenticated slug-resolution request through the framework pipeline,
+   under verbose, cased, wildcard, and provider-specific overrides. It fails if
+   the slug appears in any log message, state value, or scope. Handler-level
+   Portia and Fitz logging of the resolution payload is not covered by this
+   test. It is governed by the rule that Compliance code never logs slugs.
 
 ## Evidence
 
@@ -126,8 +130,8 @@ Every tenant-owned surface is covered by these layers:
 | Uniform not-found for unknown and inaccessible slugs | `TenantInvitationE2ETests` (unknown and non-member slug resolution both return 404) |
 | Slug resolution with independent API and worker hosts | `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` |
 | Referrer policy | PR #164; `ComplianceWebTests.ShouldServeSpaFallbackGivenNonApiRoute` |
-| Slugs absent from logs and scopes under category and provider overrides | `TenantSlugLoggingTests` (this change) |
-| Direct validation of several issuers, issuer/key confusion rejected, same subject under two issuers yields two users | `MultipleTrustedIssuerWebTests` (this change) |
+| Slugs absent from framework logs and scopes under exact, cased, wildcard, and provider overrides | `TenantSlugLoggingTests` (this change) |
+| Each issuer scheme is configured from its own resource. The issuer and audience come from configuration, with only metadata discovery substituted in the test. Issuer/key confusion is rejected, and the same subject under two issuers yields two users | `MultipleTrustedIssuerWebTests` (this change) |
 | Explicit dual-proof identity linking, continuation across independent API and worker | PR #180; `UserIdentityContinuationWebTests`, `IdentityLinkE2ETests` |
 | Route contract for tenant selection | `ComplianceWebTests.ShouldScopeOrganizationRoutesByTenantIdGivenBusinessApiEndpoints` (this change) |
 | Fail-closed request authorization composition | PR #325 |
@@ -155,10 +159,18 @@ the API host, which serves HTTP in both standalone and split mode.
 ## Consequences
 
 - Adding a trusted issuer is a configuration change that adds a validated
-  scheme. It needs no code change and must not weaken validation of existing
-  issuers. Resource schemes are numbered in configuration-key order.
+  scheme and needs no code change. Resource schemes are currently numbered in
+  configuration-key order (`BdgrzResource{index}`), so inserting a key
+  renumbers later schemes. Until F1-06 #268 gives each issuer a stable scheme
+  name, do not bind per-scheme settings by index. Add a new issuer under a key
+  that sorts after the existing ones.
 - Operators who need request diagnostics use trace and correlation IDs.
-  Request paths are deliberately unavailable in logs.
+  Request paths are deliberately unavailable in logs. Disabling
+  `Microsoft.AspNetCore.Hosting.Diagnostics` also drops that category's
+  non-path events, such as a captured "Application startup exception". With
+  the default (non-captured) startup behavior, a startup failure still
+  terminates the process with the exception on standard error. Hosts that
+  enable startup-error capture must surface the failure some other way.
 - Jeff Repanich decided the following on 2026-09-22.
   [R1-15 #127](https://github.com/bdgrz/compliance/issues/127) and its backend
   child [#152](https://github.com/bdgrz/compliance/issues/152) must adopt them;

@@ -83,14 +83,19 @@ public sealed class ComplianceWebTests
         {
             var raw = route.RawText!;
             var parameters = route.Parameters.Select(parameter => parameter.Name).ToArray();
+            // Slug resolution is the one operation that accepts a slug, and only to map it to a
+            // tenant_id from the caller's own memberships.
+            if (raw != "/api/v1/tenant-slugs/{slug}/mine")
+                Assert.DoesNotContain(parameters, organizationIdentifiers.Contains);
             if (raw.StartsWith("/api/v1/tenants/{tenant_id}", StringComparison.Ordinal))
             {
                 Assert.Single(parameters, name => name == "tenant_id");
-                Assert.DoesNotContain(parameters, organizationIdentifiers.Contains);
                 continue;
             }
 
-            Assert.DoesNotContain("tenant_id", parameters);
+            // Platform-operator routes may name a tenant, but only by tenant_id.
+            if (!raw.StartsWith("/api/v1/platform/", StringComparison.Ordinal))
+                Assert.DoesNotContain("tenant_id", parameters);
             Assert.True(unscopedRoutes.Contains(raw) ||
                     unscopedPrefixes.Any(prefix => raw.StartsWith(prefix, StringComparison.Ordinal)),
                 $"Route '{raw}' must select its organization with /api/v1/tenants/{{tenant_id}}.");

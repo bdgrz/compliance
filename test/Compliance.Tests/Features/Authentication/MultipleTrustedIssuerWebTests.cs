@@ -52,6 +52,32 @@ public sealed class MultipleTrustedIssuerWebTests
     }
 
     [Fact]
+    public async Task ShouldConfigureEachSchemeFromItsOwnResourceGivenTwoTrustedIssuers()
+    {
+        // Arrange
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        // Act
+        var options = factory.Services.GetRequiredService<
+            Microsoft.Extensions.Options.IOptionsMonitor<JwtBearerOptions>>();
+        var firm = options.Get("BdgrzResource0");
+        var clientIssuer = options.Get("BdgrzResource1");
+
+        // Assert
+        Assert.Equal((FirmIssuer, "compliance-api"), (firm.Authority, firm.Audience));
+        Assert.Equal((ClientIssuer, "compliance-api"), (clientIssuer.Authority, clientIssuer.Audience));
+        Assert.All([firm, clientIssuer], scheme =>
+        {
+            Assert.True(scheme.TokenValidationParameters.ValidateIssuer);
+            Assert.True(scheme.TokenValidationParameters.ValidateAudience);
+            Assert.True(scheme.TokenValidationParameters.ValidateIssuerSigningKey);
+            Assert.True(scheme.RequireHttpsMetadata);
+            Assert.False(scheme.MapInboundClaims);
+        });
+    }
+
+    [Fact]
     public async Task ShouldRejectTokenGivenIssuerSignedWithAnotherIssuersKey()
     {
         // Arrange
@@ -100,21 +126,22 @@ public sealed class MultipleTrustedIssuerWebTests
                     services.Remove(descriptor);
                 services.RemoveAll<IEventStore>();
                 services.AddSingleton<IEventStore, InMemoryEventStore>();
-                TrustIssuer(services, "BdgrzResource0", FirmIssuer, FirmSecret);
-                TrustIssuer(services, "BdgrzResource1", ClientIssuer, ClientSecret);
+                TrustIssuer(services, "BdgrzResource0", FirmSecret);
+                TrustIssuer(services, "BdgrzResource1", ClientSecret);
             });
         });
 
-    static void TrustIssuer(IServiceCollection services, string scheme, string issuer, string secret) =>
+    static void TrustIssuer(IServiceCollection services, string scheme, string secret) =>
         services.PostConfigure<JwtBearerOptions>(scheme, options =>
         {
-            // Replaces metadata discovery with the issuer's static test key.
-            options.Configuration = new OpenIdConnectConfiguration { Issuer = issuer };
-            options.Configuration.SigningKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)));
-            options.TokenValidationParameters.IssuerSigningKey =
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-            options.TokenValidationParameters.ValidIssuer = issuer;
-            options.TokenValidationParameters.ValidAudience = "compliance-api";
+            // Replaces only metadata discovery. The expected issuer comes from the scheme's
+            // configured Authority and the audience from its configured Audience.
+            var metadata = new OpenIdConnectConfiguration { Issuer = options.Authority };
+            metadata.SigningKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)));
+            options.Configuration = metadata;
+            options.ConfigurationManager =
+                new Microsoft.IdentityModel.Protocols.StaticConfigurationManager<OpenIdConnectConfiguration>(
+                    metadata);
         });
 
     static string Token(string issuer, string secret, string subject)
