@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz;
 using Cntryl.Fitz.Testing;
@@ -119,6 +120,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
                 static record => Assert.IsType<ProgramCreated>(record.Event),
                 static record => Assert.IsType<ProgramRevised>(record.Event));
 
+            await WaitForTenantAdministrationAsync(restoredClient, secondTenantId);
             using var undisclosed = await restoredClient.GetAsync(
                 $"/api/v1/tenants/{secondTenantId}/programs/{programId}");
             Assert.Equal(HttpStatusCode.NotFound, undisclosed.StatusCode);
@@ -238,6 +240,30 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         }
 
         throw new TimeoutException($"The program history did not reach {count} revisions.");
+    }
+
+    static async Task WaitForTenantAdministrationAsync(HttpClient client, string tenantId)
+    {
+        var parsedTenantId = Uuid.Parse(tenantId, CultureInfo.InvariantCulture);
+        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(parsedTenantId);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastResponse = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            if (response.StatusCode == HttpStatusCode.OK)
+                return;
+
+            lastResponse = $"{(int)response.StatusCode} " +
+                           await response.Content.ReadAsStringAsync();
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                lastResponse);
+            await Task.Delay(250);
+        }
+
+        throw new TimeoutException(
+            $"The restored tenant administration was not readable: {lastResponse}");
     }
 
     static async Task<IReadOnlyList<DomainEventRecord>> ReadProgramEventsAsync(
