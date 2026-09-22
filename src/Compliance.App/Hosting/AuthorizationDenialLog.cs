@@ -21,6 +21,9 @@ sealed partial class AuthorizationDenialLog(
     IHttpContextAccessor httpContexts,
     ILoggerFactory loggers) : IHostedService, IDisposable
 {
+    /// <summary>The path the Portia MCP transport is mapped at.</summary>
+    public const string McpPath = "/mcp";
+
     const string AuthorizationInstrument = "portia.authorization.duration";
 
     readonly ILogger _logger = loggers.CreateLogger("Bdgrz.Compliance.Authorization");
@@ -77,18 +80,32 @@ sealed partial class AuthorizationDenialLog(
         if (outcome is not ("unauthorized" or "forbidden" or "not_found"))
             return;
 
-        // The listener is process-wide; only the host that owns the ambient call records it.
-        var httpContext = httpContexts.HttpContext;
-        if (httpContext is null ||
-            !ReferenceEquals(httpContext.RequestServices.GetService<AuthorizationDenialLog>(), this))
-            return;
+        // This runs inside Portia's authorization call; a failed observation must never change or
+        // replace the authorization result the caller receives.
+        try
+        {
+            // The listener is process-wide; only the host that owns the ambient call records it.
+            var httpContext = httpContexts.HttpContext;
+            if (httpContext is null ||
+                !ReferenceEquals(httpContext.RequestServices.GetService<AuthorizationDenialLog>(), this))
+                return;
 
-        var route = (httpContext.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText;
-        var transport = route?.StartsWith("/mcp", StringComparison.Ordinal) == true ? "mcp" : "http";
-        LogDenied(_logger, outcome, stage ?? "unknown", component ?? "unknown", transport,
-            httpContext.Request.Method, route, TenantId(httpContext), ActorId(httpContext.User),
-            httpContext.TraceIdentifier);
+            var route = (httpContext.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText;
+            LogDenied(_logger, outcome, stage ?? "unknown", component ?? "unknown", Transport(route),
+                httpContext.Request.Method, route, TenantId(httpContext), ActorId(httpContext.User),
+                httpContext.TraceIdentifier);
+        }
+#pragma warning disable CA1031 // Observation failures are swallowed so authorization stays authoritative.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
     }
+
+    static string Transport(string? route) =>
+        route is not null && (route == McpPath || route.StartsWith(McpPath + "/", StringComparison.Ordinal))
+            ? "mcp"
+            : "http";
 
     static string? TenantId(HttpContext httpContext) =>
         httpContext.Request.RouteValues.TryGetValue("tenant_id", out var value) &&
@@ -96,18 +113,9 @@ sealed partial class AuthorizationDenialLog(
             ? tenantId.ToString()
             : null;
 
-    // Mirrors the actor rule used by request authorizers: only the Bdgrz session subject names the
-    // actor; an external provider identity on the same principal never does.
-    static string? ActorId(ClaimsPrincipal user)
-    {
-        var subject = user.Identities
-            .FirstOrDefault(identity => identity.IsAuthenticated &&
-                string.Equals(identity.FindFirst("iss")?.Value, "bdgrz", StringComparison.Ordinal))
-            ?.FindFirst("sub")?.Value;
-        return Uuid.TryParse(subject, CultureInfo.InvariantCulture, out var userId) && userId != Uuid.Empty
-            ? userId.ToString()
-            : null;
-    }
+    // Uses the request authorizers' own actor rule: only the Bdgrz session subject names the actor.
+    static string? ActorId(ClaimsPrincipal user) =>
+        UserIdentityClaims.TryGetBdgrzSubject(user, out var userId) ? userId.ToString() : null;
 
     [LoggerMessage(EventId = 4031, EventName = "AuthorizationDenied", Level = LogLevel.Warning,
         Message = "Authorization denied: {outcome} by {component} ({stage}) for {transport} {method} {route} " +

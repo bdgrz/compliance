@@ -48,35 +48,36 @@ public sealed class IndependenceCompartmentsTests
     }
 
     [Fact]
-    public void ShouldDenyAdvisoryWorkingNotesGivenAttestAssignee()
+    public void ShouldBlockAdvisoryWorkingNotesGivenAttestAssignee()
     {
         // Arrange
         EngagementAssignment[] actorAssignments =
             [new(ClientId, AttestEngagementId, PersonId, EngagementPractice.Attest)];
 
         // Act
-        var notes = IndependenceCompartments.CanRead(ClientId, actorAssignments,
+        var notes = IndependenceCompartments.IsBlockedByWall(ClientId, actorAssignments,
             RecordCompartment.AdvisoryWorkingNotes);
-        var shared = IndependenceCompartments.CanRead(ClientId, actorAssignments, RecordCompartment.Shared);
+        var shared = IndependenceCompartments.IsBlockedByWall(ClientId, actorAssignments,
+            RecordCompartment.Shared);
 
         // Assert
-        Assert.False(notes);
-        Assert.True(shared);
+        Assert.True(notes);
+        Assert.False(shared);
     }
 
     [Fact]
-    public void ShouldAllowAdvisoryWorkingNotesGivenAdvisoryAssignee()
+    public void ShouldNotBlockAdvisoryWorkingNotesGivenAdvisoryAssignee()
     {
         // Arrange
         EngagementAssignment[] actorAssignments =
             [new(ClientId, AdvisoryEngagementId, PersonId, EngagementPractice.Advisory)];
 
         // Act
-        var allowed = IndependenceCompartments.CanRead(ClientId, actorAssignments,
+        var blocked = IndependenceCompartments.IsBlockedByWall(ClientId, actorAssignments,
             RecordCompartment.AdvisoryWorkingNotes);
 
         // Assert
-        Assert.True(allowed);
+        Assert.False(blocked);
     }
 
     [Theory]
@@ -86,10 +87,10 @@ public sealed class IndependenceCompartmentsTests
     public void ShouldRejectAttestAcceptanceGivenImpairingServiceWithinTwelveMonths(AdvisoryService service)
     {
         // Arrange
-        AdvisoryEngagementRecord[] history = [new(service, AcceptedOn.AddMonths(-11))];
+        AdvisoryEngagementRecord[] history = [new(ClientId, service, AcceptedOn.AddMonths(-11))];
 
         // Act
-        var result = IndependenceCompartments.CanAcceptAttestEngagement(history, AcceptedOn,
+        var result = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
             partnerEvaluationRecorded: true);
 
         // Assert
@@ -101,10 +102,10 @@ public sealed class IndependenceCompartmentsTests
     public void ShouldRejectAttestAcceptanceGivenOngoingImpairingService()
     {
         // Arrange
-        AdvisoryEngagementRecord[] history = [new(AdvisoryService.ControlOperation, EndedOn: null)];
+        AdvisoryEngagementRecord[] history = [new(ClientId, AdvisoryService.ControlOperation, EndedOn: null)];
 
         // Act
-        var result = IndependenceCompartments.CanAcceptAttestEngagement(history, AcceptedOn,
+        var result = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
             partnerEvaluationRecorded: true);
 
         // Assert
@@ -116,10 +117,10 @@ public sealed class IndependenceCompartmentsTests
     {
         // Arrange
         AdvisoryEngagementRecord[] history =
-            [new(AdvisoryService.ControlDesign, AcceptedOn.AddMonths(-12).AddDays(-1))];
+            [new(ClientId, AdvisoryService.ControlDesign, AcceptedOn.AddMonths(-12).AddDays(-1))];
 
         // Act
-        var result = IndependenceCompartments.CanAcceptAttestEngagement(history, AcceptedOn,
+        var result = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
             partnerEvaluationRecorded: false);
 
         // Assert
@@ -130,18 +131,33 @@ public sealed class IndependenceCompartmentsTests
     public void ShouldRequirePartnerEvaluationGivenRecentReadinessAssessmentOnly()
     {
         // Arrange
-        AdvisoryEngagementRecord[] history = [new(AdvisoryService.ReadinessAssessment, AcceptedOn.AddMonths(-2))];
+        AdvisoryEngagementRecord[] history = [new(ClientId, AdvisoryService.ReadinessAssessment, AcceptedOn.AddMonths(-2))];
 
         // Act
-        var withoutEvaluation = IndependenceCompartments.CanAcceptAttestEngagement(history, AcceptedOn,
+        var withoutEvaluation = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
             partnerEvaluationRecorded: false);
-        var withEvaluation = IndependenceCompartments.CanAcceptAttestEngagement(history, AcceptedOn,
+        var withEvaluation = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
             partnerEvaluationRecorded: true);
 
         // Assert
         Assert.False(withoutEvaluation.IsSuccess);
         Assert.Equal(RequestErrorKind.Validation, withoutEvaluation.Error!.Kind);
         Assert.True(withEvaluation.IsSuccess);
+    }
+
+    [Fact]
+    public void ShouldIgnoreOtherClientAdvisoryGivenAttestAcceptance()
+    {
+        // Arrange
+        AdvisoryEngagementRecord[] history =
+            [new(OtherClientId, AdvisoryService.ControlDesign, AcceptedOn.AddMonths(-1))];
+
+        // Act
+        var result = IndependenceCompartments.CanAcceptAttestEngagement(ClientId, history, AcceptedOn,
+            partnerEvaluationRecorded: false);
+
+        // Assert
+        Assert.True(result.IsSuccess);
     }
 
     static Uuid Id(string value) => Uuid.Parse(value, CultureInfo.InvariantCulture);

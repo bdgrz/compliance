@@ -32,8 +32,8 @@ public sealed record EngagementAssignment(
     Uuid UserId,
     EngagementPractice Practice);
 
-/// <summary>A past or ongoing advisory engagement for the client an attest engagement would examine.</summary>
-public sealed record AdvisoryEngagementRecord(AdvisoryService Service, DateOnly? EndedOn);
+/// <summary>A past or ongoing advisory engagement the firm delivered to one client.</summary>
+public sealed record AdvisoryEngagementRecord(Uuid ClientTenantId, AdvisoryService Service, DateOnly? EndedOn);
 
 /// <summary>
 ///     The M0-D26 strict independence wall between advisory and attest work for one client, as in-code
@@ -59,13 +59,18 @@ public static class IndependenceCompartments
             : Result.Success;
     }
 
-    /// <summary>Attest assignees for a client cannot read that client's advisory working notes.</summary>
-    public static bool CanRead(Uuid clientTenantId, IEnumerable<EngagementAssignment> actorAssignments,
+    /// <summary>
+    ///     Returns whether the wall blocks the actor from a client's record compartment: attest assignees
+    ///     cannot read that client's advisory working notes. This is a deny rule layered on the ordinary
+    ///     grant, never a grant: an actor it does not block still needs a membership or advisory
+    ///     assignment that permits the read.
+    /// </summary>
+    public static bool IsBlockedByWall(Uuid clientTenantId, IEnumerable<EngagementAssignment> actorAssignments,
         RecordCompartment compartment)
     {
         ArgumentNullException.ThrowIfNull(actorAssignments);
-        return compartment != RecordCompartment.AdvisoryWorkingNotes ||
-            !actorAssignments.Any(assignment =>
+        return compartment == RecordCompartment.AdvisoryWorkingNotes &&
+            actorAssignments.Any(assignment =>
                 assignment.ClientTenantId == clientTenantId &&
                 assignment.Practice == EngagementPractice.Attest);
     }
@@ -75,12 +80,13 @@ public static class IndependenceCompartments
     ///     implementation, or operation from the firm within the last twelve months, including
     ///     ongoing work. A readiness assessment in the same window requires a recorded partner evaluation.
     /// </summary>
-    public static Result CanAcceptAttestEngagement(IEnumerable<AdvisoryEngagementRecord> advisoryHistory,
-        DateOnly acceptedOn, bool partnerEvaluationRecorded)
+    public static Result CanAcceptAttestEngagement(Uuid clientTenantId,
+        IEnumerable<AdvisoryEngagementRecord> advisoryHistory, DateOnly acceptedOn, bool partnerEvaluationRecorded)
     {
         ArgumentNullException.ThrowIfNull(advisoryHistory);
         var windowStart = acceptedOn.AddMonths(-LookBackMonths);
         var recent = advisoryHistory
+            .Where(record => record.ClientTenantId == clientTenantId)
             .Where(record => record.EndedOn is null || record.EndedOn.Value >= windowStart)
             .ToArray();
         if (recent.Any(record => record.Service is not AdvisoryService.ReadinessAssessment))

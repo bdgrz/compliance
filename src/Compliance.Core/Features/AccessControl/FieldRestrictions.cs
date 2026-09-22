@@ -18,20 +18,58 @@ public static class FieldClasses
     public static FieldClass EvidenceQuarantinedContent { get; } = new("evidence.quarantined_content");
 }
 
-/// <summary>A restricted field value, or an explicit redaction marker when the actor lacks its class.</summary>
-public readonly record struct RestrictedField<T>(T? Value, bool IsRedacted);
+/// <summary>
+///     A restricted field value, or an explicit redaction. A redacted field holds no value, so reading
+///     <see cref="Value" /> fails instead of yielding a default that could pass for data.
+/// </summary>
+public sealed class RestrictedField<T>
+{
+    readonly T _value;
+
+    RestrictedField(T value, bool isRedacted)
+    {
+        _value = value;
+        IsRedacted = isRedacted;
+    }
+
+    internal static RestrictedField<T> Redacted { get; } = new(default!, isRedacted: true);
+
+    public bool IsRedacted { get; }
+
+    public T Value => IsRedacted
+        ? throw new InvalidOperationException("The field is redacted for this actor.")
+        : _value;
+
+    internal static RestrictedField<T> Visible(T value) => new(value, isRedacted: false);
+}
+
+/// <summary>One actor's read decision for one field class, resolved once and applied to many values.</summary>
+public sealed class FieldRedactor
+{
+    internal FieldRedactor(FieldClass fieldClass, bool canRead)
+    {
+        FieldClass = fieldClass;
+        CanRead = canRead;
+    }
+
+    public FieldClass FieldClass { get; }
+
+    public bool CanRead { get; }
+
+    public RestrictedField<T> Apply<T>(T value) =>
+        CanRead ? RestrictedField<T>.Visible(value) : RestrictedField<T>.Redacted;
+}
 
 /// <summary>Applies field-class read permissions before a handler returns, lists, searches, or exports a record.</summary>
 public static class FieldRestrictions
 {
-    public static async ValueTask<RestrictedField<T>> ReadAsync<T>(IPermissionAuthorizer permissions,
-        Uuid tenantId, Uuid memberId, FieldClass fieldClass, T value, CancellationToken ct = default)
+    public static async ValueTask<FieldRedactor> ForActorAsync(IPermissionAuthorizer permissions,
+        Uuid tenantId, Uuid memberId, FieldClass fieldClass, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(permissions);
         ArgumentNullException.ThrowIfNull(fieldClass);
-        return await permissions.IsAllowedAsync(tenantId, memberId, fieldClass.ReadPermission, ct)
-            .ConfigureAwait(false)
-            ? new RestrictedField<T>(value, IsRedacted: false)
-            : new RestrictedField<T>(default, IsRedacted: true);
+        var canRead = await permissions.IsAllowedAsync(tenantId, memberId, fieldClass.ReadPermission, ct)
+            .ConfigureAwait(false);
+        return new FieldRedactor(fieldClass, canRead);
     }
 }

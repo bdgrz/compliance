@@ -150,8 +150,14 @@ this listener is replaced without changing the record contract.
   separation-of-duties exceptions, on-behalf-of attribution, and field classes
   are feature work in the records named above; they must use this model rather
   than a feature-local check.
-- Security operations can alert on `AuthorizationDenied` volume per actor or
-  tenant without handling client data.
+- Security operations can alert on `AuthorizationDenied` records without
+  handling client data. Alert on `forbidden` and `unauthorized` volume per
+  actor, and on `not_found` denials that one actor accumulates across several
+  distinct `tenant_id` values (probing). A brief run of `not_found` for one
+  actor in one tenant is expected while a new membership projects, so it is not
+  an alert condition by itself.
+- The denial listener never changes an authorization result: an exception
+  while observing or writing the record is swallowed.
 
 ## Evidence
 

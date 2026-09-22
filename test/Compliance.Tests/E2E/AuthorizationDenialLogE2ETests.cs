@@ -19,13 +19,18 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
     {
         // Arrange
         var logs = new CapturingLoggerProvider();
+        var bystanderLogs = new CapturingLoggerProvider();
         await using var factory = WithLogs(E2EAppFactory.Create(broker), logs);
+        // A second API host in the same process shares the process-wide meter listener.
+        await using var bystander = WithLogs(E2EAppFactory.Create(broker), bystanderLogs);
+        using var bystanderClient = bystander.CreateClient();
 
         // Act
         var denial = await DenyOutsiderAsync(factory, logs, "standalone");
 
         // Assert
         AssertDenialRecord(denial);
+        Assert.DoesNotContain(bystanderLogs.Records, record => record.EventName == "AuthorizationDenied");
     }
 
     [Fact]
@@ -93,14 +98,16 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
 
         // Wait until the owner's membership is projected so the outsider's denial is not a
         // projection-lag artifact.
+        var ownerReady = false;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        while (DateTimeOffset.UtcNow < deadline)
+        while (!ownerReady && DateTimeOffset.UtcNow < deadline)
         {
             using var ready = await owner.GetAsync(path);
-            if (ready.StatusCode == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
+            ownerReady = ready.StatusCode == HttpStatusCode.OK;
+            if (!ownerReady)
+                await Task.Delay(250);
         }
+        Assert.True(ownerReady);
 
         using var denied = await outsider.GetAsync(path);
         Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);

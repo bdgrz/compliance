@@ -180,7 +180,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.UseAuthorization();
 
     app.MapPortiaOpenApi();
-    app.MapPortiaMcp("/mcp").RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser);
+    app.MapPortiaMcp(AuthorizationDenialLog.McpPath).RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser);
 
     app.MapComplianceHealthChecks();
     app.MapGet(
