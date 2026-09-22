@@ -108,7 +108,7 @@ open decisions before their dependent stories are ready:
 | Review and approval | EN-04 shares an immutable decision shape; each workflow owns decisions and transitions | M0-D23, EN-04 |
 | Readiness rules | R1-08 owns rules; later snapshots and views bind exact rule and result versions | M0-D23 |
 | Accessibility and browser support | Decided: WCAG 2.2 AA; current and previous major desktop Chrome, Edge, Firefox, and Safari | [M0-D24](decisions/m0-d24-accessibility-and-browsers.md) |
-| Firm-owned material inside a client tenant | Decided: advisory working notes live in the client's advisory compartment; attest workpapers stay outside the platform. Retention after offboarding remains open | [M0-D25](decisions/m0-d25-client-tenancy.md), #346 |
+| Firm-owned material inside a client tenant | Decided: advisory working notes live in the client's advisory compartment. Where attest documentation lives is M0-D27's; retention after offboarding remains open | [M0-D25](decisions/m0-d25-client-tenancy.md), M0-D27, #346 |
 | "Tenant" and "organization" | Decided: tenant is the technical name of a client organization; `tenant_id` in contracts, organization in product text | [M0-D25](decisions/m0-d25-client-tenancy.md) |
 | "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
@@ -141,14 +141,16 @@ and becomes its first Org Admin. Only platform operators suspend, reactivate,
 or offboard an organization. A platform operator sees tenant metadata only
 (lifecycle, administrator roster, usage) and reads business records only
 through a membership or engagement assignment of their own. An existing
-operator grants or revokes operator status in the product, with an audit log;
-the first operator is seeded from deployment configuration.
+operator grants or revokes operator status in the product, with an audit log.
+Deployment configuration seeds only the first operator, and the last operator
+cannot be revoked.
 
 Every request, job, message, projection, and notification resolves exactly one
 active organization. The proposed routing, confirmed or amended by M0-A07, is:
 
 - after sign-in, a user is sent to their only organization, chooses among
-  several, or creates one (self-service, M0-D25);
+  several, or sees a no-access or pending-invitation page; every verified
+  signed-in user may also create an organization (self-service, M0-D25);
 - browser routes identify the organization by a unique, URL-friendly slug;
 - organization-scoped APIs identify it by an opaque, immutable `tenant_id` path
   parameter, and the server verifies membership for that `tenant_id` on every
@@ -266,7 +268,8 @@ active membership
 A responsibility may be held by a workforce `Person` who never signs in. A
 signed-in member then records that person's work on their behalf, and both are
 attributed. Self-review and self-approval are denied unless an Org Admin has
-recorded a time-bound, reason-required SoD `Waiver`, and waived actions are
+recorded a time-bound, reason-required SoD `Waiver` approved by an Org Admin
+other than its beneficiary, and waived actions are
 flagged in readiness and audit exports (M0-D03).
 
 Changing a team, grant, or responsibility must identify open work that becomes

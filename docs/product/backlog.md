@@ -193,7 +193,7 @@ Source: Product brief open decision on criteria source and permitted use; R1-03 
 
 Decided 2026-09-22: see [M0-D03 roles and separation of duties](decisions/m0-d03-roles-and-separation-of-duties.md). Client roles are Org Admin, Compliance Lead, Contributor, and Viewer; firm staff hold Advisor or Attest only through engagement assignment; self-approval needs an Org Admin SoD waiver; IdP group mapping is excluded from the first release.
 
-The platform operator is the platform super administrator for platform operations, held by an explicitly configured platform user. It is separate from tenant RBAC roles. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending access, audit, and separation-of-duties decision.
+The platform operator is the platform super administrator for platform operations, held by an explicitly configured platform user. It is separate from tenant RBAC roles. The current implementation does not automatically grant tenant membership or client business-record access. M0-D25 settles cross-tenant authority: operators see tenant metadata only.
 
 Priority: P0
 
@@ -876,7 +876,7 @@ Source: Product brief open decision on accessibility targets and supported brows
 
 Decided 2026-09-22: see [M0-D25 client tenancy](decisions/m0-d25-client-tenancy.md). Firm staff reach client records only through engagement assignment; operators see metadata only and are granted in-app by an existing operator; any verified signed-in user may create an organization. Advisory-material retention after offboarding is follow-up [#346](https://github.com/bdgrz/compliance/issues/346).
 
-Platform operators are super administrators for platform operations, including organization lifecycle and a paginated platform tenant portfolio. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending decision.
+Platform operators are super administrators for platform operations, including organization lifecycle and a paginated platform tenant portfolio. The current implementation does not automatically grant tenant membership or client business-record access. This decision settles cross-tenant authority: operators see tenant metadata only, and firm staff reach records only through engagement assignment.
 
 Priority: P0
 
@@ -2352,18 +2352,18 @@ Priority: P0
 
 Area: tenancy
 
-User story: As a firm operator, I want to create a client organization, bootstrap its first client administrator, and assign our firm staff so that each client's compliance program starts inside an isolated tenant.
+User story: As a client administrator, I want to create our organization and become its first administrator, and as a firm operator, I want to govern organization lifecycle and operator access, so that each client's compliance program starts inside an isolated tenant.
 
 Business objective: make every client's records, members, and evidence isolated from the start so the platform can serve many clients without retrofitting tenancy.
 
 Requirements:
 
-- Create a client organization with stable identity, legal and display name, lifecycle (provisioning, active, suspended), and platform-operator attribution.
+- Let any signed-in platform user with a verified email create a client organization with stable identity, legal and display name, and lifecycle (provisioning, active, suspended), attributed to its creator, who becomes its first Org Admin (M0-D25).
 - Invite the first client administrator and add firm-staff memberships with an explicit affiliation of client personnel or firm staff.
 - Let a platform user who belongs to several organizations choose the active organization, and show it unmistakably throughout the product.
 - Suspend an organization, blocking access for its members and assigned firm staff while preserving its records.
 - Leave client onboarding templates, offboarding, export, and disposition to F1-01.
-- After sign-in, send a user with one organization directly to it, a user with several to an organization selector, and a user with none to a no-access or pending-invitation page; offer creation only to users authorized to create organizations (M0-D25).
+- After sign-in, send a user with one organization directly to it, a user with several to an organization selector, and a user with none to a no-access or pending-invitation page; offer organization creation to every verified signed-in user (M0-D25).
 - Give each organization a unique, URL-friendly slug used in browser routes, and an opaque, immutable `tenant_id` used by every organization-scoped API, following M0-A07.
 - Validate every slug on the server, and mirror the validation in the browser, using these rules:
   - Length: 4 to 63 characters.
@@ -2377,13 +2377,15 @@ Requirements:
 
 Domain slice:
 
-- Owns `Organization` as the tenant boundary, its lifecycle, and platform-operator provisioning decisions.
+- Owns `Organization` as the tenant boundary, its lifecycle, self-service creation, operator lifecycle decisions, and the platform-operator roster.
 - Uses platform users, external identities, and the tenant context and isolation enforced by EN-01.
 - Supplies the organization boundary to membership, programs, and every other context; no business record exists outside an organization except explicitly platform-level content.
 
 Acceptance criteria:
 
 - [ ] Any signed-in platform user with a verified email can create a client organization and becomes its first Org Admin; only an authorized platform operator can suspend or reactivate one (amended by M0-D25, 2026-09-22).
+- [ ] An existing operator can grant or revoke operator status in the product; every grant and revocation is audit logged, configuration seeds only the first operator, and the last operator cannot be revoked (M0-D25).
+- [ ] An operator sees tenant metadata only and cannot read an organization's business records without a membership or engagement assignment (M0-D25).
 - [ ] A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
 - [ ] A user with memberships in two organizations never sees, counts, searches, or receives notifications about records from the organization that is not active.
 - [ ] Suspending an organization blocks access immediately for its members and assigned firm staff and preserves all records and history.
