@@ -87,6 +87,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.program.setup-work.get",
             "bdgrz.control.draft.create",
             "bdgrz.control.draft.revise",
+            "bdgrz.control.draft.discard",
             "bdgrz.control.draft.get",
             "bdgrz.control.draft.list",
             "bdgrz.control.draft.revision.get",
@@ -166,6 +167,10 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.control.draft.create").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.control.draft.revise").Idempotent);
+        var discardControlDraft = Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.control.draft.discard");
+        Assert.True(discardControlDraft.Destructive);
+        Assert.NotEqual(true, discardControlDraft.ReadOnly);
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",

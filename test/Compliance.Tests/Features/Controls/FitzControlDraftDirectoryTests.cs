@@ -4,13 +4,34 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.Controls;
 
-public sealed class FitzControlDraftDirectoryTests
+public sealed class FitzControlDraftDirectoryV2Tests
 {
+    [Fact]
+    public async Task ShouldUseIndependentV2CheckpointGivenCurrentControlDraftProjection()
+    {
+        // Arrange
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var checkpoint = new ProjectionCheckpoint(new EventCursor("control-draft-v2"));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(Checkpoint(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(Created(tenantId, Uuid.CreateVersion4(), "AC-V2",
+                new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero)));
+            await batch.CommitAsync(checkpoint);
+        }
+
+        // Assert
+        Assert.Equal(checkpoint, await directory.LoadCheckpointAsync(tenantId));
+    }
+
     [Fact]
     public async Task ShouldPageProgramDraftsWithoutDisclosingOtherProgramsOrTenantsGivenSharedDirectory()
     {
         // Arrange
-        var directory = new FitzControlDraftDirectory(new InMemoryKvClient());
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
         var tenantId = Uuid.CreateVersion4();
         var otherTenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
@@ -51,7 +72,7 @@ public sealed class FitzControlDraftDirectoryTests
     public async Task ShouldPreserveRevisionHistoryAndAttributionGivenCommittedProjection()
     {
         // Arrange
-        var directory = new FitzControlDraftDirectory(new InMemoryKvClient());
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
         var tenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         ControlDraftCreated created = new(tenantId, programId,
@@ -92,7 +113,7 @@ public sealed class FitzControlDraftDirectoryTests
     public async Task ShouldRollBackDraftAndCheckpointGivenInvalidProjectionRevision()
     {
         // Arrange
-        var directory = new FitzControlDraftDirectory(new InMemoryKvClient());
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
         var tenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         var identity = Checkpoint(tenantId);
@@ -128,8 +149,34 @@ public sealed class FitzControlDraftDirectoryTests
         Assert.Equal(1, (await directory.GetAsync(tenantId, created.ControlId))?.Revision);
     }
 
+    [Fact]
+    public async Task ShouldRemoveCurrentDraftGivenDiscardOfUnpublishedControl()
+    {
+        // Arrange
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero);
+        var created = Created(tenantId, programId, "AC-06", now);
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(Checkpoint(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(created);
+            await directory.ApplyAsync(new ControlDraftDiscarded(tenantId, programId,
+                created.ControlId, 1, created.ActorMemberId, "Author", "Not needed",
+                now.AddMinutes(1)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        Assert.Null(await directory.GetAsync(tenantId, created.ControlId));
+        Assert.Empty((await directory.ListProgramAsync(tenantId, programId, 20, null)).Items);
+    }
+
     static CheckpointIdentity Checkpoint(Uuid tenantId) => new(
-        "ControlDraftDirectory", EventStreamPattern.ForPattern(tenantId.ToString()));
+        "ControlDraftDirectoryV2", EventStreamPattern.ForPattern(tenantId.ToString(), "controls"));
 
     static ControlDraftCreated Created(Uuid tenantId, Uuid programId, string identifier,
         DateTimeOffset now) => new(tenantId, programId,

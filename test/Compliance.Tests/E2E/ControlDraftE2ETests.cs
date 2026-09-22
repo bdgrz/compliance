@@ -329,6 +329,229 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
+    public async Task ShouldPersistApplicabilityAndFailClosedOnDiscardGivenStandaloneHost()
+    {
+        // Arrange
+        await using var factory = E2EAppFactory.Create(broker);
+        using var owner = factory.CreateClient();
+        await TenantInvitationE2ETests.LoginAsync(owner,
+            $"control-declarations-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId) = await CreateProgramAsync(owner);
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls";
+        var content = DeclaredContent("Review privileged access");
+
+        // Act
+        using var created = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-DECLARED",
+            content,
+        });
+        var registration = await ReadAsync(created);
+        var controlId = registration.GetProperty("control_id").GetString();
+        var draftPath = $"{path}/{controlId}/draft";
+        var draft = await WaitForRevisionAsync(owner, draftPath, 1);
+        using var discarded = await owner.PostAsJsonAsync($"{draftPath}/discards", new
+        {
+            expected_revision = 1,
+            rationale = "This is still linked to a proposed applicability entry.",
+        });
+        using var wrongProgram = await owner.PutAsJsonAsync(
+            $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/controls/{controlId}/draft",
+            new
+            {
+                expected_revision = 1,
+                content = GovernedApplicationContent("Wrong-program revision", Guid.NewGuid()),
+            });
+        using var staleInvalid = await owner.PutAsJsonAsync(draftPath, new
+        {
+            expected_revision = 0,
+            content = GovernedApplicationContent("Stale invalid revision", Guid.NewGuid()),
+        });
+        var staleInvalidBody = await staleInvalid.Content.ReadAsStringAsync();
+        using var nullContent = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-NULL-CONTENT",
+            content = (object?)null,
+        });
+        using var nullEvidence = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-NULL-EVIDENCE",
+            content = new
+            {
+                title = "Null expected evidence",
+                objective = "Ensure access is reviewed",
+                description = "People with privileged access are reviewed.",
+                implementation_narrative = "The security lead reviews the access listing.",
+                expected_evidence_descriptions = (object?)null,
+            },
+        });
+        using var nullApplicabilityEntry = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-NULL-ENTRY",
+            content = new
+            {
+                title = "Null applicability entry",
+                objective = "Ensure access is reviewed",
+                description = "People with privileged access are reviewed.",
+                implementation_narrative = "The security lead reviews the access listing.",
+                expected_evidence_descriptions = new List<string> { "Review record" },
+                applicability = new List<object?> { null },
+            },
+        });
+        using var invalid = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-EMPTY-REF",
+            content = GovernedApplicationContent("Invalid application reference", Guid.Empty),
+        });
+        using var malformedGoverned = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-MALFORMED-GOVERNED",
+            content = new
+            {
+                title = "Malformed governed reference",
+                objective = "Ensure access is reviewed",
+                description = "People with privileged access are reviewed.",
+                implementation_narrative = "The security lead reviews the access listing.",
+                expected_evidence_descriptions = new List<string> { "Review record" },
+                applicability = new[]
+                {
+                    new
+                    {
+                        entry_id = Guid.NewGuid(),
+                        subject_type = "application",
+                        subject = " ",
+                        governed_record_id = Guid.NewGuid(),
+                        rationale = "This malformed reference must not query inventory.",
+                        unresolved = false,
+                    },
+                },
+            },
+        });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        Assert.Equal("declared_unverified", draft.GetProperty("owner_resolution").GetString());
+        Assert.Equal("unresolved", draft.GetProperty("applicability_resolution").GetString());
+        Assert.Equal("Security lead", draft.GetProperty("content")
+            .GetProperty("owner_reference").GetString());
+        var applicability = draft.GetProperty("content").GetProperty("applicability");
+        Assert.Equal("risk", applicability[0].GetProperty("subject_type").GetString());
+        Assert.True(applicability[0].GetProperty("unresolved").GetBoolean());
+        Assert.Equal(HttpStatusCode.Conflict, discarded.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, wrongProgram.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, staleInvalid.StatusCode);
+        Assert.Contains("revision: 1", staleInvalidBody, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.BadRequest, nullContent.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, nullEvidence.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, nullApplicabilityEntry.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, malformedGoverned.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldDiscardUnlinkedDraftThroughHttpAndMcpGivenStandaloneHost()
+    {
+        // Arrange
+        await using var factory = E2EAppFactory.Create(broker);
+        using var owner = factory.CreateClient();
+        using var outsider = factory.CreateClient();
+        await TenantInvitationE2ETests.LoginAsync(owner,
+            $"control-discard-owner-{Guid.NewGuid():N}@example.com");
+        await TenantInvitationE2ETests.LoginAsync(outsider,
+            $"control-discard-outsider-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId) = await CreateProgramAsync(owner);
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls";
+
+        // Act
+        using var created = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "AC-DISCARD",
+            content = Content("Discardable draft"),
+        });
+        var registration = await ReadAsync(created);
+        var controlId = registration.GetProperty("control_id").GetString();
+        var draftPath = $"{path}/{controlId}/draft";
+        _ = await WaitForRevisionAsync(owner, draftPath, 1);
+        using var outsiderDiscard = await outsider.PostAsJsonAsync($"{draftPath}/discards", new
+        {
+            expected_revision = 1,
+            rationale = "Outsiders cannot discard this.",
+        });
+        await using var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+            new Uri(outsider.BaseAddress!, "/mcp"));
+        _ = await outsiderMcp.When("bdgrz.control.draft.discard", new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId,
+            ["program_id"] = programId,
+            ["control_id"] = controlId,
+            ["expected_revision"] = 1,
+            ["rationale"] = "Outsiders cannot discard this through MCP.",
+        }).ExpectFailure();
+        using var blankRationale = await owner.PostAsJsonAsync($"{draftPath}/discards", new
+        {
+            expected_revision = 1,
+            rationale = " ",
+        });
+        using var wrongProgramDiscard = await owner.PostAsJsonAsync(
+            $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/controls/{controlId}/draft/discards",
+            new
+            {
+                expected_revision = 1,
+                rationale = "A different program cannot discard this draft.",
+            });
+        using var discarded = await owner.PostAsJsonAsync($"{draftPath}/discards", new
+        {
+            expected_revision = 1,
+            rationale = "This draft is not needed.",
+        });
+        using var discardedCurrent = await owner.GetAsync(draftPath);
+        using var discardedHistory = await owner.GetAsync($"{draftPath}/revisions");
+        using var discardedRevision = await owner.GetAsync($"{draftPath}/revisions/1");
+        var mcpControlId = ControlDraft.IdFor(Uuid.FromGuid(tenantId), Uuid.FromGuid(programId),
+            "MCP-DISCARD");
+        await using var mcp = await McpScenario.ConnectAsync(owner,
+            new Uri(owner.BaseAddress!, "/mcp"));
+        _ = await mcp.When("bdgrz.control.draft.create", new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId,
+            ["program_id"] = programId,
+            ["identifier"] = "MCP-DISCARD",
+            ["content"] = Content("Discard through MCP"),
+        }).ExpectSuccess();
+        _ = await WaitForRevisionAsync(owner, $"{path}/{mcpControlId}/draft", 1);
+        _ = await mcp.When("bdgrz.control.draft.discard", new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId,
+            ["program_id"] = programId,
+            ["control_id"] = mcpControlId,
+            ["expected_revision"] = 1,
+            ["rationale"] = "MCP draft is not needed.",
+        }).ExpectSuccess();
+        using var mcpDiscarded = await owner.GetAsync($"{path}/{mcpControlId}/draft");
+        using var openApiResponse = await owner.GetAsync("/openapi/v1.json");
+        var openApi = await ReadAsync(openApiResponse);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderDiscard.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, blankRationale.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, wrongProgramDiscard.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, discarded.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, discardedCurrent.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, discardedHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, discardedRevision.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, mcpDiscarded.StatusCode);
+        var discardOperation = openApi.GetProperty("paths").GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/discards")
+            .GetProperty("post");
+        var discardSchema = discardOperation.GetProperty("requestBody")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.True(discardSchema.GetProperty("properties").TryGetProperty("expected_revision", out _));
+        Assert.True(discardSchema.GetProperty("properties").TryGetProperty("rationale", out _));
+        Assert.False(discardSchema.GetProperty("properties").TryGetProperty("tenant_id", out _));
+    }
+
+    [Fact]
     public async Task ShouldRecoverDraftProjectionGivenSplitWorkerRestart()
     {
         // Arrange
@@ -435,6 +658,78 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         }
     }
 
+    [Fact]
+    public async Task ShouldRecoverDiscardProjectionGivenSplitWorkerRestart()
+    {
+        // Arrange
+        var applicationName = $"compliance-control-discard-split-{Guid.NewGuid():N}";
+        using var worker = BuildWorker(applicationName);
+        await worker.StartAsync();
+        await using var factory = E2EAppFactory.Create(broker, applicationName);
+        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        HttpClient client;
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            client = factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+        }
+        using var owner = client;
+        await TenantInvitationE2ETests.LoginAsync(owner,
+            $"control-discard-split-owner-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId) = await CreateProgramAsync(owner);
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls";
+        await worker.StopAsync();
+
+        // Act
+        using var created = await owner.PostAsJsonAsync(path, new
+        {
+            identifier = "CC-DISCARD-01",
+            content = Content("Review deployment changes"),
+        });
+        var controlId = (await ReadAsync(created)).GetProperty("control_id").GetString();
+        var draftPath = $"{path}/{controlId}/draft";
+        using var restarted = BuildWorker(applicationName);
+        await restarted.StartAsync();
+        try
+        {
+            _ = await WaitForRevisionAsync(owner, draftPath, 1);
+            await restarted.StopAsync();
+            using var discarded = await owner.PostAsJsonAsync($"{draftPath}/discards", new
+            {
+                expected_revision = 1,
+                rationale = "This control was created in the wrong program.",
+            });
+            using var sourceHidden = await owner.GetAsync(draftPath);
+            using var laggedList = await owner.GetAsync(path);
+            using var resumed = BuildWorker(applicationName);
+            await resumed.StartAsync();
+            try
+            {
+                var empty = await WaitForEmptyControlListAsync(owner, path);
+
+                // Assert
+                Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+                Assert.Equal(HttpStatusCode.NoContent, discarded.StatusCode);
+                Assert.Equal(HttpStatusCode.NotFound, sourceHidden.StatusCode);
+                Assert.Equal(HttpStatusCode.Conflict, laggedList.StatusCode);
+                Assert.Equal("true", laggedList.Headers.GetValues("Portia-Transient").Single());
+                Assert.Empty(empty.GetProperty("items").EnumerateArray());
+            }
+            finally
+            {
+                await resumed.StopAsync();
+            }
+        }
+        finally
+        {
+            await restarted.StopAsync();
+        }
+    }
+
     IHost BuildWorker(string applicationName)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
@@ -456,6 +751,49 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         description = "People with privileged access are reviewed.",
         implementation_narrative = "The security lead reviews the access listing.",
         expected_evidence_descriptions = new[] { "Review record", "Access listing" },
+    };
+
+    static object DeclaredContent(string title) => new
+    {
+        title,
+        objective = "Ensure access is reviewed",
+        description = "People with privileged access are reviewed.",
+        implementation_narrative = "The security lead reviews the access listing.",
+        expected_evidence_descriptions = new[] { "Review record", "Access listing" },
+        owner_reference = " Security lead ",
+        applicability = new[]
+        {
+            new
+            {
+                entry_id = Guid.NewGuid(),
+                subject_type = "risk",
+                subject = "Privileged access",
+                governed_record_id = (Guid?)null,
+                rationale = "Treatment is pending.",
+                unresolved = true,
+            },
+        },
+    };
+
+    static object GovernedApplicationContent(string title, Guid applicationId) => new
+    {
+        title,
+        objective = "Ensure access is reviewed",
+        description = "People with privileged access are reviewed.",
+        implementation_narrative = "The security lead reviews the access listing.",
+        expected_evidence_descriptions = new[] { "Review record", "Access listing" },
+        applicability = new[]
+        {
+            new
+            {
+                entry_id = Guid.NewGuid(),
+                subject_type = "application",
+                subject = "GitHub",
+                governed_record_id = applicationId,
+                rationale = "Access is administered there.",
+                unresolved = false,
+            },
+        },
     };
 
     static async Task<(Guid TenantId, Guid ProgramId)> CreateProgramAsync(HttpClient owner)
@@ -530,6 +868,21 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The control draft history projection did not catch up.");
+    }
+
+    static async Task<JsonElement> WaitForEmptyControlListAsync(HttpClient client, string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+                return await ReadAsync(response);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("true", response.Headers.GetValues("Portia-Transient").Single());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The control draft list projection did not catch up after discard.");
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>

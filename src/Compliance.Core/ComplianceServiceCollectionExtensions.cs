@@ -22,6 +22,7 @@ public static class ComplianceServiceCollectionExtensions
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
+        services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<MockEmailChallengeDelivery>();
         services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
@@ -75,6 +76,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ApplicationImportReadConsistency>();
         services.AddScoped<IApplicationInventoryActivity,
             EventSourcedApplicationInventoryActivity>();
+        services.AddScoped<IControlApplicabilityReferenceValidator,
+            GovernedControlApplicabilityReferenceValidator>();
         services.AddScoped<ApplicationHistoryReadConsistency>();
         services.AddScoped<SystemInstanceReadConsistency>();
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
@@ -88,11 +91,11 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<ProgramHistoryReadConsistency>();
-        services.AddScoped<FitzControlDraftDirectory>();
+        services.AddScoped<FitzControlDraftDirectoryV2>();
         services.AddScoped<IControlDraftDirectoryProjection>(provider =>
-            provider.GetRequiredService<FitzControlDraftDirectory>());
+            provider.GetRequiredService<FitzControlDraftDirectoryV2>());
         services.AddScoped<IControlDraftDirectoryReader>(provider =>
-            provider.GetRequiredService<FitzControlDraftDirectory>());
+            provider.GetRequiredService<FitzControlDraftDirectoryV2>());
         services.AddScoped<ControlDraftReadConsistency>();
         services.AddScoped<ControlDraftListReadConsistency>();
         services.AddScoped<FitzControlDraftHistoryDirectoryV1>();
@@ -222,6 +225,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<CreateControlDraftHandler>()
             .AddRequestHandler<ReviseControlDraftHandler>()
+            .AddRequestHandler<DiscardControlDraftHandler>()
             .AddRequestHandler<GetControlDraftHandler>()
             .AddRequestHandler<ListControlDraftsHandler>()
             .AddRequestHandler<ListControlDraftRevisionsHandler>()
@@ -327,7 +331,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<TenantInvitationDirectoryProjector>("TenantInvitationDirectory",
                 WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
-            .AddProjector<ControlDraftDirectoryProjector>("ControlDraftDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ControlDraftDirectoryV2Projector>("ControlDraftDirectoryV2",
+                WorkloadScope.PerTenant)
             .AddProjector<ControlDraftHistoryDirectoryV1Projector>(
                 "ControlDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<CommitmentDraftDirectoryProjector>("CommitmentDraftDirectory",
