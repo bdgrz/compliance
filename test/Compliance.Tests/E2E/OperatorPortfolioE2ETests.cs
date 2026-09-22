@@ -99,6 +99,12 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
                 firstDocument.RootElement.GetProperty("items")[0].GetProperty("tenant_id").GetString(),
                 secondDocument.RootElement.GetProperty("items")[0].GetProperty("tenant_id").GetString());
 
+            foreach (var query in new[] { "?limit=0", "?limit=201", "?cursor=not-a-cursor" })
+            {
+                using var invalid = await operatorClient.GetAsync($"{path}{query}");
+                Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+            }
+
             using var denied = await ordinaryClient.GetAsync(path);
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
             using var unauthenticated = factory.CreateClient();
@@ -112,6 +118,14 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
                 new Uri(operatorClient.BaseAddress!, "/mcp"));
             _ = await operatorMcp.When("bdgrz.platform.tenant.list",
                 new Dictionary<string, object?> { ["limit"] = 2 }).ExpectSuccess();
+            foreach (var invalidInput in new[]
+                     {
+                         new Dictionary<string, object?> { ["limit"] = 0 },
+                         new Dictionary<string, object?> { ["limit"] = 201 },
+                         new Dictionary<string, object?> { ["cursor"] = "not-a-cursor" },
+                     })
+                _ = await operatorMcp.When("bdgrz.platform.tenant.list", invalidInput)
+                    .ExpectFailure("Validation");
             await using var ordinaryMcp = await McpScenario.ConnectAsync(ordinaryClient,
                 new Uri(ordinaryClient.BaseAddress!, "/mcp"));
             _ = await ordinaryMcp.When("bdgrz.platform.tenant.list",
