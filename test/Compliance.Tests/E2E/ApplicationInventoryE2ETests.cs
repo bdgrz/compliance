@@ -233,6 +233,26 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await Task.Delay(250);
             }
             Assert.True(instanceReferenceProjected);
+            using (var invalidApplicationLimit = await owner.GetAsync(
+                       $"{applicationReferencesPath}?limit=0"))
+            using (var oversizedApplicationLimit = await owner.GetAsync(
+                       $"{applicationReferencesPath}?limit=201"))
+            using (var invalidApplicationCursor = await owner.GetAsync(
+                       $"{applicationReferencesPath}?cursor=not-a-cursor"))
+            using (var invalidInstanceLimit = await owner.GetAsync(
+                       $"{instanceReferencesPath}?limit=0"))
+            using (var oversizedInstanceLimit = await owner.GetAsync(
+                       $"{instanceReferencesPath}?limit=201"))
+            using (var invalidInstanceCursor = await owner.GetAsync(
+                       $"{instanceReferencesPath}?cursor=not-a-cursor"))
+            {
+                Assert.Equal(HttpStatusCode.BadRequest, invalidApplicationLimit.StatusCode);
+                Assert.Equal(HttpStatusCode.BadRequest, oversizedApplicationLimit.StatusCode);
+                Assert.Equal(HttpStatusCode.BadRequest, invalidApplicationCursor.StatusCode);
+                Assert.Equal(HttpStatusCode.BadRequest, invalidInstanceLimit.StatusCode);
+                Assert.Equal(HttpStatusCode.BadRequest, oversizedInstanceLimit.StatusCode);
+                Assert.Equal(HttpStatusCode.BadRequest, invalidInstanceCursor.StatusCode);
+            }
             using (var applicationReferences = await owner.GetAsync(applicationReferencesPath))
             {
                 Assert.Equal(HttpStatusCode.OK, applicationReferences.StatusCode);
@@ -285,6 +305,13 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                         ["tenant_id"] = tenant.TenantId,
                         ["application_id"] = first.ApplicationId,
                     }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.application.boundary_references.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["application_id"] = first.ApplicationId,
+                        ["limit"] = 0,
+                    }).ExpectFailure();
                 _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
                     new Dictionary<string, object?>
                     {
@@ -292,6 +319,14 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                         ["application_id"] = first.ApplicationId,
                         ["system_instance_id"] = unprojectedInstance.SystemInstanceId,
                     }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["application_id"] = first.ApplicationId,
+                        ["system_instance_id"] = unprojectedInstance.SystemInstanceId,
+                        ["cursor"] = "not-a-cursor",
+                    }).ExpectFailure();
             }
             using var secondResponse = await owner.PostAsJsonAsync(applicationsPath, new
             {
