@@ -1,13 +1,25 @@
 # Read models, projections, and as-of calculations
 
-Status: proposed technical default for M0-A05, 2026-09-22. It records the
-tenant-scoped projection contract already exercised by Program, Boundary, draft
-history, and application boundary-reference reads. M0-A05 remains open pending
-a dedicated projection-derived-read spike in standalone and split hosts, and
-product-owned calculation and cross-client rules. M0-A01 is accepted; its
-whole-platform recovery delivery remains a separate Portia/DevOps gate.
+Status: accepted for M0-A05, 2026-09-22. It records the tenant-scoped
+projection contract already exercised by Program, Boundary, draft history, and
+application boundary-reference reads, and the dedicated projection-derived-read
+spike that proves it in standalone and split API/worker hosts. M0-A01 is
+accepted; its whole-platform recovery delivery remains a separate Portia/DevOps
+gate.
 
-Decision owner: tech lead and product owner.
+Decision owner: Jeff Repanich, tech lead, 2026-09-22. Product-owned
+calculation semantics and any cross-client authority remain with the owners
+named under [Deferred ownership](#deferred-ownership).
+
+## Options considered
+
+| Option | Outcome |
+| --- | --- |
+| Synchronous projection writes inside the command transaction | Rejected. It blurs source authority, prevents independent replay, and makes host topology part of command correctness. |
+| Asynchronous tenant-scoped Portia projectors with transactional checkpoints | **Chosen.** Source streams stay authoritative; projections are rebuildable and host-mode independent. |
+| Serve the last successful projection with a staleness marker when a derived read lags | Rejected for reads that declare source anchors. A stale success is indistinguishable from a current answer to an API or MCP client. The read returns a retryable transient conflict instead. |
+| Timestamp-only `as_of` labels on live queries | Rejected. A live multi-record read is not reproducible from a timestamp. |
+| A shared cross-client read model for portfolio queries | Rejected. It copies restricted client rows outside their tenant before any authority model filters counts, pagination, search, or drill-down. |
 
 ## Decision
 
@@ -41,6 +53,15 @@ watermarks, or failure details. A cross-client projection or portfolio must use
 its own explicit authority model; it must not copy client rows into a shared
 read model merely to make aggregate queries convenient.
 
+Cross-client reads are denied by default. A platform user who holds
+memberships in several client organizations reads each organization only
+through that organization's route and authorization. Presenting one
+organization's identifier under another organization's route returns the
+not-found result used for an absent resource, and the other organization's
+lists do not contain the record. Any later cross-client portfolio or work
+queue (F1-02, F1-05) must be authorized under M0-A04 with M0-D25 and M0-D26
+rules before it may read more than one tenant.
+
 ## As-of calculation identity
 
 A timestamp alone does not make a live multi-record calculation reproducible.
@@ -60,6 +81,24 @@ add a generic calculation-status API before a readiness or work-calculation
 domain owns those terms and their retention rules.
 
 ## Thin evidence
+
+`ProjectionReadConsistencyE2ETests.ShouldNeverReturnStaleProjectionOrCrossTenantRowsGivenStandaloneOrSplitHost`
+is the dedicated M0-A05 spike, run once in the cohosted standalone host and
+once in split API/worker hosts against the real broker. After a boundary write
+that references an application, every application boundary-reference read is
+either a `409` with `Portia-Transient: true` or a `200` page that contains the
+new boundary; no older successful view is ever returned, and the read
+recovers once the projection catches up. The split run stops the worker before
+the write, deterministically observes the transient conflict, then restarts a
+fresh worker and reads the projected row. The standalone run exercises the same
+never-stale invariant with its cohosted projector; it cannot pause that
+projector, so it does not deterministically force the conflict. In both modes
+one user who administers two client organizations receives `404` when reading
+organization A's application through organization B's HTTP route and MCP tool,
+with the same HTTP problem as an absent application in B, and B's application
+list stays empty. An outsider receives the same HTTP
+not-found problem as for an unknown organization, and the MCP tool fails with
+`NotFound`.
 
 `ApplicationBoundaryReferencesV1` is a tenant-scoped reverse projection over
 the boundary event pattern. Its read-consistency guard compares that exact
@@ -98,15 +137,13 @@ volume. Neither probe establishes production backup or restore controls,
 measured achievement of the 15-minute RPO or 4-hour RTO, a global calculation
 snapshot, or cross-client authorization.
 
-## Alternatives and limits
+## Deferred ownership
 
-Synchronous projection writes would blur source authority, prevent independent
-replay, and make host deployment topology part of command correctness. A
-timestamp-only `as_of` label would make an unreproducible mixed read appear
-historical. Reusing a checkpoint after changing a projection schema would
-misrepresent what the checkpoint covers. A central cross-client read model
-would disclose restricted client data unless a separately reviewed authority
-model filters it before counts, pagination, search, and drill-down.
+This decision fixes the transport-level states: projection lag is a retryable
+transient conflict, and a missing or unauthorized resource is an
+indistinguishable not-found. How a browser presents a retrying read, and the
+domain meaning of incomplete inputs or a failed calculation, belong to the
+owners below rather than to this ADR.
 
 R1-08 owns readiness inputs, rule semantics, materiality, unknown and draft
 treatment, gaps, and historical assessment retention. M0-D15 and R2-11 own
@@ -118,3 +155,20 @@ boundary; whole-platform recovery implementation and timed operational evidence
 remain with [cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and
 DevOps. That external gate neither defines projection policy nor requires a
 physical per-tenant restore.
+
+## Consequences
+
+- Every new read that accepts a source revision anchor or derives from other
+  records declares the source patterns or anchors it checks and returns a
+  transient conflict, not a stale success, while they are ahead of its
+  checkpoint. Reads that promise no source revision may stay eventually
+  consistent.
+- Every tenant-scoped read authorizes before touching a source aggregate or
+  projection and checks returned rows against the request tenant.
+- Projection schema changes ship as new projector identities with replay and a
+  reconciled cutover.
+- Historical or reproducible results require an owning calculation record with
+  exact immutable inputs; a generic calculation-status API is not added ahead
+  of that domain.
+- Cross-client reads stay unavailable until an A04-governed authority model
+  for F1 exists.
