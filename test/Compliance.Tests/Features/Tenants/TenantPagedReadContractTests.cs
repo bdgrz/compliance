@@ -96,6 +96,25 @@ public sealed class TenantPagedReadContractTests
     }
 
     [Fact]
+    public async Task ShouldRejectCursorGivenFilteredTenantInvitationList()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var invitations = new InvitationDirectory { Entry = Invitation(tenantId) };
+        var handler = new ListTenantInvitationsHandler(invitations, new MembershipDirectory(),
+            TimeProvider.System);
+
+        // Act
+        var result = await handler.HandleAsync(Context(new ListTenantInvitations(tenantId,
+            Cursor: "unused", EmailAddress: "invitee@example.com"), Actor()), CancellationToken.None);
+
+        // Assert
+        AssertValidation(result.Error);
+        Assert.Equal(0, invitations.GetCount);
+        Assert.Equal(0, invitations.ListCount);
+    }
+
+    [Fact]
     public async Task ShouldNormalizeUuidCursorGivenOwnTenantPaging()
     {
         // Arrange
@@ -247,13 +266,18 @@ public sealed class TenantPagedReadContractTests
     sealed class InvitationDirectory : ITenantInvitationDirectoryReader
     {
         public TenantInvitationDirectoryEntry? Entry { get; init; }
+        public int GetCount { get; private set; }
         public int LastLimit { get; private set; }
         public int ListCount { get; private set; }
         public Page<TenantInvitationDirectoryEntry> Page { get; init; } = new([], null);
         public bool RejectCursor { get; init; }
 
         public ValueTask<TenantInvitationDirectoryEntry?> GetAsync(Uuid tenantId,
-            string emailAddress, CancellationToken ct = default) => ValueTask.FromResult(Entry);
+            string emailAddress, CancellationToken ct = default)
+        {
+            GetCount++;
+            return ValueTask.FromResult(Entry);
+        }
 
         public ValueTask<Page<TenantInvitationDirectoryEntry>> ListAsync(Uuid tenantId, int limit,
             string? cursor, CancellationToken ct = default)

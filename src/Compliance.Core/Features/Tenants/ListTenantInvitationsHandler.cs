@@ -11,6 +11,12 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
         IRequestContext<ListTenantInvitations> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Failure(RequestErrorKind.Validation,
+                "The tenant invitation list limit must be between 1 and 200.");
+        if (request.EmailAddress is not null && request.Cursor is not null)
+            return Failure(RequestErrorKind.Validation,
+                "The tenant invitation cursor cannot be used with an email address filter.");
         var now = clock.GetUtcNow();
         if (request.EmailAddress is not null)
         {
@@ -20,12 +26,24 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
                 .ConfigureAwait(false);
             if (invitation is null)
                 return Result<Page<TenantInvitationView>>.Success(new Page<TenantInvitationView>([], null));
+            if (invitation.TenantId != request.TenantId)
+                return Failure(RequestErrorKind.NotFound, "The tenant invitations were not found.");
             var view = await ToViewAsync(invitation, now, ct).ConfigureAwait(false);
             return Result<Page<TenantInvitationView>>.Success(new Page<TenantInvitationView>([view], null));
         }
 
-        var page = await directory.ListAsync(request.TenantId,
-            Math.Clamp(request.Limit ?? 50, 1, 200), request.Cursor, ct).ConfigureAwait(false);
+        Page<TenantInvitationDirectoryEntry> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, request.Limit ?? 50,
+                request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Failure(RequestErrorKind.Validation, "The tenant invitation cursor is invalid.");
+        }
+        if (page.Items.Any(invitation => invitation.TenantId != request.TenantId))
+            return Failure(RequestErrorKind.NotFound, "The tenant invitations were not found.");
         var views = new List<TenantInvitationView>(page.Items.Count);
         foreach (var entry in page.Items)
             views.Add(await ToViewAsync(entry, now, ct).ConfigureAwait(false));
