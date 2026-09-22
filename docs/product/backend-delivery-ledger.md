@@ -1,6 +1,6 @@
 # Backend delivery ledger
 
-Status: reviewed against `main` at `9c7de96` on 2026-09-21.
+Status: updated on 2026-09-22.
 
 This ledger keeps the GitHub backlog honest while backend work is delivered in
 capability-sized pull requests. A pull request may cover several dependent
@@ -47,28 +47,33 @@ child issue's complete acceptance evidence.
 | --- | --- | --- |
 | R1-15 tenancy, membership, and split-host proof | [#151](https://github.com/bdgrz/compliance/pull/151), [#153](https://github.com/bdgrz/compliance/pull/153), [#154](https://github.com/bdgrz/compliance/pull/154), [#155](https://github.com/bdgrz/compliance/pull/155), [#164](https://github.com/bdgrz/compliance/pull/164) | [R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152), [EN-01 #157](https://github.com/bdgrz/compliance/issues/157), and [R1-01 #158](https://github.com/bdgrz/compliance/issues/158) still need the documented M0-D25, M0-A07, M0-D28, cross-tenant, and complete split-host proof. |
 | Membership invitation lifecycle | [#185](https://github.com/bdgrz/compliance/pull/185), [#208](https://github.com/bdgrz/compliance/pull/208), [#263](https://github.com/bdgrz/compliance/pull/263), merge `bd63bad10a4cd6a3dff155ef2d3eb28d57f130c8` | [R1-04a backend #183](https://github.com/bdgrz/compliance/issues/183) remains open for the Portia delivery crash window, identity replacement/recovery, provider adapter, policy/source decisions, and child-specific completion proof. Personal invitation acceptance remains HTTP-only; email delivery is mocked. |
-| Boundary versioning, snapshots, and shared interval rules | [#240](https://github.com/bdgrz/compliance/pull/240), [#242](https://github.com/bdgrz/compliance/pull/242), [#243](https://github.com/bdgrz/compliance/pull/243), [#244](https://github.com/bdgrz/compliance/pull/244), [#245](https://github.com/bdgrz/compliance/pull/245), [#247](https://github.com/bdgrz/compliance/pull/247), [#248](https://github.com/bdgrz/compliance/pull/248) | [EN-02 #160](https://github.com/bdgrz/compliance/issues/160), [R1-02a #162](https://github.com/bdgrz/compliance/issues/162), [EN-03 #194](https://github.com/bdgrz/compliance/issues/194), and [R1-10a #211](https://github.com/bdgrz/compliance/issues/211) remain open until their complete authorized API/MCP, replay, lag, and split-host criteria pass. |
+| Boundary versioning, immutable history, projection consistency, snapshots, and retained-source replay | [#174](https://github.com/bdgrz/compliance/pull/174), [#175](https://github.com/bdgrz/compliance/pull/175), [#240](https://github.com/bdgrz/compliance/pull/240), [#242](https://github.com/bdgrz/compliance/pull/242), [#243](https://github.com/bdgrz/compliance/pull/243), [#244](https://github.com/bdgrz/compliance/pull/244), [#245](https://github.com/bdgrz/compliance/pull/245), [#247](https://github.com/bdgrz/compliance/pull/247), [#248](https://github.com/bdgrz/compliance/pull/248), [#318](https://github.com/bdgrz/compliance/pull/318), [#320](https://github.com/bdgrz/compliance/pull/320), [#321](https://github.com/bdgrz/compliance/pull/321) | [M0-A05 #85](https://github.com/bdgrz/compliance/issues/85) remains open for ADR acceptance after M0-A01, a dedicated projection-derived-read spike in standalone and split hosts, and product-owned calculation and cross-client rules. [EN-02 #160](https://github.com/bdgrz/compliance/issues/160) remains open for complete reuse across owning contexts, complete impact and deletion evidence, and inherited recovery acceptance. PR #321 proves retained-source Program recovery and production projector replay only; it does not prove portable backup/restore, recovery targets, a global calculation snapshot, or cross-client authorization. |
 | Application inventory, source revisions, and change impact | [#249](https://github.com/bdgrz/compliance/pull/249), [#250](https://github.com/bdgrz/compliance/pull/250), [#252](https://github.com/bdgrz/compliance/pull/252), [#258](https://github.com/bdgrz/compliance/pull/258), [#259](https://github.com/bdgrz/compliance/pull/259), [#261](https://github.com/bdgrz/compliance/pull/261) | [R1-10a #211](https://github.com/bdgrz/compliance/issues/211), [EN-05 #195](https://github.com/bdgrz/compliance/issues/195), [R1-10b #213](https://github.com/bdgrz/compliance/issues/213), and [R1-10d #217](https://github.com/bdgrz/compliance/issues/217) retain verified ownership, classification authority, source identifiers, restricted discovery, import provenance, authorization, failure recovery, and complete projection proof. #261 carries the tenant-declared classification through Portia, HTTP/MCP, Fitz current/history views, and previews while keeping it `classification_unverified`; #258 adds pre-acceptance HTTP cancellation; #259 upgrades Portia 0.5.3 and exposes the bounded stage MCP command. |
 | Control, commitment, and risk drafts | [#251](https://github.com/bdgrz/compliance/pull/251), [#253](https://github.com/bdgrz/compliance/pull/253), [#254](https://github.com/bdgrz/compliance/pull/254) | [R1-05 #197](https://github.com/bdgrz/compliance/issues/197), [R1-13 #229](https://github.com/bdgrz/compliance/issues/229), and [R1-07 #199](https://github.com/bdgrz/compliance/issues/199) retain owner, applicability, review, activation, cross-record consistency, and risk acceptance gaps called out by the merged PRs. |
 | Operator portfolio and platform tenancy | [#256](https://github.com/bdgrz/compliance/pull/256) | [R1-15 #237](https://github.com/bdgrz/compliance/issues/237) remains open for the product parent and [#239](https://github.com/bdgrz/compliance/issues/239) remains open for frontend delivery; backend child #238 is closed. |
 
 ## Next grouped implementation loop
 
-The current application-inventory authorization slice is
-[PR #266](https://github.com/bdgrz/compliance/pull/266). It assigns the dedicated
-`application_inventory.manage` grant to built-in tenant administrators and
-compliance managers, then adds a narrow idempotent grant-backfill reactor so
-existing tenants receive it through replay. It advances [R1-10a #211](https://github.com/bdgrz/compliance/issues/211)
-without claiming completion. The same bundle makes all application list limits
-explicit and turns malformed or cross-tenant opaque cursors into validation
-errors on the Portia HTTP and MCP surfaces.
+This M0 projection-consistency bundle records ADR 0007 and makes the existing
+application boundary-reference lag result explicitly transient through its
+authorized HTTP and read-only MCP contracts in split API/worker mode. The
+cohosted standalone test proves outsider non-disclosure, not lag recovery. It
+advances [M0-A05 #85](https://github.com/bdgrz/compliance/issues/85) and
+[EN-02 #160](https://github.com/bdgrz/compliance/issues/160) without claiming
+a readiness calculation, a work queue, or cross-client authority.
 
-The next dependency-ready bundle is R1-05 control-draft MCP authoring. Keep
-#126, #123, #139, #60, and #161 visible as blockers for source authority,
-organization-specific role policy, reviewed-scope decisions, and governed
-retirement. The existing application history, classification, import, and
-bounded impact slices remain useful evidence, but their children stay open
-until the issue-specific acceptance gates pass.
+The next M0 evidence bundle is [M0-A02 #82](https://github.com/bdgrz/compliance/issues/82): prove deterministic regeneration of the existing immutable
+snapshot manifest from retained source in standalone and split API/worker
+hosts. It may advance the snapshot decision while #81 remains open, but it
+cannot close [EN-03 #194](https://github.com/bdgrz/compliance/issues/194)
+before the workforce consumer, content-identity decision acceptance, and
+snapshot-specific recovery proof exist.
+
+Keep the artifact, authorization, and import work visible as decision-bound
+slices. M0-A03 needs a selected production content store; M0-A04 needs its
+field-restriction and firm-access policy; and EN-05 needs an accepted
+multi-record failure/acceptance rule. Do not create feature-local substitutes
+for those decisions.
 
 ## Synthetic documentation PR policy
 

@@ -18,7 +18,8 @@ public sealed class ApplicationBoundaryReferenceReadConsistency(
                 checkpoint.Cursor, ct).GetAsyncEnumerator(ct);
         return await pending.MoveNextAsync().ConfigureAwait(false)
             ? Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The boundary reference projection has not reached the source. Retry the query."))
+                "The boundary reference projection has not reached the source. Retry the query.",
+                isTransient: true))
             : Result.Success;
     }
 }
