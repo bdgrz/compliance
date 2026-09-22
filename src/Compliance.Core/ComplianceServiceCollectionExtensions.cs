@@ -24,6 +24,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
+        services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
+        services.AddSingleton<IArtifactInspector, UninspectedArtifactInspector>();
         services.AddSingleton<MockEmailChallengeDelivery>();
         services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
         services.AddSingleton<MockTenantInvitationDelivery>();
