@@ -171,3 +171,69 @@ public sealed class GetControlDraftRevisionHandler(IControlDraftDirectoryReader 
                 "The control draft revision projection is incomplete.", isTransient: true));
     }
 }
+
+public sealed class ControlDraftHistoryReadConsistency(
+    IControlDraftHistoryDirectoryReader directory, IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid programId, Uuid controlId,
+        long? minimumRevision, CancellationToken ct)
+    {
+        if (minimumRevision is < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum control draft revision must be positive."));
+        var source = await reader.HydrateAsync(new ControlDraft(tenantId, controlId), ct)
+            .ConfigureAwait(false);
+        if (!source.IsCreated || source.ProgramId != programId)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The control draft was not found."));
+        if (minimumRevision is { } minimum && source.Revision < minimum)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                $"The control draft source has not reached revision {minimum}.", isTransient: true));
+        var revision = await directory.GetRevisionAsync(tenantId, controlId, source.Revision, ct)
+            .ConfigureAwait(false);
+        return revision is not null && revision.TenantId == tenantId &&
+               revision.ProgramId == programId && revision.ControlId == controlId &&
+               revision.Revision == source.Revision
+            ? Result.Success
+            : Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The control draft history projection has not reached the requested revision.",
+                isTransient: true));
+    }
+}
+
+public sealed class ListControlDraftRevisionsHandler(IControlDraftHistoryDirectoryReader directory,
+    ControlDraftHistoryReadConsistency consistency)
+    : IRequestHandler<ListControlDraftRevisions, Page<ControlDraftRevisionView>>
+{
+    public async ValueTask<Result<Page<ControlDraftRevisionView>>> HandleAsync(
+        IRequestContext<ListControlDraftRevisions> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ControlDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The control draft revision list limit must be between 1 and 200."));
+        var freshness = await consistency.EnsureAsync(request.TenantId, request.ProgramId,
+            request.ControlId, request.MinimumControlDraftRevision, ct).ConfigureAwait(false);
+        if (!freshness.IsSuccess)
+            return Result<Page<ControlDraftRevisionView>>.Failure(freshness.Error);
+        Page<ControlDraftRevisionView> page;
+        try
+        {
+            page = await directory.ListRevisionsAsync(request.TenantId, request.ControlId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ControlDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The control draft revision cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId ||
+                                      item.ProgramId != request.ProgramId ||
+                                      item.ControlId != request.ControlId)
+            ? Result<Page<ControlDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                "The control draft history projection is incomplete.", isTransient: true))
+            : Result<Page<ControlDraftRevisionView>>.Success(page);
+    }
+}

@@ -56,6 +56,51 @@ Decision owner: tech lead and product owner. Date: 2026-09-19.
   domain identity and explicit rollover where needed; Portia does not support
   aggregate snapshots or prefix truncation.
 
+## Current draft-history slice evidence
+
+The control, commitment, and risk draft history slice applies that projection
+rule with one isolated V1 Fitz read model per draft family. The resources are
+`kv://bdgrz/control-draft-history-v1/projection`,
+`kv://bdgrz/commitment-draft-history-v1/projection`, and
+`kv://bdgrz/risk-draft-history-v1/projection`. Each has its own checkpoint and
+projector identity, replays retained tenant events from the beginning, and
+writes an immutable row for every creation or revision under a per-draft,
+monotonically ordered revision index. A revision event carries the new mutable
+content; the projector reads its predecessor V1 row to retain creation-only
+metadata in later history rows.
+
+The authorized history list hydrates the requested aggregate in the tenant
+realm, verifies the requested program and draft identity, and validates any
+minimum source revision against that authoritative aggregate. It then requires
+the V1 history row at the aggregate's current source revision before returning
+any page. A missing row is a retryable projection-lag conflict, rather than a
+partial history result. The handler also validates every returned row's tenant,
+program, and draft scope. This is a per-record source-revision gate; it does
+not claim a global snapshot across unrelated draft families.
+
+The existing current and exact-revision draft directories remain unchanged.
+They retain their own resources, schemas, and checkpoints while the V1 history
+projectors replay independently. That avoids reinterpreting a deployed
+checkpoint or making an in-place migration a prerequisite for historical pages.
+
+## Concurrency evidence still pending
+
+The real-broker Compliance acceptance test pauses two already hydrated program
+writes and lets both saves reach Fitz. The second save is rejected at stream
+session admission with `Cntryl.Fitz.StreamException` domain code `2002`,
+`StreamSessionAlreadyActive`, before it can attempt a stale append. This is the
+broker's intended per-resource append-session contention response. The current
+Portia adapter translates a stale append (`2001`) after acquiring a session, but
+does not translate this earlier admission response. The observed HTTP result is
+a 500 and the MCP result is an internal failure, rather than the intended
+transient conflict, in both standalone and split API/worker coverage.
+
+[cntryl/portia#60](https://github.com/cntryl/portia/issues/60) is closed for
+the stale-append path; [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
+tracks the `2002` session-admission path. No application catch or automatic
+retry has been added. M0-A01 remains proposed until the adapter behavior is
+corrected and the real-broker transport contract passes.
+
 ## Why this storage shape
 
 The application already uses Portia aggregates and Fitz event streams for

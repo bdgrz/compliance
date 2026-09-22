@@ -90,16 +90,19 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control.draft.get",
             "bdgrz.control.draft.list",
             "bdgrz.control.draft.revision.get",
+            "bdgrz.control.draft.revisions.list",
             "bdgrz.commitment.draft.create",
             "bdgrz.commitment.draft.revise",
             "bdgrz.commitment.draft.get",
             "bdgrz.commitment.draft.list",
             "bdgrz.commitment.draft.revision.get",
+            "bdgrz.commitment.draft.revision.list",
             "bdgrz.risk.draft.create",
             "bdgrz.risk.draft.revise",
             "bdgrz.risk.draft.get",
             "bdgrz.risk.draft.list",
             "bdgrz.risk.draft.revision.get",
+            "bdgrz.risk.draft.revisions.list",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -155,7 +158,7 @@ public sealed class RbacMcpScenarioTests
         foreach (var name in new[]
                  {
                      "bdgrz.control.draft.get", "bdgrz.control.draft.list",
-                     "bdgrz.control.draft.revision.get",
+                     "bdgrz.control.draft.revision.get", "bdgrz.control.draft.revisions.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
@@ -165,7 +168,7 @@ public sealed class RbacMcpScenarioTests
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
-                     "bdgrz.commitment.draft.revision.get",
+                     "bdgrz.commitment.draft.revision.get", "bdgrz.commitment.draft.revision.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.NotEqual(true, Assert.Single(tools, tool =>
@@ -175,7 +178,7 @@ public sealed class RbacMcpScenarioTests
         foreach (var name in new[]
                  {
                      "bdgrz.risk.draft.get", "bdgrz.risk.draft.list",
-                     "bdgrz.risk.draft.revision.get",
+                     "bdgrz.risk.draft.revision.get", "bdgrz.risk.draft.revisions.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>

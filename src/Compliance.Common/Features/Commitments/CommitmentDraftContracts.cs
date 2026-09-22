@@ -43,6 +43,12 @@ public sealed record GetCommitmentDraftRevision(Uuid TenantId, Uuid ProgramId,
     Uuid DraftId, long Revision)
     : IRequest<CommitmentDraftRevisionView>, IProgramManagementRequest, ICallable;
 
+[Discriminator("bdgrz.commitment.draft.revision.list", 1)]
+public sealed record ListCommitmentDraftRevisions(Uuid TenantId, Uuid ProgramId,
+    Uuid DraftId, int? Limit = null, string? Cursor = null,
+    long? MinimumDraftRevision = null)
+    : IRequest<Page<CommitmentDraftRevisionView>>, IProgramManagementRequest, ICallable;
+
 [Discriminator("bdgrz.commitment.draft.created", 1)]
 public sealed record CommitmentDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid DraftId,
     Uuid CreateRequestId, Uuid ServiceId, string Kind, string Identifier,
