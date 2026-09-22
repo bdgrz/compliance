@@ -1,24 +1,26 @@
 # Application import v1 contract draft
 
-Status: proposed for M0-A06 / EN-05 / R1-10b review, 2026-09-20. The bounded
-stage HTTP route and three batch/row/preview HTTP and read-only MCP queries
-are implemented as a first slice. The stage MCP tool is pending
+Status: staging and read contract for EN-05 / R1-10b, revised 2026-09-22 after
+ADR 0005 was accepted. The bounded stage HTTP route and three
+batch/row/preview HTTP and read-only MCP queries are implemented as a first
+slice. The stage MCP tool is pending
 [Portia #61](https://github.com/cntryl/portia/issues/61) for nested-array
-binding; row acceptance and reconciliation remain proposed. Pre-acceptance
-cancellation is implemented as an HTTP-only terminal transition. This
+binding. Batch acceptance and reconciliation follow ADR 0005 and are
+unscheduled. Pre-acceptance cancellation is implemented as an HTTP-only
+terminal transition. This
 contract covers bounded tenant-supplied rows only; it grants no source
 authority or reviewed scope.
 The technical decision is
 [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md).
 
-The [EN-05 backlog acceptance](backlog.md#en-05-import-with-preview-reconciliation-and-safe-replay)
-and [backend child #195](https://github.com/bdgrz/compliance/issues/195)
-require failed or canceled imports to leave no partial active records. The
-row-acceptance and cancellation operations below are a **conditional
-candidate**, not approved for implementation or backend acceptance until the
-product owner records how `partially_accepted` after a row failure satisfies
-or changes that requirement. Staging and read contracts can be reviewed
-independently.
+Accepted ADR 0005 (2026-09-22) makes acceptance all-or-nothing behind a
+durable batch visibility barrier. The per-row acceptance candidate below
+(`AcceptApplicationImportRow`, `partially_accepted`, `needs_resolution`) is
+**rejected** and kept only as design history. A person with inventory
+management accepts or cancels the whole batch; a Contributor may stage and
+preview. [EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195)
+redefines the batch acceptance and cancellation contract when import work is
+scheduled. Staging and read contracts are unchanged.
 
 ## Common rules
 
@@ -37,7 +39,10 @@ independently.
   active tenant membership and `program.manage`. A nonmember or wrong-tenant
   batch returns 404 before metadata or row counts are read; an active member
   without the grant receives 403. `program.manage` is an interim grant, not a
-  final restricted-inventory policy.
+  final restricted-inventory policy. ADR 0005 decision 5 (from the M0-D03 role
+  decision, 2026-09-22) adds an import-staging grant so Contributors can stage
+  and preview, while acceptance and cancellation keep inventory-management
+  authority. EN-05 delivers that grant; until then this slice is unchanged.
 - Success responses use Portia's current result mapping: 200 for a value and
   204 for an empty command result. `Page<T>` has `items` and `next_cursor`.
   `limit` defaults to 50 and accepts 1–200. An invalid cursor or a cursor from
@@ -56,8 +61,10 @@ independently.
 | HTTP operation | Portia request/result | Success and purpose | MCP |
 | --- | --- | --- | --- |
 | `POST /api/v1/tenants/{tenant_id}/application-imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
-| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
-| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none; HTTP-only |
+| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 before acceptance (implemented). Under ADR 0005, also allowed while accepting and before commit, rolling back every pending effect; 409 after commit | none; HTTP-only |
+
+EN-05 defines the whole-batch acceptance operation under ADR 0005. The per-row
+`AcceptApplicationImportRow` route is rejected.
 
 `StageApplicationImport` body:
 
@@ -93,9 +100,11 @@ an event is written; blank row fields are retained with findings. The staged
 event's serialized snake_case payload must also fit 48 KiB, leaving more than
 11 KiB for Portia's envelope, metadata, stream address and Fitz framing under
 Fitz's 61,247-byte event limit. A 200-row submission of individually legal
-but long values can therefore return 400. Raw row
-retention and deletion policy is unresolved under EN-06 and M0-A07; staging
-does not claim production retention acceptance. The server computes
+but long values can therefore return 400. Raw
+rows and rejected-row reports are retained for seven years, the evidence
+retention period the product owner directed for M0-D16
+([#73](https://github.com/bdgrz/compliance/issues/73)); M0-D16 governs if it
+records otherwise. Staging does not yet implement disposition. The server computes
 `content_sha256`; a client cannot
 assert it. Repeating the same tenant/source/namespace/submission ID with identical
 canonical content returns the original registration. Different content with
@@ -109,7 +118,10 @@ that ID returns 409. The response is:
 }
 ```
 
-`AcceptApplicationImportRow` body:
+The rest of this section is the rejected per-row candidate, retained as
+design history. It is not a contract.
+
+`AcceptApplicationImportRow` body (rejected):
 
 ```json
 {
@@ -167,7 +179,8 @@ after **any** accepted row intent, including a pending effect. Cancellation
 before acceptance leaves no active Application. A terminal `failed` batch
 also has zero accepted intents. A row failure after earlier accepted effects
 keeps the batch `partially_accepted` with a retryable or `needs_resolution`
-row; whether this satisfies #195 requires the product decision above.
+row. ADR 0005 rejected that outcome: under the accepted barrier, cancellation
+is allowed until the batch commits and rolls back every pending effect.
 
 ## Read operations and MCP
 
@@ -192,8 +205,8 @@ calls must be denied before projection data is read.
 `submitted_by_display`, `submitted_at`, `row_count`, `invalid_count`,
 `pending_count`, `applied_count`, `skipped_count`, `failed_count`, and
 `last_progress_at`. The first slice emits only `preview_ready`, with zero
-processing counts. `staging`, `accepting`, `partially_accepted`, `accepted`,
-`canceling`, `canceled`, and `failed_retryable` are proposed future states.
+processing counts. Under ADR 0005, EN-05 adds `accepting`, `committed`,
+`canceled`, and `failed`; `partially_accepted` is rejected.
 Counts are scoped to that batch and never published before authorization or a
 freshness check.
 
@@ -203,9 +216,8 @@ freshness check.
 `application_id`. The first slice reports only `processing_state: staged`,
 with a null `application_id`, and retains the attributable submission time on
 its batch.
-Decision and observation times, `needs_resolution`, and decision history are
-proposed future additions that must retain every superseded intent and terminal
-nonapplied result.
+Attributable acceptance, cancellation, and pre-acceptance correlation
+decisions, with their history, are EN-05 additions under ADR 0005.
 `ApplicationImportPreviewRow` adds `match_state` (`unmatched`, `unchanged`,
 `changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
 candidate Application IDs, changed field names, and `acceptance_blockers`.
@@ -232,18 +244,17 @@ preview only checks the import batch source against its batch/row projection.
 | No authenticated Bdgrz identity | 401 |
 | Member lacks interim inventory grant or tenant is suspended | 403 |
 | Unknown tenant to nonmember, missing batch/row, or wrong-tenant ID | 404 with no existence/count disclosure |
-| Submission ID reused with changed content, stale expected revision, unresolved or duplicate acceptance, pending prior effect, cancellation after an accepted intent, or state transition conflict | 409 |
+| Submission ID reused with changed content, stale expected revision, acceptance with an invalid or unresolved row, another acceptance in progress for the source, cancellation after commit, or state transition conflict | 409 |
 | Requested revision not yet projected or worker intent still pending where a completed result was requested | 409, `transient: true` where retry can resolve it |
 | Body exceeds Portia JSON limit / unsupported media type | 413 / 415 |
 
 Focused tests must prove exact content replay and changed-content conflict;
-duplicate source IDs; no active Application before explicit row acceptance;
-idempotent create/link retry after worker failure; stale target revisions;
-authoritative nonapplied proof followed by a superseding human decision, with
-every prior decision retained; no supersession on timeout or projection lag;
-declared-complete missing rows without deletion; cancellation before first
-acceptance and 409 after any accepted intent; cross-tenant non-disclosure for batch IDs, rows,
-counts and MCP; source/projection lag; and standalone/split API-worker parity.
+duplicate source IDs; no visible Application before the batch commits;
+idempotent effect replay after a worker crash mid-accept, rolling forward to
+one commit; cancellation before commit leaving nothing visible, and 409 after
+commit; declared-complete missing rows proposed as tombstones and applied only
+on acceptance; cross-tenant non-disclosure for batch IDs, rows, counts and MCP;
+source/projection lag; and standalone/split API-worker parity.
 OpenAPI, Native AOT, formatting, and the full applicable suites remain gates
 for implementation, not evidence supplied by this contract draft. A real
 simultaneous append race may still surface as a transport 500 until

@@ -1220,6 +1220,8 @@ and M0-D26.
 
 ### M0-A06 ADR: Import, reconciliation, and background processing
 
+Status: accepted 2026-09-22 as [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md). By product-owner decision, the thin standalone/split-host spike moved to EN-05 backend [#195](https://github.com/bdgrz/compliance/issues/195).
+
 Priority: P0
 
 Type: Architecture decision
@@ -1230,12 +1232,12 @@ Context: Every import or collection needs preview, explicit acceptance, partial-
 
 Questions to answer:
 
-- [ ] Define the staged import model: upload, parse, validate, preview, accept, cancel.
-- [ ] Define atomic versus explicitly accepted-subset semantics.
-- [ ] Define idempotency keys, source identity, and replay detection.
-- [ ] Define missing-row and tombstone reconciliation states.
-- [ ] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
-- [ ] Ensure every job, message, retry, and progress report carries and verifies its organization context.
+- [x] Define the staged import model: upload, parse, validate, preview, accept, cancel.
+- [x] Define atomic versus explicitly accepted-subset semantics.
+- [x] Define idempotency keys, source identity, and replay detection.
+- [x] Define missing-row and tombstone reconciliation states.
+- [x] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
+- [x] Ensure every job, message, retry, and progress report carries and verifies its organization context.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1245,9 +1247,9 @@ Blocks: EN-05
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- [x] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes. Transferred to EN-05 backend #195 by product-owner decision, 2026-09-22.
+- [x] Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-06 requirements.
 
@@ -2582,7 +2584,8 @@ Why: The criteria catalog, readiness material, application inventory, workforce 
 Scope:
 
 - Import batches with source and content identity.
-- Staged parsing, validation, preview, atomic or explicit-subset acceptance, cancellation, and retry, following M0-A06.
+- Staged parsing, validation, preview, all-or-nothing acceptance behind a durable batch visibility barrier, cancellation, and retry, following accepted M0-A06 (ADR 0005).
+- The M0-A06 standalone/split API/worker spike, transferred here by product-owner decision on 2026-09-22.
 - Rejected-item reports and replay detection (unchanged, changed, new, conflicting, missing).
 - Background processing with progress across host modes.
 
@@ -2607,6 +2610,7 @@ Implementation subtasks:
 - [ ] Implement worker execution and progress.
 - [ ] Prove it through R1-10b application import.
 - [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- [ ] Prove the ADR 0005 barrier in standalone and split API/worker hosts, including a worker crash and restart mid-accept (roll forward) and a cancellation before commit (nothing visible).
 
 First consumer: R1-10b application import
 

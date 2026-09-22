@@ -728,7 +728,7 @@ their issue records the full decision.
 | The audit firm's required population definitions, reconciliation fields, sample identifiers, package shape, and representation-letter workflow | M0-D17 |
 | Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
 | The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 |
-| How snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A02 through M0-A06; persistence is accepted in ADR 0003 |
+| How snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A02 through M0-A06; persistence is accepted in ADR 0003 and imports in ADR 0005 |
 | The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | Decided 2026-09-22 in M0-D25 |
 | Independence rules for advisory and attest services | M0-D26 |
 | Whether the firm's own attest workpapers belong in the platform | M0-D27 |
