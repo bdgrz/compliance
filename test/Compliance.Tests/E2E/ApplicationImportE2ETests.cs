@@ -26,7 +26,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"import-outsider-{Guid.NewGuid():N}@example.com");
         var tenantId = await CreateTenantAsync(owner);
-        var path = $"/api/v1/tenants/{tenantId}/application_imports";
+        var path = $"/api/v1/tenants/{tenantId}/application-imports";
         var submissionId = Guid.NewGuid();
         var rows = Enumerable.Range(1, 200).Select(number => new
         {
@@ -105,9 +105,9 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         using var deniedPreview = await outsider.GetAsync($"{batchPath}/preview");
         using var deniedStage = await outsider.PostAsJsonAsync(path, Body(Guid.NewGuid()));
         using var alienBatch = await owner.GetAsync(
-            $"/api/v1/tenants/{Guid.NewGuid()}/application_imports/{first.GetProperty("batch_id").GetString()}");
+            $"/api/v1/tenants/{Guid.NewGuid()}/application-imports/{first.GetProperty("batch_id").GetString()}");
         var secondTenantId = await CreateTenantAsync(owner);
-        var secondTenantPath = $"/api/v1/tenants/{secondTenantId}/application_imports";
+        var secondTenantPath = $"/api/v1/tenants/{secondTenantId}/application-imports";
         _ = await StageWhenAuthorizedAsync(owner, secondTenantPath, Body(Guid.NewGuid()));
         using var crossTenantBatch = await owner.GetAsync(
             $"{secondTenantPath}/{first.GetProperty("batch_id").GetString()}");
@@ -278,7 +278,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(owner,
             $"split-import-owner-{Guid.NewGuid():N}@example.com");
         var tenantId = await CreateTenantAsync(owner);
-        var path = $"/api/v1/tenants/{tenantId}/application_imports";
+        var path = $"/api/v1/tenants/{tenantId}/application-imports";
         var first = await StageWhenAuthorizedAsync(owner, path, Body(Guid.NewGuid()));
         _ = await WaitForBatchAsync(owner,
             $"{path}/{first.GetProperty("batch_id").GetString()}");

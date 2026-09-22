@@ -164,7 +164,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 }
                 Assert.Equal("active", serviceView?.Status);
                 using var splitServiceRevision = await owner.GetAsync(
-                    $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/1");
+                    $"/api/v1/tenants/{tenant.TenantId}/client-services/{service.ServiceId}/revisions/1");
                 Assert.Equal(HttpStatusCode.OK, splitServiceRevision.StatusCode);
 
                 var boundariesPath = $"{programPath}/boundaries";
@@ -236,7 +236,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 Assert.Equal(HttpStatusCode.Conflict, futureBoundarySetup.StatusCode);
                 var versionPath = $"{boundaryPath}/versions/{boundary.DraftVersionId}";
                 var versionsPath = $"{boundaryPath}/versions";
-                var effectivePath = $"{boundaryPath}/effective_version?effective_on=2027-01-01";
+                var effectivePath = $"{boundaryPath}/effective-version?effective_on=2027-01-01";
                 using var splitVersion = await owner.GetAsync(
                     $"{versionPath}?minimum_boundary_revision=1");
                 using var splitVersions = await owner.GetAsync(

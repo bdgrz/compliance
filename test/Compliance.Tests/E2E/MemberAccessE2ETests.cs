@@ -71,7 +71,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                 var accessPath = $"/api/v1/tenants/{tenantId}/members/{inviteeId}/access";
                 var expectedAccessPath = $"{accessPath}?expected_built_in_role=" +
                     BuiltInRbac.ComplianceManagementRole;
-                var invitePath = $"/api/v1/tenants/{tenantId}/member_invitations";
+                var invitePath = $"/api/v1/tenants/{tenantId}/member-invitations";
                 var invitationStatusPath = $"{invitePath}?email_address=" +
                     Uri.EscapeDataString(inviteeEmail);
                 var administratorDeadline = DateTimeOffset.UtcNow.AddSeconds(45);

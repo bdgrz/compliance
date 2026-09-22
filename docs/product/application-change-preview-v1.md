@@ -4,7 +4,7 @@ Status: implemented bounded read slice for R1-10d backend #217. This is an
 advisory preview of tenant-authored Application content. It does not persist a
 proposal, approve a revision, retire an Application, or assert complete impact.
 
-`POST /api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews`
+`POST /api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews`
 uses Portia's API-user authentication and the current tenant membership plus
 `program.manage` inventory authorizer. The machine-appropriate
 `bdgrz.application.change.preview` MCP tool is registered `ReadOnly`; all

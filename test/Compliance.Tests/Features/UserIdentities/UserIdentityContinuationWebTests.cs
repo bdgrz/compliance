@@ -267,7 +267,7 @@ public sealed class UserIdentityContinuationWebTests
         string? providerToken, string? sessionToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post,
-            "/api/v1/my/oidc_identity_links")
+            "/api/v1/my/oidc-identity-links")
         {
             Content = JsonContent.Create(new { }),
         };

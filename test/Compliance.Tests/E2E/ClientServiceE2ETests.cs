@@ -92,7 +92,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         Assert.NotNull(service);
         var servicePath = $"{path}/{service.ServiceId}";
         var exactRevisionPath =
-            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/1";
+            $"/api/v1/tenants/{tenant.TenantId}/client-services/{service.ServiceId}/revisions/1";
         ServiceDocument? projected = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
@@ -225,9 +225,9 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         using var invalidHistory = await owner.GetAsync(
             $"{servicePath}/revisions?minimum_service_revision=0");
         using var futureExact = await owner.GetAsync(
-            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/4");
+            $"/api/v1/tenants/{tenant.TenantId}/client-services/{service.ServiceId}/revisions/4");
         using var invalidExact = await owner.GetAsync(
-            $"/api/v1/tenants/{tenant.TenantId}/client_services/{service.ServiceId}/revisions/0");
+            $"/api/v1/tenants/{tenant.TenantId}/client-services/{service.ServiceId}/revisions/0");
         Assert.Equal(HttpStatusCode.OK, anchoredHistory.StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, futureHistory.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidHistory.StatusCode);

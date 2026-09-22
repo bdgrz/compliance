@@ -8,7 +8,7 @@ readiness, control operation, or an auditor conclusion.
 
 ## Contract
 
-- `POST /api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts`
+- `POST /api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts`
   creates one management-authored draft with a kind, identifier, active
   same-program `service_id`, statement, context, and `source_reference`. Kinds
   are `service_commitment`, `system_requirement`,
@@ -16,11 +16,11 @@ readiness, control operation, or an auditor conclusion.
   represent CUEC and CSOC drafts; they never count as internally performed
   controls. `source_reference` is a user-supplied locator, not imported
   contract text or verified source provenance.
-- `PUT .../commitment_drafts/{draft_id}` revises statement, context, and
+- `PUT .../commitment-drafts/{draft_id}` revises statement, context, and
   source reference with `expected_revision`. Kind, identifier, program, and
   service do not change. Each accepted change retains its author and exact
   revision. A stale revision conflicts with the current revision.
-- `GET .../commitment_drafts/{draft_id}`, collection `GET`, and
+- `GET .../commitment-drafts/{draft_id}`, collection `GET`, and
   `GET .../{draft_id}/revisions/{revision}` expose current and exact history.
   Current `GET` accepts `minimum_revision`; source or projection lag returns
   transient conflict. Collection `GET` checks its tenant event checkpoint
@@ -28,7 +28,8 @@ readiness, control operation, or an auditor conclusion.
   cross-program cursors return validation errors.
 - Five flat, machine-appropriate MCP tools expose the same create, revise,
   get, list, and exact-revision operations through Portia authorization.
-  All routes, query keys, JSON properties, and tool arguments are snake_case.
+  Static HTTP path segments use kebab-case; interpolated path values, query
+  keys, JSON properties, and tool arguments use snake_case.
 
 All operations require active tenant membership and the existing
 `program.manage` permission. This narrow interim grant restricts potentially

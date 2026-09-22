@@ -5,8 +5,9 @@ frontend child #184 and the product parent remain open.
 
 The first backend bundle adds an administrator-authorized invitation command with
 an explicit built-in role, and an administrator-only read of the member's
-effective team, role, and permission paths. The HTTP route, JSON properties,
-query strings, and MCP contracts use snake_case. Invitation acceptance and
+effective team, role, and permission paths. Static HTTP path segments use
+kebab-case; interpolated path values, JSON properties, query strings, and MCP
+argument/property names use snake_case. Invitation acceptance and
 email proof remain personal HTTP operations. The selected role is stored in
 the tenant invitation history and applied by the existing registration reactor
 to the existing tenant RBAC graph after acceptance. Firm-staff invitations do
@@ -22,7 +23,7 @@ checks explanations against grant removal. A caller may use
 behind the accepted invitation.
 
 The invitation-status bundle adds administrator-authorized
-`GET /api/v1/tenants/{tenant_id}/member_invitations` and read-only
+`GET /api/v1/tenants/{tenant_id}/member-invitations` and read-only
 `bdgrz.tenant-invitation.list`. The tenant-routed Fitz projector stores email,
 affiliation, selected role, expiry, inviter, and accepted user; it never stores
 or returns a token or token hash. A filtered query normalizes `email_address`.
