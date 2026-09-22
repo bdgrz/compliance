@@ -287,11 +287,27 @@ public sealed class ComplianceWebTests
                 ["limit", "cursor"]),
             ("/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots",
                 ["limit", "cursor"]),
+            ("/api/v1/platform/tenants", ["limit", "cursor"]),
+            ("/api/v1/tenants/mine", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/members", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/member_invitations",
+                ["limit", "cursor", "email_address"]),
+            ("/api/v1/tenants/{tenant_id}/teams", ["limit", "cursor", "search", "sort"]),
+            ("/api/v1/tenants/{tenant_id}/teams/{team_id}/members", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/roles", ["limit", "cursor", "search", "sort"]),
+            ("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/roles/{role_id}/teams", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references",
+                ["limit", "cursor"]),
         };
         foreach (var (route, parameters) in contracts)
         {
             var documented = paths.GetProperty(route).GetProperty("get")
                 .GetProperty("parameters").EnumerateArray().ToArray();
+            Assert.True(paths.GetProperty(route).GetProperty("get").GetProperty("responses")
+                .TryGetProperty("400", out _));
             foreach (var parameter in parameters)
                 Assert.Contains(documented, item => item.GetProperty("name").GetString() == parameter &&
                     item.GetProperty("in").GetString() == "query");

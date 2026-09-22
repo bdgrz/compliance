@@ -33,6 +33,10 @@ public sealed class ListApplicationBoundaryReferencesHandler(
         IRequestContext<ListApplicationBoundaryReferences> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The application boundary reference list limit must be between 1 and 200."));
         var application = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
         if (!application.IsCreated)
@@ -42,8 +46,18 @@ public sealed class ListApplicationBoundaryReferencesHandler(
             .ConfigureAwait(false);
         if (!ready.IsSuccess)
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(ready.Error);
-        var page = await directory.ListAsync(request.TenantId, "application",
-            request.ApplicationId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        Page<ApplicationBoundaryReferenceView> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, "application",
+                request.ApplicationId, request.Limit ?? 50, request.Cursor, ct)
+                .ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The application boundary reference cursor is invalid."));
+        }
         return page.Items.Any(item => item.TenantId != request.TenantId ||
                                       item.SubjectType != "application" ||
                                       item.GovernedRecordId != request.ApplicationId)
@@ -63,6 +77,10 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
         IRequestContext<ListSystemInstanceBoundaryReferences> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The system instance boundary reference list limit must be between 1 and 200."));
         var application = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
         if (!application.HasInstance(request.SystemInstanceId))
@@ -72,9 +90,19 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
             .ConfigureAwait(false);
         if (!ready.IsSuccess)
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(ready.Error);
-        var page = await directory.ListAsync(request.TenantId, "system_instance",
-            request.SystemInstanceId, request.Limit ?? 50, request.Cursor, ct)
-            .ConfigureAwait(false);
+        Page<ApplicationBoundaryReferenceView> page;
+        try
+        {
+            page = await directory.ListAsync(request.TenantId, "system_instance",
+                request.SystemInstanceId, request.Limit ?? 50, request.Cursor, ct)
+                .ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The system instance boundary reference cursor is invalid."));
+        }
         return page.Items.Any(item => item.TenantId != request.TenantId ||
                                       item.SubjectType != "system_instance" ||
                                       item.GovernedRecordId != request.SystemInstanceId)
