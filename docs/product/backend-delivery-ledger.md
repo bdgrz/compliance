@@ -45,7 +45,7 @@ child issue's complete acceptance evidence.
 
 | Capability bundle | Merged pull requests | Open child records and remaining gate |
 | --- | --- | --- |
-| R1-15 tenancy, membership, and split-host proof | [#151](https://github.com/bdgrz/compliance/pull/151), [#153](https://github.com/bdgrz/compliance/pull/153), [#154](https://github.com/bdgrz/compliance/pull/154), [#155](https://github.com/bdgrz/compliance/pull/155), [#164](https://github.com/bdgrz/compliance/pull/164) | [R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152), [EN-01 #157](https://github.com/bdgrz/compliance/issues/157), and [R1-01 #158](https://github.com/bdgrz/compliance/issues/158) still need the documented M0-D25, M0-A07, M0-D28, cross-tenant, and complete split-host proof. |
+| R1-15 tenancy, membership, and split-host proof | [#151](https://github.com/bdgrz/compliance/pull/151), [#153](https://github.com/bdgrz/compliance/pull/153), [#154](https://github.com/bdgrz/compliance/pull/154), [#155](https://github.com/bdgrz/compliance/pull/155), [#164](https://github.com/bdgrz/compliance/pull/164), [#325](https://github.com/bdgrz/compliance/pull/325) | [R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152), [EN-01 #157](https://github.com/bdgrz/compliance/issues/157), and [R1-01 #158](https://github.com/bdgrz/compliance/issues/158) still need their documented decision, cross-tenant, and complete split-host evidence. #157 remains directly gated by M0-D03, M0-A04, M0-D25, M0-A07, and M0-D28. |
 | Membership invitation lifecycle | [#185](https://github.com/bdgrz/compliance/pull/185), [#208](https://github.com/bdgrz/compliance/pull/208), [#263](https://github.com/bdgrz/compliance/pull/263), merge `bd63bad10a4cd6a3dff155ef2d3eb28d57f130c8` | [R1-04a backend #183](https://github.com/bdgrz/compliance/issues/183) remains open for the Portia delivery crash window, identity replacement/recovery, provider adapter, policy/source decisions, and child-specific completion proof. Personal invitation acceptance remains HTTP-only; email delivery is mocked. |
 | Boundary versioning, immutable history, projection consistency, snapshots, and recovery replay | [#174](https://github.com/bdgrz/compliance/pull/174), [#175](https://github.com/bdgrz/compliance/pull/175), [#240](https://github.com/bdgrz/compliance/pull/240), [#242](https://github.com/bdgrz/compliance/pull/242), [#243](https://github.com/bdgrz/compliance/pull/243), [#244](https://github.com/bdgrz/compliance/pull/244), [#245](https://github.com/bdgrz/compliance/pull/245), [#247](https://github.com/bdgrz/compliance/pull/247), [#248](https://github.com/bdgrz/compliance/pull/248), [#318](https://github.com/bdgrz/compliance/pull/318), [#320](https://github.com/bdgrz/compliance/pull/320), [#321](https://github.com/bdgrz/compliance/pull/321), [#328](https://github.com/bdgrz/compliance/pull/328) | [M0-A05 #85](https://github.com/bdgrz/compliance/issues/85) remains open for ADR acceptance after M0-A01, a dedicated projection-derived-read spike in standalone and split hosts, and product-owned calculation and cross-client rules. [EN-02 #160](https://github.com/bdgrz/compliance/issues/160) remains open for complete reuse across owning contexts, complete impact and deletion evidence, and inherited recovery acceptance. PR #321 proves retained-source Program recovery and production projector replay. PR #328 extends that evidence with a controlled Docker tar restore into a distinct fresh local volume after source-volume loss, including archive checksum/manifest and pinned-image proof. Neither PR proves production backup/restore controls, recovery targets, a global calculation snapshot, or cross-client authorization. |
 | Application inventory, source revisions, and change impact | [#249](https://github.com/bdgrz/compliance/pull/249), [#250](https://github.com/bdgrz/compliance/pull/250), [#252](https://github.com/bdgrz/compliance/pull/252), [#258](https://github.com/bdgrz/compliance/pull/258), [#259](https://github.com/bdgrz/compliance/pull/259), [#261](https://github.com/bdgrz/compliance/pull/261) | [R1-10a #211](https://github.com/bdgrz/compliance/issues/211), [EN-05 #195](https://github.com/bdgrz/compliance/issues/195), [R1-10b #213](https://github.com/bdgrz/compliance/issues/213), and [R1-10d #217](https://github.com/bdgrz/compliance/issues/217) retain verified ownership, classification authority, source identifiers, restricted discovery, import provenance, authorization, failure recovery, and complete projection proof. #261 carries the tenant-declared classification through Portia, HTTP/MCP, Fitz current/history views, and previews while keeping it `classification_unverified`; #258 adds pre-acceptance HTTP cancellation; #259 upgrades Portia 0.5.3 and exposes the bounded stage MCP command. |
@@ -75,18 +75,16 @@ while #81 remains open, but cannot close [EN-03 #194](https://github.com/bdgrz/c
 before the workforce consumer, content-identity decision acceptance, and
 snapshot-specific recovery proof exist.
 
-The next unblocked authorization bundle is tracked by
-[EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324). It advances
-[M0-A04 #84](https://github.com/bdgrz/compliance/issues/84),
-[M0-A07 #126](https://github.com/bdgrz/compliance/issues/126),
-[R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152),
-[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157), and
-[R1-01 backend #158](https://github.com/bdgrz/compliance/issues/158). It makes
-the shared Portia composition fail closed, protects OIDC continuation in the
-Portia pipeline, and restricts tenant lifecycle reactions to the system actor.
-It does not settle field restrictions, cross-client firm access, federation
-expansion, the durable denied-action logging contract, or each later feature's
-tenant-isolation evidence; those records remain open.
+The completed [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324)
+bundle, delivered in [PR #325](https://github.com/bdgrz/compliance/pull/325),
+makes the shared Portia composition fail closed, protects OIDC continuation in
+the Portia pipeline, and restricts tenant lifecycle reactions to the system
+actor. Its closure clears the composition implementation gate; it does not
+settle field restrictions, cross-client firm access, federation expansion, the
+durable denied-action logging contract, or later feature-specific tenant-
+isolation evidence. Those five broader decisions remain direct blockers of
+[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157), rather
+than inherited unfinished work in #324.
 
 Keep the artifact, authorization, and import work visible as decision-bound
 slices. M0-A03 needs a selected production content store; M0-A04 needs its
