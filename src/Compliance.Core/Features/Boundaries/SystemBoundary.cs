@@ -247,6 +247,9 @@ public sealed class SystemBoundary : Aggregate
             content.TrustServicesCategories.Count)
             return new RequestError(RequestErrorKind.Validation,
                 "The boundary requires distinct, recognized Trust Services categories.");
+        if (!content.TrustServicesCategories.Contains("security", StringComparer.Ordinal))
+            return new RequestError(RequestErrorKind.Validation,
+                "The boundary requires the security category; optional categories add to it.");
         if (content.Entries is null || content.Entries.Any(entry =>
                 entry is null || entry.EntryId == Uuid.Empty ||
                 entry.Kind is not ("inclusion" or "exclusion" or "assumption" or "question") ||

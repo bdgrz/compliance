@@ -72,6 +72,25 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
+    public void ShouldRequireSecurityCategoryGivenOptionalCategoriesOnly()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var invalid = Content() with { TrustServicesCategories = ["availability", "privacy"] };
+
+
+        // Act
+        var result = boundary.Create(ProgramId, VersionId, invalid, AuthorId, "Lead", Now);
+
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Validation, error.Kind);
+        Assert.Contains("security", error.Message);
+        Assert.Empty(new AggregateScenario<SystemBoundary>(boundary).PendingEvents);
+    }
+
+    [Fact]
     public void ShouldReturnExistingIdentityGivenReplayedCreate()
     {
         // Arrange
