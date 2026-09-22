@@ -39,7 +39,14 @@ public interface IArtifactContentStore
     ValueTask<Stream?> OpenVerifiedAsync(ArtifactContentReference content, CancellationToken ct = default);
     ValueTask<ArtifactDelivery?> IssueDeliveryAsync(ArtifactContentReference content, TimeSpan lifetime,
         CancellationToken ct = default);
-    ValueTask<bool> DeleteAsync(ArtifactContentReference content, CancellationToken ct = default);
+
+    // Hold, quarantine, and disposition hooks. Policy lives in product records.
+    ValueTask<bool> PlaceHoldAsync(ArtifactContentReference content, Uuid holdId, CancellationToken ct = default);
+    ValueTask<bool> RemoveHoldAsync(ArtifactContentReference content, Uuid holdId, CancellationToken ct = default);
+    ValueTask<bool> QuarantineAsync(ArtifactContentReference content, CancellationToken ct = default);
+    ValueTask<bool> ReleaseQuarantineAsync(ArtifactContentReference content, CancellationToken ct = default);
+    ValueTask<Stream?> OpenQuarantinedAsync(ArtifactContentReference content, CancellationToken ct = default);
+    ValueTask<ArtifactDeletionResult> DeleteAsync(ArtifactContentReference content, CancellationToken ct = default);
 }
 
 public interface IArtifactInspector
@@ -65,10 +72,14 @@ vendor-neutral shape. The port does not mirror the SDK.
   `content/sha256/{first_two_hex}/{sha256}` inside the tenant bucket.
   `quarantine/` and `derived/` are reserved prefixes with no transitions
   decided here.
-- **Immutability:** writes are conditional creates. An existing digest is never
-  replaced. The store reports `AlreadyPresent` only after the stored bytes
-  verify against the requested digest and length. A mismatch is a corruption
-  failure, not a success.
+- **Immutability:** writes are conditional creates. Verified content under a
+  digest is never replaced. The store reports `AlreadyPresent` only after the
+  stored bytes verify against the requested digest and length. A stored object
+  that fails verification is corrupt; a verified upload of the same digest
+  repairs it, which preserves the content identity.
+- **Quarantine survives re-upload:** uploading bytes identical to quarantined
+  content reports `AlreadyPresent` and leaves the content in quarantine. It
+  never becomes available again through a second upload.
 - **No cross-tenant deduplication:** identical bytes in two tenants are two
   objects in two buckets. A reference is only valid inside its own tenant.
 
@@ -91,13 +102,35 @@ are operational controls owned by Portia #69 and DevOps.
   object carry a SHA-256 checksum. Completion states the expected length and
   digest and fails on mismatch.
 
+### Policy inputs from M0-D16
+
+[M0-D16 #73](https://github.com/bdgrz/compliance/issues/73) was decided by Jeff
+Repanich on 2026-09-22. Evidence is retained for 7 years after the period it
+supports. An engagement hold blocks disposition until the report is issued
+plus 1 year; a legal hold blocks disposition indefinitely. Disposition requires
+Org Admin approval. Credentials and secrets must never be stored, so content is
+scanned on upload and quarantined when flagged. A quarantined artifact cannot
+be downloaded except by an Org Admin, for release or disposal. These values
+live in product configuration and records. The storage layer exposes only
+the hold, quarantine, and disposition hooks below and encodes no durations or
+roles.
+
 ### Inspection and quarantine
 
-`IArtifactInspector` is the storage-level hook. The registered default,
+`IArtifactInspector` is the scan hook. The registered default,
 `UninspectedArtifactInspector`, always reports `NotInspected`. The product
-never shows content as clean until an inspection engine is selected. The
-engine, the quarantine user workflow, and the release rules are product and
-security decisions assigned to M0-D16 and EN-06. They are not decided here.
+never shows content as clean until an inspection engine is selected. Because
+M0-D16 requires scanning on upload, EN-06 must not issue ordinary delivery
+for an artifact whose inspection state is not `Clean`. The engine choice is
+EN-06 work under this hook.
+
+`QuarantineAsync` moves content to the reserved `quarantine/` prefix. Ordinary
+`OpenVerifiedAsync` and `IssueDeliveryAsync` then return nothing.
+`OpenQuarantinedAsync` serves the release or disposal review, and
+`ReleaseQuarantineAsync` returns content to availability. The store does not
+decide who may call these. The application permits them only for an Org Admin,
+under the owning record's Portia authorizer. In S3 the move is a copy to the
+quarantine key followed by deletion of the content key, done by Portia.
 
 ### Download authorization and delivery
 
@@ -121,15 +154,23 @@ security decisions assigned to M0-D16 and EN-06. They are not decided here.
 
 ### Retention, hold, and disposition hooks
 
-Artifacts have no time-based storage expiry. Content is kept until an
-authorized deletion. `DeleteAsync` is the only storage-level disposition hook,
-and the application may call it only after its retention and hold rules
-permit deletion. The deletion authority, legal-hold precedence, disposition
-audit record, and per-organization export are policy owned by
-[M0-D16 #73](https://github.com/bdgrz/compliance/issues/73) and delivered by
-[R2-12](https://github.com/bdgrz/compliance/issues/285). Offboarding export and
-bucket disposition follow the tenant lifecycle in
-[F1-01](https://github.com/bdgrz/compliance/issues/286).
+Storage never expires content on a timer. The 7-year retention period is
+evaluated by the application from product records. Content stays until an
+approved disposition.
+
+- **Holds:** `PlaceHoldAsync` and `RemoveHoldAsync` record one marker per hold
+  record (an engagement hold or a legal hold). As defense in depth, the store
+  refuses `DeleteAsync` with `Held` while any marker remains. In S3, Portia
+  maps "any hold active" to an Object Lock legal hold on the object.
+- **Disposition:** `DeleteAsync` is the only deletion hook. It deletes
+  available or quarantined content. The application calls it only after
+  retention has elapsed, no hold is active, Org Admin approval is recorded,
+  and no live artifact record still references the content. That last check
+  also covers a concurrent re-upload, which storage alone cannot serialize.
+- The disposition audit record and its workflow are delivered by
+  [R2-12](https://github.com/bdgrz/compliance/issues/285). Offboarding export
+  and bucket disposition follow the tenant lifecycle in
+  [F1-01](https://github.com/bdgrz/compliance/issues/286).
 
 ## Spike evidence
 
@@ -138,14 +179,20 @@ tenant bucket to a tenant directory with the same key layout. It stages content
 while hashing, then publishes it with a no-overwrite move. It verifies digest
 and length on every open. Its HMAC-signed, expiring delivery locations stand in
 for pre-signed URLs. It fails closed when `Artifacts:LocalContentRoot` or
-`Artifacts:LocalDeliveryKey` is not configured. It is not a production store.
+`Artifacts:LocalDeliveryKey` is not configured, and composition rejects a
+relative root or a key shorter than 32 bytes. It is not a production store.
+It does not sweep staging files left by a killed process.
 
-- `LocalArtifactContentStoreTests` (20 cases) prove conditional create and
-  verified `AlreadyPresent`, no cross-tenant deduplication, digest and length
-  verification on read, rejection of non-canonical or path-traversal digests,
-  the content-length limit with no leftover content, bounded, unforgeable, and
-  expiring delivery, tenant-scoped disposition, fail-closed configuration, and
-  the never-clean default inspector.
+- `LocalArtifactContentStoreTests` (32 cases) prove conditional create and
+  verified `AlreadyPresent`, repair of a corrupt object, no cross-tenant
+  deduplication, digest and length verification on read, delivery, and
+  deletion, and rejection of non-canonical or path-traversal digests. They also
+  cover the content-length limit with no leftover content; bounded,
+  unforgeable, and expiring delivery at signed precision; quarantine that
+  withholds content and survives re-upload, with release and Org-Admin-path
+  review; holds that block disposition until every hold is removed;
+  tenant-scoped disposition; fail-closed configuration; and the never-clean
+  default inspector.
 - `ArtifactContentHostModeE2ETests` resolve the port from the shared composition
   in a standalone host. They also cover a split `api` host plus a worker host on
   the real broker. Content stored by the API host is verified and delivered by
@@ -159,7 +206,8 @@ by [cntryl/portia#69](https://github.com/cntryl/portia/issues/69). It must
 prove, against the Portia S3 adapter and an S3-compatible store in standalone
 and split hosts, the same behavior this spike proves locally. It must also
 prove multipart resume and abort, SSE-KMS key resolution, pre-signed delivery
-expiry, and the delivery-issued event.
+expiry, Object Lock hold mapping, the quarantine move, the selected scan
+engine, and the delivery-issued event.
 
 ## Rejected options
 

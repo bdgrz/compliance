@@ -257,12 +257,235 @@ public sealed class LocalArtifactContentStoreTests : IDisposable
         var repeated = await store.DeleteAsync(a.Content);
 
         // Assert
-        Assert.True(deleted);
-        Assert.False(repeated);
+        Assert.Equal(ArtifactDeletionResult.Deleted, deleted);
+        Assert.Equal(ArtifactDeletionResult.NotFound, repeated);
         await using var goneA = await store.OpenVerifiedAsync(a.Content);
         await using var keptB = await store.OpenVerifiedAsync(b.Content);
         Assert.Null(goneA);
         Assert.NotNull(keptB);
+    }
+
+    [Fact]
+    public async Task ShouldRepairCorruptObjectGivenVerifiedIdenticalUpload()
+    {
+        // Arrange
+        var store = Store();
+        var tenantId = Uuid.CreateVersion4();
+        var bytes = "repairable"u8.ToArray();
+        var written = await store.StoreIfAbsentAsync(tenantId, new MemoryStream(bytes));
+        var file = Directory.EnumerateFiles(_root, written.Content.Sha256, SearchOption.AllDirectories).Single();
+        await File.WriteAllBytesAsync(file, "truncated"u8.ToArray());
+
+        // Act
+        var repaired = await store.StoreIfAbsentAsync(tenantId, new MemoryStream(bytes));
+
+        // Assert
+        Assert.False(repaired.AlreadyPresent);
+        await using var read = await store.OpenVerifiedAsync(written.Content);
+        Assert.Equal(bytes, await ReadAllAsync(read!));
+    }
+
+    [Fact]
+    public async Task ShouldNotIssueDeliveryGivenLengthDiffersFromStoredContent()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("length"u8.ToArray()));
+
+        // Act
+        var delivery = await store.IssueDeliveryAsync(written.Content with { Length = written.Content.Length + 1 },
+            TimeSpan.FromMinutes(1));
+
+        // Assert
+        Assert.Null(delivery);
+    }
+
+    [Fact]
+    public async Task ShouldNotDeleteGivenLengthDiffersFromStoredContent()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("keep"u8.ToArray()));
+
+        // Act
+        var deleted = await store.DeleteAsync(written.Content with { Length = written.Content.Length + 1 });
+
+        // Assert
+        Assert.Equal(ArtifactDeletionResult.NotFound, deleted);
+        await using var kept = await store.OpenVerifiedAsync(written.Content);
+        Assert.NotNull(kept);
+    }
+
+    [Fact]
+    public async Task ShouldReportExpiryMatchingSignedPrecisionGivenSubMillisecondClock()
+    {
+        // Arrange
+        var time = new MutableTimeProvider(new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero).AddTicks(7_000));
+        var store = new LocalArtifactContentStore(
+            new ArtifactContentStoreOptions(_root, Key, ArtifactContentLimits.MaxContentLength), time);
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("precise"u8.ToArray()));
+        var delivery = await store.IssueDeliveryAsync(written.Content, TimeSpan.FromMinutes(1));
+        time.Advance(delivery!.ExpiresAt - time.GetUtcNow() - TimeSpan.FromTicks(1));
+
+        // Act
+        await using var opened = await store.OpenDeliveryAsync(delivery.Location);
+
+        // Assert
+        Assert.NotNull(opened);
+    }
+
+    [Fact]
+    public async Task ShouldBlockDeletionGivenAnyActiveHold()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("held"u8.ToArray()));
+        var engagementHold = Uuid.CreateVersion4();
+        var legalHold = Uuid.CreateVersion4();
+        Assert.True(await store.PlaceHoldAsync(written.Content, engagementHold));
+        Assert.True(await store.PlaceHoldAsync(written.Content, legalHold));
+
+        // Act
+        var whileBothHeld = await store.DeleteAsync(written.Content);
+        Assert.True(await store.RemoveHoldAsync(written.Content, engagementHold));
+        var whileLegalHeld = await store.DeleteAsync(written.Content);
+        Assert.True(await store.RemoveHoldAsync(written.Content, legalHold));
+        var released = await store.DeleteAsync(written.Content);
+
+        // Assert
+        Assert.Equal(ArtifactDeletionResult.Held, whileBothHeld);
+        Assert.Equal(ArtifactDeletionResult.Held, whileLegalHeld);
+        Assert.Equal(ArtifactDeletionResult.Deleted, released);
+    }
+
+    [Fact]
+    public async Task ShouldNotPlaceHoldGivenContentAbsentFromTenant()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("absent"u8.ToArray()));
+
+        // Act
+        var placed = await store.PlaceHoldAsync(written.Content with { TenantId = Uuid.CreateVersion4() },
+            Uuid.CreateVersion4());
+
+        // Assert
+        Assert.False(placed);
+    }
+
+    [Fact]
+    public async Task ShouldWithholdQuarantinedContentGivenOrdinaryReadAndDelivery()
+    {
+        // Arrange
+        var store = Store();
+        var bytes = "flagged"u8.ToArray();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream(bytes));
+
+        // Act
+        var quarantined = await store.QuarantineAsync(written.Content);
+        await using var ordinary = await store.OpenVerifiedAsync(written.Content);
+        var delivery = await store.IssueDeliveryAsync(written.Content, TimeSpan.FromMinutes(1));
+        await using var review = await store.OpenQuarantinedAsync(written.Content);
+
+        // Assert
+        Assert.True(quarantined);
+        Assert.Null(ordinary);
+        Assert.Null(delivery);
+        Assert.NotNull(review);
+        Assert.Equal(bytes, await ReadAllAsync(review));
+    }
+
+    [Fact]
+    public async Task ShouldKeepQuarantineGivenIdenticalUpload()
+    {
+        // Arrange
+        var store = Store();
+        var tenantId = Uuid.CreateVersion4();
+        var bytes = "flagged again"u8.ToArray();
+        var written = await store.StoreIfAbsentAsync(tenantId, new MemoryStream(bytes));
+        await store.QuarantineAsync(written.Content);
+
+        // Act
+        var repeated = await store.StoreIfAbsentAsync(tenantId, new MemoryStream(bytes));
+        await using var ordinary = await store.OpenVerifiedAsync(written.Content);
+
+        // Assert
+        Assert.True(repeated.AlreadyPresent);
+        Assert.Null(ordinary);
+    }
+
+    [Fact]
+    public async Task ShouldRestoreDeliveryGivenQuarantineReleased()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("released"u8.ToArray()));
+        await store.QuarantineAsync(written.Content);
+
+        // Act
+        var released = await store.ReleaseQuarantineAsync(written.Content);
+        await using var ordinary = await store.OpenVerifiedAsync(written.Content);
+        await using var review = await store.OpenQuarantinedAsync(written.Content);
+
+        // Assert
+        Assert.True(released);
+        Assert.NotNull(ordinary);
+        Assert.Null(review);
+    }
+
+    [Fact]
+    public async Task ShouldDeleteQuarantinedContentGivenNoHold()
+    {
+        // Arrange
+        var store = Store();
+        var written = await store.StoreIfAbsentAsync(Uuid.CreateVersion4(), new MemoryStream("disposed"u8.ToArray()));
+        await store.QuarantineAsync(written.Content);
+
+        // Act
+        var deleted = await store.DeleteAsync(written.Content);
+
+        // Assert
+        Assert.Equal(ArtifactDeletionResult.Deleted, deleted);
+        await using var review = await store.OpenQuarantinedAsync(written.Content);
+        Assert.Null(review);
+    }
+
+    [Fact]
+    public void ShouldRejectConfigurationGivenShortDeliveryKey()
+    {
+        // Arrange
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Artifacts:LocalDeliveryKey"] = Convert.ToBase64String(new byte[16]),
+            })
+            .Build();
+
+        // Act
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            ArtifactContentStoreOptions.FromConfiguration(configuration));
+
+        // Assert
+        Assert.Contains("32 bytes", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ShouldRejectConfigurationGivenRelativeContentRoot()
+    {
+        // Arrange
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Artifacts:LocalContentRoot"] = "relative/artifacts",
+            })
+            .Build();
+
+        // Act
+        var failure = Assert.Throws<InvalidOperationException>(() =>
+            ArtifactContentStoreOptions.FromConfiguration(configuration));
+
+        // Assert
+        Assert.Contains("absolute", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
