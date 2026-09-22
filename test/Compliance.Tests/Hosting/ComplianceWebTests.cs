@@ -49,6 +49,60 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldScopeOrganizationRoutesByTenantIdGivenBusinessApiEndpoints()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Production");
+        using var client = factory.CreateClient();
+        // ADR 0009: only these self-, platform-, and sign-in-scoped routes may omit the
+        // organization. Every other route selects exactly one organization by tenant_id.
+        string[] unscopedPrefixes =
+        [
+            "/api/v1/developer-user-sessions",
+            "/api/v1/oidc-user-sessions",
+            "/api/v1/my/",
+            "/api/v1/users/{user_id}/",
+            "/api/v1/platform/",
+            "/api/v1/tenant-slugs/{slug}/mine",
+        ];
+        string[] unscopedRoutes = ["/api/v1/tenants", "/api/v1/tenants/mine"];
+        string[] organizationIdentifiers =
+            ["organization_id", "org_id", "organization", "org", "slug", "tenant_slug", "tenant"];
+
+        // Act
+        var routes = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/",
+                StringComparison.Ordinal) == true)
+            .Select(endpoint => endpoint.RoutePattern)
+            .ToArray();
+
+        // Assert
+        Assert.NotEmpty(routes);
+        foreach (var route in routes)
+        {
+            var raw = route.RawText!;
+            var parameters = route.Parameters.Select(parameter => parameter.Name).ToArray();
+            // Slug resolution is the one operation that accepts a slug, and only to map it to a
+            // tenant_id from the caller's own memberships.
+            if (raw != "/api/v1/tenant-slugs/{slug}/mine")
+                Assert.DoesNotContain(parameters, organizationIdentifiers.Contains);
+            if (raw.StartsWith("/api/v1/tenants/{tenant_id}", StringComparison.Ordinal))
+            {
+                Assert.Single(parameters, name => name == "tenant_id");
+                continue;
+            }
+
+            // Platform-operator routes may name a tenant, but only by tenant_id.
+            if (!raw.StartsWith("/api/v1/platform/", StringComparison.Ordinal))
+                Assert.DoesNotContain("tenant_id", parameters);
+            Assert.True(unscopedRoutes.Contains(raw) ||
+                    unscopedPrefixes.Any(prefix => raw.StartsWith(prefix, StringComparison.Ordinal)),
+                $"Route '{raw}' must select its organization with /api/v1/tenants/{{tenant_id}}.");
+        }
+    }
+
+    [Fact]
     public async Task ShouldRequireDualProofPolicyGivenIdentityLinkEndpoint()
     {
         // Arrange

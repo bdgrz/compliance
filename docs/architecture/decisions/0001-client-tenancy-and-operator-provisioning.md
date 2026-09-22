@@ -3,6 +3,15 @@
 Status: implementation decision for the R1-15 API/MCP slice, 2026-09-19.
 Decision owner: product owner and tech lead; acceptance remains tracked in M0-D25 and M0-A07.
 
+> [!NOTE]
+> Superseded in part by [ADR 0009](0009-tenant-identity-federation-and-context.md),
+> accepted for M0-A07 on 2026-09-22. It replaces the identity-broker preference
+> with directly validated multiple trusted issuers, accepts the tenant-context
+> contract below, and records that organization creation becomes self-service
+> and operator status becomes an in-product grant. R1-15 must adopt those
+> changes. Until it does, the provisioning mechanics below describe the current
+> implementation.
+
 ## Decision
 
 - A client organization is the only tenant boundary. `tenant_id` is its immutable, opaque UUID in APIs, events, jobs, and storage realms; `Organization` is the product name. Every client business record belongs to exactly one tenant. Platform-level criteria editions, methodology templates, and the firm-staff directory may exist outside tenants but cannot contain client records.

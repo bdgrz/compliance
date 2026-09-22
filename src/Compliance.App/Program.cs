@@ -143,6 +143,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 
     builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
     builder.Services.AddComplianceHealthChecks();
+    builder.Services.AddTenantPathLogRedaction();
 
     var app = builder.Build();
 
@@ -659,6 +660,7 @@ static async Task RunWorkerAsync(string[] args)
         .AddCompliance(builder.Configuration, developerAuthentication)
         .AddWorkers();
     builder.Services.AddComplianceHealthChecks();
+    builder.Services.AddTenantPathLogRedaction();
 
     await builder.Build().RunAsync();
 }

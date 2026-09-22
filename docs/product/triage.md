@@ -186,7 +186,7 @@ not before all product work.
 | M0-A03 | P0 | EN-06 | Evidence and file handling need safe storage, inspection, and per-artifact access. |
 | M0-A04 | P0 | EN-01 | Authorization combines membership, grants, responsibility, state, and separation of duties. |
 | M0-A05 | P0 | F1-02, R1-08, R2-11 | Accepted ADR 0007: tenant-scoped asynchronous projections, never-stale anchored and derived reads, and cross-client reads denied by default; readiness, work, and portfolio semantics remain with their owning stories. |
-| M0-A06 | P0 | EN-05 | Every import and collection shares preview, acceptance, and replay semantics. |
+| M0-A06 | P0 | EN-05 | Accepted in ADR 0005: every import and collection shares all-or-nothing acceptance behind a batch visibility barrier, preview, and replay semantics; the spike moved to EN-05 #195. |
 | M0-A07 | P0 | EN-01, R1-15, F1-06 | Tenant context, slug-based browser routes with `tenant_id` APIs, the reserved-route registry, and client identity federation. |
 
 ## Enabler triage
