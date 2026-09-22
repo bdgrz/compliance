@@ -1208,15 +1208,15 @@ Done when:
 
 Source: R1-08, R2-11, T2-04 acceptance criteria.
 
-Technical evidence: [ADR 0007](../architecture/decisions/0007-read-models-projections-and-as-of-calculations.md)
-records the tenant-scoped asynchronous projection, replay, authorization, and
-source-cursor catch-up contract. It also defines the contract for a future
-explicit revision-anchor read; the boundary-reference evidence does not
-exercise that separate contract. It does not decide readiness rules,
-calculation states, work-queue semantics, or cross-client authority, and it
-does not close this decision before a dedicated projection-derived-read spike
-in standalone and split hosts and the remaining product-owned calculation and
-cross-client rules are complete.
+Decision: accepted 2026-09-22 in [ADR 0007](../architecture/decisions/0007-read-models-projections-and-as-of-calculations.md).
+Tenant-scoped asynchronous Portia projections with transactional checkpoints,
+retained-source replay, authorization before any read, and a retryable
+transient conflict instead of a stale success for anchored or derived reads.
+Cross-client reads are denied by default. The dedicated standalone and split
+API/worker spike is `ProjectionReadConsistencyE2ETests`. Readiness rules and
+calculation states stay with R1-08, work-queue semantics with M0-D15 and
+R2-11, and cross-client portfolio authority with F1-02 under M0-A04, M0-D25,
+and M0-D26.
 
 ### M0-A06 ADR: Import, reconciliation, and background processing
 
