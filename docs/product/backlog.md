@@ -1232,12 +1232,12 @@ Context: Every import or collection needs preview, explicit acceptance, partial-
 
 Questions to answer:
 
-- [ ] Define the staged import model: upload, parse, validate, preview, accept, cancel.
-- [ ] Define atomic versus explicitly accepted-subset semantics.
-- [ ] Define idempotency keys, source identity, and replay detection.
-- [ ] Define missing-row and tombstone reconciliation states.
-- [ ] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
-- [ ] Ensure every job, message, retry, and progress report carries and verifies its organization context.
+- [x] Define the staged import model: upload, parse, validate, preview, accept, cancel.
+- [x] Define atomic versus explicitly accepted-subset semantics.
+- [x] Define idempotency keys, source identity, and replay detection.
+- [x] Define missing-row and tombstone reconciliation states.
+- [x] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
+- [x] Ensure every job, message, retry, and progress report carries and verifies its organization context.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1247,9 +1247,9 @@ Blocks: EN-05
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- [x] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- [ ] A thin spike proves the decision in both standalone and split API/worker host modes. Transferred to EN-05 backend #195 by product-owner decision, 2026-09-22.
+- [x] Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-06 requirements.
 

@@ -22,9 +22,9 @@ storage internals are settled. The staging and preview slice already on `main`
 2. **Acceptance is all-or-nothing.** A person accepts the whole batch as one
    unit. No imported effect is visible to any governed reader or validator
    until the batch commits. A failed or canceled import leaves no partial
-   active record. A batch with an invalid or duplicate row cannot be accepted;
-   the submitter corrects the source and stages again. The per-row
-   explicit-subset option is rejected.
+   active record. A batch with an invalid, duplicate, or unresolved row cannot
+   be accepted; the submitter corrects the source and stages again, or resolves
+   the row first (decision 8). The per-row explicit-subset option is rejected.
 3. **A durable batch visibility barrier provides the atomicity.** Portia commits
    one stream at a time, so no transaction spans a batch and its many target
    streams. Visibility is decided by a single commit marker instead (see
@@ -41,15 +41,26 @@ storage internals are settled. The staging and preview slice already on `main`
    (Compliance Participation) may stage an import and read its preview but
    cannot accept or cancel it. Acceptance is a personal decision and stays
    HTTP-only; no MCP tool accepts an import.
-6. **Raw rows are retained per M0-D16.** Staged raw rows and rejected-row
-   reports are retained for seven years under the
-   [M0-D16 #73](https://github.com/bdgrz/compliance/issues/73) evidence
-   retention decision. Import storage exposes a retention hook and defines no
-   period of its own; hold and disposition follow M0-D16.
+6. **Raw rows follow M0-D16 retention.** Staged raw rows and rejected-row
+   reports are retained for seven years, the evidence retention period the
+   product owner directed on 2026-09-22 for
+   [M0-D16 #73](https://github.com/bdgrz/compliance/issues/73). Import storage
+   exposes a retention hook that applies the M0-D16 period, holds, and
+   disposition authority; it sets no period of its own. If M0-D16 records a
+   different period, M0-D16 governs.
 7. **Organization context is verified everywhere.** Every HTTP request, MCP
    call, job, reactor message, retry, and progress report carries exactly one
    `tenant_id` and re-verifies it against the authoritative batch before acting.
    A system actor alone is not authority to accept a batch.
+8. **Correlation is resolved before acceptance, never guessed.** A row whose
+   source record ID has no committed claim but resembles an existing governed
+   record (for example a manually declared application) is ambiguous and
+   blocks acceptance. Before accepting, an authorized person records an
+   attributable correlation decision for that row: link it to the exact
+   existing record or create a new one. Names never match automatically.
+   Linking adds a source observation only; it never overwrites the governed
+   name, purpose, owner, classification, or scope. Adopting changed source
+   fields requires a separate reviewed revision with its own expected revision.
 
 ## Barrier design
 
@@ -72,23 +83,43 @@ built.
 - **Pending-under-batch effects.** A tenant-scoped reactor writes each effect to
   its target stream marked with the source and batch that must commit. Effects
   are idempotent by batch and row, so replay after a crash writes nothing new.
+  Each effect goes through a dedicated internal import-effect command whose
+  authorizer accepts only the system actor and checks the persisted plan, tenant
+  realm, and target. It does not open the user-facing inventory commands to the
+  system actor. Each effect records the accepting member and the staging
+  submitter as its attribution, alongside the named system actor.
+- **Governed revisions exclude pending events.** A pending event in an existing
+  target stream (a proposed retirement or link) does not change that record's
+  governed revision, so expected-revision checks and history ignore it until
+  commit. After a rollback the event stays in the stream as an invisible audit
+  record and never appears in governed history.
 - **Commit marker.** After an authoritative read confirms every planned effect
   is durable, one ledger event commits the batch. A missing effect is a
   transient failure that the reactor retries; it never commits a partial batch.
 - **Governed reads and validators.** Every governed read (get, list, history,
   instances) and every validator or command that references a target applies
   the barrier. It hides a record whose origin batch has not committed and
-  applies a pending retirement only after its batch commits. Commit is
-  monotonic, so a check that sees a record as visible cannot be reversed.
+  applies a pending retirement only after its batch commits. A committed
+  declaration never becomes invisible again, so a check that sees a new record
+  as visible cannot be reversed. A committed retirement can end the active
+  lifecycle of a record that a validator saw as active moments earlier. It
+  therefore follows the same downstream-impact rules as any application
+  retirement (R1-10d). References that exist or are created before commit
+  remain, and they are reported as impact. The declared-complete preview shows
+  that impact for every proposed retirement before a person accepts.
 - **Recovery.** A crash mid-accept rolls forward: the reactor resumes from its
   checkpoint and replays idempotent effects, then commits. A cancellation
   before commit, or a permanent effect failure, rolls back by recording the
   terminal state on the ledger. Effects already written stay permanently
   invisible because their batch can never commit. Target IDs are per batch,
   so a later batch never collides with rolled-back effects.
-- **Batch revision.** A batch's revision spans its staging stream and its
-  ledger events, so `expected_batch_revision` and `minimum_revision` keep one
-  monotonic meaning.
+- **Batch revision.** Each batch keeps its own revision counter: 1 at staging,
+  then one more for each ledger event about that batch (acceptance,
+  cancellation, failure, commit). The ledger records the batch's next revision
+  on each such event, so the counter is per batch and does not move when other
+  batches from the same source change. Everything after staging lives on the
+  one ledger stream, so the counter is monotonic, and `expected_batch_revision`
+  and `minimum_revision` keep a single meaning.
 - **Platform capability.** The barrier (pending-under-batch effects, a commit
   marker, and barrier-aware reads) is generic. EN-05 should assess whether it
   belongs in Portia, following the rule that reusable infrastructure lives
@@ -181,8 +212,12 @@ worker parser with its own progress and retention.
 - Declared-complete retirement introduces a retired lifecycle state for
   imported record types; each owning story defines what retirement means for
   its records.
-- A new import-staging permission lets Contributors stage and preview without
-  inventory-management authority.
+- A new import-staging permission, from the M0-D03 role decision
+  (2026-09-22), lets Contributors stage and preview without
+  inventory-management authority. EN-05 delivers it with a replay-safe grant
+  backfill for existing tenants.
+- Large files remain out of scope for the first consumer. A file path requires
+  EN-06 artifact inspection and a streaming, bounded worker parser.
 
 ## Remaining decisions
 
