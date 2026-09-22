@@ -26,7 +26,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"commitment-outsider-{Guid.NewGuid():N}@example.com");
         var (tenantId, programId, serviceId) = await CreateServiceAsync(owner);
-        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment_drafts";
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment-drafts";
         using var empty = await owner.GetAsync(path);
 
         // Act
@@ -63,7 +63,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         });
         var otherProgramId = await CreateProgramAsync(owner, tenantId);
         using var wrongProgramService = await owner.PostAsJsonAsync(
-            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment_drafts", new
+            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment-drafts", new
             {
                 service_id = serviceId,
                 kind = "system_requirement",
@@ -102,14 +102,14 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             $"{historyPath}?minimum_draft_revision=0");
         using var malformedHistoryCursor = await owner.GetAsync($"{historyPath}?cursor=not-a-cursor");
         using var otherProgram = await owner.GetAsync(
-            $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/commitment_drafts/{draftId}");
+            $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/commitment-drafts/{draftId}");
         using var otherProgramHistory = await owner.GetAsync(
-            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment_drafts/{draftId}/revisions");
+            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment-drafts/{draftId}/revisions");
         var (otherTenantId, otherTenantProgramId, _) = await CreateServiceAsync(owner);
         using var crossTenantRead = await owner.GetAsync(
-            $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment_drafts/{draftId}");
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment-drafts/{draftId}");
         using var crossTenantHistory = await owner.GetAsync(
-            $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment_drafts/{draftId}/revisions");
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment-drafts/{draftId}/revisions");
         using var outsiderRead = await outsider.GetAsync(draftPath);
         using var outsiderList = await outsider.GetAsync(path);
         using var outsiderHistory = await outsider.GetAsync(historyPath);
@@ -239,7 +239,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         using var malformedCursor = await owner.GetAsync($"{path}?cursor=not-a-cursor");
         using var invalidLimit = await owner.GetAsync($"{path}?limit=201");
         using var crossProgramCursor = await owner.GetAsync(
-            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment_drafts?cursor={Uri.EscapeDataString(cursor)}");
+            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment-drafts?cursor={Uri.EscapeDataString(cursor)}");
         using var oversized = await owner.PostAsJsonAsync(path, new
         {
             service_id = serviceId,
@@ -299,14 +299,14 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
         Assert.Equal(6, draftEvents.Count);
         var collection = openApi.GetProperty("paths").GetProperty(
-            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts");
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts");
         Assert.True(collection.TryGetProperty("post", out _));
         Assert.True(collection.TryGetProperty("get", out _));
         Assert.True(collection.GetProperty("post").GetProperty("requestBody")
             .GetProperty("content").GetProperty("application/json").GetProperty("schema")
             .GetProperty("properties").TryGetProperty("source_reference", out _));
         var historyOperation = openApi.GetProperty("paths").GetProperty(
-                "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}/revisions")
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/revisions")
             .GetProperty("get");
         Assert.True(historyOperation.GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(historyOperation.GetProperty("responses").TryGetProperty("400", out _));
@@ -357,7 +357,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(owner,
             $"commitment-split-owner-{Guid.NewGuid():N}@example.com");
         var (tenantId, programId, serviceId) = await CreateServiceAsync(owner);
-        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment_drafts";
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment-drafts";
         await worker.StopAsync();
 
         // Act

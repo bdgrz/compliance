@@ -129,7 +129,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 Assert.Empty(emptyHistory.GetProperty("items").EnumerateArray());
 
                 using var previewResponse = await owner.GetAsync(
-                    $"{draftPath}/impact_preview?expected_revision=1");
+                    $"{draftPath}/impact-preview?expected_revision=1");
                 Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
                 var preview = await ReadAsync(previewResponse);
                 Assert.True(preview.GetProperty("complete").GetBoolean());

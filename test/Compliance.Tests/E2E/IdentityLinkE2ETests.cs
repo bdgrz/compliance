@@ -48,7 +48,7 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
             {
                 using var firstClient = firstFactory.CreateClient();
                 using var request = new HttpRequestMessage(HttpMethod.Post,
-                    "/api/v1/my/oidc_identity_links")
+                    "/api/v1/my/oidc-identity-links")
                 {
                     Content = JsonContent.Create(new { }),
                 };

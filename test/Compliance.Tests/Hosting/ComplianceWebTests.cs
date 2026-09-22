@@ -31,7 +31,7 @@ public sealed class ComplianceWebTests
             .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
             .Where(endpoint => endpoint.RoutePattern.RawText is not
                 "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions" and not
-                "/api/v1/my/oidc_identity_links")
+                "/api/v1/my/oidc-identity-links")
             .ToArray();
 
         // Assert
@@ -58,9 +58,9 @@ public sealed class ComplianceWebTests
         // Act
         var endpoint = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
-            .Single(item => item.RoutePattern.RawText == "/api/v1/my/oidc_identity_links");
+            .Single(item => item.RoutePattern.RawText == "/api/v1/my/oidc-identity-links");
         var policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy;
-        using var response = await client.PostAsync("/api/v1/my/oidc_identity_links",
+        using var response = await client.PostAsync("/api/v1/my/oidc-identity-links",
             null, CancellationToken.None);
 
         // Assert
@@ -215,7 +215,7 @@ public sealed class ComplianceWebTests
                 "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.True(paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/client_services/{service_id}/revisions/{revision}")
+                "/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions/{revision}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.Contains(paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
@@ -237,19 +237,19 @@ public sealed class ComplianceWebTests
                  {
                      "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}",
                      "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions",
-                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version",
+                     "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version",
                  })
             Assert.Contains(paths.GetProperty(route).GetProperty("get")
                     .GetProperty("parameters").EnumerateArray(),
                 parameter => parameter.GetProperty("name").GetString() ==
                              "minimum_boundary_revision");
         Assert.True(paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview")
+                "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         Assert.False(paths.TryGetProperty(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version", out _));
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective_version", out _));
         Assert.False(paths.TryGetProperty(
-            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview",
+            "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact_preview",
             out _));
     }
 
@@ -290,16 +290,16 @@ public sealed class ComplianceWebTests
             ("/api/v1/platform/tenants", ["limit", "cursor"]),
             ("/api/v1/tenants/mine", ["limit", "cursor"]),
             ("/api/v1/tenants/{tenant_id}/members", ["limit", "cursor"]),
-            ("/api/v1/tenants/{tenant_id}/member_invitations",
+            ("/api/v1/tenants/{tenant_id}/member-invitations",
                 ["limit", "cursor", "email_address"]),
             ("/api/v1/tenants/{tenant_id}/teams", ["limit", "cursor", "search", "sort"]),
             ("/api/v1/tenants/{tenant_id}/teams/{team_id}/members", ["limit", "cursor"]),
             ("/api/v1/tenants/{tenant_id}/roles", ["limit", "cursor", "search", "sort"]),
             ("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions", ["limit", "cursor"]),
             ("/api/v1/tenants/{tenant_id}/roles/{role_id}/teams", ["limit", "cursor"]),
-            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references",
+            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary-references",
                 ["limit", "cursor"]),
-            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references",
+            ("/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/boundary-references",
                 ["limit", "cursor"]),
         };
         foreach (var (route, parameters) in contracts)
@@ -463,7 +463,7 @@ public sealed class ComplianceWebTests
         Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance_id", out _));
         Assert.True(exactSchema.GetProperty("properties").TryGetProperty("system_instance", out _));
         var instances = paths.GetProperty(
-            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances");
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances");
         var instanceSchema = instances.GetProperty("post").GetProperty("requestBody")
             .GetProperty("content").GetProperty("application/json").GetProperty("schema");
         foreach (var name in new[] { "expected_application_revision", "name", "kind" })
@@ -479,7 +479,7 @@ public sealed class ComplianceWebTests
                  {
                      instances.GetProperty("get"),
                      paths.GetProperty(
-                         "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+                         "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}")
                          .GetProperty("get"),
                  })
         {
@@ -490,12 +490,12 @@ public sealed class ComplianceWebTests
                              parameter.GetProperty("in").GetString() == "query");
         }
         Assert.True(paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}")
+                "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}")
             .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
         foreach (var path in new[]
                  {
-                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary_references",
-                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/system_instances/{system_instance_id}/boundary_references",
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary-references",
+                     "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/boundary-references",
                  })
         {
             var operation = paths.GetProperty(path).GetProperty("get");
@@ -509,7 +509,7 @@ public sealed class ComplianceWebTests
                              parameter.GetProperty("in").GetString() == "query");
         }
         var changePreview = paths.GetProperty(
-            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change_previews")
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews")
             .GetProperty("post");
         var previewSchema = changePreview.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
@@ -522,7 +522,8 @@ public sealed class ComplianceWebTests
     [Theory]
     [InlineData("Development")]
     [InlineData("Production")]
-    public async Task ShouldUseSnakeCaseGivenApiRouteQueryAndJsonNames(string environment)
+    public async Task ShouldUseHyphenatedStaticSegmentsAndSnakeCaseValuesGivenApiRouteQueryAndJsonNames(
+        string environment)
     {
         // Arrange
         await using var factory = CreateBrokerFreeFactory(environment);
@@ -537,9 +538,14 @@ public sealed class ComplianceWebTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var paths = document.RootElement.GetProperty("paths");
         if (environment == "Production")
-            Assert.True(paths.TryGetProperty("/api/v1/my/oidc_identity_links", out _));
+            Assert.True(paths.TryGetProperty("/api/v1/my/oidc-identity-links", out _));
         foreach (var path in paths.EnumerateObject())
         {
+            foreach (var segment in path.Name.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!segment.StartsWith('{'))
+                    Assert.Matches("^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$", segment);
+            }
             foreach (Match token in Regex.Matches(path.Name, @"\{([^}]+)\}"))
                 Assert.Matches("^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$", token.Groups[1].Value);
             foreach (var operation in path.Value.EnumerateObject())
@@ -570,7 +576,7 @@ public sealed class ComplianceWebTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var paths = document.RootElement.GetProperty("paths");
-        var collection = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports");
+        var collection = paths.GetProperty("/api/v1/tenants/{tenant_id}/application-imports");
         var stage = collection.GetProperty("post");
         var body = stage.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
@@ -579,10 +585,10 @@ public sealed class ComplianceWebTests
             Assert.True(body.GetProperty("properties").TryGetProperty(name, out _));
         Assert.False(body.GetProperty("properties").TryGetProperty("tenant_id", out _));
         Assert.True(stage.GetProperty("responses").TryGetProperty("200", out _));
-        var batch = paths.GetProperty("/api/v1/tenants/{tenant_id}/application_imports/{batch_id}");
+        var batch = paths.GetProperty("/api/v1/tenants/{tenant_id}/application-imports/{batch_id}");
         Assert.True(batch.TryGetProperty("get", out _));
         var cancellation = paths.GetProperty(
-            "/api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations");
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations");
         Assert.True(cancellation.TryGetProperty("post", out var cancel));
         var cancelBody = cancel.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
@@ -592,11 +598,27 @@ public sealed class ComplianceWebTests
         foreach (var suffix in new[] { "/rows", "/preview" })
         {
             var read = paths.GetProperty(
-                $"/api/v1/tenants/{{tenant_id}}/application_imports/{{batch_id}}{suffix}")
+                $"/api/v1/tenants/{{tenant_id}}/application-imports/{{batch_id}}{suffix}")
                 .GetProperty("get");
             Assert.Contains(read.GetProperty("parameters").EnumerateArray(), parameter =>
                 parameter.GetProperty("name").GetString() == "minimum_revision");
         }
+        var previewResponse = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview")
+            .GetProperty("get").GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var previewPage = schemas.GetProperty(previewResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        var previewItem = previewPage.GetProperty("properties").GetProperty("items")
+            .GetProperty("items");
+        var candidateApplicationIds = previewItem.GetProperty("properties")
+            .GetProperty("candidate_application_ids");
+        Assert.Equal("array", candidateApplicationIds.GetProperty("type").GetString());
+        Assert.Equal("string", candidateApplicationIds.GetProperty("items").GetProperty("type")
+            .GetString());
+        Assert.Equal("uuid", candidateApplicationIds.GetProperty("items").GetProperty("format")
+            .GetString());
         Assert.DoesNotContain(paths.EnumerateObject(), path =>
             path.Name.Contains("acceptances", StringComparison.Ordinal));
     }
@@ -616,7 +638,7 @@ public sealed class ComplianceWebTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var operation = document.RootElement.GetProperty("paths")
-            .GetProperty("/api/v1/tenants/{tenant_id}/member_invitations")
+            .GetProperty("/api/v1/tenants/{tenant_id}/member-invitations")
             .GetProperty("get");
         Assert.True(operation.GetProperty("responses").TryGetProperty("200", out _));
         var parameterNames = operation.GetProperty("parameters").EnumerateArray()

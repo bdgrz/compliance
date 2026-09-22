@@ -22,8 +22,9 @@ independently.
 
 ## Common rules
 
-- All HTTP paths and query names, JSON property names and enum values below
-  use `snake_case`. The Portia request record uses `TenantId` from
+- Static HTTP path segments below use `kebab-case`; interpolated path values,
+  query names, JSON property names, and enum values use `snake_case`. The
+  Portia request record uses `TenantId` from
   `{tenant_id}`; an extra body `tenant_id` is ignored by the current generated
   binder and cannot redirect the tenant scope. Each route requires the
   existing API-user authentication policy and a Portia request authorizer.
@@ -54,9 +55,9 @@ independently.
 
 | HTTP operation | Portia request/result | Success and purpose | MCP |
 | --- | --- | --- | --- |
-| `POST /api/v1/tenants/{tenant_id}/application_imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
-| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
-| `POST /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none; HTTP-only |
+| `POST /api/v1/tenants/{tenant_id}/application-imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
+| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows/{row_id}/acceptances` | `AcceptApplicationImportRow` → `ApplicationImportRowReceipt` | 200; record one explicit decision and return intent state and causal `decision_id` | none; consequence-acceptance is HTTP-only |
+| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 only before any accepted row intent; otherwise 409 | none; HTTP-only |
 
 `StageApplicationImport` body:
 
@@ -172,9 +173,9 @@ row; whether this satisfies #195 requires the product decision above.
 
 | HTTP operation | Portia request/result | Read-only MCP discriminator |
 | --- | --- | --- |
-| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}?minimum_revision={n}` | `GetApplicationImport` → `ApplicationImportView` | `bdgrz.application_import.get` |
-| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
-| `GET /api/v1/tenants/{tenant_id}/application_imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
+| `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}?minimum_revision={n}` | `GetApplicationImport` → `ApplicationImportView` | `bdgrz.application_import.get` |
+| `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
+| `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
 
 The three read queries are registered as `ReadOnly` with Portia MCP, and staging
 is registered as an `Idempotent` command. Portia 0.5.3 fixes the MCP binder so

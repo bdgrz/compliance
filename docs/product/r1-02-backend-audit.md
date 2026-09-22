@@ -19,15 +19,16 @@ records partial backend delivery and does not claim these issues are complete.
   Remaining subject types stay explicit unresolved references until their
   owning inventories and source authority exist.
 - Applications and SystemInstances expose authorized, paged reverse boundary
-  references over snake_case HTTP and read-only MCP. A separate per-tenant Fitz
+  references over hyphenated HTTP path segments and read-only MCP. A separate
+  per-tenant Fitz
   projector replays retained boundary events into current-draft and approved
   history rows. Reads return a conflict while that projector trails the source,
   including when an empty page would otherwise appear complete. Earlier
   revised or discarded drafts remain in retained boundary event history.
 - Current-boundary reads accept `minimum_revision`. Immutable version, version
-  list, and `/effective_version` reads accept `minimum_boundary_revision` over
-  snake_case HTTP query strings and read-only MCP tool arguments. Boundary
-  `/impact_preview` uses the same route convention. A caller may
+  list, and `/effective-version` reads accept `minimum_boundary_revision` over
+  snake_case HTTP query strings and read-only MCP tool arguments. The static
+  `/impact-preview` path segment is likewise hyphenated. A caller may
   anchor these reads to a boundary stream revision returned by an earlier
   operation. When the source has reached that revision but Fitz has not, the
   query returns a recoverable conflict. When the source itself has not reached
@@ -61,9 +62,9 @@ auditor opinion.
 ## Verification and tracking
 
 The original history-read slice proved approved-version lag and catch-up with
-a real Fitz broker and live OpenAPI checks for snake_case
-`/effective_version` and `/impact_preview` routes. The later manual inventory
-and boundary-reference slices were reviewed and merged in
+a real Fitz broker and live OpenAPI checks. This route migration now exposes
+hyphenated `/effective-version` and `/impact-preview` paths. The later manual
+inventory and boundary-reference slices were reviewed and merged in
 [PR #244](https://github.com/bdgrz/compliance/pull/244) and
 [PR #245](https://github.com/bdgrz/compliance/pull/245). Their exact-head CI
 runs passed Validate, dependency review, and Native AOT containers on amd64

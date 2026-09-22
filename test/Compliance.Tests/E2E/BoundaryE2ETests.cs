@@ -175,7 +175,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.Conflict, unsupportedGovernedLink.StatusCode);
         var draftPath = $"{boundaryPath}/drafts/{registration.DraftVersionId}";
         using var initialPreviewResponse = await owner.GetAsync(
-            $"{draftPath}/impact_preview?expected_revision=1");
+            $"{draftPath}/impact-preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.OK, initialPreviewResponse.StatusCode);
         var initialPreview = await initialPreviewResponse.Content
             .ReadFromJsonAsync<BoundaryImpactPreviewDocument>();
@@ -183,7 +183,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Contains(initialPreview?.Changes ?? [], change =>
             change.Field == "scope_entry" && change.ChangeType == "added");
         using var deniedPreview = await outsider.GetAsync(
-            $"{draftPath}/impact_preview?expected_revision=1");
+            $"{draftPath}/impact-preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.NotFound, deniedPreview.StatusCode);
 
         using var deniedRead = await outsider.GetAsync(boundaryPath);
@@ -233,10 +233,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, revisedRevision.StatusCode);
         Assert.Equal("Service A and its provider are in scope.", projected?.Draft?.Content.Statement);
         using var stalePreview = await owner.GetAsync(
-            $"{draftPath}/impact_preview?expected_revision=1");
+            $"{draftPath}/impact-preview?expected_revision=1");
         Assert.Equal(HttpStatusCode.Conflict, stalePreview.StatusCode);
         using var reviewedPreviewResponse = await owner.GetAsync(
-            $"{draftPath}/impact_preview?expected_revision=2");
+            $"{draftPath}/impact-preview?expected_revision=2");
         Assert.Equal(HttpStatusCode.OK, reviewedPreviewResponse.StatusCode);
         var reviewedPreview = await reviewedPreviewResponse.Content
             .ReadFromJsonAsync<BoundaryImpactPreviewDocument>();
@@ -360,7 +360,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         var versions = await versionsResponse.Content.ReadFromJsonAsync<BoundaryVersionPageDocument>();
         Assert.Equal(registration.DraftVersionId, Assert.Single(versions?.Items ?? []).VersionId);
         using var effective = await owner.GetAsync(
-            $"{boundaryPath}/effective_version?effective_on=2027-01-01&minimum_boundary_revision=4");
+            $"{boundaryPath}/effective-version?effective_on=2027-01-01&minimum_boundary_revision=4");
         Assert.True(effective.StatusCode == HttpStatusCode.OK,
             await effective.Content.ReadAsStringAsync());
         var effectiveVersion = await effective.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
@@ -369,7 +369,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                  {
                      $"{boundaryPath}/versions/{registration.DraftVersionId}",
                      $"{boundaryPath}/versions",
-                     $"{boundaryPath}/effective_version?effective_on=2027-01-01",
+                     $"{boundaryPath}/effective-version?effective_on=2027-01-01",
                  })
         {
             using var future = await owner.GetAsync(route +
@@ -424,10 +424,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                     ["minimum_boundary_revision"] = 4,
                 }).ExpectFailure();
         using var beforeEffective = await owner.GetAsync(
-            $"{boundaryPath}/effective_version?effective_on=2026-12-31");
+            $"{boundaryPath}/effective-version?effective_on=2026-12-31");
         Assert.Equal(HttpStatusCode.NotFound, beforeEffective.StatusCode);
         using var deniedEffective = await outsider.GetAsync(
-            $"{boundaryPath}/effective_version?effective_on=2027-01-01");
+            $"{boundaryPath}/effective-version?effective_on=2027-01-01");
         Assert.Equal(HttpStatusCode.NotFound, deniedEffective.StatusCode);
         using var decisionsResponse = await owner.GetAsync($"{boundaryPath}/decisions");
         Assert.Equal(HttpStatusCode.OK, decisionsResponse.StatusCode);
@@ -520,7 +520,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(
-                $"{successorDraft}/impact_preview?expected_revision=1");
+                $"{successorDraft}/impact-preview?expected_revision=1");
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 successorPreview = await response.Content

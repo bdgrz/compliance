@@ -95,7 +95,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             while (DateTimeOffset.UtcNow < failureDeadline)
             {
                 using var response = await administratorClient.GetAsync(
-                    $"/api/v1/tenants/{tenantId}/member_invitations?email_address=" +
+                    $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
                     Uri.EscapeDataString(email));
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
@@ -116,7 +116,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             while (DateTimeOffset.UtcNow < deliveryDeadline)
             {
                 using var response = await administratorClient.GetAsync(
-                    $"/api/v1/tenants/{tenantId}/member_invitations?email_address=" +
+                    $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
                     Uri.EscapeDataString(email));
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
