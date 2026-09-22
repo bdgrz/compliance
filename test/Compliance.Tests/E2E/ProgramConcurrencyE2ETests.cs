@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Cntryl.Fitz;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -20,11 +21,11 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ShouldReturnTransientConflictGivenTwoConcurrentProgramRevisionsThroughHttp(
+    public async Task ShouldReturnTransientConflictGivenHeldAppendSessionThroughHttp(
         bool splitHosts)
     {
         // Arrange
-        var gate = new ConcurrentProgramRevisionGate();
+        var recorder = new ProgramAggregateWriterRecorder();
         var applicationName = $"compliance-program-concurrency-http-{Guid.NewGuid():N}";
         IHost? worker = null;
         if (splitHosts)
@@ -35,37 +36,27 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
 
         try
         {
-            await using var factory = CreateFactory(applicationName, gate);
-            using var firstClient = CreateClient(factory, splitHosts);
-            using var secondClient = CreateClient(factory, splitHosts);
+            await using var factory = CreateFactory(applicationName, recorder);
+            using var client = CreateClient(factory, splitHosts);
             var email = $"program-concurrency-{Guid.NewGuid():N}@example.com";
-            await TenantInvitationE2ETests.LoginAsync(firstClient, email);
-            await TenantInvitationE2ETests.LoginAsync(secondClient, email);
-            var (tenantId, programId, path) = await CreateProgramAsync(firstClient);
-            await WaitForRevisionAsync(firstClient, path, 1);
-            gate.Arm();
+            await TenantInvitationE2ETests.LoginAsync(client, email);
+            var (tenantId, programId, path) = await CreateProgramAsync(client);
+            await WaitForRevisionAsync(client, path, 1);
+            await using var blockingClient = await CreateFitzClientAsync(broker.WebSocketEndpoint);
+            await using var blocker = await blockingClient.Stream.BeginAsync(
+                new EventStreamAddress(tenantId, "programs", programId).ToString());
 
             // Act
-            var first = firstClient.PutAsJsonAsync(path, RevisionRequest("Concurrent revision one"));
-            var second = secondClient.PutAsJsonAsync(path, RevisionRequest("Concurrent revision two"));
-            using var firstResponse = await first;
-            using var secondResponse = await second;
-            var responses = new[] { firstResponse, secondResponse };
-            var winner = Assert.Single(responses,
-                response => response.StatusCode == HttpStatusCode.NoContent);
-            var conflict = Assert.Single(responses,
-                response => response.StatusCode == HttpStatusCode.Conflict);
+            using var conflict = await client.PutAsJsonAsync(path, RevisionRequest("Held-session revision"));
             var conflictBody = await conflict.Content.ReadAsStringAsync();
             using var problem = JsonDocument.Parse(conflictBody);
             var detail = Assert.IsType<string>(problem.RootElement.GetProperty("detail").GetString());
-            await WaitForRevisionAsync(firstClient, path, 2);
-            var revisedEvents = await ReadRevisionsAsync(factory, tenantId, programId);
 
             // Assert
-            var contention = Assert.IsType<EventStreamConcurrencyException>(gate.SaveFailure);
+            var contention = Assert.IsType<EventStreamConcurrencyException>(recorder.SaveFailure);
             var fitz = Assert.IsType<Cntryl.Fitz.StreamException>(contention.InnerException);
             Assert.Equal(Cntryl.Fitz.FitzErrorCodes.StreamSessionAlreadyActive, fitz.DomainCode);
-            Assert.Equal(HttpStatusCode.NoContent, winner.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
             Assert.Equal("true", conflict.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal("The request conflicted with a concurrent update.", detail);
             Assert.Equal(path, problem.RootElement.GetProperty("instance").GetString());
@@ -73,8 +64,15 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
             Assert.DoesNotContain("stream", detail, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(tenantId, detail, StringComparison.Ordinal);
             Assert.DoesNotContain(programId, detail, StringComparison.Ordinal);
-            Assert.Equal(2, gate.DelegatedSaves);
-            Assert.Single(revisedEvents);
+
+            await blocker.RollbackAsync();
+            using var accepted = await client.PutAsJsonAsync(path, RevisionRequest("Released-session revision"));
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+            await WaitForRevisionAsync(client, path, 2);
+            var revisedEvents = await ReadRevisionsAsync(factory, tenantId, programId);
+            var revised = Assert.Single(revisedEvents);
+            Assert.Equal(2, revised.Revision);
+            Assert.Equal("Released-session revision", revised.Name);
         }
         finally
         {
@@ -89,11 +87,11 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ShouldReturnTransientConflictGivenTwoConcurrentProgramRevisionsThroughMcp(
+    public async Task ShouldReturnTransientConflictGivenHeldAppendSessionThroughMcp(
         bool splitHosts)
     {
         // Arrange
-        var gate = new ConcurrentProgramRevisionGate();
+        var recorder = new ProgramAggregateWriterRecorder();
         var applicationName = $"compliance-program-concurrency-mcp-{Guid.NewGuid():N}";
         IHost? worker = null;
         if (splitHosts)
@@ -104,38 +102,29 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
 
         try
         {
-            await using var factory = CreateFactory(applicationName, gate);
-            using var firstClient = CreateClient(factory, splitHosts);
-            using var secondClient = CreateClient(factory, splitHosts);
+            await using var factory = CreateFactory(applicationName, recorder);
+            using var client = CreateClient(factory, splitHosts);
             var email = $"program-concurrency-mcp-{Guid.NewGuid():N}@example.com";
-            await TenantInvitationE2ETests.LoginAsync(firstClient, email);
-            await TenantInvitationE2ETests.LoginAsync(secondClient, email);
-            var (tenantId, programId, path) = await CreateProgramAsync(firstClient);
-            await WaitForRevisionAsync(firstClient, path, 1);
-            await using var firstMcp = await McpScenario.ConnectAsync(firstClient,
-                new Uri(firstClient.BaseAddress!, "/mcp"));
-            await using var secondMcp = await McpScenario.ConnectAsync(secondClient,
-                new Uri(secondClient.BaseAddress!, "/mcp"));
-            gate.Arm();
+            await TenantInvitationE2ETests.LoginAsync(client, email);
+            var (tenantId, programId, path) = await CreateProgramAsync(client);
+            await WaitForRevisionAsync(client, path, 1);
+            await using var mcp = await McpScenario.ConnectAsync(client,
+                new Uri(client.BaseAddress!, "/mcp"));
+            await using var blockingClient = await CreateFitzClientAsync(broker.WebSocketEndpoint);
+            await using var blocker = await blockingClient.Stream.BeginAsync(
+                new EventStreamAddress(tenantId, "programs", programId).ToString());
 
             // Act
-            var first = InvokeRevisionAsync(firstMcp, tenantId, programId,
-                "Concurrent MCP revision one");
-            var second = InvokeRevisionAsync(secondMcp, tenantId, programId,
-                "Concurrent MCP revision two");
-            var results = await Task.WhenAll(first, second);
-            var winner = Assert.Single(results, result => !result.IsError);
-            var conflict = Assert.Single(results, result => result.IsError);
+            var conflict = await InvokeRevisionAsync(mcp, tenantId, programId,
+                "Held-session MCP revision");
             var structured = Assert.IsType<JsonElement>(conflict.StructuredJson);
             var conflictBody = string.Join("\n", conflict.Text);
-            await WaitForRevisionAsync(firstClient, path, 2);
-            var revisedEvents = await ReadRevisionsAsync(factory, tenantId, programId);
 
             // Assert
-            var contention = Assert.IsType<EventStreamConcurrencyException>(gate.SaveFailure);
+            var contention = Assert.IsType<EventStreamConcurrencyException>(recorder.SaveFailure);
             var fitz = Assert.IsType<Cntryl.Fitz.StreamException>(contention.InnerException);
             Assert.Equal(Cntryl.Fitz.FitzErrorCodes.StreamSessionAlreadyActive, fitz.DomainCode);
-            Assert.False(winner.IsError);
+            Assert.True(conflict.IsError);
             Assert.Equal("Conflict", structured.GetProperty("kind").GetString());
             Assert.True(structured.GetProperty("isTransient").GetBoolean());
             Assert.Equal("The request conflicted with a concurrent update.",
@@ -146,8 +135,16 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
             Assert.DoesNotContain("stream", conflictBody, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(tenantId, conflictBody, StringComparison.Ordinal);
             Assert.DoesNotContain(programId, conflictBody, StringComparison.Ordinal);
-            Assert.Equal(2, gate.DelegatedSaves);
-            Assert.Single(revisedEvents);
+
+            await blocker.RollbackAsync();
+            var accepted = await InvokeRevisionAsync(mcp, tenantId, programId,
+                "Released-session MCP revision");
+            Assert.False(accepted.IsError);
+            await WaitForRevisionAsync(client, path, 2);
+            var revisedEvents = await ReadRevisionsAsync(factory, tenantId, programId);
+            var revised = Assert.Single(revisedEvents);
+            Assert.Equal(2, revised.Revision);
+            Assert.Equal("Released-session MCP revision", revised.Name);
         }
         finally
         {
@@ -160,7 +157,7 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
     }
 
     WebApplicationFactory<Program> CreateFactory(string applicationName,
-        ConcurrentProgramRevisionGate gate) => E2EAppFactory.Create(broker, applicationName)
+        ProgramAggregateWriterRecorder recorder) => E2EAppFactory.Create(broker, applicationName)
         .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
         {
             var originalWriter = services.Single(descriptor =>
@@ -168,10 +165,10 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
             var originalFactory = originalWriter.ImplementationFactory
                 ?? throw new InvalidOperationException("Portia must register an aggregate writer factory.");
             services.Remove(originalWriter);
-            services.AddSingleton(gate);
-            services.AddScoped<IAggregateWriter>(provider => new CoordinatingProgramAggregateWriter(
+            services.AddSingleton(recorder);
+            services.AddScoped<IAggregateWriter>(provider => new RecordingProgramAggregateWriter(
                 (IAggregateWriter)originalFactory(provider),
-                provider.GetRequiredService<ConcurrentProgramRevisionGate>()));
+                provider.GetRequiredService<ProgramAggregateWriterRecorder>()));
         }));
 
     IHost BuildWorker(string applicationName)
@@ -268,6 +265,22 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
         return revised;
     }
 
+    static async Task<Client> CreateFitzClientAsync(string endpoint)
+    {
+        var client = new Client(new ClientConfig(new Uri(endpoint, UriKind.Absolute),
+            Timeout: TimeSpan.FromSeconds(10)));
+        try
+        {
+            await client.ConnectWhenReadyAsync(new ConnectWhenReadyOptions(TimeSpan.FromSeconds(15)));
+            return client;
+        }
+        catch
+        {
+            await client.DisposeAsync();
+            throw;
+        }
+    }
+
     static async Task<McpCallSnapshot> InvokeRevisionAsync(McpScenario scenario,
         string tenantId, string programId, string name) => await scenario.When("bdgrz.program.revise",
         new Dictionary<string, object?>
@@ -296,65 +309,31 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
         audit_firm = (string?)null,
     };
 
-    sealed class CoordinatingProgramAggregateWriter(IAggregateWriter inner,
-        ConcurrentProgramRevisionGate gate) : IAggregateWriter
+    sealed class RecordingProgramAggregateWriter(IAggregateWriter inner,
+        ProgramAggregateWriterRecorder recorder) : IAggregateWriter
     {
         public async ValueTask SaveAsync<TAggregate>(TAggregate aggregate,
             IExecutionContext context, CancellationToken ct = default)
             where TAggregate : Aggregate
         {
-            if (aggregate is ComplianceProgram && gate.TryClaim())
-            {
-                await gate.WaitForPairAsync(ct);
-                gate.RecordDelegatedSave();
-            }
             try
             {
                 await inner.SaveAsync(aggregate, context, ct);
             }
-            catch (Exception exception)
+            catch (EventStreamConcurrencyException exception) when (aggregate is ComplianceProgram)
             {
-                gate.RecordSaveFailure(exception);
+                recorder.RecordSaveFailure(exception);
                 throw;
             }
         }
     }
 
-    sealed class ConcurrentProgramRevisionGate
+    sealed class ProgramAggregateWriterRecorder
     {
-        readonly TaskCompletionSource _bothWritesReady = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        int _armed;
-        int _claimed;
-        int _delegatedSaves;
         Exception? _saveFailure;
 
-        public int DelegatedSaves => Volatile.Read(ref _delegatedSaves);
         public Exception? SaveFailure => Volatile.Read(ref _saveFailure);
-
-        public void Arm()
-        {
-            if (Interlocked.Exchange(ref _armed, 1) != 0)
-                throw new InvalidOperationException("The concurrency gate can only be armed once.");
-        }
-
-        public bool TryClaim()
-        {
-            if (Volatile.Read(ref _armed) == 0)
-                return false;
-            return Interlocked.Increment(ref _claimed) <= 2;
-        }
-
-        public async ValueTask WaitForPairAsync(CancellationToken ct)
-        {
-            if (Volatile.Read(ref _claimed) == 2)
-                _bothWritesReady.TrySetResult();
-            await _bothWritesReady.Task.WaitAsync(ct);
-        }
-
-        public void RecordDelegatedSave() => Interlocked.Increment(ref _delegatedSaves);
-
-        public void RecordSaveFailure(Exception exception) =>
+        public void RecordSaveFailure(EventStreamConcurrencyException exception) =>
             Interlocked.CompareExchange(ref _saveFailure, exception, null);
     }
 

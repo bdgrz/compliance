@@ -208,11 +208,12 @@ append after session acquisition, and
 earlier `2002`, `StreamSessionAlreadyActive` session-admission path. Portia
 0.5.4 now translates that structured transient contention into its public
 conflict surface before an append session exists. The real-broker Compliance
-two-writer test proves one HTTP success and one safe transient conflict, plus
-one MCP success and one structured transient Conflict, in standalone and split
-API/worker hosts. This draft does not prescribe an application catch or
-automatic command retry. M0-A01 remains proposed for recovery targets and an
-isolated restore exercise.
+test holds the exact program stream's append session before dispatching a
+revision, proving a safe transient HTTP conflict and a structured transient MCP
+Conflict in standalone and split API/worker hosts. Once that session rolls back,
+a normal revision succeeds and exactly one revised event is durable. This draft
+does not prescribe an application catch or automatic command retry. M0-A01
+remains proposed for recovery targets and an isolated restore exercise.
 
 The first-consumer wire contract is
 [application-import-v1.md](../../product/application-import-v1.md). A thin
