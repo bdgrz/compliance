@@ -83,9 +83,11 @@ standalone host; it does not prove standalone lag and recovery.
 [PR #321](https://github.com/bdgrz/compliance/pull/321) adds separate retained-
 source recovery evidence: a fresh broker and fresh hosts restore Program source
 state and replay the production tenant-scoped `ProgramDirectoryProjector` in
-standalone and split API/worker modes. That proof does not establish portable
-backup or restore, numerical recovery targets, a global calculation snapshot,
-or cross-client authorization.
+standalone and split API/worker modes. The later portable-local-volume probe
+extends that evidence through source-volume loss and restore into a fresh local
+volume. Neither probe establishes production backup or restore controls,
+numerical recovery targets, a global calculation snapshot, or cross-client
+authorization.
 
 ## Alternatives and limits
 
@@ -103,5 +105,5 @@ work-source mapping, due and blocked semantics, prioritization, reminders,
 assignment, and escalation. M0-D25, M0-D26, and F1-02 own firm-staff access,
 independence boundaries, and any cross-client portfolio authority. M0-A04 owns
 field-level restriction policy. M0-A01 still needs an accepted operational
-owner, portable backup-and-restore exercise, RPO/RTO targets, and a per-
+owner, timed production backup-and-restore exercise, RPO/RTO targets, and a per-
 organization recovery, export, and deletion procedure.
