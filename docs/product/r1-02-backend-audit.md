@@ -51,8 +51,10 @@ successor approval rather than claiming a complete impact result.
   contexts pending and blocks successor approval while they are absent.
 - Prove complete successor approval and the exact boundary-version binding of
   historical engagement snapshots after those dependent contexts arrive.
-- Complete inherited M0 decisions that require engagement facts, organization
-  policy, or recovery targets. Do not infer them from the backend defaults.
+- Complete inherited M0 decisions that require engagement facts or organization
+  policy. Do not infer them from the backend defaults. M0-A01 has selected the
+  whole-platform recovery boundary; [cntryl/portia#70](https://github.com/cntryl/portia/issues/70)
+  and DevOps retain production recovery delivery and timed evidence.
 
 The revision anchor describes a specific boundary stream, not an atomic
 snapshot across downstream inventories. The impact digest and approval guard

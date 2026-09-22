@@ -189,7 +189,7 @@ its affected stories are scheduled.
 | The minimum technology, information, data-flow, workforce, and NHI-owner inventories needed for the first system description and control evaluation | M0-D08, M0-D06 |
 | The risk methodology, material-vendor threshold, and minimum vendor-review evidence | M0-D10, M0-D11 |
 | Which prohibited or required access expectations apply to each reviewed system | M0-D07 |
-| Evidence retention, deletion, legal-hold, backup, and recovery expectations | M0-D16, M0-A01, M0-A03 |
+| Evidence retention, deletion, legal-hold, and artifact-recovery expectations | M0-D16, M0-A03; the whole-platform recovery boundary is accepted in ADR 0003 and delivery remains in Portia #70 |
 | Accessibility target and supported browsers | M0-D24 |
 | First cloud provider and first evidence sources to automate | M0-D20 |
 | How the readiness advisor and auditor want to review work in progress | M0-D14, M0-D17 |

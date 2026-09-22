@@ -701,7 +701,7 @@ tracked as an M0 discovery issue:
 | Which customer commitments, system requirements, CUECs, and CSOCs apply and who approves them | M0-D09 |
 | The risk scoring or qualitative method, risk appetite, acceptance authority, and material-vendor threshold | M0-D10, M0-D11 |
 | The first vendor-assessment evidence set and treatment of SOC report coverage gaps, bridge letters, exceptions, and subservice organizations | M0-D11 |
-| Retention, deletion, legal hold, backup, and recovery rules for identity and evidence records | M0-D16, M0-A01, M0-A03 |
+| Retention, deletion, legal hold, and artifact-recovery rules for identity and evidence records | M0-D16, M0-A03; the whole-platform recovery boundary is accepted in ADR 0003 and delivery remains in Portia #70 |
 | Which external principal and entitlement shapes are required by the first real access-review population | M0-D07 |
 | Which source is authoritative for people, employment status, managers, and non-human identity ownership | M0-D06 |
 | How detailed initial access expectations must be and whether reusable access profiles emerge from the first real campaigns | M0-D07 |
@@ -710,7 +710,7 @@ tracked as an M0 discovery issue:
 | The audit firm's required population definitions, reconciliation fields, sample identifiers, package shape, and representation-letter workflow | M0-D17 |
 | Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
 | The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 |
-| How persistence, snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A01 through M0-A06 |
+| How snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A02 through M0-A06; persistence is accepted in ADR 0003 |
 | The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | M0-D25 |
 | Independence rules for advisory and attest services | M0-D26 |
 | Whether the firm's own attest workpapers belong in the platform | M0-D27 |

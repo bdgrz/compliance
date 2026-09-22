@@ -63,8 +63,10 @@ future source without durable immutable versions must first acquire them or
 materialize its facts into a separately immutable source record before freeze.
 
 This spike does not set workforce population limits, retention periods, legal
-holds, package regeneration throughput, or operational recovery targets. Those
-need measured volume and operating requirements. Workforce snapshots, source
+holds, package regeneration throughput, or measure or prove achievement of the
+15-minute RPO and 4-hour RTO. M0-A01 selects that whole-platform recovery
+boundary; [cntryl/portia#70](https://github.com/cntryl/portia/issues/70) and
+DevOps own its delivery and timed operational proof. Workforce snapshots, source
 completeness rules, and personal approvals belong to their consuming stories.
 
 ## Thin spike proof
