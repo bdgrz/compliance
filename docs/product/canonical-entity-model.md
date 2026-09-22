@@ -109,9 +109,9 @@ person.
 | `SeparationOfDutyConstraint` | A static or dynamic constraint on role assignment, activation, or a consequential workflow decision. | conflicting roles/actions, cardinality, scope, exception authority | NIST static and dynamic separation of duty |
 | `SeparationOfDutyException` | A time-bounded, reason-required waiver of one separation-of-duty constraint for one record type in one tenant. | constraint, record type, reason, approving Org Admin, effective interval, revocation | Original product decision in M0-D03; NIST SoD supplies only the constraint concept |
 | `TrustedIssuer` | An OIDC issuer that one tenant organization trusts for member sign-in. Several may be configured per organization. | tenant, exact issuer identifier, lifecycle, configuring actor | OpenID Connect issuer identifier; per-tenant trust is an original product decision in M0-A07 |
-| `PlatformOperatorGrant` | An effective-dated grant of platform-operator authority to a platform user. Operator authority covers tenant lifecycle, administrator roster, and usage metadata only. | platform user, granting operator, effective interval, revocation, revoking operator | Original product decision in M0-D25 |
+| `PlatformOperatorGrant` | An effective-dated grant of platform-operator authority to a platform user. Operator authority covers tenant lifecycle, administrator roster, and usage metadata only. | platform user, grant source (an existing operator, or the deployment-configured bootstrap operator list), effective interval, revocation, revoking operator | Original product decision in M0-D25 |
 | `ServiceEngagement` | An advisory or attest service the firm provides to one client organization. It is distinct from the client's Type I or Type II audit engagement. | tenant, practice (`advisory` or `attest`), service type, scope, period, acceptance decision and approver, independence evaluation | Original product decision in M0-D25, M0-D26, and F1-07 |
-| `EngagementAssignment` | An effective-dated assignment of a firm-staff platform user to one accepted service engagement, carrying that engagement's practice role. | service engagement, platform user, practice role (`Advisor` or `Attest`), effective interval, assigning actor, revocation | Original product decision in M0-D25 and M0-D26 |
+| `EngagementAssignment` | An effective-dated assignment of a firm-staff platform user to one accepted service engagement. The engagement's practice determines the effective role: `advisory` grants Advisor and `attest` grants Attest. | service engagement, platform user, effective interval, assigning actor, revocation | Original product decision in M0-D25 and M0-D26 |
 
 Platform roles authorize actions in Compliance. They must not be reused for job
 profiles, provider roles observed during an access review, or responsibilities
@@ -120,9 +120,11 @@ such as control owner and policy approver.
 The first-release built-in `AccessRole` catalog (M0-D03) is Org Admin,
 Compliance Lead, Contributor, and Viewer for client personnel, plus the
 firm-staff practice roles Advisor and Attest. Stable role codes and permission
-sets belong to the authorization decision (M0-A04, ADR 0002), not this catalog;
-the existing `tenant_administration`, `compliance_management`, and
-`compliance_participation` implementation roles are mapped there. A practice role is effective
+sets belong to the authorization decision (M0-A04, ADR 0002), not this catalog.
+The existing `tenant_administration`, `compliance_management`, and
+`compliance_participation` implementation roles predate this catalog; mapping
+them to it, including Viewer, which has no current counterpart, is part of
+M0-A04. A practice role is effective
 only through an active `EngagementAssignment`; it is never granted as a
 standing tenant `RoleAssignment`. Review, approval, and ownership duties are
 `Responsibility` records held by members whose role permits the action; they
@@ -296,9 +298,9 @@ display name or a provider-wide identifier guessed from another tenant.
 | `SeparationOfDutyConstraint` | constraint kind, conflicting actions or roles, scope | exception authority, limit |
 | `SeparationOfDutyException` | constraint, record type, reason, approving Org Admin, effective start and end | revocation reason |
 | `TrustedIssuer` | tenant organization, exact issuer identifier | display label |
-| `PlatformOperatorGrant` | platform user, granting operator, effective start | end, revoking operator, revocation reason |
+| `PlatformOperatorGrant` | platform user, grant source (granting operator or configuration bootstrap), effective start | end, revoking operator, revocation reason |
 | `ServiceEngagement` | tenant organization, practice, service type, period start | scope, period end, acceptance decision, independence evaluation |
-| `EngagementAssignment` | service engagement, platform user, practice role, assigning actor, effective start | end, revocation reason |
+| `EngagementAssignment` | service engagement, platform user, assigning actor, effective start | end, revocation reason |
 | `Application` | governed name, application kind | provider, owner, criticality, classifications |
 | `ClientService` | governed name, purpose, owner reference | boundary references, retirement reason |
 | `SystemInstance` | application, instance kind, stable governed name | environment, provider, region, source IDs |
@@ -318,7 +320,7 @@ display name or a provider-wide identifier guessed from another tenant.
 | `Provider` | legal or governed name, provider kind | services, owner, criticality, boundary treatment |
 | `DataFlow` | stable flow ID and exact version, typed source and destination, information asset, purpose, effective start | end, protection expectation, scope decision, source |
 | `Account` | system instance, source account ID, account kind | username, enabled state, subject correlation |
-| `ServiceIdentity` | identity kind, purpose, accountable owner, review date | environment, expiry date |
+| `ServiceIdentity` | identity kind, purpose, accountable owner | environment, review date (required before the identity is scope-ready), expiry date |
 | `Group` | system instance, source group ID, group kind | display name |
 | `GroupMember` | group, typed member, source or governed decision, effective start or observed time | end, membership kind |
 | `Role` | system instance, source role ID, role kind | hierarchy, display name |
@@ -357,14 +359,14 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `Organization` (tenant) | Platform realm: current and retired tenant slugs never collide or get reassigned; legal name is not unique |
 | `OrganizationalUnit` | Per organization: unit kind plus name among active siblings of one parent |
 | `Person` | None; duplicates are resolved by `Correlation`, never by name or email |
-| `WorkRelationship` | Per organization: source-scoped employee number when present; otherwise none |
+| `WorkRelationship` | Per organization: source-scoped employee number with overlapping interval, so a rehire may reuse a number; otherwise none |
 | `JobProfile` | Per organization: code or stable name among active profiles |
 | `Responsibility` | Per tenant: assignee, responsibility kind, governed target, and overlapping interval |
 | `FederatedIdentity` | Platform realm: exact `(issuer, subject)` |
 | `PlatformUser` | None beyond platform ID |
 | `Membership` | Per tenant: one active membership per platform user |
 | `Team` | Per tenant: name among active teams |
-| `AccessRole` | Platform realm for built-in roles: stable role code |
+| `AccessRole` | Per tenant: stable role code (each tenant holds its own built-in role records) |
 | `Permission` | Platform realm: operation plus platform object kind |
 | `RoleAssignment` | Per tenant: subject, role, and exact scope with overlapping interval |
 | `SeparationOfDutyConstraint` | Per tenant: constraint kind and scope |
@@ -372,7 +374,7 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `TrustedIssuer` | Per tenant: exact issuer identifier |
 | `PlatformOperatorGrant` | Platform realm: one active grant per platform user |
 | `ServiceEngagement` | None beyond platform ID |
-| `EngagementAssignment` | Per engagement: one active assignment per platform user; per tenant, a user never holds overlapping `advisory` and `attest` assignments |
+| `EngagementAssignment` | Per engagement: one active assignment per platform user; per tenant, a user's assignments over all history never span both the `advisory` and `attest` practices |
 | `Application` | Per tenant: governed name among active applications |
 | `ClientService` | Per tenant: governed name among active services |
 | `SystemInstance` | Per application: governed name; per source: source identifier |
@@ -432,9 +434,9 @@ distinct relationships or separately attributed, conflicting observations.
 | Person correlation | `Person` 0..* identities, platform users, and accounts; each correlated identity/account 0..1 person | Correlation is explicit, revocable, and tenant-scoped; neither email nor name proves it. |
 | Tenant membership | `Membership` 1 `PlatformUser`, 1 `Organization`; each endpoint 0..* over history | At most one active membership for the same user and organization; suspension revokes effective access immediately. |
 | Team membership | `Team` 1 organization, 0..* memberships; member 1 `Membership` | Team and membership belong to the same tenant; membership intervals cannot outlive the tenant affiliation. |
-| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Firm staff reach a tenant's business records only through an active assignment to an accepted engagement; ending the assignment revokes that access. One person never holds both an `advisory` and an `attest` practice assignment for the same client. |
-| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 granting operator; user 0..* grants over history | Platform realm. Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
-| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user may create a tenant organization and receives its first `Membership` and Org Admin assignment (M0-D25). |
+| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Firm staff reach a tenant's business records only through an active assignment to an accepted engagement while they also hold an active `firm_staff` `Membership` in that tenant; ending either revokes that access. A person who has ever held an `advisory` assignment for a client never holds an `attest` assignment for it, and the reverse. |
+| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 grant source; user 0..* grants over history | Platform realm. The first operators come from deployment configuration (ADR 0001); later grants and revocations are made in-app by an existing operator (M0-D25). Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
+| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user may create a tenant organization and receives its first `Membership` and Org Admin assignment (M0-D25). This supersedes the operator-provisioned production registration rule in ADR 0001; that ADR's amendment and the R1-15 change belong to M0-A07 and R1-15. |
 | Issuer trust | `TrustedIssuer` 1 `Organization`; organization 0..* issuers | Tenant sign-in trust, including any platform-default issuer, is defined by M0-A07; an identity never gains tenant access merely because its issuer is trusted. |
 | SoD waiver | `SeparationOfDutyException` 1 `SeparationOfDutyConstraint`, 1 approving `Membership` | Time-bounded and reason-required; every exception is flagged in readiness and audit exports. |
 | Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; effective tenant access requires an active membership even when the subject is a global user. |
@@ -495,8 +497,10 @@ several tenants, while workforce relationships remain organization-specific.
 ## Required invariants
 
 - `FederatedIdentity` is unique by exact `(issuer, subject)`.
-- `Account`, `Group`, `Role`, `Entitlement`, and `Resource` are unique by
-  `(system_instance_id, source_object_type, immutable_source_id)`.
+- `Account`, `Group`, `Role`, `Entitlement`, and source-observed `Resource`
+  records are unique by
+  `(system_instance_id, source_object_type, immutable_source_id)`. A governed
+  `Resource` with no source ID is unique by local name under one parent.
 - A `Membership` references exactly one platform user and one tenant
   organization; disabling a workforce relationship does not silently mutate it.
 - A `WorkRelationship` references one person and one organization and may not
