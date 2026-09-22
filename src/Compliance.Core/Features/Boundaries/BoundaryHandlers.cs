@@ -1,3 +1,4 @@
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Boundaries;
@@ -124,13 +125,31 @@ public sealed class ListProgramBoundariesHandler(IBoundaryDirectoryReader direct
         IRequestContext<ListProgramBoundaries> context, CancellationToken ct)
     {
         var request = context.Request;
-        if (await programs.GetAsync(request.TenantId, request.ProgramId, ct)
-                .ConfigureAwait(false) is null)
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The boundary list limit must be between 1 and 200."));
+        var program = await programs.GetAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        if (program is null || program.TenantId != request.TenantId ||
+            program.ProgramId != request.ProgramId)
             return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
-        var page = await directory.ListProgramAsync(request.TenantId, request.ProgramId,
-            request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
-        return Result<Page<BoundaryView>>.Success(page);
+        Page<BoundaryView> page;
+        try
+        {
+            page = await directory.ListProgramAsync(request.TenantId, request.ProgramId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The boundary cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId ||
+                                      item.ProgramId != request.ProgramId)
+            ? Result<Page<BoundaryView>>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The boundary projection has an invalid program scope."))
+            : Result<Page<BoundaryView>>.Success(page);
     }
 }
 
@@ -190,6 +209,9 @@ public sealed class ListBoundaryVersionsHandler(IBoundaryDirectoryReader directo
         IRequestContext<ListBoundaryVersions> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<BoundaryVersionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The boundary version list limit must be between 1 and 200."));
         if (request.MinimumBoundaryRevision is { } minimum)
         {
             var freshness = await consistency.EnsureAsync(request.TenantId, request.BoundaryId,
@@ -197,12 +219,25 @@ public sealed class ListBoundaryVersionsHandler(IBoundaryDirectoryReader directo
             if (!freshness.IsSuccess)
                 return Result<Page<BoundaryVersionView>>.Failure(freshness.Error);
         }
-        var page = await directory.ListVersionsAsync(request.TenantId,
-            request.BoundaryId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        Page<BoundaryVersionView>? page;
+        try
+        {
+            page = await directory.ListVersionsAsync(request.TenantId,
+                request.BoundaryId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<BoundaryVersionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The boundary version cursor is invalid."));
+        }
         return page is null
             ? Result<Page<BoundaryVersionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The boundary was not found."))
-            : Result<Page<BoundaryVersionView>>.Success(page);
+            : page.Items.Any(item => item.TenantId != request.TenantId ||
+                                     item.BoundaryId != request.BoundaryId)
+                ? Result<Page<BoundaryVersionView>>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The boundary version projection has an invalid scope."))
+                : Result<Page<BoundaryVersionView>>.Success(page);
     }
 }
 
@@ -253,12 +288,28 @@ public sealed class ListBoundaryDecisionsHandler(IBoundaryDirectoryReader direct
         IRequestContext<ListBoundaryDecisions> context, CancellationToken ct)
     {
         var request = context.Request;
-        var page = await directory.ListDecisionsAsync(request.TenantId,
-            request.BoundaryId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<BoundaryDecisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The boundary decision list limit must be between 1 and 200."));
+        Page<BoundaryDecisionView>? page;
+        try
+        {
+            page = await directory.ListDecisionsAsync(request.TenantId,
+                request.BoundaryId, request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<BoundaryDecisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The boundary decision cursor is invalid."));
+        }
         return page is null
             ? Result<Page<BoundaryDecisionView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The boundary was not found."))
-            : Result<Page<BoundaryDecisionView>>.Success(page);
+            : page.Items.Any(item => item.TenantId != request.TenantId ||
+                                     item.BoundaryId != request.BoundaryId)
+                ? Result<Page<BoundaryDecisionView>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict, "The boundary decision projection has an invalid scope."))
+                : Result<Page<BoundaryDecisionView>>.Success(page);
     }
 }
 

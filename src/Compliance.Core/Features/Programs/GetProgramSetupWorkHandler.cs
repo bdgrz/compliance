@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Boundaries;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -11,6 +12,9 @@ public sealed class GetProgramSetupWorkHandler(IProgramDirectoryReader programs,
         IRequestContext<GetProgramSetupWork> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (request.BoundaryLimit is < 1 or > 200)
+            return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Validation,
+                "A boundary page limit must be between 1 and 200."));
         if (request.MinimumProgramRevision is < 1 ||
             request.MinimumBoundaryRevision is < 1 ||
             (request.BoundaryId is null) != (request.MinimumBoundaryRevision is null) ||
@@ -33,7 +37,8 @@ public sealed class GetProgramSetupWorkHandler(IProgramDirectoryReader programs,
                     ? $"The program source has not reached revision {programRevision}."
                     : $"The program projection has not reached revision {programRevision}."));
         }
-        if (program is null)
+        if (program is null || program.TenantId != request.TenantId ||
+            program.ProgramId != request.ProgramId)
             return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
 
@@ -60,9 +65,21 @@ public sealed class GetProgramSetupWorkHandler(IProgramDirectoryReader programs,
         }
 
         var work = new List<ProgramSetupWorkItem>();
-        var page = await boundaries.ListProgramAsync(request.TenantId, request.ProgramId,
-            Math.Clamp(request.BoundaryLimit ?? 50, 1, 200), request.BoundaryCursor, ct)
-            .ConfigureAwait(false);
+        Page<BoundaryView> page;
+        try
+        {
+            page = await boundaries.ListProgramAsync(request.TenantId, request.ProgramId,
+                request.BoundaryLimit ?? 50, request.BoundaryCursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The boundary cursor is invalid."));
+        }
+        if (page.Items.Any(boundary => boundary.TenantId != request.TenantId ||
+                boundary.ProgramId != request.ProgramId))
+            return Result<ProgramSetupWorkView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The boundary projection returned inconsistent content."));
         if (request.BoundaryCursor is null && page.Items.Count == 0)
             work.Add(new ProgramSetupWorkItem("define_system_boundary",
                 "Define the services and intended Trust Services categories in a system boundary.",

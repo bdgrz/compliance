@@ -254,6 +254,51 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldDescribePagedReadQueryContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var contracts = new (string Route, string[] Parameters)[]
+        {
+            ("/api/v1/tenants/{tenant_id}/programs", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work",
+                ["boundary_limit", "boundary_cursor"]),
+            ("/api/v1/tenants/{tenant_id}/client-services", ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions",
+                ["limit", "cursor"]),
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots",
+                ["limit", "cursor"]),
+        };
+        foreach (var (route, parameters) in contracts)
+        {
+            var documented = paths.GetProperty(route).GetProperty("get")
+                .GetProperty("parameters").EnumerateArray().ToArray();
+            foreach (var parameter in parameters)
+                Assert.Contains(documented, item => item.GetProperty("name").GetString() == parameter &&
+                    item.GetProperty("in").GetString() == "query");
+        }
+    }
+
+    [Fact]
     public async Task ShouldDescribeScopeSnapshotContractsGivenOpenApi()
     {
         // Arrange
