@@ -20,11 +20,15 @@ not authority for regeneration.
 program-scope snapshot ID. After tenant access is authorized, its handler
 hydrates that snapshot aggregate and checks that it is frozen, belongs to the
 request tenant, has the program-scope kind and consistent program and amendment
-linkage, and that the retained canonical JSON and digest match the retained v1
-manifest. It then recomputes canonical v1 JSON and the SHA-256 digest from the
-retained manifest and returns those recomputed values. It does not echo a
-stored string without checking it, read a snapshot-directory row, or resolve
-the current Program or Boundary state.
+linkage, contains exactly one state-changing frozen event, and has structurally
+valid retained v1 source references and lowercase SHA-256 values. An amended
+source must name a consistent immediate predecessor and frozen original root in
+the same tenant and program lineage. The handler also checks that the retained
+canonical JSON and digest match the retained v1 manifest. It then recomputes
+canonical v1 JSON and the SHA-256 digest from the retained manifest and returns
+those recomputed values. It does not echo a stored string without checking it,
+read a snapshot-directory row, or resolve the current Program or Boundary
+state.
 
 The v1 canonical format, domain-separated content digests, explicit format
 version, and source references remain those defined in decision 0004. A future
