@@ -175,6 +175,9 @@ public sealed class SystemBoundary : Aggregate
         if (approverMemberId == _draftAuthorMemberId)
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "A boundary author cannot approve their own draft."));
+        // Drafts recorded before a content rule existed must satisfy it before approval.
+        if (Validate(_draftContent) is { } invalidContent)
+            return Result.Failure(invalidContent);
         if (acceptedReviewDecisionId == Uuid.Empty ||
             acceptedReviewDecisionId != _acceptedReviewDecisionId)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
@@ -247,6 +250,9 @@ public sealed class SystemBoundary : Aggregate
             content.TrustServicesCategories.Count)
             return new RequestError(RequestErrorKind.Validation,
                 "The boundary requires distinct, recognized Trust Services categories.");
+        if (!content.TrustServicesCategories.Contains("security", StringComparer.Ordinal))
+            return new RequestError(RequestErrorKind.Validation,
+                "The boundary requires the security category; optional categories add to it.");
         if (content.Entries is null || content.Entries.Any(entry =>
                 entry is null || entry.EntryId == Uuid.Empty ||
                 entry.Kind is not ("inclusion" or "exclusion" or "assumption" or "question") ||
