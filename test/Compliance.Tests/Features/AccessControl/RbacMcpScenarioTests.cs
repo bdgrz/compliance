@@ -107,6 +107,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
             "bdgrz.snapshot.program_scope.verify",
+            "bdgrz.snapshot.program_scope.manifest_regenerate",
             "bdgrz.snapshot.program.list",
             "bdgrz.member.access.get",
             "bdgrz.rbac.team.define",
@@ -187,6 +188,8 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.risk.draft.revise").Idempotent);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.snapshot.program_scope.manifest_regenerate").ReadOnly);
 
         var registration = new Dictionary<string, object?>
         {

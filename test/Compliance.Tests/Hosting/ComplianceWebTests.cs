@@ -285,7 +285,7 @@ public sealed class ComplianceWebTests
                 ["limit", "cursor"]),
             ("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions",
                 ["limit", "cursor"]),
-            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots",
+            ("/api/v1/tenants/{tenant_id}/programs/{program_id}/scope-snapshots",
                 ["limit", "cursor"]),
             ("/api/v1/platform/tenants", ["limit", "cursor"]),
             ("/api/v1/tenants/mine", ["limit", "cursor"]),
@@ -329,7 +329,7 @@ public sealed class ComplianceWebTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var paths = document.RootElement.GetProperty("paths");
-        var freeze = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots")
+        var freeze = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope-snapshots")
             .GetProperty("post");
         var freezeSchema = freeze.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
@@ -346,7 +346,7 @@ public sealed class ComplianceWebTests
         Assert.True(freeze.GetProperty("responses").TryGetProperty("409", out _));
 
         var amendment = paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/amendments")
+                "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/amendments")
             .GetProperty("post");
         var amendmentSchema = amendment.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
@@ -355,7 +355,7 @@ public sealed class ComplianceWebTests
             required => required.GetString() == "reason");
         Assert.True(amendment.GetProperty("responses").TryGetProperty("200", out _));
 
-        var get = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}")
+        var get = paths.GetProperty("/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}")
             .GetProperty("get");
         Assert.Contains(get.GetProperty("parameters").EnumerateArray(), parameter =>
             parameter.GetProperty("name").GetString() == "minimum_revision" &&
@@ -363,15 +363,33 @@ public sealed class ComplianceWebTests
         Assert.True(get.GetProperty("responses").TryGetProperty("200", out _));
 
         var verification = paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+                "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/verification")
             .GetProperty("get");
         Assert.True(verification.GetProperty("responses").TryGetProperty("200", out _));
         Assert.Contains(verification.GetProperty("parameters").EnumerateArray(), parameter =>
             parameter.GetProperty("name").GetString() == "snapshot_id" &&
             parameter.GetProperty("in").GetString() == "path");
 
+        var regeneration = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/manifest-regeneration")
+            .GetProperty("get");
+        Assert.True(regeneration.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(regeneration.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "snapshot_id" &&
+            parameter.GetProperty("in").GetString() == "path");
+        var regenerationResponse = regeneration.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var regenerationSchema = schemas.GetProperty(regenerationResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]).GetProperty("properties");
+        foreach (var name in new[]
+                 {
+                     "tenant_id", "snapshot_id", "canonical_manifest", "content_sha256",
+                 })
+            Assert.True(regenerationSchema.TryGetProperty(name, out _));
+
         var list = paths.GetProperty(
-                "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope-snapshots")
             .GetProperty("get");
         Assert.Contains(list.GetProperty("parameters").EnumerateArray(), parameter =>
             parameter.GetProperty("name").GetString() == "cursor" &&

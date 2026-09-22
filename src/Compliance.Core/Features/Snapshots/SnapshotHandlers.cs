@@ -74,6 +74,11 @@ public sealed class ScopeSnapshotFreezer(IProgramDirectoryReader programs,
                 return Failure(RequestErrorKind.NotFound, "The prior snapshot was not found.");
             if (prior.ProgramId != programId)
                 return Failure(RequestErrorKind.NotFound, "The prior snapshot was not found.");
+            var lineage = await SnapshotAmendmentLineage.InspectAsync(reader, prior, tenantId,
+                SnapshotAmendmentLineage.MaximumAmendmentLinks - 1, ct).ConfigureAwait(false);
+            if (!lineage.IsConsistent || lineage.ExceedsMaximum)
+                return Failure(RequestErrorKind.Conflict,
+                    "The prior snapshot lineage is invalid or has reached the supported amendment limit.");
             rootSnapshotId = prior.RootSnapshotId;
         }
 

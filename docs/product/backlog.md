@@ -1098,6 +1098,16 @@ Done when:
 
 Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
 
+Technical evidence: [ADR 0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md)
+defines a proposed retained-source regeneration operation for the first
+program-scope consumer. It recomputes the retained v1 manifest after Portia
+tenant authorization rather than reading a snapshot projection or mutable
+current sources. The operation limits each amendment lineage to eight links and
+each regeneration to nine snapshot hydrations. This evidence does not accept
+the ADR or settle the remaining snapshot types, workforce consumer,
+size/performance, package, signing, retention, or recovery requirements; M0-A02
+and EN-03 remain open.
+
 ### M0-A03 ADR: Evidence and artifact storage, inspection, and access
 
 Priority: P0
