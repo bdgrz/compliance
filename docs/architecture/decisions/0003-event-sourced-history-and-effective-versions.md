@@ -137,7 +137,8 @@ without removing that volume, then starts a fresh broker container against it.
 The portable-local-volume probe gracefully stops the source broker, streams
 `/data` to a temporary Docker tar with `docker container cp --archive`, hashes
 that tar, and writes an adjacent manifest containing the source broker image
-and production projector informational version. It destroys the source Compose
+and `ProgramDirectoryProjector` event-reader assembly informational version
+under test. It destroys the source Compose
 project with `down --volumes`, verifies that the source volume no longer
 exists, creates a never-started broker in a distinct GUID-scoped Compose
 project, imports the tar into its empty `/data`, and only then starts it. The
