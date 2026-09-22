@@ -24,12 +24,14 @@ source workflow, and the item then disappears from the queue.
 
 Items are ordered by:
 
-1. overdue first, oldest due date first;
-2. then by due date;
-3. then by materiality (`high`, `medium`, `low`, taken from the source record);
-4. then by creation time as a stable tie-break.
+1. due date ascending, which puts overdue items first;
+2. then by materiality from the source record, `high`, then `medium`, then
+   `low`, with items whose source has no materiality sorting after `low`;
+3. then by item creation time;
+4. then by work-item identifier as the final tie-break.
 
-The order is deterministic for a given projection as-of time.
+Items without a due date sort after every dated item. The order is
+deterministic for a given projection as-of time.
 
 ## Assignment actions
 
@@ -40,8 +42,8 @@ The order is deterministic for a given projection as-of time.
 | `delegate` | The current assignee, to someone eligible under the source workflow |
 | `escalate` | Any assignee, and the system (see below) |
 
-Every action is attributed and checked against separation of duties
-(M0-D03). An item cannot be assigned to a person the source workflow would
+Every action is attributed and checked against the separation-of-duties rules
+the product owner set under M0-D03 on the same day. An item cannot be assigned to a person the source workflow would
 reject.
 
 ## Reminders, digest, and escalation

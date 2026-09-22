@@ -1782,7 +1782,12 @@ Implementation subtasks:
 
 ### R1-09 Bring existing readiness work into the program
 
-Priority: P0
+Priority: P1
+
+> Demoted from P0 on 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md).
+> The first client has no existing readiness material, and no import work is
+> scheduled until the canonical data shape and storage internals are settled.
+> This applies to R1-09a through R1-09d. Sample collection is tracked in #338.
 
 Area: program
 
@@ -4037,6 +4042,11 @@ Implementation subtasks:
 
 Priority: P2
 
+> Closed on 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md).
+> Periodic policy, risk, and vendor reviews are ordinary recurring controls
+> covered by T2-02. The story is kept for reference; reopen it if real use
+> shows a gap.
+
 Area: governance reviews
 
 User story: As a governance owner, I want scheduled review work for policies, risks, and material vendors so that governance artifacts remain current throughout the observation period.
@@ -4251,6 +4261,13 @@ Depends on: T2-08a
 ### T2-09 Conduct periodic management compliance reviews
 
 Priority: P2
+
+> Closed on 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md).
+> A management compliance review is a recurring control occurrence (T2-02).
+> Its frozen evidence set binds the exact readiness and monitoring versions,
+> its sign-off records `approved`, `action_requested`, or `deferred`, and the
+> actions it requests are R2-07 findings tracked in the work queue. The story
+> is kept for reference; reopen it if real use shows a gap.
 
 Area: management oversight
 
@@ -5013,11 +5030,11 @@ and UI dependencies directly in GitHub.
 | R1-06 | [#12](https://github.com/bdgrz/compliance/issues/12) | R1 | P0 | M0-D02, EN-04, R1-03, R1-05 |
 | R1-07 | [#13](https://github.com/bdgrz/compliance/issues/13) | R1 | P0 | M0-D10, M0-D22, M0-D23, EN-02, R1-02 |
 | R1-08 | [#14](https://github.com/bdgrz/compliance/issues/14) | R1 | P0 | M0-A05, M0-D23, EN-03, R1-06, R1-07, R1-10, R1-11, R1-12, R1-13, R1-14 |
-| R1-09 | [#47](https://github.com/bdgrz/compliance/issues/47) | R1 | P0 | M0-D04, EN-05 |
-| R1-09a | [#98](https://github.com/bdgrz/compliance/issues/98) | R1 | P0 | M0-D04, EN-05, R1-04, R1-05, R1-06 |
-| R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P0 | R1-09a, R2-02, R2-03 |
-| R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P0 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
-| R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P0 | R1-08, R1-09a |
+| R1-09 | [#47](https://github.com/bdgrz/compliance/issues/47) | R1 | P1 | M0-D04, EN-05 |
+| R1-09a | [#98](https://github.com/bdgrz/compliance/issues/98) | R1 | P1 | M0-D04, #338, EN-05, R1-04, R1-05, R1-06 |
+| R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P1 | R1-09a, R2-02, R2-03 |
+| R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P1 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
+| R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P1 | R1-08, R1-09a |
 | R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
 | R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
 | R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P0 | R1-10a |
@@ -5069,12 +5086,12 @@ and UI dependencies directly in GitHub.
 | T2-03 | [#33](https://github.com/bdgrz/compliance/issues/33) | T2 | P1 | R2-05, T2-02 |
 | T2-04 | [#34](https://github.com/bdgrz/compliance/issues/34) | T2 | P1 | M0-D23, R1-08, T2-01 |
 | T2-05 | [#35](https://github.com/bdgrz/compliance/issues/35) | T2 | P1 | R2-06, T2-01 |
-| T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) | T2 | P2 | M0-D19, T2-01 |
+| T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) (closed by M0-D19) | T2 | P2 | M0-D19, T2-01 |
 | T2-07 | [#37](https://github.com/bdgrz/compliance/issues/37) | T2 | P1 | M0-D21, T1-02, T2-01 |
 | T2-08 | [#38](https://github.com/bdgrz/compliance/issues/38) | T2 | P2 | M0-D20, M0-D24 |
 | T2-08a | [#137](https://github.com/bdgrz/compliance/issues/137) | T2 | P2 | M0-D20, M0-D24 |
 | T2-08b | [#138](https://github.com/bdgrz/compliance/issues/138) | T2 | P2 | T2-08a |
-| T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) | T2 | P2 | M0-D19, M0-D23, T2-04 |
+| T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) (closed by M0-D19) | T2 | P2 | M0-D19, M0-D23, T2-04 |
 | T3-01 | [#40](https://github.com/bdgrz/compliance/issues/40) | T3 | P1 | T2-03, T2-05, T2-07 |
 | T3-02 | [#41](https://github.com/bdgrz/compliance/issues/41) | T3 | P1 | M0-D17, T3-01 |
 | T3-03 | [#42](https://github.com/bdgrz/compliance/issues/42) | T3 | P1 | T1-04, T3-02 |

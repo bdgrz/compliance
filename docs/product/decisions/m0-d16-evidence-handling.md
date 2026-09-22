@@ -7,12 +7,20 @@ those hooks enforce.
 
 ## Handling classes
 
-Every artifact carries one `handling_class` from the M0-D08 classification
-vocabulary: `public`, `internal`, `confidential`, or `restricted`.
+Every artifact carries one `handling_class`: `public`, `internal`,
+`confidential`, or `restricted`. This is the same classification vocabulary the
+product owner set for information assets under M0-D08 on the same day.
 
 **Never stored:** credentials, secrets, private keys, access tokens, and
-session cookies. Uploads are scanned for these. A detected secret sends the
-artifact to `quarantined` with reason `secret_detected`.
+session cookies. Uploads are scanned for these before content becomes
+available. On a detected secret:
+
+- the upload moves to `rejected` with reason `secret_detected`;
+- its content is purged immediately;
+- only a tombstone is kept: content hash, size, uploader, time, and reason.
+
+A secret-bearing upload can never be released. The uploader must submit a
+redacted replacement.
 
 ## Retention and holds
 
@@ -44,11 +52,14 @@ original remains under its own retention and access rules.
 - **Artifact states:**
   - `pending_inspection`;
   - `available`;
-  - `quarantined`, with reason `malware` or `secret_detected`;
-  - `rejected`;
+  - `quarantined`, with reason `malware`;
+  - `rejected`, with reason `secret_detected` or `invalid`, content purged;
   - `disposed`.
-- **Quarantine:** a quarantined artifact can't be downloaded or shared, except
-  by an Org Admin who can release it (as a recorded decision) or dispose of it.
+- **Quarantine:** a quarantined artifact can't be downloaded or shared. An Org
+  Admin may release a malware false positive (a recorded decision after
+  rescan) or dispose of it.
+- **Secrets:** `secret_detected` is never quarantined or releasable (see
+  Handling classes).
 
 ## Backup and recovery
 

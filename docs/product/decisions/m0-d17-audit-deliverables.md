@@ -15,8 +15,8 @@ package and outcome backends.
 | Control matrix | XLSX and CSV. One row per control version, with stable control identifier, criteria mappings, owner, and test status. |
 | Evidence index | XLSX and CSV. One row per artifact version, with stable artifact identifier, content hash, linked control and request, and period. |
 | System description | Structured sections per DC 200 headings. Exported as a document plus a section manifest. |
-| Population | CSV with a stable row identifier per item. Late or corrected rows are appended as new rows that reference the superseded row, never edited in place. |
-| Sample selection | CSV that references population row identifiers and the frozen population's content hash. |
+| Population | CSV with a stable row identifier per item. An exported population is one immutable version with its own content hash. Late or corrected rows produce a new population version (an M0-A02 amendment) that references the superseded version and each superseded row. The original version and its hash never change. |
+| Sample selection | CSV that references population row identifiers and the exact population version's content hash. A later population version does not move an existing sample. Selecting from the amended population is a new, linked selection. |
 | Package | A zipped folder with a `manifest.json` (every file's path, hash, size, and source record version) and deterministic naming: `{engagement}/{section}/{stable_id}_{version}.{ext}`. |
 
 ## Management assertion

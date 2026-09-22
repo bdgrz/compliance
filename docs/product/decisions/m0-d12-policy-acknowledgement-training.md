@@ -5,19 +5,30 @@ Closes [M0-D12 #69](https://github.com/bdgrz/compliance/issues/69).
 
 ## Audience rules
 
-A `PolicyDistributionCampaign` freezes its audience from the workforce roster
-(R1-11) when it launches. The audience is always a set of workforce people,
-never platform members. A person who never signs in can still be in scope,
-and an attributed member records the acknowledgement on their behalf (M0-D03).
+Audiences are always sets of **workforce people** from the R1-11 roster, never
+platform members. A workforce person who never signs in can still be in scope.
+In that case an attributed member records the acknowledgement on their behalf,
+following the rule the product owner set under M0-D03 on the same day.
 
 | Policy kind | Audience rule |
 | --- | --- |
 | `core_security` | Every in-scope workforce person: employees and contractors with access to in-scope systems or data. |
-| `role_targeted` | Members of the named platform teams or workforce role groups recorded on the policy version. |
+| `role_targeted` | Workforce people whose roster team (the team or department attribute on the workforce roster, per M0-D06) is named on the policy version. |
 
 Each approved policy version carries exactly one `audience_kind` and, for
-`role_targeted`, a non-empty team list. An audience is never inferred from
-application access or the IdP.
+`role_targeted`, a non-empty list of roster teams. An audience is never inferred
+from application access, platform team membership, or the IdP.
+
+## Campaign audience and amendments
+
+- **Launch:** a `PolicyDistributionCampaign` freezes its launch audience by
+  evaluating the rule against the roster at launch.
+- **Changes during the campaign:** later roster changes never edit the frozen
+  launch audience. Instead they add attributed **audience amendment** entries,
+  each with the person, reason (`joiner`, `mover_in`, `mover_out`, or
+  `leaver`), roster observation, and time.
+- **Evidence:** the launch audience plus its amendments makes up the evidence
+  population.
 
 ## Acknowledgement
 
@@ -29,10 +40,17 @@ application access or the IdP.
 - **Cadence:** new joiners have 30 days from their start date. Everyone else
   re-acknowledges annually, and whenever a new major policy version is
   approved.
-- **Reminders:** reminders go through the M0-D15 work queue: in-app, the
-  weekly digest, and escalation to the Compliance Lead at 7 days overdue.
 - **States:** `pending`, `acknowledged`, `overdue`, `excepted`, or `removed`.
-  A leaver moves to `removed` with their earlier completions kept.
+
+## Reminders
+
+- **Members:** a pending acknowledgement for a workforce person who is a
+  platform member follows the M0-D15 rules: in-app reminders, the weekly
+  digest, and escalation at 7 days overdue.
+- **Non-members:** a pending acknowledgement for a workforce person without a
+  membership becomes a work item assigned to the campaign owner, who collects
+  the acknowledgement and records it on the person's behalf. The same
+  escalation applies. The product sends no email to non-members.
 
 ## Training
 
@@ -49,21 +67,29 @@ application access or the IdP.
 - **Exceptions:** an exception is a `Waiver` (M0-D23) with scope, approver
   (Compliance Lead), reason, and expiry of at most 12 months. Waived people
   count as `excepted`, never as `acknowledged`.
-- **Joiners:** a joiner observed from the roster enters every active
-  `core_security` campaign, due 30 days after their start date.
-- **Movers:** a mover whose team changes re-acknowledges the
-  `role_targeted` policies of the new team.
-- **Leavers:** a leaver drops out of open campaigns and keeps their history.
+- **Joiners:** a joiner is added by amendment to every active campaign whose
+  rule matches them, whether `core_security` or `role_targeted`. Their item is
+  due 30 days after their start date.
+- **Movers:** a mover is added by amendment to active `role_targeted` campaigns
+  of the new team (`mover_in`). They are removed from campaigns of the old team
+  (`mover_out`), and earlier completions keep their history.
+- **Leavers:** a leaver moves to `removed` in open campaigns and keeps their
+  history.
 
 ## Auditor evidence
 
-The campaign's frozen audience, each person's state, and the exact
-acknowledged version and hash make up the completion evidence, exported in the
-M0-D17 default formats. Confirming the format with the actual audit firm is
-part of [#339](https://github.com/bdgrz/compliance/issues/339).
+The evidence is:
+
+- the campaign's frozen launch audience and amendments;
+- each person's state;
+- the exact acknowledged version and hash.
+
+It is exported in the M0-D17 default formats. Confirming the format with the
+actual audit firm is part of
+[#339](https://github.com/bdgrz/compliance/issues/339).
 
 ## Consequences
 
 [R2-10 #53](https://github.com/bdgrz/compliance/issues/53) and its backend child
 [#283](https://github.com/bdgrz/compliance/issues/283) adopt these audience,
-cadence, state, and exception rules.
+amendment, cadence, state, reminder, and exception rules.

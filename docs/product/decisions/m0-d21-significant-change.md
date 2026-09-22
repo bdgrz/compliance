@@ -9,14 +9,17 @@ Compliance holds references, not a copy of the ITSM or incident tool.
 
 | Record | Fields |
 | --- | --- |
-| `SignificantChange` | `source_system`, `source_identifier`, `source_url`, `title`, `occurred_at` (or an effective date range), `classification`, `significance_rationale`, the affected boundary, commitment, control, or inventory references, and `assessed_by` and `assessed_at` |
-| `IncidentReference` | `source_system`, `source_identifier`, `source_url`, `title`, `detected_at`, `resolved_at`, `classification`, `customer_data_affected` (bool), `availability_sla_affected` (bool), the affected references, and `assessed_by` and `assessed_at` |
+| `SignificantChange` | `source_system`, `source_identifier`, `source_url`, `title`, `occurred_at` (or an effective date range), `significance`, `significance_rationale`, `handling_class`, the affected boundary, commitment, control, or inventory references, and `assessed_by` and `assessed_at` |
+| `IncidentReference` | `source_system`, `source_identifier`, `source_url`, `title`, `detected_at`, `resolved_at`, `significance`, `significance_rationale`, `handling_class`, `customer_data_affected` (bool), `availability_sla_affected` (bool), the affected references, and `assessed_by` and `assessed_at` |
 
-Neither record stores:
+The two classification fields are distinct:
 
-- ticket bodies;
-- logs;
-- personal data beyond the actor attribution.
+- `significance`: `significant` or `not_significant`, a recorded human
+  assessment with a required rationale;
+- `handling_class`: the M0-D16 vocabulary, `confidential` by default.
+
+Neither record stores ticket bodies, logs, or personal data beyond the actor
+attribution.
 
 ## Significance rule
 
@@ -30,18 +33,17 @@ A change is **significant** when it does any of the following:
 An incident is **significant** when it is a security incident that affects
 customer data, or one that affects an availability SLA.
 
-Classification is a recorded human assessment. The only values are
-`significant` and `not_significant`, and each needs a rationale.
-
 ## Restricted detail
 
-- **Record classification:** both records are `confidential` by default
-  (M0-D16).
-- **Auditor visibility:** auditors see the reference, classification,
-  rationale, dates, and affected-record links. Source detail stays in the
-  source tool, and the auditor requests it there.
-- **Incident access:** an incident marked `restricted` is visible only to the
-  Compliance Lead, the Org Admin, and the assessor.
+- **Auditor visibility:** engagement auditors see every significant item's
+  reference, dates, significance, rationale, and affected-record links. This
+  holds regardless of `handling_class`, so period close and the examination
+  see the complete set.
+- **Source detail:** stays in the source tool, and the auditor requests it
+  there.
+- **`handling_class: restricted`:** limits who may view and edit the item
+  internally to the Compliance Lead, the Org Admin, the assessor, and engagement
+  auditors. It never removes an item from the auditor-visible significant set.
 
 ## Effect on the system description and period close
 

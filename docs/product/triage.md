@@ -68,7 +68,10 @@ Confirmed at this point:
   make that review meaningful;
 - the team needs one accountable view of what must happen next rather than
   another task spreadsheet;
-- existing readiness material must be adopted without starting over;
+- existing readiness material must be adopted without starting over (superseded
+  for the first client on 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md):
+  the first client has no existing material, and adoption is deferred to a
+  later client that brings some, per #338);
 - consultant review and feedback are part of the current workflow;
 - the backlog must express business objectives, requirements, and acceptance criteria as API-to-UI user stories.
 
@@ -94,7 +97,7 @@ Milestone and priority are intentionally different. A Type II story can be essen
 | R1-06 | P0 | Derived | Mappings make criteria coverage explainable; the review workflow must be validated. |
 | R1-07 | P0 | Derived | Promoted 2026-09-14: the R1 exit, R1-08, and R2-09 require an assessed risk register, and risk assessment (CC3) is tested in Type I. The method and authority are resolved in M0-D10. |
 | R1-08 | P0 | Confirmed | The product must begin with readiness and show an owned route forward. |
-| R1-09 | P1 | Confirmed | Demoted 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md): the first client has no existing readiness material, and import work waits until the canonical data shape and storage internals are settled. Sample collection is tracked in #338. |
+| R1-09 | P1 | Derived | Demoted 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md): the first client has no existing readiness material, and import work waits until the canonical data shape and storage internals are settled. Sample collection is tracked in #338. |
 | R1-10 | P0 | Confirmed | Access governance requires a known, owned application and reviewed-system universe. |
 | R1-11 | P0 | Confirmed | Human and NHI access review requires an authoritative roster and accountable identity ownership. |
 | R1-12 | P0 | Derived | The boundary and system description require material technology, information, and data-flow inventory beyond applications. |
@@ -156,7 +159,7 @@ not before all product work.
 | M0-D01 | P0 | R1-01, R1-02, R1-03, T1-01, T2-01 | Engagement type, categories, services, and dates shape scope and every milestone date. |
 | M0-D02 | P0 | R1-03, R1-06 | Criteria content cannot be stored or exported until its source and permitted use are known. |
 | M0-D03 | P0 | EN-01, EN-04, R1-04, R2-01, R2-05, R2-11 | Roles, scopes, and small-team separation-of-duties exceptions govern every authorization decision. |
-| M0-D04 | P0 | R1-09 | Mid-readiness adoption depends on the real consultant and internal source material. |
+| M0-D04 | P0 | R1-09 | Mid-readiness adoption depends on the real consultant and internal source material. Decided 2026-09-22 ([record](decisions/m0-d04-readiness-material.md)). |
 | M0-D05 | P0 | R1-10, R2-06 | The application and reviewed-system universe must be grounded in the real list. |
 | M0-D06 | P0 | R1-11, R2-06, R2-10 | Access, policy, and training populations require an authoritative roster and NHI ownership. |
 | M0-D07 | P0 | R2-06 | Access-review rules must be proven against real provider exports. |
@@ -164,22 +167,22 @@ not before all product work.
 | M0-D09 | P0 | R1-13 | Commitments, CUECs, and CSOCs come from real source artifacts and an approval authority. |
 | M0-D10 | P0 | R1-07 | The risk method and acceptance authority must be agreed before assessments are comparable. |
 | M0-D11 | P0 | R1-14 | Vendor materiality and due diligence determine the provider workflow. |
-| M0-D12 | P0 | R2-10 | Audience, acknowledgement, and training evidence determine campaign rules. |
-| M0-D13 | P0 | R2-05 | Evaluation procedures and independence determine the Type I quality gate. |
-| M0-D14 | P0 | R2-08 | The consultant's preferred collaboration model is still unvalidated. |
-| M0-D15 | P0 | R2-11 | The work queue must reflect the team's real daily operating needs. |
-| M0-D16 | P1 | R2-12 | Evidence handling rules are needed before governance is built; R2-12 remains P1. |
-| M0-D17 | P1 | T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, T3-06 | Audit-firm formats and collaboration model drive Type I and Type II outputs. |
-| M0-D18 | P1 | — | Establishes the baselines and targets for the brief's success measures. |
-| M0-D19 | P2 | T2-06, T2-09 | Dedicated governance and management review surfaces remain hypotheses. |
-| M0-D20 | P2 | T2-08 | Connector work waits for measured manual effort and source discovery. |
-| M0-D21 | P1 | T2-07 | Compliance-facing change and incident facts must not replace operational systems. |
+| M0-D12 | P0 | R2-10 | Audience, acknowledgement, and training evidence determine campaign rules. Decided 2026-09-22 ([record](decisions/m0-d12-policy-acknowledgement-training.md)). |
+| M0-D13 | P0 | R2-05 | Evaluation procedures and independence determine the Type I quality gate. Decided 2026-09-22 ([record](decisions/m0-d13-control-evaluation.md)). |
+| M0-D14 | P0 | R2-08 | The consultant's preferred collaboration model is still unvalidated. Decided 2026-09-22 ([record](decisions/m0-d14-advisor-collaboration.md)). |
+| M0-D15 | P0 | R2-11 | The work queue must reflect the team's real daily operating needs. Decided 2026-09-22 ([record](decisions/m0-d15-work-queue.md)). |
+| M0-D16 | P1 | R2-12 | Evidence handling rules are needed before governance is built; R2-12 remains P1. Decided 2026-09-22 ([record](decisions/m0-d16-evidence-handling.md)). |
+| M0-D17 | P1 | T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, T3-06 | Audit-firm formats and collaboration model drive Type I and Type II outputs. Decided 2026-09-22 ([record](decisions/m0-d17-audit-deliverables.md)). |
+| M0-D18 | P1 | — | Establishes the baselines and targets for the brief's success measures. Decided 2026-09-22 ([record](decisions/m0-d18-success-measures.md)). |
+| M0-D19 | P2 | T2-06, T2-09 | Dedicated governance and management review surfaces remain hypotheses. Decided 2026-09-22 ([record](decisions/m0-d19-periodic-reviews.md)). |
+| M0-D20 | P2 | T2-08 | Connector work waits for measured manual effort and source discovery. Decided 2026-09-22 ([record](decisions/m0-d20-integration-sources.md)). |
+| M0-D21 | P1 | T2-07 | Compliance-facing change and incident facts must not replace operational systems. Decided 2026-09-22 ([record](decisions/m0-d21-significant-change.md)). |
 | M0-D22 | P0 | R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06 | Resolves double-owned and missing identity and inventory concepts. |
 | M0-D23 | P0 | EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09 | Resolves overlapping gap, finding, exception, risk-acceptance, review, and readiness ownership. |
 | M0-D24 | P0 | Every scheduled frontend child, delivery story, and first delivery slice | Defines the release-wide accessibility and supported-browser acceptance baseline; backend children omit this blocker. |
 | M0-D25 | P0 | EN-01, R1-15, M0-D26, F1-01, F1-04, F1-07 | Defines the tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary. |
-| M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. |
-| M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. |
+| M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. Decided 2026-09-22 ([record](decisions/m0-d26-independence.md)). |
+| M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. Decided 2026-09-22 ([record](decisions/m0-d27-attest-scope.md)). |
 | M0-D28 | P0 | EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06 | Establishes the canonical entity and relationship vocabulary from direct public sources whose use is acceptable for the Apache-2.0 product; unusable or unclear sources are excluded. |
 | M0-A01 | P0 | EN-02, EN-03, M0-A02, M0-A05, M0-A06 | Accepted event-history, versioning, tenant-isolation, and whole-platform recovery boundary; Portia #70 and DevOps retain the separate production-recovery delivery gate. |
 | M0-A02 | P0 | EN-03 | Seven snapshot types need one provable freezing and amendment model. |
@@ -256,14 +259,13 @@ no dependency on one another and can proceed in parallel.
 4. Boundary, criteria, workforce, policies, and evidence: R1-02, R1-03, R1-11 (R1-11a first), R2-02, and R2-03.
 5. Controls, risks, applications, commitments, and policy communication: R1-05, R1-07, R1-10 (R1-10a first), R1-13, and R2-10.
 6. Mappings, technology inventory, providers, ownership and cadence, evaluation, and access review: R1-06, R1-12, R1-14, R2-01, R2-05 (R2-05a through R2-05c), and R2-06 (R2-06a first, R2-06b after R1-11).
-7. Adopt existing readiness work as its owning stories land: R1-09a (controls, mappings, and owners) after R1-06, and R1-09b (policies and evidence) after R2-02 and R2-03.
+7. Removed from the P0 sequence on 2026-09-22 by M0-D04. R1-09 is now P1: when a later client brings existing material, R1-09a (controls, mappings, and owners) follows R1-06, and R1-09b (policies and evidence) follows R2-02 and R2-03.
 8. Readiness, control performance, and accountable work: R1-08, R2-04, and R2-11.
-9. Findings and consultant collaboration: R2-07 and R2-08, then R2-05d, R1-09c (scope, inventories, risks, providers, and findings), and R1-09d (repeat import and readiness reconciliation).
+9. Findings and consultant collaboration: R2-07 and R2-08, then R2-05d. The P1 slices R1-09c and R1-09d follow only when imports are scheduled.
 10. The Type I entry decision: R2-09.
 
-Adoption of the live readiness engagement therefore begins with the control
-inventory in step 7 rather than at program setup. Earlier record families can
-be entered manually through their owning stories.
+For the first client, every record family is authored through its owning
+story. No existing material is adopted (M0-D04).
 
 Slice further only into outcome slices recorded as sub-issues of the owning
 story. Do not split the product backlog into API, persistence, worker, and UI
@@ -288,7 +290,11 @@ dependencies land:
 
 ## Validation queue before P2 work
 
-Each queue item is tracked as an M0 discovery issue.
+Each queue item is tracked as an M0 discovery issue. On 2026-09-22 the product
+owner accepted product defaults for items 1, 2, 3, 6, 7, 10, and 11 in
+`docs/product/decisions/`. Their remaining organization-specific facts are
+tracked in #339 (audit firm formats), #342 (measured connector effort), and
+#343 (independence rule ratification).
 
 1. Ask the readiness consultants whether they prefer indexed handoffs, secure links, direct product access, or an existing audit platform for work-in-progress review (M0-D14).
 2. Ask the audit firm whether it wants portal access, exported packages, existing audit software integration, or a combination (M0-D17).

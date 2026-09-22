@@ -60,9 +60,12 @@ R2-09 freezes an immutable `ReadinessSnapshot` of one reproducible R1-08
 calculation and adds management's Type I entry decision; it does not redefine
 readiness rules. T2-04 defines monitoring measures and forecast views over
 current records and the same rule outputs, with separate measure versions and
-as-of times; it cannot silently change a readiness verdict. T2-09 records a
-`ManagementReviewSnapshot` of the exact readiness and monitoring versions
-management considered and its own decisions and actions. All views retain
+as-of times; it cannot silently change a readiness verdict. A management
+compliance review is a recurring control occurrence
+([M0-D19](m0-d19-periodic-reviews.md), which closed T2-09). Its frozen evidence
+set binds the exact readiness and monitoring versions management considered.
+Its sign-off records management's decision, and the actions it requests are
+R2-07 findings. All views retain
 links to authorized underlying records, and missing or stale inputs remain
 visible rather than becoming a positive score.
 

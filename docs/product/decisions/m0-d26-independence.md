@@ -16,10 +16,11 @@ The firm's quality-management partner ratifies the initial rule-set content in
    Advisors cannot read attest-side request discussions marked `attest_internal`.
    Shared management records are visible to both, subject to normal grants.
 3. **Look-back guard.** An attest `ServiceEngagement` cannot be accepted for a
-   client that received control design, control implementation, or operation
-   of controls from the firm within the 12 months before the examination
-   period starts. The guard reads the client's `NonattestServiceRecord`
-   history.
+   client that received any service classified `impairing` in the active
+   `IndependenceRuleSet` (see the table below) from the firm within the 12
+   months before the examination period starts. The guard reads the client's
+   `NonattestServiceRecord` history against the rule set, so no service kind
+   is hard-coded.
 4. **Readiness-only clients.** A client whose only nonattest service was a
    readiness assessment is `conditionally_compatible`. Acceptance requires a
    recorded partner evaluation.
