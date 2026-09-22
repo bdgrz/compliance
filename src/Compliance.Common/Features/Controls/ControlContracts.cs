@@ -35,6 +35,11 @@ public sealed record GetControlDraft(Uuid TenantId, Uuid ProgramId, Uuid Control
 public sealed record ListControlDrafts(Uuid TenantId, Uuid ProgramId, int? Limit = null,
     string? Cursor = null) : IRequest<Page<ControlDraftView>>, IProgramManagementRequest, ICallable;
 
+[Discriminator("bdgrz.control.draft.revisions.list", 1)]
+public sealed record ListControlDraftRevisions(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
+    int? Limit = null, string? Cursor = null, long? MinimumControlDraftRevision = null)
+    : IRequest<Page<ControlDraftRevisionView>>, IProgramManagementRequest, ICallable;
+
 [Discriminator("bdgrz.control.draft.revision.get", 1)]
 public sealed record GetControlDraftRevision(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long Revision) : IRequest<ControlDraftRevisionView>, IProgramManagementRequest, ICallable;

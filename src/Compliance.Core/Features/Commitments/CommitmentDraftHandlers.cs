@@ -174,3 +174,69 @@ public sealed class GetCommitmentDraftRevisionHandler(
                 isTransient: true));
     }
 }
+
+public sealed class CommitmentDraftHistoryReadConsistency(
+    ICommitmentDraftHistoryDirectoryReader directory, IAggregateReader reader)
+{
+    public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid programId, Uuid draftId,
+        long? minimumDraftRevision, CancellationToken ct)
+    {
+        if (minimumDraftRevision is < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum draft revision must be positive."));
+        var source = await reader.HydrateAsync(new CommitmentDraft(tenantId, draftId), ct)
+            .ConfigureAwait(false);
+        if (!source.IsCreated || source.ProgramId != programId)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The draft was not found."));
+        if (minimumDraftRevision is { } minimum && source.Revision < minimum)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                $"The draft source has not reached revision {minimum}.", isTransient: true));
+        var latest = await directory.GetRevisionAsync(tenantId, draftId, source.Revision, ct)
+            .ConfigureAwait(false);
+        return latest is not null && latest.TenantId == tenantId &&
+               latest.ProgramId == programId && latest.DraftId == draftId &&
+               latest.Revision == source.Revision
+            ? Result.Success
+            : Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The draft history projection has not reached the source.", isTransient: true));
+    }
+}
+
+public sealed class ListCommitmentDraftRevisionsHandler(
+    ICommitmentDraftHistoryDirectoryReader directory,
+    CommitmentDraftHistoryReadConsistency consistency)
+    : IRequestHandler<ListCommitmentDraftRevisions, Page<CommitmentDraftRevisionView>>
+{
+    public async ValueTask<Result<Page<CommitmentDraftRevisionView>>> HandleAsync(
+        IRequestContext<ListCommitmentDraftRevisions> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (request.Limit is < 1 or > 200)
+            return Result<Page<CommitmentDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The draft revision list limit must be between 1 and 200."));
+        var fresh = await consistency.EnsureAsync(request.TenantId, request.ProgramId,
+            request.DraftId, request.MinimumDraftRevision, ct).ConfigureAwait(false);
+        if (!fresh.IsSuccess)
+            return Result<Page<CommitmentDraftRevisionView>>.Failure(fresh.Error);
+        Page<CommitmentDraftRevisionView> page;
+        try
+        {
+            page = await directory.ListRevisionsAsync(request.TenantId, request.DraftId,
+                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+        }
+        catch (KvDirectoryQueryException)
+        {
+            return Result<Page<CommitmentDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The draft revision cursor is invalid."));
+        }
+        return page.Items.Any(item => item.TenantId != request.TenantId ||
+                                      item.ProgramId != request.ProgramId ||
+                                      item.DraftId != request.DraftId)
+            ? Result<Page<CommitmentDraftRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                "The draft history projection has an invalid scope."))
+            : Result<Page<CommitmentDraftRevisionView>>.Success(page);
+    }
+}

@@ -41,6 +41,11 @@ public sealed record ListRiskDrafts(Uuid TenantId, Uuid ProgramId, int? Limit = 
 public sealed record GetRiskDraftRevision(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long Revision) : IRequest<RiskDraftRevisionView>, IProgramManagementRequest, ICallable;
 
+[Discriminator("bdgrz.risk.draft.revisions.list", 1)]
+public sealed record ListRiskDraftRevisions(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
+    int? Limit = null, string? Cursor = null, long? MinimumRiskRevision = null)
+    : IRequest<Page<RiskDraftRevisionView>>, IProgramManagementRequest, ICallable;
+
 [Discriminator("bdgrz.risk.draft.created", 1)]
 public sealed record RiskDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     Uuid CreateRequestId, string Identifier, RiskDraftContent Content, Uuid ActorMemberId,

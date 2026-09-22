@@ -95,6 +95,12 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzControlDraftDirectory>());
         services.AddScoped<ControlDraftReadConsistency>();
         services.AddScoped<ControlDraftListReadConsistency>();
+        services.AddScoped<FitzControlDraftHistoryDirectoryV1>();
+        services.AddScoped<IControlDraftHistoryDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzControlDraftHistoryDirectoryV1>());
+        services.AddScoped<IControlDraftHistoryDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzControlDraftHistoryDirectoryV1>());
+        services.AddScoped<ControlDraftHistoryReadConsistency>();
         services.AddScoped<FitzCommitmentDraftDirectory>();
         services.AddScoped<ICommitmentDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzCommitmentDraftDirectory>());
@@ -102,6 +108,12 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzCommitmentDraftDirectory>());
         services.AddScoped<CommitmentDraftReadConsistency>();
         services.AddScoped<CommitmentDraftListReadConsistency>();
+        services.AddScoped<FitzCommitmentDraftHistoryDirectoryV1>();
+        services.AddScoped<ICommitmentDraftHistoryDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzCommitmentDraftHistoryDirectoryV1>());
+        services.AddScoped<ICommitmentDraftHistoryDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzCommitmentDraftHistoryDirectoryV1>());
+        services.AddScoped<CommitmentDraftHistoryReadConsistency>();
         services.AddScoped<FitzRiskDraftDirectory>();
         services.AddScoped<IRiskDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzRiskDraftDirectory>());
@@ -109,6 +121,12 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzRiskDraftDirectory>());
         services.AddScoped<RiskDraftReadConsistency>();
         services.AddScoped<RiskDraftListReadConsistency>();
+        services.AddScoped<FitzRiskDraftHistoryDirectoryV1>();
+        services.AddScoped<IRiskDraftHistoryDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzRiskDraftHistoryDirectoryV1>());
+        services.AddScoped<IRiskDraftHistoryDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzRiskDraftHistoryDirectoryV1>());
+        services.AddScoped<RiskDraftHistoryReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
@@ -204,16 +222,19 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviseControlDraftHandler>()
             .AddRequestHandler<GetControlDraftHandler>()
             .AddRequestHandler<ListControlDraftsHandler>()
+            .AddRequestHandler<ListControlDraftRevisionsHandler>()
             .AddRequestHandler<GetControlDraftRevisionHandler>()
             .AddRequestHandler<CreateCommitmentDraftHandler>()
             .AddRequestHandler<ReviseCommitmentDraftHandler>()
             .AddRequestHandler<GetCommitmentDraftHandler>()
             .AddRequestHandler<ListCommitmentDraftsHandler>()
+            .AddRequestHandler<ListCommitmentDraftRevisionsHandler>()
             .AddRequestHandler<GetCommitmentDraftRevisionHandler>()
             .AddRequestHandler<CreateRiskDraftHandler>()
             .AddRequestHandler<ReviseRiskDraftHandler>()
             .AddRequestHandler<GetRiskDraftHandler>()
             .AddRequestHandler<ListRiskDraftsHandler>()
+            .AddRequestHandler<ListRiskDraftRevisionsHandler>()
             .AddRequestHandler<GetRiskDraftRevisionHandler>()
             .AddRequestHandler<ReviseProgramHandler>()
             .AddRequestHandler<GetProgramHandler>()
@@ -303,9 +324,15 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant)
             .AddProjector<ControlDraftDirectoryProjector>("ControlDraftDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ControlDraftHistoryDirectoryV1Projector>(
+                "ControlDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<CommitmentDraftDirectoryProjector>("CommitmentDraftDirectory",
                 WorkloadScope.PerTenant)
+            .AddProjector<CommitmentDraftHistoryDirectoryProjectorV1>(
+                "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
+            .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
+                WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectory", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
