@@ -51,7 +51,10 @@ Every story must include:
 - scoping to exactly one client organization (tenant), with no cross-tenant disclosure;
 - usable loading, empty, error, retry, and forbidden states;
 - traceable activity and historical behavior where the action matters to an audit;
-- accessible UI and documented API behavior;
+- accessible UI that meets WCAG 2.2 AA in the supported browsers, with the
+  automated and manual evidence in
+  [accessibility and browser support](accessibility-and-browser-support.md)
+  (M0-D24), and documented API behavior;
 - focused automated acceptance evidence;
 - a `Public references` section with direct, versioned links and the applicable
   use classification from `source-reference-policy.md`, or an explicit
@@ -110,7 +113,7 @@ A story is done when its full API-to-UI workflow meets the acceptance criteria; 
 
 A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable non-UI acceptance criteria are verified. Verification covers allowed and denied behavior, tenant isolation, concurrent and replayed work, projection lag, recoverable failure, and standalone and split API-worker deployment. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Focused and applicable full .NET and broker tests, formatting, and required exact-head CI checks must pass before the reviewed PR is merged. Link the merged PR and verification evidence from the backend child.
 
-A frontend child is done when its accessible browser workflow consumes the authorized API, handles loading, empty, error, retry, and forbidden states, and passes focused browser acceptance and applicable repository checks. Link its merged PR and evidence from the frontend child. Close the product parent only after both delivery children and the integrated story acceptance pass.
+A frontend child is done when its accessible browser workflow consumes the authorized API, handles loading, empty, error, retry, and forbidden states, and passes focused browser acceptance and applicable repository checks. Its rendered pages pass the automated WCAG 2.2 AA axe-core check with zero violations, and its PR links the manual accessibility pass defined in [accessibility and browser support](accessibility-and-browser-support.md). Link its merged PR and evidence from the frontend child. Close the product parent only after both delivery children and the integrated story acceptance pass.
 
 ## M0 - Design and discovery
 
@@ -187,6 +190,8 @@ Done when:
 Source: Product brief open decision on criteria source and permitted use; R1-03 requirements.
 
 ### M0-D03 Decide platform roles, separation of duties, and team membership rules
+
+Decided 2026-09-22: see [M0-D03 roles and separation of duties](decisions/m0-d03-roles-and-separation-of-duties.md). Client roles are Org Admin, Compliance Lead, Contributor, and Viewer; firm staff hold Advisor or Attest only through engagement assignment; self-approval needs an Org Admin SoD waiver; IdP group mapping is excluded from the first release.
 
 The platform operator is the platform super administrator for platform operations, held by an explicitly configured platform user. It is separate from tenant RBAC roles. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending access, audit, and separation-of-duties decision.
 
@@ -282,6 +287,8 @@ Done when:
 Source: R1-10 validation subtask; R2-06 validation subtask (application list).
 
 ### M0-D06 Decide the authoritative workforce source and NHI ownership rules
+
+Decided 2026-09-22: see [M0-D06 workforce source](decisions/m0-d06-workforce-source.md). An HRIS export is authoritative, the IdP directory corroborates, and a manual roster is the fallback. The first client's HRIS is follow-up [#347](https://github.com/bdgrz/compliance/issues/347).
 
 Priority: P0
 
@@ -834,6 +841,8 @@ Public references: No external normative source; product decision recorded in
 
 ### M0-D24 Define the accessibility target and supported-browser baseline
 
+Decided 2026-09-22: see [M0-D24 accessibility and browsers](decisions/m0-d24-accessibility-and-browsers.md). WCAG 2.2 AA; the current and previous major versions of desktop Chrome, Edge, Firefox, and Safari.
+
 Priority: P0
 
 Type: Product discovery
@@ -864,6 +873,8 @@ Done when:
 Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
 
 ### M0-D25 Define the client tenancy boundary, firm-staff affiliation, and data ownership
+
+Decided 2026-09-22: see [M0-D25 client tenancy](decisions/m0-d25-client-tenancy.md). Firm staff reach client records only through engagement assignment; operators see metadata only and are granted in-app by an existing operator; any verified signed-in user may create an organization. Advisory-material retention after offboarding is follow-up [#346](https://github.com/bdgrz/compliance/issues/346).
 
 Platform operators are super administrators for platform operations, including organization lifecycle and a paginated platform tenant portfolio. The current implementation does not automatically grant tenant membership or client business-record access. Cross-tenant client-data authority remains a pending decision.
 
@@ -2335,6 +2346,8 @@ Implementation subtasks:
 
 ### R1-15 Provision a client organization and its first administrators
 
+M0-D25 decided 2026-09-22 ([decision](decisions/m0-d25-client-tenancy.md)): organization creation is self-service for any verified signed-in user, who becomes the first Org Admin; suspension and reactivation stay operator-only; operators are granted and revoked in-app by an existing operator with an audit log, bootstrapped from configuration; operators see tenant metadata only; firm-staff memberships grant no business-record access without an engagement assignment.
+
 Priority: P0
 
 Area: tenancy
@@ -2370,7 +2383,7 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Only an authorized platform operator can create, suspend, or reactivate a client organization.
+- [ ] Any signed-in platform user with a verified email can create a client organization and becomes its first Org Admin; only an authorized platform operator can suspend or reactivate one (amended by M0-D25, 2026-09-22).
 - [ ] A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
 - [ ] A user with memberships in two organizations never sees, counts, searches, or receives notifications about records from the organization that is not active.
 - [ ] Suspending an organization blocks access immediately for its members and assigned firm staff and preserves all records and history.
