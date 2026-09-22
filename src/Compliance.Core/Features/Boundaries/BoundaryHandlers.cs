@@ -348,7 +348,7 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
             return Result.Failure(preview.Error);
         if (!preview.Value.Complete)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The impact preview is incomplete. Pending contexts: " +
+                "The impact preview is incomplete. Pending or incomplete contexts: " +
                 string.Join(", ", preview.Value.PendingContexts)));
         if (!StringComparer.Ordinal.Equals(request.ImpactDigest, preview.Value.Digest))
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,

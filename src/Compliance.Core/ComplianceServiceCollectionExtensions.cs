@@ -156,6 +156,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ScopeSnapshotFreezer>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
+        services.AddScoped<IBoundaryImpactContributor, ControlBoundaryImpactContributor>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
             GovernedBoundaryReferenceValidator>();

@@ -46,9 +46,15 @@ successor approval rather than claiming a complete impact result.
 - Implement governing inventories for person, component,
   information, data flow, process, location, provider, and commitment references
   in their owning stories, then validate those references on boundary writes.
-- Add real impact contributors for controls, evidence, risks, providers,
-  engagements, and readiness. `BoundaryImpactService` intentionally marks these
-  contexts pending and blocks successor approval while they are absent.
+- Current Control-draft applicability contributes a bounded, source-fenced advisory
+  record list for changed resolved Application and SystemInstance boundary scope.
+  It deliberately remains incomplete: it does not claim approved ControlVersions,
+  lifecycle impact, retirement, or approval clearance. `controls` is therefore a
+  registered incomplete context and remains pending while it blocks successor
+  approval.
+- Add lifecycle-complete Control impact plus real evidence, risk, provider,
+  engagement, and readiness contributors. `BoundaryImpactService` blocks
+  successor approval while any required context is absent or incomplete.
 - Prove complete successor approval and the exact boundary-version binding of
   historical engagement snapshots after those dependent contexts arrive.
 - Complete inherited M0 decisions that require engagement facts or organization
