@@ -142,6 +142,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     }
 
     builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton<AuthorizationDenialLog>();
+    builder.Services.AddHostedService(services => services.GetRequiredService<AuthorizationDenialLog>());
     builder.Services.AddComplianceHealthChecks();
 
     var app = builder.Build();
