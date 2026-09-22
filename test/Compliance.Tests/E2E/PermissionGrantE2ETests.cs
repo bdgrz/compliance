@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -59,6 +60,30 @@ public sealed class PermissionGrantE2ETests(BrokerStackFixture broker) : IClassF
         var team = await getTeamResponse.Content.ReadFromJsonAsync<TeamDocument>();
         Assert.NotNull(team);
         Assert.Equal(BuiltInRbac.AdministratorsTeamName, team.Name);
+
+        var teamsPath = $"/api/v1/tenants/{tenantId}/teams";
+        using (var zeroLimit = await client.GetAsync($"{teamsPath}?limit=0"))
+        using (var oversizedLimit = await client.GetAsync($"{teamsPath}?limit=201"))
+        using (var malformedCursor = await client.GetAsync(
+                   $"{teamsPath}?cursor=not-a-cursor"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, zeroLimit.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, oversizedLimit.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, malformedCursor.StatusCode);
+        }
+        await using (var mcp = await McpScenario.ConnectAsync(client,
+                         new Uri(client.BaseAddress!, "/mcp")))
+        {
+            _ = await mcp.When("bdgrz.rbac.team.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+            }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.rbac.team.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["cursor"] = "not-a-cursor",
+            }).ExpectFailure();
+        }
 
         using var suspend = await client.PostAsync($"/api/v1/tenants/{tenantId}/suspensions", null);
         Assert.Equal(HttpStatusCode.NoContent, suspend.StatusCode);
