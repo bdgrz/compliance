@@ -71,7 +71,7 @@ schema, standard prose, or test corpus is copied into this catalog.
 | `OrganizationalUnit` | A department, division, cost center, team-like business unit, or other node in an organization structure. It is not an access-control group. | organization, type, name, parent unit, effective interval, source identifiers | SCIM enterprise `organization`, `division`, `department`, and `costCenter`, normalized into governed records |
 | `Person` | A natural person, independent of employment, login, or account status. | names, contact points, locale/time zone, status, alternate identifiers | SCIM User name/contact shapes; W3C PROV `Person` |
 | `WorkRelationship` | A person's effective-dated employment, contract, internship, advisory, or other relationship with an organization. “Employee” is a person with an active employment relationship, not a subtype or duplicate person. | person, organization, worker type, employee number, start/end dates, status, manager relationship, organization units, job profile | SCIM EnterpriseUser attributes and manager relationship |
-| `JobProfile` | A governed job or position definition used for workforce classification and access expectations. | code, title, family, level, duties, organization applicability | Organization-owned reference data; not an authorization role |
+| `JobProfile` | A governed job or position definition used for workforce classification and access expectations. | code, title, family, level, duties, organization applicability | Original product decision; organization-owned reference data, not an authorization role |
 | `Responsibility` | Accountable work assigned to a person, organization unit, team, or platform member for a scope and interval. The assignee need not be able to sign in. | assignee, responsibility type, governed object/scope, effective interval, source | Distinct from RBAC authorization; may use W3C PROV roles when attributing an activity |
 
 Do not store `Employee`, `Contractor`, or `Manager` as competing person types.
@@ -110,6 +110,7 @@ person.
 | `SeparationOfDutyException` | A time-bounded, reason-required waiver of one separation-of-duty constraint for one record type in one tenant. | constraint, record type, reason, approving Org Admin, effective interval, revocation | Original product decision in M0-D03; NIST SoD supplies only the constraint concept |
 | `TrustedIssuer` | An OIDC issuer that one tenant organization trusts for member sign-in. Several may be configured per organization. | tenant, exact issuer identifier, lifecycle, configuring actor | OpenID Connect issuer identifier; per-tenant trust is an original product decision in M0-A07 |
 | `PlatformOperatorGrant` | An effective-dated grant of platform-operator authority to a platform user. Operator authority covers tenant lifecycle, administrator roster, and usage metadata only. | platform user, grant source (an existing operator, or the deployment-configured bootstrap operator list), effective interval, revocation, revoking operator | Original product decision in M0-D25 |
+| `FirmStaffMember` | The firm-staff directory entry for one human who works for the firm. It is platform-level content, not client data. | platform users bound to the entry, practice eligibility (`advisory`, `attest`, or both), lifecycle, maintaining operator | Original product decision in M0-D25; carries forward ADR 0001's operator-managed firm-staff invitation |
 | `ServiceEngagement` | An advisory or attest service the firm provides to one client organization. It is distinct from the client's Type I or Type II audit engagement. | tenant, practice (`advisory` or `attest`), service type, scope, period, acceptance decision and approver, independence evaluation | Original product decision in M0-D25, M0-D26, and F1-07 |
 | `EngagementAssignment` | An effective-dated assignment of a firm-staff platform user to one accepted service engagement. The engagement's practice determines the effective role: `advisory` grants Advisor and `attest` grants Attest. | service engagement, platform user, effective interval, assigning actor, revocation | Original product decision in M0-D25 and M0-D26 |
 
@@ -134,11 +135,11 @@ are not additional access roles. Custom roles are out of first-release scope.
 
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
-| `Application` | A logical software product or service the organization uses, develops, or supplies. | canonical name, description, delivery model, publisher/provider, business owner, lifecycle, criticality, classifications | IT/application portfolio concept; no broadly adopted interchange standard fully defines this inventory |
+| `Application` | A logical software product or service the organization uses, develops, or supplies. | canonical name, description, delivery model, publisher/provider, business owner, lifecycle, criticality, classifications | Original product decision; no registered source defines this inventory |
 | `ClientService` | A client offering or operated service system included or excluded by a program boundary. It is not a software application or the firm's service engagement. | tenant, stable name, owner, purpose, lifecycle, boundary references | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
-| `SystemInstance` | A concrete deployable, administrative, tenancy, account, subscription, or environment boundary of an application. This replaces ambiguous uses of `ReviewedSystem`. | application, environment, owning organization, operator/provider, region, source identifiers, lifecycle | Provider-neutral configuration-item pattern; SCIM service-provider boundary where applicable |
+| `SystemInstance` | A concrete deployable, administrative, tenancy, account, subscription, or environment boundary of an application. This replaces ambiguous uses of `ReviewedSystem`. | application, environment, owning organization, operator/provider, region, source identifiers, lifecycle | Original product decision; SCIM service-provider boundary where applicable |
 | `Resource` | An object or resource collection protected by a system instance. | system instance, type, parent resource, source identifiers, sensitivity, lifecycle | NIST RBAC object; provider-specific resource kinds remain extensions |
-| `IntegrationEndpoint` | A configured connection through which the platform observes or manages a system instance. | system instance, connector type/version, authority, capabilities, health, credential reference | Operational integration record, not the system itself |
+| `IntegrationEndpoint` | A configured connection through which the platform observes or manages a system instance. | system instance, connector type/version, authority, capabilities, health, credential reference | Original product decision; an operational integration record, not the system itself |
 
 `Application` answers “what software or service is this?” `SystemInstance`
 answers “which concrete boundary are we inventorying or reviewing?” An access
@@ -154,8 +155,8 @@ state, not an entity type.
 | `ComputeInstance` | A logical compute environment such as a virtual machine, bare-metal OS instance, container host, or material serverless environment. | host, provider identifiers, environment, operating system, lifecycle, state | Original provider-neutral product decision |
 | `NetworkInterface` | A physical or logical network attachment belonging to a device or compute instance. | parent, interface type, source identifiers, MAC addresses, administrative and operational state | IETF hardware model for physical interfaces; logical attachment semantics are original product decisions |
 | `Network` | A governed logical network, segment, or zone. | environment, prefixes, classification, owner, lifecycle | Original product decision; provider-neutral inventory projection |
-| `NetworkConnection` | A declared or observed topology relationship between interfaces or network endpoints. | typed endpoints, source, effective/observed interval, state | Relationship derived from network-management sources |
-| `SoftwareInstallation` | An effective-dated relationship showing software or firmware installed on a device, component, or compute instance. | installation target, application or software release, version, source, observed/effective interval | Software inventory relationship; source-specific package identifiers remain extensions |
+| `NetworkConnection` | A declared or observed topology relationship between interfaces or network endpoints. | typed endpoints, source, effective/observed interval, state | Original product decision |
+| `SoftwareInstallation` | An effective-dated relationship showing software or firmware installed on a device, component, or compute instance. | installation target, application or software release, version, source, observed/effective interval | Original product decision; source-specific package identifiers remain extensions |
 | `Location` | A physical site, hosting region, or other governed place relevant to the scoped service system. It is distinct from a device or provider. | tenant, type, name, geography or source reference, owner, lifecycle | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 | `EndpointClass` | A governed category of managed endpoints, such as company laptops or build agents, recorded instead of each individual device at first-boundary granularity. | tenant, name, owner, management baseline, platform/OS family, population source, lifecycle | Original product decision in M0-D08 |
 | `OperationalProcess` | A governed system activity or data-handling process used in scope and system description; it is distinct from a written policy procedure. | tenant, purpose, owner, inputs/outputs, lifecycle, source | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
@@ -197,14 +198,14 @@ valid but are not required for a first-boundary completeness claim.
 
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
-| `Account` | A system-local identity record that may authenticate or receive access. | system instance, immutable source ID, username, account type, enabled state, lifecycle timestamps, optional subject correlation | SCIM User resource and common IAM account semantics |
+| `Account` | A system-local identity record that may authenticate or receive access. | system instance, immutable source ID, username, account type, enabled state, lifecycle timestamps, optional subject correlation | SCIM User resource; other account semantics are original product decisions |
 | `ServiceIdentity` | A governed non-human subject such as a workload, service, automation, bot, or integration. | type, purpose, owning organization, accountable owner (`Person` or `Team`), environment, lifecycle, annual review date, expiry date | Original product distinction; provider workload/service-principal types map here when they represent the subject |
 | `Group` | A source-system collection of accounts, groups, or other principals. | system instance, immutable source ID, display name, type, lifecycle | SCIM Group, including nested membership |
 | `GroupMember` | One direct group-to-member relationship. | group, typed member reference, membership kind, source, effective/observed interval, lifecycle | SCIM Group `members`; nesting is explicit rather than flattened |
 | `Role` | A source-system role: a named collection of entitlements or permissions. | system instance, source ID, role type, hierarchy, lifecycle | NIST RBAC role |
 | `Entitlement` | A grantable access right exposed by a system, including a permission, license, group-membership right, permission set, or application role. | system instance, type, source ID, display name, privilege/sensitivity, resource scope | SCIM `entitlements` and `roles` as attributes; NIST RBAC permission where operation/object semantics are known |
 | `RoleEntitlement` | A role-to-entitlement assignment. | role, entitlement, source, effective/observed interval | NIST permission-role assignment |
-| `AccessAssignment` | A direct observed assignment of a group, role, or entitlement to an account or service identity, optionally scoped to a resource. | grantee, access item, resource, assignment mechanism, source, effective/observed interval | NIST user-role assignment and provider ACL/grant models |
+| `AccessAssignment` | A direct observed assignment of a group, role, or entitlement to an account or service identity, optionally scoped to a resource. | grantee, access item, resource, assignment mechanism, source, effective/observed interval | NIST user-role assignment; resource-scoped grants are an original product decision |
 | `EffectiveAccess` | A derived result explaining that a subject or account can exercise an entitlement over a resource. It is a snapshot/projection, not mutable source truth. | subject/account, entitlement, resource, derivation time, complete grant path, source snapshot | NIST authorization result; graph-derived extension needed for real provider data |
 
 `Principal` may be used as a union type in APIs and relationship definitions,
@@ -227,7 +228,7 @@ placed inside a `Group` aggregate is deliberately unspecified here.
 | `SourceSystem` | A named producer of source records. | provider, instance/tenant, authority by field or question | Supports W3C PROV agent/source attribution |
 | `ExternalIdentifier` | A typed identifier assigned to a canonical entity by a source or namespace. | entity, source system, namespace, value, validity interval | SCIM `id` is service-provider-issued; `externalId` is client-issued |
 | `Observation` | An immutable assertion made by a source about an entity or relationship at a time. | source, source record ID/version, observed time, payload identity, normalized assertions | W3C PROV Entity generated by an Activity and attributed to an Agent |
-| `Correlation` | An attributable assertion that two records represent or relate to the same governed subject, with confidence and status. | left/right records, method, confidence, decision, actor, time | Explicit reconciliation extension; never inferred solely from email or display name |
+| `Correlation` | An attributable assertion that two records represent or relate to the same governed subject, with confidence and status. | left/right records, method, confidence, decision, actor, time | Original product decision; never inferred solely from email or display name |
 | `Snapshot` | An immutable set of records and relationships used for a campaign, decision, or audit period. | definition, cutoff/as-of time, source completeness, content identity, rows, amendment chain | W3C PROV collection/derivation concepts |
 | `IncidentReference` | An attributable reference to a source incident used for risk reassessment before the governed operating-period incident workflow exists. | tenant, source system and ID, occurrence time, summary, observation time, attribution | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 | `ControlRiskTreatment` | A reviewed assertion that an exact control version addresses a specific risk and treatment decision. | tenant, risk, control version, rationale, reviewer, effective interval | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
@@ -254,7 +255,10 @@ observations are tenant-owned even when two tenants configure the same
 provider. An external identifier is unique only within its source system,
 namespace, and object type; it never grants access or proves a correlation.
 References must resolve to live or historical records in the same tenant,
-unless an explicitly named global identity reference is permitted. Missing,
+unless an explicitly named global reference is permitted. The named global
+references are `PlatformUser`, `FederatedIdentity`, `PlatformOperatorGrant`,
+`FirmStaffMember`, and platform-defined `Permission` and built-in `AccessRole`
+definitions. Missing,
 unresolved, and redacted references are distinct states. An imported source
 may report an unresolved target, but no governed relationship is asserted
 until the target is resolved. Labels and contact values are mutable display
@@ -299,6 +303,7 @@ display name or a provider-wide identifier guessed from another tenant.
 | `SeparationOfDutyException` | constraint, record type, reason, approving Org Admin, effective start and end | revocation reason |
 | `TrustedIssuer` | tenant organization, exact issuer identifier | display label |
 | `PlatformOperatorGrant` | platform user, grant source (granting operator or configuration bootstrap), effective start | end, revoking operator, revocation reason |
+| `FirmStaffMember` | at least one bound platform user, practice eligibility, maintaining operator | lifecycle end |
 | `ServiceEngagement` | tenant organization, practice, service type, period start | scope, period end, acceptance decision, independence evaluation |
 | `EngagementAssignment` | service engagement, platform user, assigning actor, effective start | end, revocation reason |
 | `Application` | governed name, application kind | provider, owner, criticality, classifications |
@@ -366,19 +371,20 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `PlatformUser` | None beyond platform ID |
 | `Membership` | Per tenant: one active membership per platform user |
 | `Team` | Per tenant: name among active teams |
-| `AccessRole` | Per tenant: stable role code (each tenant holds its own built-in role records) |
+| `AccessRole` | Stable role code, unique within its realm (platform for built-in definitions, tenant for any tenant-defined role) |
 | `Permission` | Platform realm: operation plus platform object kind |
 | `RoleAssignment` | Per tenant: subject, role, and exact scope with overlapping interval |
 | `SeparationOfDutyConstraint` | Per tenant: constraint kind and scope |
 | `SeparationOfDutyException` | Per tenant: constraint and record type with overlapping interval |
 | `TrustedIssuer` | Per tenant: exact issuer identifier |
-| `PlatformOperatorGrant` | Platform realm: one active grant per platform user |
+| `PlatformOperatorGrant` | Platform realm: one active in-app grant per platform user; a configuration bootstrap entry is a separate source |
+| `FirmStaffMember` | Platform realm: each platform user is bound to at most one active entry |
 | `ServiceEngagement` | None beyond platform ID |
-| `EngagementAssignment` | Per engagement: one active assignment per platform user; per tenant, a user's assignments over all history never span both the `advisory` and `attest` practices |
+| `EngagementAssignment` | Per engagement: one active assignment per platform user; per tenant, the assignments of all platform users bound to one `FirmStaffMember`, over all history, never span both the `advisory` and `attest` practices |
 | `Application` | Per tenant: governed name among active applications |
 | `ClientService` | Per tenant: governed name among active services |
-| `SystemInstance` | Per application: governed name; per source: source identifier |
-| `Resource` | `(system_instance_id, source_object_type, immutable_source_id)`, or local name under one parent |
+| `SystemInstance` | Per application: governed name among active instances; per source: source identifier |
+| `Resource` | `(system_instance_id, source_object_type, immutable_source_id)`; a governed resource with no source ID is unique by local name under its parent resource, or under its system instance when it has no parent |
 | `IntegrationEndpoint` | None beyond platform ID |
 | `Device` | Per tenant: asset identifier when present, else manufacturer plus serial |
 | `DeviceComponent` | Per device: local component identifier |
@@ -388,7 +394,7 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `NetworkConnection` | Per tenant: endpoint pair, kind, and overlapping interval |
 | `SoftwareInstallation` | Per target: software reference and release with overlapping interval |
 | `EndpointClass` | Per tenant: governed name among active classes |
-| `Location` | Per tenant: location kind plus governed name |
+| `Location` | Per tenant: location kind plus governed name among active locations |
 | `OperationalProcess` | Per tenant: governed name among active processes |
 | `InformationAsset` | Per tenant: governed name among active assets |
 | `Provider` | Per tenant: legal or governed name among active providers |
@@ -434,11 +440,12 @@ distinct relationships or separately attributed, conflicting observations.
 | Person correlation | `Person` 0..* identities, platform users, and accounts; each correlated identity/account 0..1 person | Correlation is explicit, revocable, and tenant-scoped; neither email nor name proves it. |
 | Tenant membership | `Membership` 1 `PlatformUser`, 1 `Organization`; each endpoint 0..* over history | At most one active membership for the same user and organization; suspension revokes effective access immediately. |
 | Team membership | `Team` 1 organization, 0..* memberships; member 1 `Membership` | Team and membership belong to the same tenant; membership intervals cannot outlive the tenant affiliation. |
-| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Firm staff reach a tenant's business records only through an active assignment to an accepted engagement while they also hold an active `firm_staff` `Membership` in that tenant; ending either revokes that access. A person who has ever held an `advisory` assignment for a client never holds an `attest` assignment for it, and the reverse. |
-| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 grant source; user 0..* grants over history | Platform realm. The first operators come from deployment configuration (ADR 0001); later grants and revocations are made in-app by an existing operator (M0-D25). Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
-| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user may create a tenant organization and receives its first `Membership` and Org Admin assignment (M0-D25). This supersedes the operator-provisioned production registration rule in ADR 0001; that ADR's amendment and the R1-15 change belong to M0-A07 and R1-15. |
+| Firm-staff affiliation | `FirmStaffMember` 1..* `PlatformUser`; user 0..1 active entry | Only platform operators maintain the directory. A `firm_staff` `Membership` exists only for a platform user bound to an active entry, and a client Org Admin cannot assign that affiliation. |
+| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Firm staff reach a tenant's business records only through an active assignment to an accepted engagement whose practice their directory entry permits, while they also hold an active `firm_staff` `Membership` in that tenant; ending either revokes that access. The independence wall is evaluated per `FirmStaffMember`, so every platform user of one human counts: a person who has ever held an `advisory` assignment for a client never holds an `attest` assignment for it, and the reverse. |
+| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 grant source; user 0..* grants over history | Platform realm. The first operators come from deployment configuration (ADR 0001); later grants and revocations are made in-app by an existing operator (M0-D25). A user is an operator while either source is active. In-app revocation ends only in-app grants; a configuration-bootstrapped operator is removed by changing deployment configuration. Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
+| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user may create a tenant organization and receives its first `Membership`, with `client_personnel` affiliation, and an Org Admin assignment (M0-D25). A firm-staff directory member who creates an organization is client personnel of it and can never hold an `attest` assignment for that client. This supersedes the operator-provisioned production registration rule in ADR 0001; that ADR's amendment and the R1-15 change belong to M0-A07 and R1-15. |
 | Issuer trust | `TrustedIssuer` 1 `Organization`; organization 0..* issuers | Tenant sign-in trust, including any platform-default issuer, is defined by M0-A07; an identity never gains tenant access merely because its issuer is trusted. |
-| SoD waiver | `SeparationOfDutyException` 1 `SeparationOfDutyConstraint`, 1 approving `Membership` | Time-bounded and reason-required; every exception is flagged in readiness and audit exports. |
+| SoD waiver | `SeparationOfDutyException` 1 `SeparationOfDutyConstraint`, 1 approving Org Admin `Membership` | Time-bounded and reason-required. The approver holds an active Org Admin assignment when approving, and an exception never covers work where the approver is the beneficiary; that work still needs a second approver. Every exception is flagged in readiness and audit exports. |
 | Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; effective tenant access requires an active membership even when the subject is a global user. |
 | Application deployment | `SystemInstance` 1 `Application`; application 0..* instances | Instance is tenant-owned; provider and operator are separately attributable references. |
 | Integration connection | `IntegrationEndpoint` 1 `SystemInstance`, 1 connector type; instance 0..* endpoints | Credential reference names a secret location, never secret bytes; a connector's authority is explicit. |
@@ -500,7 +507,8 @@ several tenants, while workforce relationships remain organization-specific.
 - `Account`, `Group`, `Role`, `Entitlement`, and source-observed `Resource`
   records are unique by
   `(system_instance_id, source_object_type, immutable_source_id)`. A governed
-  `Resource` with no source ID is unique by local name under one parent.
+  `Resource` with no source ID is unique by local name under its parent
+  resource, or under its system instance when it has no parent.
 - A `Membership` references exactly one platform user and one tenant
   organization; disabling a workforce relationship does not silently mutate it.
 - A `WorkRelationship` references one person and one organization and may not
@@ -612,7 +620,7 @@ keeps identity and access semantics interoperable. Labeling everything else as
 an original product decision prevents an implied standards-conformance claim.
 
 **2026-09-22 decisions incorporated.** Tenancy and operator authority
-(M0-D25), roles, separation-of-duty exceptions, and non-signing responsibility
+and the firm-staff directory (M0-D25), roles, separation-of-duty exceptions, and non-signing responsibility
 holders (M0-D03), advisory and attest engagement assignment (M0-D25, M0-D26),
 per-tenant trusted issuers and identity linking (M0-A07), workforce source
 authority (M0-D06), first-boundary inventory granularity and classification
@@ -631,7 +639,7 @@ mappings.
 
 | Story | Catalog sections it relies on |
 | --- | --- |
-| R1-15 (#127, #152, #176), R1-15a (#237) | `Organization` as tenant, `Membership`, `PlatformOperatorGrant`, tenant creation, `TrustedIssuer` |
+| R1-15 (#127, #152, #176), R1-15a (#237) | `Organization` as tenant, `Membership`, `PlatformOperatorGrant`, `FirmStaffMember`, tenant creation, `TrustedIssuer` |
 | EN-01 (#87, #157) | `PlatformUser`, `Membership`, `AccessRole`, `Permission`, `RoleAssignment`, `EngagementAssignment`, separation of duty, identity and reference contract |
 | R1-04 (#10), R1-04a (#93, #183) | `FederatedIdentity`, login binding, `Membership`, `Team`, `RoleAssignment`, `Responsibility`, `SeparationOfDutyException` |
 | R1-02 frontend (#178) | `ClientService`, service boundary, `SystemInstance`, `Provider`, `Location`, `OperationalProcess`, `InformationAsset` |

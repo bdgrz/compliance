@@ -69,8 +69,8 @@ microservices.
 
 | Context | Owns | Does not own |
 | --- | --- | --- |
-| Platform access | Client organizations (tenants), platform users, memberships and affiliation, teams, federated identities, access roles, role assignments, engagement assignments, operator grants | External accounts and entitlements being audited |
-| Firm services | Service engagements, engagement acceptance, staff assignment, nonattest service records, independence rule sets and evaluations, advisory and attest compartments | Client management records or the firm's system of quality management |
+| Platform access | Client organizations (tenants), platform users, memberships and affiliation, teams, federated identities, access roles, role assignments, operator grants, the firm-staff directory | External accounts and entitlements being audited; engagement assignments, which Firm services owns and authorization consumes |
+| Firm services | Service engagements, engagement acceptance, engagement (staff) assignment, nonattest service records, independence rule sets and evaluations, advisory and attest compartments | Client management records or the firm's system of quality management |
 | Firm methodology | Platform-level templates, template versions, and template application provenance | Client-owned controls, policies, risks, or evidence created from templates |
 | Program and scope | Programs, stages, system boundaries, inclusions, exclusions, engagement plans | Criteria source content or control operation |
 | Workforce assurance | People, employment or engagement lifecycle facts, managers, workforce populations, NHI ownership | Platform access or provider accounts |
@@ -136,8 +136,10 @@ A `PlatformUser` is a person who can sign in. One `FederatedIdentity` (issuer
 plus subject) binds to one platform user, who may hold a `Membership` in
 several organizations. Each membership has an affiliation of client personnel,
 firm staff, or guest (an external consultant engaged directly by the client).
-A firm staff member's practice (advisory or attest) is carried by each
-`EngagementAssignment`, as decided in M0-D25 and M0-D26.
+A firm staff member's practice eligibility is recorded in the platform-level
+firm-staff directory (`FirmStaffMember`), and each `ServiceEngagement` carries
+its practice; an `EngagementAssignment` takes its effective Advisor or Attest
+role from its engagement (M0-D25, M0-D26).
 
 Every request, job, message, projection, and notification resolves exactly one
 active organization. The proposed routing, confirmed or amended by M0-A07, is:
