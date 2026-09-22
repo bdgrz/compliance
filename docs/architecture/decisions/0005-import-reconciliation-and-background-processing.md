@@ -197,9 +197,10 @@ or source authority. Third-party schemas, connector mappings, and vendor
 content remain excluded unless their exact use is approved under the public
 source-reference policy. Product owners must confirm whether a declared
 complete list is meaningful for any specific source, and how long raw rows
-and rejected reports are retained. M0-A01 recovery targets and an isolated
-restore exercise remain open. None of these open points is silently answered
-by this proposal.
+and rejected reports are retained. M0-A01 has a controlled local restart and
+isolated source-to-projection replay probe. Portable backup and restore,
+numerical recovery targets, and an operator-owned restore exercise remain
+open. None of these open points is silently answered by this proposal.
 
 The upstream mapping work in
 [cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers a stale
@@ -213,7 +214,7 @@ revision, proving a safe transient HTTP conflict and a structured transient MCP
 Conflict in standalone and split API/worker hosts. Once that session rolls back,
 a normal revision succeeds and exactly one revised event is durable. This draft
 does not prescribe an application catch or automatic command retry. M0-A01
-remains proposed for recovery targets and an isolated restore exercise.
+remains proposed for recovery targets and portable backup-and-restore evidence.
 
 The first-consumer wire contract is
 [application-import-v1.md](../../product/application-import-v1.md). A thin

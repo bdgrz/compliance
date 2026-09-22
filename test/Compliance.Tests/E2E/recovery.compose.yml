@@ -1,0 +1,25 @@
+# Dedicated local-disk Fitz fixture for restart and recovery probes. BrokerStack gives each test
+# class a distinct Compose project, so broker_data is unique per fixture and removed only by the
+# final `docker compose down --volumes` cleanup.
+services:
+  broker:
+    image: ghcr.io/cntryl/fitz:latest@sha256:0686055f39f349aeec5e992e2ac19c4b02b585edd8dd7d5f7482eaba8c7e4804
+    stop_signal: SIGINT
+    stop_grace_period: 15s
+    environment:
+      FITZ_AUTH_REQUIRED: "false"
+      FITZ_ADMIN_AUTH_MODE: open
+      FITZ_HTTP_PORT: "4090"
+      FITZ_TCP_PORT: "4091"
+      FITZ_STORAGE_MODE: local
+      FITZ_STORAGE_PATH: /data
+      RUST_LOG: info,fitz=info
+    ports:
+      - target: 4090
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes:
+      - broker_data:/data
+
+volumes:
+  broker_data:

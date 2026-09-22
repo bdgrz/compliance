@@ -1,8 +1,10 @@
 # Event-sourced history and effective versions
 
 Status: proposed for M0-A01. The existing tenant and program flows prove the
-storage shape in standalone and split API/worker hosts. Operational recovery
-targets still need an owner and a restore exercise before this ADR is accepted.
+storage shape in standalone and split API/worker hosts. A controlled local
+restart and isolated projection replay prove the retained-source recovery
+path. Operational recovery targets and portable backup and restore still need
+an owner and evidence before this ADR is accepted.
 
 Decision owner: tech lead and product owner. Date: 2026-09-19.
 
@@ -100,8 +102,8 @@ durable.
 [cntryl/portia#60](https://github.com/cntryl/portia/issues/60) covers the
 stale-append path and [cntryl/portia#65](https://github.com/cntryl/portia/issues/65)
 closed the `2002` session-admission path. No application catch or automatic
-retry has been added. M0-A01 remains proposed for recovery targets and an
-isolated restore exercise.
+retry has been added. M0-A01 remains proposed for recovery targets and a
+portable backup-and-restore exercise.
 
 ## Why this storage shape
 
@@ -120,6 +122,35 @@ which store wins during recovery. Read models can still move to another store
 when that store can meet the projector checkpoint contract.
 
 ## Recovery and operational gates
+
+`ProgramRecoveryE2ETests` is the current thin recovery evidence. It runs Fitz
+in local storage mode with one Compose-project-scoped volume mounted at
+`/data`. The test writes two tenants and a revised program, records the
+authorized current HTTP result, immutable history, and exact source event
+count, then gracefully stops and removes the broker container without removing
+that volume. A fresh broker container, API host, and independent worker host
+when selected reconnect to the retained source. Both standalone and split
+API/worker cases prove the same current result, history, source count, and a
+cross-tenant not-found response.
+
+The test then starts a miniature Portia worker with the restored real
+`IEventStore`, a fresh `InMemoryKvClient`, and only the restored tenant. It
+registers the production `ProgramDirectoryProjector` through
+`AddProjector(..., WorkloadScope.PerTenant)`, so Portia owns tenant binding,
+checkpointing, and replay. The resulting isolated current and revision rows
+must match the HTTP source representation. The fresh KV client is deliberate:
+using a rebuild ID alone changes a checkpoint identity, not the live projection
+data route.
+
+This proves that commit-visible Fitz Stream source state survives a controlled
+fresh-container restart against retained local storage, and that fresh
+application workers can reconstruct the authorized program projection from
+that source. The isolated replay confirms the same production projector can
+rebuild its current and revision rows from the retained stream. It does not
+distinguish preserved live KV or checkpoint rows from their normal replay,
+prove a backup export or restore, volume-loss recovery, cloud-provider
+recovery, broker-upgrade compatibility, numerical RPO or RTO, or a physical
+per-organization restore.
 
 Fitz event streams are required to rebuild business projections. Back up the
 durable event store and any non-rebuildable integration state together with

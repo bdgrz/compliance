@@ -13,6 +13,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 sealed class BrokerStack : IAsyncDisposable
 {
     readonly string _projectName = $"bdgrz-compliance-e2e-{Guid.NewGuid():N}";
+    readonly string _composeFileName;
     int _httpPort;
 
     // The app connects over the broker's mapped HTTP port, which upgrades /ws.
@@ -22,6 +23,12 @@ sealed class BrokerStack : IAsyncDisposable
 
     bool _started;
 
+    public BrokerStack(string composeFileName = "compose.yml")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(composeFileName);
+        _composeFileName = composeFileName;
+    }
+
     public async Task StartAsync(CancellationToken ct = default)
     {
         // Compose can create containers before `up` exits. Claim cleanup ownership before the
@@ -30,12 +37,7 @@ sealed class BrokerStack : IAsyncDisposable
         try
         {
             await RunComposeAsync(ct, "up", "--detach").ConfigureAwait(false);
-            var portBinding = (await RunComposeAsync(ct, "port", "broker", "4090")
-                .ConfigureAwait(false)).Trim();
-            var separator = portBinding.LastIndexOf(':');
-            if (separator < 0 || !int.TryParse(portBinding[(separator + 1)..], out _httpPort) ||
-                _httpPort is < 1 or > 65535)
-                throw new InvalidOperationException($"Unexpected e2e broker port binding: {portBinding}");
+            await RefreshPortAsync(ct).ConfigureAwait(false);
             await WaitUntilReadyAsync(ct).ConfigureAwait(false);
         }
         catch (Exception startupError)
@@ -49,6 +51,40 @@ sealed class BrokerStack : IAsyncDisposable
                 throw new AggregateException("The e2e broker failed to start and clean up.",
                     startupError, cleanupError);
             }
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     Stops and recreates only the Fitz container while retaining Compose-managed data volumes.
+    ///     This gives recovery probes a fresh broker process against the same durable local store.
+    /// </summary>
+    public async Task RestartAsync(CancellationToken ct = default)
+    {
+        if (!_started)
+            throw new InvalidOperationException("The e2e broker has not started.");
+
+        try
+        {
+            await RunComposeAsync(ct, "stop", "broker").ConfigureAwait(false);
+            await RunComposeAsync(ct, "rm", "--force", "broker").ConfigureAwait(false);
+            _httpPort = 0;
+            await RunComposeAsync(ct, "up", "--detach", "broker").ConfigureAwait(false);
+            await RefreshPortAsync(ct).ConfigureAwait(false);
+            await WaitUntilReadyAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception restartError)
+        {
+            try
+            {
+                await DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanupError)
+            {
+                throw new AggregateException("The e2e broker failed to restart and clean up.",
+                    restartError, cleanupError);
+            }
+
             throw;
         }
     }
@@ -86,6 +122,18 @@ sealed class BrokerStack : IAsyncDisposable
         }
 
         throw new TimeoutException("The e2e Fitz broker did not report ready within 60 seconds.");
+    }
+
+    async Task RefreshPortAsync(CancellationToken ct)
+    {
+        var portBinding = (await RunComposeAsync(ct, "port", "broker", "4090")
+            .ConfigureAwait(false)).Trim();
+        var separator = portBinding.LastIndexOf(':');
+        if (separator < 0 || !int.TryParse(portBinding[(separator + 1)..], out _httpPort) ||
+            _httpPort is < 1 or > 65535)
+        {
+            throw new InvalidOperationException($"Unexpected e2e broker port binding: {portBinding}");
+        }
     }
 
     async Task<string> RunComposeAsync(CancellationToken ct, params string[] arguments)
@@ -128,8 +176,8 @@ sealed class BrokerStack : IAsyncDisposable
         return await stdout.ConfigureAwait(false);
     }
 
-    static string ComposeFilePath() =>
-        Path.Combine(AppContext.BaseDirectory, "E2E", "compose.yml");
+    string ComposeFilePath() =>
+        Path.Combine(AppContext.BaseDirectory, "E2E", _composeFileName);
 
     sealed record BrokerHealth(string Status);
 }
