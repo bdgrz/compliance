@@ -62,18 +62,26 @@ advances [M0-A05 #85](https://github.com/bdgrz/compliance/issues/85) and
 [EN-02 #160](https://github.com/bdgrz/compliance/issues/160) without claiming
 a readiness calculation, a work queue, or cross-client authority.
 
-The next M0 evidence bundle is [M0-A02 #82](https://github.com/bdgrz/compliance/issues/82): prove deterministic regeneration of the existing immutable
-snapshot manifest from retained source in standalone and split API/worker
-hosts. It may advance the snapshot decision while #81 remains open, but it
-cannot close [EN-03 #194](https://github.com/bdgrz/compliance/issues/194)
-before the workforce consumer, content-identity decision acceptance, and
-snapshot-specific recovery proof exist.
+The M0-A02 bundle advances [M0-A02 #82](https://github.com/bdgrz/compliance/issues/82)
+with a proposed retained-source manifest-regeneration default. Its Portia
+query hydrates a frozen program-scope snapshot, verifies the retained v1
+identity and amendment linkage, then recomputes the canonical manifest rather
+than reading a snapshot projection or current source. It exposes one
+tenant-scoped snake_case HTTP operation and a read-only MCP tool. Focused
+tests and the standalone/split broker flow cover source integrity, outsider
+and second-tenant non-disclosure, worker-stopped snapshot-directory lag,
+supported worker replay, and immutable original identity after an amendment.
+It does not accept the ADR or close #82 or [EN-03 #194](https://github.com/bdgrz/compliance/issues/194): the seven snapshot types, workforce consumer,
+size/performance, package/signing/retention, and snapshot-specific recovery
+requirements remain open.
 
 Keep the artifact, authorization, and import work visible as decision-bound
-slices. M0-A03 needs a selected production content store; M0-A04 needs its
-field-restriction and firm-access policy; and EN-05 needs an accepted
-multi-record failure/acceptance rule. Do not create feature-local substitutes
-for those decisions.
+slices. The next unblocked evidence bundle is M0-A04 and M0-A07: extend the
+existing Portia tenant-context and authorization evidence without treating it
+as acceptance of firm-access, separation-of-duties, federation, revocation, or
+log-retention policy. M0-A03 still needs a selected production content store,
+and EN-05 still needs an accepted multi-record failure/acceptance rule. Do not
+create feature-local substitutes for those decisions.
 
 ## Synthetic documentation PR policy
 

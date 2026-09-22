@@ -1098,6 +1098,18 @@ Done when:
 
 Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
 
+Technical evidence: [ADR 0008](../architecture/decisions/0008-snapshots-content-identity-and-amendments.md)
+records a proposed retained-source representation for the first program-scope
+consumer. Its narrow regeneration operation recomputes the retained v1
+manifest identity after Portia tenant access, without reading the snapshot
+directory or mutable current sources. Focused tests and the standalone and
+split API/worker broker flow prove the HTTP/MCP contract, source integrity,
+tenant non-disclosure, worker replay after snapshot-directory lag, and stable
+original identity after an amendment. This evidence does not accept the ADR or
+settle the remaining snapshot types, workforce consumer, size/performance,
+package, signing, retention, or recovery requirements; M0-A02 and EN-03 stay
+open.
+
 ### M0-A03 ADR: Evidence and artifact storage, inspection, and access
 
 Priority: P0
