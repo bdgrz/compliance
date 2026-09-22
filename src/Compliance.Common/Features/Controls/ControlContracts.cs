@@ -4,8 +4,13 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
 
+public sealed record ControlApplicabilityReference(Uuid EntryId, string SubjectType,
+    string Subject, Uuid? GovernedRecordId, string Rationale, bool Unresolved);
+
 public sealed record ControlDraftContent(string Title, string Objective, string Description,
-    string ImplementationNarrative, IReadOnlyList<string> ExpectedEvidenceDescriptions);
+    string ImplementationNarrative, IReadOnlyList<string> ExpectedEvidenceDescriptions,
+    string? OwnerReference = null,
+    IReadOnlyList<ControlApplicabilityReference>? Applicability = null);
 
 public sealed record ControlRegistration(Uuid ControlId, string Identifier, long Revision);
 
@@ -26,6 +31,10 @@ public sealed record CreateControlDraft(Uuid TenantId, Uuid ProgramId, string Id
 public sealed record ReviseControlDraft(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long ExpectedRevision, ControlDraftContent Content) : IRequest,
     IProgramManagementRequest, ICallable;
+
+[Discriminator("bdgrz.control.draft.discard", 1)]
+public sealed record DiscardControlDraft(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
+    long ExpectedRevision, string Rationale) : IRequest, IProgramManagementRequest, ICallable;
 
 [Discriminator("bdgrz.control.draft.get", 1)]
 public sealed record GetControlDraft(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
@@ -53,3 +62,8 @@ public sealed record ControlDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid Con
 public sealed record ControlDraftRevised(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long Revision, ControlDraftContent Content, Uuid ActorMemberId,
     string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+
+[Discriminator("bdgrz.control.draft.discarded", 1)]
+public sealed record ControlDraftDiscarded(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
+    long Revision, Uuid ActorMemberId, string ActorDisplay, string Rationale,
+    DateTimeOffset DiscardedAt) : DomainEvent;

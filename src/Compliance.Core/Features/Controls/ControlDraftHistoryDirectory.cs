@@ -75,6 +75,8 @@ sealed class FitzControlDraftHistoryDirectoryV1(IKvClient client)
                         revised.Content, revised.ActorMemberId, revised.ActorDisplay,
                         revised.ChangedAt), ct).ConfigureAwait(false);
                 break;
+            case ControlDraftDiscarded:
+                break;
         }
     }
 

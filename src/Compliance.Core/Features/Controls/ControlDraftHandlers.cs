@@ -1,10 +1,12 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
 
 public sealed class CreateControlDraftHandler(IAggregateExecutor executor,
-    IAggregateReader reader, TimeProvider clock)
+    IAggregateReader reader, IControlApplicabilityReferenceValidator applicability,
+    TimeProvider clock)
     : IRequestHandler<CreateControlDraft, ControlRegistration>
 {
     public async ValueTask<Result<ControlRegistration>> HandleAsync(
@@ -20,6 +22,19 @@ public sealed class CreateControlDraftHandler(IAggregateExecutor executor,
         if (!program.IsCreated)
             return Result<ControlRegistration>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The program was not found."));
+        var structuralError = ControlDraft.ValidateCreateInput(request.Identifier, request.Content);
+        if (structuralError is not null)
+            return Result<ControlRegistration>.Failure(structuralError);
+        var existing = await reader.HydrateAsync(new ControlDraft(request.TenantId,
+            ControlDraft.IdFor(request.TenantId, request.ProgramId, request.Identifier)), ct)
+            .ConfigureAwait(false);
+        if (!existing.IsCreated)
+        {
+            var validation = await applicability.ValidateAsync(request.TenantId, request.Content, ct)
+                .ConfigureAwait(false);
+            if (!validation.IsSuccess)
+                return Result<ControlRegistration>.Failure(validation.Error);
+        }
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
@@ -34,18 +49,58 @@ public sealed class CreateControlDraftHandler(IAggregateExecutor executor,
 }
 
 public sealed class ReviseControlDraftHandler(IAggregateExecutor executor,
-    TimeProvider clock) : IRequestHandler<ReviseControlDraft>
+    IAggregateReader reader, IControlApplicabilityReferenceValidator applicability,
+    TimeProvider clock)
+    : IRequestHandler<ReviseControlDraft>
 {
-    public ValueTask<Result> HandleAsync(IRequestContext<ReviseControlDraft> context,
+    public async ValueTask<Result> HandleAsync(IRequestContext<ReviseControlDraft> context,
         CancellationToken ct)
     {
+        var request = context.Request;
+        var current = await reader.HydrateAsync(new ControlDraft(request.TenantId,
+            request.ControlId), ct).ConfigureAwait(false);
+        if (!current.IsCreated || !current.IsVisible || current.ProgramId != request.ProgramId)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The control draft was not found."));
+        if (request.ExpectedRevision != current.Revision)
+            return Result.Failure(VersionedRecordRules.StaleRevision("control draft",
+                current.Revision));
+        var structuralError = ControlDraft.ValidateContent(request.Content);
+        if (structuralError is not null)
+            return Result.Failure(structuralError);
+        var validation = await applicability.ValidateAsync(request.TenantId, request.Content, ct)
+            .ConfigureAwait(false);
+        if (!validation.IsSuccess)
+            return validation;
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
+        return await executor.ExecuteAsync(new ControlDraft(request.TenantId, request.ControlId),
+            control => AggregateOutcome.CommitOnSuccess(control.Revise(request.ProgramId,
+                request.ExpectedRevision, request.Content,
+                RbacIds.Member(request.TenantId, userId),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
+            context, ct).ConfigureAwait(false);
+    }
+}
+
+public sealed class DiscardControlDraftHandler(IAggregateExecutor executor,
+    ControlDraftDiscardReleaseGate releaseGate, TimeProvider clock)
+    : IRequestHandler<DiscardControlDraft>
+{
+    public ValueTask<Result> HandleAsync(IRequestContext<DiscardControlDraft> context,
+        CancellationToken ct)
+    {
+        if (!releaseGate.IsEnabled)
+            return ValueTask.FromResult(Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "Control draft discard is unavailable until all active event readers are upgraded.")));
         var request = context.Request;
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new ControlDraft(request.TenantId, request.ControlId),
-            control => AggregateOutcome.CommitOnSuccess(control.Revise(request.ProgramId,
-                request.ExpectedRevision, request.Content,
+            control => AggregateOutcome.CommitOnSuccess(control.Discard(request.ProgramId,
+                request.ExpectedRevision, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
@@ -63,7 +118,7 @@ public sealed class ControlDraftReadConsistency(IControlDraftDirectoryReader dir
                 "The minimum control draft revision must be positive."));
         var source = await reader.HydrateAsync(new ControlDraft(tenantId, controlId), ct)
             .ConfigureAwait(false);
-        if (!source.IsCreated || source.ProgramId != programId)
+        if (!source.IsCreated || !source.IsVisible || source.ProgramId != programId)
             return Result<ControlDraftView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The control draft was not found."));
         var view = await directory.GetAsync(tenantId, controlId, ct).ConfigureAwait(false);
@@ -183,7 +238,7 @@ public sealed class ControlDraftHistoryReadConsistency(
                 "The minimum control draft revision must be positive."));
         var source = await reader.HydrateAsync(new ControlDraft(tenantId, controlId), ct)
             .ConfigureAwait(false);
-        if (!source.IsCreated || source.ProgramId != programId)
+        if (!source.IsCreated || !source.IsVisible || source.ProgramId != programId)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The control draft was not found."));
         if (minimumRevision is { } minimum && source.Revision < minimum)

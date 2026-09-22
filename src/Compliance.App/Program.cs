@@ -64,6 +64,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<CreateProgram>()
         .AddMcpTool<CreateControlDraft>()
         .AddMcpTool<ReviseControlDraft>(tool => tool.Idempotent())
+        .AddMcpTool<DiscardControlDraft>(tool => tool.Destructive())
         .AddMcpTool<GetControlDraft>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlDrafts>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlDraftRevisions>(tool => tool.ReadOnly())
@@ -304,6 +305,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Controls");
     app.MapPortiaPut<ReviseControlDraft>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPost<DiscardControlDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/discards")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Controls");
     app.MapPortiaGet<GetControlDraft, ControlDraftView>(

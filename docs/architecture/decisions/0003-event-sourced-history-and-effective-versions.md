@@ -82,10 +82,20 @@ partial history result. The handler also validates every returned row's tenant,
 program, and draft scope. This is a per-record source-revision gate; it does
 not claim a global snapshot across unrelated draft families.
 
-The existing current and exact-revision draft directories remain unchanged.
-They retain their own resources, schemas, and checkpoints while the V1 history
-projectors replay independently. That avoids reinterpreting a deployed
-checkpoint or making an in-place migration a prerequisite for historical pages.
+Current-directory evolution follows the same rule. `ControlDraftDirectoryV2`
+replaces the original current Control projection for new deployments with the
+separate `kv://bdgrz/control-draft-directory-v2/projection` resource and a new
+checkpoint; it replays retained Control events rather than reinterpreting the
+old current-directory checkpoint. The V1 history projectors remain separate,
+so their historical rows and checkpoints are not repurposed for current-read
+semantics.
+
+When a new event discriminator cannot be read by a prior binary, its writer
+starts disabled behind an application release gate. Deploy the new API and
+workers as readers, drain every prior reader, and only then enable the writer.
+That readers-before-writers sequence keeps a rolling overlap from placing an
+unknown event in a stream still read by an older process. Once the event is
+written, a rollback keeps a reader build that understands its discriminator.
 
 ## Concurrency evidence
 
