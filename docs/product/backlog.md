@@ -35,7 +35,7 @@ Each backend child owns its authorized HTTP API and machine-appropriate MCP surf
 
 Close each child only when its own acceptance evidence is complete. Keep the product parent open until all backend and frontend children and the integrated product outcome pass. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers. Backfill the initial pair for active stories first; create children for other validated stories when scheduled.
 
-Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The first bundle covers the R1-15 remainder, EN-01, and R1-01; its tracking issues are #152, #157, and #158.
+Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The initial R1-15, EN-01, and R1-01 bundle uses #152, #157, and #158. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324); it blocks #157 and carries the same non-UI dependencies.
 
 Keep the merged implementation trail in the [backend delivery ledger](backend-delivery-ledger.md). When a child or discovery issue is already complete, use a synthetic documentation PR to record its exact implementation or decision commit, acceptance evidence, and known limits. That PR improves tracking; it does not close an open child or substitute for missing backend proof.
 
@@ -4931,9 +4931,10 @@ listed separately below it.
 | R1-15 [#127](https://github.com/bdgrz/compliance/issues/127) | [#152](https://github.com/bdgrz/compliance/issues/152) | [#176](https://github.com/bdgrz/compliance/issues/176) | R1 |
 | R1-01 [#7](https://github.com/bdgrz/compliance/issues/7) | [#158](https://github.com/bdgrz/compliance/issues/158) | [#177](https://github.com/bdgrz/compliance/issues/177) | R1 |
 | R1-02 [#8](https://github.com/bdgrz/compliance/issues/8) | Baseline [#162](https://github.com/bdgrz/compliance/issues/162), downstream impact [#246](https://github.com/bdgrz/compliance/issues/246) | [#178](https://github.com/bdgrz/compliance/issues/178) | R1 |
+| EN-01 [#87](https://github.com/bdgrz/compliance/issues/87) | Fail-closed composition [#324](https://github.com/bdgrz/compliance/issues/324), full enabler [#157](https://github.com/bdgrz/compliance/issues/157) | — | R1 |
 
-Shared enablers EN-01, EN-02, and EN-04 retain backend children #157, #160,
-and #161. Their first consuming feature supplies the browser workflow; these
+Shared enablers EN-01, EN-02, and EN-04 retain backend children #324, #157,
+#160, and #161. Their first consuming feature supplies the browser workflow; these
 enablers have no separate frontend child. The active backend dependency chain
 uses these children and #152, #158, and the #162 baseline, rather than their UI-dependent
 product parents. Frontend children #176 through #178 depend on their
@@ -4980,6 +4981,7 @@ and UI dependencies directly in GitHub.
 | M0-A06 | [#86](https://github.com/bdgrz/compliance/issues/86) | M0 | P0 | M0-A01 |
 | M0-A07 | [#126](https://github.com/bdgrz/compliance/issues/126) | M0 | P0 | — |
 | EN-01 | [#87](https://github.com/bdgrz/compliance/issues/87) | R1 | P0 | M0-A04, M0-A07, M0-D03, M0-D25, M0-D28 |
+| EN-01a backend | [#324](https://github.com/bdgrz/compliance/issues/324) | R1 | P0 | M0-A04, M0-A07, M0-D03, M0-D25, M0-D28; blocks EN-01 backend #157 |
 | EN-02 | [#88](https://github.com/bdgrz/compliance/issues/88) | R1 | P0 | M0-A01 |
 | EN-03 | [#89](https://github.com/bdgrz/compliance/issues/89) | R1 | P0 | M0-A01, M0-A02 |
 | EN-04 | [#90](https://github.com/bdgrz/compliance/issues/90) | R1 | P0 | M0-D03, M0-D23, EN-01 |

@@ -170,7 +170,9 @@ public static class ComplianceServiceCollectionExtensions
         return services
             .AddPortia()
             .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
+            .AddRequestAuthorizer<ContinueWithDeveloperIdentityAuthorizer>()
             .AddRequestHandler<ContinueWithOidcProviderHandler>()
+            .AddRequestAuthorizer<ContinueWithOidcProviderAuthorizer>()
             .AddRequestHandler<LinkOidcProviderIdentityHandler>()
             .AddRequestAuthorizer<LinkOidcProviderIdentityAuthorizer>()
             .AddRequestHandler<ReserveEmailHandler>()
@@ -300,6 +302,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<SurrenderTenantSlugHandler>()
             .AddRequestHandler<ConfirmTenantSlugSurrenderHandler>()
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
+            .AddRequestAuthorizer<TenantLifecycleReactionAuthorizer>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
@@ -342,6 +345,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
-                fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"));
+                fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))
+            .RequireAuthorization();
     }
 }
