@@ -75,6 +75,19 @@ It does not accept the ADR or close #82 or [EN-03 #194](https://github.com/bdgrz
 size/performance, package/signing/retention, and snapshot-specific recovery
 requirements remain open.
 
+The next unblocked authorization bundle is tracked by
+[EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324). It advances
+[M0-A04 #84](https://github.com/bdgrz/compliance/issues/84),
+[M0-A07 #126](https://github.com/bdgrz/compliance/issues/126),
+[R1-15 backend #152](https://github.com/bdgrz/compliance/issues/152),
+[EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157), and
+[R1-01 backend #158](https://github.com/bdgrz/compliance/issues/158). It makes
+the shared Portia composition fail closed, protects OIDC continuation in the
+Portia pipeline, and restricts tenant lifecycle reactions to the system actor.
+It does not settle field restrictions, cross-client firm access, federation
+expansion, the durable denied-action logging contract, or each later feature's
+tenant-isolation evidence; those records remain open.
+
 Keep the artifact, authorization, and import work visible as decision-bound
 slices. The next unblocked evidence bundle is M0-A04 and M0-A07: extend the
 existing Portia tenant-context and authorization evidence without treating it
