@@ -126,6 +126,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<AmendProgramScopeSnapshot>()
         .AddMcpTool<GetSnapshot>(tool => tool.ReadOnly())
         .AddMcpTool<VerifyProgramScopeSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<RegenerateProgramScopeSnapshotManifest>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
@@ -528,6 +529,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Snapshots");
     app.MapPortiaGet<VerifyProgramScopeSnapshot, ProgramScopeSnapshotVerification>(
             "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/verification")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<RegenerateProgramScopeSnapshotManifest,
+            ProgramScopeSnapshotManifestRegeneration>(
+            "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/manifest_regeneration")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(

@@ -370,6 +370,24 @@ public sealed class ComplianceWebTests
             parameter.GetProperty("name").GetString() == "snapshot_id" &&
             parameter.GetProperty("in").GetString() == "path");
 
+        var regeneration = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/scope_snapshots/{snapshot_id}/manifest_regeneration")
+            .GetProperty("get");
+        Assert.True(regeneration.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.Contains(regeneration.GetProperty("parameters").EnumerateArray(), parameter =>
+            parameter.GetProperty("name").GetString() == "snapshot_id" &&
+            parameter.GetProperty("in").GetString() == "path");
+        var regenerationResponse = regeneration.GetProperty("responses").GetProperty("200")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var regenerationSchema = schemas.GetProperty(regenerationResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]).GetProperty("properties");
+        foreach (var name in new[]
+                 {
+                     "tenant_id", "snapshot_id", "canonical_manifest", "content_sha256",
+                 })
+            Assert.True(regenerationSchema.TryGetProperty(name, out _));
+
         var list = paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope_snapshots")
             .GetProperty("get");

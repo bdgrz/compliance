@@ -268,6 +268,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AmendProgramScopeSnapshotHandler>()
             .AddRequestHandler<GetSnapshotHandler>()
             .AddRequestHandler<VerifyProgramScopeSnapshotHandler>()
+            .AddRequestHandler<RegenerateProgramScopeSnapshotManifestHandler>()
             .AddRequestHandler<ListProgramSnapshotsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()

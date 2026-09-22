@@ -25,19 +25,10 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
     {
         // Arrange
         var applicationName = $"compliance-snapshot-{Guid.NewGuid():N}";
-        IHost? worker = null;
-        if (splitWorker)
+        var worker = splitWorker ? BuildWorker(applicationName) : null;
+        IHost? replayWorker = null;
+        if (worker is not null)
         {
-            var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
-            {
-                EnvironmentName = "Development",
-            });
-            builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
-            builder.Configuration["Fitz:ApplicationName"] = applicationName;
-            builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
-            builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
-                .AddWorkers();
-            worker = builder.Build();
             await worker.StartAsync();
         }
 
@@ -199,18 +190,50 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     static view => view.GetProperty("status").GetString() == "approved");
 
                 // Act
+                if (splitWorker)
+                {
+                    Assert.NotNull(worker);
+                    await worker!.StopAsync();
+                    worker.Dispose();
+                    worker = null;
+                }
                 using var frozenResponse = await owner.PostAsJsonAsync(freezePath, freezeBody);
                 Assert.Equal(HttpStatusCode.OK, frozenResponse.StatusCode);
                 var frozen = await ReadAsync(frozenResponse);
                 var snapshotId = frozen.GetProperty("snapshot_id").GetString()!;
                 var originalDigest = frozen.GetProperty("content_sha256").GetString()!;
                 var snapshotPath = $"{freezePath}/{snapshotId}";
+                var regenerationPath = $"{snapshotPath}/manifest_regeneration";
+                if (splitWorker)
+                {
+                    using var lagged = await owner.GetAsync($"{snapshotPath}?minimum_revision=1");
+                    Assert.Equal(HttpStatusCode.Conflict, lagged.StatusCode);
+                    using var sourceOnly = await owner.GetAsync(regenerationPath);
+                    Assert.Equal(HttpStatusCode.OK, sourceOnly.StatusCode);
+                    var sourceOnlyManifest = await ReadAsync(sourceOnly);
+                    Assert.Equal(originalDigest,
+                        sourceOnlyManifest.GetProperty("content_sha256").GetString());
+                    await using var sourceOnlyMcp = await McpScenario.ConnectAsync(owner,
+                        new Uri(owner.BaseAddress!, "/mcp"));
+                    _ = await sourceOnlyMcp.When(
+                        "bdgrz.snapshot.program_scope.manifest_regenerate",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectSuccess();
+                    replayWorker = BuildWorker(applicationName);
+                    await replayWorker.StartAsync();
+                }
                 var original = await WaitForAsync(owner,
                     $"{snapshotPath}?minimum_revision=1",
                     static view => view.GetProperty("revision").GetInt64() == 1);
                 var verificationPath = $"{snapshotPath}/verification";
                 var verification = await WaitForAsync(owner, verificationPath,
                     static view => view.GetProperty("verified").GetBoolean());
+                using var regeneratedResponse = await owner.GetAsync(regenerationPath);
+                Assert.Equal(HttpStatusCode.OK, regeneratedResponse.StatusCode);
+                var regenerated = await ReadAsync(regeneratedResponse);
 
                 // Assert
                 Assert.Equal(64, originalDigest.Length);
@@ -218,6 +241,10 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 Assert.Equal(1, original.GetProperty("manifest")
                     .GetProperty("program_revision").GetInt64());
                 Assert.Equal(originalDigest, original.GetProperty("content_sha256").GetString());
+                Assert.Equal(original.GetProperty("canonical_manifest").GetString(),
+                    regenerated.GetProperty("canonical_manifest").GetString());
+                Assert.Equal(originalDigest,
+                    regenerated.GetProperty("content_sha256").GetString());
                 Assert.Equal("verified", verification.GetProperty("snapshot")
                     .GetProperty("status").GetString());
                 Assert.Equal("verified", verification.GetProperty("program_revision")
@@ -232,11 +259,13 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     item.GetProperty("snapshot_id").GetString() == snapshotId);
                 using var deniedRead = await outsider.GetAsync(snapshotPath);
                 using var deniedVerification = await outsider.GetAsync(verificationPath);
+                using var deniedRegeneration = await outsider.GetAsync(regenerationPath);
                 using var deniedList = await outsider.GetAsync(
                     $"{programPath}/scope_snapshots");
                 using var deniedFreeze = await outsider.PostAsJsonAsync(freezePath, freezeBody);
                 Assert.Equal(HttpStatusCode.NotFound, deniedRead.StatusCode);
                 Assert.Equal(deniedRead.StatusCode, deniedVerification.StatusCode);
+                Assert.Equal(deniedRead.StatusCode, deniedRegeneration.StatusCode);
                 Assert.Equal(deniedRead.StatusCode, deniedList.StatusCode);
                 Assert.Equal(deniedRead.StatusCode, deniedFreeze.StatusCode);
                 using var secondTenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants",
@@ -248,9 +277,14 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 Assert.Equal(HttpStatusCode.OK, secondTenantResponse.StatusCode);
                 var secondTenant = await ReadAsync(secondTenantResponse);
                 var secondTenantId = secondTenant.GetProperty("tenant_id").GetString()!;
+                await WaitForTenantAccessAsync(owner,
+                    $"/api/v1/tenants/{secondTenantId}/programs");
                 using var foreignRealm = await owner.GetAsync(
                     $"/api/v1/tenants/{secondTenantId}/scope_snapshots/{snapshotId}/verification");
+                using var foreignRegeneration = await owner.GetAsync(
+                    $"/api/v1/tenants/{secondTenantId}/scope_snapshots/{snapshotId}/manifest_regeneration");
                 Assert.Equal(HttpStatusCode.NotFound, foreignRealm.StatusCode);
+                Assert.Equal(foreignRealm.StatusCode, foreignRegeneration.StatusCode);
                 using var future = await owner.GetAsync($"{snapshotPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
                 using var invalid = await owner.GetAsync($"{snapshotPath}?minimum_revision=0");
@@ -272,6 +306,20 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                             ["tenant_id"] = tenantId,
                             ["snapshot_id"] = snapshotId,
                         }).ExpectSuccess();
+                    _ = await ownerMcp.When(
+                        "bdgrz.snapshot.program_scope.manifest_regenerate",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectSuccess();
+                    _ = await ownerMcp.When(
+                        "bdgrz.snapshot.program_scope.manifest_regenerate",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = secondTenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectFailure();
                     _ = await ownerMcp.When("bdgrz.snapshot.program_scope.freeze",
                         new Dictionary<string, object?>
                         {
@@ -287,6 +335,13 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 {
                     _ = await outsiderMcp.When("bdgrz.snapshot.get", input).ExpectFailure();
                     _ = await outsiderMcp.When("bdgrz.snapshot.program_scope.verify",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantId,
+                            ["snapshot_id"] = snapshotId,
+                        }).ExpectFailure();
+                    _ = await outsiderMcp.When(
+                        "bdgrz.snapshot.program_scope.manifest_regenerate",
                         new Dictionary<string, object?>
                         {
                             ["tenant_id"] = tenantId,
@@ -334,6 +389,11 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 Assert.Equal(HttpStatusCode.OK, originalAgain.StatusCode);
                 var unchanged = await ReadAsync(originalAgain);
                 Assert.Equal(originalDigest, unchanged.GetProperty("content_sha256").GetString());
+                using var regeneratedOriginal = await owner.GetAsync(regenerationPath);
+                Assert.Equal(HttpStatusCode.OK, regeneratedOriginal.StatusCode);
+                Assert.Equal(original.GetProperty("canonical_manifest").GetString(),
+                    (await ReadAsync(regeneratedOriginal)).GetProperty("canonical_manifest")
+                    .GetString());
                 using var verifiedAfterAmendment = await owner.GetAsync(verificationPath);
                 Assert.Equal(HttpStatusCode.OK, verifiedAfterAmendment.StatusCode);
                 Assert.True((await ReadAsync(verifiedAfterAmendment))
@@ -342,12 +402,31 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
         }
         finally
         {
+            if (replayWorker is not null)
+            {
+                await replayWorker.StopAsync();
+                replayWorker.Dispose();
+            }
             if (worker is not null)
             {
                 await worker.StopAsync();
                 worker.Dispose();
             }
         }
+    }
+
+    IHost BuildWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
+            .AddWorkers();
+        return builder.Build();
     }
 
     static async Task<string> CreateProgramAsync(HttpClient owner, string path, object plan)
@@ -403,6 +482,21 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
             await Task.Delay(250);
         }
         throw new InvalidOperationException("The projection did not catch up before the deadline.");
+    }
+
+    static async Task WaitForTenantAccessAsync(HttpClient client, string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+                return;
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden or
+                HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new InvalidOperationException("Tenant access did not catch up before the deadline.");
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>

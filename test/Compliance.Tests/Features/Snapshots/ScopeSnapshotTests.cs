@@ -121,6 +121,94 @@ public sealed class ScopeSnapshotTests
     }
 
     [Fact]
+    public async Task ShouldRegenerateEquivalentManifestGivenRetainedFrozenSource()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var source = new ImmutableSnapshot(tenantId, snapshotId);
+        Assert.True(source.Freeze(snapshotId, null, programId, manifest, json, digest,
+            null, Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        var handler = new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(source));
+
+        // Act
+        var result = await handler.HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+
+        // Assert
+        var regenerated = Assert.IsType<ProgramScopeSnapshotManifestRegeneration>(result.Value);
+        Assert.Equal(tenantId, regenerated.TenantId);
+        Assert.Equal(snapshotId, regenerated.SnapshotId);
+        Assert.Equal(json, regenerated.CanonicalManifest);
+        Assert.Equal(digest, regenerated.ContentSha256);
+    }
+
+    [Fact]
+    public async Task ShouldRejectMissingOrInconsistentSourceGivenManifestRegeneration()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var manifest = Manifest(tenantId, programId);
+        var (json, digest) = SnapshotContentIdentity.Manifest(manifest);
+        var missing = new ImmutableSnapshot(tenantId, snapshotId);
+        var inconsistent = new ImmutableSnapshot(tenantId, snapshotId);
+        new AggregateScenario<ImmutableSnapshot>(inconsistent).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, snapshotId, snapshotId, null, programId,
+                "program_scope", manifest, json + " ", digest, null,
+                Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow), snapshotId, 1));
+        var wrongKind = new ImmutableSnapshot(tenantId, snapshotId);
+        new AggregateScenario<ImmutableSnapshot>(wrongKind).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, snapshotId, snapshotId, null, programId,
+                "other_scope", manifest, json, digest, null,
+                Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow), snapshotId, 1));
+        var invalidAmendment = new ImmutableSnapshot(tenantId, snapshotId);
+        new AggregateScenario<ImmutableSnapshot>(invalidAmendment).Given(DomainEventSeed.Attach(
+            new SnapshotFrozen(tenantId, snapshotId, snapshotId, Uuid.CreateVersion4(), programId,
+                "program_scope", manifest, json, digest, "Correction",
+                Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow), snapshotId, 1));
+
+        // Act
+        var missingResult = await new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(missing)).HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+        var inconsistentResult = await new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(inconsistent)).HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+        var wrongKindResult = await new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(wrongKind)).HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+        var invalidAmendmentResult = await new RegenerateProgramScopeSnapshotManifestHandler(
+            new SnapshotSourceReader(invalidAmendment)).HandleAsync(
+            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
+                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound,
+            Assert.IsType<RequestError>(missingResult.Error).Kind);
+        Assert.All([inconsistentResult, wrongKindResult, invalidAmendmentResult], result =>
+        {
+            var error = Assert.IsType<RequestError>(result.Error);
+            Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+            Assert.False(error.IsTransient);
+        });
+    }
+
+    [Fact]
     public async Task ShouldRejectCorruptProjectionAndReportLagGivenFrozenSource()
     {
         // Arrange
