@@ -89,13 +89,30 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         });
         var second = await WaitForRevisionAsync(owner, draftPath, 2);
         using var historical = await owner.GetAsync($"{draftPath}/revisions/1");
+        var historyPath = $"{draftPath}/revisions";
+        var firstHistory = await WaitForHistoryPageAsync(owner,
+            $"{historyPath}?limit=1&minimum_draft_revision=2");
+        var historyCursor = firstHistory.GetProperty("next_cursor").GetString();
+        Assert.NotNull(historyCursor);
+        var secondHistory = await WaitForHistoryPageAsync(owner,
+            $"{historyPath}?limit=1&cursor={Uri.EscapeDataString(historyCursor!)}");
+        using var futureHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_draft_revision=3");
+        using var invalidMinimumHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_draft_revision=0");
+        using var malformedHistoryCursor = await owner.GetAsync($"{historyPath}?cursor=not-a-cursor");
         using var otherProgram = await owner.GetAsync(
             $"/api/v1/tenants/{tenantId}/programs/{Guid.NewGuid()}/commitment_drafts/{draftId}");
+        using var otherProgramHistory = await owner.GetAsync(
+            $"/api/v1/tenants/{tenantId}/programs/{otherProgramId}/commitment_drafts/{draftId}/revisions");
         var (otherTenantId, otherTenantProgramId, _) = await CreateServiceAsync(owner);
         using var crossTenantRead = await owner.GetAsync(
             $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment_drafts/{draftId}");
+        using var crossTenantHistory = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherTenantProgramId}/commitment_drafts/{draftId}/revisions");
         using var outsiderRead = await outsider.GetAsync(draftPath);
         using var outsiderList = await outsider.GetAsync(path);
+        using var outsiderHistory = await outsider.GetAsync(historyPath);
         using var outsiderWrite = await outsider.PutAsJsonAsync(draftPath, new
         {
             expected_revision = 2,
@@ -132,6 +149,8 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                 ["source_reference"] = "Contract section 5",
             }).ExpectSuccess();
             _ = await WaitForRevisionAsync(owner, draftPath, 3);
+            _ = await WaitForHistoryPageAsync(owner,
+                $"{historyPath}?minimum_draft_revision=3");
             _ = await WaitForListCountAsync(owner, path, 4);
             _ = await mcp.When("bdgrz.commitment.draft.get", new Dictionary<string, object?>
             {
@@ -147,6 +166,35 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                     ["draft_id"] = draftId,
                     ["revision"] = 1,
                 }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.commitment.draft.revision.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["draft_id"] = draftId,
+                    ["limit"] = 1,
+                    ["minimum_draft_revision"] = 2,
+                }).ExpectSuccess();
+            var futureHistoryMcp = await mcp.When("bdgrz.commitment.draft.revision.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["draft_id"] = draftId,
+                    ["minimum_draft_revision"] = 4,
+                }).ExpectFailure("Conflict");
+            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.StructuredJson)
+                .GetProperty("isTransient").GetBoolean());
+            var invalidMinimumHistoryMcp = await mcp.When("bdgrz.commitment.draft.revision.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["draft_id"] = draftId,
+                    ["minimum_draft_revision"] = 0,
+                }).ExpectFailure("Validation");
+            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.StructuredJson)
+                .GetProperty("isTransient").GetBoolean());
             _ = await mcp.When("bdgrz.commitment.draft.list", new Dictionary<string, object?>
             {
                 ["tenant_id"] = tenantId,
@@ -173,6 +221,13 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                     ["statement"] = "Unauthorized",
                     ["context"] = "",
                     ["source_reference"] = "Other",
+                }).ExpectFailure();
+            _ = await mcp.When("bdgrz.commitment.draft.revision.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["draft_id"] = draftId,
                 }).ExpectFailure();
         }
         using var listedResponse = await owner.GetAsync(path);
@@ -217,10 +272,25 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal("Revised draft promise", second.GetProperty("statement").GetString());
         Assert.Equal("Contract section 4", (await ReadAsync(historical))
             .GetProperty("source_reference").GetString());
+        Assert.Equal([1L], firstHistory.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("revision").GetInt64()));
+        Assert.Equal("Management's draft service promise", firstHistory.GetProperty("items")[0]
+            .GetProperty("statement").GetString());
+        Assert.Equal([2L], secondHistory.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("revision").GetInt64()));
+        Assert.Equal("Revised draft promise", secondHistory.GetProperty("items")[0]
+            .GetProperty("statement").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, futureHistory.StatusCode);
+        Assert.Equal("true", futureHistory.Headers.GetValues("Portia-Transient").Single());
+        Assert.Equal(HttpStatusCode.BadRequest, invalidMinimumHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, malformedHistoryCursor.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherProgram.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherProgramHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderList.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderWrite.StatusCode);
         Assert.Equal(4, listed.GetProperty("items").GetArrayLength());
         Assert.Equal(HttpStatusCode.BadRequest, malformedCursor.StatusCode);
@@ -235,6 +305,33 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.True(collection.GetProperty("post").GetProperty("requestBody")
             .GetProperty("content").GetProperty("application/json").GetProperty("schema")
             .GetProperty("properties").TryGetProperty("source_reference", out _));
+        var historyOperation = openApi.GetProperty("paths").GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment_drafts/{draft_id}/revisions")
+            .GetProperty("get");
+        Assert.True(historyOperation.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(historyOperation.GetProperty("responses").TryGetProperty("400", out _));
+        foreach (var name in new[] { "limit", "cursor", "minimum_draft_revision" })
+            Assert.Contains(historyOperation.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == name &&
+                parameter.GetProperty("in").GetString() == "query");
+        using var otherDraft = await owner.PostAsJsonAsync(path, new
+        {
+            service_id = serviceId,
+            kind = "system_requirement",
+            identifier = "REQ-03",
+            statement = "Another immutable history",
+            context = "Not reviewed",
+            source_reference = "Management note",
+        });
+        Assert.Equal(HttpStatusCode.OK, otherDraft.StatusCode);
+        var otherDraftId = (await ReadAsync(otherDraft)).GetProperty("draft_id").GetString();
+        _ = await WaitForRevisionAsync(owner, $"{path}/{otherDraftId}", 1);
+        var otherHistoryPath = $"{path}/{otherDraftId}/revisions";
+        _ = await WaitForHistoryPageAsync(owner,
+            $"{otherHistoryPath}?minimum_draft_revision=1");
+        using var crossDraftHistoryCursor = await owner.GetAsync(
+            $"{otherHistoryPath}?cursor={Uri.EscapeDataString(historyCursor!)}");
+        Assert.Equal(HttpStatusCode.BadRequest, crossDraftHistoryCursor.StatusCode);
     }
 
     [Fact]
@@ -275,14 +372,19 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         });
         var draftId = (await ReadAsync(created)).GetProperty("draft_id").GetString();
         var draftPath = $"{path}/{draftId}";
+        var historyPath = $"{draftPath}/revisions";
         using var lagged = await owner.GetAsync($"{draftPath}?minimum_revision=1");
         using var laggedList = await owner.GetAsync(path);
+        using var laggedHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_draft_revision=1");
         using var restarted = BuildWorker(applicationName);
         await restarted.StartAsync();
         try
         {
             var projected = await WaitForRevisionAsync(owner, draftPath, 1);
             using var exact = await owner.GetAsync($"{draftPath}/revisions/1");
+            var history = await WaitForHistoryPageAsync(owner,
+                $"{historyPath}?minimum_draft_revision=1");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, created.StatusCode);
@@ -290,8 +392,42 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             Assert.Equal("true", lagged.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal(HttpStatusCode.Conflict, laggedList.StatusCode);
             Assert.Equal("true", laggedList.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, laggedHistory.StatusCode);
+            Assert.Equal("true", laggedHistory.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal("draft", projected.GetProperty("status").GetString());
             Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
+            Assert.Equal([1L], history.GetProperty("items").EnumerateArray()
+                .Select(item => item.GetProperty("revision").GetInt64()));
+            await restarted.StopAsync();
+            using var revised = await owner.PutAsJsonAsync(draftPath, new
+            {
+                expected_revision = 1,
+                statement = "Revised while the worker is stopped",
+                context = "Still unreviewed",
+                source_reference = "Management note",
+            });
+            using var staleHistory = await owner.GetAsync(
+                $"{historyPath}?minimum_draft_revision=2");
+            Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, staleHistory.StatusCode);
+            Assert.Equal("true", staleHistory.Headers.GetValues("Portia-Transient").Single());
+            using var resumed = BuildWorker(applicationName);
+            await resumed.StartAsync();
+            try
+            {
+                var recoveredHistory = await WaitForHistoryPageAsync(owner,
+                    $"{historyPath}?minimum_draft_revision=2");
+                Assert.Equal([1L, 2L], recoveredHistory.GetProperty("items").EnumerateArray()
+                    .Select(item => item.GetProperty("revision").GetInt64()));
+                Assert.Equal("Draft", recoveredHistory.GetProperty("items")[0]
+                    .GetProperty("statement").GetString());
+                Assert.Equal("Revised while the worker is stopped", recoveredHistory
+                    .GetProperty("items")[1].GetProperty("statement").GetString());
+            }
+            finally
+            {
+                await resumed.StopAsync();
+            }
         }
         finally
         {
@@ -377,6 +513,21 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The commitment draft projection did not catch up.");
+    }
+
+    static async Task<JsonElement> WaitForHistoryPageAsync(HttpClient client, string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+                return await ReadAsync(response);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("true", response.Headers.GetValues("Portia-Transient").Single());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The commitment draft history projection did not catch up.");
     }
 
     static async Task<JsonElement> WaitForListCountAsync(HttpClient client, string path,

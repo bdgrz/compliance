@@ -65,10 +65,23 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         var revised = await WaitForRevisionAsync(owner, draftPath, 2);
         using var revisionOne = await owner.GetAsync($"{draftPath}/revisions/1");
         using var revisionTwo = await owner.GetAsync($"{draftPath}/revisions/2");
+        var historyPath = $"{draftPath}/revisions";
+        var firstHistory = await WaitForHistoryPageAsync(owner,
+            $"{historyPath}?limit=1&minimum_control_draft_revision=2");
+        var historyCursor = firstHistory.GetProperty("next_cursor").GetString();
+        Assert.NotNull(historyCursor);
+        var secondHistory = await WaitForHistoryPageAsync(owner,
+            $"{historyPath}?limit=1&cursor={Uri.EscapeDataString(historyCursor!)}");
+        using var futureHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_control_draft_revision=3");
+        using var invalidMinimumHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_control_draft_revision=0");
+        using var malformedHistoryCursor = await owner.GetAsync($"{historyPath}?cursor=not-a-cursor");
         using var listedResponse = await owner.GetAsync(path);
         var listed = await ReadAsync(listedResponse);
         using var outsiderRead = await outsider.GetAsync(draftPath);
         using var outsiderList = await outsider.GetAsync(path);
+        using var outsiderHistory = await outsider.GetAsync(historyPath);
         using var outsiderRevise = await outsider.PutAsJsonAsync(draftPath, new
         {
             expected_revision = 2,
@@ -79,6 +92,8 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         var otherTenant = await CreateProgramAsync(owner);
         using var otherTenantRead = await owner.GetAsync(
             $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/controls/{controlId}/draft");
+        using var otherTenantHistory = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/controls/{controlId}/draft/revisions");
         using var oversized = await owner.PostAsJsonAsync(path, new
         {
             identifier = "OVERSIZED-01",
@@ -119,12 +134,26 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             .GetProperty("content").GetProperty("title").GetString());
         Assert.Equal("Review access monthly", (await ReadAsync(revisionTwo))
             .GetProperty("content").GetProperty("title").GetString());
+        Assert.Equal([1L], firstHistory.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("revision").GetInt64()));
+        Assert.Equal("Review access quarterly", firstHistory.GetProperty("items")[0]
+            .GetProperty("content").GetProperty("title").GetString());
+        Assert.Equal([2L], secondHistory.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("revision").GetInt64()));
+        Assert.Equal("Review access monthly", secondHistory.GetProperty("items")[0]
+            .GetProperty("content").GetProperty("title").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, futureHistory.StatusCode);
+        Assert.Equal("true", futureHistory.Headers.GetValues("Portia-Transient").Single());
+        Assert.Equal(HttpStatusCode.BadRequest, invalidMinimumHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, malformedHistoryCursor.StatusCode);
         Assert.Single(listed.GetProperty("items").EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderList.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderHistory.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderRevise.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherProgram.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherTenantRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantHistory.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
         Assert.Equal(2, controlEvents.Count);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
@@ -170,6 +199,35 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
                     ["control_id"] = controlId,
                     ["revision"] = 1,
                 }).ExpectSuccess();
+            _ = await mcp.When("bdgrz.control.draft.revisions.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["control_id"] = controlId,
+                    ["limit"] = 1,
+                    ["minimum_control_draft_revision"] = 2,
+                }).ExpectSuccess();
+            var futureHistoryMcp = await mcp.When("bdgrz.control.draft.revisions.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["control_id"] = controlId,
+                    ["minimum_control_draft_revision"] = 3,
+                }).ExpectFailure("Conflict");
+            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.StructuredJson)
+                .GetProperty("isTransient").GetBoolean());
+            var invalidMinimumHistoryMcp = await mcp.When("bdgrz.control.draft.revisions.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["control_id"] = controlId,
+                    ["minimum_control_draft_revision"] = 0,
+                }).ExpectFailure("Validation");
+            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.StructuredJson)
+                .GetProperty("isTransient").GetBoolean());
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,
                          new Uri(outsider.BaseAddress!, "/mcp")))
@@ -208,6 +266,13 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
                     ["control_id"] = controlId,
                     ["revision"] = 1,
                 }).ExpectFailure();
+            _ = await mcp.When("bdgrz.control.draft.revisions.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId,
+                    ["program_id"] = programId,
+                    ["control_id"] = controlId,
+                }).ExpectFailure();
         }
         using var openApiResponse = await owner.GetAsync("/openapi/v1.json");
         var openApi = await ReadAsync(openApiResponse);
@@ -223,6 +288,15 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         Assert.True(paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
             .TryGetProperty("put", out _));
+        var historyOperation = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions")
+            .GetProperty("get");
+        Assert.True(historyOperation.GetProperty("responses").TryGetProperty("200", out _));
+        Assert.True(historyOperation.GetProperty("responses").TryGetProperty("400", out _));
+        foreach (var name in new[] { "limit", "cursor", "minimum_control_draft_revision" })
+            Assert.Contains(historyOperation.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == name &&
+                parameter.GetProperty("in").GetString() == "query");
         using var secondControl = await owner.PostAsJsonAsync(path, new
         {
             identifier = "AC-02",
@@ -231,6 +305,11 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, secondControl.StatusCode);
         var secondControlId = (await ReadAsync(secondControl)).GetProperty("control_id").GetString();
         _ = await WaitForRevisionAsync(owner, $"{path}/{secondControlId}/draft", 1);
+        var secondHistoryPath = $"{path}/{secondControlId}/draft/revisions";
+        _ = await WaitForHistoryPageAsync(owner,
+            $"{secondHistoryPath}?minimum_control_draft_revision=1");
+        using var crossControlHistoryCursor = await owner.GetAsync(
+            $"{secondHistoryPath}?cursor={Uri.EscapeDataString(historyCursor!)}");
         using var firstPageResponse = await owner.GetAsync($"{path}?limit=1");
         var firstPage = await ReadAsync(firstPageResponse);
         var cursor = firstPage.GetProperty("next_cursor").GetString();
@@ -240,9 +319,13 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         var secondProgramId = await CreateProgramForTenantAsync(owner, tenantId);
         using var crossProgramCursor = await owner.GetAsync(
             $"/api/v1/tenants/{tenantId}/programs/{secondProgramId}/controls?cursor={Uri.EscapeDataString(cursor)}");
+        using var crossProgramHistory = await owner.GetAsync(
+            $"/api/v1/tenants/{tenantId}/programs/{secondProgramId}/controls/{controlId}/draft/revisions");
         Assert.Equal(HttpStatusCode.BadRequest, malformedCursor.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidLimit.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, crossProgramCursor.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, crossControlHistoryCursor.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossProgramHistory.StatusCode);
     }
 
     [Fact]
@@ -279,8 +362,11 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         });
         var controlId = (await ReadAsync(created)).GetProperty("control_id").GetString();
         var draftPath = $"{path}/{controlId}/draft";
+        var historyPath = $"{draftPath}/revisions";
         using var lagged = await owner.GetAsync($"{draftPath}?minimum_revision=1");
         using var laggedList = await owner.GetAsync(path);
+        using var laggedHistory = await owner.GetAsync(
+            $"{historyPath}?minimum_control_draft_revision=1");
         using var restarted = BuildWorker(applicationName);
         await restarted.StartAsync();
         try
@@ -288,6 +374,8 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             var projected = await WaitForRevisionAsync(owner, draftPath, 1);
             using var exact = await owner.GetAsync($"{draftPath}/revisions/1");
             using var listed = await owner.GetAsync(path);
+            var history = await WaitForHistoryPageAsync(owner,
+                $"{historyPath}?minimum_control_draft_revision=1");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, created.StatusCode);
@@ -295,10 +383,14 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             Assert.Equal("true", lagged.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal(HttpStatusCode.Conflict, laggedList.StatusCode);
             Assert.Equal("true", laggedList.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, laggedHistory.StatusCode);
+            Assert.Equal("true", laggedHistory.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal("draft", projected.GetProperty("status").GetString());
             Assert.Equal(HttpStatusCode.OK, exact.StatusCode);
             Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
             Assert.Single((await ReadAsync(listed)).GetProperty("items").EnumerateArray());
+            Assert.Equal([1L], history.GetProperty("items").EnumerateArray()
+                .Select(item => item.GetProperty("revision").GetInt64()));
             await restarted.StopAsync();
             using var revisedResponse = await owner.PutAsJsonAsync(draftPath, new
             {
@@ -307,18 +399,30 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             });
             using var staleCurrent = await owner.GetAsync(draftPath);
             using var staleList = await owner.GetAsync(path);
+            using var staleHistory = await owner.GetAsync(
+                $"{historyPath}?minimum_control_draft_revision=2");
             Assert.Equal(HttpStatusCode.NoContent, revisedResponse.StatusCode);
             Assert.Equal(HttpStatusCode.Conflict, staleCurrent.StatusCode);
             Assert.Equal("true", staleCurrent.Headers.GetValues("Portia-Transient").Single());
             Assert.Equal(HttpStatusCode.Conflict, staleList.StatusCode);
             Assert.Equal("true", staleList.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, staleHistory.StatusCode);
+            Assert.Equal("true", staleHistory.Headers.GetValues("Portia-Transient").Single());
             using var resumed = BuildWorker(applicationName);
             await resumed.StartAsync();
             try
             {
                 var latest = await WaitForRevisionAsync(owner, draftPath, 2);
+                var recoveredHistory = await WaitForHistoryPageAsync(owner,
+                    $"{historyPath}?minimum_control_draft_revision=2");
                 Assert.Equal("Review changes monthly", latest.GetProperty("content")
                     .GetProperty("title").GetString());
+                Assert.Equal([1L, 2L], recoveredHistory.GetProperty("items").EnumerateArray()
+                    .Select(item => item.GetProperty("revision").GetInt64()));
+                Assert.Equal("Review changes", recoveredHistory.GetProperty("items")[0]
+                    .GetProperty("content").GetProperty("title").GetString());
+                Assert.Equal("Review changes monthly", recoveredHistory.GetProperty("items")[1]
+                    .GetProperty("content").GetProperty("title").GetString());
             }
             finally
             {
@@ -411,6 +515,21 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The control draft projection did not catch up.");
+    }
+
+    static async Task<JsonElement> WaitForHistoryPageAsync(HttpClient client, string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+                return await ReadAsync(response);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("true", response.Headers.GetValues("Portia-Transient").Single());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The control draft history projection did not catch up.");
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
