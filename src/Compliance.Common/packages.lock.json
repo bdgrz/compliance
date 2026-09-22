@@ -4,27 +4,27 @@
     "net10.0": {
       "Cntryl.Fitz.Extensions": {
         "type": "Direct",
-        "requested": "[1.4.1, )",
-        "resolved": "1.4.1",
-        "contentHash": "rfI0Hp87h5MkiO3qk7dex5Himyqzeh1JrrpIGMklgIc/XFG6xLttPzkrbrpaziR7Kxo6pjKgzmv7jz4BtZS5NA==",
+        "requested": "[1.4.2, )",
+        "resolved": "1.4.2",
+        "contentHash": "WH2YcmwkkOvsP8+MoQ9BCuhsIXRY/vh/rsTNNKBiq7nctjmldyiOphRnsogu7uNT7paHgDpcN3L/Zl8aVDoU1Q==",
         "dependencies": {
-          "Cntryl.Fitz.Abstractions": "1.4.1",
+          "Cntryl.Fitz.Abstractions": "1.4.2",
           "Cntryl.LexKey": "0.1.2"
         }
       },
       "Cntryl.Portia.Abstractions": {
         "type": "Direct",
-        "requested": "[0.5.3, )",
-        "resolved": "0.5.3",
-        "contentHash": "77wTaROd3Y+AbAAhZVkMGc65N9pa+MW0cF3icCSVn59zgZWM0n1xoaLLGJDhYJan2lHukMrXt0/1gNroF3vWAw==",
+        "requested": "[0.5.4, )",
+        "resolved": "0.5.4",
+        "contentHash": "0aMA4fsZ7/D2rp2GlEUhP8ijVBpEJFi2W7hYWZnzVXHR7uP6ovBPpU91c1CtkaFF4Do5KLt/V5jFkZHDdb+FCw==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.12"
         }
       },
       "Cntryl.Fitz.Abstractions": {
         "type": "Transitive",
-        "resolved": "1.4.1",
-        "contentHash": "jmG9Ef5auBUsyBelLquz1hEyE/bzhXmaX1x8yF1xjofpASihwgp4TuYf6BWRnCz8jW2wFP64OuokQV4S5hyprg=="
+        "resolved": "1.4.2",
+        "contentHash": "y0dosEsA+/3+2W+r8I5mqk7GbFWRC1EakR3OdG4YvfOYctRai+YdtqLJngteQ4Dmor5V0nEe2SOC93f+BaStuA=="
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
