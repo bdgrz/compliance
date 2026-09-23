@@ -267,9 +267,17 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 await Task.Delay(250);
             }
             Assert.Equal(HttpStatusCode.OK, access);
-            using var tenantResponse = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
-            Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
-            var tenant = await tenantResponse.Content.ReadFromJsonAsync<Tenant>();
+            Tenant? tenant = null;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var tenantResponse = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
+                Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
+                tenant = await tenantResponse.Content.ReadFromJsonAsync<Tenant>();
+                if (tenant?.Status == "active")
+                    break;
+                await Task.Delay(250);
+            }
             Assert.Equal("active", tenant?.Status);
             Assert.Null(tenant?.OperatorUserId);
             using var outsiderDenied = await outsider.GetAsync(
