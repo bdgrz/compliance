@@ -26,7 +26,8 @@ sealed class TenantAccessAuthorizer(IPermissionAuthorizer permissions, ITenantAc
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
-        var allowed = await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantAccess, ct)
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantAccess, ct)
             .ConfigureAwait(false);
         return allowed
             ? Result.Success

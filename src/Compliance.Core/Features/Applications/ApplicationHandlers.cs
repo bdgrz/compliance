@@ -27,7 +27,7 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
-        return await permissions.IsAllowedAsync(tenantId,
+        return await permissions.IsAllowedAsync(tenantId, userId,
                 RbacIds.Member(tenantId, userId), RbacPermissions.ApplicationInventoryManage, ct)
             .ConfigureAwait(false)
             ? Result.Success

@@ -73,7 +73,7 @@ public sealed class GetTenantAuthorizerTests
 
     sealed class Permissions(bool permitted) : IPermissionAuthorizer
     {
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId, string permission,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
             CancellationToken ct = default) => ValueTask.FromResult(permitted);
     }
 }

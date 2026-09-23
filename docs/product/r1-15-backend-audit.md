@@ -1,16 +1,16 @@
 # R1-15 backend acceptance audit
 
-Status: in progress, 2026-09-19. This tracks the backend child #152 of product
+Status: in progress, 2026-09-23. This tracks the backend child #152 of product
 story #127. The product story remains open for its browser criteria.
 
 ## Implementation and behavioral evidence
 
 | Requirement | Evidence | Current limit |
 | --- | --- | --- |
-| Verified self-service creation and creator Org Admin bootstrap | `RegisterTenantAuthorizerTests`, `RegisterTenantRequestScenarioTests.ShouldCreateTenantGivenVerifiedCreatorWithoutOperatorGrant`, `TenantRbacBootstrapReactorTests.ShouldBootstrapCreatorGivenVerifiedSelfServiceRegistration`, `SplitHostTenantE2ETests.ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker` | One registration event records creator/admin intent; the worker materializes membership and grants asynchronously, with access denied until projections catch up. Production challenge delivery is pending #360. |
+| Verified self-service creation and creator Org Admin bootstrap | `RegisterTenantAuthorizerTests`, `RegisterTenantRequestScenarioTests.ShouldCreateTenantGivenVerifiedCreatorWithoutOperatorGrant`, `TenantRbacBootstrapReactorTests.ShouldBootstrapCreatorGivenVerifiedSelfServiceRegistration`, `SplitHostTenantE2ETests.ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker` | One registration event records creator/admin intent, but slug confirmation can activate the tenant before the worker materializes membership and grants. An activation fence with split-host recovery proof is still required for #152's atomic first-admin acceptance. Production challenge delivery is pending #360. |
 | Historical operator and invitation replay | `TenantContractCompatibilityTests.ShouldRemainActiveGivenLegacyRegistrationWithoutInvitation`, `TenantRbacBootstrapReactorTests.ShouldPreserveInvitationBootstrapGivenLegacyRegistration`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation` | New production registration is self-service; old events and local developer flows retain their original meaning. |
 | First administrator verifies email, accepts invitation, receives membership, and activates tenant | `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` | Delivery is mocked; no external email is sent. |
-| Firm staff affiliation without standing business access, even after a historical team grant | `TenantAccessAuthorizerTests.ShouldDenyFirmStaffGivenStandingTeamPermission`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation` exercises HTTP and MCP after a projected administrator-team grant | Accepted engagement assignment and practice designation remain F1-07 backend #269. |
+| Firm staff affiliation without standing business access, even after a historical team grant | `TenantAccessAuthorizerTests.ShouldDenyFirmStaffGivenStandingTeamPermission`, `FitzPermissionAuthorizerTests.ShouldDenyFirmStaffGivenPersistedPreUpgradePermissionGrant`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation`, and `SplitHostTenantE2ETests.ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker` exercise direct permission checks and two-tenant HTTP/MCP denial after a projected administrator-team grant | Accepted engagement assignment and practice designation remain F1-07 backend #269. |
 | Slug history, permanent reservation, concurrent claims, and route collision | `TenantSlugTests`, `ReservedTenantRouteCollisionCheckTests`, `SplitHostTenantE2ETests.ShouldProjectTenantLifecycleGivenIndependentApiAndWorker`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` | Route registry must continue to cover new top-level routes. |
 | Client slug referrer privacy | `ComplianceWebTests.ShouldServeSpaFallbackGivenNonApiRoute`, `ComplianceWebTests.ShouldExposePublicAuthSettingsGivenExternalConfiguration` | Client names can still appear in the browser's own history and server logs; product naming and log retention require M0-A07. |
 | Immediate suspension and reactivation | `TenantTests.ShouldPreserveHistoryGivenSuspensionAndReactivation`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker`, `SplitHostTenantE2ETests.ShouldProjectTenantLifecycleGivenIndependentApiAndWorker` | Read projections may lag; the authorization path reads current tenant activity. |
@@ -35,6 +35,15 @@ containers on both CI architectures, review, exact-head merge, and main parity.
   exports, and background work are introduced.
 - AUTH-02a backend #360 must replace mock verification delivery and add durable
   challenge retry before production users can complete verified registration.
+- Slug confirmation can mark a tenant active before creator membership and Org
+  Admin grants materialize. #152 still needs an activation fence and split-host
+  recovery proof so registration cannot expose an active tenant without its
+  first administrator.
+- The follow-on #152 slice should keep the platform operator roster in its own
+  event stream for the atomic last-operator invariant, seed it only before it
+  has ever been initialized, and check current event state when granting or
+  revoking. That slice should activate tenants only after first-administrator
+  RBAC materialization, with replay and split-host recovery proof.
 - In-product operator grant and revocation and the rest of #152 acceptance
   remain open after the self-service and firm-staff access slice.
 - Close backend child #152 only when its own acceptance evidence and inherited

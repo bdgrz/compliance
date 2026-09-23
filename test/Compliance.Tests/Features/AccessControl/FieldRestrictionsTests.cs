@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class FieldRestrictionsTests
 {
     static readonly Uuid TenantId = Id("8d0b7c3a-4e1f-4a52-9d61-0c7e5f2a9b01");
-    static readonly Uuid MemberId = Id("8d0b7c3a-4e1f-4a52-9d61-0c7e5f2a9b02");
+    static readonly Uuid UserId = Id("8d0b7c3a-4e1f-4a52-9d61-0c7e5f2a9b02");
 
     [Fact]
     public void ShouldNameReadPermissionGivenQuarantinedEvidenceContentClass()
@@ -28,7 +28,7 @@ public sealed class FieldRestrictionsTests
         var permissions = new FixedPermissions();
 
         // Act
-        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, MemberId,
+        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, UserId,
             FieldClasses.EvidenceQuarantinedContent);
         var field = redactor.Apply("raw quarantined bytes");
 
@@ -44,7 +44,7 @@ public sealed class FieldRestrictionsTests
         var permissions = new FixedPermissions(FieldClasses.EvidenceQuarantinedContent.ReadPermission);
 
         // Act
-        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, MemberId,
+        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, UserId,
             FieldClasses.EvidenceQuarantinedContent);
         var field = redactor.Apply("raw quarantined bytes");
 
@@ -60,7 +60,7 @@ public sealed class FieldRestrictionsTests
         var permissions = new FixedPermissions(FieldClasses.EvidenceQuarantinedContent.ReadPermission);
 
         // Act
-        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, MemberId,
+        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, UserId,
             FieldClasses.EvidenceQuarantinedContent);
         var fields = Enumerable.Range(0, 100).Select(value => redactor.Apply(value)).ToArray();
 
@@ -76,7 +76,7 @@ public sealed class FieldRestrictionsTests
         var permissions = new FixedPermissions();
 
         // Act
-        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, MemberId,
+        var redactor = await FieldRestrictions.ForActorAsync(permissions, TenantId, UserId,
             FieldClasses.EvidenceQuarantinedContent);
         var field = redactor.Apply(125_000m);
 
@@ -89,11 +89,12 @@ public sealed class FieldRestrictionsTests
     {
         public int Checks { get; private set; }
 
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId, string permission,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
             CancellationToken ct = default)
         {
             Checks++;
-            return ValueTask.FromResult(tenantId == TenantId && memberId == MemberId &&
+            return ValueTask.FromResult(tenantId == TenantId && userId == UserId &&
+                memberId == RbacIds.Member(TenantId, UserId) &&
                 granted.Contains(permission));
         }
     }

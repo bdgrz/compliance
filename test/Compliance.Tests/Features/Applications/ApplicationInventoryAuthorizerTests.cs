@@ -124,7 +124,7 @@ public sealed class ApplicationInventoryAuthorizerTests
         public Uuid LastMemberId { get; private set; }
         public string? LastPermission { get; private set; }
 
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId, string permission,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
             CancellationToken ct = default)
         {
             Called = true;

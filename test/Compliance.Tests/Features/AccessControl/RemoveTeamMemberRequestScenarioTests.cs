@@ -75,6 +75,7 @@ public sealed class RemoveTeamMemberRequestScenarioTests
     {
         public ValueTask<bool> IsAllowedAsync(
             Uuid tenantId,
+            Uuid userId,
             Uuid memberId,
             string permission,
             CancellationToken ct = default) => ValueTask.FromResult(allowed);

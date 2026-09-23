@@ -53,7 +53,7 @@ public sealed class ControlDraftAuthorizationTests
     {
         public string? LastPermission { get; private set; }
 
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default)
         {
             LastPermission = permission;

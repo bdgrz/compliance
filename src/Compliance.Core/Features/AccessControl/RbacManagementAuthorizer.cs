@@ -32,7 +32,8 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenant
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
-        var allowed = await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantRbacManage, ct)
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantRbacManage, ct)
             .ConfigureAwait(false);
         return allowed
             ? Result.Success

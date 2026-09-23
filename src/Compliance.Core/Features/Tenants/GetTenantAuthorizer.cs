@@ -24,7 +24,8 @@ sealed class GetTenantAuthorizer(PlatformOperatorAuthority operators,
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
-        return await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantAccess, ct)
+        return await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantAccess, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,

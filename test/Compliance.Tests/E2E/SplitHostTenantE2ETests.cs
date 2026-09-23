@@ -53,8 +53,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var outsider = factory.CreateClient();
             var email = $"creator-{Guid.NewGuid():N}@example.com";
             var creatorId = await TenantInvitationE2ETests.LoginAsync(creator, email);
-            await TenantInvitationE2ETests.LoginAsync(outsider,
-                $"outsider-{Guid.NewGuid():N}@example.com");
+            var staffEmail = $"staff-{Guid.NewGuid():N}@example.com";
+            var staffId = await TenantInvitationE2ETests.LoginAsync(outsider, staffEmail);
             var slug = $"self-service-{Guid.NewGuid():N}"[..24];
             var request = new
             {
@@ -125,6 +125,78 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 ["slug"] = $"mcp-self-service-{Guid.NewGuid():N}"[..24],
                 ["legal_name"] = "MCP Self Service LLC",
             }).ExpectSuccess();
+
+            // Seed a firm-staff membership in the worker because a service-engagement
+            // invitation flow is not yet part of this backend slice.
+            using var secondRegistration = await creator.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name = "Second Client",
+                slug = $"second-client-{Guid.NewGuid():N}"[..24],
+                legal_name = "Second Client LLC",
+            });
+            Assert.Equal(HttpStatusCode.OK, secondRegistration.StatusCode);
+            var second = await secondRegistration.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(second);
+            var otherTenantId = Uuid.Parse(second.TenantId, CultureInfo.InvariantCulture);
+            await using (var scope = worker.Services.CreateAsyncScope())
+            {
+                var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+                var result = await bus.DispatchAsync(new RegisterMember(tenantId,
+                        Uuid.Parse(staffId, CultureInfo.InvariantCulture), "firm_staff"),
+                    new RequestDispatchContext(RequestActor.System));
+                Assert.True(result.IsSuccess);
+            }
+            var memberId = RbacIds.Member(tenantId, Uuid.Parse(staffId,
+                CultureInfo.InvariantCulture));
+            var staffMembershipProjected = false;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await outsider.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+                if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    staffMembershipProjected = true;
+                    break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.True(staffMembershipProjected);
+            using var assigned = await creator.PostAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members/{memberId}", null);
+            Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+            var assignmentProjected = false;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await creator.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                    assignmentProjected = document.RootElement.GetProperty("items")
+                        .EnumerateArray().Any(member => member.GetProperty("member_id").GetString() ==
+                            memberId.ToString());
+                    if (assignmentProjected)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.True(assignmentProjected);
+            using var firstDenied = await outsider.GetAsync($"/api/v1/tenants/{tenantId}/programs");
+            using var secondDenied = await outsider.GetAsync($"/api/v1/tenants/{otherTenantId}/programs");
+            Assert.Equal(HttpStatusCode.Forbidden, firstDenied.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, secondDenied.StatusCode);
+            await using var staffMcp = await McpScenario.ConnectAsync(outsider,
+                new Uri(outsider.BaseAddress!, "/mcp"));
+            _ = await staffMcp.When("bdgrz.program.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId.ToString(),
+            }).ExpectFailure();
+            _ = await staffMcp.When("bdgrz.program.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = otherTenantId.ToString(),
+            }).ExpectFailure();
         }
         finally
         {

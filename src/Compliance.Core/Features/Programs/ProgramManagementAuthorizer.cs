@@ -22,7 +22,8 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
-        return await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.ProgramManage, ct)
+        return await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.ProgramManage, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
