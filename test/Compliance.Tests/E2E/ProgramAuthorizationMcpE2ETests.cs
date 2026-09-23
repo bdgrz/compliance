@@ -125,7 +125,9 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     built_in_role = BuiltInRbac.ComplianceParticipationRole,
                 });
                 Assert.Equal(HttpStatusCode.NoContent, invited.StatusCode);
-                var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+                var delivery = splitHosts
+                    ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                    : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
                 var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 while (DateTimeOffset.UtcNow < deliveryDeadline &&
