@@ -43,7 +43,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         {
             await firstWorker.StartAsync();
             var userId = await TenantInvitationE2ETests.LoginAsync(creator, email);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email,
+                firstWorker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             await firstWorker.StopAsync();
         }
 

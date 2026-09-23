@@ -8,23 +8,23 @@ Decision owner: product owner and tech lead; backend acceptance remains in #152.
 > Superseded in part by [ADR 0009](0009-tenant-identity-federation-and-context.md),
 > accepted for M0-A07 on 2026-09-22. It replaces the identity-broker preference
 > with directly validated multiple trusted issuers, accepts the tenant-context
-> contract below. The verified self-service creation path is implemented;
-> in-product operator grants and revocations remain under #152. Historical
-> operator and invitation events retain their original replay semantics.
+> contract below. Verified self-service creation and in-product operator
+> grants use the accepted M0-D25 rules. Historical operator, self-service,
+> and invitation events retain their original replay semantics.
 
 ## Decision
 
 - A client organization is the only tenant boundary. `tenant_id` is its immutable, opaque UUID in APIs, events, jobs, and storage realms; `Organization` is the product name. Every client business record belongs to exactly one tenant. Platform-level criteria editions, methodology templates, and the firm-staff directory may exist outside tenants but cannot contain client records.
-- Platform operators are platform users whose UUIDs are explicitly configured in `PlatformOperators:UserIds`. No production operator is inferred from authentication claims, email domains, or tenant membership. Developer identities are operators only in the local developer-authentication mode.
-- A platform operator is the platform super administrator for platform operations: suspension, reactivation, slug administration, firm-staff invitations, and inspection of organization metadata and memberships. The operator portfolio is a paginated platform-scoped query at `GET /api/v1/platform/tenants` and a read-only MCP tool. It includes provisioning and suspended organizations. Operator status alone confers no client business-record access. Operator grant and revocation still require the in-product roster tracked by #152.
-- Production registration records display name, legal name, slug, and the signed-in creator's platform user ID. The server finds a verified email in that user's directory; the request does not supply an administrator email. `TenantRegistered` records that creator as the first Org Admin with `client_personnel` affiliation; the independent worker materializes the membership and administrator-team grant from that event. Access fails closed while projections catch up. Historical operator-provisioned registrations still replay the invited first-administrator flow, and local developer registration without an invitation still bootstraps its creator. Production email verification delivery and durable retry are tracked by #360.
+- `PlatformOperators:UserIds` seeds the operator roster only before its first event. Later grants and revocations use the current roster stream; each event records actor, subject, time, and reason, and the last operator cannot be revoked. A grant requires a registered platform user. No production operator is inferred from authentication claims, email domains, or tenant membership. Developer identities are operators only in the local developer-authentication mode.
+- A platform operator is the platform super administrator for platform operations: suspension, reactivation, slug administration, firm-staff invitations, and inspection of organization metadata and memberships. The operator portfolio is a paginated platform-scoped query at `GET /api/v1/platform/tenants` and a read-only MCP tool. It includes provisioning and suspended organizations. Operator status alone confers no client business-record access.
+- Production registration records display name, legal name, slug, and the signed-in creator's platform user ID. The server finds a verified email in that user's directory; the request does not supply an administrator email. `TenantRegistered` records creator administration intent and requires an activation event only for registrations created after the fence. The worker materializes client-personnel membership, administrator-team assignment, and effective grants before activation. Historical self-service registrations remain active on replay; operator-provisioned registrations retain the invited first-administrator flow, and local developer registration without an invitation still bootstraps its creator. Verification challenges are delivered by a recoverable worker.
 - A firm-staff invitation creates a `firm_staff` membership when accepted. Neither membership nor a current or historical tenant team grant confers standing business access. Accepted service-engagement assignment is the later access path under #269. Advisory or attest practice designation belongs in a future platform-level staff record, not in the tenant membership.
 - Suspension preserves events, projections, and memberships while tenant-scoped authorization reads the event-sourced current lifecycle and denies immediately. Reactivation restores access without recreating records. System reactions may finish cleanup and bootstrap while suspended.
 - Browser selection is derived from the signed-in user's membership list. There is no server-side mutable “active tenant” claim or token role. Every tenant API path carries `tenant_id`, which the server authorizes. The browser may retain one selected tenant in navigation state; changing selection must clear tenant-specific client state when UI work begins.
 - Browser slugs are attributes. The server normalizes and validates them against a single reserved-route registry. New slugs are reserved in an event-sourced slug aggregate before a tenant switches. Old slugs retain their owner, become permanently unavailable for new registrations, and resolve only for an authenticated member of that active tenant. Unknown and inaccessible slugs return the same not-found response.
 - Slugs can reveal a client name in browser history and server logs. The API host sends `Referrer-Policy: no-referrer` on browser routes, static assets, and API responses so navigation does not forward a client path as a referrer. Product naming guidance and log retention still belong to M0-A07.
 - API startup checks each newly reserved top-level route against event-sourced slug ownership, including retired slugs, and fails if an organization claimed it before the route was added. Registration cannot claim a reserved route even through a direct system command. Resolve a collision before deploying the new route.
-- One platform user is bound to an exact issuer-plus-subject identity and can hold several memberships. A future multi-organization identity broker with per-organization connections is preferred over trusting arbitrary issuers in each tenant request. The current single-authority login remains the initial deployment configuration; issuer federation and identity linking require a separate security review before more authorities are enabled.
+- Each external issuer-plus-subject identity binds to exactly one platform user, who can hold several memberships. The service validates several configured trusted OIDC issuers directly. Linking another identity requires explicit proof of both identities; email equality never links them. Provider expansion and recovery rules remain governed by ADR 0009.
 
 ## M0-A07 tenant-context contract
 
@@ -48,10 +48,9 @@ while excluding invitation tokens, evidence content, and client names from
 routine labels. This is a contract for later features, not a claim that every
 future surface already exists.
 
-The first deployment trusts one configured OIDC authority. The selected
-expansion path is an identity broker with organization-specific connections
-and one application-trusted issuer; enabling another authority requires an
-issuer-validation and account-linking review. An external identity is keyed by
+Configured trusted OIDC issuers are validated directly. Before enabling an
+additional authority in a deployment, review its issuer configuration and
+account-linking recovery. An external identity is keyed by
 exact issuer plus subject and belongs to one `PlatformUser`. Two identities
 with the same email do not merge automatically. An explicit HTTP-only link
 operation now requires both a signed Bdgrz browser session and a validated OIDC
@@ -84,7 +83,6 @@ The API and MCP surfaces use Portia command/query authorization and event-source
 ## Follow-up
 
 M0-D25 and M0-A07 are accepted in the product decision and ADR 0009. #152
-still owns the in-product operator roster and remaining tenant acceptance;
-#269 owns engagement-specific staff grants; #360 owns production verification
-delivery and retry. Later features must prove tenant isolation for their own
-records and surfaces.
+still owns remaining tenant acceptance and inherited EN-01 proof; #269 owns
+engagement-specific staff grants. Later features must prove tenant isolation
+for their own records and surfaces.
