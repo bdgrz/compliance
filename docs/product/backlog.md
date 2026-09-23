@@ -191,7 +191,7 @@ Source: Product brief open decision on criteria source and permitted use; R1-03 
 
 Decided 2026-09-22: see [M0-D03 roles and separation of duties](decisions/m0-d03-roles-and-separation-of-duties.md). Client roles are Org Admin, Compliance Lead, Contributor, and Viewer; firm staff hold Advisor or Attest only through engagement assignment; self-approval needs an Org Admin SoD waiver; IdP group mapping is excluded from the first release.
 
-The platform operator is the platform super administrator for platform operations, held by an explicitly configured platform user. It is separate from tenant RBAC roles. The current implementation does not automatically grant tenant membership or client business-record access. M0-D25 settles cross-tenant authority: operators see tenant metadata only.
+The platform operator is the platform super administrator for platform operations, separate from tenant RBAC roles. M0-D25 makes in-product grants and revocations authoritative after configuration seeds the first operator. Operators see tenant metadata only and receive no client business-record access from operator status.
 
 Priority: P0
 
@@ -1482,7 +1482,7 @@ Requirements:
 - Support compliance lead, control owner, evidence contributor, reviewer, access reviewer, management approver, and external advisor responsibilities.
 - Allow one person to hold multiple responsibilities while making conflicts visible.
 - Scope access to the organization, program, engagement, and assigned work as appropriate.
-- Define behavior for changed group membership, deprovisioned users, and orphaned assignments.
+- Define behavior for changed platform-team membership, deprovisioned users, and orphaned assignments.
 - Distinguish client personnel from firm staff; a firm staff member may hold memberships in several client organizations, each with its own grants and responsibilities.
 
 Domain slice:
@@ -1492,9 +1492,10 @@ Domain slice:
 - Keeps authentication identity, platform membership, platform teams, access
   roles, and record-specific responsibilities distinct. Issuer plus subject is
   the provider identity; email and display claims are not identifiers.
-- Uses external provider claims only through explicit identity or group
-  mappings. It never treats an external directory principal being audited as a
-  platform member without a deliberate correlation.
+- Uses external provider claims only through explicit identity bindings.
+  Provider-group mapping is deferred to F1-06. It never treats an external
+  directory principal being audited as a platform member without a deliberate
+  correlation.
 - Supplies active actors and authorization decisions to every program workflow;
   deprovisioning blocks new access while preserving attribution and surfacing
   orphaned responsibilities.
@@ -1511,9 +1512,9 @@ Acceptance criteria:
 Implementation subtasks:
 
 - [ ] Incorporate the decisions recorded in M0-D03 and M0-D28 before finalizing this story's rules; use the canonical identity entities and the approved public references without deciding aggregate boundaries.
-- [ ] Define member and identity-binding lifecycles, explicit group mappings, team membership, access grants, revocation, actor attribution, and responsibility boundaries.
+- [ ] Define member and identity-binding lifecycles, platform-team membership, access grants, revocation, actor attribution, and responsibility boundaries.
 - [ ] Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
-- [ ] Enforce every allow and deny decision on the server, including direct grants, team grants, removed provider groups, suspension, deprovisioning, and separation-of-duties conflicts.
+- [ ] Enforce every allow and deny decision on the server, including direct grants, team grants, removed team memberships, suspension, deprovisioning, and separation-of-duties conflicts.
 - [ ] Prove identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states, and standalone/split-host parity end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
@@ -1531,7 +1532,7 @@ Acceptance criteria:
 
 Not in this slice:
 
-- Teams and IdP group mapping (R1-04c).
+- Platform teams (R1-04c).
 - Suspension and deprovisioning (R1-04d).
 
 #### R1-04b Scope each member's access to organization, program, and engagement
@@ -1550,19 +1551,18 @@ Not in this slice:
 
 Depends on: R1-04a
 
-#### R1-04c Organize members into teams and map identity-provider groups when required
+#### R1-04c Organize members into platform-managed teams
 
-Outcome: As an organization administrator, I can manage platform teams that receive grants and responsibilities, and map IdP groups to them explicitly if M0-D03 requires it for the first release.
+Outcome: As an organization administrator, I can manage platform teams that receive grants and responsibilities.
 
 Acceptance criteria:
 
 - [ ] A team grant applies to its current members and stops applying when a member leaves the team.
 - [ ] A team can receive access or responsibility but is never recorded as the actor of an action.
-- [ ] If IdP group mapping is in scope: the mapping is explicit and reviewable, and removing a provider group removes the derived grant.
 
 Not in this slice:
 
-- Mapping external groups that are under access review (R2-06).
+- IdP group-to-team mapping (F1-06) and external groups under access review (R2-06).
 
 Depends on: R1-04a
 
@@ -1832,7 +1832,7 @@ Requirements:
   metadata and files, owners, risks, providers, gaps, and consultant findings.
 - Preserve source filename or record identifier, import batch, importer, import time, and unresolved transformation warnings.
 - Validate references, required fields, duplicates, unknown owners, unsupported files, and ambiguous mappings before acceptance.
-- Let the user accept a valid subset only through an explicit choice with a retained rejected-item report.
+- Require every row to be valid or explicitly resolved before accepting the whole batch; retain rejected-item reports for correction and restaging.
 - Make repeat imports safe by identifying unchanged, changed, new, and conflicting records.
 
 Domain slice:
@@ -1860,7 +1860,7 @@ Implementation subtasks:
 - [ ] Incorporate the decisions recorded in M0-D04 and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
 - [ ] Deliver authorized upload, parse, preview, correct, accept, cancel, and retry behavior through the API, any required worker processing, and browser.
 - [ ] Route accepted items through the owning contexts, including identity and responsibility resolution, lifecycle checks, provenance, evidence content identity, and readiness recalculation.
-- [ ] Prove replay safety, partial and interrupted failure, accepted subsets, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
+- [ ] Prove replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -1873,7 +1873,7 @@ Acceptance criteria:
 - [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
 - [ ] A failed or canceled import cannot leave an apparently complete partial program.
 - [ ] Every imported record can be traced to its source and import batch.
-- [ ] A valid subset is accepted only through an explicit choice, with a retained rejected-item report.
+- [ ] Invalid or unresolved rows block whole-batch acceptance; correction and restaging retain a rejected-item report.
 - [ ] Unknown owners and ambiguous mappings are resolved or rejected before acceptance; imported records follow the normal control and mapping lifecycle.
 
 Not in this slice:
@@ -2618,6 +2618,7 @@ Scope:
 
 - Import batches with source and content identity.
 - Staged parsing, validation, preview, all-or-nothing acceptance behind a durable batch visibility barrier, cancellation, and retry, following accepted M0-A06 (ADR 0005).
+- Acceptance and cancellation require a personal HTTP decision; staging, preview, and progress may also be exposed as MCP tools.
 - The M0-A06 standalone/split API/worker spike, transferred here by product-owner decision on 2026-09-22.
 - Rejected-item reports and replay detection (unchanged, changed, new, conflicting, missing).
 - Background processing with progress across host modes.
