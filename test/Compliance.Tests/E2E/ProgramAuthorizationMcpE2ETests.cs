@@ -137,6 +137,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 await TenantInvitationE2ETests.VerifyEmailAsync(factory, participant,
                     participantId, participantEmail,
                     splitHosts ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
+                await WaitForInvitationDeliveryAsync(administrator, tenantId, participantEmail);
                 using var accepted = await participant.PostAsJsonAsync(
                     $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                     new { email_address = participantEmail, token });
@@ -282,6 +283,28 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException($"The program projection did not reach revision {revision}.");
+    }
+
+    static async Task WaitForInvitationDeliveryAsync(HttpClient administrator, Uuid tenantId,
+        string email)
+    {
+        var path = $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
+                   Uri.EscapeDataString(email);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administrator.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                using var body = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync());
+                if (body.RootElement.GetProperty("items").EnumerateArray().Any(item =>
+                        item.GetProperty("delivery_status").GetString() == "delivered"))
+                    return;
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The invitation delivery outcome did not project.");
     }
 
     static object Plan(string advisor) => new
