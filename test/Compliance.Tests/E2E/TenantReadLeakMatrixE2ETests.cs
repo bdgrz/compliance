@@ -70,18 +70,14 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 Assert.Contains(scope.MemberId, Ids(await ReadHttpPageAsync(owner,
                     membersPath + "?search=" + scope.MemberId[..8]), "member_id"));
 
-                var permissions = await WaitForPageAsync(owner, permissionsPath,
+                var permissions = await WaitForPageAsync(owner,
+                    permissionsPath + "?search=manage",
                     page => Ids(page, "permission").Length >= 2);
-                Assert.All(Ids(permissions, "role_id"),
-                    roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
-                var permissionFirst = await ReadHttpPageAsync(owner,
+                var permissionPages = await ReadAllHttpPagesAsync(owner,
                     permissionsPath + "?search=manage&limit=1");
-                var permissionCursor = permissionFirst.GetProperty("next_cursor").GetString();
-                Assert.NotNull(permissionCursor);
-                var permissionSecond = await ReadHttpPageAsync(owner,
-                    permissionsPath + "?search=manage&limit=1&cursor=" +
-                    Uri.EscapeDataString(permissionCursor));
-                Assert.All(Ids(permissionSecond, "role_id"),
+                AssertIds(Ids(permissions, "permission"),
+                    permissionPages.SelectMany(page => Ids(page, "permission")).ToArray());
+                Assert.All(permissionPages.SelectMany(page => Ids(page, "role_id")),
                     roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
 
                 var roleTeams = await WaitForPageAsync(owner, roleTeamsPath,
@@ -118,15 +114,17 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                             ["search"] = scope.MemberId[..8],
                         });
                     Assert.Contains(scope.MemberId, Ids(members, "member_id"));
-                    var permissions = await ReadMcpPageAsync(mcp,
-                        "bdgrz.rbac.role-permission.list", new Dictionary<string, object?>
-                        {
-                            ["tenant_id"] = scope.TenantId,
-                            ["role_id"] = scope.AdministrationRoleId,
-                            ["search"] = "manage",
-                        });
-                    Assert.NotEmpty(Ids(permissions, "permission"));
-                    Assert.All(Ids(permissions, "role_id"),
+                    var permissionInput = new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = scope.TenantId,
+                        ["role_id"] = scope.AdministrationRoleId,
+                        ["search"] = "manage",
+                        ["limit"] = 1,
+                    };
+                    var permissionPages = await ReadAllMcpPagesAsync(mcp,
+                        "bdgrz.rbac.role-permission.list", permissionInput);
+                    Assert.True(permissionPages.Count >= 2);
+                    Assert.All(permissionPages.SelectMany(page => Ids(page, "role_id")),
                         roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
                     var roleTeams = await ReadMcpPageAsync(mcp, "bdgrz.rbac.role-team.list",
                         new Dictionary<string, object?>
@@ -214,15 +212,22 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             // Act and assert: the batch's counters are tenant-local.
             AssertImportCounts(projectedA, tenantA, batchA, rowCount: 3, invalidCount: 1);
             AssertImportCounts(projectedB, tenantB, batchB, rowCount: 1, invalidCount: 0);
-            var firstA = await ReadHttpPageAsync(owner, pathA + "/rows?limit=1");
-            var cursorA = firstA.GetProperty("next_cursor").GetString();
+            var httpRowsA = await ReadAllHttpPagesAsync(owner, pathA + "/rows?limit=1");
+            var cursorA = httpRowsA[0].GetProperty("next_cursor").GetString();
             Assert.NotNull(cursorA);
-            var secondA = await ReadHttpPageAsync(owner, pathA + "/rows?limit=1&cursor=" +
-                Uri.EscapeDataString(cursorA));
-            Assert.All(Ids(firstA, "source_record_id"), id => Assert.StartsWith("A-", id));
-            Assert.All(Ids(secondA, "source_record_id"), id => Assert.StartsWith("A-", id));
+            AssertIds(["A-1", "A-2", "A-3"],
+                httpRowsA.SelectMany(page => Ids(page, "source_record_id")).ToArray());
+            Assert.All(httpRowsA, page => Assert.True(
+                Ids(page, "source_record_id").Length <= 1));
+            Assert.All(httpRowsA.SelectMany(page => page.GetProperty("items").EnumerateArray()),
+                row =>
+                {
+                    Assert.Equal(tenantA.ToString(), row.GetProperty("tenant_id").GetString());
+                    Assert.Equal(batchA, row.GetProperty("batch_id").GetString());
+                });
             var rowsB = await ReadHttpPageAsync(owner, pathB + "/rows");
             Assert.Equal("B-1", Assert.Single(Ids(rowsB, "source_record_id")));
+            Assert.Null(rowsB.GetProperty("next_cursor").GetString());
             var previewA = await ReadHttpPageAsync(owner, pathA + "/preview");
             var previewB = await ReadHttpPageAsync(owner, pathB + "/preview");
             Assert.Equal(3, Ids(previewA, "source_record_id").Length);
@@ -264,6 +269,8 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         "bdgrz.application_import.preview", input);
                     Assert.Equal(rows, Ids(rowPage, "source_record_id").Length);
                     Assert.Equal(rows, Ids(previewPage, "source_record_id").Length);
+                    Assert.Null(rowPage.GetProperty("next_cursor").GetString());
+                    Assert.Null(previewPage.GetProperty("next_cursor").GetString());
                     Assert.All(Ids(rowPage, "tenant_id"),
                         id => Assert.Equal(tenant.ToString(), id));
                     Assert.All(Ids(previewPage, "tenant_id"),
@@ -458,14 +465,10 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<IReadOnlyList<string>> ReadTwoHttpPagesAsync(HttpClient client, string firstPath,
         string property)
     {
-        var first = await ReadHttpPageAsync(client, firstPath);
-        var firstIds = Ids(first, property);
-        Assert.Single(firstIds);
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.NotNull(cursor);
-        var second = await ReadHttpPageAsync(client, firstPath + "&cursor=" +
-            Uri.EscapeDataString(cursor));
-        return [.. firstIds, .. Ids(second, property)];
+        var pages = await ReadAllHttpPagesAsync(client, firstPath);
+        Assert.True(pages.Count >= 2);
+        Assert.All(pages, page => Assert.True(Ids(page, property).Length <= 1));
+        return pages.SelectMany(page => Ids(page, property)).ToArray();
     }
 
     static async Task<IReadOnlyList<string>> ReadTwoMcpPagesAsync(McpScenario mcp, string tool,
@@ -477,14 +480,44 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             ["search"] = "Matrix",
             ["limit"] = 1,
         };
-        var first = await ReadMcpPageAsync(mcp, tool, input);
-        var firstIds = Ids(first, property);
-        Assert.Single(firstIds);
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.NotNull(cursor);
-        input["cursor"] = cursor;
-        var second = await ReadMcpPageAsync(mcp, tool, input);
-        return [.. firstIds, .. Ids(second, property)];
+        var pages = await ReadAllMcpPagesAsync(mcp, tool, input);
+        Assert.True(pages.Count >= 2);
+        Assert.All(pages, page => Assert.True(Ids(page, property).Length <= 1));
+        return pages.SelectMany(page => Ids(page, property)).ToArray();
+    }
+
+    static async Task<IReadOnlyList<JsonElement>> ReadAllHttpPagesAsync(HttpClient client,
+        string firstPath)
+    {
+        var pages = new List<JsonElement>();
+        string? cursor = null;
+        do
+        {
+            var path = firstPath + (cursor is null ? string.Empty :
+                "&cursor=" + Uri.EscapeDataString(cursor));
+            var page = await ReadHttpPageAsync(client, path);
+            pages.Add(page);
+            Assert.True(pages.Count <= 50, "The permission cursor did not terminate.");
+            cursor = page.GetProperty("next_cursor").GetString();
+        } while (cursor is not null);
+        return pages;
+    }
+
+    static async Task<IReadOnlyList<JsonElement>> ReadAllMcpPagesAsync(McpScenario mcp,
+        string tool, Dictionary<string, object?> input)
+    {
+        var pages = new List<JsonElement>();
+        string? cursor = null;
+        do
+        {
+            if (cursor is not null)
+                input["cursor"] = cursor;
+            var page = await ReadMcpPageAsync(mcp, tool, input);
+            pages.Add(page);
+            Assert.True(pages.Count <= 50, "The permission cursor did not terminate.");
+            cursor = page.GetProperty("next_cursor").GetString();
+        } while (cursor is not null);
+        return pages;
     }
 
     static async Task<JsonElement> ReadMcpPageAsync(McpScenario mcp, string tool,
