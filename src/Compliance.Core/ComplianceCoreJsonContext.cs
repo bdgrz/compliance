@@ -66,6 +66,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ProgramSetupWorkView))]
 [JsonSerializable(typeof(ProgramSetupWorkItem))]
 [JsonSerializable(typeof(ProgramPlan))]
+[JsonSerializable(typeof(ActorReference))]
 [JsonSerializable(typeof(ProgramRegistration))]
 [JsonSerializable(typeof(ProgramStageView))]
 [JsonSerializable(typeof(ProgramRevisionView))]

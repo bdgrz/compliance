@@ -20,11 +20,12 @@ story #127. The product story remains open for its browser criteria.
 | Recovery, concurrency, and replay | `SplitHostTenantE2ETests.ShouldRecoverInvitationGivenFirstAdministratorDeliveryFailure`, `SplitHostTenantE2ETests.ShouldRetryDirectInvitationGivenDeliveryFailure`, `SplitHostTenantE2ETests.ShouldProjectTenantLifecycleGivenIndependentApiAndWorker`, and `TenantOwnerTests` | Direct invitation delivery failure requires the caller to retry. Durable delivery is needed before replacing the mock adapter. |
 | Standalone and independent API/worker modes | `TenantInvitationE2ETests`, `SplitHostTenantE2ETests`, `ProgramE2ETests` | Each new tenant-scoped feature must repeat relevant parity proof. |
 
-PRs #151 and #153 through #159 delivered the earlier implementation and proof;
-their issue comments record exact-head CI and merge evidence. This audit does
-not reinterpret those merges as completion of #152. The current proof PR must
-still pass full Release nonbroker and broker suites, formatting, Native AOT
-containers on both CI architectures, review, exact-head merge, and main parity.
+PRs #151, #153 through #159, #361, #363, and #364 delivered the implementation
+and proof recorded here. The final #364 head passed formatting, Release
+nonbroker and broker suites, and both Native AOT architectures in
+[CI run 35906037159](https://github.com/bdgrz/compliance/actions/runs/35906037159),
+then merged as `d7fdc1eb968a27b9928dcaaa5eab8889e84f0524`. These merges do not
+complete #152 while its inherited #157 acceptance remains open.
 
 ## Decisions and remaining acceptance
 

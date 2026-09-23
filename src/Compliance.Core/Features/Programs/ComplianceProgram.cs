@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -41,7 +42,10 @@ public sealed class ComplianceProgram : Aggregate
         if (error is not null)
             return Result<ProgramRegistration>.Failure(error);
         RaiseEvent(new ProgramCreated(_tenantId, Id, name.Trim(), plan,
-            actorMemberId, actorDisplay, changedAt));
+            actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result<ProgramRegistration>.Success(new ProgramRegistration(Id));
     }
 
@@ -56,7 +60,10 @@ public sealed class ComplianceProgram : Aggregate
         if (error is not null)
             return Result.Failure(error);
         RaiseEvent(new ProgramRevised(_tenantId, Id, _revision + 1, name.Trim(), plan,
-            actorMemberId, actorDisplay, changedAt));
+            actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result.Success;
     }
 

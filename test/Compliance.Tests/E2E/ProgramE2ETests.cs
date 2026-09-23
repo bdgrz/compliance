@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,8 +54,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
             }
             using (owner)
             {
-                await TenantInvitationE2ETests.LoginAsync(owner,
-                    $"program-split-owner-{Guid.NewGuid():N}@example.com");
+                var ownerEmail = $"program-split-owner-{Guid.NewGuid():N}@example.com";
+                var ownerUserId = await TenantInvitationE2ETests.LoginAsync(owner, ownerEmail);
                 using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
                 {
                     name = "Split Program",
@@ -101,6 +104,50 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     await Task.Delay(250);
                 }
                 Assert.Equal("Split program", projected?.Name);
+                var tenantId = Uuid.Parse(tenant.TenantId, CultureInfo.InvariantCulture);
+                var programId = Uuid.Parse(registration.ProgramId, CultureInfo.InvariantCulture);
+                ProgramCreated? storedProgram = null;
+                await foreach (var record in worker.Services.GetRequiredService<IEventStore>()
+                                   .ReadAsync(new ComplianceProgram(tenantId, programId).Stream, 0,
+                                       CancellationToken.None))
+                {
+                    storedProgram = Assert.IsType<ProgramCreated>(record.Event);
+                }
+                Assert.Equal(ActorReference.ForMember(RbacIds.Member(tenantId,
+                        Uuid.Parse(ownerUserId, CultureInfo.InvariantCulture)),
+                    ownerEmail), storedProgram?.StoredActor);
+                var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+                ActorReference? bootstrapActor = null;
+                await foreach (var record in worker.Services.GetRequiredService<IEventStore>()
+                                   .ReadAsync(new Team(tenantId, administratorsTeamId).Stream, 0,
+                                       CancellationToken.None))
+                {
+                    if (record.Event is TeamDefined)
+                        bootstrapActor = ActorReference.FromSystemMetadata(record.Event.Metadata);
+                }
+                Assert.Equal(ActorReference.ForSystemProcess("reactor:TenantRbacBootstrap",
+                    "TenantRbacBootstrap"), bootstrapActor);
+                using var actorResponse = await owner.GetAsync(programPath);
+                Assert.Equal(HttpStatusCode.OK, actorResponse.StatusCode);
+                using var actorDocument = JsonDocument.Parse(
+                    await actorResponse.Content.ReadAsStringAsync());
+                var actorView = actorDocument.RootElement.GetProperty("last_changed_by");
+                Assert.Equal("member", actorView.GetProperty("kind").GetString());
+                Assert.Equal(ownerEmail, actorView.GetProperty("display").GetString());
+                await using (var actorMcp = await McpScenario.ConnectAsync(owner,
+                                 new Uri(owner.BaseAddress!, "/mcp")))
+                {
+                    var toolResult = await actorMcp.When("bdgrz.program.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenant.TenantId,
+                            ["program_id"] = registration.ProgramId,
+                        }).ExpectSuccess();
+                    var toolView = Assert.IsType<JsonElement>(toolResult.StructuredJson)
+                        .GetProperty("result").GetProperty("last_changed_by");
+                    Assert.Equal("member", toolView.GetProperty("kind").GetString());
+                    Assert.Equal(ownerEmail, toolView.GetProperty("display").GetString());
+                }
                 using var pendingSplitRevision = await owner.GetAsync(
                     $"{programPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.Conflict, pendingSplitRevision.StatusCode);
@@ -128,6 +175,10 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     $"{programPath}/revisions?minimum_program_revision=2");
                 Assert.Equal(HttpStatusCode.OK, splitExactRevision.StatusCode);
                 Assert.Equal(HttpStatusCode.OK, splitHistoryAnchor.StatusCode);
+                using var revisionDocument = JsonDocument.Parse(
+                    await splitExactRevision.Content.ReadAsStringAsync());
+                Assert.Equal("member", revisionDocument.RootElement.GetProperty("actor")
+                    .GetProperty("kind").GetString());
                 using var currentSplitRevision = await owner.GetAsync(
                     $"{programPath}?minimum_revision=2");
                 Assert.Equal(HttpStatusCode.OK, currentSplitRevision.StatusCode);
