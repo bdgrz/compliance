@@ -543,9 +543,22 @@ public sealed class ComplianceWebTests
                              "minimum_application_revision" &&
                              parameter.GetProperty("in").GetString() == "query");
         }
-        Assert.True(paths.GetProperty(
+        var exactInstance = paths.GetProperty(
                 "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}")
-            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+            .GetProperty("get");
+        Assert.Contains(exactInstance.GetProperty("parameters").EnumerateArray(),
+            parameter => parameter.GetProperty("name").GetString() ==
+                         "minimum_instance_revision" &&
+                         parameter.GetProperty("in").GetString() == "query");
+        var exactInstanceResponse = exactInstance.GetProperty("responses")
+            .GetProperty("200").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema");
+        var exactInstanceSchema = schemas.GetProperty(exactInstanceResponse.GetProperty("$ref")
+            .GetString()!.Split('/')[^1]);
+        Assert.True(exactInstanceSchema.GetProperty("properties")
+            .TryGetProperty("revision", out _));
+        Assert.True(exactInstanceSchema.GetProperty("properties")
+            .TryGetProperty("legacy_application_revision", out _));
         foreach (var path in new[]
                  {
                      "/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary-references",

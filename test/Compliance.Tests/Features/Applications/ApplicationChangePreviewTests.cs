@@ -434,7 +434,7 @@ public sealed class ApplicationChangePreviewTests
         Uuid tenantId, DomainEvent domainEvent)
     {
         await using var batch = await directory.BeginAsync(new ProjectionBatchContext(
-            new CheckpointIdentity("ApplicationDirectory",
+            new CheckpointIdentity("ApplicationDirectoryV2",
                 EventStreamPattern.ForPattern(tenantId.ToString())),
             ProjectionCheckpoint.Start));
         await directory.ApplyAsync(domainEvent);

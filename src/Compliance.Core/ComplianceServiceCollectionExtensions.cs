@@ -101,6 +101,7 @@ public static class ComplianceServiceCollectionExtensions
             GovernedControlApplicabilityReferenceValidator>();
         services.AddScoped<ApplicationHistoryReadConsistency>();
         services.AddScoped<SystemInstanceReadConsistency>();
+        services.AddScoped<LegacySystemInstanceSource>();
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
         services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
@@ -382,7 +383,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
                 WorkloadScope.PerTenant)
-            .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectory", WorkloadScope.PerTenant)
+            .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
                 "ApplicationBoundaryReferencesV1", WorkloadScope.PerTenant)

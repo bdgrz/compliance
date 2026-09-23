@@ -12,7 +12,8 @@ public interface IApplicationInventoryActivity
 }
 
 sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
-    IApplicationDirectoryReader directory) : IApplicationInventoryActivity
+    IApplicationDirectoryReader directory, LegacySystemInstanceSource legacy)
+    : IApplicationInventoryActivity
 {
     public async ValueTask<bool> IsDeclaredAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default)
@@ -25,15 +26,21 @@ sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
     public async ValueTask<bool> IsInstanceDeclaredAsync(Uuid tenantId, Uuid instanceId,
         CancellationToken ct = default)
     {
-        // The tenant-scoped directory locates the aggregate that owns this instance.
-        // A lagging projection produces a recoverable conflict at the boundary command.
+        var source = await reader.HydrateAsync(new DeclaredSystemInstance(tenantId,
+            instanceId), ct).ConfigureAwait(false);
+        // Reference commands wait for the tenant-scoped instance projection, so a
+        // just-committed source is reported as a recoverable conflict until visible.
         var instance = await directory.GetInstanceAsync(tenantId, instanceId, ct)
             .ConfigureAwait(false);
         if (instance is null || instance.TenantId != tenantId ||
             instance.SystemInstanceId != instanceId)
             return false;
-        var application = await reader.HydrateAsync(
-            new DeclaredApplication(tenantId, instance.ApplicationId), ct).ConfigureAwait(false);
-        return application.HasInstance(instanceId);
+        if (source.IsCreated)
+            return instance.ApplicationId == source.ApplicationId &&
+                   instance.Revision >= source.Revision;
+        // Historical declarations live in application streams. The directory
+        // locates their parent without rebuilding an unbounded aggregate map.
+        return await legacy.FindAsync(tenantId, instance.ApplicationId,
+            instanceId, ct).ConfigureAwait(false) is not null;
     }
 }

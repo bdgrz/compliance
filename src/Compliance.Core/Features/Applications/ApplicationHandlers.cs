@@ -80,21 +80,77 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor, TimePr
     }
 }
 
-public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor, TimeProvider clock)
+public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
+    IAggregateReader reader, IApplicationDirectoryReader directory,
+    IDomainEventReader events, TimeProvider clock)
     : IRequestHandler<DeclareSystemInstance, SystemInstanceRegistration>
 {
-    public ValueTask<Result<SystemInstanceRegistration>> HandleAsync(
+    public async ValueTask<Result<SystemInstanceRegistration>> HandleAsync(
         IRequestContext<DeclareSystemInstance> context, CancellationToken ct)
     {
         var (memberId, display) = ApplicationActor.From(context);
         var request = context.Request;
-        return executor.ExecuteAsync(new DeclaredApplication(request.TenantId, request.ApplicationId),
-            app => AggregateOutcome.CommitOnSuccess(app.DeclareInstance(
-                request.ExpectedApplicationRevision, context.RequestId,
-                request.Name, request.Kind, request.AccessBoundaryReference,
-                request.SourceIdentifier,
-                memberId, display, clock.GetUtcNow())), context, ct);
+        if (request.ExpectedApplicationRevision < 1)
+            return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The expected application revision must be positive."));
+        var application = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
+            request.ApplicationId), ct).ConfigureAwait(false);
+        if (!application.IsCreated)
+            return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The application was not found."));
+        // V1 retains the field name. It is now a source freshness floor, not a lock on
+        // unrelated application metadata edits.
+        if (application.Revision < request.ExpectedApplicationRevision)
+            return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                $"The application source has not reached revision {request.ExpectedApplicationRevision}.",
+                isTransient: true));
+        // The V2 projector replays old and new streams in one tenant cursor. Until
+        // pending old declarations are included, a projected ID lookup cannot rule
+        // out a historical identity owned by another application.
+        var checkpoint = await directory.LoadCheckpointAsync(request.TenantId, ct)
+            .ConfigureAwait(false);
+        await foreach (var pending in events.ReadAsync(EventStreamPattern.ForPattern(
+                           request.TenantId.ToString()), checkpoint.Cursor, ct)
+                           .ConfigureAwait(false))
+        {
+            if (pending.Event is SystemInstanceDeclared)
+                return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                    RequestErrorKind.Conflict,
+                    "Historical system instance declarations have not finished projecting.",
+                    isTransient: true));
+        }
+        var existing = await directory.GetInstanceAsync(request.TenantId,
+            context.RequestId, ct).ConfigureAwait(false);
+        if (existing is not null)
+            return existing.TenantId == request.TenantId &&
+                   existing.SystemInstanceId == context.RequestId &&
+                   Matches(existing.ApplicationId, existing.Name, existing.Kind,
+                       existing.AccessBoundaryReference, existing.SourceIdentifier, request)
+                ? Result<SystemInstanceRegistration>.Success(
+                    new SystemInstanceRegistration(context.RequestId))
+                : Result<SystemInstanceRegistration>.Failure(new RequestError(
+                    RequestErrorKind.Conflict,
+                    "The system instance already exists with different content."));
+        return await executor.ExecuteAsync(new DeclaredSystemInstance(request.TenantId,
+                context.RequestId),
+            instance => AggregateOutcome.CommitOnSuccess(instance.Declare(
+                request.ApplicationId, request.Name, request.Kind,
+                request.AccessBoundaryReference, request.SourceIdentifier,
+                memberId, display, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }
+
+    static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    static bool Matches(Uuid applicationId, string name, string kind,
+        string? accessBoundaryReference, string? sourceIdentifier,
+        DeclareSystemInstance request) =>
+        applicationId == request.ApplicationId && name == request.Name?.Trim() &&
+        kind == request.Kind?.Trim() &&
+        accessBoundaryReference == NormalizeOptional(request.AccessBoundaryReference) &&
+        sourceIdentifier == NormalizeOptional(request.SourceIdentifier);
 }
 
 public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
@@ -248,22 +304,24 @@ public sealed class ListApplicationRevisionsHandler(IApplicationDirectoryReader 
 }
 
 public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader directory,
-    IAggregateReader reader)
+    IAggregateReader reader, LegacySystemInstanceSource legacy,
+    IDomainEventReader events)
 {
     public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid applicationId,
-        long? minimumApplicationRevision, Uuid? systemInstanceId, CancellationToken ct)
+        long? minimumApplicationRevision, Uuid? systemInstanceId,
+        long? minimumInstanceRevision, CancellationToken ct)
     {
         if (minimumApplicationRevision is < 1)
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The minimum application revision must be positive."));
+        if (minimumInstanceRevision is < 1)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The minimum system instance revision must be positive."));
         var source = await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId),
             ct).ConfigureAwait(false);
         if (!source.IsCreated)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The application was not found."));
-        if (systemInstanceId is { } instanceId && !source.HasInstance(instanceId))
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The system instance was not found."));
         if (minimumApplicationRevision is { } minimum && source.Revision < minimum)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 $"The application source has not reached revision {minimum}.",
@@ -275,6 +333,59 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The application projection has not reached the source revision.",
                 isTransient: true));
+        if (systemInstanceId is { } instanceId)
+        {
+            var instance = await reader.HydrateAsync(new DeclaredSystemInstance(tenantId,
+                instanceId), ct).ConfigureAwait(false);
+            long instanceRevision;
+            if (instance.IsCreated)
+            {
+                if (instance.ApplicationId != applicationId)
+                    return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                        "The system instance was not found."));
+                instanceRevision = instance.Revision;
+            }
+            else
+            {
+                var historical = await legacy.FindAsync(tenantId, applicationId,
+                    instanceId, ct).ConfigureAwait(false);
+                if (historical is null)
+                    return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                        "The system instance was not found."));
+                instanceRevision = 1;
+            }
+            if (minimumInstanceRevision is { } minimumInstance &&
+                instanceRevision < minimumInstance)
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    $"The system instance source has not reached revision {minimumInstance}.",
+                    isTransient: true));
+            var projected = await directory.GetInstanceAsync(tenantId, instanceId, ct)
+                .ConfigureAwait(false);
+            if (projected is null || projected.Revision < instanceRevision)
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The system instance projection has not reached the source revision.",
+                    isTransient: true));
+            if (projected.TenantId != tenantId || projected.ApplicationId != applicationId)
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The system instance was not found."));
+        }
+        else
+        {
+            // A list has no single instance stream to inspect. The versioned projector
+            // processes old application and new instance events in one tenant cursor.
+            var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct)
+                .ConfigureAwait(false);
+            await foreach (var pending in events.ReadAsync(EventStreamPattern.ForPattern(
+                               tenantId.ToString()), checkpoint.Cursor, ct).ConfigureAwait(false))
+            {
+                if (pending.Event is not (ApplicationDeclared or ApplicationRevised or
+                    SystemInstanceDeclared or SystemInstanceRegistered))
+                    continue;
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The system instance list projection has not reached the source.",
+                    isTransient: true));
+            }
+        }
         return Result.Success;
     }
 }
@@ -288,7 +399,8 @@ public sealed class GetSystemInstanceHandler(IApplicationDirectoryReader directo
     {
         var request = context.Request;
         var freshness = await consistency.EnsureAsync(request.TenantId, request.ApplicationId,
-            request.MinimumApplicationRevision, request.SystemInstanceId, ct).ConfigureAwait(false);
+            request.MinimumApplicationRevision, request.SystemInstanceId,
+            request.MinimumInstanceRevision, ct).ConfigureAwait(false);
         if (!freshness.IsSuccess)
             return Result<SystemInstanceView>.Failure(freshness.Error);
         var view = await directory.GetInstanceAsync(request.TenantId, request.SystemInstanceId, ct)
@@ -318,7 +430,7 @@ public sealed class ListSystemInstancesHandler(IApplicationDirectoryReader direc
                 RequestErrorKind.Validation,
                 "The system instance list limit must be between 1 and 200."));
         var freshness = await consistency.EnsureAsync(request.TenantId, request.ApplicationId,
-            request.MinimumApplicationRevision, null, ct).ConfigureAwait(false);
+            request.MinimumApplicationRevision, null, null, ct).ConfigureAwait(false);
         if (!freshness.IsSuccess)
             return Result<Page<SystemInstanceView>>.Failure(freshness.Error);
         Page<SystemInstanceView> page;

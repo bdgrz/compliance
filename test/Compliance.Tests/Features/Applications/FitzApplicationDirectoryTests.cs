@@ -7,6 +7,60 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class FitzApplicationDirectoryTests
 {
     [Fact]
+    public async Task ShouldKeepApplicationHistoryGivenLegacyAndNewInstanceStreamReplay()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var legacyId = Uuid.CreateVersion4();
+        var newId = Uuid.CreateVersion4();
+        var legacyActor = Uuid.CreateVersion4();
+        var metadataActor = Uuid.CreateVersion4();
+        var instanceActor = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, legacyActor, "Original", now));
+            await directory.ApplyAsync(new SystemInstanceDeclared(tenantId,
+                applicationId, legacyId, 2, "Legacy", "production", null,
+                "legacy-source", legacyActor, "Legacy actor", now.AddMinutes(1)));
+            await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId,
+                3, "Payroll", "Run monthly payroll", null, metadataActor,
+                "Metadata actor", now.AddMinutes(2)));
+            await directory.ApplyAsync(new SystemInstanceRegistered(tenantId,
+                applicationId, newId, 1, "New", "staging", null,
+                "new-source", instanceActor, "Instance actor", now.AddMinutes(3)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var application = await directory.GetAsync(tenantId, applicationId);
+        var legacy = await directory.GetInstanceAsync(tenantId, legacyId);
+        var current = await directory.GetInstanceAsync(tenantId, newId);
+        var history = await directory.ListRevisionsAsync(tenantId, applicationId, 10, null);
+
+        // Assert
+        Assert.Equal(3, application?.Revision);
+        Assert.True(application?.HasSystemInstances);
+        Assert.Equal(metadataActor, application?.LastChangedByMemberId);
+        Assert.Equal([1L, 2L, 3L], history?.Items.Select(item => item.Revision));
+        Assert.Equal("system_instance_declared", history?.Items[1].ChangeKind);
+        Assert.Equal(legacyId, history?.Items[1].SystemInstanceId);
+        Assert.Equal(legacyActor, legacy?.DeclaredByMemberId);
+        Assert.Equal(2, legacy?.LegacyApplicationRevision);
+        Assert.Equal(1, legacy?.Revision);
+        Assert.Equal(instanceActor, current?.DeclaredByMemberId);
+        Assert.Equal(1, current?.Revision);
+        Assert.Null(current?.LegacyApplicationRevision);
+        Assert.Null(await directory.GetInstanceAsync(Uuid.CreateVersion4(), newId));
+    }
+
+    [Fact]
     public async Task ShouldPreserveTenantBoundaryAndUnresolvedFactsGivenManualDeclarations()
     {
         // Arrange
@@ -19,7 +73,7 @@ public sealed class FitzApplicationDirectoryTests
         var missingSourceInstanceId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var now = new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.Zero);
-        var identity = new CheckpointIdentity("ApplicationDirectory",
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using (var batch = await directory.BeginAsync(
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
@@ -68,7 +122,7 @@ public sealed class FitzApplicationDirectoryTests
         var applicationId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
-        var identity = new CheckpointIdentity("ApplicationDirectory",
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
         // Act
@@ -108,7 +162,7 @@ public sealed class FitzApplicationDirectoryTests
         var instanceId = Uuid.CreateVersion4();
         var actorId = Uuid.CreateVersion4();
         var now = new DateTimeOffset(2026, 9, 20, 12, 0, 0, TimeSpan.Zero);
-        var identity = new CheckpointIdentity("ApplicationDirectory",
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
 
         // Act
