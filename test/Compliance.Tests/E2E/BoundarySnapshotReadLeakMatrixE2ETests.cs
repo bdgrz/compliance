@@ -362,6 +362,12 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                !delivery.TryGetLatest(tenantId, reviewerEmail, out token))
             await Task.Delay(250);
         Assert.NotNull(token);
+        var delivered = await WaitForAsync(owner, tenantPath +
+            "/member-invitations?email_address=" + Uri.EscapeDataString(reviewerEmail),
+            static page => page.GetProperty("items").EnumerateArray().Any(item =>
+                item.GetProperty("delivery_status").GetString() == "delivered"));
+        Assert.Equal(reviewerEmail, Assert.Single(delivered.GetProperty("items")
+            .EnumerateArray()).GetProperty("email_address").GetString());
         using var accepted = await reviewer.PostAsJsonAsync(tenantPath +
             "/invitations/acceptance", new { email_address = reviewerEmail, token });
         Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
