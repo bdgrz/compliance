@@ -12,7 +12,7 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class EmailChallengeDeliveryReactorTests
 {
     [Fact]
-    public async Task ShouldRetrySameTokenAndSkipDuplicateGivenFirstDeliveryFailure()
+    public async Task ShouldCheckpointFailedChallengeAndDeliverLaterUserGivenSmtpFailure()
     {
         // Arrange
         var owner = Uuid.CreateVersion4();
@@ -49,22 +49,30 @@ public sealed class EmailChallengeDeliveryReactorTests
             reader, writer, delivery, keys, TimeProvider.System);
 
         // Act
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await reactor.HandleAsync(context, CancellationToken.None));
+        await reactor.HandleAsync(context, CancellationToken.None);
         var failed = await reader.HydrateAsync(new EmailAddress(email), CancellationToken.None);
         await reactor.HandleAsync(context, CancellationToken.None);
-        var sent = await reader.HydrateAsync(new EmailAddress(email), CancellationToken.None);
-        await reactor.HandleAsync(context, CancellationToken.None);
+        var nextOwner = Uuid.CreateVersion4();
+        var nextId = Uuid.CreateVersion4();
+        const string nextEmail = "later@example.com";
+        var nextToken = keys.Derive("current", nextId, nextOwner, nextEmail, expiresAt);
+        var nextHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(nextToken)));
+        var nextAddress = new EmailAddress(nextEmail);
+        Assert.True(nextAddress.Reserve(nextOwner).IsSuccess);
+        Assert.True(nextAddress.IssueChallenge(nextOwner, nextId, nextHash, expiresAt,
+            now, "current").IsSuccess);
+        await writer.SaveAsync(nextAddress, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        await reactor.HandleAsync(new Context(new EmailChallengeIssued(nextOwner,
+            nextEmail, nextId, nextHash, expiresAt, "current")), CancellationToken.None);
+        var later = await reader.HydrateAsync(new EmailAddress(nextEmail), CancellationToken.None);
 
         // Assert
         Assert.Equal("failed", failed.DeliveryStatus);
-        Assert.Equal("delivered", sent.DeliveryStatus);
+        Assert.Equal("delivered", later.DeliveryStatus);
         Assert.Equal(2, delivery.Attempts.Count);
-        Assert.All(delivery.Attempts, attempt =>
-        {
-            Assert.Equal(challengeId, attempt.ChallengeId);
-            Assert.Equal(token, attempt.Token);
-        });
+        Assert.Equal((challengeId, token), delivery.Attempts[0]);
+        Assert.Equal((nextId, nextToken), delivery.Attempts[1]);
     }
 
     [Fact]
@@ -97,18 +105,16 @@ public sealed class EmailChallengeDeliveryReactorTests
         Assert.True(aggregate.IssueChallenge(owner, challengeId, hash, expiresAt, now, "old").IsSuccess);
         await writer.SaveAsync(aggregate, new RequestDispatchContext(RequestActor.System),
             CancellationToken.None);
-        var delivery = new FailingOnceDelivery();
+        var delivery = new FailingOnceDelivery(failFirst: false);
         var reactor = new EmailChallengeDeliveryReactor(new InMemoryProjectionCheckpointStore(),
             reader, writer, delivery, keys, TimeProvider.System);
 
         // Act
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await reactor.HandleAsync(new Context(new EmailChallengeIssued(owner, email,
-                challengeId, hash, expiresAt, "old")), CancellationToken.None));
+        await reactor.HandleAsync(new Context(new EmailChallengeIssued(owner, email,
+            challengeId, hash, expiresAt, "old")), CancellationToken.None);
         var failed = await reader.HydrateAsync(new EmailAddress(email), CancellationToken.None);
 
         // Assert
-        Assert.Equal("Email challenge token key is unavailable.", failure.Message);
         Assert.Equal("failed", failed.GetChallengeStatus(now).DeliveryStatus);
         Assert.Empty(delivery.Attempts);
     }
@@ -182,7 +188,7 @@ public sealed class EmailChallengeDeliveryReactorTests
         Assert.Empty(delivery.Attempts);
     }
 
-    sealed class FailingOnceDelivery : IEmailChallengeDelivery
+    sealed class FailingOnceDelivery(bool failFirst = true) : IEmailChallengeDelivery
     {
         public List<(Uuid ChallengeId, string Token)> Attempts { get; } = [];
 
@@ -193,7 +199,7 @@ public sealed class EmailChallengeDeliveryReactorTests
             _ = emailAddress;
             ct.ThrowIfCancellationRequested();
             Attempts.Add((challengeId, token));
-            if (Attempts.Count == 1)
+            if (failFirst && Attempts.Count == 1)
                 throw new InvalidOperationException("provider secret and recipient must stay hidden");
             return ValueTask.CompletedTask;
         }

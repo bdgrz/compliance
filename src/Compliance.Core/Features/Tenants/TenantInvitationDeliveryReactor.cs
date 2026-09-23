@@ -25,7 +25,7 @@ public sealed partial class TenantInvitationDeliveryReactor(
         var invitation = await reader.HydrateAsync(new TenantInvitation(invited.TenantId,
                 invited.EmailAddress), ct).ConfigureAwait(false);
         if (invitation.IsAccepted || invitation.CurrentDeliveryAttemptId != attemptId ||
-            invitation.DeliveryStatus == "delivered")
+            invitation.DeliveryStatus is "delivered" or "failed")
             return;
 
         // Historical events contain only a hash. Their plaintext token cannot be
@@ -47,7 +47,7 @@ public sealed partial class TenantInvitationDeliveryReactor(
             await RecordOutcomeAsync(invited, context.Actor, current => current.RecordDeliveryFailure(
                 attemptId, "key_unavailable", clock.GetUtcNow()),
                 ct).ConfigureAwait(false);
-            throw new InvalidOperationException("Invitation token key is unavailable.");
+            return;
         }
 
         try
@@ -64,7 +64,7 @@ public sealed partial class TenantInvitationDeliveryReactor(
             await RecordOutcomeAsync(invited, context.Actor, current => current.RecordDeliveryFailure(
                 attemptId, "delivery_failed", clock.GetUtcNow()),
                 ct).ConfigureAwait(false);
-            throw new InvalidOperationException("Invitation delivery failed.");
+            return;
         }
 
         await RecordOutcomeAsync(invited, context.Actor, current => current.RecordDeliverySent(
@@ -80,7 +80,7 @@ public sealed partial class TenantInvitationDeliveryReactor(
                 invited.EmailAddress), ct).ConfigureAwait(false);
             if (current.IsAccepted ||
                 current.CurrentDeliveryAttemptId != TenantInvitation.DeliveryAttemptFor(invited) ||
-                current.DeliveryStatus == "delivered")
+                current.DeliveryStatus is "delivered" or "failed")
                 return;
             var result = operation(current);
             if (!result.IsSuccess)

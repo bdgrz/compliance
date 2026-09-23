@@ -98,6 +98,9 @@ public sealed class TenantInvitation : Aggregate
             return Result.Failure(check);
         if (_deliveryStatus == "delivered")
             return Result.Success;
+        if (_deliveryStatus == "failed")
+            return Failure(RequestErrorKind.Conflict,
+                "The failed invitation delivery attempt must be reissued.");
         RaiseEvent(new TenantInvitationDeliverySent(_tenantId, _emailAddress,
             deliveryAttemptId, sentAt));
         return Result.Success;

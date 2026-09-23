@@ -22,7 +22,7 @@ public sealed class SplitHostEmailDeliveryE2ETests(BrokerStackFixture broker) : 
         // Arrange
         var applicationName = $"compliance-email-retry-{Guid.NewGuid():N}";
         var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        var firstDelivery = new RecordingDelivery(failAfterSend: true);
+        var firstDelivery = new RecordingDelivery(pauseAfterSend: true);
         var workerLogs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
         var apiLogs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
         using var firstWorker = CreateWorker(applicationName, key, firstDelivery, workerLogs);
@@ -54,9 +54,13 @@ public sealed class SplitHostEmailDeliveryE2ETests(BrokerStackFixture broker) : 
         // Act: the first worker hands the message to the provider, then loses its acknowledgment.
         using var issued = await owner.PostAsync($"{path}/challenges", null);
         Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
-        await WaitForStatusAsync(owner, path, "failed");
+        var firstDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < firstDeadline && firstDelivery.Attempts.IsEmpty)
+            await Task.Delay(250);
+        Assert.False(firstDelivery.Attempts.IsEmpty);
         await firstWorker.StopAsync();
-        var retryDelivery = new RecordingDelivery(failAfterSend: false);
+        await WaitForStatusAsync(owner, path, "pending");
+        var retryDelivery = new RecordingDelivery(pauseAfterSend: false);
         using var secondWorker = CreateWorker(applicationName, key, retryDelivery, workerLogs);
         await secondWorker.StartAsync();
         try
@@ -67,6 +71,16 @@ public sealed class SplitHostEmailDeliveryE2ETests(BrokerStackFixture broker) : 
             var firstAttempt = Assert.Single(firstDelivery.Attempts.Distinct());
             var secondAttempt = Assert.Single(retryDelivery.Attempts.Distinct());
             Assert.Equal(firstAttempt, secondAttempt);
+            ActorReference? deliveryActor = null;
+            await foreach (var record in secondWorker.Services.GetRequiredService<IEventStore>()
+                               .ReadAsync(new EmailAddress(email).Stream, 0,
+                                   CancellationToken.None))
+            {
+                if (record.Event is EmailChallengeDeliverySent)
+                    deliveryActor = ActorReference.FromSystemMetadata(record.Event.Metadata);
+            }
+            Assert.Equal(ActorReference.ForSystemProcess("reactor:EmailChallengeDeliveryV1",
+                "EmailChallengeDeliveryV1"), deliveryActor);
             using var denied = await owner.GetAsync(
                 $"/api/v1/users/{Guid.NewGuid()}/email-addresses/{email}/challenges/status");
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
@@ -123,20 +137,19 @@ public sealed class SplitHostEmailDeliveryE2ETests(BrokerStackFixture broker) : 
         Assert.Fail($"Email challenge status did not become {expected}.");
     }
 
-    sealed class RecordingDelivery(bool failAfterSend) : IEmailChallengeDelivery
+    sealed class RecordingDelivery(bool pauseAfterSend) : IEmailChallengeDelivery
     {
         public ConcurrentQueue<(Uuid ChallengeId, string Token)> Attempts { get; } = new();
 
-        public ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress,
+        public async ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress,
             string token, CancellationToken ct)
         {
             _ = userId;
             _ = emailAddress;
             ct.ThrowIfCancellationRequested();
             Attempts.Enqueue((challengeId, token));
-            if (failAfterSend)
-                throw new InvalidOperationException("provider-secret");
-            return ValueTask.CompletedTask;
+            if (pauseAfterSend)
+                await Task.Delay(Timeout.InfiniteTimeSpan, ct);
         }
     }
 

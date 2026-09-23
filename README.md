@@ -106,8 +106,8 @@ base64 token key under `Compliance:EmailDelivery:TokenKeys:<key-id>`. Set the sa
 active key ID on API and worker hosts. The worker derives the token from the persisted challenge
 ID and key, sends it, and records delivery status. Neither events nor responses contain the
 plaintext token. Keep a previous key configured until all challenges and invitations issued
-with it expire (up to 7 days); a missing key leaves delivery failed and retryable when the key
-returns.
+with it expire (up to 7 days). A missing key or SMTP failure records a terminal failed attempt;
+the owner must reissue the challenge after the cause is fixed.
 The SMTP `Message-ID` is stable per challenge. Delivery is at least once: a crash after SMTP
 acceptance but before the sent event can produce another email with the same valid token.
 Reissuing replaces the challenge and invalidates its previous token. Keep SMTP credentials and
@@ -116,8 +116,10 @@ Invitations use the same configured SMTP relay and key ring outside development.
 only a token hash, attempt ID, and key ID; the worker derives the seven-day invitation token,
 sends it with a stable `Message-ID`, and records the outcome. A worker restart retries an
 unacknowledged send with the same token and message ID. SMTP delivery is at least once; the relay
-may still deliver a duplicate after a crash. Reissue invalidates the previous token. Historical
-hash-only invitations cannot be delivered by the worker and must be reissued. Development and
+may still deliver a duplicate after a crash. A recorded key or SMTP failure requires an
+administrator to reissue; the tenant worker continues with later invitations. Reissue
+invalidates the previous token. Historical hash-only invitations cannot be delivered by the
+worker and must be reissued. Development and
 tests use `MockTenantInvitationDelivery` in the worker that sent the invitation. Invitation
 acceptance and email verification are human HTTP flows and have no MCP tools; operator invitation
 management, organization queries, lifecycle, and slug operations use both HTTP and MCP.

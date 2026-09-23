@@ -101,6 +101,16 @@ public sealed class SplitHostInvitationDeliveryE2ETests(BrokerStackFixture broke
                 await Task.Delay(250);
             }
             Assert.Equal("delivered", Assert.Single(page!.Items).DeliveryStatus);
+            ActorReference? deliveryActor = null;
+            await foreach (var record in restartedWorker.Services.GetRequiredService<IEventStore>()
+                               .ReadAsync(new TenantInvitation(tenantId, invitee).Stream,
+                                   0, CancellationToken.None))
+            {
+                if (record.Event is TenantInvitationDeliverySent)
+                    deliveryActor = ActorReference.FromSystemMetadata(record.Event.Metadata);
+            }
+            Assert.Equal(ActorReference.ForSystemProcess("reactor:TenantInvitationDeliveryV1",
+                "TenantInvitationDeliveryV1"), deliveryActor);
         }
         finally
         {

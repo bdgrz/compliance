@@ -377,7 +377,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
     }
 
     [Fact]
-    public async Task ShouldRetryDirectInvitationGivenDeliveryFailure()
+    public async Task ShouldDeliverLaterInvitationGivenEarlierFailureAndExplicitReissue()
     {
         // Arrange
         var applicationName = $"compliance-split-direct-retry-{Guid.NewGuid():N}";
@@ -452,13 +452,47 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
             Assert.False(factory.Services.GetRequiredService<MockTenantInvitationDelivery>()
                 .TryGetLatest(tenantId, email, out _));
+            InvitationPage? failedInvitation = null;
+            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < failureDeadline)
+            {
+                using var response = await administratorClient.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
+                    Uri.EscapeDataString(email));
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    failedInvitation = await response.Content.ReadFromJsonAsync<InvitationPage>();
+                    if (failedInvitation?.Items.SingleOrDefault()?.DeliveryStatus == "failed")
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal("failed", Assert.Single(failedInvitation!.Items).DeliveryStatus);
+            Assert.Equal(1, delivery.AttemptsFor(email));
+            Assert.False(delivery.TryGetLatest(tenantId, email, out _));
+
+            // The failed stream must not stall the tenant reactor's checkpoint.
+            var laterEmail = $"later-{Guid.NewGuid():N}@example.com";
+            using var laterInvitation = await operatorClient.PostAsJsonAsync(path,
+                new { email_address = laterEmail, affiliation = "client_personnel" });
+            Assert.Equal(HttpStatusCode.NoContent, laterInvitation.StatusCode);
+            string? laterToken = null;
+            var laterDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < laterDeadline &&
+                   !delivery.TryGetLatest(tenantId, laterEmail, out laterToken))
+                await Task.Delay(250);
+            Assert.False(string.IsNullOrEmpty(laterToken));
+
+            // A recorded failure is terminal for that attempt; the operator reissues it.
+            using var retry = await operatorClient.PostAsJsonAsync(path, request);
+            Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
             string? token = null;
             var retryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
             while (DateTimeOffset.UtcNow < retryDeadline &&
                    !delivery.TryGetLatest(tenantId, email, out token))
                 await Task.Delay(250);
             Assert.False(string.IsNullOrEmpty(token));
-            Assert.True(delivery.AttemptsFor(email) >= 2);
+            Assert.Equal(2, delivery.AttemptsFor(email));
             InvitationPage? deliveredInvitation = null;
             var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
             while (DateTimeOffset.UtcNow < deliveryDeadline)
@@ -562,13 +596,37 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
 
+            await using var scope = worker.Services.CreateAsyncScope();
+            var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+            var failed = false;
+            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < failureDeadline)
+            {
+                var invitation = await reader.HydrateAsync(new TenantInvitation(
+                    tenantId, administratorEmail), CancellationToken.None);
+                failed = invitation.DeliveryStatus == "failed";
+                if (failed)
+                    break;
+                await Task.Delay(250);
+            }
+            Assert.True(failed);
+            Assert.Equal(1, delivery.AttemptsFor(administratorEmail));
+            using var reissued = await operatorClient.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/invitations",
+                new
+                {
+                    email_address = administratorEmail,
+                    affiliation = "client_personnel",
+                    administrator = true,
+                });
+            Assert.Equal(HttpStatusCode.NoContent, reissued.StatusCode);
             string? invitationToken = null;
             var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
             while (DateTimeOffset.UtcNow < deadline &&
                    !delivery.TryGetLatest(tenantId, administratorEmail, out invitationToken))
                 await Task.Delay(250);
             Assert.NotNull(invitationToken);
-            Assert.True(delivery.AttemptsFor(administratorEmail) >= 2);
+            Assert.Equal(2, delivery.AttemptsFor(administratorEmail));
 
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);

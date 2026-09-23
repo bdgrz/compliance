@@ -76,7 +76,7 @@ public sealed class TenantInvitationDeliveryReactorTests
     }
 
     [Fact]
-    public async Task ShouldRetrySameAttemptWithoutLeakingExceptionGivenDeliveryFailure()
+    public async Task ShouldCheckpointFailedAttemptAndDeliverLaterInviteGivenSameTenant()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -100,22 +100,70 @@ public sealed class TenantInvitationDeliveryReactorTests
             reader, writer, delivery, keys, TimeProvider.System);
 
         // Act
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await reactor.HandleAsync(new Context(invited), CancellationToken.None));
+        await reactor.HandleAsync(new Context(invited), CancellationToken.None);
         var failed = await reader.HydrateAsync(new TenantInvitation(tenantId,
             invited.EmailAddress), CancellationToken.None);
         await reactor.HandleAsync(new Context(invited), CancellationToken.None);
-        var sent = await reader.HydrateAsync(new TenantInvitation(tenantId,
-            invited.EmailAddress), CancellationToken.None);
+        var nextEmail = "next@example.com";
+        var nextId = Uuid.CreateVersion4();
+        var nextToken = keys.DeriveInvitation(keys.ActiveKeyId, nextId, tenantId,
+            nextEmail, expiresAt);
+        var next = Event(tenantId, nextId, nextToken, expiresAt, keys.ActiveKeyId,
+            nextEmail);
+        await SeedAsync(writer, next, now);
+        await reactor.HandleAsync(new Context(next), CancellationToken.None);
+        var later = await reader.HydrateAsync(new TenantInvitation(tenantId,
+            nextEmail), CancellationToken.None);
 
         // Assert
-        Assert.Equal("Invitation delivery failed.", failure.Message);
-        Assert.DoesNotContain(token, failure.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain(invited.EmailAddress, failure.ToString(), StringComparison.Ordinal);
+        Assert.Equal("failed", failed.DeliveryStatus);
+        Assert.Equal("delivered", later.DeliveryStatus);
+        Assert.Equal(2, delivery.Attempts.Count);
+        Assert.Equal((attemptId, token), delivery.Attempts[0]);
+        Assert.Equal((nextId, nextToken), delivery.Attempts[1]);
+    }
+
+    [Fact]
+    public async Task ShouldCheckpointMissingKeyAndDeliverLaterInviteGivenSameTenant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddDays(7);
+        var keys = Keys();
+        var unavailable = Event(tenantId, Uuid.CreateVersion4(), "old-private-token",
+            expiresAt, "retired", "old@example.com");
+        var laterId = Uuid.CreateVersion4();
+        var laterToken = keys.DeriveInvitation(keys.ActiveKeyId, laterId, tenantId,
+            "later@example.com", expiresAt);
+        var later = Event(tenantId, laterId, laterToken, expiresAt, keys.ActiveKeyId,
+            "later@example.com");
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        await SeedAsync(writer, unavailable, now);
+        await SeedAsync(writer, later, now);
+        var delivery = new RecordingDelivery();
+        var reactor = new TenantInvitationDeliveryReactor(
+            new InMemoryProjectionCheckpointStore(), reader, writer, delivery, keys,
+            TimeProvider.System);
+
+        // Act
+        await reactor.HandleAsync(new Context(unavailable), CancellationToken.None);
+        await reactor.HandleAsync(new Context(later), CancellationToken.None);
+        var failed = await reader.HydrateAsync(new TenantInvitation(tenantId,
+            unavailable.EmailAddress), CancellationToken.None);
+        var sent = await reader.HydrateAsync(new TenantInvitation(tenantId,
+            later.EmailAddress), CancellationToken.None);
+
+        // Assert
         Assert.Equal("failed", failed.DeliveryStatus);
         Assert.Equal("delivered", sent.DeliveryStatus);
-        Assert.Equal(2, delivery.Attempts.Count);
-        Assert.All(delivery.Attempts, attempt => Assert.Equal((attemptId, token), attempt));
+        Assert.Equal((laterId, laterToken), Assert.Single(delivery.Attempts));
     }
 
     [Fact]
@@ -192,8 +240,8 @@ public sealed class TenantInvitationDeliveryReactorTests
     }
 
     static TenantMemberInvited Event(Uuid tenantId, Uuid attemptId, string token,
-        DateTimeOffset expiresAt, string keyId) =>
-        new(tenantId, "member@example.com", "client_personnel", false,
+        DateTimeOffset expiresAt, string keyId, string emailAddress = "member@example.com") =>
+        new(tenantId, emailAddress, "client_personnel", false,
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))),
             expiresAt, Uuid.CreateVersion4(), null, attemptId, keyId);
 
