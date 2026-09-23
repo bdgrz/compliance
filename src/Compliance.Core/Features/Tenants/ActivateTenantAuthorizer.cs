@@ -8,5 +8,5 @@ sealed class ActivateTenantAuthorizer : IRequestAuthorizer<ActivateTenant>
         ValueTask.FromResult(RequestActor.IsSystem(context.Actor)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                "Only the invitation reactor may activate a tenant.")));
+                "Only tenant bootstrap reactions may activate a tenant.")));
 }

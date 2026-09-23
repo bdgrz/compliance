@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.Features.Tenants;
 
@@ -43,6 +44,29 @@ public sealed class TenantContractCompatibilityTests
         Assert.Null(registered.GetType().GetProperty("FirstAdministratorEmail")?.GetValue(registered));
         Assert.False((bool)registered.GetType().GetProperty("CreatorIsAdministrator")!
             .GetValue(registered)!);
+    }
+
+    [Fact]
+    public void ShouldRemainActiveGivenSelfServiceRegistrationBeforeActivationFence()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var json = $$"""{"tenant_id":"{{tenantId}}","owner_user_id":"{{creatorId}}","name":"Acme","slug":"acme","creator_is_administrator":true}""";
+        var registered = JsonSerializer.Deserialize(json,
+            ComplianceCoreJsonContext.Default.TenantRegistered);
+        Assert.NotNull(registered);
+        var tenant = new Tenant(tenantId);
+
+        // Act
+        new AggregateScenario<Tenant>(tenant).Given(
+            DomainEventSeed.Attach(registered, tenantId, 1),
+            DomainEventSeed.Attach(new TenantSlugConfirmed(tenantId, "acme"), tenantId, 2));
+
+        // Assert
+        Assert.True(registered.CreatorIsAdministrator);
+        Assert.False(registered.ActivationRequired);
+        Assert.True(tenant.IsActive);
     }
 
     [Fact]

@@ -2,20 +2,20 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-/// <summary>Only an explicitly authorized platform operator may provision a tenant.</summary>
-sealed class PlatformOperatorAuthorizer(PlatformOperatorAuthority operators) : IRequestAuthorizer<IPlatformOperatorRequest>
+/// <summary>Only a current platform operator may use platform-scoped operations.</summary>
+sealed class PlatformOperatorAuthorizer(IPlatformOperatorAccess operators) : IRequestAuthorizer<IPlatformOperatorRequest>
 {
-    public ValueTask<Result> AuthorizeAsync(IRequestContext<IPlatformOperatorRequest> context, CancellationToken ct)
+    public async ValueTask<Result> AuthorizeAsync(IRequestContext<IPlatformOperatorRequest> context, CancellationToken ct)
     {
         if (RequestActor.IsSystem(context.Actor))
-            return ValueTask.FromResult(Result.Success);
+            return Result.Success;
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
-            return ValueTask.FromResult(Result.Failure(new RequestError(
-                RequestErrorKind.Unauthorized, "Tenant registration requires a Bdgrz user identity.")));
+            return Result.Failure(new RequestError(
+                RequestErrorKind.Unauthorized, "Platform operations require a Bdgrz user identity."));
 
-        return ValueTask.FromResult(operators.IsOperator(userId)
+        return await operators.IsOperatorAsync(userId, ct).ConfigureAwait(false)
             ? Result.Success
-            : Result.Failure(new RequestError(
-                RequestErrorKind.Forbidden, "The actor is not a platform operator.")));
+            : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The actor is not a platform operator."));
     }
 }

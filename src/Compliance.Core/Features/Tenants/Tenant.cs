@@ -8,8 +8,11 @@ public sealed class Tenant : Aggregate
     TenantSlugState _slugState;
     bool _suspended;
     bool _requiresInvitation;
+    bool _requiresActivation;
+    bool _creatorIsAdministrator;
     bool _activated;
     string? _firstAdministratorEmail;
+    Uuid _ownerUserId;
     Uuid _operatorUserId;
     string? _pendingSlug;
     readonly HashSet<string> _previousSlugs = new(StringComparer.Ordinal);
@@ -37,8 +40,9 @@ public sealed class Tenant : Aggregate
     }
 
     public bool IsActive => _slugState == TenantSlugState.Confirmed && !_suspended &&
-                            (!_requiresInvitation || _activated);
+                            (!_requiresActivation || _activated);
     public bool IsRegistered => _slug is not null && _slugState != TenantSlugState.Rejected;
+    public bool IsRegistrationRejected => _slugState == TenantSlugState.Rejected;
     public string? CurrentSlug => _slug;
     public Uuid OperatorUserId => _operatorUserId;
     public bool IsSuspended => _suspended;
@@ -65,21 +69,29 @@ public sealed class Tenant : Aggregate
 
         RaiseEvent(new TenantRegistered(Id, ownerUserId, name.Trim(), normalizedSlug,
             string.IsNullOrWhiteSpace(legalName) ? name.Trim() : legalName.Trim(),
-            normalizedEmail, creatorIsAdministrator));
+            normalizedEmail, creatorIsAdministrator, ActivationRequired: creatorIsAdministrator));
         return Result<TenantRegistration>.Success(new TenantRegistration(Id, normalizedSlug));
     }
 
-    public Result Activate(Uuid firstAdministratorUserId, string firstAdministratorEmail)
+    public Result Activate(Uuid firstAdministratorUserId, string? firstAdministratorEmail)
     {
-        if (!_requiresInvitation || _slugState != TenantSlugState.Confirmed)
+        if (!_requiresActivation)
             return Failure(RequestErrorKind.Conflict, "The tenant is not ready to activate.");
-        if (_activated)
-            return Result.Success;
+        if (_slugState != TenantSlugState.Confirmed)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The tenant is not ready to activate.",
+                isTransient: _slugState == TenantSlugState.Pending));
         if (firstAdministratorUserId == Uuid.Empty)
             return Failure(RequestErrorKind.Validation, "A first administrator is required.");
-        if (!EmailAddresses.TryNormalize(firstAdministratorEmail, out var normalized) ||
-            normalized != _firstAdministratorEmail)
+        if (_creatorIsAdministrator &&
+            (firstAdministratorUserId != _ownerUserId || firstAdministratorEmail is not null))
+            return Failure(RequestErrorKind.Forbidden, "Only the verified creator may activate.");
+        if (_requiresInvitation &&
+            (!EmailAddresses.TryNormalize(firstAdministratorEmail, out var normalized) ||
+             normalized != _firstAdministratorEmail))
             return Failure(RequestErrorKind.Forbidden, "Only the invited first administrator may activate.");
+        if (_activated)
+            return Result.Success;
         RaiseEvent(new TenantActivated(Id, firstAdministratorUserId));
         return Result.Success;
     }
@@ -150,7 +162,8 @@ public sealed class Tenant : Aggregate
     {
         if (_slug is null || _slugState == TenantSlugState.Rejected)
             return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
-        if (_slugState != TenantSlugState.Confirmed || _requiresInvitation && !_activated)
+        if (_slugState != TenantSlugState.Confirmed ||
+            _requiresActivation && !_activated)
             return Failure(RequestErrorKind.Conflict, "The tenant is not ready to reactivate.");
         if (_suspended)
             RaiseEvent(new TenantReactivated(Id, operatorUserId));
@@ -186,7 +199,10 @@ public sealed class Tenant : Aggregate
         _slugState = TenantSlugState.Pending;
         _requiresInvitation = registered.FirstAdministratorEmail is not null &&
                               !registered.CreatorIsAdministrator;
+        _requiresActivation = _requiresInvitation || registered.ActivationRequired;
+        _creatorIsAdministrator = registered.CreatorIsAdministrator;
         _firstAdministratorEmail = registered.FirstAdministratorEmail;
+        _ownerUserId = registered.OwnerUserId;
         _operatorUserId = registered.CreatorIsAdministrator ? Uuid.Empty : registered.OwnerUserId;
     }
     void Apply(TenantSlugConfirmed _) => _slugState = TenantSlugState.Confirmed;

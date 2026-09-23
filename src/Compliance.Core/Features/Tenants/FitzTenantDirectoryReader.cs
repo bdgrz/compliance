@@ -28,7 +28,9 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                     LegalName: registered.LegalName ?? registered.Name,
                     OperatorUserId: registered.CreatorIsAdministrator ? null : registered.OwnerUserId,
                     RequiresInvitation: registered.FirstAdministratorEmail is not null &&
-                                        !registered.CreatorIsAdministrator),
+                                        !registered.CreatorIsAdministrator,
+                    RequiresActivation: registered.ActivationRequired ||
+                                        registered.FirstAdministratorEmail is not null),
                 ct).ConfigureAwait(false);
         }
         else
@@ -57,7 +59,7 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                     .ConfigureAwait(false);
                 if (current is not null)
                 {
-                    if (domainEvent is TenantSlugConfirmed && current.RequiresInvitation)
+                    if (domainEvent is TenantSlugConfirmed && current.RequiresActivation)
                         status = "provisioning";
                     if (domainEvent is TenantActivated && current.Status == "suspended")
                         status = "suspended";

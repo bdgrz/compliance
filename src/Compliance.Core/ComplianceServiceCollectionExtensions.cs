@@ -23,6 +23,7 @@ public static class ComplianceServiceCollectionExtensions
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
+        services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
@@ -46,6 +47,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
         services.AddScoped<IEmailAddressDirectoryReader>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
+        services.AddScoped<FitzPlatformUserDirectory>();
+        services.AddScoped<IPlatformUserDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
+        services.AddScoped<IPlatformUserDirectoryReader>(
+            provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
         services.AddScoped<UserIdentityContinuation>();
         services.AddScoped<TenantInvitationIssuer>();
         services.AddScoped<FitzPermissionAuthorizer>();
@@ -189,7 +195,7 @@ public static class ComplianceServiceCollectionExtensions
                 EventStreamPattern.ForPattern("bdgrz", "tenants"),
                 domainEvent => new TenantId(((TenantRegistered)domainEvent).TenantId.ToString())));
 
-        return services
+        var portia = services
             .AddPortia()
             .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
             .AddRequestAuthorizer<ContinueWithDeveloperIdentityAuthorizer>()
@@ -299,6 +305,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestHandler<SeedPlatformOperatorRosterHandler>()
+            .AddRequestAuthorizer<SeedPlatformOperatorRosterAuthorizer>()
+            .AddRequestHandler<GrantPlatformOperatorHandler>()
+            .AddRequestHandler<RevokePlatformOperatorHandler>()
+            .AddRequestHandler<ListPlatformOperatorsHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
@@ -333,6 +344,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
+            .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             // This narrow backfill has its own checkpoint so it can safely replay historical
@@ -377,5 +389,8 @@ public static class ComplianceServiceCollectionExtensions
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))
             .RequireAuthorization();
+
+        services.AddHostedService<PlatformOperatorRosterBootstrap>();
+        return portia;
     }
 }

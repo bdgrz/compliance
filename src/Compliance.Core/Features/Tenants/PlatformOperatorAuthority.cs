@@ -4,21 +4,19 @@ using Microsoft.Extensions.Configuration;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-/// <summary>Explicit platform operators. Development identities can provision local test tenants.</summary>
+/// <summary>Configuration used once to seed the event-sourced operator roster.</summary>
 public sealed class PlatformOperatorAuthority
 {
-    readonly HashSet<Uuid> _userIds;
+    readonly Uuid[] _userIds;
 
     public PlatformOperatorAuthority(IEnumerable<Uuid> userIds, bool developerAuthentication = false)
     {
-        _userIds = [.. userIds];
+        _userIds = [.. userIds.Distinct()];
         DeveloperAuthentication = developerAuthentication;
     }
 
     public bool DeveloperAuthentication { get; }
-
-    public bool IsOperator(Uuid userId) =>
-        userId != Uuid.Empty && (DeveloperAuthentication || _userIds.Contains(userId));
+    public IReadOnlyList<Uuid> BootstrapUserIds => _userIds;
 
     public static PlatformOperatorAuthority FromConfiguration(IConfiguration configuration,
         bool developerAuthentication)

@@ -9,6 +9,8 @@ public sealed class TeamMember : Aggregate
     readonly Uuid _memberId;
     bool _isAssigned;
 
+    public bool IsAssigned => _isAssigned;
+
     public TeamMember(Uuid tenantId, Uuid teamId, Uuid memberId)
         : base(
             RbacIds.TeamMember(tenantId, teamId, memberId),

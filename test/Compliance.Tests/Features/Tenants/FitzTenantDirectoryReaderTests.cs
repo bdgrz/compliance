@@ -52,8 +52,9 @@ public sealed class FitzTenantDirectoryReaderTests
         await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
-                "Acme LLC", CreatorIsAdministrator: true));
+                "Acme LLC", CreatorIsAdministrator: true, ActivationRequired: true));
             await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await repository.ApplyAsync(new TenantActivated(tenantId, creatorId));
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
@@ -93,6 +94,39 @@ public sealed class FitzTenantDirectoryReaderTests
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
+        Assert.Equal("active", (await repository.GetAsync(tenantId))?.Status);
+    }
+
+    [Fact]
+    public async Task ShouldKeepCreatorProvisioningUntilActivationGivenConfirmedSlug()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var repository = new FitzTenantDirectoryReader(client);
+        var identity = new CheckpointIdentity("TenantDirectory",
+            EventStreamPattern.ForPattern("bdgrz", "tenants"));
+
+        // Act
+        await using (var batch = await repository.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId,
+                "Acme", "acme", CreatorIsAdministrator: true, ActivationRequired: true));
+            await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        Assert.Equal("provisioning", (await repository.GetAsync(tenantId))?.Status);
+
+        await using (var batch = await repository.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantActivated(tenantId, creatorId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
         Assert.Equal("active", (await repository.GetAsync(tenantId))?.Status);
     }
 
