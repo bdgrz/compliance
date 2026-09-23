@@ -1,11 +1,15 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Boundaries;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -18,7 +22,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     {
         // Arrange
         var applicationName = $"compliance-split-applications-{Guid.NewGuid():N}";
-        using var worker = BuildWorker(applicationName);
+        using var workerLogs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
+        using var worker = BuildWorker(applicationName, workerLogs);
         await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
         var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
@@ -178,7 +183,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         using var laggingReference = await owner.PostAsJsonAsync(boundaryPath,
             new { content = instanceContent });
         Assert.Equal(HttpStatusCode.Conflict, laggingReference.StatusCode);
-        using var restarted = BuildWorker(applicationName);
+        using var restarted = BuildWorker(applicationName, workerLogs);
         await restarted.StartAsync();
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         try
@@ -206,6 +211,13 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 Assert.Equal(unprojectedInstance.SystemInstanceId,
                     Assert.Single(page!.Items).SystemInstanceId);
             }
+            using var diagnosticScope = factory.Services.CreateScope();
+            var boundaryDirectory = diagnosticScope.ServiceProvider
+                .GetRequiredService<IBoundaryDirectoryReader>();
+            var parsedTenantId = Uuid.Parse(tenant.TenantId.ToString(),
+                CultureInfo.InvariantCulture);
+            var boundaryCheckpointBefore = await boundaryDirectory
+                .LoadCheckpointAsync(parsedTenantId);
             using var linked = await owner.PostAsJsonAsync(boundaryPath,
                 new { content = instanceContent });
             Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
@@ -226,18 +238,66 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await absentRecord.Content.ReadAsStringAsync(), StringComparison.Ordinal);
             deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             var boundaryProjected = false;
+            HttpStatusCode? lastBoundaryStatus = null;
+            string? lastBoundaryBody = null;
+            var linkedBoundaryPath =
+                $"/api/v1/tenants/{tenant.TenantId}/boundaries/{linkedBoundary.BoundaryId}";
             while (DateTimeOffset.UtcNow < deadline)
             {
-                using var response = await owner.GetAsync(
-                    $"/api/v1/tenants/{tenant.TenantId}/boundaries/{linkedBoundary.BoundaryId}");
+                using var response = await owner.GetAsync(linkedBoundaryPath);
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
                     boundaryProjected = true;
                     break;
                 }
+                lastBoundaryStatus = response.StatusCode;
+                lastBoundaryBody = response.StatusCode is HttpStatusCode.NotFound or
+                    HttpStatusCode.Conflict
+                    ? await response.Content.ReadAsStringAsync()
+                    : "<unexpected status body omitted>";
                 await Task.Delay(250);
             }
-            Assert.True(boundaryProjected);
+            if (!boundaryProjected)
+            {
+                var boundaryCheckpointAfter = await boundaryDirectory
+                    .LoadCheckpointAsync(parsedTenantId);
+                var originalBoundaryId = Uuid.Parse(applicationBoundary.BoundaryId.ToString(),
+                    CultureInfo.InvariantCulture);
+                var originalBoundaryProjected = await boundaryDirectory.GetAsync(parsedTenantId,
+                    originalBoundaryId) is not null;
+                var parsedBoundaryId = Uuid.Parse(linkedBoundary.BoundaryId.ToString(),
+                    CultureInfo.InvariantCulture);
+                var boundarySource = await diagnosticScope.ServiceProvider
+                    .GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new SystemBoundary(parsedTenantId, parsedBoundaryId));
+                using var minimumRead = await owner.GetAsync(
+                    $"{linkedBoundaryPath}?minimum_revision=1");
+                var minimumBody = minimumRead.StatusCode is HttpStatusCode.NotFound or
+                    HttpStatusCode.Conflict
+                    ? await minimumRead.Content.ReadAsStringAsync()
+                    : "<unexpected status body omitted>";
+                var faults = workerLogs.Records
+                    .Where(record => record.Level >= LogLevel.Error &&
+                                     (record.Category.StartsWith("Cntryl.Portia", StringComparison.Ordinal) ||
+                                      record.Category.StartsWith("Microsoft.Extensions.Hosting",
+                                          StringComparison.Ordinal)))
+                    .ToArray();
+                var workerFaults = string.Join(", ", faults.Take(10)
+                    .Select(record =>
+                        $"{record.Category}/{record.EventName}/{record.Value("RunnerName")}/" +
+                        $"{record.Value("Stage")}/{record.Value("ErrorType")}"));
+                Assert.Fail($"Boundary projection did not catch up in 45 seconds. " +
+                            $"Last GET: {(int?)lastBoundaryStatus} {lastBoundaryBody}; " +
+                            $"source created: {boundarySource.IsCreated}, " +
+                            $"source revision: {boundarySource.Revision}; " +
+                            $"minimum-revision GET: {(int)minimumRead.StatusCode} {minimumBody}; " +
+                            $"earlier boundary projected: {originalBoundaryProjected}; " +
+                            $"projection checkpoint initially at start: " +
+                            $"{boundaryCheckpointBefore == ProjectionCheckpoint.Start}, " +
+                            $"checkpoint changed after pre-write sample: " +
+                            $"{boundaryCheckpointAfter != boundaryCheckpointBefore}; " +
+                            $"worker fault count: {faults.Length}, first faults: [{workerFaults}].");
+            }
             var instanceReferencesPath =
                 $"{applicationsPath}/{first.ApplicationId}/system-instances/" +
                 $"{unprojectedInstance.SystemInstanceId}/boundary-references";
@@ -481,7 +541,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         }
     }
 
-    IHost BuildWorker(string applicationName)
+    IHost BuildWorker(string applicationName, ILoggerProvider workerLogs)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -490,6 +550,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Logging.AddProvider(workerLogs);
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         return builder.Build();
     }
