@@ -110,19 +110,20 @@ public sealed class SystemBoundary : Aggregate
         return Result<BoundaryRegistration>.Success(new BoundaryRegistration(Id, draftVersionId));
     }
 
-    public BoundaryChangeFailure? Revise(Uuid draftVersionId, long expectedRevision,
+    public CommandFailure? Revise(Uuid draftVersionId, long expectedRevision,
         BoundaryContent content, Uuid authorMemberId, string authorDisplay,
         DateTimeOffset changedAt)
     {
         if (!_created)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.NotFound);
+            return CommandFailure.MissingRecord("The boundary was not found.");
         if (_draftVersionId == Uuid.Empty)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.Immutable);
+            return CommandFailure.StateConflict(
+                "The approved boundary is immutable. Propose a successor draft.");
         if (DraftVersionConflict(draftVersionId, expectedRevision) is { } conflict)
-            return BoundaryChangeFailure.ForVersion(conflict);
+            return CommandFailure.ForVersion(conflict);
         var validation = Validate(content);
         if (validation is not null)
-            return BoundaryChangeFailure.InvalidContent(validation);
+            return CommandFailure.InvalidContent(validation);
         RaiseEvent(new BoundaryDraftRevised(_tenantId, Id, draftVersionId,
             _draftRevision + 1, content, authorMemberId, authorDisplay, changedAt));
         return null;
@@ -134,7 +135,7 @@ public sealed class SystemBoundary : Aggregate
             ? VersionedRecordRules.StaleDraft("boundary", _draftVersionId, _draftRevision)
             : null;
 
-    public BoundaryChangeFailure? Review(Uuid draftVersionId, long expectedRevision, Uuid decisionId,
+    public CommandFailure? Review(Uuid draftVersionId, long expectedRevision, Uuid decisionId,
         string outcome, string rationale, Uuid reviewerMemberId, string reviewerDisplay,
         DateTimeOffset decidedAt)
     {
@@ -142,15 +143,16 @@ public sealed class SystemBoundary : Aggregate
         if (current is not null)
             return current;
         if (reviewerMemberId == _draftAuthorMemberId)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.SelfReview);
+            return CommandFailure.ActorProhibited(
+                "A boundary author cannot review their own draft.");
         if (outcome is not ("accept" or "request_changes") || string.IsNullOrWhiteSpace(rationale))
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.InvalidReview);
+            return CommandFailure.InvalidContent("A review requires an outcome and rationale.");
         RaiseEvent(new BoundaryReviewed(_tenantId, Id, draftVersionId, expectedRevision,
             decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt));
         return null;
     }
 
-    public BoundaryChangeFailure? DiscardDraft(Uuid draftVersionId, long expectedRevision,
+    public CommandFailure? DiscardDraft(Uuid draftVersionId, long expectedRevision,
         string rationale, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset discardedAt)
     {
@@ -158,15 +160,15 @@ public sealed class SystemBoundary : Aggregate
         if (current is not null)
             return current;
         if (VersionedRecordRules.DraftDiscardConflict(_draftEverReviewed) is { } referenced)
-            return BoundaryChangeFailure.ForVersion(referenced);
+            return CommandFailure.ForVersion(referenced);
         if (string.IsNullOrWhiteSpace(rationale))
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.MissingDiscardRationale);
+            return CommandFailure.InvalidContent("Discarding a draft requires a rationale.");
         RaiseEvent(new BoundaryDraftDiscarded(_tenantId, Id, draftVersionId,
             expectedRevision, actorMemberId, actorDisplay, rationale.Trim(), discardedAt));
         return null;
     }
 
-    public BoundaryChangeFailure? Approve(Uuid draftVersionId, long expectedRevision,
+    public CommandFailure? Approve(Uuid draftVersionId, long expectedRevision,
         Uuid approvalDecisionId, Uuid acceptedReviewDecisionId, DateOnly effectiveFrom, string rationale,
         string impactDigest, Uuid approverMemberId, string approverDisplay, DateTimeOffset decidedAt)
     {
@@ -174,55 +176,60 @@ public sealed class SystemBoundary : Aggregate
         if (current is not null)
             return current;
         if (approverMemberId == _draftAuthorMemberId)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.SelfApproval);
+            return CommandFailure.ActorProhibited(
+                "A boundary author cannot approve their own draft.");
         // Drafts recorded before a content rule existed must satisfy it before approval.
         if (Validate(_draftContent) is { } invalidContent)
-            return BoundaryChangeFailure.InvalidContent(invalidContent);
+            return CommandFailure.InvalidContent(invalidContent);
         if (acceptedReviewDecisionId == Uuid.Empty ||
             acceptedReviewDecisionId != _acceptedReviewDecisionId)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.UnacceptedReview);
+            return CommandFailure.StateConflict(
+                "Approval requires the latest accepted review of this draft revision.");
         if (string.IsNullOrWhiteSpace(rationale))
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.MissingApprovalRationale);
+            return CommandFailure.InvalidContent("Approval requires a rationale.");
         if (string.IsNullOrWhiteSpace(impactDigest))
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.MissingImpactDigest);
+            return CommandFailure.InvalidContent(
+                "Approval requires the acknowledged impact preview digest.");
         if (_latestApprovedEffectiveFrom is { } prior &&
             !EffectiveInterval.CanFollow(prior, effectiveFrom))
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.EffectiveDateOutOfOrder);
+            return CommandFailure.InvalidContent(
+                "A successor must become effective after the previous approved version.");
         RaiseEvent(new BoundaryApproved(_tenantId, Id, draftVersionId, expectedRevision,
             approvalDecisionId, acceptedReviewDecisionId, approverMemberId, approverDisplay,
             rationale.Trim(), effectiveFrom, decidedAt, impactDigest));
         return null;
     }
 
-    public BoundaryChangeFailure? ProposeSuccessor(Uuid expectedApprovedVersionId,
+    public CommandFailure? ProposeSuccessor(Uuid expectedApprovedVersionId,
         Uuid draftVersionId, BoundaryContent content, Uuid authorMemberId,
         string authorDisplay, DateTimeOffset changedAt)
     {
         if (!_created)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.NotFound);
+            return CommandFailure.MissingRecord("The boundary was not found.");
         if (_latestApprovedVersionId == Uuid.Empty)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.NoApprovedVersion);
+            return CommandFailure.StateConflict("The boundary has no approved version.");
         if (expectedApprovedVersionId != _latestApprovedVersionId)
-            return BoundaryChangeFailure.ForVersion(
+            return CommandFailure.ForVersion(
                 VersionedRecordRules.StaleApprovedVersion("boundary", _latestApprovedVersionId));
         if (_draftVersionId != Uuid.Empty)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.OpenSuccessor);
+            return CommandFailure.StateConflict("The boundary already has an open successor draft.");
         var validation = Validate(content);
         if (validation is not null)
-            return BoundaryChangeFailure.InvalidContent(validation);
+            return CommandFailure.InvalidContent(validation);
         RaiseEvent(new BoundarySuccessorProposed(_tenantId, Id, draftVersionId,
             _latestApprovedVersionId, content, authorMemberId, authorDisplay, changedAt));
         return null;
     }
 
-    BoundaryChangeFailure? CheckDraft(Uuid draftVersionId, long expectedRevision)
+    CommandFailure? CheckDraft(Uuid draftVersionId, long expectedRevision)
     {
         if (!_created)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.NotFound);
+            return CommandFailure.MissingRecord("The boundary was not found.");
         if (_draftVersionId == Uuid.Empty)
-            return BoundaryChangeFailure.Rule(BoundaryChangeFailure.Reason.Immutable);
+            return CommandFailure.StateConflict(
+                "The approved boundary is immutable. Propose a successor draft.");
         return DraftVersionConflict(draftVersionId, expectedRevision) is { } conflict
-            ? BoundaryChangeFailure.ForVersion(conflict)
+            ? CommandFailure.ForVersion(conflict)
             : null;
     }
 

@@ -750,6 +750,47 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
             plan = create.plan,
         });
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        var staleRevisionDetail = "The program changed. Current revision: 2. Reload it and retry.";
+        Assert.Contains(staleRevisionDetail, await stale.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+        using var invalidCreate = await owner.PostAsJsonAsync(path,
+            new { name = "", plan = create.plan });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidCreate.StatusCode);
+        Assert.Contains("A program requires a name.",
+            await invalidCreate.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        using var invalidCurrent = await owner.PutAsJsonAsync(programPath, new
+        {
+            expected_revision = 2,
+            name = "",
+            plan = create.plan,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidCurrent.StatusCode);
+        Assert.Contains("A program requires a name.",
+            await invalidCurrent.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await using (var commandMcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            var invalidCreateMcp = await commandMcp.When("bdgrz.program.create",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["name"] = "",
+                    ["plan"] = create.plan,
+                }).ExpectFailure("Validation");
+            Assert.Equal("A program requires a name.", Assert.IsType<JsonElement>(
+                invalidCreateMcp.StructuredJson).GetProperty("message").GetString());
+            var staleMcp = await commandMcp.When("bdgrz.program.revise",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["program_id"] = registration.ProgramId,
+                    ["expected_revision"] = 1,
+                    ["name"] = "",
+                    ["plan"] = create.plan,
+                }).ExpectFailure("Conflict");
+            Assert.Equal(staleRevisionDetail, Assert.IsType<JsonElement>(
+                staleMcp.StructuredJson).GetProperty("message").GetString());
+        }
 
         while (DateTimeOffset.UtcNow < deadline)
         {

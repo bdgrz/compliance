@@ -58,7 +58,7 @@ public sealed class ReviseBoundaryDraftHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => BoundaryChangeFailureRequestAdapter.ToOutcome(boundary.Revise(
+            boundary => CommandFailureRequestAdapter.ToOutcome(boundary.Revise(
                 request.DraftVersionId, request.ExpectedRevision, request.Content,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
@@ -77,7 +77,7 @@ public sealed class DiscardBoundaryDraftHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => BoundaryChangeFailureRequestAdapter.ToOutcome(boundary.DiscardDraft(
+            boundary => CommandFailureRequestAdapter.ToOutcome(boundary.DiscardDraft(
                 request.DraftVersionId, request.ExpectedRevision, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
@@ -325,7 +325,7 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, TimeProvi
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => BoundaryChangeFailureRequestAdapter.ToOutcome(boundary.Review(request.DraftVersionId,
+            boundary => CommandFailureRequestAdapter.ToOutcome(boundary.Review(request.DraftVersionId,
                 request.ExpectedRevision, context.RequestId, request.Outcome, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
@@ -369,7 +369,7 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => BoundaryChangeFailureRequestAdapter.ToOutcome(boundary.Approve(request.DraftVersionId,
+            boundary => CommandFailureRequestAdapter.ToOutcome(boundary.Approve(request.DraftVersionId,
                 request.ExpectedRevision, context.RequestId, request.AcceptedReviewDecisionId,
                 request.EffectiveFrom, request.Rationale, request.ImpactDigest,
                 RbacIds.Member(request.TenantId, userId),
@@ -401,7 +401,7 @@ public sealed class ProposeBoundarySuccessorHandler(IAggregateExecutor executor,
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         var draftVersionId = Uuid.CreateVersion5(context.RequestId, "draft");
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => BoundaryChangeFailureRequestAdapter.ToRegistrationOutcome(
+            boundary => CommandFailureRequestAdapter.ToOutcome(
                 boundary.ProposeSuccessor(request.ExpectedApprovedVersionId, draftVersionId,
                     request.Content, RbacIds.Member(request.TenantId, userId),
                     UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow()),

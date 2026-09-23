@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -12,9 +13,11 @@ public sealed class CreateProgramHandler(IAggregateExecutor executor, TimeProvid
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new ComplianceProgram(context.Request.TenantId, context.RequestId),
-            program => AggregateOutcome.CommitOnSuccess(program.Create(context.Request.Name,
-                context.Request.Plan, RbacIds.Member(context.Request.TenantId, userId),
-                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
+            program => CommandFailureRequestAdapter.ToOutcome(
+                program.Create(context.Request.Name, context.Request.Plan,
+                    RbacIds.Member(context.Request.TenantId, userId),
+                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow()),
+                new ProgramRegistration(context.RequestId)),
             context, ct);
     }
 }

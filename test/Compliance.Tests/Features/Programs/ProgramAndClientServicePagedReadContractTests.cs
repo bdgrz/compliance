@@ -166,8 +166,8 @@ public sealed class ProgramAndClientServicePagedReadContractTests
     static ComplianceProgram ProgramSource(Uuid tenantId, Uuid programId)
     {
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("Readiness", Plan(), Uuid.CreateVersion4(), "Owner",
-            DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(program.Create("Readiness", Plan(), Uuid.CreateVersion4(), "Owner",
+            DateTimeOffset.UtcNow));
         return program;
     }
 

@@ -29,60 +29,57 @@ public sealed class ComplianceProgram : Aggregate
         On<ProgramRevised>(ev => _revision = ev.Revision);
     }
 
-    public Result<ProgramRegistration> Create(string name, ProgramPlan plan, Uuid actorMemberId,
+    public CommandFailure? Create(string name, ProgramPlan plan, Uuid actorMemberId,
         string actorDisplay, DateTimeOffset changedAt)
     {
         if (_created)
             return StringComparer.Ordinal.Equals(_initialName, name?.Trim()) &&
                    Equals(_initialPlan, plan)
-                ? Result<ProgramRegistration>.Success(new ProgramRegistration(Id))
-                : Result<ProgramRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The program already exists with different content."));
+                ? null
+                : CommandFailure.StateConflict(
+                    "The program already exists with different content.");
         var error = Validate(name, plan);
         if (error is not null)
-            return Result<ProgramRegistration>.Failure(error);
+            return CommandFailure.InvalidContent(error);
         RaiseEvent(new ProgramCreated(_tenantId, Id, name.Trim(), plan,
             actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
-        return Result<ProgramRegistration>.Success(new ProgramRegistration(Id));
+        return null;
     }
 
-    public Result Revise(long expectedRevision, string name, ProgramPlan plan,
+    public CommandFailure? Revise(long expectedRevision, string name, ProgramPlan plan,
         Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         if (!_created)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The program was not found."));
+            return CommandFailure.MissingRecord("The program was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("program", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(
+                VersionedRecordRules.StaleRevision("program", _revision));
         var error = Validate(name, plan);
         if (error is not null)
-            return Result.Failure(error);
+            return CommandFailure.InvalidContent(error);
         RaiseEvent(new ProgramRevised(_tenantId, Id, _revision + 1, name.Trim(), plan,
             actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
-        return Result.Success;
+        return null;
     }
 
-    static RequestError? Validate(string name, ProgramPlan? plan)
+    static string? Validate(string name, ProgramPlan? plan)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return new RequestError(RequestErrorKind.Validation, "A program requires a name.");
+            return "A program requires a name.";
         if (plan is null)
-            return new RequestError(RequestErrorKind.Validation, "A program requires a plan.");
+            return "A program requires a plan.";
         if (plan.TargetReadinessDate > plan.TargetTypeIAsOfDate)
-            return new RequestError(RequestErrorKind.Validation,
-                "The Type I target date must follow the readiness target date.");
+            return "The Type I target date must follow the readiness target date.";
         if (plan.TargetTypeIIStartDate > plan.TargetTypeIIEndDate)
-            return new RequestError(RequestErrorKind.Validation,
-                "The Type II target end date must follow its start date.");
+            return "The Type II target end date must follow its start date.";
         if (plan.TargetTypeIAsOfDate > plan.TargetTypeIIStartDate)
-            return new RequestError(RequestErrorKind.Validation,
-                "The Type II target period must follow the Type I target date.");
+            return "The Type II target period must follow the Type I target date.";
         return null;
     }
 }

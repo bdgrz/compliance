@@ -288,7 +288,7 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, actorId, "Lead", now));
         var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
             actorId, "Lead", now);
         var boundary = new SystemBoundary(tenantId, boundaryId);
@@ -388,7 +388,7 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, authorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, authorId, "Lead", now));
         var boundary = new SystemBoundary(tenantId, boundaryId);
         var content = new BoundaryContent("Scope", "readiness", ["security"], []);
         Assert.True(boundary.Create(programId, firstVersionId, content,
@@ -485,7 +485,7 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, actorId, "Lead", now));
         var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
             actorId, "Lead", now);
         var boundary = new SystemBoundary(tenantId, boundaryId);

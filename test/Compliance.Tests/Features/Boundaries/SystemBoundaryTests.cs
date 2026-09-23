@@ -30,13 +30,13 @@ public sealed class SystemBoundaryTests
         var invalidCurrent = boundary.Revise(VersionId, 1, invalid, AuthorId, "Author", Now);
 
         // Assert
-        AssertFailure(missing, BoundaryChangeFailure.Reason.NotFound);
-        var staleDraft = AssertFailure(stale, BoundaryChangeFailure.Reason.VersionConflict);
+        AssertFailure(missing, CommandFailureCode.MissingRecord);
+        var staleDraft = AssertFailure(stale, CommandFailureCode.VersionConflict);
         Assert.Equal(VersionConflictCode.StaleDraft, staleDraft.Version?.Code);
         Assert.Equal(VersionId, staleDraft.Version?.CurrentVersionId);
         Assert.Equal(1, staleDraft.Version?.CurrentRevision);
         Assert.Contains("statement", AssertFailure(invalidCurrent,
-            BoundaryChangeFailure.Reason.InvalidContent).Message, StringComparison.Ordinal);
+            CommandFailureCode.InvalidContent).Message, StringComparison.Ordinal);
         Assert.Single(new AggregateScenario<SystemBoundary>(boundary).PendingEvents);
     }
 
@@ -59,10 +59,10 @@ public sealed class SystemBoundaryTests
         var wrongVersion = boundary.Revise(Uuid.CreateVersion4(), 2, first,
             AuthorId, "Lead A", Now);
 
-        var staleDraft = AssertFailure(stale, BoundaryChangeFailure.Reason.VersionConflict);
+        var staleDraft = AssertFailure(stale, CommandFailureCode.VersionConflict);
         Assert.Equal(2, staleDraft.Version?.CurrentRevision);
         Assert.Equal(VersionId, staleDraft.Version?.CurrentVersionId);
-        AssertFailure(wrongVersion, BoundaryChangeFailure.Reason.VersionConflict);
+        AssertFailure(wrongVersion, CommandFailureCode.VersionConflict);
         Assert.Collection(new AggregateScenario<SystemBoundary>(boundary).PendingEvents,
             ev =>
             {
@@ -139,8 +139,8 @@ public sealed class SystemBoundaryTests
 
 
         // Assert
-        AssertFailure(revision, BoundaryChangeFailure.Reason.InvalidContent);
-        AssertFailure(successor, BoundaryChangeFailure.Reason.InvalidContent);
+        AssertFailure(revision, CommandFailureCode.InvalidContent);
+        AssertFailure(successor, CommandFailureCode.InvalidContent);
         Assert.Equal(3, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
     }
 
@@ -165,7 +165,7 @@ public sealed class SystemBoundaryTests
 
 
         // Assert
-        var error = AssertFailure(result, BoundaryChangeFailure.Reason.InvalidContent);
+        var error = AssertFailure(result, CommandFailureCode.InvalidContent);
         Assert.Contains("security", error.Message);
         Assert.Empty(new AggregateScenario<SystemBoundary>(boundary).PendingEvents);
     }
@@ -231,12 +231,14 @@ public sealed class SystemBoundaryTests
             "accept", "Looks complete", AuthorId, "Author", Now);
 
         // Assert
-        AssertFailure(selfReview, BoundaryChangeFailure.Reason.SelfReview);
+        AssertFailure(selfReview, CommandFailureCode.ActorProhibited,
+            "A boundary author cannot review their own draft.");
         Assert.Null(boundary.Review(VersionId, 1, decisionId,
             "accept", "Scope is justified", reviewer, "Reviewer", Now));
         var selfApproval = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), decisionId,
             new DateOnly(2027, 1, 1), "Approved", "digest", AuthorId, "Author", Now);
-        AssertFailure(selfApproval, BoundaryChangeFailure.Reason.SelfApproval);
+        AssertFailure(selfApproval, CommandFailureCode.ActorProhibited,
+            "A boundary author cannot approve their own draft.");
 
         Assert.Null(boundary.Revise(VersionId, 1, Content() with
         {
@@ -244,7 +246,8 @@ public sealed class SystemBoundaryTests
         }, AuthorId, "Author", Now.AddMinutes(1)));
         var staleApproval = boundary.Approve(VersionId, 2, Uuid.CreateVersion4(), decisionId,
             new DateOnly(2027, 1, 1), "Approved", "digest", reviewer, "Reviewer", Now);
-        AssertFailure(staleApproval, BoundaryChangeFailure.Reason.UnacceptedReview);
+        AssertFailure(staleApproval, CommandFailureCode.StateConflict,
+            "Approval requires the latest accepted review of this draft revision.");
         Assert.Equal(3, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
     }
 
@@ -266,7 +269,8 @@ public sealed class SystemBoundaryTests
         Assert.Null(boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), decisionId,
             new DateOnly(2027, 1, 1), "Approved", "digest", reviewer, "Reviewer", Now));
         AssertFailure(boundary.Revise(VersionId, 1, Content(), AuthorId, "Author", Now),
-            BoundaryChangeFailure.Reason.Immutable);
+            CommandFailureCode.StateConflict,
+            "The approved boundary is immutable. Propose a successor draft.");
 
         var successorId = Uuid.CreateVersion4();
         Assert.Null(boundary.ProposeSuccessor(VersionId, successorId,
@@ -276,14 +280,15 @@ public sealed class SystemBoundaryTests
             "Reviewed", reviewer, "Reviewer", Now));
         var overlap = boundary.Approve(successorId, 1, Uuid.CreateVersion4(), nextDecisionId,
             new DateOnly(2027, 1, 1), "Approved", "digest", reviewer, "Reviewer", Now);
-        AssertFailure(overlap, BoundaryChangeFailure.Reason.EffectiveDateOutOfOrder);
+        AssertFailure(overlap, CommandFailureCode.InvalidContent,
+            "A successor must become effective after the previous approved version.");
         Assert.Null(boundary.Approve(successorId, 1, Uuid.CreateVersion4(), nextDecisionId,
             new DateOnly(2027, 2, 1), "Approved", "digest", reviewer, "Reviewer", Now));
 
         var staleSuccessor = boundary.ProposeSuccessor(VersionId, Uuid.CreateVersion4(),
             Content() with { Statement = "Stale successor" }, AuthorId, "Author", Now);
         var staleVersion = AssertFailure(staleSuccessor,
-            BoundaryChangeFailure.Reason.VersionConflict);
+            CommandFailureCode.VersionConflict);
         Assert.Equal(successorId, staleVersion.Version?.CurrentVersionId);
     }
 
@@ -303,7 +308,7 @@ public sealed class SystemBoundaryTests
             AuthorId, "Author", Now);
 
         // Assert
-        var referenced = AssertFailure(denied, BoundaryChangeFailure.Reason.VersionConflict);
+        var referenced = AssertFailure(denied, CommandFailureCode.VersionConflict);
         Assert.Equal(VersionConflictCode.ReferencedDraft, referenced.Version?.Code);
         Assert.Equal(2, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
 
@@ -315,7 +320,8 @@ public sealed class SystemBoundaryTests
             AuthorId, "Author", Now));
         Assert.Equal(2, new AggregateScenario<SystemBoundary>(unused).PendingEvents.Count);
         AssertFailure(unused.Revise(unusedVersion, 1, Content(), AuthorId, "Author", Now),
-            BoundaryChangeFailure.Reason.Immutable);
+            CommandFailureCode.StateConflict,
+            "The approved boundary is immutable. Propose a successor draft.");
     }
 
     [Fact]
@@ -344,20 +350,22 @@ public sealed class SystemBoundaryTests
 
         // Assert
         Assert.Equal(VersionConflictCode.StaleDraft, AssertFailure(staleDiscard,
-            BoundaryChangeFailure.Reason.VersionConflict).Version?.Code);
+            CommandFailureCode.VersionConflict).Version?.Code);
         Assert.Equal(VersionConflictCode.ReferencedDraft, AssertFailure(referencedDiscard,
-            BoundaryChangeFailure.Reason.VersionConflict).Version?.Code);
+            CommandFailureCode.VersionConflict).Version?.Code);
         var staleVersion = AssertFailure(staleSuccessor,
-            BoundaryChangeFailure.Reason.VersionConflict);
+            CommandFailureCode.VersionConflict);
         Assert.Equal(VersionId, staleVersion.Version?.CurrentVersionId);
         Assert.Equal(4, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
     }
 
-    static BoundaryChangeFailure AssertFailure(BoundaryChangeFailure? actual,
-        BoundaryChangeFailure.Reason expected)
+    static CommandFailure AssertFailure(CommandFailure? actual, CommandFailureCode expected,
+        string? message = null)
     {
-        var failure = Assert.IsType<BoundaryChangeFailure>(actual);
+        var failure = Assert.IsType<CommandFailure>(actual);
         Assert.Equal(expected, failure.Code);
+        if (message is not null)
+            Assert.Equal(message, failure.Message);
         return failure;
     }
 

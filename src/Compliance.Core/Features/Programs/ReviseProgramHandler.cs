@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -12,10 +13,11 @@ public sealed class ReviseProgramHandler(IAggregateExecutor executor, TimeProvid
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(
             new ComplianceProgram(context.Request.TenantId, context.Request.ProgramId),
-            program => AggregateOutcome.CommitOnSuccess(program.Revise(context.Request.ExpectedRevision,
-                context.Request.Name, context.Request.Plan,
-                RbacIds.Member(context.Request.TenantId, userId),
-                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
+            program => CommandFailureRequestAdapter.ToOutcome(
+                program.Revise(context.Request.ExpectedRevision,
+                    context.Request.Name, context.Request.Plan,
+                    RbacIds.Member(context.Request.TenantId, userId),
+                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
             context, ct);
     }
 }
