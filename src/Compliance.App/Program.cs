@@ -142,6 +142,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     }
 
     builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton<AuthorizationDenialLog>();
+    builder.Services.AddHostedService(services => services.GetRequiredService<AuthorizationDenialLog>());
     builder.Services.AddComplianceHealthChecks();
     builder.Services.AddTenantPathLogRedaction();
 
@@ -178,7 +181,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.UseAuthorization();
 
     app.MapPortiaOpenApi();
-    app.MapPortiaMcp("/mcp").RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser);
+    app.MapPortiaMcp(AuthorizationDenialLog.McpPath).RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser);
 
     app.MapComplianceHealthChecks();
     app.MapGet(

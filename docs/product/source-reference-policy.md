@@ -1,6 +1,8 @@
 # Public source reference and standards-use policy
 
-Status: required product and engineering policy, 2026-09-14
+Status: required product and engineering policy, 2026-09-14. The approved and
+excluded registers below were confirmed for the approved canonical entity
+model on 2026-09-22 (M0-D28, decision owner Jeff Repanich).
 
 Compliance is licensed under Apache License 2.0. Domain definitions, backlog
 issues, implementation subtasks, schemas, adapters, tests, and user-facing

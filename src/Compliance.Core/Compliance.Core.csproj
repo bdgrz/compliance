@@ -10,6 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Bdgrz.Compliance.App" />
     <InternalsVisibleTo Include="Bdgrz.Compliance.Tests" />
   </ItemGroup>
 </Project>
