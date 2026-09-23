@@ -12,7 +12,7 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class EmailChallengeDeliveryReactorTests
 {
     [Fact]
-    public async Task ShouldCheckpointFailedChallengeAndDeliverLaterUserGivenSmtpFailure()
+    public async Task ShouldRecordFailureAndDeliverLaterUserGivenSmtpFailure()
     {
         // Arrange
         var owner = Uuid.CreateVersion4();

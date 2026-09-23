@@ -76,7 +76,7 @@ public sealed class TenantInvitationDeliveryReactorTests
     }
 
     [Fact]
-    public async Task ShouldCheckpointFailedAttemptAndDeliverLaterInviteGivenSameTenant()
+    public async Task ShouldRecordFailureAndDeliverLaterInviteGivenSameTenant()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -124,7 +124,7 @@ public sealed class TenantInvitationDeliveryReactorTests
     }
 
     [Fact]
-    public async Task ShouldCheckpointMissingKeyAndDeliverLaterInviteGivenSameTenant()
+    public async Task ShouldRecordMissingKeyFailureAndDeliverLaterInviteGivenSameTenant()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
