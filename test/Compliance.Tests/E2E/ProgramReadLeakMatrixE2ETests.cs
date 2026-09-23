@@ -35,6 +35,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             // Act: page every current and historical read through HTTP and MCP.
             await using var mcp = await McpScenario.ConnectAsync(owner,
                 new Uri(owner.BaseAddress!, "/mcp"));
+            var tenantACursors = new Dictionary<string, CursorPair>();
             foreach (var scope in new[] { scopeA, scopeB })
             {
                 var tenantPath = TenantPath(scope.TenantId);
@@ -60,52 +61,114 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     ["minimum_service_revision"] = 2,
                 };
 
-                var httpPrograms = await ReadTwoHttpPagesAsync(owner, tenantPath + "/programs");
-                var mcpPrograms = await ReadTwoMcpPagesAsync(mcp, "bdgrz.program.list",
+                var httpPrograms = await ReadHttpPagesAsync(owner, tenantPath + "/programs");
+                var mcpPrograms = await ReadMcpPagesAsync(mcp, "bdgrz.program.list",
                     programInput);
-                AssertCurrentRows(scope.TenantId, httpPrograms, "program_id", scope.ProgramIds);
-                AssertCurrentRows(scope.TenantId, mcpPrograms, "program_id", scope.ProgramIds);
+                AssertCurrentRows(scope.TenantId, httpPrograms.Entries, "program_id", scope.ProgramIds);
+                AssertCurrentRows(scope.TenantId, mcpPrograms.Entries, "program_id", scope.ProgramIds);
 
-                var httpProgramHistory = await ReadTwoHttpPagesAsync(owner,
+                var httpProgramHistory = await ReadHttpPagesAsync(owner,
                     programPath + "/revisions", "minimum_program_revision=2");
-                var mcpProgramHistory = await ReadTwoMcpPagesAsync(mcp,
+                var mcpProgramHistory = await ReadMcpPagesAsync(mcp,
                     "bdgrz.program.revisions.list", programHistoryInput);
-                AssertHistory(httpProgramHistory, "program_id", scope.ProgramIds[0]);
-                AssertHistory(mcpProgramHistory, "program_id", scope.ProgramIds[0]);
+                AssertHistory(httpProgramHistory.Entries, "program_id", scope.ProgramIds[0]);
+                AssertHistory(mcpProgramHistory.Entries, "program_id", scope.ProgramIds[0]);
 
-                var httpSetup = await ReadTwoSetupHttpPagesAsync(owner,
+                var httpSetup = await ReadSetupHttpPagesAsync(owner,
                     programPath + "/setup-work");
-                var mcpSetup = await ReadTwoSetupMcpPagesAsync(mcp,
+                var mcpSetup = await ReadSetupMcpPagesAsync(mcp,
                     scope.TenantId, scope.ProgramIds[0]);
-                AssertSetup(scope, httpSetup);
-                AssertSetup(scope, mcpSetup);
+                AssertSetup(scope, httpSetup.Entries);
+                AssertSetup(scope, mcpSetup.Entries);
 
-                var httpServices = await ReadTwoHttpPagesAsync(owner,
+                var httpServices = await ReadHttpPagesAsync(owner,
                     tenantPath + "/client-services");
-                var mcpServices = await ReadTwoMcpPagesAsync(mcp,
+                var mcpServices = await ReadMcpPagesAsync(mcp,
                     "bdgrz.client-service.list", serviceInput);
-                AssertCurrentRows(scope.TenantId, httpServices, "service_id", scope.ServiceIds);
-                AssertCurrentRows(scope.TenantId, mcpServices, "service_id", scope.ServiceIds);
+                AssertCurrentRows(scope.TenantId, httpServices.Entries, "service_id", scope.ServiceIds);
+                AssertCurrentRows(scope.TenantId, mcpServices.Entries, "service_id", scope.ServiceIds);
 
-                var httpProgramServices = await ReadTwoHttpPagesAsync(owner,
+                var httpProgramServices = await ReadHttpPagesAsync(owner,
                     programPath + "/client-services");
-                var mcpProgramServices = await ReadTwoMcpPagesAsync(mcp,
+                var mcpProgramServices = await ReadMcpPagesAsync(mcp,
                     "bdgrz.client-service.program.list", programServicesInput);
-                AssertCurrentRows(scope.TenantId, httpProgramServices, "service_id",
+                AssertCurrentRows(scope.TenantId, httpProgramServices.Entries, "service_id",
                     scope.ServiceIds, "program_id", scope.ProgramIds[0]);
-                AssertCurrentRows(scope.TenantId, mcpProgramServices, "service_id",
+                AssertCurrentRows(scope.TenantId, mcpProgramServices.Entries, "service_id",
                     scope.ServiceIds, "program_id", scope.ProgramIds[0]);
 
-                var httpServiceHistory = await ReadTwoHttpPagesAsync(owner,
+                var httpServiceHistory = await ReadHttpPagesAsync(owner,
                     servicePath + "/revisions", "minimum_service_revision=2");
-                var mcpServiceHistory = await ReadTwoMcpPagesAsync(mcp,
+                var mcpServiceHistory = await ReadMcpPagesAsync(mcp,
                     "bdgrz.client-service.revisions.list", serviceHistoryInput);
-                AssertHistory(httpServiceHistory, "service_id", scope.ServiceIds[0]);
-                AssertHistory(mcpServiceHistory, "service_id", scope.ServiceIds[0]);
+                AssertHistory(httpServiceHistory.Entries, "service_id", scope.ServiceIds[0]);
+                AssertHistory(mcpServiceHistory.Entries, "service_id", scope.ServiceIds[0]);
+
+                if (scope.TenantId == tenantA)
+                {
+                    tenantACursors.Add("programs", new CursorPair(httpPrograms.FirstCursor,
+                        mcpPrograms.FirstCursor));
+                    tenantACursors.Add("program_history", new CursorPair(httpProgramHistory.FirstCursor,
+                        mcpProgramHistory.FirstCursor));
+                    tenantACursors.Add("setup", new CursorPair(httpSetup.FirstCursor,
+                        mcpSetup.FirstCursor));
+                    tenantACursors.Add("services", new CursorPair(httpServices.FirstCursor,
+                        mcpServices.FirstCursor));
+                    tenantACursors.Add("program_services", new CursorPair(
+                        httpProgramServices.FirstCursor, mcpProgramServices.FirstCursor));
+                    tenantACursors.Add("service_history", new CursorPair(
+                        httpServiceHistory.FirstCursor, mcpServiceHistory.FirstCursor));
+                }
             }
 
-            // Assert: a member of both tenants cannot use one tenant's record IDs in the other.
+            // A cursor from tenant A must be rejected or return only tenant B rows.
             var tenantBPath = TenantPath(tenantB);
+            var cursorProbes = new[]
+            {
+                new CursorProbe("programs", tenantBPath + "/programs?limit=1",
+                    "bdgrz.program.list", new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(), ["limit"] = 1,
+                    }, "program_id", scopeB.ProgramIds),
+                new CursorProbe("program_history", tenantBPath + "/programs/" +
+                    scopeB.ProgramIds[0] + "/revisions?limit=1&minimum_program_revision=2",
+                    "bdgrz.program.revisions.list", new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(), ["program_id"] = scopeB.ProgramIds[0],
+                        ["limit"] = 1, ["minimum_program_revision"] = 2,
+                    }, "program_id", [scopeB.ProgramIds[0]]),
+                new CursorProbe("services", tenantBPath + "/client-services?limit=1",
+                    "bdgrz.client-service.list", new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(), ["limit"] = 1,
+                    }, "service_id", scopeB.ServiceIds),
+                new CursorProbe("program_services", tenantBPath + "/programs/" +
+                    scopeB.ProgramIds[0] + "/client-services?limit=1",
+                    "bdgrz.client-service.program.list", new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(), ["program_id"] = scopeB.ProgramIds[0],
+                        ["limit"] = 1,
+                    }, "service_id", scopeB.ServiceIds),
+                new CursorProbe("service_history", tenantBPath + "/client-services/" +
+                    scopeB.ServiceIds[0] + "/revisions?limit=1&minimum_service_revision=2",
+                    "bdgrz.client-service.revisions.list", new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(), ["service_id"] = scopeB.ServiceIds[0],
+                        ["limit"] = 1, ["minimum_service_revision"] = 2,
+                    }, "service_id", [scopeB.ServiceIds[0]]),
+            };
+            foreach (var probe in cursorProbes)
+            {
+                var cursors = tenantACursors[probe.Name];
+                await AssertTransplantedHttpCursorAsync(owner, probe.HttpPath, cursors.Http,
+                    probe.IdKey, probe.AllowedIds, tenantB);
+                await AssertTransplantedMcpCursorAsync(mcp, probe.McpTool, probe.McpInput,
+                    cursors.Mcp, probe.IdKey, probe.AllowedIds, tenantB);
+            }
+            await AssertTransplantedSetupCursorAsync(owner, mcp, scopeB,
+                tenantACursors["setup"]);
+
+            // Assert: a member of both tenants cannot use one tenant's record IDs in the other.
             foreach (var path in new[]
                      {
                          tenantBPath + "/programs/" + scopeA.ProgramIds[0] + "/revisions",
@@ -341,43 +404,79 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
         throw new TimeoutException("The projection did not reach the expected page size: " + path);
     }
 
-    static async Task<JsonElement[]> ReadTwoHttpPagesAsync(HttpClient client, string path,
+    static async Task<PageWalk> ReadHttpPagesAsync(HttpClient client, string path,
         string? query = null)
     {
         var firstPath = path + "?limit=1" + (query is null ? "" : "&" + query);
         var first = await ReadHttpAsync(client, firstPath);
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.NotNull(cursor);
-        var second = await ReadHttpAsync(client,
-            firstPath + "&cursor=" + Uri.EscapeDataString(cursor));
-        return [Assert.Single(Items(first)), Assert.Single(Items(second))];
+        var firstCursor = first.GetProperty("next_cursor").GetString();
+        Assert.NotNull(firstCursor);
+        var entries = new List<JsonElement> { Assert.Single(Items(first)) };
+        var cursor = firstCursor;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            var page = await ReadHttpAsync(client,
+                firstPath + "&cursor=" + Uri.EscapeDataString(cursor));
+            entries.AddRange(Items(page));
+            var nextCursor = page.GetProperty("next_cursor").GetString();
+            if (nextCursor is null)
+            {
+                Assert.Equal(2, entries.Count);
+                return new PageWalk(entries.ToArray(), firstCursor);
+            }
+            cursor = nextCursor;
+        }
+        throw new Xunit.Sdk.XunitException("The HTTP cursor did not terminate.");
     }
 
-    static async Task<JsonElement[]> ReadTwoMcpPagesAsync(McpScenario mcp, string tool,
+    static async Task<PageWalk> ReadMcpPagesAsync(McpScenario mcp, string tool,
         Dictionary<string, object?> input)
     {
         var arguments = new Dictionary<string, object?>(input) { ["limit"] = 1 };
         var first = await ReadMcpAsync(mcp, tool, arguments);
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.NotNull(cursor);
-        arguments["cursor"] = cursor;
-        var second = await ReadMcpAsync(mcp, tool, arguments);
-        return [Assert.Single(Items(first)), Assert.Single(Items(second))];
+        var firstCursor = first.GetProperty("next_cursor").GetString();
+        Assert.NotNull(firstCursor);
+        var entries = new List<JsonElement> { Assert.Single(Items(first)) };
+        var cursor = firstCursor;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            arguments["cursor"] = cursor;
+            var page = await ReadMcpAsync(mcp, tool, arguments);
+            entries.AddRange(Items(page));
+            var nextCursor = page.GetProperty("next_cursor").GetString();
+            if (nextCursor is null)
+            {
+                Assert.Equal(2, entries.Count);
+                return new PageWalk(entries.ToArray(), firstCursor);
+            }
+            cursor = nextCursor;
+        }
+        throw new Xunit.Sdk.XunitException("The MCP cursor did not terminate.");
     }
 
-    static async Task<JsonElement[]> ReadTwoSetupHttpPagesAsync(HttpClient client, string path)
+    static async Task<PageWalk> ReadSetupHttpPagesAsync(HttpClient client, string path)
     {
         var first = await WaitForSetupHttpAsync(client, path + "?boundary_limit=1",
             requireNextCursor: true);
-        var cursor = first.GetProperty("next_boundary_cursor").GetString();
-        Assert.NotNull(cursor);
-        var second = await WaitForSetupHttpAsync(client,
-            path + "?boundary_limit=1&boundary_cursor=" +
-            Uri.EscapeDataString(cursor));
-        return [first, second];
+        var firstCursor = first.GetProperty("next_boundary_cursor").GetString();
+        Assert.NotNull(firstCursor);
+        var pages = new List<JsonElement> { first };
+        var cursor = firstCursor;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            var page = await WaitForSetupHttpAsync(client,
+                path + "?boundary_limit=1&boundary_cursor=" +
+                Uri.EscapeDataString(cursor));
+            pages.Add(page);
+            var nextCursor = page.GetProperty("next_boundary_cursor").GetString();
+            if (nextCursor is null)
+                return new PageWalk(pages.ToArray(), firstCursor);
+            cursor = nextCursor;
+        }
+        throw new Xunit.Sdk.XunitException("The HTTP setup cursor did not terminate.");
     }
 
-    static async Task<JsonElement[]> ReadTwoSetupMcpPagesAsync(McpScenario mcp,
+    static async Task<PageWalk> ReadSetupMcpPagesAsync(McpScenario mcp,
         Uuid tenantId, string programId)
     {
         var input = new Dictionary<string, object?>
@@ -387,11 +486,21 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             ["boundary_limit"] = 1,
         };
         var first = await WaitForSetupMcpAsync(mcp, input, requireNextCursor: true);
-        var cursor = first.GetProperty("next_boundary_cursor").GetString();
-        Assert.NotNull(cursor);
-        input["boundary_cursor"] = cursor;
-        var second = await WaitForSetupMcpAsync(mcp, input);
-        return [first, second];
+        var firstCursor = first.GetProperty("next_boundary_cursor").GetString();
+        Assert.NotNull(firstCursor);
+        var pages = new List<JsonElement> { first };
+        var cursor = firstCursor;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            input["boundary_cursor"] = cursor;
+            var page = await WaitForSetupMcpAsync(mcp, input);
+            pages.Add(page);
+            var nextCursor = page.GetProperty("next_boundary_cursor").GetString();
+            if (nextCursor is null)
+                return new PageWalk(pages.ToArray(), firstCursor);
+            cursor = nextCursor;
+        }
+        throw new Xunit.Sdk.XunitException("The MCP setup cursor did not terminate.");
     }
 
     static async Task<JsonElement> WaitForSetupHttpAsync(HttpClient client, string path,
@@ -439,6 +548,126 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
         throw new TimeoutException("The MCP setup-work projection did not catch up.");
     }
 
+    static async Task AssertTransplantedHttpCursorAsync(HttpClient client, string path,
+        string cursor, string idKey, IReadOnlyList<string> allowedIds, Uuid tenantId)
+    {
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            using var response = await client.GetAsync(path + "&cursor=" +
+                Uri.EscapeDataString(cursor));
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+                return;
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var page = await ReadJsonAsync(response);
+            AssertTenantRows(page, idKey, allowedIds, tenantId);
+            var nextCursor = page.GetProperty("next_cursor").GetString();
+            if (nextCursor is null)
+                return;
+            cursor = nextCursor;
+        }
+        Assert.Fail("The transplanted HTTP cursor did not terminate.");
+    }
+
+    static async Task AssertTransplantedMcpCursorAsync(McpScenario mcp, string tool,
+        Dictionary<string, object?> input, string cursor, string idKey,
+        IReadOnlyList<string> allowedIds, Uuid tenantId)
+    {
+        var arguments = new Dictionary<string, object?>(input);
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            arguments["cursor"] = cursor;
+            var call = await mcp.When(tool, arguments);
+            var structured = Assert.IsType<JsonElement>(call.StructuredJson);
+            if (call.IsError)
+            {
+                Assert.Equal("Validation", structured.GetProperty("kind").GetString());
+                return;
+            }
+            var page = structured.GetProperty("result");
+            AssertTenantRows(page, idKey, allowedIds, tenantId);
+            var nextCursor = page.GetProperty("next_cursor").GetString();
+            if (nextCursor is null)
+                return;
+            cursor = nextCursor;
+        }
+        Assert.Fail("The transplanted MCP cursor did not terminate.");
+    }
+
+    static void AssertTenantRows(JsonElement page, string idKey,
+        IReadOnlyList<string> allowedIds, Uuid tenantId)
+    {
+        Assert.All(Items(page), item =>
+        {
+            Assert.Contains(item.GetProperty(idKey).GetString()!, allowedIds);
+            if (item.TryGetProperty("tenant_id", out var rowTenantId))
+                Assert.Equal(tenantId.ToString(), rowTenantId.GetString());
+        });
+    }
+
+    static async Task AssertTransplantedSetupCursorAsync(HttpClient client, McpScenario mcp,
+        TenantScope scope, CursorPair cursors)
+    {
+        var path = TenantPath(scope.TenantId) + "/programs/" + scope.ProgramIds[0] +
+            "/setup-work?boundary_limit=1&boundary_cursor=";
+        var cursor = cursors.Http;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            using var response = await client.GetAsync(path + Uri.EscapeDataString(cursor));
+            if (response.StatusCode != HttpStatusCode.BadRequest)
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var page = await ReadJsonAsync(response);
+                AssertTenantSetup(page, scope);
+                var nextCursor = page.GetProperty("next_boundary_cursor").GetString();
+                if (nextCursor is not null)
+                {
+                    if (pageIndex == 2)
+                        Assert.Fail("The transplanted HTTP setup cursor did not terminate.");
+                    cursor = nextCursor;
+                    continue;
+                }
+            }
+            break;
+        }
+
+        cursor = cursors.Mcp;
+        for (var pageIndex = 0; pageIndex < 3; pageIndex++)
+        {
+            var call = await mcp.When("bdgrz.program.setup-work.get",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = scope.TenantId.ToString(),
+                    ["program_id"] = scope.ProgramIds[0],
+                    ["boundary_limit"] = 1,
+                    ["boundary_cursor"] = cursor,
+                });
+            var structured = Assert.IsType<JsonElement>(call.StructuredJson);
+            if (call.IsError)
+            {
+                Assert.Equal("Validation", structured.GetProperty("kind").GetString());
+                return;
+            }
+            var page = structured.GetProperty("result");
+            AssertTenantSetup(page, scope);
+            var nextCursor = page.GetProperty("next_boundary_cursor").GetString();
+            if (nextCursor is null)
+                return;
+            cursor = nextCursor;
+        }
+        Assert.Fail("The transplanted MCP setup cursor did not terminate.");
+    }
+
+    static void AssertTenantSetup(JsonElement page, TenantScope scope)
+    {
+        Assert.Equal(scope.TenantId.ToString(), page.GetProperty("tenant_id").GetString());
+        Assert.Equal(scope.ProgramIds[0], page.GetProperty("program_id").GetString());
+        Assert.All(Items(page), item =>
+        {
+            Assert.Equal("boundary", item.GetProperty("source_type").GetString());
+            Assert.Contains(item.GetProperty("source_id").GetString()!, scope.BoundaryIds);
+        });
+    }
+
     static void AssertCurrentRows(Uuid tenantId, JsonElement[] rows, string idKey,
         IReadOnlyList<string> expectedIds, string? parentKey = null, string? parentId = null)
     {
@@ -462,14 +691,21 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static void AssertSetup(TenantScope scope, JsonElement[] pages)
     {
+        Assert.Equal(2, pages.Count(page => Items(page).Length != 0));
         Assert.All(pages, page =>
         {
             Assert.Equal(scope.TenantId.ToString(), page.GetProperty("tenant_id").GetString());
             Assert.Equal(scope.ProgramIds[0], page.GetProperty("program_id").GetString());
             Assert.Equal(2, page.GetProperty("program_revision").GetInt64());
         });
-        var boundaryIds = pages.SelectMany(Items)
-            .Where(item => item.GetProperty("source_type").GetString() == "boundary")
+        var items = pages.SelectMany(Items).ToArray();
+        Assert.NotEmpty(items);
+        Assert.All(items, item =>
+        {
+            Assert.Equal("boundary", item.GetProperty("source_type").GetString());
+            Assert.Contains(item.GetProperty("source_id").GetString(), scope.BoundaryIds);
+        });
+        var boundaryIds = items
             .Select(item => item.GetProperty("source_id").GetString()!)
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
         Assert.Equal(scope.BoundaryIds.Order(StringComparer.Ordinal), boundaryIds);
@@ -503,4 +739,11 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     sealed record TenantScope(Uuid TenantId, IReadOnlyList<string> ProgramIds,
         IReadOnlyList<string> ServiceIds, IReadOnlyList<string> BoundaryIds);
+
+    sealed record PageWalk(JsonElement[] Entries, string FirstCursor);
+
+    sealed record CursorPair(string Http, string Mcp);
+
+    sealed record CursorProbe(string Name, string HttpPath, string McpTool,
+        Dictionary<string, object?> McpInput, string IdKey, IReadOnlyList<string> AllowedIds);
 }
