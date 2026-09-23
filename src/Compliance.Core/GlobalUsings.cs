@@ -4,6 +4,7 @@ global using Bdgrz.Compliance.Features.Artifacts;
 global using Bdgrz.Compliance.Features.Boundaries;
 global using Bdgrz.Compliance.Features.Commitments;
 global using Bdgrz.Compliance.Features.Controls;
+global using Bdgrz.Compliance.Features.Criteria;
 global using Bdgrz.Compliance.Features.Programs;
 global using Bdgrz.Compliance.Features.Risks;
 global using Bdgrz.Compliance.Features.Snapshots;

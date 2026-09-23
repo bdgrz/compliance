@@ -89,7 +89,33 @@ sealed class FitzProgramDirectory(IKvClient client)
                 await ProgramDirectorySchema.Revisions.InsertAsync(Transaction,
                     new ProgramRevisionView(revised.ProgramId, revised.Revision,
                         revised.Name, revised.Plan, revised.ActorMemberId,
-                        revised.ActorDisplay, revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ActorDisplay, revised.ChangedAt)
+                    {
+                        CriteriaEditionId = current.CriteriaEditionId,
+                    }, ct).ConfigureAwait(false);
+                break;
+            case ProgramCriteriaEditionSelected selected:
+                var beforeSelection = await ProgramDirectorySchema.Directory.GetAsync(Transaction,
+                    selected.ProgramId, ct).ConfigureAwait(false);
+                if (beforeSelection is null)
+                    throw new InvalidOperationException(
+                        "A program criteria selection cannot project before its creation.");
+                await ProgramDirectorySchema.Directory.ReplaceAsync(Transaction, beforeSelection,
+                    beforeSelection with
+                    {
+                        Revision = selected.Revision,
+                        CriteriaEditionId = selected.EditionId,
+                        LastChangedByMemberId = selected.ActorMemberId,
+                        LastChangedByDisplay = selected.ActorDisplay,
+                        LastChangedAt = selected.ChangedAt,
+                    }, ct).ConfigureAwait(false);
+                await ProgramDirectorySchema.Revisions.InsertAsync(Transaction,
+                    new ProgramRevisionView(selected.ProgramId, selected.Revision,
+                        beforeSelection.Name, beforeSelection.Plan, selected.ActorMemberId,
+                        selected.ActorDisplay, selected.ChangedAt)
+                    {
+                        CriteriaEditionId = selected.EditionId,
+                    }, ct).ConfigureAwait(false);
                 break;
         }
     }

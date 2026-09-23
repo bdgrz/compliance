@@ -9,11 +9,13 @@ public sealed class ComplianceProgram : Aggregate
     readonly Uuid _tenantId;
     bool _created;
     long _revision;
+    Uuid? _criteriaEditionId;
     string? _initialName;
     ProgramPlan? _initialPlan;
 
     public bool IsCreated => _created;
     public long Revision => _revision;
+    public Uuid? CriteriaEditionId => _criteriaEditionId;
 
     public ComplianceProgram(Uuid tenantId, Uuid programId)
         : base(programId, new EventStreamAddress(tenantId.ToString(), "programs", programId.ToString()))
@@ -27,6 +29,11 @@ public sealed class ComplianceProgram : Aggregate
             _initialPlan = ev.Plan;
         });
         On<ProgramRevised>(ev => _revision = ev.Revision);
+        On<ProgramCriteriaEditionSelected>(ev =>
+        {
+            _revision = ev.Revision;
+            _criteriaEditionId = ev.EditionId;
+        });
     }
 
     public CommandFailure? Create(string name, ProgramPlan plan, Uuid actorMemberId,
@@ -62,6 +69,26 @@ public sealed class ComplianceProgram : Aggregate
             return CommandFailure.InvalidContent(error);
         RaiseEvent(new ProgramRevised(_tenantId, Id, _revision + 1, name.Trim(), plan,
             actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
+        return null;
+    }
+
+    public CommandFailure? SelectCriteriaEdition(long expectedRevision, Uuid editionId,
+        Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
+    {
+        if (!_created)
+            return CommandFailure.MissingRecord("The program was not found.");
+        if (editionId == Uuid.Empty)
+            return CommandFailure.InvalidContent("A criteria edition is required.");
+        if (_criteriaEditionId == editionId)
+            return null;
+        if (expectedRevision != _revision)
+            return CommandFailure.ForVersion(
+                VersionedRecordRules.StaleRevision("program", _revision));
+        RaiseEvent(new ProgramCriteriaEditionSelected(_tenantId, Id, _revision + 1,
+            editionId, actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
