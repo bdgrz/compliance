@@ -26,6 +26,15 @@ public sealed partial class EmailChallengeDeliveryReactor(
             address.DeliveryStatus == "delivered")
             return;
 
+        // Events written before durable delivery have no derivation key. Their original
+        // plaintext token cannot be recovered; let the owner reissue without blocking the
+        // global reactor behind this historical event until it expires.
+        if (issued.TokenKeyId is null)
+        {
+            await RecordFailureAsync(issued, "key_unavailable", ct).ConfigureAwait(false);
+            return;
+        }
+
         if (!tokenKeys.TryDerive(issued.TokenKeyId, issued.ChallengeId, issued.UserId,
                 issued.EmailAddress, issued.ExpiresAt, out var token) ||
             !CryptographicOperations.FixedTimeEquals(

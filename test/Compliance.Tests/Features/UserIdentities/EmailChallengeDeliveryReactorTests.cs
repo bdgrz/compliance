@@ -114,6 +114,47 @@ public sealed class EmailChallengeDeliveryReactorTests
     }
 
     [Fact]
+    public async Task ShouldRecordFailureWithoutRetryGivenLegacyChallengeWithoutTokenKey()
+    {
+        // Arrange
+        var owner = Uuid.CreateVersion4();
+        var challengeId = Uuid.CreateVersion4();
+        const string email = "legacy@example.com";
+        var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddMinutes(15);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>()).Build();
+        var keys = EmailChallengeTokenKeys.FromConfiguration(configuration, true);
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var aggregate = new EmailAddress(email);
+        Assert.True(aggregate.Reserve(owner).IsSuccess);
+        var hash = new string('A', 64);
+        Assert.True(aggregate.IssueChallenge(owner, challengeId, hash, expiresAt, now).IsSuccess);
+        await writer.SaveAsync(aggregate, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var delivery = new FailingOnceDelivery();
+        var reactor = new EmailChallengeDeliveryReactor(new InMemoryProjectionCheckpointStore(),
+            reader, writer, delivery, keys, TimeProvider.System);
+        var context = new Context(new EmailChallengeIssued(owner, email, challengeId, hash,
+            expiresAt));
+
+        // Act
+        await reactor.HandleAsync(context, CancellationToken.None);
+        var failed = await reader.HydrateAsync(new EmailAddress(email), CancellationToken.None);
+        await reactor.HandleAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("failed", failed.DeliveryStatus);
+        Assert.Empty(delivery.Attempts);
+    }
+
+    [Fact]
     public async Task ShouldSkipDeliveryGivenExpiredChallenge()
     {
         // Arrange
