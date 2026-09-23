@@ -128,11 +128,7 @@ Area: audit
 
 Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
-The delegated product defaults and the remaining organization-owned facts are
-separated in [the M0-D01 decision record](decisions/m0-d01-program-targets.md).
-Program dates remain optional targets; no target becomes a confirmed auditor
-date or a milestone due date without attributable evidence. The issue remains
-open until management and the audit firm supply the first engagement facts.
+Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisions/m0-d01-program-targets.md). Organization-specific facts moved to follow-up discovery #348 and #349. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -164,6 +160,8 @@ Type: Product discovery
 Area: controls
 
 Decision needed: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
+
+Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisions/m0-d02-criteria-content.md). Organization-specific facts moved to follow-up discovery #351. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -261,6 +259,8 @@ Area: applications
 
 Decision needed: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
 
+Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisions/m0-d05-application-inventory.md). Organization-specific facts moved to follow-up discovery #352. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
+
 Questions to answer:
 
 - [ ] Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
@@ -321,6 +321,8 @@ Area: access-review
 
 Decision needed: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
 
+Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisions/m0-d07-access-review-population.md). Organization-specific facts moved to follow-up discovery #353. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
+
 Questions to answer:
 
 - [ ] Choose the first reviewed systems and collect sample exports from each provider.
@@ -352,6 +354,8 @@ Area: inventory
 
 Decision needed: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
 
+Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisions/m0-d08-technology-inventory.md). No follow-up discovery is required. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
+
 Questions to answer:
 
 - [ ] List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
@@ -380,6 +384,8 @@ Type: Product discovery
 Area: commitments
 
 Decision needed: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
+
+Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisions/m0-d09-commitments.md). Organization-specific facts moved to follow-up discovery #354. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -410,6 +416,8 @@ Area: risk
 
 Decision needed: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
 
+Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisions/m0-d10-risk-method.md). Organization-specific facts moved to follow-up discovery #355. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
+
 Questions to answer:
 
 - [ ] Choose a qualitative or quantitative method and the likelihood and impact scales.
@@ -439,6 +447,8 @@ Type: Product discovery
 Area: providers
 
 Decision needed: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
+
+Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisions/m0-d11-vendors.md). Organization-specific facts moved to follow-up discovery #356. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
 Questions to answer:
 
@@ -1101,15 +1111,18 @@ Done when:
 
 Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
 
-Technical evidence: [ADR 0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md)
-defines a proposed retained-source regeneration operation for the first
-program-scope consumer. It recomputes the retained v1 manifest after Portia
-tenant authorization rather than reading a snapshot projection or mutable
-current sources. The operation limits each amendment lineage to eight links and
-each regeneration to nine snapshot hydrations. This evidence does not accept
-the ADR or settle the remaining snapshot types, workforce consumer,
-size/performance, package, signing, retention, or recovery requirements; M0-A02
-and EN-03 remain open.
+Decision: accepted 2026-09-22 in [ADR 0004](../architecture/decisions/0004-immutable-snapshots.md)
+with [ADR 0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md).
+Snapshots are exact immutable references plus domain-separated canonical
+SHA-256 digests; amendments are linked, branchable, immutable snapshots whose
+impact is the set of changed source references; regeneration recomputes the
+retained manifest with at most eight amendment links. Large populations are
+immutable source records referenced by a streamed, chunked population digest
+with a 250,000-row technical bound, revised with M0-D07 evidence. Package
+composition, signing, retention, holds, and recovery targets stay with their
+own stories; the workforce, access-population, and engagement snapshots adopt
+the mechanism in R1-11d, R2-06, T1-01, and T3-01. EN-03 remains open for its
+own acceptance criteria.
 
 ### M0-A03 ADR: Evidence and artifact storage, inspection, and access
 
@@ -1784,7 +1797,12 @@ Implementation subtasks:
 
 ### R1-09 Bring existing readiness work into the program
 
-Priority: P0
+Priority: P1
+
+> Demoted from P0 on 2026-09-22 by [M0-D04](decisions/m0-d04-readiness-material.md).
+> The first client has no existing readiness material, and no import work is
+> scheduled until the canonical data shape and storage internals are settled.
+> This applies to R1-09a through R1-09d. Sample collection is tracked in #338.
 
 Area: program
 
@@ -4041,6 +4059,11 @@ Implementation subtasks:
 
 Priority: P2
 
+> Closed on 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md).
+> Periodic policy, risk, and vendor reviews are ordinary recurring controls
+> covered by T2-02. The story is kept for reference; reopen it if real use
+> shows a gap.
+
 Area: governance reviews
 
 User story: As a governance owner, I want scheduled review work for policies, risks, and material vendors so that governance artifacts remain current throughout the observation period.
@@ -4255,6 +4278,13 @@ Depends on: T2-08a
 ### T2-09 Conduct periodic management compliance reviews
 
 Priority: P2
+
+> Closed on 2026-09-22 by [M0-D19](decisions/m0-d19-periodic-reviews.md).
+> A management compliance review is a recurring control occurrence (T2-02).
+> Its frozen evidence set binds the exact readiness and monitoring versions,
+> its sign-off records `approved`, `action_requested`, or `deferred`, and the
+> actions it requests are R2-07 findings tracked in the work queue. The story
+> is kept for reference; reopen it if real use shows a gap.
 
 Area: management oversight
 
@@ -5017,11 +5047,11 @@ and UI dependencies directly in GitHub.
 | R1-06 | [#12](https://github.com/bdgrz/compliance/issues/12) | R1 | P0 | M0-D02, EN-04, R1-03, R1-05 |
 | R1-07 | [#13](https://github.com/bdgrz/compliance/issues/13) | R1 | P0 | M0-D10, M0-D22, M0-D23, EN-02, R1-02 |
 | R1-08 | [#14](https://github.com/bdgrz/compliance/issues/14) | R1 | P0 | M0-A05, M0-D23, EN-03, R1-06, R1-07, R1-10, R1-11, R1-12, R1-13, R1-14 |
-| R1-09 | [#47](https://github.com/bdgrz/compliance/issues/47) | R1 | P0 | M0-D04, EN-05 |
-| R1-09a | [#98](https://github.com/bdgrz/compliance/issues/98) | R1 | P0 | M0-D04, EN-05, R1-04, R1-05, R1-06 |
-| R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P0 | R1-09a, R2-02, R2-03 |
-| R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P0 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
-| R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P0 | R1-08, R1-09a |
+| R1-09 | [#47](https://github.com/bdgrz/compliance/issues/47) | R1 | P1 | M0-D04, EN-05 |
+| R1-09a | [#98](https://github.com/bdgrz/compliance/issues/98) | R1 | P1 | M0-D04, #338, EN-05, R1-04, R1-05, R1-06 |
+| R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P1 | R1-09a, R2-02, R2-03 |
+| R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P1 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
+| R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P1 | R1-08, R1-09a |
 | R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
 | R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
 | R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P0 | R1-10a |
@@ -5073,12 +5103,12 @@ and UI dependencies directly in GitHub.
 | T2-03 | [#33](https://github.com/bdgrz/compliance/issues/33) | T2 | P1 | R2-05, T2-02 |
 | T2-04 | [#34](https://github.com/bdgrz/compliance/issues/34) | T2 | P1 | M0-D23, R1-08, T2-01 |
 | T2-05 | [#35](https://github.com/bdgrz/compliance/issues/35) | T2 | P1 | R2-06, T2-01 |
-| T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) | T2 | P2 | M0-D19, T2-01 |
+| T2-06 | [#36](https://github.com/bdgrz/compliance/issues/36) (closed by M0-D19) | T2 | P2 | M0-D19, T2-01 |
 | T2-07 | [#37](https://github.com/bdgrz/compliance/issues/37) | T2 | P1 | M0-D21, T1-02, T2-01 |
 | T2-08 | [#38](https://github.com/bdgrz/compliance/issues/38) | T2 | P2 | M0-D20, M0-D24 |
 | T2-08a | [#137](https://github.com/bdgrz/compliance/issues/137) | T2 | P2 | M0-D20, M0-D24 |
 | T2-08b | [#138](https://github.com/bdgrz/compliance/issues/138) | T2 | P2 | T2-08a |
-| T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) | T2 | P2 | M0-D19, M0-D23, T2-04 |
+| T2-09 | [#39](https://github.com/bdgrz/compliance/issues/39) (closed by M0-D19) | T2 | P2 | M0-D19, M0-D23, T2-04 |
 | T3-01 | [#40](https://github.com/bdgrz/compliance/issues/40) | T3 | P1 | T2-03, T2-05, T2-07 |
 | T3-02 | [#41](https://github.com/bdgrz/compliance/issues/41) | T3 | P1 | M0-D17, T3-01 |
 | T3-03 | [#42](https://github.com/bdgrz/compliance/issues/42) | T3 | P1 | T1-04, T3-02 |
