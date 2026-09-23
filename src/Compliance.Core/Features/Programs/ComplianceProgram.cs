@@ -55,7 +55,8 @@ public sealed class ComplianceProgram : Aggregate
         if (!_created)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The program was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("program", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("program", _revision)
+                .ToRequestError());
         var error = Validate(name, plan);
         if (error is not null)
             return Result.Failure(error);

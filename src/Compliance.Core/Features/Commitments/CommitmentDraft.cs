@@ -109,7 +109,8 @@ public sealed class CommitmentDraft : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The draft was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("commitment draft", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("commitment draft", _revision)
+                .ToRequestError());
         var error = Validate(Kind!, Identifier!, statement, context, sourceReference);
         if (error is not null)
             return Result.Failure(error);
