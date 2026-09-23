@@ -1326,7 +1326,8 @@ Source: Multi-client firm decision 2026-09-14; README authentication section.
 
 Business outcome: the team has an agreed system boundary; authoritative workforce context; application, technology, and information inventories; service commitments and system requirements; criteria; roles; controls; risks; providers; and an owned gap plan. Authorization, versioned records, review decisions, snapshots, and artifact storage are proven through their first consuming stories. Import is accepted P1 work after the manual governed-record path. Nothing in this milestone claims audit readiness or an auditor opinion.
 
-Shared enablers are delivered in this milestone and proven through their first consuming stories.
+P0 shared enablers are proven through their first consuming stories. EN-05 is
+accepted P1 import work and follows the governed manual-record path.
 
 ### R1-01 Start a SOC 2 program and see the path to Type II
 
