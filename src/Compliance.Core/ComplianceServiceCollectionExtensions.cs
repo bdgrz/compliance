@@ -26,6 +26,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
         services.AddSingleton<IArtifactInspector, UninspectedArtifactInspector>();

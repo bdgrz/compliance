@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -105,6 +106,54 @@ public sealed class ComplianceProgramTests
                 Assert.Equal(2L, ev.GetType().GetProperty("Revision")?.GetValue(ev));
                 Assert.Equal("Lead B", ev.GetType().GetProperty("ActorDisplay")?.GetValue(ev));
             });
+    }
+
+    [Fact]
+    public void ShouldPreserveLegacyActorGivenDifferentReviserAndReplay()
+    {
+        // Arrange
+        var originalMemberId = Uuid.CreateVersion4();
+        var replacementMemberId = Uuid.CreateVersion4();
+        var program = new ComplianceProgram(TenantId, ProgramId);
+        var plan = new ProgramPlan(null, null, null, null, null, null);
+        Assert.True(program.Create("SOC 2", plan, originalMemberId, "Original name", Now).IsSuccess);
+        Assert.True(program.Revise(1, "SOC 2 revised", plan, replacementMemberId,
+            "Replacement name", Now.AddDays(1)).IsSuccess);
+        var events = new AggregateScenario<ComplianceProgram>(program).PendingEvents;
+        var original = Assert.IsType<ProgramCreated>(events[0]);
+        var replacement = Assert.IsType<ProgramRevised>(events[1]);
+        var legacyJson = $$"""
+            {"tenant_id":"{{TenantId}}","program_id":"{{ProgramId}}","name":"SOC 2",
+             "plan":{},"actor_member_id":"{{originalMemberId}}",
+             "actor_display":"Original name","changed_at":"{{Now:O}}"}
+            """;
+        var legacyRevisionJson = $$"""
+            {"program_id":"{{ProgramId}}","revision":1,"name":"SOC 2",
+             "plan":{},"actor_member_id":"{{originalMemberId}}",
+             "actor_display":"Original name","changed_at":"{{Now:O}}"}
+            """;
+
+        // Act
+        var replayed = JsonSerializer.Deserialize(legacyJson,
+            ComplianceCoreJsonContext.Default.ProgramCreated);
+        var projected = JsonSerializer.Deserialize(legacyRevisionJson,
+            ComplianceCoreJsonContext.Default.ProgramRevisionView);
+        var currentJson = JsonSerializer.Serialize(original,
+            ComplianceCoreJsonContext.Default.ProgramCreated);
+        using var currentDocument = JsonDocument.Parse(currentJson);
+
+        // Assert
+        Assert.Equal(ActorReference.ForMember(originalMemberId, "Original name"), original.Actor);
+        Assert.Equal(original.Actor, original.StoredActor);
+        Assert.Equal(ActorReference.ForMember(originalMemberId, "Original name"), replayed?.Actor);
+        Assert.Null(replayed?.StoredActor);
+        Assert.Equal(ActorReference.ForMember(originalMemberId, "Original name"), projected?.Actor);
+        Assert.Equal(ActorReference.ForMember(replacementMemberId, "Replacement name"),
+            replacement.Actor);
+        Assert.Equal(replacement.Actor, replacement.StoredActor);
+        Assert.NotEqual(replacement.Actor.Id, replayed?.Actor.Id);
+        Assert.Equal("Original name", currentDocument.RootElement.GetProperty("actor")
+            .GetProperty("display").GetString());
     }
 
     [Fact]
