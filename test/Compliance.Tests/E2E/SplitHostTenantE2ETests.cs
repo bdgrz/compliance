@@ -66,7 +66,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             // Act: an unverified creator is denied; verification then permits the same account.
             using var unverified = await creator.PostAsJsonAsync("/api/v1/tenants", request);
             Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var legacyInvitation = await creator.PostAsJsonAsync("/api/v1/tenants", new
             {
                 name = "Legacy Invitation",
