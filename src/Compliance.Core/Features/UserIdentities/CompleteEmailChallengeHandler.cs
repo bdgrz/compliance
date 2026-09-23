@@ -12,8 +12,9 @@ public sealed class CompleteEmailChallengeHandler(IAggregateExecutor executor, T
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Enter a valid email address."));
 
-        // The delivery reactor records its outcome on this stream. A user may complete the
-        // challenge at the same time, so reload and re-evaluate this idempotent operation.
+        // A recipient can use the token before the delivery reactor commits its
+        // outcome on this stream. Allow roughly one second for that competing append,
+        // reloading and re-evaluating this idempotent operation on each conflict.
         for (var attempt = 1; ; attempt++)
         {
             try
@@ -24,9 +25,10 @@ public sealed class CompleteEmailChallengeHandler(IAggregateExecutor executor, T
                         context.Request.UserId, context.Request.Token, clock.GetUtcNow())),
                     context, ct).ConfigureAwait(false);
             }
-            catch (EventStreamConcurrencyException) when (attempt < 3)
+            catch (EventStreamConcurrencyException) when (attempt < 9)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(10 * attempt), ct)
+                await Task.Delay(TimeSpan.FromMilliseconds(
+                    Math.Min(10 << (attempt - 1), 250)), ct)
                     .ConfigureAwait(false);
             }
         }

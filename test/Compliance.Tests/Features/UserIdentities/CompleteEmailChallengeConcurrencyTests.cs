@@ -10,7 +10,7 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class CompleteEmailChallengeConcurrencyTests
 {
     [Fact]
-    public async Task ShouldVerifyGivenConcurrentDeliveryOutcome()
+    public async Task ShouldVerifyGivenRepeatedConcurrentDeliveryConflicts()
     {
         // Arrange
         var ownerId = Uuid.CreateVersion4();
@@ -27,7 +27,8 @@ public sealed class CompleteEmailChallengeConcurrencyTests
             .AddRequestAuthorizer<EmailOwnershipAuthorizer>();
         services.AddScoped<ConcurrentDeliveryExecutor>(provider => new ConcurrentDeliveryExecutor(
             provider.GetRequiredService<IAggregateReader>(),
-            provider.GetRequiredService<IAggregateWriter>(), email, challengeId));
+            provider.GetRequiredService<IAggregateWriter>(), email, challengeId,
+            conflictsBeforeSuccess: 4));
         services.AddScoped<IAggregateExecutor>(provider =>
             provider.GetRequiredService<ConcurrentDeliveryExecutor>());
         await using var provider = services.BuildServiceProvider();
@@ -44,7 +45,7 @@ public sealed class CompleteEmailChallengeConcurrencyTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, scope.ServiceProvider.GetRequiredService<ConcurrentDeliveryExecutor>().Attempts);
+        Assert.Equal(5, scope.ServiceProvider.GetRequiredService<ConcurrentDeliveryExecutor>().Attempts);
         var verified = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
             .HydrateAsync(new EmailAddress(email));
         Assert.True(verified.IsVerified);
@@ -52,7 +53,7 @@ public sealed class CompleteEmailChallengeConcurrencyTests
     }
 
     sealed class ConcurrentDeliveryExecutor(IAggregateReader reader, IAggregateWriter writer,
-        string email, Uuid challengeId) : IAggregateExecutor
+        string email, Uuid challengeId, int conflictsBeforeSuccess) : IAggregateExecutor
     {
         public int Attempts { get; private set; }
 
@@ -60,11 +61,14 @@ public sealed class CompleteEmailChallengeConcurrencyTests
             Func<TAggregate, AggregateOutcome> operation, IExecutionContext context,
             CancellationToken ct = default) where TAggregate : Aggregate
         {
-            if (++Attempts == 1)
+            if (++Attempts <= conflictsBeforeSuccess)
             {
-                var address = await reader.HydrateAsync(new EmailAddress(email), ct);
-                Assert.True(address.RecordDeliverySent(challengeId, DateTimeOffset.UtcNow).IsSuccess);
-                await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System), ct);
+                if (Attempts == 1)
+                {
+                    var address = await reader.HydrateAsync(new EmailAddress(email), ct);
+                    Assert.True(address.RecordDeliverySent(challengeId, DateTimeOffset.UtcNow).IsSuccess);
+                    await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System), ct);
+                }
                 throw new EventStreamConcurrencyException("The delivery outcome won the append race.");
             }
 
