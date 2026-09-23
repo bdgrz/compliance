@@ -145,6 +145,28 @@ public sealed class TenantTests
     }
 
     [Fact]
+    public void ShouldActivateOnSlugConfirmationGivenVerifiedCreatorRegistration()
+    {
+        // Arrange
+        var tenant = new Tenant(TenantId);
+
+        // Act
+        var result = tenant.Register(OwnerUserId, "Acme", "acme", "Acme LLC",
+            "creator@example.com", creatorIsAdministrator: true);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var registered = Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents
+            .OfType<TenantRegistered>());
+        Assert.True(registered.CreatorIsAdministrator);
+        Assert.Equal(OwnerUserId, registered.OwnerUserId);
+        Assert.Equal(Uuid.Empty, tenant.OperatorUserId);
+        Assert.True(tenant.ConfirmSlug("acme").IsSuccess);
+        Assert.True(tenant.IsActive);
+        Assert.False(tenant.Activate(OwnerUserId, "creator@example.com").IsSuccess);
+    }
+
+    [Fact]
     public void ShouldKeepOldSlugGivenPendingReplacement()
     {
         // Arrange

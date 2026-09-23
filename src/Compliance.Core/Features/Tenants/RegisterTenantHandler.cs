@@ -26,7 +26,8 @@ public sealed class RegisterTenantHandler(IAggregateExecutor executor, PlatformO
             new Tenant(context.RequestId),
             tenant => AggregateOutcome.CommitOnSuccess(
                 tenant.Register(ownerUserId, context.Request.Name, context.Request.Slug,
-                    context.Request.LegalName, context.Request.FirstAdministratorEmail)),
+                    context.Request.LegalName, context.Request.FirstAdministratorEmail,
+                    creatorIsAdministrator: !operators.DeveloperAuthentication)),
             context, ct);
     }
 }

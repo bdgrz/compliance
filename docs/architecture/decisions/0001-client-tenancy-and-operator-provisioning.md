@@ -1,24 +1,24 @@
 # Client tenancy and operator provisioning
 
-Status: implementation decision for the R1-15 API/MCP slice, 2026-09-19.
-Decision owner: product owner and tech lead; acceptance remains tracked in M0-D25 and M0-A07.
+Status: implementation decision for the R1-15 API/MCP slice, 2026-09-19;
+amended for accepted M0-D25 and M0-A07 decisions, 2026-09-23.
+Decision owner: product owner and tech lead; backend acceptance remains in #152.
 
 > [!NOTE]
 > Superseded in part by [ADR 0009](0009-tenant-identity-federation-and-context.md),
 > accepted for M0-A07 on 2026-09-22. It replaces the identity-broker preference
 > with directly validated multiple trusted issuers, accepts the tenant-context
-> contract below, and records that organization creation becomes self-service
-> and operator status becomes an in-product grant. R1-15 must adopt those
-> changes. Until it does, the provisioning mechanics below describe the current
-> implementation.
+> contract below. The verified self-service creation path is implemented;
+> in-product operator grants and revocations remain under #152. Historical
+> operator and invitation events retain their original replay semantics.
 
 ## Decision
 
 - A client organization is the only tenant boundary. `tenant_id` is its immutable, opaque UUID in APIs, events, jobs, and storage realms; `Organization` is the product name. Every client business record belongs to exactly one tenant. Platform-level criteria editions, methodology templates, and the firm-staff directory may exist outside tenants but cannot contain client records.
 - Platform operators are platform users whose UUIDs are explicitly configured in `PlatformOperators:UserIds`. No production operator is inferred from authentication claims, email domains, or tenant membership. Developer identities are operators only in the local developer-authentication mode.
-- A platform operator is the platform super administrator for platform operations: organization provisioning, suspension, reactivation, slug administration, invitation of the first administrator and firm staff, and inspection of organization metadata and memberships. The operator portfolio is a paginated platform-scoped query at `GET /api/v1/platform/tenants` and a read-only MCP tool. It includes provisioning and suspended organizations. The current implementation does not automatically grant tenant membership or client business-record access; cross-tenant client-data authority remains a pending M0-D25 and M0-D03 decision.
-- Production registration records display name, legal name, slug, and operator attribution. It creates a provisioning tenant and an email invitation for the first client administrator. The operator receives no implicit membership on this path. Acceptance requires the invited user to own and verify the email address, then grants an explicit `client_personnel` membership and the administrator team. Only then does the tenant become active. Legacy developer-mode registration without a first administrator still bootstraps its creator for local compatibility. Invitation delivery is mocked until a real email adapter is supplied.
-- A firm-staff invitation creates a `firm_staff` membership when accepted. Membership alone grants no standing access; a later service-engagement assignment must grant appropriate access. Advisory or attest practice designation belongs in a future platform-level staff record, not in the tenant membership.
+- A platform operator is the platform super administrator for platform operations: suspension, reactivation, slug administration, firm-staff invitations, and inspection of organization metadata and memberships. The operator portfolio is a paginated platform-scoped query at `GET /api/v1/platform/tenants` and a read-only MCP tool. It includes provisioning and suspended organizations. Operator status alone confers no client business-record access. Operator grant and revocation still require the in-product roster tracked by #152.
+- Production registration records display name, legal name, slug, and the signed-in creator's verified email address. `TenantRegistered` records that creator as the first Org Admin with `client_personnel` affiliation; the independent worker materializes the membership and administrator-team grant from that event. Access fails closed while projections catch up. Historical operator-provisioned registrations still replay the invited first-administrator flow, and local developer registration without an invitation still bootstraps its creator. Production email verification delivery and durable retry are tracked by #360.
+- A firm-staff invitation creates a `firm_staff` membership when accepted. Neither membership nor a current or historical tenant team grant confers standing business access. Accepted service-engagement assignment is the later access path under #269. Advisory or attest practice designation belongs in a future platform-level staff record, not in the tenant membership.
 - Suspension preserves events, projections, and memberships while tenant-scoped authorization reads the event-sourced current lifecycle and denies immediately. Reactivation restores access without recreating records. System reactions may finish cleanup and bootstrap while suspended.
 - Browser selection is derived from the signed-in user's membership list. There is no server-side mutable “active tenant” claim or token role. Every tenant API path carries `tenant_id`, which the server authorizes. The browser may retain one selected tenant in navigation state; changing selection must clear tenant-specific client state when UI work begins.
 - Browser slugs are attributes. The server normalizes and validates them against a single reserved-route registry. New slugs are reserved in an event-sourced slug aggregate before a tenant switches. Old slugs retain their owner, become permanently unavailable for new registrations, and resolve only for an authenticated member of that active tenant. Unknown and inaccessible slugs return the same not-found response.
@@ -72,7 +72,7 @@ decision; the service cannot infer confidentiality from the slug string.
 
 ## Alternatives and consequences
 
-Self-service organization creation would turn any signup into a tenant administrator, so provisioning remains operator controlled. Granting the operator tenant access by default would create an unrequested cross-client access path. Using email or slug as a tenant identity would make renames and identity-provider changes unsafe. Storing roles in identity-provider tokens would delay revocation and blur the tenant boundary.
+Verified self-service creation lets a platform user create an organization and become its first Org Admin without operator action. Granting an operator tenant access by default would create an unrequested cross-client access path. Using email or slug as a tenant identity would make renames and identity-provider changes unsafe. Storing roles in identity-provider tokens would delay revocation and blur the tenant boundary.
 
 The API and MCP surfaces use Portia command/query authorization and event-sourced aggregates, reactors, and Fitz projections. Invitation acceptance and email verification are human HTTP flows and are intentionally absent from MCP. Projection reads can lag; security decisions for suspension use the tenant aggregate and permission checks. The mock delivery service sends no external message and must be replaced before real users can complete invitations.
 
@@ -83,4 +83,8 @@ The API and MCP surfaces use Portia command/query authorization and event-source
 
 ## Follow-up
 
-M0-D25 and M0-A07 still own cross-client firm practice designation, engagement-specific staff grants, multi-authority federation, reviewed identity replacement and revocation, and full tenant-context conformance. M0-D28 remains the approval gate for the broader canonical catalog. These decisions should be incorporated into the later features that introduce those records.
+M0-D25 and M0-A07 are accepted in the product decision and ADR 0009. #152
+still owns the in-product operator roster and remaining tenant acceptance;
+#269 owns engagement-specific staff grants; #360 owns production verification
+delivery and retry. Later features must prove tenant isolation for their own
+records and surfaces.

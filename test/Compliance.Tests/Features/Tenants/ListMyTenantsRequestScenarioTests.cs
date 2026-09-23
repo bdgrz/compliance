@@ -161,6 +161,11 @@ public sealed class ListMyTenantsRequestScenarioTests
 
     sealed class FakeTenantMembershipDirectoryReader : ITenantMembershipDirectoryReader
     {
+        public async ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => await IsMemberAsync(tenantId, userId, ct)
+            ? new TenantMembershipView(userId,
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture)) : null;
+
         public Dictionary<Uuid, List<Uuid>> Members { get; } = [];
 
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>

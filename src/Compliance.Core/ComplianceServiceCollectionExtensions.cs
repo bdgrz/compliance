@@ -288,6 +288,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListProgramSnapshotsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
+            .AddRequestAuthorizer<RegisterTenantAuthorizer>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()

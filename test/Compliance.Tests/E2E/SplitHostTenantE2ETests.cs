@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,6 +16,104 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
+    [Fact]
+    public async Task ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker()
+    {
+        // Arrange: developer login supplies a session, while registration uses production authority.
+        var applicationName = $"compliance-split-self-service-{Guid.NewGuid():N}";
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        using var worker = builder.Build();
+        await worker.StartAsync();
+
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName)
+                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                    services.AddSingleton(new PlatformOperatorAuthority([]))));
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient client;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                client = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+            using var creator = client;
+            using var outsider = factory.CreateClient();
+            var email = $"creator-{Guid.NewGuid():N}@example.com";
+            var creatorId = await TenantInvitationE2ETests.LoginAsync(creator, email);
+            await TenantInvitationE2ETests.LoginAsync(outsider,
+                $"outsider-{Guid.NewGuid():N}@example.com");
+            var slug = $"self-service-{Guid.NewGuid():N}"[..24];
+            var request = new
+            {
+                name = "Self Service",
+                slug,
+                legal_name = "Self Service LLC",
+                first_administrator_email = email,
+            };
+
+            // Act: an unverified creator is denied; verification then permits the same account.
+            using var unverified = await creator.PostAsJsonAsync("/api/v1/tenants", request);
+            Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email);
+            using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", request);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+            var registration = await registered.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(registration);
+            var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var access = HttpStatusCode.Forbidden;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await creator.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+                access = response.StatusCode;
+                if (access == HttpStatusCode.OK)
+                    break;
+                await Task.Delay(250);
+            }
+            Assert.Equal(HttpStatusCode.OK, access);
+            using var tenantResponse = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
+            Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
+            var tenant = await tenantResponse.Content.ReadFromJsonAsync<Tenant>();
+            Assert.Equal("active", tenant?.Status);
+            Assert.Null(tenant?.OperatorUserId);
+            using var outsiderDenied = await outsider.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            Assert.Equal(HttpStatusCode.NotFound, outsiderDenied.StatusCode);
+            Assert.False(worker.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                .TryGetLatest(tenantId, email, out _));
+
+            await using var mcp = await McpScenario.ConnectAsync(creator,
+                new Uri(creator.BaseAddress!, "/mcp"));
+            _ = await mcp.When("bdgrz.tenant.register", new Dictionary<string, object?>
+            {
+                ["name"] = "MCP Self Service",
+                ["slug"] = $"mcp-self-service-{Guid.NewGuid():N}"[..24],
+                ["legal_name"] = "MCP Self Service LLC",
+                ["first_administrator_email"] = email,
+            }).ExpectSuccess();
+        }
+        finally
+        {
+            await worker.StopAsync();
+        }
+    }
+
     [Fact]
     public async Task ShouldRetryDirectInvitationGivenDeliveryFailure()
     {
@@ -634,7 +733,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
     }
 
     sealed record Registration([property: JsonPropertyName("tenant_id")] string TenantId);
-    sealed record Tenant([property: JsonPropertyName("legal_name")] string? LegalName, string Status);
+    sealed record Tenant([property: JsonPropertyName("legal_name")] string? LegalName, string Status,
+        [property: JsonPropertyName("operator_user_id")] string? OperatorUserId = null);
     sealed record TenantList(IReadOnlyList<Tenant> Items);
     sealed record SlugResolution([property: JsonPropertyName("current_slug")] string CurrentSlug,
         bool Redirect);

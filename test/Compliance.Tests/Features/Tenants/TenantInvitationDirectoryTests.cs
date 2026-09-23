@@ -222,6 +222,11 @@ public sealed class TenantInvitationDirectoryTests
 
     sealed class FakeMembershipDirectory : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(IsMember
+            ? new TenantMembershipView(userId,
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture)) : null);
+
         public bool IsMember { get; set; }
 
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId,

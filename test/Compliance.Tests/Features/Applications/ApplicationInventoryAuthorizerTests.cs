@@ -74,11 +74,36 @@ public sealed class ApplicationInventoryAuthorizerTests
         Assert.Equal(RbacIds.Member(tenantId, userId), permissions.LastMemberId);
     }
 
+    [Fact]
+    public async Task ShouldDenyFirmStaffGivenHistoricalInventoryGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var permissions = new Permissions(true);
+        var authorizer = new ApplicationInventoryAuthorizer(
+            new Memberships(true, "firm_staff"), new ActiveTenant(), permissions);
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new ListApplications(tenantId), BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.False(permissions.Called);
+    }
+
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
 
-    sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
+    sealed class Memberships(bool member, string affiliation = "client_personnel")
+        : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
+            ? new TenantMembershipView(userId,
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture), affiliation) : null);
+
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId,
             CancellationToken ct = default) => ValueTask.FromResult(member);
 

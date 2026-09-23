@@ -14,8 +14,9 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             BuiltInRbac.RoleIdForRole(request.TenantId, expectedRole) is null)
             return Result<MemberAccessView>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The expected built-in role is not supported."));
-        if (!await memberships.IsMemberAsync(request.TenantId.ToString(), request.UserId, ct)
-                .ConfigureAwait(false))
+        var membership = await memberships.GetAsync(request.TenantId.ToString(), request.UserId, ct)
+            .ConfigureAwait(false);
+        if (membership is null)
             return Result<MemberAccessView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The member was not found."));
 
@@ -37,8 +38,11 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             paths.Add(new MemberAccessPath(edge.TeamId, team.Name, edge.RoleId, roleView.Name,
                 edge.Permissions));
         }
-        var permissions = paths.SelectMany(path => path.Permissions)
-            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        // Preserve historical assignments in Paths for review; they confer no standing access.
+        var permissions = membership.Affiliation == "firm_staff"
+            ? Array.Empty<string>()
+            : paths.SelectMany(path => path.Permissions)
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         return Result<MemberAccessView>.Success(new MemberAccessView(request.TenantId,
             request.UserId, memberId, paths, permissions));
     }

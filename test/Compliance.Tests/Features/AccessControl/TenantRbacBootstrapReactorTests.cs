@@ -27,6 +27,51 @@ public sealed class TenantRbacBootstrapReactorTests
         });
     }
 
+    [Fact]
+    public async Task ShouldBootstrapCreatorGivenVerifiedSelfServiceRegistration()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var bus = new RecordingRequestBus();
+        var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var context = new Context(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
+            "Acme LLC", "creator@example.com", CreatorIsAdministrator: true));
+
+        // Act
+        await reactor.HandleAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Contains(bus.Dispatched, request => request is RegisterMember
+        {
+            UserId: var userId, Affiliation: "client_personnel",
+        } && userId == creatorId);
+        Assert.Contains(bus.Dispatched, request => request is AssignTeamMember
+        {
+            TeamId: var teamId, MemberId: var memberId,
+        } && teamId == BuiltInRbac.AdministratorsTeamId(tenantId) &&
+            memberId == RbacIds.Member(tenantId, creatorId));
+    }
+
+    [Fact]
+    public async Task ShouldPreserveInvitationBootstrapGivenLegacyRegistration()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var operatorId = Uuid.CreateVersion4();
+        var bus = new RecordingRequestBus();
+        var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var context = new Context(new TenantRegistered(tenantId, operatorId, "Acme", "acme",
+            "Acme LLC", "admin@example.com"));
+
+        // Act
+        await reactor.HandleAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.DoesNotContain(bus.Dispatched, request => request is RegisterMember);
+        Assert.DoesNotContain(bus.Dispatched, request => request is AssignTeamMember);
+    }
+
     sealed class RecordingRequestBus : IRequestBus
     {
         public List<IRequestBase> Dispatched { get; } = [];

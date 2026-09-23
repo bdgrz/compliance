@@ -243,6 +243,11 @@ public sealed class TenantPagedReadContractTests
 
     sealed class MembershipDirectory : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(IsMember
+            ? new TenantMembershipView(userId,
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture)) : null);
+
         public bool IsMember { get; init; }
         public int LastLimit { get; private set; }
         public int ListCount { get; private set; }

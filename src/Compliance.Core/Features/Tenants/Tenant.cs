@@ -44,7 +44,8 @@ public sealed class Tenant : Aggregate
     public bool IsSuspended => _suspended;
 
     public Result<TenantRegistration> Register(Uuid ownerUserId, string name, string slug,
-        string? legalName = null, string? firstAdministratorEmail = null)
+        string? legalName = null, string? firstAdministratorEmail = null,
+        bool creatorIsAdministrator = false)
     {
         if (ownerUserId == Uuid.Empty)
             return Failure<TenantRegistration>(RequestErrorKind.Validation, "A tenant requires an owner.");
@@ -56,12 +57,15 @@ public sealed class Tenant : Aggregate
         if (firstAdministratorEmail is not null &&
             !EmailAddresses.TryNormalize(firstAdministratorEmail, out normalizedEmail))
             return Failure<TenantRegistration>(RequestErrorKind.Validation, "Enter a valid first administrator email address.");
+        if (creatorIsAdministrator && normalizedEmail is null)
+            return Failure<TenantRegistration>(RequestErrorKind.Validation,
+                "A verified creator email is required for self-service registration.");
         if (_slug is not null)
             return Failure<TenantRegistration>(RequestErrorKind.Conflict, "The tenant is already registered.");
 
         RaiseEvent(new TenantRegistered(Id, ownerUserId, name.Trim(), normalizedSlug,
             string.IsNullOrWhiteSpace(legalName) ? name.Trim() : legalName.Trim(),
-            normalizedEmail));
+            normalizedEmail, creatorIsAdministrator));
         return Result<TenantRegistration>.Success(new TenantRegistration(Id, normalizedSlug));
     }
 
@@ -180,9 +184,10 @@ public sealed class Tenant : Aggregate
     {
         _slug = registered.Slug;
         _slugState = TenantSlugState.Pending;
-        _requiresInvitation = registered.FirstAdministratorEmail is not null;
+        _requiresInvitation = registered.FirstAdministratorEmail is not null &&
+                              !registered.CreatorIsAdministrator;
         _firstAdministratorEmail = registered.FirstAdministratorEmail;
-        _operatorUserId = registered.OwnerUserId;
+        _operatorUserId = registered.CreatorIsAdministrator ? Uuid.Empty : registered.OwnerUserId;
     }
     void Apply(TenantSlugConfirmed _) => _slugState = TenantSlugState.Confirmed;
     void Apply(TenantSlugRejected _) => _slugState = TenantSlugState.Rejected;

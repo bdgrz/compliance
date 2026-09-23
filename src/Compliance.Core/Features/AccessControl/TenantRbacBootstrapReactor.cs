@@ -43,9 +43,9 @@ public sealed partial class TenantRbacBootstrapReactor(
                 RbacPermissions.TenantAccess),
         ];
 
-        // Legacy developer-created tenants bootstrap the creator. Production registration supplies
-        // an explicit first administrator invitation and grants nothing until it is accepted.
-        if (context.Trigger.FirstAdministratorEmail is null)
+        // Historic registrations without an invitation and verified self-service registrations
+        // both name their first administrator in the tenant registration event.
+        if (context.Trigger.CreatorIsAdministrator || context.Trigger.FirstAdministratorEmail is null)
         {
             var memberId = RbacIds.Member(tenantId, context.Trigger.OwnerUserId);
             commands.Add(new RegisterMember(tenantId, context.Trigger.OwnerUserId));

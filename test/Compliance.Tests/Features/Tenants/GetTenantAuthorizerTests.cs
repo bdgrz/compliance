@@ -54,6 +54,10 @@ public sealed class GetTenantAuthorizerTests
 
     sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
+            ? new TenantMembershipView(userId, TenantId) : null);
+
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member);
 

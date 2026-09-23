@@ -7,9 +7,10 @@ story #127. The product story remains open for its browser criteria.
 
 | Requirement | Evidence | Current limit |
 | --- | --- | --- |
-| Operator-only tenant creation and no implicit operator membership on the first-administrator path | `RegisterTenantAuthorizerTests`, `RegisterTenantRequestScenarioTests.ShouldRequireLegalNameAndAdministratorGivenProductionOperator`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` | Production operator IDs must be explicitly configured. Legacy developer-mode registration without a first administrator bootstraps its creator. |
+| Verified self-service creation and creator Org Admin bootstrap | `RegisterTenantAuthorizerTests`, `RegisterTenantRequestScenarioTests.ShouldCreateTenantGivenVerifiedCreatorWithoutOperatorGrant`, `TenantRbacBootstrapReactorTests.ShouldBootstrapCreatorGivenVerifiedSelfServiceRegistration`, `SplitHostTenantE2ETests.ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker` | One registration event records creator/admin intent; the worker materializes membership and grants asynchronously, with access denied until projections catch up. Production challenge delivery is pending #360. |
+| Historical operator and invitation replay | `TenantContractCompatibilityTests.ShouldRemainActiveGivenLegacyRegistrationWithoutInvitation`, `TenantRbacBootstrapReactorTests.ShouldPreserveInvitationBootstrapGivenLegacyRegistration`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation` | New production registration is self-service; old events and local developer flows retain their original meaning. |
 | First administrator verifies email, accepts invitation, receives membership, and activates tenant | `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` | Delivery is mocked; no external email is sent. |
-| Firm staff affiliation without administrator grant | `TenantInvitationTests.ShouldRejectAdministratorGrantGivenFirmStaffInvitation`, both invitation end-to-end flows | Practice designation and engagement grants await M0-D25 and later firm operations. |
+| Firm staff affiliation without standing business access, even after a historical team grant | `TenantAccessAuthorizerTests.ShouldDenyFirmStaffGivenStandingTeamPermission`, `TenantInvitationE2ETests.ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation` exercises HTTP and MCP after a projected administrator-team grant | Accepted engagement assignment and practice designation remain F1-07 backend #269. |
 | Slug history, permanent reservation, concurrent claims, and route collision | `TenantSlugTests`, `ReservedTenantRouteCollisionCheckTests`, `SplitHostTenantE2ETests.ShouldProjectTenantLifecycleGivenIndependentApiAndWorker`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker` | Route registry must continue to cover new top-level routes. |
 | Client slug referrer privacy | `ComplianceWebTests.ShouldServeSpaFallbackGivenNonApiRoute`, `ComplianceWebTests.ShouldExposePublicAuthSettingsGivenExternalConfiguration` | Client names can still appear in the browser's own history and server logs; product naming and log retention require M0-A07. |
 | Immediate suspension and reactivation | `TenantTests.ShouldPreserveHistoryGivenSuspensionAndReactivation`, `SplitHostTenantE2ETests.ShouldCompleteAdministratorAndSlugFlowGivenIndependentWorker`, `SplitHostTenantE2ETests.ShouldProjectTenantLifecycleGivenIndependentApiAndWorker` | Read projections may lag; the authorization path reads current tenant activity. |
@@ -26,15 +27,15 @@ containers on both CI architectures, review, exact-head merge, and main parity.
 
 ## Decisions and remaining acceptance
 
-- M0-D25 must settle firm-authored material retention and visibility and whether
-  firm staff receive only engagement assignments or any standing access. The
-  technical tenant default is in ADR 0001; these operating policy facts are
-  not inferred from code.
-- M0-A07 still owns the accepted routing, federation, identity-linking, and
-  tenant-context ADR and its complete split-host spike. The current single
-  authority deployment and route-safety proof cover only a subset.
-- M0-D28 still owns approval of the full canonical entity and source-rights
-  catalog. EN-01's broader leak matrix must extend as search, artifacts,
+- M0-D25 is accepted: firm staff have no standing business access; #269 will
+  introduce accepted engagement assignments. Offboarding retention is #346.
+- M0-A07 is accepted in ADR 0009. Each new surface still needs its own
+  tenant-isolation and split-host proof.
+- M0-D28's catalog decision is accepted. EN-01's broader leak matrix must extend as search, artifacts,
   exports, and background work are introduced.
+- AUTH-02a backend #360 must replace mock verification delivery and add durable
+  challenge retry before production users can complete verified registration.
+- In-product operator grant and revocation and the rest of #152 acceptance
+  remain open after the self-service and firm-staff access slice.
 - Close backend child #152 only when its own acceptance evidence and inherited
   dependencies are complete. Keep product parent #127 open for UI delivery.

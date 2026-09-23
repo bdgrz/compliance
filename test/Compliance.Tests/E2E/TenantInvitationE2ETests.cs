@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -127,6 +129,48 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         using var staffDenied = await staffClient.GetAsync(
             $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
         Assert.Equal(HttpStatusCode.Forbidden, staffDenied.StatusCode);
+
+        // A historical or accidental team grant must not become standing client access.
+        var staffMemberId = RbacIds.Member(tenantId,
+            Uuid.Parse(staffId, CultureInfo.InvariantCulture));
+        using var assignedStaff = await administratorClient.PostAsync(
+            $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members/{staffMemberId}", null);
+        Assert.Equal(HttpStatusCode.NoContent, assignedStaff.StatusCode);
+        var projectedGrant = false;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administratorClient.GetAsync(
+                $"/api/v1/tenants/{tenantId}/members/{staffId}/access");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                using var accessDocument = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync());
+                var paths = accessDocument.RootElement.GetProperty("paths");
+                projectedGrant = paths.EnumerateArray().Any(path =>
+                    path.GetProperty("permissions").EnumerateArray().Any(permission =>
+                        permission.GetString() == RbacPermissions.TenantAccess));
+                if (projectedGrant)
+                {
+                    Assert.Empty(accessDocument.RootElement.GetProperty("effective_permissions").EnumerateArray());
+                    break;
+                }
+            }
+            await Task.Delay(250);
+        }
+        Assert.True(projectedGrant);
+        using var staffStillDenied = await staffClient.GetAsync(
+            $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+        Assert.Equal(HttpStatusCode.Forbidden, staffStillDenied.StatusCode);
+        using var staffProgramDenied = await staffClient.GetAsync(
+            $"/api/v1/tenants/{tenantId}/programs");
+        Assert.Equal(HttpStatusCode.Forbidden, staffProgramDenied.StatusCode);
+        await using (var mcp = await McpScenario.ConnectAsync(staffClient,
+                         new Uri(staffClient.BaseAddress!, "/mcp")))
+            _ = await mcp.When("bdgrz.program.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId.ToString(),
+            }).ExpectFailure();
 
         var newSlug = $"renamed-{Guid.NewGuid():N}"[..24];
         using var changed = await operatorClient.PostAsJsonAsync(

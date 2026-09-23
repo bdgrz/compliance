@@ -17,7 +17,8 @@ public sealed partial class TenantRegistrationReactor(
             new RegisterTenantSlug(context.Trigger.TenantId, context.Trigger.Slug), context, ct);
         await bus.SendReactionAsync(
             new RegisterTenantOwner(context.Trigger.TenantId, context.Trigger.OwnerUserId), context, ct);
-        if (context.Trigger.FirstAdministratorEmail is { } email)
+        if (!context.Trigger.CreatorIsAdministrator &&
+            context.Trigger.FirstAdministratorEmail is { } email)
             await bus.SendReactionAsync(new InviteTenantMember(context.Trigger.TenantId, email,
                 "client_personnel", Administrator: true),
                 context, ct);

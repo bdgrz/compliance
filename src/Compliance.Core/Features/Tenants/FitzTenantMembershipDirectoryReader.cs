@@ -28,11 +28,15 @@ sealed class FitzTenantMembershipDirectoryReader
         }
     }
 
-    public async ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default)
+    public async ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+        CancellationToken ct = default)
     {
         await using var tx = await BeginReadAsync(tenantId, ct).ConfigureAwait(false);
-        return await TenantMembershipDirectorySchema.Directory.GetAsync(tx, userId, ct).ConfigureAwait(false) is not null;
+        return await TenantMembershipDirectorySchema.Directory.GetAsync(tx, userId, ct).ConfigureAwait(false);
     }
+
+    public async ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
+        await GetAsync(tenantId, userId, ct).ConfigureAwait(false) is not null;
 
     public async ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
         CancellationToken ct = default)

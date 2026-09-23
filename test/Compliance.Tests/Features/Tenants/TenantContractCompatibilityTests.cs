@@ -23,6 +23,8 @@ public sealed class TenantContractCompatibilityTests
         Assert.NotNull(registered);
         Assert.Equal("TenantRegistered", registered.GetType().Name);
         Assert.Null(registered.GetType().GetProperty("FirstAdministratorEmail")?.GetValue(registered));
+        Assert.False((bool)registered.GetType().GetProperty("CreatorIsAdministrator")!
+            .GetValue(registered)!);
     }
 
     [Fact]

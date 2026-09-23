@@ -77,6 +77,23 @@ public sealed class TenantAccessAuthorizerTests
         Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
     }
 
+    [Fact]
+    public async Task ShouldDenyFirmStaffGivenStandingTeamPermission()
+    {
+        // Arrange
+        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true),
+            new ActiveTenant(), new Memberships(true, "firm_staff"));
+        var context = new RequestContext<ITenantAccessRequest>(
+            new GetTeam(TenantId, Uuid.CreateVersion4()), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
+    }
+
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 
@@ -96,8 +113,13 @@ public sealed class TenantAccessAuthorizerTests
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
-    sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
+    sealed class Memberships(bool member, string affiliation = "client_personnel")
+        : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
+            ? new TenantMembershipView(userId, TenantId, affiliation) : null);
+
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member);
 
