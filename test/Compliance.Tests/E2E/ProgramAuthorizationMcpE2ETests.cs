@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,8 +49,8 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
             HttpClient participant;
             try
             {
-                if (splitHosts)
-                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
+                    splitHosts ? "api" : "standalone");
                 administrator = factory.CreateClient();
                 participant = factory.CreateClient();
             }
@@ -147,6 +148,23 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 using var participantList = await participant.GetAsync(programsPath);
                 Assert.Equal(HttpStatusCode.OK, participantRead.StatusCode);
                 Assert.Equal(HttpStatusCode.OK, participantList.StatusCode);
+                using (var readBody = JsonDocument.Parse(
+                           await participantRead.Content.ReadAsStringAsync()))
+                {
+                    Assert.Equal(tenant.TenantId,
+                        readBody.RootElement.GetProperty("tenant_id").GetString());
+                    Assert.Equal(programId,
+                        readBody.RootElement.GetProperty("program_id").GetString());
+                    Assert.Equal("MCP managed program",
+                        readBody.RootElement.GetProperty("name").GetString());
+                }
+                using (var listBody = JsonDocument.Parse(
+                           await participantList.Content.ReadAsStringAsync()))
+                {
+                    var item = Assert.Single(listBody.RootElement.GetProperty("items")
+                        .EnumerateArray());
+                    Assert.Equal(programId, item.GetProperty("program_id").GetString());
+                }
                 using var deniedCreate = await participant.PostAsJsonAsync(programsPath,
                     new { name = "Unauthorized program", plan });
                 using var deniedRevise = await participant.PutAsJsonAsync(programPath,
@@ -156,8 +174,19 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
 
                 await using var participantMcp = await McpScenario.ConnectAsync(participant,
                     new Uri(participant.BaseAddress!, "/mcp"));
-                _ = await participantMcp.When("bdgrz.program.get", readInput).ExpectSuccess();
-                _ = await participantMcp.When("bdgrz.program.list", listInput).ExpectSuccess();
+                var participantMcpRead = await participantMcp.When("bdgrz.program.get", readInput)
+                    .ExpectSuccess();
+                var participantMcpProgram = Assert.IsType<JsonElement>(
+                    participantMcpRead.StructuredJson).GetProperty("result");
+                Assert.Equal(programId, participantMcpProgram.GetProperty("program_id").GetString());
+                Assert.Equal("MCP managed program",
+                    participantMcpProgram.GetProperty("name").GetString());
+                var participantMcpList = await participantMcp.When("bdgrz.program.list", listInput)
+                    .ExpectSuccess();
+                var participantMcpPage = Assert.IsType<JsonElement>(
+                    participantMcpList.StructuredJson).GetProperty("result");
+                Assert.Equal(programId, Assert.Single(participantMcpPage.GetProperty("items")
+                    .EnumerateArray()).GetProperty("program_id").GetString());
                 _ = await participantMcp.When("bdgrz.program.create", new Dictionary<string, object?>
                 {
                     ["tenant_id"] = tenant.TenantId,
@@ -174,6 +203,16 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 };
                 _ = await participantMcp.When("bdgrz.program.revise", reviseInput)
                     .ExpectFailure("Forbidden");
+
+                var createdEvents = new List<ProgramCreated>();
+                await foreach (var record in factory.Services.GetRequiredService<IEventStore>()
+                                   .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString(),
+                                           "programs"), EventCursor.Start, CancellationToken.None))
+                {
+                    if (record.Event is ProgramCreated createdEvent)
+                        createdEvents.Add(createdEvent);
+                }
+                Assert.Equal(programId, Assert.Single(createdEvents).ProgramId.ToString());
 
                 // The administrator can revise through MCP; denied requests did not write.
                 _ = await administratorMcp.When("bdgrz.program.revise", reviseInput)
