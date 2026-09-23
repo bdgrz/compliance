@@ -10,6 +10,12 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
     {
         var tenantId = context.Request.TenantId;
         var userId = context.Request.FirstAdministratorUserId;
+        var tenant = await reader.HydrateAsync(new Tenant(tenantId), ct).ConfigureAwait(false);
+        // A losing concurrent slug claim is terminal. A successful reaction lets the
+        // global bootstrap reactor checkpoint and continue to later registrations.
+        if (tenant.IsRegistrationRejected)
+            return Result.Success;
+
         var memberId = RbacIds.Member(tenantId, userId);
         var member = await reader.HydrateAsync(new Member(tenantId, userId), ct).ConfigureAwait(false);
         var assignment = await reader.HydrateAsync(new TeamMember(tenantId,

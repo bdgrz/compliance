@@ -18,6 +18,94 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
+    public async Task ShouldBootstrapLaterTenantGivenRejectedConcurrentSlugClaim()
+    {
+        // Arrange
+        var applicationName = $"compliance-slug-race-{Guid.NewGuid():N}";
+        await using var factory = E2EAppFactory.Create(broker, applicationName)
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
+        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        HttpClient client;
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            client = factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+        }
+        using var creator = client;
+        var email = $"creator-{Guid.NewGuid():N}@example.com";
+        using (var verificationWorker = CreateActivationWorker(applicationName))
+        {
+            await verificationWorker.StartAsync();
+            var userId = await TenantInvitationE2ETests.LoginAsync(creator, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email,
+                verificationWorker.Services.GetRequiredService<MockEmailChallengeDelivery>());
+            await verificationWorker.StopAsync();
+        }
+
+        var sharedSlug = $"slug-race-{Guid.NewGuid():N}"[..24];
+        async Task<Uuid> RegisterAsync(string name, string slug)
+        {
+            using var response = await creator.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name,
+                slug,
+                legal_name = $"{name} LLC",
+            });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var registration = await response.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(registration);
+            return Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+        }
+
+        // The worker is stopped, so both registrations pass the preflight before either
+        // slug claim runs. One claim must be rejected when processing resumes.
+        // Act
+        var firstId = await RegisterAsync("First Claim", sharedSlug);
+        var secondId = await RegisterAsync("Second Claim", sharedSlug);
+        var laterId = await RegisterAsync("Later Tenant", $"later-{Guid.NewGuid():N}"[..24]);
+
+        using var worker = CreateActivationWorker(applicationName);
+        await worker.StartAsync();
+        try
+        {
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            bool firstActive = false, firstRejected = false, secondActive = false,
+                secondRejected = false, laterActive = false;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                await using var scope = factory.Services.CreateAsyncScope();
+                var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+                var first = await reader.HydrateAsync(new Bdgrz.Compliance.Features.Tenants.Tenant(firstId));
+                var second = await reader.HydrateAsync(new Bdgrz.Compliance.Features.Tenants.Tenant(secondId));
+                var later = await reader.HydrateAsync(new Bdgrz.Compliance.Features.Tenants.Tenant(laterId));
+                firstActive = first.IsActive;
+                firstRejected = !first.IsRegistered;
+                secondActive = second.IsActive;
+                secondRejected = !second.IsRegistered;
+                laterActive = later.IsActive;
+                if (laterActive &&
+                    (firstActive && secondRejected || secondActive && firstRejected))
+                    break;
+                await Task.Delay(250);
+            }
+            // Assert
+            Assert.True(firstActive && secondRejected || secondActive && firstRejected,
+                "Exactly one concurrent slug claimant should activate.");
+            Assert.True(laterActive,
+                "A rejected claim must not block RBAC bootstrap for a later tenant.");
+        }
+        finally
+        {
+            await worker.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task ShouldKeepVerifiedTenantProvisioningUntilIndependentWorkerCompletesGrantsGivenDelayedWorker()
     {
         // Arrange

@@ -8,6 +8,38 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class ActivateTenantReadinessTests
 {
     [Fact]
+    public async Task ShouldCheckpointActivationGivenRejectedSlugWithoutAdministratorProjection()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships());
+        services.AddSingleton<IPermissionAuthorizer>(new Permissions());
+        services.AddPortia()
+            .AddRequestHandler<ActivateTenantHandler>()
+            .AddRequestAuthorizer<ActivateTenantAuthorizer>();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var tenant = new Tenant(tenantId);
+        Assert.True(tenant.Register(creatorId, "Rejected", "rejected",
+            creatorIsAdministrator: true).IsSuccess);
+        Assert.True(tenant.RejectSlug("rejected").IsSuccess);
+        await writer.SaveAsync(tenant, new RequestDispatchContext(RequestActor.System));
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>()
+            .SendAsync(new ActivateTenant(tenantId, creatorId), RequestActor.System);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False((await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new Tenant(tenantId))).IsActive);
+    }
+
+    [Fact]
     public async Task ShouldKeepCreatorProvisioningGivenUnmaterializedAdministratorGrant()
     {
         // Arrange
