@@ -149,6 +149,12 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
                 TenantPath(tenantB) + "/member-invitations?email_address=" +
                 Uri.EscapeDataString(invitationsA[0]));
             Assert.Empty(foreignFilter.GetProperty("items").EnumerateArray());
+            var httpInvitationCursorA = (await ReadHttpAsync(ownerAClient,
+                TenantPath(tenantA) + "/member-invitations?limit=1"))
+                .GetProperty("next_cursor").GetString();
+            Assert.NotNull(httpInvitationCursorA);
+            await AssertForeignHttpInvitationCursorRejectedAsync(ownerBClient, tenantB,
+                httpInvitationCursorA);
 
             var accessA = await ReadHttpAsync(ownerAClient,
                 TenantPath(tenantA) + $"/members/{ownerAId}/access");
@@ -214,6 +220,14 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
             foreignMcpFilter["email_address"] = invitationsA[0];
             Assert.Empty(Ids(await ReadToolAsync(ownerBMcp, "bdgrz.tenant-invitation.list",
                 foreignMcpFilter), "email_address"));
+            var firstMcpInvitationInput = TenantInput(tenantA);
+            firstMcpInvitationInput["limit"] = 1;
+            var mcpInvitationCursorA = (await ReadToolAsync(ownerAMcp,
+                "bdgrz.tenant-invitation.list", firstMcpInvitationInput))
+                .GetProperty("next_cursor").GetString();
+            Assert.NotNull(mcpInvitationCursorA);
+            await AssertForeignMcpInvitationCursorRejectedAsync(ownerBMcp, tenantB,
+                mcpInvitationCursorA);
 
             AssertMemberAccess(await ReadToolAsync(ownerAMcp, "bdgrz.member.access.get",
                 MemberInput(tenantA, ownerAId)), tenantA, ownerAId);
@@ -405,6 +419,24 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
         } while (cursor is not null);
         Assert.Equal(2, emails.Count);
         return emails;
+    }
+
+    static async Task AssertForeignHttpInvitationCursorRejectedAsync(HttpClient client,
+        Uuid tenantId, string cursor)
+    {
+        using var response = await client.GetAsync(TenantPath(tenantId) +
+            "/member-invitations?limit=1&cursor=" + Uri.EscapeDataString(cursor));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    static async Task AssertForeignMcpInvitationCursorRejectedAsync(McpScenario mcp,
+        Uuid tenantId, string cursor)
+    {
+        var input = TenantInput(tenantId);
+        input["limit"] = 1;
+        input["cursor"] = cursor;
+        _ = await mcp.When("bdgrz.tenant-invitation.list", input)
+            .ExpectFailure("Validation");
     }
 
     static async Task<string[]> ReadIdsAsync(HttpClient client, string path, string field) =>
