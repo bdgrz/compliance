@@ -21,6 +21,8 @@ public interface IBoundaryDirectoryReader
         Uuid boundaryId, Uuid decisionId, CancellationToken ct = default);
     ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
         Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default);
+    ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default);
 }
 
 public interface IBoundaryDirectoryProjection : IProjectionStore
@@ -296,4 +298,9 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     .After(cursor), ct)
             .ConfigureAwait(false);
     }
+
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("BoundaryDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString())), ct);
 }

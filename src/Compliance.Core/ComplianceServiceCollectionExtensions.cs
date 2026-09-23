@@ -116,6 +116,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProgramDirectoryReader>(
             provider => provider.GetRequiredService<FitzProgramDirectory>());
         services.AddScoped<ProgramHistoryReadConsistency>();
+        services.AddScoped<ProgramSetupWorkReadConsistency>();
         services.AddScoped<FitzControlDraftDirectoryV2>();
         services.AddScoped<IControlDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzControlDraftDirectoryV2>());

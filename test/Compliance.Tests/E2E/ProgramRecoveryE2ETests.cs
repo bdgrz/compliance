@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Bdgrz.Compliance;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz;
 using Cntryl.Fitz.Testing;
@@ -21,6 +22,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker)
     : IClassFixture<RestartableBrokerStackFixture>
 {
+    static readonly string[] SecurityCategory = ["security"];
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -84,11 +87,18 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             await ReviseProgramAsync(sourceClient, programPath);
             var sourceCurrent = await WaitForProgramAsync(sourceClient, programPath, 2);
             var sourceHistory = await WaitForHistoryAsync(sourceClient, programPath, 2);
+            var sourceBoundary = await CreateBoundaryAsync(sourceClient, programPath);
+            var sourceSetup = await WaitForSetupWorkAsync(sourceClient, programPath,
+                sourceBoundary.BoundaryId);
             var sourceSnapshot = Snapshot(sourceCurrent, sourceHistory);
             var sourceEvents = await ReadProgramEventsAsync(sourceFactory, tenantId, programId);
+            var sourceBoundaryEvents = await ReadBoundaryEventsAsync(sourceFactory, tenantId,
+                sourceBoundary.BoundaryId);
             Assert.Collection(sourceEvents,
                 static record => Assert.IsType<ProgramCreated>(record.Event),
                 static record => Assert.IsType<ProgramRevised>(record.Event));
+            Assert.Collection(sourceBoundaryEvents,
+                static record => Assert.IsType<BoundaryDraftCreated>(record.Event));
 
             // Act
             sourceClient.Dispose();
@@ -112,13 +122,21 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             // Assert
             var restoredCurrent = await WaitForProgramAsync(restoredClient, programPath, 2);
             var restoredHistory = await WaitForHistoryAsync(restoredClient, programPath, 2);
+            var restoredSetup = await WaitForSetupWorkAsync(restoredClient, programPath,
+                sourceBoundary.BoundaryId);
             Assert.Equal(sourceCurrent.ToJsonString(), restoredCurrent.ToJsonString());
             Assert.Equal(sourceHistory.ToJsonString(), restoredHistory.ToJsonString());
+            Assert.Equal(sourceSetup.ToJsonString(), restoredSetup.ToJsonString());
             var restoredEvents = await ReadProgramEventsAsync(restoredFactory, tenantId, programId);
+            var restoredBoundaryEvents = await ReadBoundaryEventsAsync(restoredFactory, tenantId,
+                sourceBoundary.BoundaryId);
             Assert.Equal(sourceEvents.Count, restoredEvents.Count);
+            Assert.Equal(sourceBoundaryEvents.Count, restoredBoundaryEvents.Count);
             Assert.Collection(restoredEvents,
                 static record => Assert.IsType<ProgramCreated>(record.Event),
                 static record => Assert.IsType<ProgramRevised>(record.Event));
+            Assert.Collection(restoredBoundaryEvents,
+                static record => Assert.IsType<BoundaryDraftCreated>(record.Event));
 
             await WaitForTenantAdministrationAsync(restoredClient, secondTenantId);
             using var undisclosed = await restoredClient.GetAsync(
@@ -126,7 +144,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             Assert.Equal(HttpStatusCode.NotFound, undisclosed.StatusCode);
 
             await AssertReplayedProjectionAsync(restoredFactory.Services, tenantId, programId,
-                sourceSnapshot);
+                sourceSnapshot, sourceBoundary);
         }
         finally
         {
@@ -204,6 +222,26 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    static async Task<BoundaryRegistrationSnapshot> CreateBoundaryAsync(HttpClient client,
+        string programPath)
+    {
+        using var response = await client.PostAsJsonAsync($"{programPath}/boundaries", new
+        {
+            content = new
+            {
+                statement = "Recovery setup-work boundary",
+                engagement_stage = "readiness",
+                trust_services_categories = SecurityCategory,
+                entries = Array.Empty<object>(),
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await ReadObjectAsync(response);
+        return new BoundaryRegistrationSnapshot(
+            Assert.IsType<string>(body["boundary_id"]?.GetValue<string>()),
+            Assert.IsType<string>(body["draft_version_id"]?.GetValue<string>()));
+    }
+
     static async Task<JsonObject> WaitForProgramAsync(HttpClient client, string path, long revision)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
@@ -240,6 +278,28 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         }
 
         throw new TimeoutException($"The program history did not reach {count} revisions.");
+    }
+
+    static async Task<JsonObject> WaitForSetupWorkAsync(HttpClient client, string programPath,
+        string boundaryId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync($"{programPath}/setup-work");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var body = await ReadObjectAsync(response);
+                if (body["items"] is JsonArray items && items.Any(item =>
+                        item?["code"]?.GetValue<string>() == "approve_system_boundary" &&
+                        item["source_id"]?.GetValue<string>() == boundaryId))
+                    return body;
+            }
+
+            await Task.Delay(250);
+        }
+
+        throw new TimeoutException("The setup-work projection did not reach the boundary source.");
     }
 
     static async Task WaitForTenantAdministrationAsync(HttpClient client, string tenantId)
@@ -281,8 +341,24 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         return events;
     }
 
+    static async Task<IReadOnlyList<DomainEventRecord>> ReadBoundaryEventsAsync(
+        WebApplicationFactory<Program> factory, string tenantId, string boundaryId)
+    {
+        var events = new List<DomainEventRecord>();
+        var store = factory.Services.GetRequiredService<IEventStore>();
+        await foreach (var record in store.ReadAsync(
+                           new EventStreamAddress(tenantId, "boundaries", boundaryId), 0,
+                           CancellationToken.None))
+        {
+            events.Add(record);
+        }
+
+        return events;
+    }
+
     static async Task AssertReplayedProjectionAsync(IServiceProvider sourceServices, string tenantId,
-        string programId, ProgramProjectionSnapshot expected)
+        string programId, ProgramProjectionSnapshot expected,
+        BoundaryRegistrationSnapshot expectedBoundary)
     {
         var tenant = Uuid.Parse(tenantId, CultureInfo.InvariantCulture);
         var program = Uuid.Parse(programId, CultureInfo.InvariantCulture);
@@ -291,14 +367,20 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         await replay.StartAsync();
         try
         {
-            var (current, revisions) = await WaitForReplayedProgramAsync(replay.Services, tenant,
-                program, expected.Revisions.Count);
+            var (current, revisions, boundary) = await WaitForReplayedProgramAsync(replay.Services,
+                tenant, program, expected.Revisions.Count,
+                Uuid.Parse(expectedBoundary.BoundaryId, CultureInfo.InvariantCulture));
             Assert.Equal(expected.Name, current.Name);
             Assert.Equal(expected.Revision, current.Revision);
             Assert.Equal(expected.Plan, Snapshot(current.Plan));
             Assert.Equal(expected.Revisions,
                 revisions.Select(static revision => new ProgramRevisionSnapshot(revision.Revision,
                     revision.Name, Snapshot(revision.Plan))).ToArray());
+            Assert.Equal(program, boundary.ProgramId);
+            Assert.Equal(1, boundary.Revision);
+            Assert.NotNull(boundary.Draft);
+            Assert.Equal(Uuid.Parse(expectedBoundary.DraftVersionId, CultureInfo.InvariantCulture),
+                boundary.Draft.VersionId);
         }
         finally
         {
@@ -321,28 +403,47 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             provider.GetRequiredService<FitzProgramDirectory>());
         builder.Services.AddScoped<IProgramDirectoryReader>(provider =>
             provider.GetRequiredService<FitzProgramDirectory>());
+        builder.Services.AddScoped<FitzBoundaryDirectory>();
+        builder.Services.AddScoped<IBoundaryDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzBoundaryDirectory>());
+        builder.Services.AddScoped<IBoundaryDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzBoundaryDirectory>());
         builder.Services.AddPortiaEvent<ProgramCreated>(1, "bdgrz.program.created");
         builder.Services.AddPortiaEvent<ProgramRevised>(1, "bdgrz.program.revised");
+        builder.Services.AddPortiaEvent<BoundaryDraftCreated>(1, "bdgrz.boundary.draft.created");
+        builder.Services.AddPortiaEvent<BoundaryDraftRevised>(1, "bdgrz.boundary.draft.revised");
+        builder.Services.AddPortiaEvent<BoundaryDraftDiscarded>(1,
+            "bdgrz.boundary.draft.discarded");
+        builder.Services.AddPortiaEvent<BoundaryReviewed>(1, "bdgrz.boundary.reviewed");
+        builder.Services.AddPortiaEvent<BoundaryApproved>(1, "bdgrz.boundary.approved");
+        builder.Services.AddPortiaEvent<BoundarySuccessorProposed>(1,
+            "bdgrz.boundary.successor.proposed");
         builder.Services.AddPortia()
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant,
                 options => options.PollInterval = TimeSpan.FromMilliseconds(10))
+            .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2",
+                WorkloadScope.PerTenant, options => options.PollInterval = TimeSpan.FromMilliseconds(10))
             .AddWorkers();
         return builder.Build();
     }
 
-    static async Task<(ProgramView Current, IReadOnlyList<ProgramRevisionView> Revisions)>
+    static async Task<(ProgramView Current, IReadOnlyList<ProgramRevisionView> Revisions,
+        BoundaryView Boundary)>
         WaitForReplayedProgramAsync(IServiceProvider services, Uuid tenantId, Uuid programId,
-            int expectedRevisionCount)
+            int expectedRevisionCount, Uuid boundaryId)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var scope = services.CreateScope();
             var directory = scope.ServiceProvider.GetRequiredService<IProgramDirectoryReader>();
+            var boundaries = scope.ServiceProvider.GetRequiredService<IBoundaryDirectoryReader>();
             var current = await directory.GetAsync(tenantId, programId);
             var history = await directory.ListRevisionsAsync(tenantId, programId, 200, null);
-            if (current is not null && history?.Items.Count == expectedRevisionCount)
-                return (current, history.Items);
+            var boundary = await boundaries.GetAsync(tenantId, boundaryId);
+            if (current is not null && history?.Items.Count == expectedRevisionCount &&
+                boundary is not null)
+                return (current, history.Items, boundary);
 
             await Task.Delay(250);
         }
@@ -448,4 +549,6 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     sealed record ProgramPlanSnapshot(string? TargetReadinessDate, string? TargetTypeIAsOfDate,
         string? TargetTypeIIStartDate, string? TargetTypeIIEndDate, string? ReadinessAdvisor,
         string? AuditFirm);
+
+    sealed record BoundaryRegistrationSnapshot(string BoundaryId, string DraftVersionId);
 }

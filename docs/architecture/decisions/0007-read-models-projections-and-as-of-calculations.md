@@ -128,6 +128,24 @@ Control reference source is ahead. It returns only direct Application draft
 references and labels system-instance references plus approved-version and
 lifecycle impact as pending; it does not claim a cross-stream snapshot.
 
+Program setup-work derives a bounded page from `ProgramDirectory` and
+`BoundaryDirectoryV2`. Its guard captures both live tenant-realm checkpoints
+before scanning either source cursor. After reading the program and boundary
+page, it requires that checkpoint pair to be unchanged and scans both cursors
+again. Pending source or checkpoint movement returns a transient conflict,
+including when a projector catches up during the read. Both projectors use the
+full tenant event pattern, so unrelated tenant events may also require a retry.
+The final scan leaves the ordinary concurrent-write window before the response;
+it does not make the page an immutable snapshot.
+
+`ProgramSetupWorkReadConsistencyTests` covers checkpoint identity, lag, and
+writes between checkpoint capture and directory reads. The split-host
+`ProgramE2ETests.ShouldReturnTransientSetupWorkGivenStoppedSplitWorker` covers
+authorized HTTP/MCP transient results, outsider non-disclosure, and recovery
+after a worker restart. `ProgramRecoveryE2ETests` compares setup work before
+and after source restoration and replays both Program and Boundary projections
+in standalone and split hosts.
+
 [PR #321](https://github.com/bdgrz/compliance/pull/321) adds separate retained-
 source recovery evidence: a fresh broker and fresh hosts restore Program source
 state and replay the production tenant-scoped `ProgramDirectoryProjector` in

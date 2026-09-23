@@ -369,10 +369,26 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 var otherProgram = await otherProgramCreated.Content
                     .ReadFromJsonAsync<ProgramRegistrationDocument>();
                 Assert.NotNull(otherProgram);
-                using var unrelatedBoundarySetup = await owner.GetAsync(
+                var unrelatedBoundaryPath =
                     $"{path}/{otherProgram.ProgramId}/setup-work?boundary_id={boundary.BoundaryId}" +
-                    "&minimum_boundary_revision=1");
-                Assert.Equal(HttpStatusCode.NotFound, unrelatedBoundarySetup.StatusCode);
+                    "&minimum_boundary_revision=1";
+                var unrelatedBoundaryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                HttpStatusCode unrelatedBoundaryStatus = default;
+                while (DateTimeOffset.UtcNow < unrelatedBoundaryDeadline)
+                {
+                    using var unrelatedBoundarySetup = await owner.GetAsync(unrelatedBoundaryPath);
+                    if (unrelatedBoundarySetup.StatusCode == HttpStatusCode.NotFound)
+                    {
+                        unrelatedBoundaryStatus = unrelatedBoundarySetup.StatusCode;
+                        break;
+                    }
+
+                    Assert.Equal(HttpStatusCode.Conflict, unrelatedBoundarySetup.StatusCode);
+                    Assert.Equal("true", unrelatedBoundarySetup.Headers
+                        .GetValues("Portia-Transient").Single());
+                    await Task.Delay(250);
+                }
+                Assert.Equal(HttpStatusCode.NotFound, unrelatedBoundaryStatus);
                 using var crossProgramBoundary = await owner.PostAsJsonAsync(
                     $"{path}/{otherProgram.ProgramId}/boundaries", new
                     {
@@ -403,6 +419,179 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
         finally
         {
             await worker.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientSetupWorkGivenStoppedSplitWorker()
+    {
+        // Arrange
+        var applicationName = $"compliance-setup-work-split-{Guid.NewGuid():N}";
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        using var worker = builder.Build();
+        await worker.StartAsync();
+        IHost? restartedWorker = null;
+
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient owner;
+            HttpClient outsider;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                owner = factory.CreateClient();
+                outsider = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            }
+            using (owner)
+            using (outsider)
+            {
+                await TenantInvitationE2ETests.LoginAsync(owner,
+                    $"setup-work-owner-{Guid.NewGuid():N}@example.com");
+                await TenantInvitationE2ETests.LoginAsync(outsider,
+                    $"setup-work-outsider-{Guid.NewGuid():N}@example.com");
+                using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
+                {
+                    name = "Setup work split tenant",
+                    slug = $"setup-work-{Guid.NewGuid():N}"[..24],
+                });
+                Assert.Equal(HttpStatusCode.OK, tenantResponse.StatusCode);
+                var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
+                Assert.NotNull(tenant);
+                var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
+                var plan = new
+                {
+                    target_readiness_date = "2027-01-31",
+                    target_type_i_as_of_date = "2027-03-31",
+                    target_type_ii_start_date = "2027-04-01",
+                    target_type_ii_end_date = "2028-03-31",
+                    readiness_advisor = "Setup work advisor",
+                    audit_firm = (string?)null,
+                };
+                ProgramRegistrationDocument? registration = null;
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.PostAsJsonAsync(programsPath,
+                        new { name = "Setup work program", plan });
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        registration = await response.Content.ReadFromJsonAsync<ProgramRegistrationDocument>();
+                        break;
+                    }
+                    Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                        await response.Content.ReadAsStringAsync());
+                    await Task.Delay(250);
+                }
+                Assert.NotNull(registration);
+                var programPath = $"{programsPath}/{registration.ProgramId}";
+                var setupPath = $"{programPath}/setup-work";
+                ProgramSetupDocument? initialSetup = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync(setupPath);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        initialSetup = await response.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+                        if (initialSetup?.Items.Any(item => item.Code == "define_system_boundary") == true)
+                            break;
+                    }
+                    await Task.Delay(250);
+                }
+                Assert.Contains(initialSetup?.Items ?? [], item => item.Code == "define_system_boundary");
+
+                // Act
+                await worker.StopAsync();
+                using var boundaryResponse = await owner.PostAsJsonAsync($"{programPath}/boundaries",
+                    new
+                    {
+                        content = new
+                        {
+                            statement = "Pending setup work boundary",
+                            engagement_stage = "readiness",
+                            trust_services_categories = SecurityCategory,
+                            entries = Array.Empty<object>(),
+                        },
+                    });
+                Assert.Equal(HttpStatusCode.OK, boundaryResponse.StatusCode);
+
+                // Assert
+                using (var pending = await owner.GetAsync(setupPath))
+                {
+                    Assert.Equal(HttpStatusCode.Conflict, pending.StatusCode);
+                    Assert.Equal("true", pending.Headers.GetValues("Portia-Transient").Single());
+                }
+                var setupToolInput = new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["program_id"] = registration.ProgramId,
+                };
+                await using (var ownerMcp = await McpScenario.ConnectAsync(owner,
+                                 new Uri(owner.BaseAddress!, "/mcp")))
+                {
+                    var pending = await ownerMcp.When("bdgrz.program.setup-work.get", setupToolInput)
+                        .ExpectFailure("Conflict");
+                    var structured = Assert.IsType<JsonElement>(pending.StructuredJson);
+                    Assert.True(structured.GetProperty("isTransient").GetBoolean());
+                }
+                using (var undisclosed = await outsider.GetAsync(setupPath))
+                {
+                    Assert.Equal(HttpStatusCode.NotFound, undisclosed.StatusCode);
+                    Assert.Equal("false", undisclosed.Headers.GetValues("Portia-Transient").Single());
+                }
+                await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                                 new Uri(outsider.BaseAddress!, "/mcp")))
+                {
+                    var undisclosed = await outsiderMcp.When("bdgrz.program.setup-work.get", setupToolInput)
+                        .ExpectFailure();
+                    if (undisclosed.StructuredJson is JsonElement structured &&
+                        structured.TryGetProperty("isTransient", out var transient))
+                        Assert.False(transient.GetBoolean());
+                }
+
+                restartedWorker = BuildWorker(applicationName);
+                await restartedWorker.StartAsync();
+                deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                ProgramSetupDocument? recovered = null;
+                while (DateTimeOffset.UtcNow < deadline)
+                {
+                    using var response = await owner.GetAsync(setupPath);
+                    if (response.StatusCode == HttpStatusCode.OK)
+                    {
+                        recovered = await response.Content.ReadFromJsonAsync<ProgramSetupDocument>();
+                        if (recovered?.Items.Any(item => item.Code == "approve_system_boundary") == true)
+                            break;
+                    }
+                    else
+                        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+                    await Task.Delay(250);
+                }
+                Assert.Contains(recovered?.Items ?? [], item => item.Code == "approve_system_boundary");
+                await using var recoveredMcp = await McpScenario.ConnectAsync(owner,
+                    new Uri(owner.BaseAddress!, "/mcp"));
+                _ = await recoveredMcp.When("bdgrz.program.setup-work.get", setupToolInput)
+                    .ExpectSuccess();
+            }
+        }
+        finally
+        {
+            if (restartedWorker is not null)
+            {
+                await restartedWorker.StopAsync();
+                restartedWorker.Dispose();
+            }
         }
     }
 
@@ -700,6 +889,19 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
         }
         Assert.Equal(2, firstAfterConflict?.Items.Count);
         Assert.Single(secondAfterConflict?.Items ?? []);
+    }
+
+    IHost BuildWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        return builder.Build();
     }
 
     sealed record TenantRegistrationDocument([property: JsonPropertyName("tenant_id")] string TenantId);

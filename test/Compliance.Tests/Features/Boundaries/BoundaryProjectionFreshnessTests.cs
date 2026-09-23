@@ -145,5 +145,8 @@ public sealed class BoundaryProjectionFreshnessTests
         public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult<Page<BoundaryDecisionView>?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 }

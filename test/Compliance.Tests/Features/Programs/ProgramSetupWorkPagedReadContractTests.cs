@@ -3,6 +3,7 @@ using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.Features.Programs;
 
@@ -61,8 +62,12 @@ public sealed class ProgramSetupWorkPagedReadContractTests
     }
 
     static GetProgramSetupWorkHandler Handler(Uuid tenantId, Uuid programId,
-        IBoundaryDirectoryReader boundaries) => new(new ProgramDirectory(Program(tenantId, programId)),
-        boundaries, new AggregateReader());
+        IBoundaryDirectoryReader boundaries)
+    {
+        var programs = new ProgramDirectory(Program(tenantId, programId));
+        return new GetProgramSetupWorkHandler(programs, boundaries, new AggregateReader(),
+            new ProgramSetupWorkReadConsistency(programs, boundaries, new InMemoryEventStore()));
+    }
 
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
@@ -91,6 +96,9 @@ public sealed class ProgramSetupWorkPagedReadContractTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid programId,
             long revision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class BoundaryDirectory : IBoundaryDirectoryReader
@@ -126,6 +134,9 @@ public sealed class ProgramSetupWorkPagedReadContractTests
         public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult<Page<BoundaryDecisionView>?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class AggregateReader : IAggregateReader

@@ -13,6 +13,8 @@ public interface IProgramDirectoryReader
         int limit, string? cursor, CancellationToken ct = default);
     ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid programId,
         long revision, CancellationToken ct = default);
+    ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default);
 }
 
 public interface IProgramDirectoryProjection : IProjectionStore
@@ -128,4 +130,9 @@ sealed class FitzProgramDirectory(IKvClient client)
             $"{programId}:{revision.ToString("D20", CultureInfo.InvariantCulture)}", ct)
             .ConfigureAwait(false);
     }
+
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("ProgramDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString())), ct);
 }

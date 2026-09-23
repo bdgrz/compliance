@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Boundaries;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.Features.Programs;
 
@@ -38,8 +39,10 @@ public sealed class ProjectionFreshnessTests
         var program = new ComplianceProgram(tenantId, programId);
         Assert.True(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
             Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
-        var handler = new GetProgramSetupWorkHandler(new EmptyProgramDirectory(),
-            new EmptyBoundaryDirectory(), new SourceReader(program));
+        var programs = new EmptyProgramDirectory();
+        var boundaries = new EmptyBoundaryDirectory();
+        var handler = new GetProgramSetupWorkHandler(programs, boundaries, new SourceReader(program),
+            new ProgramSetupWorkReadConsistency(programs, boundaries, new InMemoryEventStore()));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<GetProgramSetupWork>(
@@ -66,8 +69,10 @@ public sealed class ProjectionFreshnessTests
         var program = new ProgramView(tenantId, programId, "SOC 2", "readiness", "type_i",
             1, new ProgramPlan(null, null, null, null, null, null), Uuid.CreateVersion4(),
             "Lead", DateTimeOffset.UtcNow, []);
-        var handler = new GetProgramSetupWorkHandler(new EmptyProgramDirectory(program),
-            new EmptyBoundaryDirectory(), new SourceReader(boundary));
+        var programs = new EmptyProgramDirectory(program);
+        var boundaries = new EmptyBoundaryDirectory();
+        var handler = new GetProgramSetupWorkHandler(programs, boundaries, new SourceReader(boundary),
+            new ProgramSetupWorkReadConsistency(programs, boundaries, new InMemoryEventStore()));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<GetProgramSetupWork>(
@@ -196,6 +201,9 @@ public sealed class ProjectionFreshnessTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
             Uuid programId, long revision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class EmptyBoundaryDirectory : IBoundaryDirectoryReader
@@ -226,6 +234,9 @@ public sealed class ProjectionFreshnessTests
         public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             throw new NotImplementedException();
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class EmptyServiceDirectory : IClientServiceDirectoryReader
