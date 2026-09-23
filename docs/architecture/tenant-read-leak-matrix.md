@@ -13,14 +13,15 @@ The route inventory below follows `src/Compliance.App/Program.cs`.
 | Application list and boundary references | `ProjectionReadConsistencyE2ETests.ShouldNeverReturnStaleProjectionOrCrossTenantRowsGivenStandaloneOrSplitHost` covers application-list isolation and boundary-reference exact/non-disclosure in both modes. | Application revision, system-instance and reference list pagination, change preview, and remaining HTTP/MCP permutations. |
 | Snapshot read, verification and manifest regeneration | `SnapshotE2ETests.ShouldFreezeExactScopeGivenStandaloneOrSplitWorker` covers cross-tenant verification/manifest and outsider denial in both modes. | Two-tenant snapshot list and cursor, plus full MCP list proof. |
 | Platform metadata exception | `OperatorPortfolioE2ETests.ShouldListPlatformTenantMetadataGivenConfiguredOperatorAndHostMode` covers operator-only tenant metadata pagination in both modes. | Keep this separate from client business-record access. |
+| Tenant detail, self-list, operator member list, invitation list, effective member access and matching MCP reads | `TenantIdentityReadLeakMatrixE2ETests.ShouldScopeTenantMemberInvitationAndSelfReadsGivenTwoTenants`: both modes; separate tenant owners and an outsider, operator metadata and member-list authority, HTTP/MCP self-list and invitation cursors through exhaustion, foreign paths and email filters, and foreign member-access denial. [Detailed evidence](tenant-identity-read-leak-matrix.md). | Member-list pagination after a second membership activates; actor snapshots and identity replacement/deprovisioning lifecycle proof. These reads have no total-count field. |
 
-Still open for the same two-tenant, two-host HTTP/MCP matrix: tenant member,
-invitation, self-list and access reads; program list, revision and setup-work
-reads; control, commitment and risk draft/history pages; client-service tenant
-and program lists/history; boundary program lists, versions, decisions and impact
-preview; and the remaining application and snapshot reads above. Existing
-capability tests often prove standalone cross-tenant denial or split-host
-recovery, but that does not prove every list and cursor in both modes.
+Still open for the same two-tenant, two-host HTTP/MCP matrix: program list,
+revision and setup-work reads; control, commitment and risk draft/history pages;
+client-service tenant and program lists/history; boundary program lists,
+versions, decisions and impact preview; and the remaining application and
+snapshot reads above. Existing capability tests often prove standalone
+cross-tenant denial or split-host recovery, but that does not prove every list
+and cursor in both modes.
 
 The current API has no separate tenant-owned count, export, job, notification
 or artifact-content route. Import batch status carries row and invalid counts
