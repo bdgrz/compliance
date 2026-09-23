@@ -1324,7 +1324,7 @@ Source: Multi-client firm decision 2026-09-14; README authentication section.
 
 ## R1 - Readiness program scoped
 
-Business outcome: the team has an agreed system boundary; authoritative workforce context; application, technology, and information inventories; service commitments and system requirements; criteria; roles; controls; risks; providers; and an owned gap plan. The shared platform primitives (authorization, versioned records, review decisions, snapshots, import, and artifact storage) are proven through their first consuming stories. Nothing in this milestone claims audit readiness or an auditor opinion.
+Business outcome: the team has an agreed system boundary; authoritative workforce context; application, technology, and information inventories; service commitments and system requirements; criteria; roles; controls; risks; providers; and an owned gap plan. Authorization, versioned records, review decisions, snapshots, and artifact storage are proven through their first consuming stories. Import is accepted P1 work after the manual governed-record path. Nothing in this milestone claims audit readiness or an auditor opinion.
 
 Shared enablers are delivered in this milestone and proven through their first consuming stories.
 
@@ -2055,6 +2055,10 @@ Depends on: R1-10a
 
 ### R1-11 Establish the authoritative workforce and identity-owner roster
 
+Delivery order: R1-11a records an attributed manual roster first. HRIS import
+is deferred until #347 validates a real source and a separate P1 import slice
+is scheduled; it does not block the manual backend child.
+
 Priority: P0
 
 Area: workforce assurance
@@ -2120,13 +2124,13 @@ Implementation subtasks:
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
-#### R1-11a Record and import the workforce roster with source precedence
+#### R1-11a Record the workforce roster with source precedence
 
-Outcome: As a compliance lead, I can record or import employees, contractors, and external collaborators from authoritative and corroborating sources, and accept an attributable reconciled result.
+Outcome: As a compliance lead, I can record employees, contractors, and external collaborators with attributed source facts and resolve conflicts before using the roster.
 
 Acceptance criteria:
 
-- [ ] The team can import or manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
+- [ ] The team can manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
 - [ ] Each person shows their source, freshness, lifecycle, and relationships without using email as the stable identifier.
 - [ ] Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
 
@@ -2134,6 +2138,7 @@ Not in this slice:
 
 - NHI ownership (R1-11c).
 - Snapshots and field restrictions (R1-11d).
+- HRIS import, scheduled after #347 validates the first source shape and EN-05 is available.
 
 #### R1-11b Surface joiners, movers, leavers, and unresolved roster conflicts
 
@@ -2606,7 +2611,7 @@ Blocks: F1-07, F1-08, R1-02, R1-04e, R1-05, R1-06, R1-13, R2-02, R2-05, R2-07
 
 ### EN-05 Import with preview, reconciliation, and safe replay
 
-Priority: P0
+Priority: P1
 
 Type: enabler
 
@@ -2648,9 +2653,14 @@ Implementation subtasks:
 
 First consumer: R1-10b application import
 
+Sequencing: M0-D05–D08 defer imports and connectors. Manual R1/R2 backend
+acceptance does not depend on EN-05; application import is its first consumer.
+
 Depends on: M0-A06, M0-D28, EN-01
 
-Blocks: R1-03, R1-09, R1-10, R1-11, R1-12, R2-06
+Blocks: R1-09 and the R1-10b application-import slice. Later HRIS, provider,
+or catalog-overlay imports consume this enabler when their source shapes are
+validated and those implementation slices are scheduled.
 
 ### EN-06 Store governed artifacts with immutable content identity
 
@@ -2989,6 +2999,11 @@ Depends on: R2-05c, R2-07
 
 ### R2-06 Reconcile application access and complete the initial review
 
+Delivery order: R2-06a accepts manually attested, immutable provider
+populations first. Provider import and connectors wait for sample validation in
+#353 and a separate P1 delivery slice; they do not block the manual backend
+child.
+
 Priority: P0
 
 Area: access review
@@ -3095,13 +3110,13 @@ Implementation subtasks:
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
-#### R2-06a Import and accept a point-in-time access population for a reviewed system
+#### R2-06a Record and accept a point-in-time access population for a reviewed system
 
-Outcome: As an access reviewer, I can import the actual accounts, groups, roles, entitlements, memberships, and grant paths for a reviewed system as a validated source snapshot.
+Outcome: As an access reviewer, I can attest the observed accounts, groups, roles, entitlements, memberships, and direct assignments for a reviewed system as a validated source snapshot.
 
 Acceptance criteria:
 
-- [ ] Invalid, duplicate, incomplete, or ambiguous import rows are shown before acceptance.
+- [ ] Invalid, duplicate, incomplete, or ambiguous observed facts are shown before acceptance.
 - [ ] Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
 - [ ] Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
 - [ ] Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
@@ -3111,6 +3126,7 @@ Not in this slice:
 - Classification (R2-06b).
 - Expectations (R2-06c).
 - Campaign decisions (R2-06d).
+- Provider imports and connectors, scheduled after #353 validates real exports and EN-05 is available.
 
 #### R2-06b Classify human and non-human principals and resolve their ownership
 
@@ -5048,11 +5064,11 @@ and UI dependencies directly in GitHub.
 | EN-02 | [#88](https://github.com/bdgrz/compliance/issues/88) | R1 | P0 | M0-A01 |
 | EN-03 | [#89](https://github.com/bdgrz/compliance/issues/89) | R1 | P0 | M0-A01, M0-A02 |
 | EN-04 | [#90](https://github.com/bdgrz/compliance/issues/90) | R1 | P0 | M0-D03, M0-D23, EN-01 |
-| EN-05 | [#91](https://github.com/bdgrz/compliance/issues/91) | R1 | P0 | M0-A06, M0-D28, EN-01 |
+| EN-05 | [#91](https://github.com/bdgrz/compliance/issues/91) | R1 | P1 | M0-A06, M0-D28, EN-01 |
 | EN-06 | [#92](https://github.com/bdgrz/compliance/issues/92) | R1 | P0 | M0-A03, EN-01 |
 | R1-01 | [#7](https://github.com/bdgrz/compliance/issues/7) | R1 | P0 | M0-D01, EN-01, R1-15 |
 | R1-02 | [#8](https://github.com/bdgrz/compliance/issues/8) | R1 | P0 | M0-D01, M0-D22, EN-02, EN-04, R1-01 |
-| R1-03 | [#9](https://github.com/bdgrz/compliance/issues/9) | R1 | P0 | M0-D01, M0-D02, EN-05, R1-01 |
+| R1-03 | [#9](https://github.com/bdgrz/compliance/issues/9) | R1 | P0 | M0-D01, M0-D02, R1-01; later overlay import uses EN-05 |
 | R1-04 | [#10](https://github.com/bdgrz/compliance/issues/10) | R1 | P0 | M0-D03, M0-D28, EN-01, R1-15 |
 | R1-04a | [#93](https://github.com/bdgrz/compliance/issues/93) | R1 | P0 | M0-D03, M0-D28, EN-01, R1-15 |
 | R1-04b | [#94](https://github.com/bdgrz/compliance/issues/94) | R1 | P0 | R1-04a |
@@ -5069,16 +5085,16 @@ and UI dependencies directly in GitHub.
 | R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P1 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
 | R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P1 | R1-08, R1-09a |
 | R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
-| R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
-| R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P0 | R1-10a |
+| R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, R1-02 |
+| R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P1 | R1-10a, EN-05 |
 | R1-10c | [#104](https://github.com/bdgrz/compliance/issues/104) | R1 | P0 | R1-10a |
 | R1-10d | [#105](https://github.com/bdgrz/compliance/issues/105) | R1 | P0 | R1-10a |
 | R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, M0-D28, EN-05, R1-04 |
-| R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, M0-D28, EN-05, R1-04 |
+| R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, M0-D28, R1-04 |
 | R1-11b | [#107](https://github.com/bdgrz/compliance/issues/107) | R1 | P0 | R1-11a |
 | R1-11c | [#108](https://github.com/bdgrz/compliance/issues/108) | R1 | P0 | R1-11a |
 | R1-11d | [#109](https://github.com/bdgrz/compliance/issues/109) | R1 | P0 | EN-03, R1-11a |
-| R1-12 | [#50](https://github.com/bdgrz/compliance/issues/50) | R1 | P0 | M0-D08, M0-D22, M0-D28, EN-02, EN-05, R1-02, R1-10 |
+| R1-12 | [#50](https://github.com/bdgrz/compliance/issues/50) | R1 | P0 | M0-D08, M0-D22, M0-D28, EN-02, R1-02, R1-10 |
 | R1-13 | [#51](https://github.com/bdgrz/compliance/issues/51) | R1 | P0 | M0-D09, EN-02, EN-04, R1-02 |
 | R1-14 | [#52](https://github.com/bdgrz/compliance/issues/52) | R1 | P0 | M0-D11, M0-D23, EN-02, EN-06, R1-02, R1-10, R1-13 |
 | R1-15 | [#127](https://github.com/bdgrz/compliance/issues/127) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01 |
@@ -5093,7 +5109,7 @@ and UI dependencies directly in GitHub.
 | R2-05c | [#112](https://github.com/bdgrz/compliance/issues/112) | R2 | P0 | R2-05b |
 | R2-05d | [#113](https://github.com/bdgrz/compliance/issues/113) | R2 | P0 | R2-05c, R2-07 |
 | R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, EN-05, R1-10, R1-11 |
-| R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, EN-05, R1-10, R1-11 |
+| R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, R1-10, R1-11 |
 | R2-06b | [#115](https://github.com/bdgrz/compliance/issues/115) | R2 | P0 | R1-11, R2-06a |
 | R2-06c | [#116](https://github.com/bdgrz/compliance/issues/116) | R2 | P0 | R2-06a |
 | R2-06d | [#117](https://github.com/bdgrz/compliance/issues/117) | R2 | P0 | R2-06a |
