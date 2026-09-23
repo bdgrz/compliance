@@ -761,6 +761,8 @@ public sealed class ComplianceWebTests
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment(environment);
+            if (environment != "Development")
+                ProductionEmailDeliveryTestConfiguration.Apply(builder);
             builder.UseSetting(
                 "Compliance:Authentication:Mode",
                 environment == "Development" ? "Development" : "External");

@@ -15,7 +15,8 @@ public static class ComplianceServiceCollectionExtensions
     public static PortiaBuilder AddCompliance(
         this IServiceCollection services,
         IConfiguration configuration,
-        bool developerAuthentication = false)
+        bool developerAuthentication = false,
+        bool requireRealEmailDelivery = false)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -27,8 +28,16 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
         services.AddSingleton<IArtifactInspector, UninspectedArtifactInspector>();
+        var emailDeliverySettings = EmailChallengeDeliverySettings.FromConfiguration(configuration,
+            requireRealEmailDelivery);
+        services.AddSingleton(emailDeliverySettings);
+        services.AddSingleton(EmailChallengeTokenKeys.FromConfiguration(configuration,
+            emailDeliverySettings.Mode == "mock"));
         services.AddSingleton<MockEmailChallengeDelivery>();
-        services.AddSingleton<IEmailChallengeDelivery>(provider => provider.GetRequiredService<MockEmailChallengeDelivery>());
+        services.AddSingleton<IEmailChallengeDelivery>(provider =>
+            emailDeliverySettings.Mode == "smtp"
+                ? new SmtpEmailChallengeDelivery(emailDeliverySettings)
+                : provider.GetRequiredService<MockEmailChallengeDelivery>());
         services.AddSingleton<MockTenantInvitationDelivery>();
         services.AddSingleton<ITenantInvitationDelivery>(provider =>
             provider.GetRequiredService<MockTenantInvitationDelivery>());
@@ -191,6 +200,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReserveEmailHandler>()
             .AddRequestHandler<IssueEmailChallengeHandler>()
             .AddRequestHandler<CompleteEmailChallengeHandler>()
+            .AddRequestHandler<GetEmailChallengeStatusHandler>()
             .AddRequestHandler<GetEmailAddressHandler>()
             .AddRequestHandler<ListEmailAddressesHandler>()
             .AddRequestAuthorizer<EmailOwnershipAuthorizer>()
@@ -322,6 +332,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
+            .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             // This narrow backfill has its own checkpoint so it can safely replay historical

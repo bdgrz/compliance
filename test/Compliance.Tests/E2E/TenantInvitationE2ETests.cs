@@ -218,7 +218,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
     }
 
     internal static async Task VerifyEmailAsync(WebApplicationFactory<Program> factory, HttpClient client,
-        string userId, string emailAddress)
+        string userId, string emailAddress, MockEmailChallengeDelivery? workerDelivery = null)
     {
         var path = $"/api/v1/users/{userId}/email-addresses/{emailAddress}";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
@@ -231,9 +231,14 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         }
         using var issued = await client.PostAsync($"{path}/challenges", null);
         Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
-        var delivery = factory.Services.GetRequiredService<MockEmailChallengeDelivery>();
-        Assert.True(delivery.TryGetLatest(Uuid.Parse(userId, CultureInfo.InvariantCulture), emailAddress,
-            out var token));
+        var delivery = workerDelivery ?? factory.Services.GetRequiredService<MockEmailChallengeDelivery>();
+        string? token = null;
+        var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deliveryDeadline &&
+               !delivery.TryGetLatest(Uuid.Parse(userId, CultureInfo.InvariantCulture),
+                   emailAddress, out token))
+            await Task.Delay(250);
+        Assert.NotNull(token);
         using var completed = await client.PostAsJsonAsync($"{path}/verifications", new { token });
         Assert.Equal(HttpStatusCode.NoContent, completed.StatusCode);
         while (DateTimeOffset.UtcNow < deadline)

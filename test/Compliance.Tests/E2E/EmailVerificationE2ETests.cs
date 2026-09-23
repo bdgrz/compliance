@@ -97,12 +97,26 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClas
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
         using var forbiddenList = await client.GetAsync($"/api/v1/users/{Guid.NewGuid()}/email-addresses");
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenList.StatusCode);
+        using var forbiddenStatus = await client.GetAsync(
+            $"/api/v1/users/{Guid.NewGuid()}/email-addresses/{email}/challenges/status");
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenStatus.StatusCode);
 
         using var issued = await client.PostAsync($"{path}/challenges", null);
         Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
         var delivery = factory.Services.GetRequiredService<MockEmailChallengeDelivery>();
-        Assert.True(delivery.TryGetLatest(Uuid.Parse(identity.Id, CultureInfo.InvariantCulture), email, out var token));
+        string? token = null;
+        var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deliveryDeadline &&
+               !delivery.TryGetLatest(Uuid.Parse(identity.Id, CultureInfo.InvariantCulture),
+                   email, out token))
+            await Task.Delay(250);
         Assert.NotNull(token);
+
+        using var status = await client.GetAsync($"{path}/challenges/status");
+        Assert.Equal(HttpStatusCode.OK, status.StatusCode);
+        var statusBody = await status.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(token, statusBody, StringComparison.Ordinal);
+        Assert.DoesNotContain(email, statusBody, StringComparison.Ordinal);
 
         using var completed = await client.PostAsJsonAsync($"{path}/verifications", new { token });
         Assert.Equal(HttpStatusCode.NoContent, completed.StatusCode);
@@ -130,8 +144,13 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClas
         Assert.Equal(HttpStatusCode.NoContent, reservedSecond.StatusCode);
         using var issuedSecond = await client.PostAsync($"{secondPath}/challenges", null);
         Assert.Equal(HttpStatusCode.NoContent, issuedSecond.StatusCode);
-        Assert.True(delivery.TryGetLatest(Uuid.Parse(identity.Id, CultureInfo.InvariantCulture), secondEmail,
-            out var secondToken));
+        string? secondToken = null;
+        var secondDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < secondDeadline &&
+               !delivery.TryGetLatest(Uuid.Parse(identity.Id, CultureInfo.InvariantCulture),
+                   secondEmail, out secondToken))
+            await Task.Delay(250);
+        Assert.NotNull(secondToken);
         using var completedSecond = await client.PostAsJsonAsync(
             $"{secondPath}/verifications", new { token = secondToken });
         Assert.Equal(HttpStatusCode.NoContent, completedSecond.StatusCode);

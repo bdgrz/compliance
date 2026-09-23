@@ -109,6 +109,7 @@ public sealed class MultipleTrustedIssuerWebTests
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
+            ProductionEmailDeliveryTestConfiguration.Apply(builder);
             builder.UseSetting("Compliance:Authentication:Mode", "External");
             builder.UseSetting("Compliance:Authentication:Authority", FirmIssuer);
             builder.UseSetting("Compliance:Authentication:ClientId", "compliance-spa");
