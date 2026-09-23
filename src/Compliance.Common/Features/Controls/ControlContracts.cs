@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -17,11 +19,18 @@ public sealed record ControlRegistration(Uuid ControlId, string Identifier, long
 public sealed record ControlDraftView(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     string Identifier, long Revision, string Status, string OwnerResolution,
     string ApplicabilityResolution, ControlDraftContent Content,
-    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt);
+    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt)
+{
+    public ActorReference LastChangedBy => ActorReference.ForMember(
+        LastChangedByMemberId, LastChangedByDisplay);
+}
 
 public sealed record ControlDraftRevisionView(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     string Identifier, long Revision, ControlDraftContent Content,
-    Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt);
+    Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt)
+{
+    public ActorReference Actor => ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+}
 
 [Discriminator("bdgrz.control.draft.create", 1)]
 public sealed record CreateControlDraft(Uuid TenantId, Uuid ProgramId, string Identifier,
@@ -56,14 +65,35 @@ public sealed record GetControlDraftRevision(Uuid TenantId, Uuid ProgramId, Uuid
 [Discriminator("bdgrz.control.draft.created", 1)]
 public sealed record ControlDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     Uuid CreateRequestId, string Identifier, ControlDraftContent Content, Uuid ActorMemberId,
-    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}
 
 [Discriminator("bdgrz.control.draft.revised", 1)]
 public sealed record ControlDraftRevised(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long Revision, ControlDraftContent Content, Uuid ActorMemberId,
-    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}
 
 [Discriminator("bdgrz.control.draft.discarded", 1)]
 public sealed record ControlDraftDiscarded(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long Revision, Uuid ActorMemberId, string ActorDisplay, string Rationale,
-    DateTimeOffset DiscardedAt) : DomainEvent;
+    DateTimeOffset DiscardedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}

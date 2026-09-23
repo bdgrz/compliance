@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -90,7 +91,10 @@ public sealed class CommitmentDraft : Aggregate
                     RequestErrorKind.Conflict, "The draft identifier already exists."));
         CommitmentDraftCreated created = new(_tenantId, programId, Id, createRequestId,
             serviceId, normalizedKind, normalizedIdentifier, cleanStatement, cleanContext,
-            cleanSourceReference, actorMemberId, actorDisplay, changedAt);
+            cleanSourceReference, actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(created,
                 ComplianceCoreJsonContext.Default.CommitmentDraftCreated).Length >
             MaximumDraftEventPayloadBytes)
@@ -116,7 +120,10 @@ public sealed class CommitmentDraft : Aggregate
             return Result.Failure(error);
         CommitmentDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
             statement.Trim(), context.Trim(), sourceReference.Trim(), actorMemberId,
-            actorDisplay, changedAt);
+            actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.CommitmentDraftRevised).Length >
             MaximumDraftEventPayloadBytes)

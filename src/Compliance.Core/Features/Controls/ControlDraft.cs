@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -81,7 +82,10 @@ public sealed class ControlDraft : Aggregate
                     "The control identifier already exists with different draft content."));
         }
         ControlDraftCreated created = new(_tenantId, programId, Id, createRequestId,
-            normalized, clean, actorMemberId, actorDisplay, changedAt);
+            normalized, clean, actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(created,
                 ComplianceCoreJsonContext.Default.ControlDraftCreated).Length >
             MaximumDraftEventPayloadBytes)
@@ -104,7 +108,10 @@ public sealed class ControlDraft : Aggregate
         if (error is not null)
             return Result.Failure(error);
         ControlDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
-            Clean(content), actorMemberId, actorDisplay, changedAt);
+            Clean(content), actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.ControlDraftRevised).Length >
             MaximumDraftEventPayloadBytes)
@@ -130,7 +137,10 @@ public sealed class ControlDraft : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Discarding a control draft requires a rationale."));
         var discarded = new ControlDraftDiscarded(_tenantId, programId, Id, _revision,
-            actorMemberId, actorDisplay, rationale.Trim(), discardedAt);
+            actorMemberId, actorDisplay, rationale.Trim(), discardedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(discarded,
                 ComplianceCoreJsonContext.Default.ControlDraftDiscarded).Length >
             MaximumDraftEventPayloadBytes)
