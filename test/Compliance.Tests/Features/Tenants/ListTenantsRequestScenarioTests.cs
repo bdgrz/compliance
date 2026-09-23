@@ -73,7 +73,7 @@ public sealed class ListTenantsRequestScenarioTests
         var services = new ServiceCollection();
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<ITenantDirectoryReader>(directory);
-        services.AddSingleton(new PlatformOperatorAuthority([OperatorId]));
+        services.AddSingleton<IPlatformOperatorAccess>(new FixedOperatorAccess(OperatorId));
         services.AddPortia()
             .AddRequestHandler<ListTenantsHandler>()
             .AddRequestAuthorizer<PlatformOperatorAuthorizer>();

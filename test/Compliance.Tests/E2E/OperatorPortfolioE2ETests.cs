@@ -67,6 +67,13 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
             Assert.Equal(operatorId, Uuid.Parse(await TenantInvitationE2ETests.LoginAsync(
                 operatorClient, operatorEmail), CultureInfo.InvariantCulture));
             await TenantInvitationE2ETests.LoginAsync(ordinaryClient, ordinaryEmail);
+            if (worker is not null)
+            {
+                await using var scope = worker.Services.CreateAsyncScope();
+                var roster = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new PlatformOperatorRoster());
+                Assert.True(roster.IsOperator(operatorId), "The API host did not seed the shared operator stream.");
+            }
             const string path = "/api/v1/platform/tenants";
 
             // Act

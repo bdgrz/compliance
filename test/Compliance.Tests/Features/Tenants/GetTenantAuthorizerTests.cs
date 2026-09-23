@@ -17,7 +17,7 @@ public sealed class GetTenantAuthorizerTests
         bool member, bool active, bool permitted, RequestErrorKind? expectedError)
     {
         // Arrange
-        var authorizer = new GetTenantAuthorizer(new PlatformOperatorAuthority([]),
+        var authorizer = new GetTenantAuthorizer(new FixedOperatorAccess(),
             new Memberships(member), new TenantActivity(active), new Permissions(permitted));
 
         // Act
@@ -38,7 +38,7 @@ public sealed class GetTenantAuthorizerTests
     public async Task ShouldAllowOperatorReadGivenNoTenantMembership()
     {
         // Arrange
-        var authorizer = new GetTenantAuthorizer(new PlatformOperatorAuthority([UserId]),
+        var authorizer = new GetTenantAuthorizer(new FixedOperatorAccess(UserId),
             new Memberships(false), new TenantActivity(false), new Permissions(false));
 
         // Act

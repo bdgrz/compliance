@@ -53,6 +53,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RegisterTenant>()
         .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
         .AddMcpTool<ReactivateTenant>(tool => tool.Idempotent())
+        .AddMcpTool<GrantPlatformOperator>()
+        .AddMcpTool<RevokePlatformOperator>(tool => tool.Destructive())
+        .AddMcpTool<ListPlatformOperators>(tool => tool.ReadOnly())
         .AddMcpTool<InviteTenantMember>()
         .AddMcpTool<InviteOrganizationMember>()
         .AddMcpTool<ListTenantInvitations>(tool => tool.ReadOnly())
@@ -248,6 +251,15 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenant_id}/suspensions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
+    app.MapPortiaPost<GrantPlatformOperator>("/api/v1/platform/operator-grants")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Platform operators");
+    app.MapPortiaPost<RevokePlatformOperator>("/api/v1/platform/operator-revocations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Platform operators");
+    app.MapPortiaGet<ListPlatformOperators, PlatformOperatorRosterView>("/api/v1/platform/operators")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Platform operators");
     app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenant_id}/invitations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");

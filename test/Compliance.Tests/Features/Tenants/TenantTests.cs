@@ -145,7 +145,7 @@ public sealed class TenantTests
     }
 
     [Fact]
-    public void ShouldActivateOnSlugConfirmationGivenVerifiedCreatorRegistration()
+    public void ShouldRemainProvisioningGivenConfirmedSlugForVerifiedCreator()
     {
         // Arrange
         var tenant = new Tenant(TenantId);
@@ -162,8 +162,11 @@ public sealed class TenantTests
         Assert.Equal(OwnerUserId, registered.OwnerUserId);
         Assert.Equal(Uuid.Empty, tenant.OperatorUserId);
         Assert.True(tenant.ConfirmSlug("acme").IsSuccess);
-        Assert.True(tenant.IsActive);
+        Assert.False(tenant.IsActive);
         Assert.False(tenant.Activate(OwnerUserId, "creator@example.com").IsSuccess);
+        Assert.True(tenant.Activate(OwnerUserId, null).IsSuccess);
+        Assert.True(tenant.IsActive);
+        Assert.False(tenant.Activate(Uuid.CreateVersion4(), null).IsSuccess);
     }
 
     [Fact]

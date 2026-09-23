@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class PlatformOperatorAuthorityTests
 {
     [Fact]
-    public void ShouldAllowOnlyConfiguredSubjectsGivenProductionMode()
+    public void ShouldParseBootstrapSubjectsGivenProductionMode()
     {
         // Arrange
         var operatorId = Uuid.CreateVersion4();
@@ -19,10 +19,9 @@ public sealed class PlatformOperatorAuthorityTests
         var authority = PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication: false);
 
         // Assert
-        Assert.True(authority.IsOperator(operatorId));
-        Assert.False(authority.IsOperator(Uuid.CreateVersion4()));
-        Assert.False(PlatformOperatorAuthority.FromConfiguration(new ConfigurationBuilder().Build(), false)
-            .IsOperator(operatorId));
+        Assert.Equal(operatorId, Assert.Single(authority.BootstrapUserIds));
+        Assert.Empty(PlatformOperatorAuthority.FromConfiguration(new ConfigurationBuilder().Build(), false)
+            .BootstrapUserIds);
     }
 
     [Fact]

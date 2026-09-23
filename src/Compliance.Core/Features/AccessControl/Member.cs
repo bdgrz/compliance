@@ -9,6 +9,9 @@ public sealed class Member : Aggregate
     bool _isRegistered;
     string? _affiliation;
 
+    public bool IsRegistered => _isRegistered;
+    public string? Affiliation => _affiliation;
+
     public Member(Uuid tenantId, Uuid userId)
         : base(
             RbacIds.Member(tenantId, userId),

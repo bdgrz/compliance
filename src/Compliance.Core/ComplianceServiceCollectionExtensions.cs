@@ -23,6 +23,7 @@ public static class ComplianceServiceCollectionExtensions
 
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
+        services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
@@ -189,7 +190,7 @@ public static class ComplianceServiceCollectionExtensions
                 EventStreamPattern.ForPattern("bdgrz", "tenants"),
                 domainEvent => new TenantId(((TenantRegistered)domainEvent).TenantId.ToString())));
 
-        return services
+        var portia = services
             .AddPortia()
             .AddRequestHandler<ContinueWithDeveloperIdentityHandler>()
             .AddRequestAuthorizer<ContinueWithDeveloperIdentityAuthorizer>()
@@ -299,6 +300,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()
+            .AddRequestHandler<SeedPlatformOperatorRosterHandler>()
+            .AddRequestAuthorizer<SeedPlatformOperatorRosterAuthorizer>()
+            .AddRequestHandler<GrantPlatformOperatorHandler>()
+            .AddRequestHandler<RevokePlatformOperatorHandler>()
+            .AddRequestHandler<ListPlatformOperatorsHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
@@ -377,5 +383,8 @@ public static class ComplianceServiceCollectionExtensions
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))
             .RequireAuthorization();
+
+        services.AddHostedService<PlatformOperatorRosterBootstrap>();
+        return portia;
     }
 }

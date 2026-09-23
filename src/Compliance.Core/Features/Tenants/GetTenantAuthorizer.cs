@@ -2,7 +2,7 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-sealed class GetTenantAuthorizer(PlatformOperatorAuthority operators,
+sealed class GetTenantAuthorizer(IPlatformOperatorAccess operators,
     ITenantMembershipDirectoryReader memberships, ITenantActivity tenants,
     IPermissionAuthorizer permissions) : IRequestAuthorizer<GetTenant>
 {
@@ -11,7 +11,7 @@ sealed class GetTenantAuthorizer(PlatformOperatorAuthority operators,
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
             return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
                 "Tenant access requires a Bdgrz user identity."));
-        if (operators.IsOperator(userId))
+        if (await operators.IsOperatorAsync(userId, ct).ConfigureAwait(false))
             return Result.Success;
 
         var tenantId = context.Request.TenantId;

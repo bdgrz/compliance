@@ -97,6 +97,39 @@ public sealed class FitzTenantDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldKeepCreatorProvisioningUntilActivationGivenConfirmedSlug()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var repository = new FitzTenantDirectoryReader(client);
+        var identity = new CheckpointIdentity("TenantDirectory",
+            EventStreamPattern.ForPattern("bdgrz", "tenants"));
+
+        // Act
+        await using (var batch = await repository.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId,
+                "Acme", "acme", CreatorIsAdministrator: true));
+            await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        Assert.Equal("provisioning", (await repository.GetAsync(tenantId))?.Status);
+
+        await using (var batch = await repository.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantActivated(tenantId, creatorId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        Assert.Equal("active", (await repository.GetAsync(tenantId))?.Status);
+    }
+
+    [Fact]
     public async Task ShouldPageAllTenantLifecycleStatesGivenPrimaryDirectory()
     {
         // Arrange
