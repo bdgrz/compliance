@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -389,6 +390,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        builder.Services.AddSingleton<ITenantInvitationDelivery>(delivery);
         using var worker = builder.Build();
 
         // Act
@@ -397,9 +399,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         // Assert
         try
         {
-            await using var factory = E2EAppFactory.Create(broker, applicationName)
-                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
-                    services.AddSingleton<ITenantInvitationDelivery>(delivery)));
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
             var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
             HttpClient client;
             try
@@ -426,11 +426,10 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var registration = await registered.Content.ReadFromJsonAsync<Registration>();
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
-            var bootstrapDelivery = worker.Services.GetRequiredService<MockTenantInvitationDelivery>();
             string? administratorToken = null;
             var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             while (DateTimeOffset.UtcNow < deadline &&
-                   !bootstrapDelivery.TryGetLatest(tenantId, administratorEmail, out administratorToken))
+                   !delivery.TryGetLatest(tenantId, administratorEmail, out administratorToken))
                 await Task.Delay(250);
             Assert.NotNull(administratorToken);
             using var administratorClient = factory.CreateClient();
@@ -445,33 +444,21 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.Equal(HttpStatusCode.NoContent, administratorAccepted.StatusCode);
 
             var email = $"invitee-{Guid.NewGuid():N}@example.com";
+            delivery.FailureEmail = email;
             var path = $"/api/v1/tenants/{tenantId}/invitations";
             var request = new { email_address = email, affiliation = "client_personnel" };
 
             using var first = await operatorClient.PostAsJsonAsync(path, request);
-            Assert.Equal(HttpStatusCode.InternalServerError, first.StatusCode);
-            Assert.False(delivery.TryGetLatest(tenantId, email, out _));
-            InvitationPage? failedInvitation = null;
-            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
-            while (DateTimeOffset.UtcNow < failureDeadline)
-            {
-                using var response = await administratorClient.GetAsync(
-                    $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
-                    Uri.EscapeDataString(email));
-                if (response.StatusCode == HttpStatusCode.OK)
-                {
-                    failedInvitation = await response.Content.ReadFromJsonAsync<InvitationPage>();
-                    if (failedInvitation?.Items.SingleOrDefault()?.DeliveryStatus == "failed")
-                        break;
-                }
+            Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+            Assert.False(factory.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                .TryGetLatest(tenantId, email, out _));
+            string? token = null;
+            var retryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            while (DateTimeOffset.UtcNow < retryDeadline &&
+                   !delivery.TryGetLatest(tenantId, email, out token))
                 await Task.Delay(250);
-            }
-            Assert.Equal("failed", Assert.Single(failedInvitation!.Items).DeliveryStatus);
-            using var retry = await operatorClient.PostAsJsonAsync(path, request);
-            Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
-            Assert.True(delivery.TryGetLatest(tenantId, email, out var token));
             Assert.False(string.IsNullOrEmpty(token));
-            Assert.Equal(2, delivery.Attempts);
+            Assert.True(delivery.AttemptsFor(email) >= 2);
             InvitationPage? deliveredInvitation = null;
             var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
             while (DateTimeOffset.UtcNow < deliveryDeadline)
@@ -562,6 +549,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             await TenantInvitationE2ETests.LoginAsync(operatorClient,
                 $"operator-{Guid.NewGuid():N}@example.com");
             var administratorEmail = $"administrator-{Guid.NewGuid():N}@example.com";
+            delivery.FailureEmail = administratorEmail;
             using var registered = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
             {
                 name = "Delivery Retry",
@@ -580,7 +568,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                    !delivery.TryGetLatest(tenantId, administratorEmail, out invitationToken))
                 await Task.Delay(250);
             Assert.NotNull(invitationToken);
-            Assert.True(delivery.Attempts >= 2);
+            Assert.True(delivery.AttemptsFor(administratorEmail) >= 2);
 
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);
@@ -766,9 +754,10 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             string? staffToken = null;
             var apiDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
             Assert.False(apiDelivery.TryGetLatest(tenantId, "denied@example.com", out _));
+            Assert.False(apiDelivery.TryGetLatest(tenantId, staffEmail, out _));
             deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             while (DateTimeOffset.UtcNow < deadline &&
-                   !apiDelivery.TryGetLatest(tenantId, staffEmail, out staffToken))
+                   !delivery.TryGetLatest(tenantId, staffEmail, out staffToken))
                 await Task.Delay(250);
             Assert.NotNull(staffToken);
             using var staffClient = factory.CreateClient();
@@ -1027,15 +1016,20 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
     sealed class FailingOnceInvitationDelivery : ITenantInvitationDelivery
     {
         readonly MockTenantInvitationDelivery _successfulDeliveries = new();
-        int _attempts;
+        readonly ConcurrentDictionary<string, int> _attempts = new(StringComparer.Ordinal);
 
-        public int Attempts => Volatile.Read(ref _attempts);
+        public string? FailureEmail { get; set; }
 
-        public ValueTask SendAsync(Uuid tenantId, string emailAddress, string token, CancellationToken ct)
+        public int AttemptsFor(string emailAddress) =>
+            _attempts.TryGetValue(emailAddress, out var count) ? count : 0;
+
+        public ValueTask SendAsync(Uuid attemptId, Uuid tenantId, string emailAddress,
+            string token, CancellationToken ct)
         {
-            if (Interlocked.Increment(ref _attempts) == 1)
+            var count = _attempts.AddOrUpdate(emailAddress, 1, (_, prior) => prior + 1);
+            if (string.Equals(FailureEmail, emailAddress, StringComparison.Ordinal) && count == 1)
                 throw new InvalidOperationException("Injected invitation delivery failure.");
-            return _successfulDeliveries.SendAsync(tenantId, emailAddress, token, ct);
+            return _successfulDeliveries.SendAsync(attemptId, tenantId, emailAddress, token, ct);
         }
 
         public bool TryGetLatest(Uuid tenantId, string emailAddress, out string? token) =>

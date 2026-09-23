@@ -105,15 +105,22 @@ Development and tests use `MockEmailChallengeDelivery`. Other environments requi
 base64 token key under `Compliance:EmailDelivery:TokenKeys:<key-id>`. Set the same key ring and
 active key ID on API and worker hosts. The worker derives the token from the persisted challenge
 ID and key, sends it, and records delivery status. Neither events nor responses contain the
-plaintext token. Keep a previous key configured until all challenges issued with it expire
-(15 minutes); a missing key leaves delivery failed and retryable when the key returns.
+plaintext token. Keep a previous key configured until all challenges and invitations issued
+with it expire (up to 7 days); a missing key leaves delivery failed and retryable when the key
+returns.
 The SMTP `Message-ID` is stable per challenge. Delivery is at least once: a crash after SMTP
 acceptance but before the sent event can produce another email with the same valid token.
 Reissuing replaces the challenge and invalidates its previous token. Keep SMTP credentials and
 token keys in deployment secrets. The `.env.example` remains suitable for local mock delivery.
-Invitations likewise use `MockTenantInvitationDelivery`, which captures tokens only in the process
-that sent them. Invitation acceptance and email verification are human HTTP flows and have no MCP tools;
-operator invitation management, organization queries, lifecycle, and slug operations use both HTTP and MCP.
+Invitations use the same configured SMTP relay and key ring outside development. The API commits
+only a token hash, attempt ID, and key ID; the worker derives the seven-day invitation token,
+sends it with a stable `Message-ID`, and records the outcome. A worker restart retries an
+unacknowledged send with the same token and message ID. SMTP delivery is at least once; the relay
+may still deliver a duplicate after a crash. Reissue invalidates the previous token. Historical
+hash-only invitations cannot be delivered by the worker and must be reissued. Development and
+tests use `MockTenantInvitationDelivery` in the worker that sent the invitation. Invitation
+acceptance and email verification are human HTTP flows and have no MCP tools; operator invitation
+management, organization queries, lifecycle, and slug operations use both HTTP and MCP.
 
 ASP.NET Core's optimized static-asset endpoints serve the Vite output with build-time metadata and compression. A small pre-routing rewrite supplies `index.html` for client-owned, extensionless paths while reserving `/api`, `/auth`, `/health`, and `/openapi` for the server.
 

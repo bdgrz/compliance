@@ -1,13 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using Cntryl.Portia;
-using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed partial class TenantInvitationIssuer(IAggregateExecutor executor,
-    ITenantInvitationDelivery delivery, TimeProvider clock,
-    ILogger<TenantInvitationIssuer> logger)
+public sealed class TenantInvitationIssuer(IAggregateExecutor executor,
+    EmailChallengeTokenKeys tokenKeys, TimeProvider clock)
 {
     public async ValueTask<Result> IssueAsync<TRequest>(IRequestContext<TRequest> context,
         Uuid tenantId, string emailAddress, string affiliation, bool administrator,
@@ -17,59 +15,30 @@ public sealed partial class TenantInvitationIssuer(IAggregateExecutor executor,
         if (!EmailAddresses.TryNormalize(emailAddress, out var normalized))
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Enter a valid email address."));
-        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+        var attemptId = Uuid.CreateVersion4();
         var now = clock.GetUtcNow();
-        var result = await executor.ExecuteAsync(new TenantInvitation(tenantId, normalized),
-            invitation => AggregateOutcome.CommitOnSuccess(invitation.Invite(affiliation,
-                administrator, hash, now.AddDays(7), now, invitedBy, builtInRole,
-                context.RequestId)),
-            context, ct).ConfigureAwait(false);
-        if (!result.IsSuccess)
-            return result;
-        try
-        {
-            await delivery.SendAsync(tenantId, normalized, token, ct).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException ||
-                                           !ct.IsCancellationRequested)
+        var expiresAt = now.AddDays(7);
+        var keyId = tokenKeys.ActiveKeyId;
+        var token = tokenKeys.DeriveInvitation(keyId, attemptId, tenantId, normalized, expiresAt);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        // A delivery outcome can commit while an administrator reissues the
+        // invitation. Keep this attempt's token fixed and re-evaluate its purpose
+        // against fresh state after a stream conflict.
+        for (var attempt = 0; ; attempt++)
         {
             try
             {
-                await RecordOutcomeAsync(context, tenantId, normalized,
-                    invitation => invitation.RecordDeliveryFailure(context.RequestId,
-                        "delivery_failed", clock.GetUtcNow()), "failed", CancellationToken.None)
+                return await executor.ExecuteAsync(new TenantInvitation(tenantId, normalized),
+                    invitation => AggregateOutcome.CommitOnSuccess(invitation.Invite(affiliation,
+                        administrator, hash, expiresAt, now, invitedBy, builtInRole, attemptId,
+                        keyId)), context, ct).ConfigureAwait(false);
+            }
+            catch (EventStreamConcurrencyException) when (attempt < 2)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(10 * (attempt + 1)), ct)
                     .ConfigureAwait(false);
             }
-            catch (Exception outcomeException)
-            {
-                LogDeliveryOutcomeFailure(logger, outcomeException, tenantId, normalized);
-            }
-            throw;
         }
-        await RecordOutcomeAsync(context, tenantId, normalized,
-            invitation => invitation.RecordDeliverySent(context.RequestId, clock.GetUtcNow()),
-            "sent", ct).ConfigureAwait(false);
-        return result;
     }
-
-    async ValueTask RecordOutcomeAsync<TRequest>(IRequestContext<TRequest> context,
-        Uuid tenantId, string emailAddress, Func<TenantInvitation, Result> operation,
-        string outcome, CancellationToken ct) where TRequest : IRequestBase
-    {
-        // Portia deliberately keeps aggregate commit and external delivery as two durability
-        // boundaries. A crash after delivery and before this event leaves the attempt pending;
-        // reissuing creates a new token and makes the retry explicit without storing plaintext.
-        var result = await executor.ExecuteAsync(new TenantInvitation(tenantId, emailAddress),
-            invitation => AggregateOutcome.CommitOnSuccess(operation(invitation)), context, ct)
-            .ConfigureAwait(false);
-        if (!result.IsSuccess)
-            throw new InvalidOperationException(
-                $"The invitation delivery outcome could not be recorded: {outcome}.");
-    }
-
-    [LoggerMessage(EventId = 18301, Level = LogLevel.Error,
-        Message = "Could not persist invitation delivery failure for {TenantId}/{EmailAddress}.")]
-    static partial void LogDeliveryOutcomeFailure(ILogger logger, Exception exception,
-        Uuid tenantId, string emailAddress);
 }

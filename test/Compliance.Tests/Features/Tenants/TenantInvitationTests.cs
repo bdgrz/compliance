@@ -144,7 +144,7 @@ public sealed class TenantInvitationTests
         var failed = invitation.RecordDeliveryFailure(firstAttempt, "delivery_failed", now);
         var replayedFailure = invitation.RecordDeliveryFailure(firstAttempt, "delivery_failed",
             now);
-        var staleSent = invitation.RecordDeliverySent(firstAttempt, now);
+        var retriedSent = invitation.RecordDeliverySent(firstAttempt, now);
         Assert.True(invitation.Invite("client_personnel", false, new string('B', 64),
             now.AddDays(7), now, invitedBy, deliveryAttemptId: secondAttempt).IsSuccess);
         var sent = invitation.RecordDeliverySent(secondAttempt, now.AddMinutes(1));
@@ -153,13 +153,13 @@ public sealed class TenantInvitationTests
         // Assert
         Assert.True(failed.IsSuccess);
         Assert.True(replayedFailure.IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(staleSent.Error).Kind);
+        Assert.True(retriedSent.IsSuccess);
         Assert.True(sent.IsSuccess);
         Assert.True(replayedSent.IsSuccess);
         var events = new AggregateScenario<TenantInvitation>(invitation).PendingEvents;
         Assert.Equal(2, events.OfType<TenantMemberInvited>().Count());
         Assert.Single(events.OfType<TenantInvitationDeliveryFailed>());
-        Assert.Single(events.OfType<TenantInvitationDeliverySent>());
+        Assert.Equal(2, events.OfType<TenantInvitationDeliverySent>().Count());
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.UserIdentities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,6 +53,8 @@ public sealed class EmailChallengeDeliveryConfigurationTests
         // Assert
         Assert.IsType<SmtpEmailChallengeDelivery>(
             provider.GetRequiredService<IEmailChallengeDelivery>());
+        Assert.IsType<SmtpTenantInvitationDelivery>(
+            provider.GetRequiredService<ITenantInvitationDelivery>());
     }
 
     static IConfiguration Configuration(string? key, bool smtp = false)

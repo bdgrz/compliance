@@ -129,7 +129,9 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                     await Task.Delay(250);
                 }
                 Assert.Equal("pending", Assert.Single(pendingInvitations!.Items).Status);
-                var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+                var delivery = splitHosts
+                    ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                    : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
                 var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 while (DateTimeOffset.UtcNow < deliveryDeadline &&

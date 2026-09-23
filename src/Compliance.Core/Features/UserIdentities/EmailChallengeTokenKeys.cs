@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Bdgrz.Compliance.Features.UserIdentities;
 
-/// <summary>Derives a challenge token without persisting its plaintext.</summary>
+/// <summary>Derives email proof and invitation tokens without persisting plaintext.</summary>
 public sealed class EmailChallengeTokenKeys
 {
     const string Section = "Compliance:EmailDelivery";
@@ -72,6 +72,28 @@ public sealed class EmailChallengeTokenKeys
         // worker; retaining the previous key for 15 minutes permits in-flight delivery.
         var input = Encoding.UTF8.GetBytes(string.Join('\n',
             "bdgrz-email-challenge-v1", challengeId.ToString(), userId.ToString(),
+            emailAddress, expiresAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)));
+        token = Convert.ToHexString(HMACSHA256.HashData(key, input));
+        return true;
+    }
+
+    public string DeriveInvitation(string keyId, Uuid attemptId, Uuid tenantId,
+        string emailAddress, DateTimeOffset expiresAt) =>
+        TryDeriveInvitation(keyId, attemptId, tenantId, emailAddress, expiresAt, out var token)
+            ? token!
+            : throw new InvalidOperationException("The email delivery token key is unavailable.");
+
+    public bool TryDeriveInvitation(string? keyId, Uuid attemptId, Uuid tenantId,
+        string emailAddress, DateTimeOffset expiresAt, out string? token)
+    {
+        token = null;
+        if (keyId is null || !_keys.TryGetValue(keyId, out var key))
+            return false;
+
+        // Keep the invitation derivation separate from verification challenges. Retain
+        // the selected key until every invitation issued under it has expired.
+        var input = Encoding.UTF8.GetBytes(string.Join('\n',
+            "bdgrz-tenant-invitation-v1", attemptId.ToString(), tenantId.ToString(),
             emailAddress, expiresAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)));
         token = Convert.ToHexString(HMACSHA256.HashData(key, input));
         return true;

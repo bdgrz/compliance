@@ -8,8 +8,10 @@ public sealed class MockTenantInvitationDelivery : ITenantInvitationDelivery
 {
     readonly ConcurrentDictionary<(Uuid TenantId, string EmailAddress), string> _messages = new();
 
-    public ValueTask SendAsync(Uuid tenantId, string emailAddress, string token, CancellationToken ct)
+    public ValueTask SendAsync(Uuid attemptId, Uuid tenantId, string emailAddress, string token,
+        CancellationToken ct)
     {
+        _ = attemptId;
         ct.ThrowIfCancellationRequested();
         _messages[(tenantId, emailAddress)] = token;
         return ValueTask.CompletedTask;

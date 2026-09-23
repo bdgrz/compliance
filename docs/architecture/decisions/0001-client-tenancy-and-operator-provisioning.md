@@ -73,7 +73,7 @@ decision; the service cannot infer confidentiality from the slug string.
 
 Verified self-service creation lets a platform user create an organization and become its first Org Admin without operator action. Granting an operator tenant access by default would create an unrequested cross-client access path. Using email or slug as a tenant identity would make renames and identity-provider changes unsafe. Storing roles in identity-provider tokens would delay revocation and blur the tenant boundary.
 
-The API and MCP surfaces use Portia command/query authorization and event-sourced aggregates, reactors, and Fitz projections. Invitation acceptance and email verification are human HTTP flows and are intentionally absent from MCP. Projection reads can lag; security decisions for suspension use the tenant aggregate and permission checks. Email verification challenge delivery uses a recoverable worker reactor and a configured STARTTLS SMTP adapter outside development. Invitation delivery still uses an in-process mock and remains a separate follow-up before real users can complete invitations.
+The API and MCP surfaces use Portia command/query authorization and event-sourced aggregates, reactors, and Fitz projections. Invitation acceptance and email verification are human HTTP flows and are intentionally absent from MCP. Projection reads can lag; security decisions for suspension use the tenant aggregate and permission checks. Email verification challenge and invitation delivery use recoverable worker reactors and a configured STARTTLS SMTP adapter outside development. Both are at least once across the external send and outcome event boundary; a relay may deliver a duplicate after worker restart.
 
 ## Public references
 
