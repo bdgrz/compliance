@@ -8,4 +8,5 @@ public sealed record EmailChallengeIssued(
     string EmailAddress,
     Uuid ChallengeId,
     string TokenHash,
-    DateTimeOffset ExpiresAt) : DomainEvent;
+    DateTimeOffset ExpiresAt,
+    string? TokenKeyId = null) : DomainEvent;

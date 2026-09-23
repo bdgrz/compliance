@@ -96,12 +96,21 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 - API errors use RFC Problem Details and include a `trace_id`.
 - Authenticated users can reserve, list, inspect, and verify their own email addresses under
   `/api/v1/users/{user_id}/email-addresses`. Challenge issuance and completion use Portia commands.
+  `GET /api/v1/users/{user_id}/email-addresses/{email_address}/challenges/status` reports
+  `not_issued`, `pending`, `failed`, `delivered`, `expired`, or `verified` to the owner.
   Email ownership and verification are HTTP-only; they are not MCP tools.
 
-Email delivery currently uses `MockEmailChallengeDelivery`. It captures the latest challenge
-in process for automated tests and sends no external message. AUTH-02a backend #360 owns
-production challenge delivery and durable retry before verified self-service creation can be
-used by real users.
+Development and tests use `MockEmailChallengeDelivery`. Other environments require
+`Compliance:EmailDelivery:Mode=smtp`, a STARTTLS SMTP host/port/sender, and an active 32-byte
+base64 token key under `Compliance:EmailDelivery:TokenKeys:<key-id>`. Set the same key ring and
+active key ID on API and worker hosts. The worker derives the token from the persisted challenge
+ID and key, sends it, and records delivery status. Neither events nor responses contain the
+plaintext token. Keep a previous key configured until all challenges issued with it expire
+(15 minutes); a missing key leaves delivery failed and retryable when the key returns.
+The SMTP `Message-ID` is stable per challenge. Delivery is at least once: a crash after SMTP
+acceptance but before the sent event can produce another email with the same valid token.
+Reissuing replaces the challenge and invalidates its previous token. Keep SMTP credentials and
+token keys in deployment secrets. The `.env.example` remains suitable for local mock delivery.
 Invitations likewise use `MockTenantInvitationDelivery`, which captures tokens only in the process
 that sent them. Invitation acceptance and email verification are human HTTP flows and have no MCP tools;
 operator invitation management, organization queries, lifecycle, and slug operations use both HTTP and MCP.

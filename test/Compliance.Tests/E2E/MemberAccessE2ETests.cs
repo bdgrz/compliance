@@ -137,7 +137,8 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                     await Task.Delay(250);
                 Assert.NotNull(token);
                 await TenantInvitationE2ETests.VerifyEmailAsync(factory, invitee,
-                    inviteeId, inviteeEmail);
+                    inviteeId, inviteeEmail,
+                    splitHosts ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
                 using var accepted = await invitee.PostAsJsonAsync(
                     $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                     new { email_address = inviteeEmail, token });

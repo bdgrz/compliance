@@ -16,6 +16,7 @@ public sealed class EmailAddress : Aggregate
     bool _isVerified;
     Uuid? _challengeId;
     string? _tokenHash;
+    string _deliveryStatus = "not_issued";
     DateTimeOffset _expiresAt;
 
     public EmailAddress(string address)
@@ -24,13 +25,24 @@ public sealed class EmailAddress : Aggregate
         _address = Normalize(address);
         On<EmailAddressReserved>(Apply);
         On<EmailChallengeIssued>(Apply);
+        On<EmailChallengeDeliverySent>(Apply);
+        On<EmailChallengeDeliveryFailed>(Apply);
         On<EmailAddressVerified>(Apply);
     }
 
     public bool IsVerified => _isVerified;
+    public Uuid? Owner => _owner;
+    public Uuid? CurrentChallengeId => _challengeId;
+    public DateTimeOffset ChallengeExpiresAt => _expiresAt;
+    public string DeliveryStatus => _deliveryStatus;
+
+    public EmailChallengeStatusView GetChallengeStatus(DateTimeOffset now) =>
+        new(_isVerified ? "verified" : _challengeId is null ? "not_issued" :
+                now >= _expiresAt ? "expired" : _deliveryStatus,
+            _challengeId is null ? null : _expiresAt);
 
     public Result IssueChallenge(Uuid userId, Uuid challengeId, string tokenHash, DateTimeOffset expiresAt,
-        DateTimeOffset now)
+        DateTimeOffset now, string? tokenKeyId = null)
     {
         if (_owner != userId)
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The email address is not owned by this user."));
@@ -39,7 +51,26 @@ public sealed class EmailAddress : Aggregate
         if (challengeId == Uuid.Empty || tokenHash.Length != 64 || expiresAt <= now)
             return Result.Failure(new RequestError(RequestErrorKind.Validation, "A valid future challenge is required."));
 
-        RaiseEvent(new EmailChallengeIssued(userId, _address, challengeId, tokenHash, expiresAt));
+        RaiseEvent(new EmailChallengeIssued(userId, _address, challengeId, tokenHash, expiresAt, tokenKeyId));
+        return Result.Success;
+    }
+
+    public Result RecordDeliverySent(Uuid challengeId, DateTimeOffset sentAt)
+    {
+        if (_challengeId != challengeId || _isVerified || _deliveryStatus == "delivered")
+            return Result.Success;
+        RaiseEvent(new EmailChallengeDeliverySent(challengeId, sentAt));
+        return Result.Success;
+    }
+
+    public Result RecordDeliveryFailure(Uuid challengeId, string failureCode, DateTimeOffset failedAt)
+    {
+        if (_challengeId != challengeId || _isVerified || _deliveryStatus is "failed" or "delivered")
+            return Result.Success;
+        if (failureCode is not ("delivery_failed" or "key_unavailable"))
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "An email delivery failure code is required."));
+        RaiseEvent(new EmailChallengeDeliveryFailed(challengeId, failureCode, failedAt));
         return Result.Success;
     }
 
@@ -91,6 +122,21 @@ public sealed class EmailAddress : Aggregate
         _challengeId = issued.ChallengeId;
         _tokenHash = issued.TokenHash;
         _expiresAt = issued.ExpiresAt;
+        _deliveryStatus = "pending";
+    }
+
+    void Apply(EmailChallengeDeliverySent sent)
+    {
+        if (_challengeId != sent.ChallengeId)
+            throw new InvalidOperationException("The email delivery outcome is stale.");
+        _deliveryStatus = "delivered";
+    }
+
+    void Apply(EmailChallengeDeliveryFailed failed)
+    {
+        if (_challengeId != failed.ChallengeId)
+            throw new InvalidOperationException("The email delivery outcome is stale.");
+        _deliveryStatus = "failed";
     }
 
     void Apply(EmailAddressVerified verified)

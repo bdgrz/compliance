@@ -112,4 +112,35 @@ public sealed class EmailAddressTests
         Assert.False(scenario.Aggregate.CompleteChallenge(owner, "old", now).IsSuccess);
         Assert.True(scenario.Aggregate.CompleteChallenge(owner, "new", now).IsSuccess);
     }
+
+    [Fact]
+    public void ShouldTrackDeliveryAndIgnoreSupersededOutcomeGivenReissue()
+    {
+        // Arrange
+        var owner = Uuid.CreateVersion4();
+        var firstId = Uuid.CreateVersion4();
+        var secondId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var address = new EmailAddress("person@example.com");
+        var scenario = new AggregateScenario<EmailAddress>(address);
+        Assert.True(address.Reserve(owner).IsSuccess);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("secret")));
+
+        // Act
+        Assert.True(address.IssueChallenge(owner, firstId, hash, now.AddMinutes(15), now, "key-1").IsSuccess);
+        Assert.Equal("pending", address.GetChallengeStatus(now).DeliveryStatus);
+        Assert.True(address.RecordDeliveryFailure(firstId, "delivery_failed", now).IsSuccess);
+        Assert.Equal("failed", address.GetChallengeStatus(now).DeliveryStatus);
+        Assert.True(address.RecordDeliverySent(firstId, now).IsSuccess);
+        Assert.Equal("delivered", address.GetChallengeStatus(now).DeliveryStatus);
+        Assert.True(address.IssueChallenge(owner, secondId, hash, now.AddMinutes(15), now, "key-1").IsSuccess);
+        var beforeStale = scenario.PendingEvents.Count;
+        Assert.True(address.RecordDeliverySent(firstId, now).IsSuccess);
+
+        // Assert
+        Assert.Equal(beforeStale, scenario.PendingEvents.Count);
+        Assert.Equal("pending", address.GetChallengeStatus(now).DeliveryStatus);
+        Assert.Equal(secondId, address.CurrentChallengeId);
+        Assert.Equal("expired", address.GetChallengeStatus(now.AddMinutes(15)).DeliveryStatus);
+    }
 }

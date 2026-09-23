@@ -8,8 +8,10 @@ public sealed class MockEmailChallengeDelivery : IEmailChallengeDelivery
 {
     readonly ConcurrentDictionary<(Uuid UserId, string EmailAddress), string> _messages = new();
 
-    public ValueTask SendAsync(Uuid userId, string emailAddress, string token, CancellationToken ct)
+    public ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress, string token,
+        CancellationToken ct)
     {
+        _ = challengeId;
         ct.ThrowIfCancellationRequested();
         _messages[(userId, emailAddress)] = token;
         return ValueTask.CompletedTask;

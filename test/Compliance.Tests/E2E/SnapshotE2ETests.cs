@@ -152,7 +152,8 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                 var reviewerId = await TenantInvitationE2ETests.LoginAsync(reviewer,
                     reviewerEmail);
                 await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer,
-                    reviewerId, reviewerEmail);
+                    reviewerId, reviewerEmail,
+                    splitWorker ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
                 using var accepted = await reviewer.PostAsJsonAsync(
                     $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                     new { email_address = reviewerEmail, token });

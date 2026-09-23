@@ -27,7 +27,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         builder.Configuration,
         builder.Environment);
     var developerAuthentication = authentication is null;
-    var portia = builder.Services.AddCompliance(builder.Configuration, developerAuthentication);
+    var portia = builder.Services.AddCompliance(builder.Configuration, developerAuthentication,
+        requireRealEmailDelivery: !builder.Environment.IsDevelopment());
     // AddPortia returns the same builder and lets this host contribute its generated JSON context.
     builder.Services.AddPortia()
         .AddHttp()
@@ -571,6 +572,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<IssueEmailChallenge>("/api/v1/users/{user_id}/email-addresses/{email_address}/challenges")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
+    app.MapPortiaGet<GetEmailChallengeStatus, EmailChallengeStatusView>(
+            "/api/v1/users/{user_id}/email-addresses/{email_address}/challenges/status")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Email addresses");
     app.MapPortiaPost<CompleteEmailChallenge>("/api/v1/users/{user_id}/email-addresses/{email_address}/verifications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Email addresses");
@@ -660,7 +665,8 @@ static async Task RunWorkerAsync(string[] args)
     }
 
     builder.Services
-        .AddCompliance(builder.Configuration, developerAuthentication)
+        .AddCompliance(builder.Configuration, developerAuthentication,
+            requireRealEmailDelivery: !builder.Environment.IsDevelopment())
         .AddWorkers();
     builder.Services.AddComplianceHealthChecks();
     builder.Services.AddTenantPathLogRedaction();

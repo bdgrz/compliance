@@ -66,7 +66,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             // Act: an unverified creator is denied; verification then permits the same account.
             using var unverified = await creator.PostAsJsonAsync("/api/v1/tenants", request);
             Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var legacyInvitation = await creator.PostAsJsonAsync("/api/v1/tenants", new
             {
                 name = "Legacy Invitation",
@@ -266,7 +267,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);
             await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
-                administratorId, administratorEmail);
+                administratorId, administratorEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var administratorAccepted = await administratorClient.PostAsJsonAsync(
                 $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                 new { email_address = administratorEmail, token = administratorToken });
@@ -320,7 +322,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var inviteeClient = factory.CreateClient();
             var inviteeId = await TenantInvitationE2ETests.LoginAsync(inviteeClient, email);
             await TenantInvitationE2ETests.VerifyEmailAsync(factory, inviteeClient,
-                inviteeId, email);
+                inviteeId, email,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var accepted = await inviteeClient.PostAsJsonAsync(
                 $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                 new { email_address = email, token });
@@ -412,7 +415,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);
             await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
-                administratorId, administratorEmail);
+                administratorId, administratorEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var accepted = await administratorClient.PostAsJsonAsync(
                 $"/api/v1/tenants/{tenantId}/invitations/acceptance",
                 new { email_address = administratorEmail, token = invitationToken });
@@ -564,7 +568,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 new { email_address = administratorEmail, token = invitationToken });
             Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
             await TenantInvitationE2ETests.VerifyEmailAsync(factory, administratorClient,
-                administratorId, administratorEmail);
+                administratorId, administratorEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var accepted = await administratorClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = administratorEmail, token = invitationToken });
             Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
@@ -598,7 +603,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.NotNull(staffToken);
             using var staffClient = factory.CreateClient();
             var staffId = await TenantInvitationE2ETests.LoginAsync(staffClient, staffEmail);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, staffClient, staffId, staffEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, staffClient, staffId, staffEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             using var staffAccepted = await staffClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = staffEmail, token = staffToken });
             Assert.Equal(HttpStatusCode.NoContent, staffAccepted.StatusCode);

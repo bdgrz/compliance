@@ -30,6 +30,7 @@ public sealed class UserIdentityContinuationWebTests
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
+            ProductionEmailDeliveryTestConfiguration.Apply(builder);
             builder.UseSetting("Compliance:Authentication:Mode", "External");
             builder.UseSetting("Compliance:Authentication:Authority", "https://issuer.example/");
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
@@ -233,6 +234,7 @@ public sealed class UserIdentityContinuationWebTests
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
+            ProductionEmailDeliveryTestConfiguration.Apply(builder);
             builder.UseSetting("Compliance:Authentication:Mode", "External");
             builder.UseSetting("Compliance:Authentication:Authority", "https://issuer.example/");
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
