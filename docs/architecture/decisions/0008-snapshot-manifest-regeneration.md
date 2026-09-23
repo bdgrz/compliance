@@ -1,12 +1,11 @@
 # Snapshot manifest regeneration and bounded amendments
 
-Status: proposed technical default for M0-A02, 2026-09-22. This record extends
-[the immutable-snapshot decision](0004-immutable-snapshots.md) with a narrow
-program-scope manifest-regeneration operation. It does not accept the remaining
-M0-A02 product or operational decisions; [#82](https://github.com/bdgrz/compliance/issues/82)
-remains open.
+Status: accepted with [ADR 0004](0004-immutable-snapshots.md) for M0-A02
+([#82](https://github.com/bdgrz/compliance/issues/82)), 2026-09-22. This record
+extends the immutable-snapshot decision with a narrow program-scope
+manifest-regeneration operation.
 
-Decision owner: tech lead and product owner.
+Decision owner: Jeff Repanich (tech lead).
 
 ## Decision
 
@@ -86,11 +85,10 @@ from mutable current records would make a snapshot silently change. Materializin
 every future package in a snapshot event would conflate package authorization,
 signing, delivery, and retention with this source record.
 
-This decision selects only program-scope manifest regeneration. It does not set
-workforce population limits, package composition, signing, management approval,
+This decision selects only program-scope manifest regeneration. Population
+size and digest rules are in ADR 0004. It does not set package composition, signing, management approval,
 retention, holds, deletion, portable backup and restore, general request
 admission/rate limits, or recovery targets. M0-A01 accepts the application
 recovery boundary; whole-platform recovery delivery and timed operational
 evidence are tracked in [cntryl/portia#70](https://github.com/cntryl/portia/issues/70)
-with DevOps. M0-A02 cannot close until its broader consumer and performance
-requirements are accepted.
+with DevOps.
