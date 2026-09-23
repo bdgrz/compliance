@@ -1,6 +1,6 @@
 # R1-04a backend acceptance audit
 
-Status: in progress, 2026-09-20. Backend child #183 tracks this slice of #93;
+Status: in progress, 2026-09-23. Backend child #183 tracks this slice of #93;
 frontend child #184 and the product parent remain open.
 
 The first backend bundle adds an administrator-authorized invitation command with
@@ -42,19 +42,19 @@ The status endpoint is an administrative view; acceptance remains HTTP-only.
 tenant-routed storage, membership activation lag, and omission of token hashes.
 `MemberAccessE2ETests` verifies pending and active reads, denied reads,
 eventual projection, and MCP parity in standalone and split API/worker modes.
-Delivery failures are not represented as a durable status: delivery currently
-occurs after the invitation event commits and the mock sender has no outbox.
+PR #367 adds worker-owned SMTP delivery after the invitation event commits.
+The token is derived from a shared key ring; only its hash, key ID, and attempt
+ID persist. Delivery sent or failed is recorded in the invitation stream. A
+worker restart retries an unacknowledged attempt with the same token and
+`Message-ID`; a recorded key or SMTP failure requires administrator reissue.
+Tests inject a mock sender for standalone and split-host proof.
 
 ## Remaining before closing #183
 
-- Review M0-D03 role scope and M0-D25 firm access policy. This bundle reports
-  the existing tenant roles; it does not approve a new policy or a standing
-  firm-staff grant.
-- Complete the provider identity replacement and recovery decision in M0-A07,
-  preserving the platform user and member's historical authorship.
-- Add durable invitation delivery and failure/retry status before a real email
-  adapter replaces the mock. The current view distinguishes pending, expired,
-  accepted-but-projecting, and active membership; it cannot claim delivery.
-- Confirm the canonical entity and source-use decision in M0-D28, then complete
-  child-specific denied, concurrency, replay, lag, and recoverability evidence
-  before closure. Keep #93 open for later frontend delivery.
+- Apply the accepted M0-D03 role, M0-D25 firm access, and M0-D28 entity rules to
+  the remaining member lifecycle. Firm-staff membership alone grants no
+  business-record access.
+- Define and prove M0-A07 identity replacement, revocation, reauthentication,
+  and lost-identity recovery while preserving historical authorship.
+- Complete child-specific denied, concurrency, replay, lag, and recoverability
+  evidence before closing #183. Keep #93 open for later frontend delivery.

@@ -59,6 +59,9 @@ public sealed class EmailAddress : Aggregate
     {
         if (_challengeId != challengeId || _isVerified || _deliveryStatus == "delivered")
             return Result.Success;
+        if (_deliveryStatus == "failed")
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The failed email challenge must be reissued."));
         RaiseEvent(new EmailChallengeDeliverySent(challengeId, sentAt));
         return Result.Success;
     }

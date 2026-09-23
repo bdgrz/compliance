@@ -14,7 +14,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
-    public async Task ShouldRetryFailedChallengeGivenStandaloneWorker()
+    public async Task ShouldDeliverLaterUserGivenFailedChallengeAndExplicitReissue()
     {
         // Arrange
         var delivery = new RecoveringDelivery();
@@ -39,15 +39,27 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClas
         Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
         await WaitForDeliveryStatusAsync(client, path, "failed");
         delivery.AllowSuccess = true;
+        using var laterClient = factory.CreateClient();
+        var laterEmail = $"later-{Guid.NewGuid():N}@example.com";
+        var laterId = await TenantInvitationE2ETests.LoginAsync(laterClient, laterEmail);
+        var laterPath = $"/api/v1/users/{laterId}/email-addresses/{laterEmail}";
+        await WaitForDeliveryStatusAsync(laterClient, laterPath, "not_issued");
+        using var laterIssued = await laterClient.PostAsync($"{laterPath}/challenges", null);
+        Assert.Equal(HttpStatusCode.NoContent, laterIssued.StatusCode);
+        await WaitForDeliveryStatusAsync(laterClient, laterPath, "delivered");
+        await WaitForDeliveryStatusAsync(client, path, "failed");
+        using var reissued = await client.PostAsync($"{path}/challenges", null);
+        Assert.Equal(HttpStatusCode.NoContent, reissued.StatusCode);
         await WaitForDeliveryStatusAsync(client, path, "delivered");
         var attempts = delivery.Attempts.ToArray();
+        var ownerAttempts = attempts.Where(attempt => attempt.EmailAddress == email).ToArray();
 
         // Assert
-        Assert.True(attempts.Length >= 2);
-        Assert.Single(attempts.Select(attempt => attempt.ChallengeId).Distinct());
-        Assert.Single(attempts.Select(attempt => attempt.Token).Distinct());
+        Assert.Equal(2, ownerAttempts.Length);
+        Assert.Equal(2, ownerAttempts.Select(attempt => attempt.ChallengeId).Distinct().Count());
+        Assert.Single(attempts, attempt => attempt.EmailAddress == laterEmail);
         using var completed = await client.PostAsJsonAsync($"{path}/verifications",
-            new { token = attempts[0].Token });
+            new { token = ownerAttempts[1].Token });
         Assert.Equal(HttpStatusCode.NoContent, completed.StatusCode);
         await WaitForDeliveryStatusAsync(client, path, "verified");
     }
@@ -71,16 +83,15 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClas
     {
         volatile bool _allowSuccess;
 
-        public ConcurrentQueue<(Uuid ChallengeId, string Token)> Attempts { get; } = new();
+        public ConcurrentQueue<(Uuid ChallengeId, string EmailAddress, string Token)> Attempts { get; } = new();
         public bool AllowSuccess { get => _allowSuccess; set => _allowSuccess = value; }
 
         public ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress,
             string token, CancellationToken ct)
         {
             _ = userId;
-            _ = emailAddress;
             ct.ThrowIfCancellationRequested();
-            Attempts.Enqueue((challengeId, token));
+            Attempts.Enqueue((challengeId, emailAddress, token));
             if (!AllowSuccess)
                 throw new InvalidOperationException("transient provider failure");
             return ValueTask.CompletedTask;

@@ -140,7 +140,9 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     $"/api/v1/tenants/{tenantId}/invitations",
                     new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false });
                 Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
-                var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+                var delivery = splitWorker
+                    ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                    : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
                 var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 while (DateTimeOffset.UtcNow < deadline &&

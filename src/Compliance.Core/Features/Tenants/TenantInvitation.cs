@@ -51,9 +51,18 @@ public sealed class TenantInvitation : Aggregate
         });
     }
 
+    public bool IsAccepted => _accepted;
+    public Uuid? CurrentDeliveryAttemptId => _deliveryAttemptId;
+    public string DeliveryStatus => _deliveryStatus;
+
+    public static Uuid DeliveryAttemptFor(TenantMemberInvited invited) =>
+        invited.DeliveryAttemptId ?? Uuid.CreateVersion5(InvitationNamespaceId,
+            $"legacy-delivery\n{invited.TenantId}\n{invited.EmailAddress}\n{invited.TokenHash}");
+
     public Result Invite(string affiliation, bool administrator, string tokenHash,
         DateTimeOffset expiresAt, DateTimeOffset now, Uuid invitedBy,
-        string? builtInRole = null, Uuid? deliveryAttemptId = null)
+        string? builtInRole = null, Uuid? deliveryAttemptId = null,
+        string? tokenKeyId = null)
     {
         if (affiliation is not ("client_personnel" or "firm_staff"))
             return Failure(RequestErrorKind.Validation, "Affiliation must be client_personnel or firm_staff.");
@@ -77,7 +86,8 @@ public sealed class TenantInvitation : Aggregate
 
         deliveryAttemptId ??= Uuid.CreateVersion4();
         RaiseEvent(new TenantMemberInvited(_tenantId, _emailAddress, affiliation,
-            administrator, tokenHash, expiresAt, invitedBy, builtInRole, deliveryAttemptId));
+            administrator, tokenHash, expiresAt, invitedBy, builtInRole, deliveryAttemptId,
+            tokenKeyId));
         return Result.Success;
     }
 
@@ -89,8 +99,8 @@ public sealed class TenantInvitation : Aggregate
         if (_deliveryStatus == "delivered")
             return Result.Success;
         if (_deliveryStatus == "failed")
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The invitation delivery attempt has already failed."));
+            return Failure(RequestErrorKind.Conflict,
+                "The failed invitation delivery attempt must be reissued.");
         RaiseEvent(new TenantInvitationDeliverySent(_tenantId, _emailAddress,
             deliveryAttemptId, sentAt));
         return Result.Success;
@@ -146,7 +156,7 @@ public sealed class TenantInvitation : Aggregate
         _affiliation = invited.Affiliation;
         _administrator = invited.Administrator;
         _builtInRole = invited.BuiltInRole;
-        _deliveryAttemptId = invited.DeliveryAttemptId;
+        _deliveryAttemptId = DeliveryAttemptFor(invited);
         _deliveryStatus = "pending";
     }
 

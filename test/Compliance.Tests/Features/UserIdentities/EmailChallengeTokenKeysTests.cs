@@ -45,6 +45,33 @@ public sealed class EmailChallengeTokenKeysTests
         Assert.Null(token);
     }
 
+    [Fact]
+    public void ShouldRecoverInvitationTokenGivenRetainedKeyWithoutMatchingChallengeToken()
+    {
+        // Arrange
+        var oldKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var newKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var original = CreateKeys("old", oldKey);
+        var rotated = CreateKeys("new", oldKey, newKey);
+        var attemptId = Uuid.CreateVersion4();
+        var tenantId = Uuid.CreateVersion4();
+        var expiresAt = DateTimeOffset.Parse("2026-09-30T13:15:00Z", CultureInfo.InvariantCulture);
+
+        // Act
+        var issued = original.DeriveInvitation("old", attemptId, tenantId,
+            "invitee@example.com", expiresAt);
+        var recovered = rotated.DeriveInvitation("old", attemptId, tenantId,
+            "invitee@example.com", expiresAt);
+
+        // Assert
+        Assert.Equal(issued, recovered);
+        Assert.Equal(64, issued.Length);
+        Assert.NotEqual(issued, rotated.DeriveInvitation("new", attemptId, tenantId,
+            "invitee@example.com", expiresAt));
+        Assert.NotEqual(issued, original.Derive("old", attemptId, tenantId,
+            "invitee@example.com", expiresAt));
+    }
+
     static EmailChallengeTokenKeys CreateKeys(string active, string? oldKey, string? newKey = null)
     {
         var values = new Dictionary<string, string?>

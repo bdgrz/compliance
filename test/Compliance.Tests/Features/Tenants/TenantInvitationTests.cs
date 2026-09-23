@@ -153,6 +153,7 @@ public sealed class TenantInvitationTests
         // Assert
         Assert.True(failed.IsSuccess);
         Assert.True(replayedFailure.IsSuccess);
+        Assert.False(staleSent.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(staleSent.Error).Kind);
         Assert.True(sent.IsSuccess);
         Assert.True(replayedSent.IsSuccess);

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Cntryl.Portia;
@@ -23,7 +24,7 @@ public sealed partial class EmailChallengeDeliveryReactor(
         var address = await reader.HydrateAsync(new EmailAddress(issued.EmailAddress), ct)
             .ConfigureAwait(false);
         if (address.IsVerified || address.CurrentChallengeId != issued.ChallengeId ||
-            address.DeliveryStatus == "delivered")
+            address.DeliveryStatus is "delivered" or "failed")
             return;
 
         // Events written before durable delivery have no derivation key. Their original
@@ -31,7 +32,8 @@ public sealed partial class EmailChallengeDeliveryReactor(
         // global reactor behind this historical event until it expires.
         if (issued.TokenKeyId is null)
         {
-            await RecordFailureAsync(issued, "key_unavailable", ct).ConfigureAwait(false);
+            await RecordFailureAsync(issued, context.Actor, "key_unavailable", ct)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -41,8 +43,9 @@ public sealed partial class EmailChallengeDeliveryReactor(
                 SHA256.HashData(Encoding.UTF8.GetBytes(token!)),
                 Convert.FromHexString(issued.TokenHash)))
         {
-            await RecordFailureAsync(issued, "key_unavailable", ct).ConfigureAwait(false);
-            throw new InvalidOperationException("Email challenge token key is unavailable.");
+            await RecordFailureAsync(issued, context.Actor, "key_unavailable", ct)
+                .ConfigureAwait(false);
+            return;
         }
 
         try
@@ -56,31 +59,36 @@ public sealed partial class EmailChallengeDeliveryReactor(
         }
         catch (Exception)
         {
-            await RecordFailureAsync(issued, "delivery_failed", ct).ConfigureAwait(false);
-            throw new InvalidOperationException("Email challenge delivery failed.");
+            await RecordFailureAsync(issued, context.Actor, "delivery_failed", ct)
+                .ConfigureAwait(false);
+            return;
         }
 
-        await RecordOutcomeAsync(issued,
+        await RecordOutcomeAsync(issued, context.Actor,
             address => address.RecordDeliverySent(issued.ChallengeId, clock.GetUtcNow()), ct)
             .ConfigureAwait(false);
     }
 
-    async ValueTask RecordFailureAsync(EmailChallengeIssued issued, string code, CancellationToken ct) =>
-        await RecordOutcomeAsync(issued,
+    async ValueTask RecordFailureAsync(EmailChallengeIssued issued, ClaimsPrincipal actor,
+        string code, CancellationToken ct) =>
+        await RecordOutcomeAsync(issued, actor,
             address => address.RecordDeliveryFailure(issued.ChallengeId, code, clock.GetUtcNow()), ct)
             .ConfigureAwait(false);
 
-    async ValueTask RecordOutcomeAsync(EmailChallengeIssued issued,
+    async ValueTask RecordOutcomeAsync(EmailChallengeIssued issued, ClaimsPrincipal actor,
         Func<EmailAddress, Result> operation, CancellationToken ct)
     {
         try
         {
             var address = await reader.HydrateAsync(new EmailAddress(issued.EmailAddress), ct)
                 .ConfigureAwait(false);
+            if (address.IsVerified || address.CurrentChallengeId != issued.ChallengeId ||
+                address.DeliveryStatus is "delivered" or "failed")
+                return;
             var result = operation(address);
             if (!result.IsSuccess)
                 throw new InvalidOperationException();
-            await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System), ct)
+            await writer.SaveAsync(address, new RequestDispatchContext(actor), ct)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

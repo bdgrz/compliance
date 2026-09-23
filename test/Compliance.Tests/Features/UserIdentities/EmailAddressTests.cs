@@ -131,8 +131,10 @@ public sealed class EmailAddressTests
         Assert.Equal("pending", address.GetChallengeStatus(now).DeliveryStatus);
         Assert.True(address.RecordDeliveryFailure(firstId, "delivery_failed", now).IsSuccess);
         Assert.Equal("failed", address.GetChallengeStatus(now).DeliveryStatus);
-        Assert.True(address.RecordDeliverySent(firstId, now).IsSuccess);
-        Assert.Equal("delivered", address.GetChallengeStatus(now).DeliveryStatus);
+        var terminal = address.RecordDeliverySent(firstId, now);
+        Assert.False(terminal.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(terminal.Error).Kind);
+        Assert.Equal("failed", address.GetChallengeStatus(now).DeliveryStatus);
         Assert.True(address.IssueChallenge(owner, secondId, hash, now.AddMinutes(15), now, "key-1").IsSuccess);
         var beforeStale = scenario.PendingEvents.Count;
         Assert.True(address.RecordDeliverySent(firstId, now).IsSuccess);

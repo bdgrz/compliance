@@ -42,7 +42,9 @@ public static class ComplianceServiceCollectionExtensions
                 : provider.GetRequiredService<MockEmailChallengeDelivery>());
         services.AddSingleton<MockTenantInvitationDelivery>();
         services.AddSingleton<ITenantInvitationDelivery>(provider =>
-            provider.GetRequiredService<MockTenantInvitationDelivery>());
+            emailDeliverySettings.Mode == "smtp"
+                ? new SmtpTenantInvitationDelivery(emailDeliverySettings)
+                : provider.GetRequiredService<MockTenantInvitationDelivery>());
         services.AddScoped<FitzEmailAddressDirectory>();
         services.AddScoped<IEmailAddressDirectoryProjection>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
@@ -344,6 +346,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<TenantLifecycleReactionAuthorizer>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
+            .AddReactor<TenantInvitationDeliveryReactor>("TenantInvitationDeliveryV1",
+                WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
             .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectory", WorkloadScope.Global)
