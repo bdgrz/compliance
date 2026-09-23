@@ -191,6 +191,13 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                             ["application_id"] = second.ApplicationId,
                             ["system_instance_id"] = first.Instances[0],
                         }).ExpectFailure("NotFound");
+                    _ = await mcp.When("bdgrz.system_instance.boundary_references.list",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = second.TenantId,
+                            ["application_id"] = second.ApplicationId,
+                            ["system_instance_id"] = first.Instances[0],
+                        }).ExpectFailure("NotFound");
                 }
 
                 await using (var outsiderMcp = await McpScenario.ConnectAsync(outsider,
@@ -492,6 +499,10 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                    $"/api/v1/tenants/{second.TenantId}/applications/" +
                    $"{second.ApplicationId}/system-instances/{first.Instances[0]}"))
             Assert.Equal(HttpStatusCode.NotFound, foreignInstance.StatusCode);
+        using (var foreignInstanceReferences = await owner.GetAsync(
+                   $"/api/v1/tenants/{second.TenantId}/applications/" +
+                   $"{second.ApplicationId}/system-instances/{first.Instances[0]}/boundary-references"))
+            Assert.Equal(HttpStatusCode.NotFound, foreignInstanceReferences.StatusCode);
         using var foreignPreview = await owner.PostAsJsonAsync(foreignPath + "/change-previews",
             new { expected_application_revision = 3, change_kind = "retire" });
         using var deniedPreview = await outsider.PostAsJsonAsync(firstPath + "/change-previews",
