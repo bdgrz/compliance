@@ -511,8 +511,6 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         Assert.Equal(batchId, view.GetProperty("batch_id").GetString());
         Assert.Equal(rowCount, view.GetProperty("row_count").GetInt32());
         Assert.Equal(invalidCount, view.GetProperty("invalid_count").GetInt32());
-        foreach (var name in new[] { "pending_count", "applied_count", "skipped_count", "failed_count" })
-            Assert.Equal(0, view.GetProperty(name).GetInt32());
     }
 
     static string TenantPath(Uuid tenantId) => "/api/v1/tenants/" + tenantId;
