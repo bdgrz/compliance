@@ -790,6 +790,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 new { email_address = administratorEmail, token = invitationToken });
             Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
 
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             var access = HttpStatusCode.Forbidden;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -825,6 +826,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var staffAccepted = await staffClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = staffEmail, token = staffToken });
             Assert.Equal(HttpStatusCode.NoContent, staffAccepted.StatusCode);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             Members? members = null;
             while (DateTimeOffset.UtcNow < deadline)
             {
