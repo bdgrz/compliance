@@ -87,26 +87,9 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     var cursor = (await ReadAsync(firstPage)).GetProperty("next_cursor").GetString();
                     Assert.False(string.IsNullOrWhiteSpace(cursor));
                     var foreignSpec = ReadSpecs(second).Single(other => other.Tool == spec.Tool);
-                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    for (var pageIndex = 0; pageIndex < foreignSpec.ExpectedIds.Length + 2; pageIndex++)
-                    {
-                        using var foreignPage = await owner.GetAsync(foreignSpec.Path +
-                            "?limit=1&cursor=" + Uri.EscapeDataString(cursor));
-                        if (pageIndex == 0 && foreignPage.StatusCode == HttpStatusCode.BadRequest)
-                        {
-                            cursor = null;
-                            break;
-                        }
-                        Assert.Equal(HttpStatusCode.OK, foreignPage.StatusCode);
-                        var page = await ReadAsync(foreignPage);
-                        AssertPageBelongsTo(page, foreignSpec);
-                        foreach (var item in page.GetProperty("items").EnumerateArray())
-                            Assert.True(seen.Add(item.GetProperty(foreignSpec.IdProperty).ToString()));
-                        cursor = page.GetProperty("next_cursor").GetString();
-                        if (cursor is null)
-                            break;
-                    }
-                    Assert.Null(cursor);
+                    using var foreignPage = await owner.GetAsync(foreignSpec.Path +
+                        "?limit=1&cursor=" + Uri.EscapeDataString(cursor));
+                    Assert.Equal(HttpStatusCode.BadRequest, foreignPage.StatusCode);
                 }
 
                 await using (var mcp = await McpScenario.ConnectAsync(owner,
@@ -165,6 +148,26 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         AssertExactBelongsTo(Assert.IsType<JsonElement>(instanceCall.StructuredJson)
                             .GetProperty("result"), tenant, "system_instance_id",
                             tenant.Instances[0]);
+                    }
+
+                    foreach (var spec in ReadSpecs(first))
+                    {
+                        var firstArgs = new Dictionary<string, object?>(spec.Args)
+                        {
+                            ["limit"] = 1,
+                        };
+                        var firstPage = await mcp.When(spec.Tool, firstArgs).ExpectSuccess();
+                        var cursor = Assert.IsType<JsonElement>(firstPage.StructuredJson)
+                            .GetProperty("result").GetProperty("next_cursor").GetString();
+                        Assert.False(string.IsNullOrWhiteSpace(cursor));
+                        var foreignSpec = ReadSpecs(second).Single(other => other.Tool == spec.Tool);
+                        var foreignArgs = new Dictionary<string, object?>(foreignSpec.Args)
+                        {
+                            ["limit"] = 1,
+                            ["cursor"] = cursor,
+                        };
+                        _ = await mcp.When(foreignSpec.Tool, foreignArgs)
+                            .ExpectFailure("Validation");
                     }
 
                     foreach (var spec in ReadSpecs(first))
@@ -301,9 +304,9 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         for (var index = 0; index < 2; index++)
         {
             applicationBoundaries[index] = await CreateBoundaryAsync(owner, boundaryPath,
-                "application", applicationId);
+                "application", applicationId, label);
             instanceBoundaries[index] = await CreateBoundaryAsync(owner, boundaryPath,
-                "system_instance", instances[0]);
+                "system_instance", instances[0], label);
         }
         await WaitForItemsAsync(owner, applicationPath + "/boundary-references", 2);
         await WaitForItemsAsync(owner, applicationPath + "/system-instances/" + instances[0] +
@@ -314,18 +317,18 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 expected_application_revision = 3,
                 change_kind = "retire",
             }));
-        return new Seed(tenantId, applicationId, instances, applicationBoundaries,
+        return new Seed(label, tenantId, applicationId, instances, applicationBoundaries,
             instanceBoundaries);
     }
 
     static async Task<Guid> CreateBoundaryAsync(HttpClient owner, string path,
-        string subjectType, Guid governedRecordId)
+        string subjectType, Guid governedRecordId, string label)
     {
         using var response = await owner.PostAsJsonAsync(path, new
         {
             content = new
             {
-                statement = "Application matrix boundary.",
+                statement = $"Application matrix boundary {label}.",
                 engagement_stage = "readiness",
                 trust_services_categories = SecurityCategory,
                 entries = new[]
@@ -335,10 +338,10 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         entry_id = Guid.NewGuid(),
                         kind = "inclusion",
                         subject_type = subjectType,
-                        subject = "Payroll",
+                        subject = $"Payroll {label}",
                         governed_record_id = governedRecordId,
                         owner_reference = "Operations",
-                        rationale = "Declared in scope for tenant read isolation.",
+                        rationale = $"Declared in scope for tenant {label}.",
                         unresolved = false,
                     },
                 },
@@ -355,7 +358,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         return
         [
             new(applicationPath + "/revisions", "bdgrz.application.revision.list", "revision",
-                ["1", "2", "3"], seed.TenantId, seed.ApplicationId,
+                ["1", "2", "3"], seed.Label, seed.TenantId, seed.ApplicationId,
                 new Dictionary<string, object?>
                 {
                     ["tenant_id"] = seed.TenantId,
@@ -364,7 +367,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 }, "minimum_application_revision=3"),
             new(applicationPath + "/system-instances", "bdgrz.system_instance.list",
                 "system_instance_id", seed.Instances.Select(id => id.ToString()).ToArray(),
-                seed.TenantId, seed.ApplicationId, new Dictionary<string, object?>
+                seed.Label, seed.TenantId, seed.ApplicationId, new Dictionary<string, object?>
                 {
                     ["tenant_id"] = seed.TenantId,
                     ["application_id"] = seed.ApplicationId,
@@ -373,7 +376,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             new(applicationPath + "/boundary-references",
                 "bdgrz.application.boundary_references.list", "boundary_id",
                 seed.ApplicationBoundaries.Select(id => id.ToString()).ToArray(),
-                seed.TenantId, seed.ApplicationId, new Dictionary<string, object?>
+                seed.Label, seed.TenantId, seed.ApplicationId, new Dictionary<string, object?>
                 {
                     ["tenant_id"] = seed.TenantId,
                     ["application_id"] = seed.ApplicationId,
@@ -381,7 +384,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             new(applicationPath + "/system-instances/" + seed.Instances[0] +
                 "/boundary-references", "bdgrz.system_instance.boundary_references.list",
                 "boundary_id", seed.InstanceBoundaries.Select(id => id.ToString()).ToArray(),
-                seed.TenantId, seed.Instances[0], new Dictionary<string, object?>
+                seed.Label, seed.TenantId, seed.Instances[0], new Dictionary<string, object?>
                 {
                     ["tenant_id"] = seed.TenantId,
                     ["application_id"] = seed.ApplicationId,
@@ -425,6 +428,24 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 Assert.Equal(spec.ApplicationOrSubjectId.ToString(), governedRecordId.GetString());
             Assert.Contains(item.GetProperty(spec.IdProperty).ToString(), spec.ExpectedIds,
                 StringComparer.OrdinalIgnoreCase);
+            if (spec.Tool == "bdgrz.application.revision.list")
+            {
+                Assert.Equal($"Payroll {spec.Label}", item.GetProperty("name").GetString());
+                Assert.Equal($"Run payroll {spec.Label}", item.GetProperty("purpose").GetString());
+            }
+            else if (spec.Tool == "bdgrz.system_instance.list")
+            {
+                Assert.StartsWith($"Payroll {spec.Label} instance ",
+                    item.GetProperty("name").GetString());
+                Assert.StartsWith($"payroll-{spec.Label}-",
+                    item.GetProperty("source_identifier").GetString());
+            }
+            else
+            {
+                Assert.Equal($"Payroll {spec.Label}", item.GetProperty("subject").GetString());
+                Assert.Equal($"Declared in scope for tenant {spec.Label}.",
+                    item.GetProperty("rationale").GetString());
+            }
         }
     }
 
@@ -435,6 +456,18 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         Assert.Equal(expectedId.ToString(), view.GetProperty(idProperty).GetString());
         Assert.Equal(seed.ApplicationId.ToString(),
             view.GetProperty("application_id").GetString());
+        if (idProperty == "application_id")
+        {
+            Assert.Equal($"Payroll {seed.Label}", view.GetProperty("name").GetString());
+            Assert.Equal($"Run payroll {seed.Label}", view.GetProperty("purpose").GetString());
+        }
+        else
+        {
+            Assert.Equal($"Payroll {seed.Label} instance 0",
+                view.GetProperty("name").GetString());
+            Assert.Equal($"payroll-{seed.Label}-0",
+                view.GetProperty("source_identifier").GetString());
+        }
     }
 
     static async Task AssertHttpPreviewAsync(HttpClient owner, Seed seed,
@@ -462,6 +495,9 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             Assert.Equal(seed.TenantId.ToString(), item.GetProperty("tenant_id").GetString());
             Assert.Equal(seed.ApplicationId.ToString(),
                 item.GetProperty("governed_record_id").GetString());
+            Assert.Equal($"Payroll {seed.Label}", item.GetProperty("subject").GetString());
+            Assert.Equal($"Declared in scope for tenant {seed.Label}.",
+                item.GetProperty("rationale").GetString());
         });
         var foreign = seed.TenantId == first.TenantId ? second : first;
         Assert.DoesNotContain(references, item => foreign.ApplicationBoundaries.Contains(
@@ -561,10 +597,10 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>();
 
-    sealed record Seed(Guid TenantId, Guid ApplicationId, Guid[] Instances,
+    sealed record Seed(string Label, Guid TenantId, Guid ApplicationId, Guid[] Instances,
         Guid[] ApplicationBoundaries, Guid[] InstanceBoundaries);
 
     sealed record ReadSpec(string Path, string Tool, string IdProperty, string[] ExpectedIds,
-        Guid TenantId, Guid ApplicationOrSubjectId, Dictionary<string, object?> Args,
+        string Label, Guid TenantId, Guid ApplicationOrSubjectId, Dictionary<string, object?> Args,
         string? MinimumRevisionQuery = null);
 }
