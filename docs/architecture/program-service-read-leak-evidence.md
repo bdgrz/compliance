@@ -1,0 +1,7 @@
+# Program and client-service read isolation
+
+`ProgramReadLeakMatrixE2ETests` contributes to [EN-01 backend #157](https://github.com/bdgrz/compliance/issues/157). In standalone and split API/worker hosts, one member owns two populated tenants and an unrelated member exercises denial. Each tenant has two Programs, two client services under its first Program, and two draft boundaries. The first Program and service each have two revisions.
+
+HTTP and MCP reads cover current Program and service detail, Program and service revision detail, Program list, Program history, tenant and Program service lists, service history, and boundary-derived Program setup work. List tests follow `limit=1` cursors to a terminal page, check every seeded ID and tenant-specific name, and require an A-issued cursor to fail in B with HTTP `BadRequest` and MCP `Validation`. Exact reads check current revision, history versions 1 and 2, content, and the service's owning Program. Foreign IDs in the other tenant and an unrelated member receive `NotFound` over both transports. The setup-work pages contain only the two seeded boundary sources.
+
+This fixture does not prove stopped-worker replay, attributable Program stage transitions, or future setup-work inputs beyond boundaries. These routes expose no separate count or search operation. The broader current-surface inventory remains in [tenant-read-leak-matrix.md](tenant-read-leak-matrix.md).

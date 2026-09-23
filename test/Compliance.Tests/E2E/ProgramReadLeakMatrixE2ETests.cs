@@ -108,6 +108,8 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 AssertHistory(mcpServiceHistory.Entries, "service_id", scope.ServiceIds[0],
                     scope.Marker);
 
+                await AssertExactReadsAsync(owner, mcp, scope);
+
                 if (scope.TenantId == tenantA)
                 {
                     tenantACursors.Add("programs", new CursorPair(httpPrograms.FirstCursor,
@@ -230,6 +232,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     input[idKey] = id;
                 _ = await outsiderMcp.When(tool, input).ExpectFailure("NotFound");
             }
+            await AssertExactDenialsAsync(owner, mcp, outsider, outsiderMcp, scopeA, scopeB);
         });
 
     async Task RunWithHostsAsync(bool splitHosts, Func<HttpClient, HttpClient, Task> exercise)
@@ -392,6 +395,149 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
         readiness_advisor = "Tenant read matrix",
         audit_firm = (string?)null,
     };
+
+    static async Task AssertExactReadsAsync(HttpClient owner, McpScenario mcp,
+        TenantScope scope)
+    {
+        var tenantPath = TenantPath(scope.TenantId);
+        for (var index = 0; index < 2; index++)
+        {
+            var revision = index == 0 ? 2L : 1L;
+            var programId = scope.ProgramIds[index];
+            var programInput = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = scope.TenantId.ToString(),
+                ["program_id"] = programId,
+                ["minimum_revision"] = revision,
+            };
+            var programPath = $"{tenantPath}/programs/{programId}?minimum_revision={revision}";
+            AssertProgram(await ReadHttpAsync(owner, programPath), scope, index);
+            AssertProgram(await ReadMcpAsync(mcp, "bdgrz.program.get", programInput),
+                scope, index);
+
+            var serviceId = scope.ServiceIds[index];
+            var serviceInput = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = scope.TenantId.ToString(),
+                ["service_id"] = serviceId,
+                ["minimum_revision"] = revision,
+            };
+            var servicePath = $"{tenantPath}/client-services/{serviceId}" +
+                $"?minimum_revision={revision}";
+            AssertService(await ReadHttpAsync(owner, servicePath), scope, index);
+            AssertService(await ReadMcpAsync(mcp, "bdgrz.client-service.get", serviceInput),
+                scope, index);
+        }
+
+        foreach (var revision in new[] { 1L, 2L })
+        {
+            var programId = scope.ProgramIds[0];
+            var programPath = $"{tenantPath}/programs/{programId}/revisions/{revision}";
+            var programInput = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = scope.TenantId.ToString(),
+                ["program_id"] = programId,
+                ["revision"] = revision,
+            };
+            AssertProgramRevision(await ReadHttpAsync(owner, programPath), scope, revision);
+            AssertProgramRevision(await ReadMcpAsync(mcp, "bdgrz.program.revision.get",
+                programInput), scope, revision);
+
+            var serviceId = scope.ServiceIds[0];
+            var servicePath = $"{tenantPath}/client-services/{serviceId}/revisions/{revision}";
+            var serviceInput = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = scope.TenantId.ToString(),
+                ["service_id"] = serviceId,
+                ["revision"] = revision,
+            };
+            AssertServiceRevision(await ReadHttpAsync(owner, servicePath), scope, revision);
+            AssertServiceRevision(await ReadMcpAsync(mcp, "bdgrz.client-service.revision.get",
+                serviceInput), scope, revision);
+        }
+    }
+
+    static void AssertProgram(JsonElement program, TenantScope scope, int index)
+    {
+        Assert.Equal(scope.TenantId.ToString(), program.GetProperty("tenant_id").GetString());
+        Assert.Equal(scope.ProgramIds[index], program.GetProperty("program_id").GetString());
+        Assert.Equal(index == 0 ? 2 : 1, program.GetProperty("revision").GetInt64());
+        Assert.Equal($"{scope.Marker} Program {index + 1}" +
+            (index == 0 ? " revised" : string.Empty), program.GetProperty("name").GetString());
+        Assert.Equal("Tenant read matrix", program.GetProperty("plan")
+            .GetProperty("readiness_advisor").GetString());
+    }
+
+    static void AssertService(JsonElement service, TenantScope scope, int index)
+    {
+        Assert.Equal(scope.TenantId.ToString(), service.GetProperty("tenant_id").GetString());
+        Assert.Equal(scope.ProgramIds[0], service.GetProperty("program_id").GetString());
+        Assert.Equal(scope.ServiceIds[index], service.GetProperty("service_id").GetString());
+        Assert.Equal(index == 0 ? 2 : 1, service.GetProperty("revision").GetInt64());
+        Assert.Equal($"{scope.Marker} Service {index + 1}" +
+            (index == 0 ? " revised" : string.Empty), service.GetProperty("name").GetString());
+        Assert.Equal(index == 0 ? "Updated tenant read matrix" : "Tenant read matrix",
+            service.GetProperty("purpose").GetString());
+    }
+
+    static void AssertProgramRevision(JsonElement program, TenantScope scope, long revision)
+    {
+        Assert.Equal(scope.ProgramIds[0], program.GetProperty("program_id").GetString());
+        Assert.Equal(revision, program.GetProperty("revision").GetInt64());
+        Assert.Equal($"{scope.Marker} Program 1" +
+            (revision == 2 ? " revised" : string.Empty), program.GetProperty("name").GetString());
+    }
+
+    static void AssertServiceRevision(JsonElement service, TenantScope scope, long revision)
+    {
+        Assert.Equal(scope.ServiceIds[0], service.GetProperty("service_id").GetString());
+        Assert.Equal(scope.ProgramIds[0], service.GetProperty("program_id").GetString());
+        Assert.Equal(revision, service.GetProperty("revision").GetInt64());
+        Assert.Equal($"{scope.Marker} Service 1" +
+            (revision == 2 ? " revised" : string.Empty), service.GetProperty("name").GetString());
+        Assert.Equal(revision == 2 ? "Updated tenant read matrix" : "Tenant read matrix",
+            service.GetProperty("purpose").GetString());
+    }
+
+    static async Task AssertExactDenialsAsync(HttpClient owner, McpScenario ownerMcp,
+        HttpClient outsider, McpScenario outsiderMcp, TenantScope first, TenantScope second)
+    {
+        var cases = new (string Area, string Tool, string IdKey, string Id, long? Revision)[]
+        {
+            ("programs", "bdgrz.program.get", "program_id", first.ProgramIds[0], null),
+            ("programs", "bdgrz.program.get", "program_id", first.ProgramIds[1], null),
+            ("programs", "bdgrz.program.revision.get", "program_id", first.ProgramIds[0], 1),
+            ("programs", "bdgrz.program.revision.get", "program_id", first.ProgramIds[0], 2),
+            ("client-services", "bdgrz.client-service.get", "service_id", first.ServiceIds[0], null),
+            ("client-services", "bdgrz.client-service.get", "service_id", first.ServiceIds[1], null),
+            ("client-services", "bdgrz.client-service.revision.get", "service_id",
+                first.ServiceIds[0], 1),
+            ("client-services", "bdgrz.client-service.revision.get", "service_id",
+                first.ServiceIds[0], 2),
+        };
+        foreach (var read in cases)
+        {
+            foreach (var (tenantId, client, mcp) in new[]
+                     {
+                         (second.TenantId, owner, ownerMcp),
+                         (first.TenantId, outsider, outsiderMcp),
+                     })
+            {
+                var path = $"{TenantPath(tenantId)}/{read.Area}/{read.Id}" +
+                    (read.Revision is { } revision ? $"/revisions/{revision}" : string.Empty);
+                using var response = await client.GetAsync(path);
+                Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+                var input = new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId.ToString(),
+                    [read.IdKey] = read.Id,
+                };
+                if (read.Revision is { } requestedRevision)
+                    input["revision"] = requestedRevision;
+                _ = await mcp.When(read.Tool, input).ExpectFailure("NotFound");
+            }
+        }
+    }
 
     static async Task WaitForPageCountAsync(HttpClient client, string path, int count)
     {
