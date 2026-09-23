@@ -72,6 +72,29 @@ public sealed class PermissionProjectionStateTests
     }
 
     [Fact]
+    public void ShouldNotMaterializePermissionGivenFirmStaffTeamAssignment()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var memberId = Uuid.CreateVersion4();
+        var teamId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var state = new PermissionProjectionState();
+        state.Apply(new MemberRegistered(tenantId, memberId, Uuid.CreateVersion4(), "firm_staff"));
+        state.Apply(new TeamDefined(tenantId, teamId, "Administrators"));
+        state.Apply(new RoleDefined(tenantId, roleId, "Tenant Administration"));
+        state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
+        state.Apply(new RolePermissionAssigned(tenantId, roleId, RbacPermissions.TenantAccess));
+
+        // Act
+        state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId));
+
+        // Assert
+        Assert.Empty(state.Materialize());
+        Assert.Empty(state.Explain(memberId));
+    }
+
+    [Fact]
     public void ShouldRemovePermissionGivenTeamMemberRemoval()
     {
         // Arrange

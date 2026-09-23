@@ -9,7 +9,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     query-side reads open their own read-only transaction on the resource it writes for the
 ///     given tenant.
 /// </summary>
-sealed class FitzPermissionAuthorizer(IKvClient client)
+sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships)
     : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection,
       IPermissionAuthorizer, IMemberAccessReader
 {
@@ -42,11 +42,21 @@ sealed class FitzPermissionAuthorizer(IKvClient client)
 
     public async ValueTask<bool> IsAllowedAsync(
         Uuid tenantId,
+        Uuid userId,
         Uuid memberId,
         string permission,
         CancellationToken ct = default)
     {
-        if (tenantId == Uuid.Empty || memberId == Uuid.Empty || string.IsNullOrWhiteSpace(permission))
+        if (tenantId == Uuid.Empty || userId == Uuid.Empty ||
+            memberId != RbacIds.Member(tenantId, userId) || string.IsNullOrWhiteSpace(permission))
+            return false;
+
+        // A stale grant key can predate the affiliation-aware projection. Check the current
+        // membership before consulting that key so every direct consumer fails closed.
+        var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct)
+            .ConfigureAwait(false);
+        if (membership is not { Affiliation: "client_personnel" } ||
+            membership.TenantId != tenantId || membership.UserId != userId)
             return false;
 
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);

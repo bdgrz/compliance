@@ -39,6 +39,33 @@ public sealed class FitzTenantDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldProjectActiveTenantWithoutOperatorOrInvitationGivenVerifiedCreator()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var repository = new FitzTenantDirectoryReader(client);
+        var identity = new CheckpointIdentity("TenantDirectory", EventStreamPattern.ForPattern("bdgrz", "tenants"));
+
+        // Act
+        await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
+                "Acme LLC", CreatorIsAdministrator: true));
+            await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        var tenant = await repository.GetAsync(tenantId);
+        Assert.NotNull(tenant);
+        Assert.Equal("active", tenant.Status);
+        Assert.Null(tenant.OperatorUserId);
+        Assert.False(tenant.RequiresInvitation);
+    }
+
+    [Fact]
     public async Task ShouldProjectLifecycleGivenSuspensionAndReactivation()
     {
         // Arrange

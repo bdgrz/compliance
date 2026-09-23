@@ -15,12 +15,17 @@ sealed class GetTenantAuthorizer(PlatformOperatorAuthority operators,
             return Result.Success;
 
         var tenantId = context.Request.TenantId;
-        if (!await memberships.IsMemberAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false))
+        var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
+        if (membership is null)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));
+        if (membership.Affiliation == "firm_staff")
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Firm staff require an accepted engagement to access client work."));
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "The tenant is not active."));
         var memberId = RbacIds.Member(tenantId, userId);
-        return await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantAccess, ct)
+        return await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantAccess, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,

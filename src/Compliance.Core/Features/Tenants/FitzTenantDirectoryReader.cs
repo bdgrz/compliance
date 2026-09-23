@@ -26,8 +26,9 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                 new TenantView(registered.TenantId, registered.Name, registered.Slug,
                     Status: "provisioning",
                     LegalName: registered.LegalName ?? registered.Name,
-                    OperatorUserId: registered.OwnerUserId,
-                    RequiresInvitation: registered.FirstAdministratorEmail is not null),
+                    OperatorUserId: registered.CreatorIsAdministrator ? null : registered.OwnerUserId,
+                    RequiresInvitation: registered.FirstAdministratorEmail is not null &&
+                                        !registered.CreatorIsAdministrator),
                 ct).ConfigureAwait(false);
         }
         else

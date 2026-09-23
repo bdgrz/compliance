@@ -16,7 +16,11 @@ sealed class PermissionProjectionState
         switch (domainEvent)
         {
             case MemberRegistered member:
-                Members.Add(member.MemberId);
+                // Tenant team placement cannot grant standing permissions to firm staff.
+                if (member.Affiliation == "firm_staff")
+                    Members.Remove(member.MemberId);
+                else
+                    Members.Add(member.MemberId);
                 break;
             case TeamDefined team:
                 Teams.Add(team.TeamId);

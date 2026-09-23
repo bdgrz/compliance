@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 
 /// <summary>
 ///     Runs <see cref="RegisterTenant" /> through Portia's real composed lifecycle — this is what a
-///     unit test against <see cref="PlatformOperatorAuthorizer" /> or
+///     unit test against <see cref="RegisterTenantAuthorizer" /> or
 ///     <see cref="RegisterTenantSlugAvailabilityGuard" /> in isolation cannot show: that they are
 ///     actually wired to <see cref="RegisterTenant" />, and run in the right order.
 /// </summary>
@@ -46,7 +46,7 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     [Fact]
-    public async Task ShouldDenyUserGivenMissingOperatorGrant()
+    public async Task ShouldDenyUserGivenNoVerifiedEmail()
     {
         // Arrange
         await using var provider = BuildProvider(developerAuthentication: false);
@@ -61,18 +61,37 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     [Fact]
-    public async Task ShouldRequireLegalNameAndAdministratorGivenProductionOperator()
+    public async Task ShouldCreateTenantGivenVerifiedCreatorWithoutOperatorGrant()
     {
         // Arrange
-        var operatorId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
         await using var provider = BuildProvider(developerAuthentication: false,
-            operatorId: operatorId);
-        var actor = BdgrzActor(operatorId);
+            verifiedEmailOwner: creatorId);
+
+        await RequestScenario.For(provider)
+            .GivenActor(BdgrzActor(creatorId))
+            // Act
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
+            // Assert
+            .ExpectAuthorized()
+            .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
+            .ExpectHandled()
+            .ExpectSuccess();
+    }
+
+    [Fact]
+    public async Task ShouldRequireLegalNameAndRejectLegacyInvitationGivenProduction()
+    {
+        // Arrange
+        var creatorId = Uuid.CreateVersion4();
+        await using var provider = BuildProvider(developerAuthentication: false,
+            verifiedEmailOwner: creatorId);
+        var actor = BdgrzActor(creatorId);
 
         await RequestScenario.For(provider)
             .GivenActor(actor)
             // Act
-            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
+            .When(new RegisterTenant("Acme", "acme"))
             // Assert
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
@@ -80,14 +99,14 @@ public sealed class RegisterTenantRequestScenarioTests
             .ExpectFailure();
         await RequestScenario.For(provider)
             .GivenActor(actor)
-            .When(new RegisterTenant("Acme", "acme", FirstAdministratorEmail: "admin@example.com"))
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC", "creator@example.com"))
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
             .ExpectFailure();
         await RequestScenario.For(provider)
             .GivenActor(actor)
-            .When(new RegisterTenant("Acme", "acme", "Acme LLC", "admin@example.com"))
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
@@ -119,15 +138,15 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     static ServiceProvider BuildProvider(bool developerAuthentication = true,
-        Uuid? operatorId = null)
+        Uuid? verifiedEmailOwner = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
-        services.AddSingleton(new PlatformOperatorAuthority(
-            operatorId is { } id ? [id] : [], developerAuthentication));
+        services.AddSingleton(new PlatformOperatorAuthority([], developerAuthentication));
+        services.AddSingleton<IEmailAddressDirectoryReader>(new EmailDirectory(verifiedEmailOwner));
         services.AddPortia()
             .AddRequestHandler<RegisterTenantHandler>()
-            .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
+            .AddRequestAuthorizer<RegisterTenantAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -135,4 +154,19 @@ public sealed class RegisterTenantRequestScenarioTests
     static ClaimsPrincipal BdgrzActor(Uuid? userId = null) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", (userId ?? Uuid.CreateVersion4()).ToString())],
         "BdgrzSession"));
+
+    sealed class EmailDirectory(Uuid? verifiedOwner) : IEmailAddressDirectoryReader
+    {
+        public ValueTask<EmailAddressView?> GetAsync(string emailAddress,
+            CancellationToken ct = default) => ValueTask.FromResult<EmailAddressView?>(
+            verifiedOwner is { } owner && emailAddress == "creator@example.com"
+                ? new EmailAddressView(owner, emailAddress, true)
+                : null);
+
+        public ValueTask<Page<EmailAddressView>> ListAsync(Uuid userId, int? limit,
+            string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<EmailAddressView>(
+                verifiedOwner is { } owner
+                    ? [new EmailAddressView(owner, "creator@example.com", true)] : [], null));
+    }
 }

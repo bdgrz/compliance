@@ -54,6 +54,10 @@ public sealed class GetTenantAuthorizerTests
 
     sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
+            ? new TenantMembershipView(userId, TenantId) : null);
+
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member);
 
@@ -69,7 +73,7 @@ public sealed class GetTenantAuthorizerTests
 
     sealed class Permissions(bool permitted) : IPermissionAuthorizer
     {
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId, string permission,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
             CancellationToken ct = default) => ValueTask.FromResult(permitted);
     }
 }

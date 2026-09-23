@@ -77,6 +77,25 @@ public sealed class RbacManagementAuthorizerTests
         Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
     }
 
+    [Fact]
+    public async Task ShouldDenyFirmStaffGivenHistoricalRbacManageGrant()
+    {
+        // Arrange
+        var permissions = new FakePermissionAuthorizer(true);
+        var authorizer = new RbacManagementAuthorizer(permissions, new ActiveTenant(),
+            new Memberships(true, "firm_staff"));
+        var context = new RequestContext<IRbacManagementRequest>(
+            new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers"), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
+        Assert.Null(permissions.LastPermission);
+    }
+
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 
@@ -96,8 +115,14 @@ public sealed class RbacManagementAuthorizerTests
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
     }
 
-    sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
+    sealed class Memberships(bool member, string affiliation = "client_personnel")
+        : ITenantMembershipDirectoryReader
     {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
+            ? new TenantMembershipView(userId,
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture), affiliation) : null);
+
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member);
 
@@ -118,6 +143,7 @@ public sealed class RbacManagementAuthorizerTests
 
         public ValueTask<bool> IsAllowedAsync(
             Uuid tenantId,
+            Uuid userId,
             Uuid memberId,
             string permission,
             CancellationToken ct = default)

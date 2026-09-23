@@ -15,18 +15,23 @@ public sealed class RegisterTenantHandler(IAggregateExecutor executor, PlatformO
             : throw new InvalidOperationException(
                 "RegisterTenantAuthorizer must reject requests without a Bdgrz user identity.");
 
-        if (!operators.DeveloperAuthentication &&
-            (string.IsNullOrWhiteSpace(context.Request.LegalName) ||
-             string.IsNullOrWhiteSpace(context.Request.FirstAdministratorEmail)))
-            return ValueTask.FromResult(Result<TenantRegistration>.Failure(new RequestError(
-                RequestErrorKind.Validation,
-                "Legal name and first administrator email are required for provisioning.")));
+        if (!operators.DeveloperAuthentication)
+        {
+            if (string.IsNullOrWhiteSpace(context.Request.LegalName))
+                return ValueTask.FromResult(Result<TenantRegistration>.Failure(new RequestError(
+                    RequestErrorKind.Validation, "A legal name is required.")));
+            if (context.Request.FirstAdministratorEmail is not null)
+                return ValueTask.FromResult(Result<TenantRegistration>.Failure(new RequestError(
+                    RequestErrorKind.Validation,
+                    "First administrator invitations are not supported for self-service creation.")));
+        }
 
         return executor.ExecuteAsync(
             new Tenant(context.RequestId),
             tenant => AggregateOutcome.CommitOnSuccess(
                 tenant.Register(ownerUserId, context.Request.Name, context.Request.Slug,
-                    context.Request.LegalName, context.Request.FirstAdministratorEmail)),
+                    context.Request.LegalName, context.Request.FirstAdministratorEmail,
+                    creatorIsAdministrator: !operators.DeveloperAuthentication)),
             context, ct);
     }
 }

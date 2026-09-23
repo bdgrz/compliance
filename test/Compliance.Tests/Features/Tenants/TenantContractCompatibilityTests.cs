@@ -8,6 +8,24 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class TenantContractCompatibilityTests
 {
     [Fact]
+    public void ShouldReadSelfServiceAndLegacyRegistrationBodiesGivenOptionalInvitationField()
+    {
+        // Arrange
+        const string selfService = """{"name":"Acme","slug":"acme","legal_name":"Acme LLC"}""";
+        const string legacy = """{"name":"Acme","slug":"acme","first_administrator_email":"admin@example.com"}""";
+
+        // Act
+        var newRequest = JsonSerializer.Deserialize(selfService,
+            ComplianceCoreJsonContext.Default.RegisterTenant);
+        var oldRequest = JsonSerializer.Deserialize(legacy,
+            ComplianceCoreJsonContext.Default.RegisterTenant);
+
+        // Assert
+        Assert.Null(newRequest?.FirstAdministratorEmail);
+        Assert.Equal("admin@example.com", oldRequest?.FirstAdministratorEmail);
+    }
+
+    [Fact]
     public void ShouldRemainActiveGivenLegacyRegistrationWithoutInvitation()
     {
         // Arrange
@@ -23,6 +41,8 @@ public sealed class TenantContractCompatibilityTests
         Assert.NotNull(registered);
         Assert.Equal("TenantRegistered", registered.GetType().Name);
         Assert.Null(registered.GetType().GetProperty("FirstAdministratorEmail")?.GetValue(registered));
+        Assert.False((bool)registered.GetType().GetProperty("CreatorIsAdministrator")!
+            .GetValue(registered)!);
     }
 
     [Fact]

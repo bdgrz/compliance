@@ -64,11 +64,12 @@ public sealed class FieldRedactor
 public static class FieldRestrictions
 {
     public static async ValueTask<FieldRedactor> ForActorAsync(IPermissionAuthorizer permissions,
-        Uuid tenantId, Uuid memberId, FieldClass fieldClass, CancellationToken ct = default)
+        Uuid tenantId, Uuid userId, FieldClass fieldClass, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(permissions);
         ArgumentNullException.ThrowIfNull(fieldClass);
-        var canRead = await permissions.IsAllowedAsync(tenantId, memberId, fieldClass.ReadPermission, ct)
+        var canRead = await permissions.IsAllowedAsync(tenantId, userId,
+                RbacIds.Member(tenantId, userId), fieldClass.ReadPermission, ct)
             .ConfigureAwait(false);
         return new FieldRedactor(fieldClass, canRead);
     }
