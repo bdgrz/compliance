@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Cntryl.Portia;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
@@ -11,6 +13,80 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
+    [Fact]
+    public async Task ShouldRetryFailedChallengeGivenStandaloneWorker()
+    {
+        // Arrange
+        var delivery = new RecoveringDelivery();
+        await using var factory = E2EAppFactory.Create(broker).WithWebHostBuilder(host =>
+            host.ConfigureTestServices(services =>
+                services.AddSingleton<IEmailChallengeDelivery>(delivery)));
+        using var client = factory.CreateClient();
+        var email = $"retry-{Guid.NewGuid():N}@example.com";
+        var userId = await TenantInvitationE2ETests.LoginAsync(client, email);
+        var path = $"/api/v1/users/{userId}/email-addresses/{email}";
+        var reservationDeadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < reservationDeadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+                break;
+            await Task.Delay(250);
+        }
+
+        // Act
+        using var issued = await client.PostAsync($"{path}/challenges", null);
+        Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
+        await WaitForDeliveryStatusAsync(client, path, "failed");
+        delivery.AllowSuccess = true;
+        await WaitForDeliveryStatusAsync(client, path, "delivered");
+        var attempts = delivery.Attempts.ToArray();
+
+        // Assert
+        Assert.True(attempts.Length >= 2);
+        Assert.Single(attempts.Select(attempt => attempt.ChallengeId).Distinct());
+        Assert.Single(attempts.Select(attempt => attempt.Token).Distinct());
+        using var completed = await client.PostAsJsonAsync($"{path}/verifications",
+            new { token = attempts[0].Token });
+        Assert.Equal(HttpStatusCode.NoContent, completed.StatusCode);
+        await WaitForDeliveryStatusAsync(client, path, "verified");
+    }
+
+    static async Task WaitForDeliveryStatusAsync(HttpClient client, string path, string expected)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync($"{path}/challenges/status");
+            if (response.StatusCode == HttpStatusCode.OK &&
+                (await response.Content.ReadFromJsonAsync<EmailChallengeStatusDocument>())?
+                .DeliveryStatus == expected)
+                return;
+            await Task.Delay(250);
+        }
+        Assert.Fail($"Email challenge status did not become {expected}.");
+    }
+
+    sealed class RecoveringDelivery : IEmailChallengeDelivery
+    {
+        volatile bool _allowSuccess;
+
+        public ConcurrentQueue<(Uuid ChallengeId, string Token)> Attempts { get; } = new();
+        public bool AllowSuccess { get => _allowSuccess; set => _allowSuccess = value; }
+
+        public ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress,
+            string token, CancellationToken ct)
+        {
+            _ = userId;
+            _ = emailAddress;
+            ct.ThrowIfCancellationRequested();
+            Attempts.Enqueue((challengeId, token));
+            if (!AllowSuccess)
+                throw new InvalidOperationException("transient provider failure");
+            return ValueTask.CompletedTask;
+        }
+    }
+
     [Fact]
     public async Task ShouldRejectReservationGivenAddressOwnedByAnotherUser()
     {
@@ -174,6 +250,8 @@ public sealed class EmailVerificationE2ETests(BrokerStackFixture broker) : IClas
 
     sealed record RegistrationDocument([property: JsonPropertyName("email_address")] string EmailAddress);
     sealed record SessionDocument(string Id);
+    sealed record EmailChallengeStatusDocument(
+        [property: JsonPropertyName("delivery_status")] string DeliveryStatus);
     sealed record VerifiedSessionDocument(
         [property: JsonPropertyName("email_address_verified")] bool EmailAddressVerified);
     sealed record EmailDocument(
