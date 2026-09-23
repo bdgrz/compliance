@@ -690,7 +690,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     ["tenant_id"] = scope.TenantId.ToString(),
                     ["program_id"] = scope.ProgramId,
                     ["limit"] = 1,
-                }, "boundary_id", scope.BoundaryIds),
+                }),
             new CursorProbe("decisions", tenantPath + "/boundaries/" + scope.BoundaryIds[0] +
                 "/decisions?limit=1", "bdgrz.boundary.decisions.list",
                 new Dictionary<string, object?>
@@ -698,7 +698,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     ["tenant_id"] = scope.TenantId.ToString(),
                     ["boundary_id"] = scope.BoundaryIds[0],
                     ["limit"] = 1,
-                }, "decision_id", scope.DecisionIds),
+                }),
             new CursorProbe("snapshots", tenantPath + "/programs/" + scope.ProgramId +
                 "/scope-snapshots?limit=1", "bdgrz.snapshot.program.list",
                 new Dictionary<string, object?>
@@ -706,71 +706,32 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     ["tenant_id"] = scope.TenantId.ToString(),
                     ["program_id"] = scope.ProgramId,
                     ["limit"] = 1,
-                }, "snapshot_id", scope.SnapshotIds),
+                }),
         };
         foreach (var probe in probes)
         {
             var cursors = sourceCursors[probe.Name];
-            await AssertTransplantedHttpAsync(owner, probe, cursors.Http, scope);
-            await AssertTransplantedMcpAsync(mcp, probe, cursors.Mcp, scope);
+            await AssertTransplantedHttpAsync(owner, probe, cursors.Http);
+            await AssertTransplantedMcpAsync(mcp, probe, cursors.Mcp);
         }
     }
 
     static async Task AssertTransplantedHttpAsync(HttpClient client, CursorProbe probe,
-        string cursor, TenantScope scope)
+        string cursor)
     {
-        for (var pageIndex = 0; pageIndex < 4; pageIndex++)
-        {
-            using var response = await client.GetAsync(probe.HttpPath + "&cursor=" +
-                Uri.EscapeDataString(cursor));
-            if (response.StatusCode == HttpStatusCode.BadRequest)
-                return;
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var page = await ReadAsync(response);
-            AssertForeignRows(page, probe, scope);
-            var nextCursor = page.GetProperty("next_cursor").GetString();
-            if (nextCursor is null)
-                return;
-            cursor = nextCursor;
-        }
-        Assert.Fail("The transplanted HTTP cursor did not terminate.");
+        using var response = await client.GetAsync(probe.HttpPath + "&cursor=" +
+            Uri.EscapeDataString(cursor));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     static async Task AssertTransplantedMcpAsync(McpScenario mcp, CursorProbe probe,
-        string cursor, TenantScope scope)
+        string cursor)
     {
-        var arguments = new Dictionary<string, object?>(probe.McpInput);
-        for (var pageIndex = 0; pageIndex < 4; pageIndex++)
+        var arguments = new Dictionary<string, object?>(probe.McpInput)
         {
-            arguments["cursor"] = cursor;
-            var call = await mcp.When(probe.McpTool, arguments);
-            var structured = Assert.IsType<JsonElement>(call.StructuredJson);
-            if (call.IsError)
-            {
-                Assert.Equal("Validation", structured.GetProperty("kind").GetString());
-                return;
-            }
-            var page = structured.GetProperty("result");
-            AssertForeignRows(page, probe, scope);
-            var nextCursor = page.GetProperty("next_cursor").GetString();
-            if (nextCursor is null)
-                return;
-            cursor = nextCursor;
-        }
-        Assert.Fail("The transplanted MCP cursor did not terminate.");
-    }
-
-    static void AssertForeignRows(JsonElement page, CursorProbe probe, TenantScope scope)
-    {
-        Assert.All(Items(page), row =>
-        {
-            Assert.Equal(scope.TenantId.ToString(), row.GetProperty("tenant_id").GetString());
-            Assert.Contains(row.GetProperty(probe.IdKey).GetString()!, probe.AllowedIds);
-            if (row.TryGetProperty("program_id", out var programId))
-                Assert.Equal(scope.ProgramId, programId.GetString());
-            if (row.TryGetProperty("boundary_id", out var boundaryId))
-                Assert.Contains(boundaryId.GetString()!, scope.BoundaryIds);
-        });
+            ["cursor"] = cursor,
+        };
+        _ = await mcp.When(probe.McpTool, arguments).ExpectFailure("Validation");
     }
 
     sealed record TenantScope(Uuid TenantId, string ProgramId, IReadOnlyList<string> BoundaryIds,
@@ -784,7 +745,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
     sealed record CursorPair(string Http, string Mcp);
 
     sealed record CursorProbe(string Name, string HttpPath, string McpTool,
-        Dictionary<string, object?> McpInput, string IdKey, IReadOnlyList<string> AllowedIds);
+        Dictionary<string, object?> McpInput);
 
     sealed record ReadCase(string HttpPath, string McpTool,
         Dictionary<string, object?> McpInput);
