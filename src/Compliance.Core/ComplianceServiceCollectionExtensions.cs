@@ -47,6 +47,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
         services.AddScoped<IEmailAddressDirectoryReader>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
+        services.AddScoped<FitzPlatformUserDirectory>();
+        services.AddScoped<IPlatformUserDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
+        services.AddScoped<IPlatformUserDirectoryReader>(
+            provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
         services.AddScoped<UserIdentityContinuation>();
         services.AddScoped<TenantInvitationIssuer>();
         services.AddScoped<FitzPermissionAuthorizer>();
@@ -339,6 +344,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
+            .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             // This narrow backfill has its own checkpoint so it can safely replay historical

@@ -185,6 +185,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(LinkOidcProviderIdentity))]
 [JsonSerializable(typeof(AuthenticatedUserIdentity))]
 [JsonSerializable(typeof(UserIdentityRegistered))]
+[JsonSerializable(typeof(PlatformUserDirectoryEntry))]
 [JsonSerializable(typeof(UserIdentityAuthenticated))]
 [JsonSerializable(typeof(ReserveEmail))]
 [JsonSerializable(typeof(IssueEmailChallenge))]

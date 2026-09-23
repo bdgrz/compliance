@@ -22,6 +22,7 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
 {
     const string SessionSecret = "bdgrz-link-e2e-session-signing-key-0001";
     const string ProviderSecret = "bdgrz-link-e2e-provider-signing-key-001";
+    const string BootstrapOperatorId = "71148ac3-3488-4895-b706-85749f260e47";
 
     [Fact]
     public async Task ShouldPreserveLinkedUserGivenIndependentApiAndWorker()
@@ -101,6 +102,7 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
             builder.UseSetting("Compliance:Authentication:ClientId", "compliance-spa");
             builder.UseSetting("BDGRZ_SESSION_SIGNING_KEY", SessionSecret);
+            builder.UseSetting("PlatformOperators:UserIds:0", BootstrapOperatorId);
             builder.ConfigureServices(services =>
             {
                 services.PostConfigure<JwtBearerOptions>("BdgrzResource0", options =>

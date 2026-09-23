@@ -22,8 +22,9 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
     {
         // Arrange
         var applicationName = $"compliance-operator-portfolio-{Guid.NewGuid():N}";
-        var operatorEmail = $"operator-{Guid.NewGuid():N}@example.com";
-        var ordinaryEmail = $"ordinary-{Guid.NewGuid():N}@example.com";
+        // Both theory cases share the class broker and its fixed platform roster stream.
+        const string operatorEmail = "operator-portfolio-e2e@example.com";
+        const string ordinaryEmail = "ordinary-portfolio-e2e@example.com";
         IHost? worker = null;
         if (splitHosts)
         {
@@ -66,13 +67,32 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
             using var ordinaryClient = CreateClient(factory, splitHosts);
             Assert.Equal(operatorId, Uuid.Parse(await TenantInvitationE2ETests.LoginAsync(
                 operatorClient, operatorEmail), CultureInfo.InvariantCulture));
-            await TenantInvitationE2ETests.LoginAsync(ordinaryClient, ordinaryEmail);
+            var ordinaryId = Uuid.Parse(await TenantInvitationE2ETests.LoginAsync(
+                ordinaryClient, ordinaryEmail), CultureInfo.InvariantCulture);
             if (worker is not null)
             {
                 await using var scope = worker.Services.CreateAsyncScope();
-                var roster = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
-                    .HydrateAsync(new PlatformOperatorRoster());
-                Assert.True(roster.IsOperator(operatorId), "The API host did not seed the shared operator stream.");
+                var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+                var seeded = false;
+                var seedDeadline = DateTimeOffset.UtcNow.AddSeconds(15);
+                while (DateTimeOffset.UtcNow < seedDeadline)
+                {
+                    var roster = await reader.HydrateAsync(new PlatformOperatorRoster());
+                    if (roster.IsOperator(operatorId))
+                    {
+                        seeded = true;
+                        break;
+                    }
+                    await Task.Delay(100);
+                }
+                if (!seeded)
+                {
+                    await using var apiScope = factory.Services.CreateAsyncScope();
+                    var apiRoster = await apiScope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                        .HydrateAsync(new PlatformOperatorRoster());
+                    Assert.Fail($"The worker did not read the operator seed; API initialized={apiRoster.IsInitialized}, " +
+                                $"API operator={apiRoster.IsOperator(operatorId)}.");
+                }
             }
             const string path = "/api/v1/platform/tenants";
 
@@ -137,6 +157,93 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
                 new Uri(ordinaryClient.BaseAddress!, "/mcp"));
             _ = await ordinaryMcp.When("bdgrz.platform.tenant.list",
                 new Dictionary<string, object?>()).ExpectFailure();
+
+            using var deniedGrant = await ordinaryClient.PostAsJsonAsync(
+                "/api/v1/platform/operator-grants", new
+                {
+                    user_id = operatorId.ToString(),
+                    reason = "Attempt without platform access",
+                });
+            Assert.Equal(HttpStatusCode.Forbidden, deniedGrant.StatusCode);
+            _ = await ordinaryMcp.When("bdgrz.platform.operator.list",
+                new Dictionary<string, object?>()).ExpectFailure();
+            using var unknownUserGrant = await operatorClient.PostAsJsonAsync(
+                "/api/v1/platform/operator-grants", new
+                {
+                    user_id = Uuid.CreateVersion4().ToString(),
+                    reason = "Unknown user must not become the last operator",
+                });
+            Assert.Equal(HttpStatusCode.Conflict, unknownUserGrant.StatusCode);
+
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var users = scope.ServiceProvider.GetRequiredService<IPlatformUserDirectoryReader>();
+                var userDeadline = DateTimeOffset.UtcNow.AddSeconds(15);
+                while (DateTimeOffset.UtcNow < userDeadline &&
+                       !await users.ExistsAsync(ordinaryId))
+                    await Task.Delay(100);
+                Assert.True(await users.ExistsAsync(ordinaryId));
+            }
+
+            _ = await operatorMcp.When("bdgrz.platform.operator.grant",
+                new Dictionary<string, object?>
+                {
+                    ["user_id"] = ordinaryId.ToString(),
+                    ["reason"] = "Rotate platform operations",
+                }).ExpectSuccess();
+            using var grantedRoster = await ordinaryClient.GetAsync("/api/v1/platform/operators");
+            Assert.Equal(HttpStatusCode.OK, grantedRoster.StatusCode);
+            using var grantedDocument = JsonDocument.Parse(await grantedRoster.Content.ReadAsStreamAsync());
+            Assert.Contains(grantedDocument.RootElement.GetProperty("user_ids").EnumerateArray(),
+                item => item.GetString() == ordinaryId.ToString());
+            if (worker is not null)
+            {
+                await using var scope = worker.Services.CreateAsyncScope();
+                var roster = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new PlatformOperatorRoster());
+                Assert.True(roster.IsOperator(ordinaryId));
+            }
+            _ = await ordinaryMcp.When("bdgrz.platform.operator.list",
+                new Dictionary<string, object?>()).ExpectSuccess();
+
+            _ = await ordinaryMcp.When("bdgrz.platform.operator.revoke",
+                new Dictionary<string, object?>
+                {
+                    ["user_id"] = operatorId.ToString(),
+                    ["reason"] = "Transfer platform operations",
+                }).ExpectSuccess();
+            using var revokedAccess = await operatorClient.GetAsync("/api/v1/platform/operators");
+            Assert.Equal(HttpStatusCode.Forbidden, revokedAccess.StatusCode);
+            _ = await operatorMcp.When("bdgrz.platform.operator.list",
+                new Dictionary<string, object?>()).ExpectFailure();
+            using var lastOperator = await ordinaryClient.PostAsJsonAsync(
+                "/api/v1/platform/operator-revocations", new
+                {
+                    user_id = ordinaryId.ToString(),
+                    reason = "Would leave no operator",
+                });
+            Assert.Equal(HttpStatusCode.Conflict, lastOperator.StatusCode);
+
+            await using var restartedApi = E2EAppFactory.Create(broker, applicationName)
+                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                    services.AddSingleton(new PlatformOperatorAuthority([operatorId]))));
+            using var restartedOperator = CreateClient(restartedApi, splitHosts);
+            await TenantInvitationE2ETests.LoginAsync(restartedOperator, operatorEmail);
+            using var stillRevoked = await restartedOperator.GetAsync("/api/v1/platform/operators");
+            Assert.Equal(HttpStatusCode.Forbidden, stillRevoked.StatusCode);
+
+            _ = await ordinaryMcp.When("bdgrz.platform.operator.grant",
+                new Dictionary<string, object?>
+                {
+                    ["user_id"] = operatorId.ToString(),
+                    ["reason"] = "Complete roster rotation test",
+                }).ExpectSuccess();
+            _ = await operatorMcp.When("bdgrz.platform.operator.revoke",
+                new Dictionary<string, object?>
+                {
+                    ["user_id"] = ordinaryId.ToString(),
+                    ["reason"] = "Restore initial operator for the next host mode",
+                }).ExpectSuccess();
         }
         finally
         {

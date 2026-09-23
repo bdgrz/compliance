@@ -16,14 +16,17 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
             BuiltInRbac.AdministratorsTeamId(tenantId), memberId), ct).ConfigureAwait(false);
         if (!member.IsRegistered || member.Affiliation != "client_personnel" || !assignment.IsAssigned ||
             !await memberships.IsMemberAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false) ||
-            !await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantAccess, ct)
+            !await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantAccess, ct)
                 .ConfigureAwait(false) ||
-            !await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.TenantRbacManage, ct)
+            !await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TenantRbacManage, ct)
                 .ConfigureAwait(false) ||
-            !await permissions.IsAllowedAsync(tenantId, memberId, RbacPermissions.ProgramManage, ct)
+            !await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.ProgramManage, ct)
                 .ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The first administrator is still being provisioned."));
+                "The first administrator is still being provisioned.", isTransient: true));
 
         return await executor.ExecuteAsync(new Tenant(tenantId),
             tenant => AggregateOutcome.CommitOnSuccess(tenant.Activate(context.Request.FirstAdministratorUserId,

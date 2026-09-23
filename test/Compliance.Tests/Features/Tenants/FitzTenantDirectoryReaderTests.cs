@@ -52,8 +52,9 @@ public sealed class FitzTenantDirectoryReaderTests
         await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
-                "Acme LLC", CreatorIsAdministrator: true));
+                "Acme LLC", CreatorIsAdministrator: true, ActivationRequired: true));
             await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
+            await repository.ApplyAsync(new TenantActivated(tenantId, creatorId));
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
 
@@ -112,7 +113,7 @@ public sealed class FitzTenantDirectoryReaderTests
                          new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId,
-                "Acme", "acme", CreatorIsAdministrator: true));
+                "Acme", "acme", CreatorIsAdministrator: true, ActivationRequired: true));
             await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }

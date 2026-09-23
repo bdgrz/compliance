@@ -36,7 +36,7 @@ public sealed class TenantRbacBootstrapReactorTests
         var bus = new RecordingRequestBus();
         var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
         var context = new Context(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
-            "Acme LLC", CreatorIsAdministrator: true));
+            "Acme LLC", CreatorIsAdministrator: true, ActivationRequired: true));
 
         // Act
         await reactor.HandleAsync(context, CancellationToken.None);
@@ -51,6 +51,10 @@ public sealed class TenantRbacBootstrapReactorTests
             TeamId: var teamId, MemberId: var memberId,
         } && teamId == BuiltInRbac.AdministratorsTeamId(tenantId) &&
             memberId == RbacIds.Member(tenantId, creatorId));
+        Assert.Contains(bus.Dispatched, request => request is ActivateTenant
+        {
+            FirstAdministratorUserId: var userId,
+        } && userId == creatorId);
     }
 
     [Fact]

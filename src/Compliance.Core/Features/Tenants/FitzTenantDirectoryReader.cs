@@ -29,7 +29,7 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                     OperatorUserId: registered.CreatorIsAdministrator ? null : registered.OwnerUserId,
                     RequiresInvitation: registered.FirstAdministratorEmail is not null &&
                                         !registered.CreatorIsAdministrator,
-                    RequiresActivation: registered.CreatorIsAdministrator ||
+                    RequiresActivation: registered.ActivationRequired ||
                                         registered.FirstAdministratorEmail is not null),
                 ct).ConfigureAwait(false);
         }

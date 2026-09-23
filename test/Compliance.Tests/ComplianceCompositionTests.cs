@@ -87,7 +87,7 @@ public sealed class ComplianceCompositionTests
             ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
             ["Fitz:ApplicationName"] = "compliance",
         });
-        _ = builder.Services.AddCompliance(builder.Configuration);
+        _ = builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true);
         return builder;
     }
 

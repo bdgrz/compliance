@@ -1,3 +1,4 @@
+using System.Globalization;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,7 @@ public sealed class ActivateTenantReadinessTests
         // Assert
         Assert.False(before.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, before.Error.Kind);
+        Assert.True(before.Error.IsTransient);
         Assert.True(after.IsSuccess);
         var hydrated = await reader.HydrateAsync(new Tenant(tenantId));
         Assert.True(hydrated.IsActive);
@@ -56,6 +58,11 @@ public sealed class ActivateTenantReadinessTests
     sealed class Memberships : ITenantMembershipDirectoryReader
     {
         public bool Ready { get; set; }
+
+        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
+            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(
+                Ready ? new TenantMembershipView(userId,
+                    Uuid.Parse(tenantId, CultureInfo.InvariantCulture), "client_personnel") : null);
 
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId,
             CancellationToken ct = default) => ValueTask.FromResult(Ready);
@@ -69,7 +76,8 @@ public sealed class ActivateTenantReadinessTests
     {
         public bool Ready { get; set; }
 
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid memberId, string permission,
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission,
             CancellationToken ct = default) => ValueTask.FromResult(Ready);
     }
 }

@@ -10,6 +10,9 @@ public sealed class PlatformOperatorRosterBootstrap(IServiceScopeFactory scopes,
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        if (configuration.DeveloperAuthentication && configuration.BootstrapUserIds.Count == 0)
+            return;
+
         await using var scope = scopes.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var reader = services.GetRequiredService<IAggregateReader>();
@@ -18,12 +21,8 @@ public sealed class PlatformOperatorRosterBootstrap(IServiceScopeFactory scopes,
         if (roster.IsInitialized)
             return;
         if (configuration.BootstrapUserIds.Count == 0)
-        {
-            if (configuration.DeveloperAuthentication)
-                return;
             throw new InvalidOperationException(
                 "Configure PlatformOperators:UserIds to seed the initial operator roster.");
-        }
 
         try
         {

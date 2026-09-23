@@ -159,8 +159,12 @@ public sealed class TenantTests
         var registered = Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents
             .OfType<TenantRegistered>());
         Assert.True(registered.CreatorIsAdministrator);
+        Assert.True(registered.ActivationRequired);
         Assert.Equal(OwnerUserId, registered.OwnerUserId);
         Assert.Equal(Uuid.Empty, tenant.OperatorUserId);
+        var pending = tenant.Activate(OwnerUserId, null);
+        Assert.False(pending.IsSuccess);
+        Assert.True(pending.Error.IsTransient);
         Assert.True(tenant.ConfirmSlug("acme").IsSuccess);
         Assert.False(tenant.IsActive);
         Assert.False(tenant.Activate(OwnerUserId, "creator@example.com").IsSuccess);

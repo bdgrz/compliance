@@ -18,6 +18,87 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
+    public async Task ShouldKeepVerifiedTenantProvisioningUntilIndependentWorkerCompletesGrantsGivenDelayedWorker()
+    {
+        // Arrange
+        var applicationName = $"compliance-activation-fence-{Guid.NewGuid():N}";
+        await using var factory = E2EAppFactory.Create(broker, applicationName)
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
+        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        HttpClient client;
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            client = factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+        }
+        using var creator = client;
+        var email = $"creator-{Guid.NewGuid():N}@example.com";
+
+        using (var firstWorker = CreateActivationWorker(applicationName))
+        {
+            await firstWorker.StartAsync();
+            var userId = await TenantInvitationE2ETests.LoginAsync(creator, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email);
+            await firstWorker.StopAsync();
+        }
+
+        // Act
+        using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", new
+        {
+            name = "Delayed Activation",
+            slug = $"delayed-{Guid.NewGuid():N}"[..24],
+            legal_name = "Delayed Activation LLC",
+        });
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+        var registration = await registered.Content.ReadFromJsonAsync<Registration>();
+        Assert.NotNull(registration);
+        var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var source = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                .HydrateAsync(new Bdgrz.Compliance.Features.Tenants.Tenant(tenantId));
+            Assert.False(source.IsActive);
+        }
+
+        using (var secondWorker = CreateActivationWorker(applicationName))
+        {
+            await secondWorker.StartAsync();
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            Tenant? view = null;
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    view = await response.Content.ReadFromJsonAsync<Tenant>();
+                    if (view?.Status == "active")
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal("active", view?.Status);
+            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            using var grant = await creator.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            Assert.Equal(HttpStatusCode.OK, grant.StatusCode);
+            await secondWorker.StopAsync();
+        }
+
+        using var replayWorker = CreateActivationWorker(applicationName);
+        await replayWorker.StartAsync();
+        using var afterReplay = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
+        Assert.Equal(HttpStatusCode.OK, afterReplay.StatusCode);
+        Assert.Equal("active", (await afterReplay.Content.ReadFromJsonAsync<Tenant>())?.Status);
+        await replayWorker.StopAsync();
+    }
+
+    [Fact]
     public async Task ShouldBootstrapVerifiedCreatorWithoutOperatorGivenSeparateApiAndWorker()
     {
         // Arrange: developer login supplies a session, while registration uses production authority.
@@ -37,7 +118,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName)
                 .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
-                    services.AddSingleton(new PlatformOperatorAuthority([]))));
+                    services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
             var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
             HttpClient client;
             try
@@ -512,7 +593,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
 
             await using (var restrictedFactory = E2EAppFactory.Create(broker, applicationName)
                              .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
-                                 services.AddSingleton(new PlatformOperatorAuthority([])))))
+                                 services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()])))))
             {
                 var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
                 HttpClient nonOperator;
@@ -826,6 +907,19 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         start.Environment["Fitz__ApplicationName"] = applicationName;
         start.Environment["Fitz__StartupTimeoutSeconds"] = "30";
         return Process.Start(start) ?? throw new InvalidOperationException("Could not start the worker host.");
+    }
+
+    IHost CreateActivationWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        return builder.Build();
     }
 
     sealed record Registration([property: JsonPropertyName("tenant_id")] string TenantId);
