@@ -87,12 +87,26 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     var cursor = (await ReadAsync(firstPage)).GetProperty("next_cursor").GetString();
                     Assert.False(string.IsNullOrWhiteSpace(cursor));
                     var foreignSpec = ReadSpecs(second).Single(other => other.Tool == spec.Tool);
-                    using var foreignCursor = await owner.GetAsync(foreignSpec.Path +
-                        "?limit=1&cursor=" + Uri.EscapeDataString(cursor));
-                    Assert.True(foreignCursor.StatusCode is HttpStatusCode.OK or HttpStatusCode.BadRequest,
-                        await foreignCursor.Content.ReadAsStringAsync());
-                    if (foreignCursor.StatusCode == HttpStatusCode.OK)
-                        AssertPageBelongsTo(await ReadAsync(foreignCursor), foreignSpec);
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    for (var pageIndex = 0; pageIndex < foreignSpec.ExpectedIds.Length + 2; pageIndex++)
+                    {
+                        using var foreignPage = await owner.GetAsync(foreignSpec.Path +
+                            "?limit=1&cursor=" + Uri.EscapeDataString(cursor));
+                        if (pageIndex == 0 && foreignPage.StatusCode == HttpStatusCode.BadRequest)
+                        {
+                            cursor = null;
+                            break;
+                        }
+                        Assert.Equal(HttpStatusCode.OK, foreignPage.StatusCode);
+                        var page = await ReadAsync(foreignPage);
+                        AssertPageBelongsTo(page, foreignSpec);
+                        foreach (var item in page.GetProperty("items").EnumerateArray())
+                            Assert.True(seen.Add(item.GetProperty(foreignSpec.IdProperty).ToString()));
+                        cursor = page.GetProperty("next_cursor").GetString();
+                        if (cursor is null)
+                            break;
+                    }
+                    Assert.Null(cursor);
                 }
 
                 await using (var mcp = await McpScenario.ConnectAsync(owner,
@@ -104,8 +118,10 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         {
                             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                             string? cursor = null;
+                            var pageCount = 0;
                             do
                             {
+                                Assert.True(pageCount++ < 50, "MCP application read cursor did not terminate.");
                                 var args = new Dictionary<string, object?>(spec.Args)
                                 {
                                     ["limit"] = 1,
@@ -371,8 +387,10 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         string? cursor = null;
+        var pageCount = 0;
         do
         {
+            Assert.True(pageCount++ < 50, "HTTP application read cursor did not terminate.");
             var query = "?limit=1" + (spec.MinimumRevisionQuery is null ? string.Empty :
                 "&" + spec.MinimumRevisionQuery) + (cursor is null ? string.Empty :
                 "&cursor=" + Uri.EscapeDataString(cursor));
