@@ -71,7 +71,7 @@ public sealed class RegisterTenantRequestScenarioTests
         await RequestScenario.For(provider)
             .GivenActor(BdgrzActor(creatorId))
             // Act
-            .When(new RegisterTenant("Acme", "acme", "Acme LLC", "creator@example.com"))
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
             // Assert
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
@@ -80,7 +80,7 @@ public sealed class RegisterTenantRequestScenarioTests
     }
 
     [Fact]
-    public async Task ShouldRequireLegalNameAndVerifiedCreatorEmailGivenProduction()
+    public async Task ShouldRequireLegalNameAndRejectLegacyInvitationGivenProduction()
     {
         // Arrange
         var creatorId = Uuid.CreateVersion4();
@@ -91,13 +91,8 @@ public sealed class RegisterTenantRequestScenarioTests
         await RequestScenario.For(provider)
             .GivenActor(actor)
             // Act
-            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
+            .When(new RegisterTenant("Acme", "acme"))
             // Assert
-            .ExpectDenied(RequestErrorKind.Forbidden)
-            .ExpectNotHandled();
-        await RequestScenario.For(provider)
-            .GivenActor(actor)
-            .When(new RegisterTenant("Acme", "acme", FirstAdministratorEmail: "creator@example.com"))
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
@@ -105,6 +100,13 @@ public sealed class RegisterTenantRequestScenarioTests
         await RequestScenario.For(provider)
             .GivenActor(actor)
             .When(new RegisterTenant("Acme", "acme", "Acme LLC", "creator@example.com"))
+            .ExpectAuthorized()
+            .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
+            .ExpectHandled()
+            .ExpectFailure();
+        await RequestScenario.For(provider)
+            .GivenActor(actor)
+            .When(new RegisterTenant("Acme", "acme", "Acme LLC"))
             .ExpectAuthorized()
             .ExpectGuardPassed<RegisterTenantSlugAvailabilityGuard>()
             .ExpectHandled()
@@ -163,6 +165,8 @@ public sealed class RegisterTenantRequestScenarioTests
 
         public ValueTask<Page<EmailAddressView>> ListAsync(Uuid userId, int? limit,
             string? cursor, CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<EmailAddressView>([], null));
+            ValueTask.FromResult(new Page<EmailAddressView>(
+                verifiedOwner is { } owner
+                    ? [new EmailAddressView(owner, "creator@example.com", true)] : [], null));
     }
 }

@@ -17,13 +17,16 @@ sealed class RegisterTenantAuthorizer(PlatformOperatorAuthority operators,
         if (operators.DeveloperAuthentication)
             return Result.Success;
 
-        if (!EmailAddresses.TryNormalize(context.Request.FirstAdministratorEmail, out var email))
-            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                "Verify an email address before creating an organization."));
-        var address = await emails.GetAsync(email, ct).ConfigureAwait(false);
-        return address?.UserId == userId && address.Verified
-            ? Result.Success
-            : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                "Verify an email address you own before creating an organization."));
+        string? cursor = null;
+        do
+        {
+            var page = await emails.ListAsync(userId, 50, cursor, ct).ConfigureAwait(false);
+            if (page.Items.Any(address => address.UserId == userId && address.Verified))
+                return Result.Success;
+            cursor = page.NextCursor;
+        } while (cursor is not null);
+
+        return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+            "Verify an email address you own before creating an organization."));
     }
 }

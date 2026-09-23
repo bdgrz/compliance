@@ -136,29 +136,31 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         using var assignedStaff = await administratorClient.PostAsync(
             $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members/{staffMemberId}", null);
         Assert.Equal(HttpStatusCode.NoContent, assignedStaff.StatusCode);
-        var projectedGrant = false;
+        var projectedAssignment = false;
         deadline = DateTimeOffset.UtcNow.AddSeconds(30);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await administratorClient.GetAsync(
-                $"/api/v1/tenants/{tenantId}/members/{staffId}/access");
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members");
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                using var accessDocument = await JsonDocument.ParseAsync(
+                using var membersDocument = await JsonDocument.ParseAsync(
                     await response.Content.ReadAsStreamAsync());
-                var paths = accessDocument.RootElement.GetProperty("paths");
-                projectedGrant = paths.EnumerateArray().Any(path =>
-                    path.GetProperty("permissions").EnumerateArray().Any(permission =>
-                        permission.GetString() == RbacPermissions.TenantAccess));
-                if (projectedGrant)
-                {
-                    Assert.Empty(accessDocument.RootElement.GetProperty("effective_permissions").EnumerateArray());
+                projectedAssignment = membersDocument.RootElement.GetProperty("items")
+                    .EnumerateArray().Any(member => member.GetProperty("member_id").GetString() ==
+                        staffMemberId.ToString());
+                if (projectedAssignment)
                     break;
-                }
             }
             await Task.Delay(250);
         }
-        Assert.True(projectedGrant);
+        Assert.True(projectedAssignment);
+        using var staffAccessResponse = await administratorClient.GetAsync(
+            $"/api/v1/tenants/{tenantId}/members/{staffId}/access");
+        Assert.Equal(HttpStatusCode.OK, staffAccessResponse.StatusCode);
+        using var accessDocument = await JsonDocument.ParseAsync(
+            await staffAccessResponse.Content.ReadAsStreamAsync());
+        Assert.Empty(accessDocument.RootElement.GetProperty("effective_permissions").EnumerateArray());
         using var staffStillDenied = await staffClient.GetAsync(
             $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
         Assert.Equal(HttpStatusCode.Forbidden, staffStillDenied.StatusCode);

@@ -36,7 +36,7 @@ public sealed class TenantRbacBootstrapReactorTests
         var bus = new RecordingRequestBus();
         var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
         var context = new Context(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
-            "Acme LLC", "creator@example.com", CreatorIsAdministrator: true));
+            "Acme LLC", CreatorIsAdministrator: true));
 
         // Act
         await reactor.HandleAsync(context, CancellationToken.None);

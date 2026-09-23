@@ -52,7 +52,7 @@ public sealed class FitzTenantDirectoryReaderTests
         await using (var batch = await repository.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
             await repository.ApplyAsync(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
-                "Acme LLC", "creator@example.com", CreatorIsAdministrator: true));
+                "Acme LLC", CreatorIsAdministrator: true));
             await repository.ApplyAsync(new TenantSlugConfirmed(tenantId, "acme"));
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }

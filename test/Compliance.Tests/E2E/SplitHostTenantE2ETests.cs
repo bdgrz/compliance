@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Cntryl.Portia;
@@ -60,13 +61,20 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 name = "Self Service",
                 slug,
                 legal_name = "Self Service LLC",
-                first_administrator_email = email,
             };
 
             // Act: an unverified creator is denied; verification then permits the same account.
             using var unverified = await creator.PostAsJsonAsync("/api/v1/tenants", request);
             Assert.Equal(HttpStatusCode.Forbidden, unverified.StatusCode);
             await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email);
+            using var legacyInvitation = await creator.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name = "Legacy Invitation",
+                slug = $"legacy-invite-{Guid.NewGuid():N}"[..24],
+                legal_name = "Legacy Invitation LLC",
+                first_administrator_email = email,
+            });
+            Assert.Equal(HttpStatusCode.BadRequest, legacyInvitation.StatusCode);
             using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", request);
 
             // Assert
@@ -97,6 +105,17 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.Equal(HttpStatusCode.NotFound, outsiderDenied.StatusCode);
             Assert.False(worker.Services.GetRequiredService<MockTenantInvitationDelivery>()
                 .TryGetLatest(tenantId, email, out _));
+            using var openApiResponse = await creator.GetAsync("/openapi/v1.json");
+            Assert.Equal(HttpStatusCode.OK, openApiResponse.StatusCode);
+            using var openApiDocument = JsonDocument.Parse(
+                await openApiResponse.Content.ReadAsStringAsync());
+            var requestProperties = openApiDocument.RootElement.GetProperty("paths")
+                .GetProperty("/api/v1/tenants").GetProperty("post")
+                .GetProperty("requestBody").GetProperty("content")
+                .GetProperty("application/json").GetProperty("schema")
+                .GetProperty("properties");
+            Assert.True(requestProperties.TryGetProperty("legal_name", out _));
+            Assert.True(requestProperties.TryGetProperty("first_administrator_email", out _));
 
             await using var mcp = await McpScenario.ConnectAsync(creator,
                 new Uri(creator.BaseAddress!, "/mcp"));
@@ -105,7 +124,6 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 ["name"] = "MCP Self Service",
                 ["slug"] = $"mcp-self-service-{Guid.NewGuid():N}"[..24],
                 ["legal_name"] = "MCP Self Service LLC",
-                ["first_administrator_email"] = email,
             }).ExpectSuccess();
         }
         finally

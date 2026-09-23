@@ -57,9 +57,9 @@ public sealed class Tenant : Aggregate
         if (firstAdministratorEmail is not null &&
             !EmailAddresses.TryNormalize(firstAdministratorEmail, out normalizedEmail))
             return Failure<TenantRegistration>(RequestErrorKind.Validation, "Enter a valid first administrator email address.");
-        if (creatorIsAdministrator && normalizedEmail is null)
+        if (creatorIsAdministrator && normalizedEmail is not null)
             return Failure<TenantRegistration>(RequestErrorKind.Validation,
-                "A verified creator email is required for self-service registration.");
+                "Creator administration cannot also invite a first administrator.");
         if (_slug is not null)
             return Failure<TenantRegistration>(RequestErrorKind.Conflict, "The tenant is already registered.");
 

@@ -152,7 +152,7 @@ public sealed class TenantTests
 
         // Act
         var result = tenant.Register(OwnerUserId, "Acme", "acme", "Acme LLC",
-            "creator@example.com", creatorIsAdministrator: true);
+            creatorIsAdministrator: true);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -164,6 +164,21 @@ public sealed class TenantTests
         Assert.True(tenant.ConfirmSlug("acme").IsSuccess);
         Assert.True(tenant.IsActive);
         Assert.False(tenant.Activate(OwnerUserId, "creator@example.com").IsSuccess);
+    }
+
+    [Fact]
+    public void ShouldRejectInvitationGivenCreatorAdministration()
+    {
+        // Arrange
+        var tenant = new Tenant(TenantId);
+
+        // Act
+        var result = tenant.Register(OwnerUserId, "Acme", "acme", "Acme LLC",
+            "admin@example.com", creatorIsAdministrator: true);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Empty(new AggregateScenario<Tenant>(tenant).PendingEvents);
     }
 
     [Fact]
