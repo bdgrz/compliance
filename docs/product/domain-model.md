@@ -109,9 +109,9 @@ open decisions before their dependent stories are ready:
 | Risk acceptance | R1-07 owns the decision; R2-07 links to it | M0-D23 |
 | Review and approval | EN-04 shares an immutable decision shape; each workflow owns decisions and transitions | M0-D23, EN-04 |
 | Readiness rules | R1-08 owns rules; later snapshots and views bind exact rule and result versions | M0-D23 |
-| Accessibility and browser support | Every story requires accessible browser behavior, but the conformance target, assistive-technology baseline, and supported-browser policy are undecided | M0-D24 |
-| Firm-owned material inside a client tenant | With no firm entity, advisory working notes and any attest documentation have no owner outside the client organization, yet may need to survive client offboarding | M0-D25, M0-D27 |
-| "Tenant" and "organization" | APIs are proposed to use `tenant_id` while this model says organization | M0-D25 |
+| Accessibility and browser support | Decided: WCAG 2.2 AA; current and previous major desktop Chrome, Edge, Firefox, and Safari | [M0-D24](decisions/m0-d24-accessibility-and-browsers.md) |
+| Firm-owned material inside a client tenant | Decided: advisory working notes live in the client's advisory compartment. Where attest documentation lives is M0-D27's; retention after offboarding remains open | [M0-D25](decisions/m0-d25-client-tenancy.md), M0-D27, #346 |
+| "Tenant" and "organization" | Decided: tenant is the technical name of a client organization; `tenant_id` in contracts, organization in product text | [M0-D25](decisions/m0-d25-client-tenancy.md) |
 | "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
 When a decision is made, update this document, the affected stories, and the
@@ -141,12 +141,21 @@ firm-staff directory (`FirmStaffMember`), and each `ServiceEngagement` carries
 its practice; an `EngagementAssignment` takes its effective Advisor or Attest
 role from its engagement (M0-D25, M0-D26).
 
+Any signed-in platform user with a verified email may create an organization
+and becomes its first Org Admin. Only platform operators suspend, reactivate,
+or offboard an organization. A platform operator sees tenant metadata only
+(lifecycle, administrator roster, usage) and reads business records only
+through a membership or engagement assignment of their own. An existing
+operator grants or revokes operator status in the product, with an audit log.
+Deployment configuration seeds only the first operator, and the last operator
+cannot be revoked.
+
 Every request, job, message, projection, and notification resolves exactly one
 active organization. The proposed routing, confirmed or amended by M0-A07, is:
 
 - after sign-in, a user is sent to their only organization, chooses among
-  several, or creates one; any signed-in user may create an organization and
-  becomes its first Org Admin (M0-D25);
+  several, or sees a no-access or pending-invitation page; every verified
+  signed-in user may also create an organization (self-service, M0-D25);
 - browser routes identify the organization by a unique, URL-friendly slug;
 - organization-scoped APIs identify it by an opaque, immutable `tenant_id` path
   parameter, and the server verifies membership for that `tenant_id` on every
@@ -164,9 +173,10 @@ service the firm provides to one client organization, its type, scope, period,
 team, and acceptance decision (F1-07). It is distinct from the client's Type I
 or Type II audit engagement, whose auditor may be an external firm. Firm staff
 reach client records only through an `EngagementAssignment` to an accepted
-engagement; ending the assignment revokes that access. A platform operator's
-`PlatformOperatorGrant` covers tenant lifecycle, administrator roster, and usage
-metadata only, never business records.
+engagement, which carries the Advisor or Attest role; ending the assignment
+revokes access, and there is no standing firm access (M0-D25). A platform
+operator's `PlatformOperatorGrant` covers tenant lifecycle, administrator
+roster, and usage metadata only, never business records.
 
 Independence walls (F1-08) are enforced platform behavior:
 
@@ -222,14 +232,18 @@ It is not an Auth0 or Entra group and is not a group being reviewed in an
 external access campaign.
 
 An `AccessRole` is a stable bundle of platform permissions. The first release
-uses a small built-in catalog rather than user-defined permissions (M0-D03):
+uses a small built-in catalog rather than user-defined permissions
+([M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md)):
 
 - Org Admin;
 - Compliance Lead;
 - Contributor;
 - Viewer;
-- Advisor and Attest, the firm-staff practice roles, effective only through an
-  `EngagementAssignment`.
+- Advisor (firm staff, through engagement assignment only);
+- Attest (firm staff, through engagement assignment only).
+
+Reviewer, management approver, and control owner are responsibilities, not
+roles. The first release uses one workspace per organization.
 
 Review, approval, and ownership duties are responsibilities, not additional
 roles.
@@ -262,6 +276,13 @@ active membership
   = allowed or denied action
 ```
 
+A responsibility may be held by a workforce `Person` who never signs in. A
+signed-in member then records that person's work on their behalf, and both are
+attributed. Self-review and self-approval are denied unless an Org Admin has
+recorded a time-bound, reason-required SoD `Waiver` approved by an Org Admin
+other than its beneficiary, and waived actions are
+flagged in readiness and audit exports (M0-D03).
+
 Changing a team, grant, or responsibility must identify open work that becomes
 unassigned. It never changes the recorded performer, reviewer, or approver of
 historical work.
@@ -287,9 +308,13 @@ A `Person` is an organization-level subject whose employment or engagement
 facts help the team evaluate controls and access. It is not a Compliance
 `Membership`, a `FederatedIdentity`, or a provider `Account`.
 
-A person keeps a stable source-aware identity, worker type, lifecycle status,
-manager, organization attributes needed for review, relevant start or end
-dates, and observation history. Sensitive workforce fields are minimized and
+A person keeps a stable source-aware identity, worker type (employee,
+contractor, or external collaborator with an internal sponsor), lifecycle
+status, manager, organization attributes needed for review, relevant start or
+end dates, and observation history. An HRIS export is authoritative, the
+identity-provider directory corroborates, and a manual roster is the fallback
+([M0-D06](decisions/m0-d06-workforce-source.md)). Personal contact details,
+employment status reason, and the manager chain are restricted fields,
 authorized separately. Conflicting sources remain visible until an attributable
 reconciliation decision identifies the accepted value and rationale.
 
@@ -301,7 +326,8 @@ review outcome.
 
 An NHI is a `ServiceIdentity`, not a person. Its accountable human or team
 owner, approved purpose, environment, lifecycle, and review date are governed
-relationships. Provider observations can propose an NHI or owner correlation;
+relationships. An NHI has one accountable person or team owner and a review
+date at most one year out. Provider observations can propose an NHI or owner correlation;
 an authorized user accepts or rejects it.
 
 ## Application inventory
@@ -705,16 +731,16 @@ its downstream impact.
 These remain product decisions rather than implementation guesses. Each is
 tracked as an M0 discovery issue. Rows marked decided on 2026-09-22 are
 incorporated into the approved [canonical entity model](canonical-entity-model.md);
-their issue records the full decision.
+the corresponding decision records are under `docs/product/decisions/`.
 
 | Decision | Tracked in |
 | --- | --- |
-| Whether one client organization needs more than one collaboration workspace; multiple client organizations per deployment are required | Decided 2026-09-22 in M0-D03 and M0-A07: one workspace per organization |
+| Whether one client organization needs more than one collaboration workspace; multiple client organizations per deployment are required | Decided: one per organization (M0-D03, M0-D25) |
 | Which built-in access roles are required and which actions each permits | Decided 2026-09-22 in M0-D03; permission sets in M0-A04 |
-| Which small-team self-review exceptions are acceptable and who approves them | Decided 2026-09-22 in M0-D03 |
+| Which small-team self-review exceptions are acceptable and who approves them | Decided: Org Admin SoD waiver (M0-D03) |
 | Whether IdP group mapping is required for the first release | Decided 2026-09-22 in M0-D03: not in the first release |
-| How invitations work for providers that do not support application-managed invitations | M0-D03 |
-| The authoritative workforce source, minimum worker attributes, privacy boundary, and joiner, mover, or leaver observation rules | Decided 2026-09-22 in M0-D06 |
+| How invitations work for providers that do not support application-managed invitations | Decided: application-managed email invitations (M0-D03) |
+| The authoritative workforce source, minimum worker attributes, privacy boundary, and joiner, mover, or leaver observation rules | Decided (M0-D06); first client's HRIS in #347 |
 | The minimum system-component, information-asset, classification, and data-flow inventory needed for the first approved boundary and system description | Decided 2026-09-22 in M0-D08 |
 | Which customer commitments, system requirements, CUECs, and CSOCs apply and who approves them | M0-D09 |
 | The risk scoring or qualitative method, risk appetite, acceptance authority, and material-vendor threshold | M0-D10, M0-D11 |
@@ -727,9 +753,9 @@ their issue records the full decision.
 | Whether advisors or auditors use scoped platform membership or a handoff-only workflow | Decided 2026-09-22 in M0-D14 for advisors; auditor delivery in M0-D17 and M0-D27 |
 | The audit firm's required population definitions, reconciliation fields, sample identifiers, package shape, and representation-letter workflow | M0-D17 |
 | Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
-| The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 |
+| The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 (decided) |
 | How snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A02 through M0-A06; persistence is accepted in ADR 0003 and imports in ADR 0005 |
-| The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | Decided 2026-09-22 in M0-D25 |
+| The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | Decided 2026-09-22 in M0-D25; offboarding retention follow-up in #346 |
 | Independence rules for advisory and attest services | M0-D26 |
 | Whether the firm's own attest workpapers belong in the platform | M0-D27 |
 | Tenant resolution, slug and `tenant_id` routing, the reserved-route registry, and client identity federation | M0-A07 |
