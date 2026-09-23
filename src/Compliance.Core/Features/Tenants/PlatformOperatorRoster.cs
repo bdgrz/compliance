@@ -41,19 +41,20 @@ public sealed class PlatformOperatorRoster : Aggregate
     }
 
     public Result Grant(Uuid actorUserId, Uuid subjectUserId, string reason,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt, string? actorDisplay = null)
     {
         var validation = ValidateChange(actorUserId, subjectUserId, reason);
         if (validation is not null)
             return validation.Value;
         if (_operators.Contains(subjectUserId))
             return Result.Success;
-        RaiseEvent(new PlatformOperatorGranted(actorUserId, subjectUserId, occurredAt, reason.Trim()));
+        RaiseEvent(new PlatformOperatorGranted(actorUserId, subjectUserId, occurredAt,
+            reason.Trim(), string.IsNullOrWhiteSpace(actorDisplay) ? actorUserId.ToString() : actorDisplay.Trim()));
         return Result.Success;
     }
 
     public Result Revoke(Uuid actorUserId, Uuid subjectUserId, string reason,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt, string? actorDisplay = null)
     {
         var validation = ValidateChange(actorUserId, subjectUserId, reason);
         if (validation is not null)
@@ -62,7 +63,8 @@ public sealed class PlatformOperatorRoster : Aggregate
             return Result.Success;
         if (_operators.Count == 1)
             return Failure(RequestErrorKind.Conflict, "The last platform operator cannot be revoked.");
-        RaiseEvent(new PlatformOperatorRevoked(actorUserId, subjectUserId, occurredAt, reason.Trim()));
+        RaiseEvent(new PlatformOperatorRevoked(actorUserId, subjectUserId, occurredAt,
+            reason.Trim(), string.IsNullOrWhiteSpace(actorDisplay) ? actorUserId.ToString() : actorDisplay.Trim()));
         return Result.Success;
     }
 

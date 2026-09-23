@@ -39,7 +39,8 @@ public sealed class GrantPlatformOperatorHandler(IAggregateExecutor executor,
                 "The platform user is not available yet.", isTransient: true));
         return await executor.ExecuteAsync(new PlatformOperatorRoster(),
             roster => AggregateOutcome.CommitOnSuccess(roster.Grant(actorUserId,
-                context.Request.UserId, context.Request.Reason, clock.GetUtcNow())), context, ct)
+                context.Request.UserId, context.Request.Reason, clock.GetUtcNow(),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId))), context, ct)
             .ConfigureAwait(false);
     }
 }
@@ -55,7 +56,8 @@ public sealed class RevokePlatformOperatorHandler(IAggregateExecutor executor, T
                 "An authenticated platform user is required.")));
         return executor.ExecuteAsync(new PlatformOperatorRoster(),
             roster => AggregateOutcome.CommitOnSuccess(roster.Revoke(actorUserId,
-                context.Request.UserId, context.Request.Reason, clock.GetUtcNow())), context, ct);
+                context.Request.UserId, context.Request.Reason, clock.GetUtcNow(),
+                UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId))), context, ct);
     }
 }
 

@@ -48,7 +48,7 @@ public sealed class PlatformOperatorRosterTests
     }
 
     [Fact]
-    public void ShouldRecordActorSubjectTimeAndReasonGivenGrantAndRevocation()
+    public void ShouldRecordActorDisplaySubjectTimeAndReasonGivenGrantAndRevocation()
     {
         // Arrange
         var roster = new PlatformOperatorRoster();
@@ -56,16 +56,20 @@ public sealed class PlatformOperatorRosterTests
         Assert.True(roster.Seed([First], Now).IsSuccess);
 
         // Act
-        Assert.True(roster.Grant(First, Second, "Cover operations", Now.AddMinutes(1)).IsSuccess);
-        Assert.True(roster.Revoke(First, Second, "Coverage ended", Now.AddMinutes(2)).IsSuccess);
+        Assert.True(roster.Grant(First, Second, "Cover operations", Now.AddMinutes(1),
+            "Operator One").IsSuccess);
+        Assert.True(roster.Revoke(First, Second, "Coverage ended", Now.AddMinutes(2),
+            "Operator One").IsSuccess);
 
         // Assert
         var granted = Assert.Single(scenario.PendingEvents.OfType<PlatformOperatorGranted>());
         Assert.Equal((First, Second, "Cover operations", Now.AddMinutes(1)),
             (granted.ActorUserId, granted.SubjectUserId, granted.Reason, granted.OccurredAt));
+        Assert.Equal("Operator One", granted.ActorDisplay);
         var revoked = Assert.Single(scenario.PendingEvents.OfType<PlatformOperatorRevoked>());
         Assert.Equal((First, Second, "Coverage ended", Now.AddMinutes(2)),
             (revoked.ActorUserId, revoked.SubjectUserId, revoked.Reason, revoked.OccurredAt));
+        Assert.Equal("Operator One", revoked.ActorDisplay);
     }
 
     [Fact]
