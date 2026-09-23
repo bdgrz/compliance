@@ -340,5 +340,8 @@ public sealed class ControlBoundaryImpactContributorTests
         public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             throw new NotSupportedException();
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

@@ -112,6 +112,9 @@ public sealed class BoundaryPagedReadContractTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid programId,
             long revision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class BoundaryDirectory : IBoundaryDirectoryReader
@@ -150,6 +153,9 @@ public sealed class BoundaryPagedReadContractTests
             RejectCursor
                 ? ValueTask.FromException<Page<BoundaryDecisionView>?>(new KvDirectoryQueryException())
                 : ValueTask.FromResult<Page<BoundaryDecisionView>?>(new Page<BoundaryDecisionView>([], null));
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class AggregateReader(Aggregate source) : IAggregateReader

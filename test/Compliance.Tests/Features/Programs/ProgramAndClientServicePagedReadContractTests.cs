@@ -202,6 +202,9 @@ public sealed class ProgramAndClientServicePagedReadContractTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid programId,
             long revision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class ClientServiceDirectory : IClientServiceDirectoryReader

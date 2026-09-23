@@ -712,6 +712,9 @@ public sealed class ScopeSnapshotTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
             Uuid programId, long requestedRevision, CancellationToken ct = default) =>
             ValueTask.FromResult<ProgramRevisionView?>(revision);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class OptionalProgramRevisionReader(ProgramRevisionView? revision)
@@ -727,6 +730,9 @@ public sealed class ScopeSnapshotTests
         public ValueTask<ProgramRevisionView?> GetRevisionAsync(Uuid tenantId,
             Uuid programId, long requestedRevision, CancellationToken ct = default) =>
             ValueTask.FromResult(revision);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class VerificationSourcesReader(ImmutableSnapshot snapshot, ComplianceProgram program,
@@ -765,6 +771,9 @@ public sealed class ScopeSnapshotTests
         public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             throw new NotImplementedException();
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
     sealed class SnapshotRequestContext<TRequest>(TRequest request) : IRequestContext<TRequest>
