@@ -271,7 +271,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             using var declared = await owner.PostAsJsonAsync(applicationPath + "/system-instances",
                 new
                 {
-                    expected_application_revision = index + 1,
+                    expected_application_revision = 1,
                     name = $"Payroll {label} instance {index}",
                     kind = "production",
                     source_identifier = $"payroll-{label}-{index}",
@@ -279,6 +279,18 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             Assert.Equal(HttpStatusCode.OK, declared.StatusCode);
             instances[index] = Guid.Parse((await ReadAsync(declared))
                 .GetProperty("system_instance_id").GetString()!);
+        }
+        // Instance declarations no longer revise the application; build metadata history directly.
+        for (var revision = 1; revision <= 2; revision++)
+        {
+            using var revised = await owner.PutAsJsonAsync(applicationPath, new
+            {
+                expected_revision = revision,
+                name = "Payroll " + label,
+                purpose = "Run payroll " + label,
+                owner_reference = $"Payroll owner {label} {revision + 1}",
+            });
+            Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
         }
         _ = await WaitForOkAsync(() => owner.GetAsync(applicationPath + "/revisions/3"));
         _ = await WaitForOkAsync(() => owner.GetAsync(
