@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,11 +15,12 @@ public sealed class RemoveRolePermissionRequestScenarioTests
     public async Task ShouldRemoveAnAssignedPermissionGivenTenantRbacManagePermission()
     {
         // Arrange
-        await using var provider = BuildProvider(allowed: true);
+        await using var provider = RbacManagementServices.Build(allowed: true,
+            portia => portia.AddRequestHandler<RemoveRolePermissionHandler>());
         await Seed(provider);
 
         await RequestScenario.For(provider)
-            .GivenActor(BdgrzActor())
+            .GivenActor(RbacManagementServices.Actor())
             // Act
             .When(new RemoveRolePermission(TenantId, RoleId, Permission))
             // Assert
@@ -32,11 +33,12 @@ public sealed class RemoveRolePermissionRequestScenarioTests
     public async Task ShouldDenyGivenAnActorWithoutTheTenantRbacManagePermission()
     {
         // Arrange
-        await using var provider = BuildProvider(allowed: false);
+        await using var provider = RbacManagementServices.Build(allowed: false,
+            portia => portia.AddRequestHandler<RemoveRolePermissionHandler>());
         await Seed(provider);
 
         await RequestScenario.For(provider)
-            .GivenActor(BdgrzActor())
+            .GivenActor(RbacManagementServices.Actor())
             // Act
             .When(new RemoveRolePermission(TenantId, RoleId, Permission))
             // Assert
@@ -44,40 +46,6 @@ public sealed class RemoveRolePermissionRequestScenarioTests
             .ExpectNotHandled();
     }
 
-    static async Task Seed(ServiceProvider provider)
-    {
-        await using var scope = provider.CreateAsyncScope();
-        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
-        await executor.ExecuteAsync(
-            new RolePermission(TenantId, RoleId, Permission),
-            rolePermission => AggregateOutcome.Commit(rolePermission.Assign()),
-            new RequestDispatchContext(RequestActor.System),
-            CancellationToken.None);
-    }
-
-    static ServiceProvider BuildProvider(bool allowed)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<IEventStore>(new InMemoryEventStore());
-        services.AddSingleton<IPermissionAuthorizer>(new FakePermissionAuthorizer(allowed));
-        services.AddSingleton<ITenantActivity, ActiveTenant>();
-        services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
-        services.AddPortia()
-            .AddRequestHandler<RemoveRolePermissionHandler>()
-            .AddRequestAuthorizer<RbacManagementAuthorizer>();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-    }
-
-    static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
-        [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "BdgrzSession"));
-
-    sealed class FakePermissionAuthorizer(bool allowed) : IPermissionAuthorizer
-    {
-        public ValueTask<bool> IsAllowedAsync(
-            Uuid tenantId,
-            Uuid userId,
-            Uuid memberId,
-            string permission,
-            CancellationToken ct = default) => ValueTask.FromResult(allowed);
-    }
+    static Task Seed(ServiceProvider provider) => RbacManagementServices.SeedAsync(provider,
+        new RolePermission(TenantId, RoleId, Permission), rolePermission => rolePermission.Assign());
 }

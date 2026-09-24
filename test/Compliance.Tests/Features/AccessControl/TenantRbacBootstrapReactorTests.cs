@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -12,16 +11,16 @@ public sealed class TenantRbacBootstrapReactorTests
         // Arrange
         var tenantId = Uuid.CreateVersion4();
         var ownerId = Uuid.CreateVersion4();
-        var bus = new RecordingRequestBus();
-        var reactor = new TenantRbacBootstrapReactor(
-            new InMemoryProjectionCheckpointStore(), bus);
-        var context = new Context(new TenantRegistered(tenantId, ownerId, "Acme", "acme"));
+        var scenario = new ReactorScenario().Given(
+            new TenantRegistered(tenantId, ownerId, "Acme", "acme"));
 
         // Act
-        await reactor.HandleAsync(context, CancellationToken.None);
+        await scenario.RunAsync(new TenantRbacBootstrapReactor(
+            new InMemoryProjectionCheckpointStore(), scenario.Requests));
 
         // Assert
-        Assert.DoesNotContain(bus.Dispatched, request => request is AssignRolePermission
+        Assert.Contains(scenario.SentRequests, request => request is DefineTeam);
+        Assert.DoesNotContain(scenario.SentRequests, request => request is AssignRolePermission
         {
             Permission: RbacPermissions.ApplicationInventoryManage,
         });
@@ -33,25 +32,25 @@ public sealed class TenantRbacBootstrapReactorTests
         // Arrange
         var tenantId = Uuid.CreateVersion4();
         var creatorId = Uuid.CreateVersion4();
-        var bus = new RecordingRequestBus();
-        var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
-        var context = new Context(new TenantRegistered(tenantId, creatorId, "Acme", "acme",
+        var scenario = new ReactorScenario().Given(
+            new TenantRegistered(tenantId, creatorId, "Acme", "acme",
             "Acme LLC", CreatorIsAdministrator: true, ActivationRequired: true));
 
         // Act
-        await reactor.HandleAsync(context, CancellationToken.None);
+        await scenario.RunAsync(new TenantRbacBootstrapReactor(
+            new InMemoryProjectionCheckpointStore(), scenario.Requests));
 
         // Assert
-        Assert.Contains(bus.Dispatched, request => request is RegisterMember
+        Assert.Contains(scenario.SentRequests, request => request is RegisterMember
         {
             UserId: var userId, Affiliation: "client_personnel",
         } && userId == creatorId);
-        Assert.Contains(bus.Dispatched, request => request is AssignTeamMember
+        Assert.Contains(scenario.SentRequests, request => request is AssignTeamMember
         {
             TeamId: var teamId, MemberId: var memberId,
         } && teamId == BuiltInRbac.AdministratorsTeamId(tenantId) &&
             memberId == RbacIds.Member(tenantId, creatorId));
-        Assert.Contains(bus.Dispatched, request => request is ActivateTenant
+        Assert.Contains(scenario.SentRequests, request => request is ActivateTenant
         {
             FirstAdministratorUserId: var userId,
         } && userId == creatorId);
@@ -63,56 +62,17 @@ public sealed class TenantRbacBootstrapReactorTests
         // Arrange
         var tenantId = Uuid.CreateVersion4();
         var operatorId = Uuid.CreateVersion4();
-        var bus = new RecordingRequestBus();
-        var reactor = new TenantRbacBootstrapReactor(new InMemoryProjectionCheckpointStore(), bus);
-        var context = new Context(new TenantRegistered(tenantId, operatorId, "Acme", "acme",
+        var scenario = new ReactorScenario().Given(
+            new TenantRegistered(tenantId, operatorId, "Acme", "acme",
             "Acme LLC", "admin@example.com"));
 
         // Act
-        await reactor.HandleAsync(context, CancellationToken.None);
+        await scenario.RunAsync(new TenantRbacBootstrapReactor(
+            new InMemoryProjectionCheckpointStore(), scenario.Requests));
 
         // Assert
-        Assert.DoesNotContain(bus.Dispatched, request => request is RegisterMember);
-        Assert.DoesNotContain(bus.Dispatched, request => request is AssignTeamMember);
-    }
-
-    sealed class RecordingRequestBus : IRequestBus
-    {
-        public List<IRequestBase> Dispatched { get; } = [];
-
-        public RequestDispatchContext CreateContext(ClaimsPrincipal actor,
-            RequestMetadata? metadata = null) => new(actor, metadata: metadata);
-
-        public ValueTask<Result> AuthorizeAsync(IRequestBase request,
-            RequestDispatchContext context, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public ValueTask<Result> DispatchAsync(IRequest request,
-            RequestDispatchContext context, CancellationToken ct = default)
-        {
-            Dispatched.Add(request);
-            return ValueTask.FromResult(Result.Success);
-        }
-
-        public ValueTask<Result<TOut>> DispatchAsync<TOut>(IRequest<TOut> request,
-            RequestDispatchContext context, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public IAsyncEnumerable<TOut> DispatchStreamAsync<TOut>(IStreamRequest<TOut> request,
-            RequestDispatchContext context, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-    }
-
-    sealed class Context(TenantRegistered trigger) : IReactorContext<TenantRegistered>
-    {
-        public TenantRegistered Trigger { get; } = trigger;
-        public DomainEventRecord Source { get; } = new(
-            new EventStreamAddress(trigger.TenantId.ToString(), "tenants", trigger.TenantId.ToString()),
-            trigger, 0, EventCursor.Start);
-        public ClaimsPrincipal Actor => RequestActor.System;
-        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
-        public Uuid CauseId { get; } = Uuid.CreateVersion4();
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+        Assert.Contains(scenario.SentRequests, request => request is DefineTeam);
+        Assert.DoesNotContain(scenario.SentRequests, request => request is RegisterMember);
+        Assert.DoesNotContain(scenario.SentRequests, request => request is AssignTeamMember);
     }
 }
