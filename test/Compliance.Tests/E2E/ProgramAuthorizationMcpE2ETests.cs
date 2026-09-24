@@ -172,8 +172,6 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     new { name = "Unauthorized program", plan });
                 using var deniedRevise = await participant.PutAsJsonAsync(programPath,
                     new { expected_revision = 1, name = "Unauthorized revision", plan });
-                Assert.Equal(HttpStatusCode.Forbidden, deniedCreate.StatusCode);
-                Assert.Equal(HttpStatusCode.Forbidden, deniedRevise.StatusCode);
 
                 await using var participantMcp = await McpScenario.ConnectAsync(participant,
                     new Uri(participant.BaseAddress!, "/mcp"));
@@ -190,12 +188,13 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     participantMcpList.StructuredJson).GetProperty("result");
                 Assert.Equal(programId, Assert.Single(participantMcpPage.GetProperty("items")
                     .EnumerateArray()).GetProperty("program_id").GetString());
-                _ = await participantMcp.When("bdgrz.program.create", new Dictionary<string, object?>
-                {
-                    ["tenant_id"] = tenant.TenantId,
-                    ["name"] = "Unauthorized MCP program",
-                    ["plan"] = plan,
-                }).ExpectFailure("Forbidden");
+                var deniedMcpCreate = participantMcp.When("bdgrz.program.create",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["name"] = "Unauthorized MCP program",
+                        ["plan"] = plan,
+                    });
                 var reviseInput = new Dictionary<string, object?>
                 {
                     ["tenant_id"] = tenant.TenantId,
@@ -204,18 +203,29 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     ["name"] = "MCP revised program",
                     ["plan"] = Plan("Reviser"),
                 };
-                _ = await participantMcp.When("bdgrz.program.revise", reviseInput)
-                    .ExpectFailure("Forbidden");
+                var deniedMcpRevise = participantMcp.When("bdgrz.program.revise", reviseInput);
 
-                var createdEvents = new List<ProgramCreated>();
+                // Assert: every participant write is denied and none reaches the source stream.
+                Assert.Equal(HttpStatusCode.Forbidden, deniedCreate.StatusCode);
+                Assert.Equal(HttpStatusCode.Forbidden, deniedRevise.StatusCode);
+                _ = await deniedMcpCreate.ExpectFailure("Forbidden");
+                _ = await deniedMcpRevise.ExpectFailure("Forbidden");
+                var sourceEvents = new List<object>();
                 await foreach (var record in factory.Services.GetRequiredService<IEventStore>()
                                    .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString(),
                                            "programs"), EventCursor.Start, CancellationToken.None))
                 {
-                    if (record.Event is ProgramCreated createdEvent)
-                        createdEvents.Add(createdEvent);
+                    sourceEvents.Add(record.Event);
                 }
-                Assert.Equal(programId, Assert.Single(createdEvents).ProgramId.ToString());
+                var createdEvent = Assert.IsType<ProgramCreated>(Assert.Single(sourceEvents));
+                Assert.Equal(programId, createdEvent.ProgramId.ToString());
+                using (var unchanged = JsonDocument.Parse(
+                           await participant.GetStringAsync(programPath)))
+                {
+                    Assert.Equal(1, unchanged.RootElement.GetProperty("revision").GetInt64());
+                    Assert.Equal("MCP managed program",
+                        unchanged.RootElement.GetProperty("name").GetString());
+                }
 
                 // The administrator can revise through MCP; denied requests did not write.
                 _ = await administratorMcp.When("bdgrz.program.revise", reviseInput)
@@ -232,7 +242,6 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     .ExpectSuccess();
                 var listed = Assert.IsType<JsonElement>(revisedList.StructuredJson)
                     .GetProperty("result");
-                // Assert
                 var onlyProgram = Assert.Single(listed.GetProperty("items").EnumerateArray());
                 Assert.Equal(programId, onlyProgram.GetProperty("program_id").GetString());
                 Assert.Equal(2, onlyProgram.GetProperty("revision").GetInt64());
