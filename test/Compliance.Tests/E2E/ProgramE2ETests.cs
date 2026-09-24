@@ -556,9 +556,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 {
                     var undisclosed = await outsiderMcp.When("bdgrz.program.setup-work.get", setupToolInput)
                         .ExpectFailure();
-                    if (undisclosed.StructuredJson is JsonElement structured &&
-                        structured.TryGetProperty("isTransient", out var transient))
-                        Assert.False(transient.GetBoolean());
+                    Assert.False(Assert.IsType<JsonElement>(undisclosed.Error)
+                        .GetProperty("isTransient").GetBoolean());
                 }
 
                 restartedWorker = BuildWorker(applicationName);
