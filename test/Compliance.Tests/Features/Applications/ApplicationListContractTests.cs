@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.Features.Applications;
 
@@ -18,9 +19,11 @@ public sealed class ApplicationListContractTests
         var history = new ListApplicationRevisionsHandler(scenario.Directory,
             new ApplicationHistoryReadConsistency(scenario.Directory,
                 new SourceReader(scenario.Source)));
+        var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source)));
+                new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
+                events));
 
         // Act
         var applicationResult = await applications.HandleAsync(Context(new ListApplications(
@@ -45,9 +48,11 @@ public sealed class ApplicationListContractTests
         var history = new ListApplicationRevisionsHandler(scenario.Directory,
             new ApplicationHistoryReadConsistency(scenario.Directory,
                 new SourceReader(scenario.Source)));
+        var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source)));
+                new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
+                events));
 
         // Act
         var applicationResult = await applications.HandleAsync(Context(new ListApplications(
@@ -109,17 +114,16 @@ public sealed class ApplicationListContractTests
         var source = new DeclaredApplication(tenantId, applicationId);
         Assert.True(source.Declare("Payroll", "Run payroll", null, actorId, "Manager", now)
             .IsSuccess);
-        Assert.True(source.DeclareInstance(1, instanceId, "Production", "production",
-            null, "payroll-prod", actorId, "Manager", now).IsSuccess);
         var directory = new FitzApplicationDirectory(new InMemoryKvClient());
-        var identity = new CheckpointIdentity("ApplicationDirectory",
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using var batch = await directory.BeginAsync(
             new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
         await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
             "Payroll", "Run payroll", null, actorId, "Manager", now));
-        await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId, instanceId,
-            2, "Production", "production", null, "payroll-prod", actorId, "Manager", now));
+        await directory.ApplyAsync(new SystemInstanceRegistered(tenantId, applicationId,
+            instanceId, 1, "Production", "production", null, "payroll-prod",
+            actorId, "Manager", now));
         await batch.CommitAsync(ProjectionCheckpoint.Start);
         return new Scenario(tenantId, applicationId, source, directory);
     }
@@ -127,7 +131,7 @@ public sealed class ApplicationListContractTests
     static async Task ProjectAsync(FitzApplicationDirectory directory, Uuid tenantId,
         params DomainEvent[] events)
     {
-        var identity = new CheckpointIdentity("ApplicationDirectory",
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using var batch = await directory.BeginAsync(
             new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));

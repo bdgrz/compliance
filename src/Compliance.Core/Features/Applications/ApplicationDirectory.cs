@@ -7,6 +7,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 
 public interface IApplicationDirectoryReader
 {
+    ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default);
     ValueTask<ApplicationView?> GetAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default);
     ValueTask<Page<ApplicationView>> ListAsync(Uuid tenantId, int limit, string? cursor,
@@ -58,8 +60,8 @@ static class ApplicationDirectorySchema
 }
 
 sealed class FitzApplicationDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/application-directory/projection",
-          "ApplicationDirectory"), IApplicationDirectoryReader, IApplicationDirectoryProjection
+    : FitzKvProjectionStore(client, "kv://bdgrz/application-directory-v2/projection",
+          "ApplicationDirectoryV2"), IApplicationDirectoryReader, IApplicationDirectoryProjection
 {
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
@@ -102,22 +104,20 @@ sealed class FitzApplicationDirectory(IKvClient client)
             case SystemInstanceDeclared instance:
                 var application = await RequireApplicationAsync(instance.ApplicationId, ct)
                     .ConfigureAwait(false);
-                var declaredInstance = new SystemInstanceView(instance.TenantId,
-                    instance.ApplicationId, instance.SystemInstanceId, instance.Name,
-                    instance.Kind, instance.AccessBoundaryReference, "manual",
-                    instance.SourceIdentifier,
-                    [instance.AccessBoundaryReference is null
-                            ? "access_boundary_missing" : "access_boundary_unverified",
-                        instance.SourceIdentifier is null
-                            ? "source_identifier_missing" : "source_identifier_unverified"],
-                    instance.ActorMemberId, instance.ActorDisplay, instance.ChangedAt);
-                await ApplicationDirectorySchema.Instances.InsertAsync(Transaction,
-                    declaredInstance, ct).ConfigureAwait(false);
+                var declaredInstance = InstanceView(instance.TenantId, instance.ApplicationId,
+                    instance.SystemInstanceId, instance.Name, instance.Kind,
+                    instance.AccessBoundaryReference, instance.SourceIdentifier,
+                    instance.ActorMemberId, instance.ActorDisplay, instance.ChangedAt,
+                    1, instance.ApplicationRevision);
+                var declaredAdded = await AddInstanceAsync(declaredInstance, ct)
+                    .ConfigureAwait(false);
+                var hasInstances = application.HasSystemInstances || declaredAdded;
                 var instanceView = application with
                 {
                     Revision = instance.ApplicationRevision,
-                    HasSystemInstances = true,
-                    Unresolved = Gaps(application.OwnerReference, application.Classification, true),
+                    HasSystemInstances = hasInstances,
+                    Unresolved = Gaps(application.OwnerReference, application.Classification,
+                        hasInstances),
                     LastChangedByMemberId = instance.ActorMemberId,
                     LastChangedByDisplay = instance.ActorDisplay,
                     LastChangedAt = instance.ChangedAt,
@@ -127,8 +127,69 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 await InsertRevisionAsync(instanceView, "system_instance_declared",
                     declaredInstance, ct).ConfigureAwait(false);
                 break;
+            case SystemInstanceRegistered registered:
+                var parent = await RequireApplicationAsync(registered.ApplicationId, ct)
+                    .ConfigureAwait(false);
+                var registeredInstance = InstanceView(registered.TenantId,
+                    registered.ApplicationId, registered.SystemInstanceId, registered.Name,
+                    registered.Kind, registered.AccessBoundaryReference,
+                    registered.SourceIdentifier, registered.ActorMemberId,
+                    registered.ActorDisplay, registered.ChangedAt, registered.Revision, null);
+                if (await AddInstanceAsync(registeredInstance, ct).ConfigureAwait(false) &&
+                    !parent.HasSystemInstances)
+                    await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction,
+                        parent, parent with
+                        {
+                            HasSystemInstances = true,
+                            Unresolved = Gaps(parent.OwnerReference, parent.Classification, true),
+                        }, ct).ConfigureAwait(false);
+                break;
         }
     }
+
+    /// <summary>
+    /// Adds a new instance row. A legacy application-stream declaration and a new instance
+    /// stream can share an ID if old writers were not drained. The first projected row wins so
+    /// the tenant cursor keeps moving; different content marks that row for review.
+    /// </summary>
+    async ValueTask<bool> AddInstanceAsync(SystemInstanceView candidate, CancellationToken ct)
+    {
+        var existing = await ApplicationDirectorySchema.Instances.GetAsync(Transaction,
+            candidate.SystemInstanceId, ct).ConfigureAwait(false);
+        if (existing is null)
+        {
+            await ApplicationDirectorySchema.Instances.InsertAsync(Transaction, candidate, ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        var sameDeclaration = existing.ApplicationId == candidate.ApplicationId &&
+            existing.Name == candidate.Name && existing.Kind == candidate.Kind &&
+            existing.AccessBoundaryReference == candidate.AccessBoundaryReference &&
+            existing.SourceIdentifier == candidate.SourceIdentifier;
+        if (!sameDeclaration && !existing.Unresolved.Contains(DeclarationConflict))
+            await ApplicationDirectorySchema.Instances.ReplaceAsync(Transaction, existing,
+                existing with { Unresolved = [.. existing.Unresolved, DeclarationConflict] }, ct)
+                .ConfigureAwait(false);
+        return false;
+    }
+
+    const string DeclarationConflict = "declaration_conflict";
+
+    static SystemInstanceView InstanceView(Uuid tenantId, Uuid applicationId,
+        Uuid instanceId, string name, string kind, string? accessBoundaryReference,
+        string? sourceIdentifier, Uuid actorMemberId, string actorDisplay,
+        DateTimeOffset changedAt, long revision, long? legacyApplicationRevision) =>
+        new(tenantId, applicationId, instanceId, name, kind, accessBoundaryReference,
+            "manual", sourceIdentifier,
+            [accessBoundaryReference is null
+                    ? "access_boundary_missing" : "access_boundary_unverified",
+                sourceIdentifier is null
+                    ? "source_identifier_missing" : "source_identifier_unverified"],
+            actorMemberId, actorDisplay, changedAt)
+        {
+            Revision = revision,
+            LegacyApplicationRevision = legacyApplicationRevision,
+        };
 
     async ValueTask InsertRevisionAsync(ApplicationView view, string changeKind,
         SystemInstanceView? systemInstance, CancellationToken ct) =>
@@ -153,6 +214,11 @@ sealed class FitzApplicationDirectory(IKvClient client)
         await ApplicationDirectorySchema.Applications.GetAsync(Transaction, applicationId, ct)
             .ConfigureAwait(false) ?? throw new InvalidOperationException(
             "An application change cannot project before its declaration.");
+
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString())), ct);
 
     public async ValueTask<ApplicationView?> GetAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default)

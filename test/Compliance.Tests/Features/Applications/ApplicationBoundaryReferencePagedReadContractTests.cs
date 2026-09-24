@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Fitz.Extensions;
+using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -19,7 +20,7 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
             scenario.Directory, scenario.Consistency);
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency);
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -43,7 +44,7 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
             scenario.Directory, scenario.Consistency);
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency);
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -67,7 +68,7 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
             scenario.Directory, scenario.Consistency);
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency);
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -90,7 +91,7 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
             scenario.Directory, scenario.Consistency);
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency);
         scenario.Directory.Page = new Page<ApplicationBoundaryReferenceView>([
             Reference(Uuid.CreateVersion4(), "application", scenario.ApplicationId),
         ], null);
@@ -117,7 +118,7 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario();
         var handler = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency);
 
         // Act
         var result = await handler.HandleAsync(Context(new ListSystemInstanceBoundaryReferences(
@@ -147,12 +148,15 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var source = new DeclaredApplication(tenantId, applicationId);
         Assert.True(source.Declare("Payroll", "Run payroll", null, actorId, "Manager",
             DateTimeOffset.UtcNow).IsSuccess);
-        Assert.True(source.DeclareInstance(1, systemInstanceId, "Production", "production", null,
+        var instance = new DeclaredSystemInstance(tenantId, systemInstanceId);
+        Assert.True(instance.Declare(applicationId, "Production", "production", null,
             "payroll-prod", actorId, "Manager", DateTimeOffset.UtcNow).IsSuccess);
         var directory = new Directory { RejectCursor = rejectCursor };
+        var events = new InMemoryEventStore();
         return new Scenario(tenantId, applicationId, systemInstanceId, directory,
-            new SourceReader(source), new ApplicationBoundaryReferenceReadConsistency(directory,
-                new InMemoryEventStore()));
+            new SourceReader(source, instance), new LegacySystemInstanceSource(
+                new FitzApplicationDirectory(new InMemoryKvClient()), events),
+            new ApplicationBoundaryReferenceReadConsistency(directory, events));
     }
 
     static ApplicationBoundaryReferenceView Reference(Uuid tenantId, string subjectType,
@@ -161,7 +165,8 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         1, "draft", null, "inclusion", "Payroll", "Operations", "In scope");
 
     sealed record Scenario(Uuid TenantId, Uuid ApplicationId, Uuid SystemInstanceId,
-        Directory Directory, SourceReader Reader, ApplicationBoundaryReferenceReadConsistency Consistency);
+        Directory Directory, SourceReader Reader, LegacySystemInstanceSource Legacy,
+        ApplicationBoundaryReferenceReadConsistency Consistency);
 
     sealed class Directory : IApplicationBoundaryReferenceDirectory
     {
@@ -186,10 +191,12 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
-    sealed class SourceReader(DeclaredApplication source) : IAggregateReader
+    sealed class SourceReader(DeclaredApplication source,
+        DeclaredSystemInstance instance) : IAggregateReader
     {
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate =>
-            ValueTask.FromResult(aggregate.Id == source.Id ? (TAggregate)(Aggregate)source : aggregate);
+            ValueTask.FromResult(aggregate.Id == source.Id ? (TAggregate)(Aggregate)source :
+                aggregate.Id == instance.Id ? (TAggregate)(Aggregate)instance : aggregate);
     }
 }

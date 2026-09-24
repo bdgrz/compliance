@@ -69,7 +69,8 @@ public sealed class ListApplicationBoundaryReferencesHandler(
 }
 
 public sealed class ListSystemInstanceBoundaryReferencesHandler(
-    IAggregateReader aggregates, IApplicationBoundaryReferenceDirectory directory,
+    IAggregateReader aggregates, LegacySystemInstanceSource legacy,
+    IApplicationBoundaryReferenceDirectory directory,
     ApplicationBoundaryReferenceReadConsistency consistency)
     : IRequestHandler<ListSystemInstanceBoundaryReferences,
         Page<ApplicationBoundaryReferenceView>>
@@ -84,7 +85,16 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
                 "The system instance boundary reference list limit must be between 1 and 200."));
         var application = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
-        if (!application.HasInstance(request.SystemInstanceId))
+        if (!application.IsCreated)
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The system instance was not found."));
+        var instance = await aggregates.HydrateAsync(new DeclaredSystemInstance(
+            request.TenantId, request.SystemInstanceId), ct).ConfigureAwait(false);
+        var exists = instance.IsCreated
+            ? instance.ApplicationId == request.ApplicationId
+            : await legacy.ExistsAsync(request.TenantId, request.ApplicationId,
+                request.SystemInstanceId, ct).ConfigureAwait(false);
+        if (!exists)
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The system instance was not found."));
         var ready = await consistency.EnsureCaughtUpAsync(request.TenantId, ct)

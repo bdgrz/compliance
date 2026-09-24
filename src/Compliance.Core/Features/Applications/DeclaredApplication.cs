@@ -3,12 +3,10 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
 
-/// <summary>Owns one tenant-declared application and its concrete instance identities.</summary>
+/// <summary>Owns one tenant-declared application and its metadata history.</summary>
 public sealed class DeclaredApplication : Aggregate
 {
     readonly Uuid _tenantId;
-    readonly Dictionary<Uuid, (string Name, string Kind, string? AccessBoundaryReference,
-        string? SourceIdentifier)> _instances = [];
     bool _created;
     long _revision;
     string? _initialName;
@@ -18,7 +16,6 @@ public sealed class DeclaredApplication : Aggregate
 
     public bool IsCreated => _created;
     public long Revision => _revision;
-    public bool HasInstance(Uuid instanceId) => _created && _instances.ContainsKey(instanceId);
 
     public DeclaredApplication(Uuid tenantId, Uuid applicationId)
         : base(applicationId, new EventStreamAddress(tenantId.ToString(), "applications",
@@ -35,12 +32,9 @@ public sealed class DeclaredApplication : Aggregate
             _initialClassification = ev.Classification;
         });
         On<ApplicationRevised>(ev => _revision = ev.Revision);
-        On<SystemInstanceDeclared>(ev =>
-        {
-            _revision = ev.ApplicationRevision;
-            _instances.Add(ev.SystemInstanceId, (ev.Name, ev.Kind, ev.AccessBoundaryReference,
-                ev.SourceIdentifier));
-        });
+        // Historical application-stream declarations still own their old revision numbers.
+        // Their instance state is projected separately and is not retained by this aggregate.
+        On<SystemInstanceDeclared>(ev => _revision = ev.ApplicationRevision);
     }
 
     public Result<ApplicationRegistration> Declare(string name, string purpose,
@@ -78,34 +72,6 @@ public sealed class DeclaredApplication : Aggregate
             purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
             actorDisplay, changedAt, NormalizeOptional(classification)));
         return Result.Success;
-    }
-
-    public Result<SystemInstanceRegistration> DeclareInstance(long expectedRevision,
-        Uuid instanceId, string name, string kind, string? accessBoundaryReference,
-        string? sourceIdentifier,
-        Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
-    {
-        if (instanceId == Uuid.Empty || string.IsNullOrWhiteSpace(name) ||
-            name.Length > 200 || string.IsNullOrWhiteSpace(kind) || kind.Length > 200 ||
-            accessBoundaryReference is { Length: > 2000 } ||
-            sourceIdentifier is { Length: > 1000 })
-            return Result<SystemInstanceRegistration>.Failure(new RequestError(
-                RequestErrorKind.Validation,
-                "A system instance requires its own identity, name, kind, and a bounded boundary reference."));
-        if (_instances.TryGetValue(instanceId, out var prior))
-            return prior == (name.Trim(), kind.Trim(), NormalizeOptional(accessBoundaryReference),
-                       NormalizeOptional(sourceIdentifier))
-                ? Result<SystemInstanceRegistration>.Success(new SystemInstanceRegistration(instanceId))
-                : Result<SystemInstanceRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The system instance already exists with different content."));
-        var check = CheckChange(expectedRevision);
-        if (check is not null)
-            return Result<SystemInstanceRegistration>.Failure(check);
-        RaiseEvent(new SystemInstanceDeclared(_tenantId, Id, instanceId, _revision + 1,
-            name.Trim(), kind.Trim(), NormalizeOptional(accessBoundaryReference),
-            NormalizeOptional(sourceIdentifier),
-            actorMemberId, actorDisplay, changedAt));
-        return Result<SystemInstanceRegistration>.Success(new SystemInstanceRegistration(instanceId));
     }
 
     RequestError? CheckChange(long expectedRevision) => !_created

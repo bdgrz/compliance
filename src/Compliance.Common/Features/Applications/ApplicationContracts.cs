@@ -38,7 +38,11 @@ public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, string Name, string Kind, string? AccessBoundaryReference,
     string SourceKind, string? SourceIdentifier, IReadOnlyList<string> Unresolved,
     Uuid DeclaredByMemberId,
-    string DeclaredByDisplay, DateTimeOffset DeclaredAt);
+    string DeclaredByDisplay, DateTimeOffset DeclaredAt)
+{
+    public long Revision { get; init; }
+    public long? LegacyApplicationRevision { get; init; }
+}
 
 /// <summary>
 /// A governed reference in the current draft or an approved boundary version. Historical draft
@@ -105,7 +109,7 @@ public sealed record ListApplicationRevisions(Uuid TenantId, Uuid ApplicationId,
 
 [Discriminator("bdgrz.system_instance.get", 1)]
 public sealed record GetSystemInstance(Uuid TenantId, Uuid ApplicationId, Uuid SystemInstanceId,
-    long? MinimumApplicationRevision = null)
+    long? MinimumApplicationRevision = null, long? MinimumInstanceRevision = null)
     : IRequest<SystemInstanceView>, IApplicationInventoryRequest, ICallable;
 
 [Discriminator("bdgrz.system_instance.list", 1)]
@@ -150,3 +154,9 @@ public sealed record SystemInstanceDeclared(Uuid TenantId, Uuid ApplicationId,
     string? AccessBoundaryReference, string? SourceIdentifier,
     Uuid ActorMemberId, string ActorDisplay,
     DateTimeOffset ChangedAt) : DomainEvent;
+
+[Discriminator("bdgrz.system_instance.registered", 1)]
+public sealed record SystemInstanceRegistered(Uuid TenantId, Uuid ApplicationId,
+    Uuid SystemInstanceId, long Revision, string Name, string Kind,
+    string? AccessBoundaryReference, string? SourceIdentifier,
+    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
