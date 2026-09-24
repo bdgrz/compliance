@@ -15,12 +15,11 @@ public sealed class LegacySystemInstanceSource(IApplicationDirectoryReader direc
     {
         var projected = await directory.GetInstanceAsync(tenantId, instanceId, ct)
             .ConfigureAwait(false);
-        if (projected is { LegacyApplicationRevision: not null } &&
-            projected.TenantId == tenantId && projected.SystemInstanceId == instanceId)
-            return projected.ApplicationId == applicationId;
-        var pending = await ApplicationDirectoryBacklog.FindAsync(directory, events, tenantId,
-            ev => ev is SystemInstanceDeclared declared && declared.SystemInstanceId == instanceId,
-            ct).ConfigureAwait(false);
+        // The projector never replaces a winning row, so a projected ID is final.
+        if (projected is not null)
+            return projected.LegacyApplicationRevision is not null &&
+                   projected.ApplicationId == applicationId;
+        var pending = await FindPendingAsync(tenantId, instanceId, ct).ConfigureAwait(false);
         if (pending.Match is SystemInstanceDeclared match)
             return match.ApplicationId == applicationId;
         if (pending.Clear)
@@ -36,4 +35,11 @@ public sealed class LegacySystemInstanceSource(IApplicationDirectoryReader direc
         }
         return false;
     }
+
+    /// <summary>Scans the bounded V2 backlog for an unprojected legacy declaration.</summary>
+    public ValueTask<ApplicationDirectoryBacklogScan> FindPendingAsync(Uuid tenantId,
+        Uuid instanceId, CancellationToken ct) =>
+        ApplicationDirectoryBacklog.FindAsync(directory, events, tenantId,
+            ev => ev is SystemInstanceDeclared declared && declared.SystemInstanceId == instanceId,
+            ct);
 }

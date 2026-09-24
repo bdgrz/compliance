@@ -19,10 +19,11 @@ public static class ApplicationDirectoryBacklog
         await foreach (var pending in events.ReadAsync(EventStreamPattern.ForPattern(
                            tenantId.ToString()), checkpoint.Cursor, ct).ConfigureAwait(false))
         {
+            // Exceeded means a record exists beyond the limit, not that the limit was reached.
+            if (scanned++ == ScanLimit)
+                return new ApplicationDirectoryBacklogScan(null, true);
             if (match(pending.Event))
                 return new ApplicationDirectoryBacklogScan(pending.Event, false);
-            if (++scanned >= ScanLimit)
-                return new ApplicationDirectoryBacklogScan(null, true);
         }
         return default;
     }

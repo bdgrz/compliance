@@ -34,8 +34,8 @@ public sealed class SystemInstanceBoundedReadTests
         Assert.Equal(RequestErrorKind.Conflict, error.Kind);
         Assert.True(error.IsTransient);
         Assert.False(executor.Called);
-        Assert.True(fixture.Reader.PatternRecords < Backlog,
-            $"The fence read {fixture.Reader.PatternRecords} pending records.");
+        // One record past the limit proves the backlog is larger than the scan.
+        Assert.Equal(ApplicationDirectoryBacklog.ScanLimit + 1, fixture.Reader.PatternRecords);
     }
 
     [Fact]
@@ -56,8 +56,8 @@ public sealed class SystemInstanceBoundedReadTests
         var error = Assert.IsType<RequestError>(result.Error);
         Assert.Equal(RequestErrorKind.Conflict, error.Kind);
         Assert.True(error.IsTransient);
-        Assert.True(fixture.Reader.PatternRecords < Backlog,
-            $"The list check read {fixture.Reader.PatternRecords} pending records.");
+        // One record past the limit proves the backlog is larger than the scan.
+        Assert.Equal(ApplicationDirectoryBacklog.ScanLimit + 1, fixture.Reader.PatternRecords);
     }
 
     [Fact]
@@ -84,6 +84,71 @@ public sealed class SystemInstanceBoundedReadTests
         Assert.Equal(RequestErrorKind.NotFound,
             Assert.IsType<RequestError>(unknown.Error).Kind);
         Assert.Equal(0, fixture.Reader.StreamReads);
+    }
+
+    [Fact]
+    public async Task ShouldReturnListGivenUnrelatedBacklogOfExactlyScanLimit()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.ProjectToHeadAsync();
+        await fixture.AppendUnrelatedAsync(ApplicationDirectoryBacklog.ScanLimit);
+        var handler = new ListSystemInstancesHandler(fixture.Directory, fixture.Consistency());
+        var request = new RequestContext<ListSystemInstances>(new ListSystemInstances(
+            fixture.TenantId, fixture.ApplicationId), new ClaimsPrincipal());
+
+        // Act
+        var result = await handler.HandleAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(ApplicationDirectoryBacklog.ScanLimit, fixture.Reader.PatternRecords);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRejectLosingLegacyParentGivenAnyBacklogSize(bool backlogExceeded)
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var instanceId = Uuid.CreateVersion4();
+        var losingParent = Uuid.CreateVersion4();
+        await fixture.AppendRegisteredAsync(instanceId);
+        await fixture.AppendForeignLegacyAsync(losingParent, instanceId);
+        await fixture.ProjectToHeadAsync();
+        if (backlogExceeded)
+            await fixture.AppendUnrelatedAsync(ApplicationDirectoryBacklog.ScanLimit + 1);
+        var legacy = new LegacySystemInstanceSource(fixture.Directory, fixture.Reader);
+
+        // Act
+        var exists = await legacy.ExistsAsync(fixture.TenantId, losingParent, instanceId,
+            CancellationToken.None);
+
+        // Assert
+        Assert.False(exists);
+    }
+
+    [Fact]
+    public async Task ShouldReportPendingGivenCommittedButUnprojectedLegacyDeclaration()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.ProjectToHeadAsync();
+        var legacyId = Uuid.CreateVersion4();
+        await fixture.AppendLegacyAsync(legacyId);
+        var activity = new EventSourcedApplicationInventoryActivity(
+            new SourceReader(fixture.Source), fixture.Directory,
+            new LegacySystemInstanceSource(fixture.Directory, fixture.Reader));
+
+        // Act
+        var pending = await activity.GetInstanceStateAsync(fixture.TenantId, legacyId);
+        var missing = await activity.GetInstanceStateAsync(fixture.TenantId,
+            Uuid.CreateVersion4());
+
+        // Assert
+        Assert.Equal(SystemInstanceReferenceState.Pending, pending);
+        Assert.Equal(SystemInstanceReferenceState.Missing, missing);
     }
 
     static ClaimsPrincipal Actor() => new(new ClaimsIdentity(
@@ -136,6 +201,26 @@ public sealed class SystemInstanceBoundedReadTests
             AppendApplicationAsync(new SystemInstanceDeclared(TenantId, ApplicationId,
                 instanceId, 2, "Legacy", "production", null, "legacy-source", _actorId,
                 "Legacy actor", _now));
+
+        public async Task AppendRegisteredAsync(Uuid instanceId) =>
+            await _events.AppendAsync(new EventStreamAddress(TenantId.ToString(),
+                "system-instances", instanceId.ToString()), 0,
+            [
+                DomainEventSeed.Attach(new SystemInstanceRegistered(TenantId, ApplicationId,
+                    instanceId, 1, "Winner", "production", null, null, _actorId, "Writer",
+                    _now), instanceId, 1),
+            ]);
+
+        public async Task AppendForeignLegacyAsync(Uuid applicationId, Uuid instanceId) =>
+            await _events.AppendAsync(new EventStreamAddress(TenantId.ToString(),
+                "applications", applicationId.ToString()), 0,
+            [
+                DomainEventSeed.Attach(new ApplicationDeclared(TenantId, applicationId,
+                    "Other", "Other", null, _actorId, "Manager", _now), applicationId, 1),
+                DomainEventSeed.Attach(new SystemInstanceDeclared(TenantId, applicationId,
+                    instanceId, 2, "Loser", "production", null, null, _actorId, "Old writer",
+                    _now), applicationId, 2),
+            ]);
 
         public async Task AppendBacklogAsync(int count)
         {

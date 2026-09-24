@@ -44,7 +44,10 @@ sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
                 : SystemInstanceReferenceState.Missing;
         }
         if (instance is null)
-            return SystemInstanceReferenceState.Missing;
+            return (await legacy.FindPendingAsync(tenantId, instanceId, ct)
+                    .ConfigureAwait(false)).Clear
+                ? SystemInstanceReferenceState.Missing
+                : SystemInstanceReferenceState.Pending;
         // Historical declarations live in application streams; a projected legacy row is
         // authoritative, so no stream is rebuilt for the common case.
         return await legacy.ExistsAsync(tenantId, instance.ApplicationId, instanceId, ct)
