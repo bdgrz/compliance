@@ -20,24 +20,29 @@ public sealed class ControlDraftActorSnapshotTests
     {
         // Arrange
         var controlId = ControlDraft.IdFor(TenantId, ProgramId, "AC-01");
-        var control = new ControlDraft(TenantId, controlId);
-        Assert.True(control.Create(ProgramId, Uuid.CreateVersion4(), "AC-01", Content(),
-            MemberId, "First display", At).IsSuccess);
-        Assert.True(control.Revise(ProgramId, 1, Content() with { Title = "Updated review" },
-            MemberId, "Second display", At.AddMinutes(1)).IsSuccess);
-        Assert.True(control.Discard(ProgramId, 2, "Withdraw draft", MemberId,
-            "Third display", At.AddMinutes(2)).IsSuccess);
+        var scenario = new AggregateScenario<ControlDraft>(new ControlDraft(TenantId, controlId));
+        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Create(
+            ProgramId, Uuid.CreateVersion4(), "AC-01", Content(), MemberId, "First display",
+            At))).IsSuccess);
+        var created = Assert.IsType<ControlDraftCreated>(Assert.Single(scenario.PendingEvents));
+        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Revise(
+            ProgramId, 1, Content() with { Title = "Updated review" }, MemberId, "Second display",
+            At.AddMinutes(1)))).IsSuccess);
+        var revised = Assert.IsType<ControlDraftRevised>(Assert.Single(scenario.PendingEvents));
 
         // Act
-        var events = new AggregateScenario<ControlDraft>(control).PendingEvents;
+        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
+            ProgramId, 2, "Withdraw draft", MemberId, "Third display",
+            At.AddMinutes(2)))).IsSuccess);
 
         // Assert
-        Assert.Equal(ActorReference.ForMember(MemberId, "First display"),
-            Assert.IsType<ControlDraftCreated>(events[0]).StoredActor);
-        Assert.Equal(ActorReference.ForMember(MemberId, "Second display"),
-            Assert.IsType<ControlDraftRevised>(events[1]).StoredActor);
-        Assert.Equal(ActorReference.ForMember(MemberId, "Third display"),
-            Assert.IsType<ControlDraftDiscarded>(events[2]).StoredActor);
+        Assert.Equal(ActorReference.ForMember(MemberId, "First display"), created.StoredActor);
+        Assert.Equal(ActorReference.ForMember(MemberId, "Second display"), revised.StoredActor);
+        Assert.Equal([new ControlDraftDiscarded(TenantId, ProgramId, controlId, 2, MemberId,
+                "Third display", "Withdraw draft", At.AddMinutes(2))
+            {
+                StoredActor = ActorReference.ForMember(MemberId, "Third display"),
+            }], scenario.PendingEvents);
     }
 
     [Fact]
