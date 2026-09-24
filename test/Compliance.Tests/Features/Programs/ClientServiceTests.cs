@@ -1,4 +1,7 @@
 using System.Security.Claims;
+using System.Text.Json;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -6,6 +9,76 @@ namespace Bdgrz.Compliance.Tests.Features.Programs;
 
 public sealed class ClientServiceTests
 {
+    [Fact]
+    public void ShouldPreserveActorSnapshotGivenChangedDisplayAndLegacyReplay()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var serviceId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+        var service = new ClientService(tenantId, serviceId);
+        Assert.True(service.Create(programId, "Payroll", "Process payroll", "Operations",
+            actorId, "Original display", now).IsSuccess);
+        Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
+            actorId, "Changed display", now.AddMinutes(1)).IsSuccess);
+        Assert.True(service.Retire(2, "Service ended", actorId, "Final display",
+            now.AddMinutes(2)).IsSuccess);
+
+        // Act
+        var events = new AggregateScenario<ClientService>(service).PendingEvents;
+        var created = Assert.IsType<ClientServiceCreated>(events[0]);
+        var revised = Assert.IsType<ClientServiceRevised>(events[1]);
+        var retired = Assert.IsType<ClientServiceRetired>(events[2]);
+        var legacyCreated = JsonSerializer.Deserialize($$"""
+            {"tenant_id":"{{tenantId}}","service_id":"{{serviceId}}","name":"Payroll",
+             "purpose":"Process payroll","owner_reference":"Operations",
+             "actor_member_id":"{{actorId}}","actor_display":"Original display",
+             "changed_at":"{{now:O}}","program_id":"{{programId}}"}
+            """, ComplianceCoreJsonContext.Default.ClientServiceCreated);
+        var legacyRevised = JsonSerializer.Deserialize($$"""
+            {"tenant_id":"{{tenantId}}","service_id":"{{serviceId}}","revision":2,
+             "name":"Payroll","purpose":"Monthly payroll","owner_reference":"Operations",
+             "actor_member_id":"{{actorId}}","actor_display":"Changed display",
+             "changed_at":"{{now.AddMinutes(1):O}}"}
+            """, ComplianceCoreJsonContext.Default.ClientServiceRevised);
+        var legacyRetired = JsonSerializer.Deserialize($$"""
+            {"tenant_id":"{{tenantId}}","service_id":"{{serviceId}}","revision":3,
+             "rationale":"Service ended","actor_member_id":"{{actorId}}",
+             "actor_display":"Final display","changed_at":"{{now.AddMinutes(2):O}}"}
+            """, ComplianceCoreJsonContext.Default.ClientServiceRetired);
+        var legacyCurrent = JsonSerializer.Deserialize($$"""
+            {"tenant_id":"{{tenantId}}","service_id":"{{serviceId}}","revision":3,
+             "name":"Payroll","purpose":"Monthly payroll","owner_reference":"Operations",
+             "status":"retired","last_changed_by_member_id":"{{actorId}}",
+             "last_changed_by_display":"Final display",
+             "last_changed_at":"{{now.AddMinutes(2):O}}","program_id":"{{programId}}"}
+            """, ComplianceCoreJsonContext.Default.ClientServiceView);
+        var legacyHistory = JsonSerializer.Deserialize($$"""
+            {"service_id":"{{serviceId}}","revision":1,"name":"Payroll",
+             "purpose":"Process payroll","owner_reference":"Operations","status":"active",
+             "retirement_rationale":null,"actor_member_id":"{{actorId}}",
+             "actor_display":"Original display","changed_at":"{{now:O}}",
+             "program_id":"{{programId}}"}
+            """, ComplianceCoreJsonContext.Default.ClientServiceRevisionView);
+
+        // Assert
+        Assert.Equal(ActorReference.ForMember(actorId, "Original display"), created.StoredActor);
+        Assert.Equal(ActorReference.ForMember(actorId, "Changed display"), revised.StoredActor);
+        Assert.Equal(ActorReference.ForMember(actorId, "Final display"), retired.StoredActor);
+        Assert.Equal(created.StoredActor, legacyCreated?.Actor);
+        Assert.Equal(revised.StoredActor, legacyRevised?.Actor);
+        Assert.Equal(retired.StoredActor, legacyRetired?.Actor);
+        Assert.Null(legacyCreated?.StoredActor);
+        Assert.Null(legacyRevised?.StoredActor);
+        Assert.Null(legacyRetired?.StoredActor);
+        Assert.Equal(retired.Actor, legacyCurrent?.LastChangedBy);
+        Assert.Equal(created.Actor, legacyHistory?.Actor);
+        Assert.Equal(3, service.Revision);
+        Assert.False(service.IsActive);
+    }
+
     sealed class ExecutionContext : IExecutionContext
     {
         public ClaimsPrincipal Actor { get; } = new(new ClaimsIdentity());

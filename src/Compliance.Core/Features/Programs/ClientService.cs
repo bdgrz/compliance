@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -54,7 +55,10 @@ public sealed class ClientService : Aggregate
         if (error is not null)
             return Result<ClientServiceRegistration>.Failure(error);
         RaiseEvent(new ClientServiceCreated(_tenantId, Id, name.Trim(), purpose.Trim(),
-            ownerReference.Trim(), actorMemberId, actorDisplay, changedAt, programId));
+            ownerReference.Trim(), actorMemberId, actorDisplay, changedAt, programId)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
     }
 
@@ -68,7 +72,10 @@ public sealed class ClientService : Aggregate
         if (error is not null)
             return Result.Failure(error);
         RaiseEvent(new ClientServiceRevised(_tenantId, Id, _revision + 1, name.Trim(),
-            purpose.Trim(), ownerReference.Trim(), actorMemberId, actorDisplay, changedAt));
+            purpose.Trim(), ownerReference.Trim(), actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result.Success;
     }
 
@@ -82,7 +89,10 @@ public sealed class ClientService : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "Retiring a service requires a rationale."));
         RaiseEvent(new ClientServiceRetired(_tenantId, Id, _revision + 1, rationale.Trim(),
-            actorMemberId, actorDisplay, changedAt));
+            actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result.Success;
     }
 
