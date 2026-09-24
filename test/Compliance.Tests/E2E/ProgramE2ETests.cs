@@ -543,7 +543,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 {
                     var pending = await ownerMcp.When("bdgrz.program.setup-work.get", setupToolInput)
                         .ExpectFailure("Conflict");
-                    var structured = Assert.IsType<JsonElement>(pending.StructuredJson);
+                    var structured = Assert.IsType<JsonElement>(pending.Error);
                     Assert.True(structured.GetProperty("isTransient").GetBoolean());
                 }
                 using (var undisclosed = await outsider.GetAsync(setupPath))
@@ -778,7 +778,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     ["plan"] = create.plan,
                 }).ExpectFailure("Validation");
             Assert.Equal("A program requires a name.", Assert.IsType<JsonElement>(
-                invalidCreateMcp.StructuredJson).GetProperty("message").GetString());
+                invalidCreateMcp.Error).GetProperty("message").GetString());
             var staleMcp = await commandMcp.When("bdgrz.program.revise",
                 new Dictionary<string, object?>
                 {
@@ -789,7 +789,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     ["plan"] = create.plan,
                 }).ExpectFailure("Conflict");
             Assert.Equal(staleRevisionDetail, Assert.IsType<JsonElement>(
-                staleMcp.StructuredJson).GetProperty("message").GetString());
+                staleMcp.Error).GetProperty("message").GetString());
         }
 
         while (DateTimeOffset.UtcNow < deadline)

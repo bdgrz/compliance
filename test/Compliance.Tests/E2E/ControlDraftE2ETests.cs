@@ -216,7 +216,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
                     ["control_id"] = controlId,
                     ["minimum_control_draft_revision"] = 3,
                 }).ExpectFailure("Conflict");
-            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.StructuredJson)
+            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
             var invalidMinimumHistoryMcp = await mcp.When("bdgrz.control.draft.revisions.list",
                 new Dictionary<string, object?>
@@ -226,7 +226,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
                     ["control_id"] = controlId,
                     ["minimum_control_draft_revision"] = 0,
                 }).ExpectFailure("Validation");
-            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.StructuredJson)
+            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
         }
         await using (var mcp = await McpScenario.ConnectAsync(outsider,

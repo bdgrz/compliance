@@ -117,7 +117,7 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
             // Act
             var conflict = await InvokeRevisionAsync(mcp, tenantId, programId,
                 "Held-session MCP revision");
-            var structured = Assert.IsType<JsonElement>(conflict.StructuredJson);
+            var structured = Assert.IsType<JsonElement>(conflict.Error);
             var conflictBody = string.Join("\n", conflict.Text);
 
             // Assert

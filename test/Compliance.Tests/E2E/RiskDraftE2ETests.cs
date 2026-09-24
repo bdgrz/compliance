@@ -165,7 +165,7 @@ public sealed class RiskDraftE2ETests(BrokerStackFixture broker)
                     ["risk_id"] = riskId,
                     ["minimum_risk_revision"] = 3,
                 }).ExpectFailure("Conflict");
-            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.StructuredJson)
+            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
             var invalidMinimumHistoryMcp = await mcp.When("bdgrz.risk.draft.revisions.list",
                 new Dictionary<string, object?>
@@ -175,7 +175,7 @@ public sealed class RiskDraftE2ETests(BrokerStackFixture broker)
                     ["risk_id"] = riskId,
                     ["minimum_risk_revision"] = 0,
                 }).ExpectFailure("Validation");
-            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.StructuredJson)
+            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
             _ = await mcp.When("bdgrz.risk.draft.revise", new Dictionary<string, object?>
             {
