@@ -3,15 +3,6 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Criteria;
 
-public interface ICriteriaCatalog
-{
-    IReadOnlyList<CriteriaCatalogEdition> Editions { get; }
-    CriteriaCatalogEdition? GetEdition(Uuid editionId);
-    Criterion? GetEntry(Uuid editionId, string identifier);
-    IReadOnlyList<Criterion> ListEntries(Uuid editionId, string? category, string? kind,
-        string? parentIdentifier);
-}
-
 /// <summary>Immutable, source-identified platform data; no licensed criterion text is stored.</summary>
 public sealed partial class CriteriaCatalog : ICriteriaCatalog
 {
