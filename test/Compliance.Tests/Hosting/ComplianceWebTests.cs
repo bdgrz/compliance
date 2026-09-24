@@ -587,6 +587,74 @@ public sealed class ComplianceWebTests
             Assert.True(controlReference.GetProperty("properties").TryGetProperty(name, out _));
     }
 
+    [Fact]
+    public async Task ShouldDescribeCriteriaCatalogAndSelectionGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        JsonElement ResponseSchema(JsonElement operation)
+        {
+            var schema = operation.GetProperty("responses").GetProperty("200")
+                .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+            JsonElement Resolve(JsonElement candidate) =>
+                candidate.TryGetProperty("$ref", out var reference)
+                    ? schemas.GetProperty(reference.GetString()!.Split('/')[^1])
+                    : candidate;
+            schema = Resolve(schema);
+            return schema.TryGetProperty("items", out var items) ? Resolve(items) : schema;
+        }
+        var editions = paths.GetProperty("/api/v1/tenants/{tenant_id}/criteria-editions")
+            .GetProperty("get");
+        foreach (var name in new[]
+                 {
+                     "edition_id", "framework", "edition_label", "published_at", "is_complete",
+                     "coverage_note", "source_url", "content_rights", "support_gaps",
+                 })
+            Assert.True(ResponseSchema(editions).GetProperty("properties")
+                .TryGetProperty(name, out _), name);
+        Assert.True(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}")
+            .GetProperty("get").GetProperty("responses").TryGetProperty("200", out _));
+        var entries = paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries").GetProperty("get");
+        foreach (var name in new[] { "category", "kind", "parent_identifier", "limit", "cursor" })
+            Assert.Contains(entries.GetProperty("parameters").EnumerateArray(), parameter =>
+                parameter.GetProperty("name").GetString() == name &&
+                parameter.GetProperty("in").GetString() == "query");
+        var entry = ResponseSchema(paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
+            .GetProperty("get"));
+        foreach (var name in new[]
+                 {
+                     "edition_id", "identifier", "source_identifier", "category", "kind",
+                     "parent_identifier", "summary",
+                 })
+            Assert.True(entry.GetProperty("properties").TryGetProperty(name, out _), name);
+        Assert.False(entry.GetProperty("properties").TryGetProperty("text", out _));
+        var select = paths.GetProperty(
+                "/api/v1/tenants/{tenant_id}/programs/{program_id}/criteria-edition")
+            .GetProperty("put");
+        var selectSchema = select.GetProperty("requestBody").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        foreach (var name in new[] { "expected_revision", "edition_id" })
+            Assert.True(selectSchema.GetProperty("properties").TryGetProperty(name, out _), name);
+        Assert.True(select.GetProperty("responses").TryGetProperty("409", out _));
+        var program = ResponseSchema(paths.GetProperty(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}").GetProperty("get"));
+        Assert.True(program.GetProperty("properties").TryGetProperty("criteria_edition_id", out _));
+    }
+
     [Theory]
     [InlineData("Development")]
     [InlineData("Production")]
