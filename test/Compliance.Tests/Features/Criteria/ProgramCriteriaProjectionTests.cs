@@ -98,6 +98,7 @@ public sealed class ProgramCriteriaProjectionTests
         builder.Services.AddPortia()
             .AddProjector<ProgramDirectoryProjector>("ProgramDirectory", WorkloadScope.PerTenant,
                 options => options.PollInterval = TimeSpan.FromMilliseconds(10))
+            .UseSingleProcessWorkloads()
             .AddWorkers();
         return builder.Build();
     }
