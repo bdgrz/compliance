@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -115,7 +116,7 @@ public sealed class CriteriaCatalogTests
         var second = catalog.Editions[1].EditionId;
         var program = new ComplianceProgram(TenantId, ProgramId);
         var plan = new ProgramPlan(null, null, null, null, null, null);
-        Assert.True(program.Create("SOC 2", plan, MemberId, "Lead", Now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, MemberId, "Lead", Now));
 
         // Act
         var selected = program.SelectCriteriaEdition(1, first, MemberId, "Lead", Now.AddMinutes(1));
@@ -124,9 +125,9 @@ public sealed class CriteriaCatalogTests
         var events = new AggregateScenario<ComplianceProgram>(program).PendingEvents;
 
         // Assert
-        Assert.True(selected.IsSuccess);
-        Assert.False(stale.IsSuccess);
-        Assert.True(remapped.IsSuccess);
+        Assert.Null(selected);
+        Assert.Equal(CommandFailureCode.VersionConflict, stale?.Code);
+        Assert.Null(remapped);
         Assert.Equal(second, program.CriteriaEditionId);
         Assert.Collection(events,
             ev => Assert.IsType<ProgramCreated>(ev),

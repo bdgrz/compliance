@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -23,7 +24,7 @@ public sealed class SelectProgramCriteriaEditionHandler(IAggregateExecutor execu
             : throw new InvalidOperationException(
                 "ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new ComplianceProgram(request.TenantId, request.ProgramId),
-            program => AggregateOutcome.CommitOnSuccess(program.SelectCriteriaEdition(
+            program => CommandFailureRequestAdapter.ToOutcome(program.SelectCriteriaEdition(
                 request.ExpectedRevision, request.EditionId,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
