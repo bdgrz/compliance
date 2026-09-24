@@ -15,33 +15,10 @@ public sealed class CriteriaCatalogTests
     static readonly DateTimeOffset Now = new(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void ShouldKeepSourceAndLocalIdsDistinctGivenPartialPlatformEdition()
-    {
-        // Arrange
-        var catalog = CriteriaCatalog.Foundation;
-
-        // Act
-        var edition = catalog.Edition;
-        var entries = catalog.Entries;
-
-        // Assert
-        Assert.False(edition.IsComplete);
-        Assert.Contains("partial", edition.CoverageNote, StringComparison.OrdinalIgnoreCase);
-        Assert.All(entries, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Summary)));
-        Assert.Contains(entries, entry => entry.Kind == "criterion" &&
-            entry.Identifier == entry.SourceIdentifier && entry.Identifier == "CC6.1");
-        Assert.Contains(entries, entry => entry.Kind == "point_of_focus" &&
-            entry.Identifier.StartsWith("bdgrz:", StringComparison.Ordinal) &&
-            entry.SourceIdentifier is null && entry.ParentIdentifier == "CC6.1");
-        Assert.DoesNotContain(entries, entry => entry.Kind == "point_of_focus" &&
-            entry.SourceIdentifier is not null);
-    }
-
-    [Fact]
     public void ShouldRejectInvalidEntriesGivenDuplicateIdOrOrphanFocus()
     {
         // Arrange
-        var edition = CriteriaCatalog.Foundation.Edition;
+        var edition = CriteriaCatalog.Platform.Edition;
         var criterion = new Criterion(edition.EditionId, "CC6.1", "CC6.1", "security",
             "criterion", null, "Protect access to system information.");
         var orphan = new Criterion(edition.EditionId, "bdgrz:orphan", null, "security",
@@ -57,7 +34,7 @@ public sealed class CriteriaCatalogTests
     public void ShouldKeepIdentifierUniquenessGivenTwoCompleteEditions()
     {
         // Arrange
-        var first = CriteriaCatalog.Foundation.Edition with
+        var first = CriteriaCatalog.Platform.Edition with
         {
             EditionId = Uuid.CreateVersion4(),
             EditionLabel = "test_complete_first",
@@ -93,7 +70,7 @@ public sealed class CriteriaCatalogTests
     public void ShouldKeepExactEditionSelectionGivenExplicitRemap()
     {
         // Arrange
-        var foundation = CriteriaCatalog.Foundation.Edition;
+        var foundation = CriteriaCatalog.Platform.Edition;
         var firstEdition = foundation with
         {
             EditionId = Uuid.CreateVersion4(),
@@ -136,17 +113,28 @@ public sealed class CriteriaCatalogTests
     }
 
     [Fact]
-    public async Task ShouldRejectSelectionGivenRuntimeEditionIsIncomplete()
+    public async Task ShouldRejectSelectionGivenEditionIsIncomplete()
     {
         // Arrange
         await using var fixture = new StoreFixture();
+        var incomplete = CriteriaCatalog.Platform.Edition with
+        {
+            EditionId = Uuid.CreateVersion4(),
+            EditionLabel = "test_incomplete",
+            IsComplete = false,
+        };
+        var catalog = new CriteriaCatalog(incomplete,
+        [
+            new(incomplete.EditionId, "CC6.1", "CC6.1", "security", "criterion", null,
+                "Test incomplete edition."),
+        ]);
         var handler = new SelectProgramCriteriaEditionHandler(fixture.Repository,
-            CriteriaCatalog.Foundation, TimeProvider.System);
+            catalog, TimeProvider.System);
         var actor = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())],
             "BdgrzSession"));
         var request = new SelectProgramCriteriaEdition(TenantId, ProgramId, 1,
-            CriteriaCatalog.Foundation.Edition.EditionId);
+            incomplete.EditionId);
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<SelectProgramCriteriaEdition>(
