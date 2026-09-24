@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
@@ -13,7 +14,7 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldAllowSystemActorGivenMissingMemberPermission()
     {
         // Arrange
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
+        var authorizer = new TenantAccessAuthorizer(new RecordingPermissionAuthorizer(false), new ActiveTenant(), new FixedMembershipDirectory(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, RequestActor.System);
 
@@ -28,7 +29,7 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldRejectActorGivenMissingBdgrzIdentity()
     {
         // Arrange
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(true));
+        var authorizer = new TenantAccessAuthorizer(new RecordingPermissionAuthorizer(true), new ActiveTenant(), new FixedMembershipDirectory(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(
             request,
@@ -47,8 +48,8 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldAllowActorGivenTenantAccessPermission()
     {
         // Arrange
-        var permissions = new FakePermissionAuthorizer(true);
-        var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant(), new Memberships(true));
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new TenantAccessAuthorizer(permissions, new ActiveTenant(), new FixedMembershipDirectory(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -57,15 +58,15 @@ public sealed class TenantAccessAuthorizerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(RbacIds.Member(TenantId, UserId), permissions.LastMemberId);
-        Assert.Equal(RbacPermissions.TenantAccess, permissions.LastPermission);
+        Assert.Equal(RbacIds.Member(TenantId, UserId), Assert.Single(permissions.MemberIds));
+        Assert.Equal(RbacPermissions.TenantAccess, Assert.Single(permissions.Permissions));
     }
 
     [Fact]
     public async Task ShouldRejectActorGivenMissingTenantAccessPermission()
     {
         // Arrange
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(false), new ActiveTenant(), new Memberships(true));
+        var authorizer = new TenantAccessAuthorizer(new RecordingPermissionAuthorizer(false), new ActiveTenant(), new FixedMembershipDirectory(true));
         var request = new GetTeam(TenantId, Uuid.CreateVersion4());
         var context = new RequestContext<ITenantAccessRequest>(request, BdgrzActor());
 
@@ -81,8 +82,8 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldDenyFirmStaffGivenStandingTeamPermission()
     {
         // Arrange
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true),
-            new ActiveTenant(), new Memberships(true, "firm_staff"));
+        var authorizer = new TenantAccessAuthorizer(new RecordingPermissionAuthorizer(true),
+            new ActiveTenant(), new FixedMembershipDirectory(true, "firm_staff"));
         var context = new RequestContext<ITenantAccessRequest>(
             new GetTeam(TenantId, Uuid.CreateVersion4()), BdgrzActor());
 
@@ -101,7 +102,7 @@ public sealed class TenantAccessAuthorizerTests
     public async Task ShouldHideTenantGivenNonmemberActor()
     {
         // Arrange
-        var authorizer = new TenantAccessAuthorizer(new FakePermissionAuthorizer(true), new ActiveTenant(), new Memberships(false));
+        var authorizer = new TenantAccessAuthorizer(new RecordingPermissionAuthorizer(true), new ActiveTenant(), new FixedMembershipDirectory(false));
         var context = new RequestContext<ITenantAccessRequest>(
             new GetTeam(TenantId, Uuid.CreateVersion4()), BdgrzActor());
 
@@ -111,43 +112,5 @@ public sealed class TenantAccessAuthorizerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
-    }
-
-    sealed class Memberships(bool member, string affiliation = "client_personnel")
-        : ITenantMembershipDirectoryReader
-    {
-        public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
-            CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
-            ? new TenantMembershipView(userId, TenantId, affiliation) : null);
-
-        public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-            ValueTask.FromResult(member);
-
-        public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
-            CancellationToken ct = default) => ValueTask.FromResult(new Page<TenantMembershipView>([], null));
-    }
-
-    sealed class ActiveTenant : ITenantActivity
-    {
-        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
-            ValueTask.FromResult(true);
-    }
-
-    sealed class FakePermissionAuthorizer(bool allowed) : IPermissionAuthorizer
-    {
-        public Uuid LastMemberId { get; private set; }
-        public string? LastPermission { get; private set; }
-
-        public ValueTask<bool> IsAllowedAsync(
-            Uuid tenantId,
-            Uuid userId,
-            Uuid memberId,
-            string permission,
-            CancellationToken ct = default)
-        {
-            LastMemberId = memberId;
-            LastPermission = permission;
-            return ValueTask.FromResult(allowed);
-        }
     }
 }

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +18,8 @@ public sealed class RbacManagementRequestScenarioTests
     public async Task ShouldAllowSystemActorGivenMissingMemberPermissions()
     {
         // Arrange
-        await using var provider = BuildProvider(allowed: false);
+        await using var provider = RbacManagementServices.Build(allowed: false,
+            portia => portia.AddRequestHandler<RegisterMemberHandler>());
 
         await RequestScenario.For(provider)
             .GivenActor(RequestActor.System)
@@ -34,10 +35,11 @@ public sealed class RbacManagementRequestScenarioTests
     public async Task ShouldDenyActorGivenMissingTenantRbacManagePermission()
     {
         // Arrange
-        await using var provider = BuildProvider(allowed: false);
+        await using var provider = RbacManagementServices.Build(allowed: false,
+            portia => portia.AddRequestHandler<RegisterMemberHandler>());
 
         await RequestScenario.For(provider)
-            .GivenActor(BdgrzActor())
+            .GivenActor(RbacManagementServices.Actor())
             // Act
             .When(new RegisterMember(TenantId, Uuid.CreateVersion4()))
             // Assert
@@ -49,41 +51,16 @@ public sealed class RbacManagementRequestScenarioTests
     public async Task ShouldHandleRequestGivenTenantRbacManagePermission()
     {
         // Arrange
-        await using var provider = BuildProvider(allowed: true);
+        await using var provider = RbacManagementServices.Build(allowed: true,
+            portia => portia.AddRequestHandler<RegisterMemberHandler>());
 
         await RequestScenario.For(provider)
-            .GivenActor(BdgrzActor())
+            .GivenActor(RbacManagementServices.Actor())
             // Act
             .When(new RegisterMember(TenantId, Uuid.CreateVersion4()))
             // Assert
             .ExpectAuthorized()
             .ExpectHandled()
             .ExpectSuccess();
-    }
-
-    static ServiceProvider BuildProvider(bool allowed)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<IEventStore>(new InMemoryEventStore());
-        services.AddSingleton<IPermissionAuthorizer>(new FakePermissionAuthorizer(allowed));
-        services.AddSingleton<ITenantActivity, ActiveTenant>();
-        services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
-        services.AddPortia()
-            .AddRequestHandler<RegisterMemberHandler>()
-            .AddRequestAuthorizer<RbacManagementAuthorizer>();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-    }
-
-    static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
-        [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "BdgrzSession"));
-
-    sealed class FakePermissionAuthorizer(bool allowed) : IPermissionAuthorizer
-    {
-        public ValueTask<bool> IsAllowedAsync(
-            Uuid tenantId,
-            Uuid userId,
-            Uuid memberId,
-            string permission,
-            CancellationToken ct = default) => ValueTask.FromResult(allowed);
     }
 }

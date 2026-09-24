@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -17,20 +16,19 @@ public sealed class TeamCleanupReactorTests
         var secondMember = Uuid.CreateVersion4();
         var members = new FakeTeamMemberDirectoryReader(
             new TeamMemberView(TeamId, firstMember), new TeamMemberView(TeamId, secondMember));
-        var bus = new RecordingRequestBus();
-        var reactor = new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, members);
-        var context = new FakeReactorContext(new TeamDeleted(TenantId, TeamId));
+        var scenario = new ReactorScenario().Given(new TeamDeleted(TenantId, TeamId));
 
         // Act
-        await reactor.HandleAsync(context, CancellationToken.None);
+        await scenario.RunAsync(new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(),
+            scenario.Requests, members));
 
         // Assert
-        Assert.Equal(2, bus.Dispatched.Count);
-        Assert.Contains(bus.Dispatched, request =>
+        Assert.Equal(2, scenario.SentRequests.Count);
+        Assert.Contains(scenario.SentRequests, request =>
             request is RemoveTeamMember removal && removal.MemberId == firstMember);
-        Assert.Contains(bus.Dispatched, request =>
+        Assert.Contains(scenario.SentRequests, request =>
             request is RemoveTeamMember removal && removal.MemberId == secondMember);
-        Assert.All(bus.Dispatched, request =>
+        Assert.All(scenario.SentRequests, request =>
         {
             var removal = Assert.IsType<RemoveTeamMember>(request);
             Assert.Equal(TenantId, removal.TenantId);
@@ -43,15 +41,14 @@ public sealed class TeamCleanupReactorTests
     {
         // Arrange
         var members = new FakeTeamMemberDirectoryReader();
-        var bus = new RecordingRequestBus();
-        var reactor = new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(), bus, members);
-        var context = new FakeReactorContext(new TeamDeleted(TenantId, TeamId));
+        var scenario = new ReactorScenario().Given(new TeamDeleted(TenantId, TeamId));
 
         // Act
-        await reactor.HandleAsync(context, CancellationToken.None);
+        await scenario.RunAsync(new TeamCleanupReactor(new InMemoryProjectionCheckpointStore(),
+            scenario.Requests, members));
 
         // Assert
-        Assert.Empty(bus.Dispatched);
+        Assert.Empty(scenario.SentRequests);
     }
 
     sealed class FakeTeamMemberDirectoryReader(params TeamMemberView[] members) : ITeamMemberDirectoryReader
@@ -65,49 +62,5 @@ public sealed class TeamCleanupReactorTests
             bool descending,
             CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<TeamMemberView>(members, null));
-    }
-
-    sealed class RecordingRequestBus : IRequestBus
-    {
-        public List<IRequestBase> Dispatched { get; } = [];
-
-        public RequestDispatchContext CreateContext(ClaimsPrincipal actor, RequestMetadata? metadata = null) =>
-            new(actor, metadata: metadata);
-
-        public ValueTask<Result> AuthorizeAsync(
-            IRequestBase request,
-            RequestDispatchContext context,
-            CancellationToken ct = default) => throw new NotSupportedException();
-
-        public ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context, CancellationToken ct = default)
-        {
-            Dispatched.Add(request);
-            return ValueTask.FromResult(Result.Success);
-        }
-
-        public ValueTask<Result<TOut>> DispatchAsync<TOut>(
-            IRequest<TOut> request,
-            RequestDispatchContext context,
-            CancellationToken ct = default) => throw new NotSupportedException();
-
-        public IAsyncEnumerable<TOut> DispatchStreamAsync<TOut>(
-            IStreamRequest<TOut> request,
-            RequestDispatchContext context,
-            CancellationToken ct = default) => throw new NotSupportedException();
-    }
-
-    sealed class FakeReactorContext(TeamDeleted trigger) : IReactorContext<TeamDeleted>
-    {
-        public TeamDeleted Trigger { get; } = trigger;
-        public DomainEventRecord Source { get; } = new(
-            new EventStreamAddress(TenantId.ToString(), "rbac-teams", TeamId.ToString()),
-            trigger,
-            0,
-            EventCursor.Start);
-        public ClaimsPrincipal Actor => RequestActor.System;
-        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
-        public Uuid CauseId { get; } = Uuid.CreateVersion4();
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
     }
 }
