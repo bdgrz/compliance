@@ -81,8 +81,12 @@ public sealed class ControlApplicabilityReferenceValidatorTests
             Uuid requestedApplicationId, CancellationToken ct = default) => ValueTask.FromResult(
             requestedTenantId == tenantId && requestedApplicationId == applicationId);
 
-        public ValueTask<bool> IsInstanceDeclaredAsync(Uuid requestedTenantId,
-            Uuid requestedInstanceId, CancellationToken ct = default) => ValueTask.FromResult(
-            InstanceProjected && requestedTenantId == tenantId && requestedInstanceId == instanceId);
+        public ValueTask<SystemInstanceReferenceState> GetInstanceStateAsync(
+            Uuid requestedTenantId, Uuid requestedInstanceId, CancellationToken ct = default) =>
+            ValueTask.FromResult(requestedTenantId != tenantId || requestedInstanceId != instanceId
+                ? SystemInstanceReferenceState.Missing
+                : InstanceProjected
+                    ? SystemInstanceReferenceState.Declared
+                    : SystemInstanceReferenceState.Pending);
     }
 }

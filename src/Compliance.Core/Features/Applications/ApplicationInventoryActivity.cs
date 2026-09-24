@@ -7,8 +7,8 @@ public interface IApplicationInventoryActivity
     ValueTask<bool> IsDeclaredAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default);
 
-    ValueTask<bool> IsInstanceDeclaredAsync(Uuid tenantId, Uuid instanceId,
-        CancellationToken ct = default);
+    ValueTask<SystemInstanceReferenceState> GetInstanceStateAsync(Uuid tenantId,
+        Uuid instanceId, CancellationToken ct = default);
 }
 
 sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
@@ -23,24 +23,33 @@ sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
         return application.IsCreated;
     }
 
-    public async ValueTask<bool> IsInstanceDeclaredAsync(Uuid tenantId, Uuid instanceId,
-        CancellationToken ct = default)
+    public async ValueTask<SystemInstanceReferenceState> GetInstanceStateAsync(Uuid tenantId,
+        Uuid instanceId, CancellationToken ct = default)
     {
         var source = await reader.HydrateAsync(new DeclaredSystemInstance(tenantId,
             instanceId), ct).ConfigureAwait(false);
-        // Reference commands wait for the tenant-scoped instance projection, so a
-        // just-committed source is reported as a recoverable conflict until visible.
         var instance = await directory.GetInstanceAsync(tenantId, instanceId, ct)
             .ConfigureAwait(false);
-        if (instance is null || instance.TenantId != tenantId ||
-            instance.SystemInstanceId != instanceId)
-            return false;
+        if (instance is not null && (instance.TenantId != tenantId ||
+                                     instance.SystemInstanceId != instanceId))
+            return SystemInstanceReferenceState.Missing;
         if (source.IsCreated)
-            return instance.ApplicationId == source.ApplicationId &&
-                   instance.Revision >= source.Revision;
-        // Historical declarations live in application streams. The directory
-        // locates their parent without rebuilding an unbounded aggregate map.
-        return await legacy.ExistsAsync(tenantId, instance.ApplicationId,
-            instanceId, ct).ConfigureAwait(false);
+        {
+            // Reference commands wait for the tenant-scoped instance projection, so a
+            // just-committed source is a recoverable conflict until visible.
+            if (instance is null || instance.Revision < source.Revision)
+                return SystemInstanceReferenceState.Pending;
+            return instance.ApplicationId == source.ApplicationId
+                ? SystemInstanceReferenceState.Declared
+                : SystemInstanceReferenceState.Missing;
+        }
+        if (instance is null)
+            return SystemInstanceReferenceState.Missing;
+        // Historical declarations live in application streams; a projected legacy row is
+        // authoritative, so no stream is rebuilt for the common case.
+        return await legacy.ExistsAsync(tenantId, instance.ApplicationId, instanceId, ct)
+            .ConfigureAwait(false)
+            ? SystemInstanceReferenceState.Declared
+            : SystemInstanceReferenceState.Missing;
     }
 }

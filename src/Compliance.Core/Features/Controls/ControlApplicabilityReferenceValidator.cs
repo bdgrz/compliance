@@ -31,8 +31,13 @@ public sealed class GovernedControlApplicabilityReferenceValidator(
                             "The governed control application reference is unavailable in this tenant."));
                     break;
                 case "system_instance":
-                    if (!await applications.IsInstanceDeclaredAsync(tenantId, recordId, ct)
-                            .ConfigureAwait(false))
+                    var state = await applications.GetInstanceStateAsync(tenantId, recordId, ct)
+                        .ConfigureAwait(false);
+                    if (state == SystemInstanceReferenceState.Pending)
+                        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                            "The governed control system instance reference has not finished projecting. Retry the command.",
+                            isTransient: true));
+                    if (state != SystemInstanceReferenceState.Declared)
                         return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                             "The governed control system instance reference is unavailable in this tenant. Retry after projection or correct the record ID."));
                     break;

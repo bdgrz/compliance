@@ -70,7 +70,8 @@ public sealed class GovernedBoundaryReferenceValidatorTests
         Assert.False(wrongInstanceId.IsSuccess);
         Assert.False(lag.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, lag.Error.Kind);
-        Assert.Equal(lag.Error.Message, foreignInstance.Error.Message);
+        Assert.True(lag.Error.IsTransient);
+        Assert.False(foreignInstance.Error.IsTransient);
     }
 
     static BoundaryContent Content(string subjectType, Uuid serviceId) =>
@@ -99,9 +100,12 @@ public sealed class GovernedBoundaryReferenceValidatorTests
             ValueTask.FromResult(requestedTenantId == tenantId &&
                 requestedApplicationId == applicationId);
 
-        public ValueTask<bool> IsInstanceDeclaredAsync(Uuid requestedTenantId,
-            Uuid requestedInstanceId, CancellationToken ct = default) =>
-            ValueTask.FromResult(InstanceProjected && requestedTenantId == tenantId &&
-                requestedInstanceId == instanceId);
+        public ValueTask<SystemInstanceReferenceState> GetInstanceStateAsync(
+            Uuid requestedTenantId, Uuid requestedInstanceId, CancellationToken ct = default) =>
+            ValueTask.FromResult(requestedTenantId != tenantId || requestedInstanceId != instanceId
+                ? SystemInstanceReferenceState.Missing
+                : InstanceProjected
+                    ? SystemInstanceReferenceState.Declared
+                    : SystemInstanceReferenceState.Pending);
     }
 }
