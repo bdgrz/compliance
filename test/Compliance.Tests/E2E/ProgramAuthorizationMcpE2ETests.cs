@@ -205,11 +205,45 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 };
                 var deniedMcpRevise = participantMcp.When("bdgrz.program.revise", reviseInput);
 
+                // The participant may read the platform criteria catalog but not select it.
+                using var participantEditions = await participant.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/criteria-editions");
+                Assert.Equal(HttpStatusCode.OK, participantEditions.StatusCode);
+                string editionId;
+                using (var editionsBody = JsonDocument.Parse(
+                           await participantEditions.Content.ReadAsStringAsync()))
+                    editionId = Assert.Single(editionsBody.RootElement.EnumerateArray())
+                        .GetProperty("edition_id").GetString()!;
+                using var participantEntry = await participant.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/criteria-editions/{editionId}/entries/CC6.1");
+                Assert.Equal(HttpStatusCode.OK, participantEntry.StatusCode);
+                _ = await participantMcp.When("bdgrz.criteria.entries.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["edition_id"] = editionId,
+                        ["limit"] = 5,
+                    }).ExpectSuccess();
+                using var deniedSelect = await participant.PutAsJsonAsync(
+                    $"{programPath}/criteria-edition",
+                    new { expected_revision = 1, edition_id = editionId });
+                var selectInput = new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["program_id"] = programId,
+                    ["expected_revision"] = 1,
+                    ["edition_id"] = editionId,
+                };
+                var deniedMcpSelect = participantMcp.When("bdgrz.program.criteria.select",
+                    selectInput);
+
                 // Assert: every participant write is denied and none reaches the source stream.
                 Assert.Equal(HttpStatusCode.Forbidden, deniedCreate.StatusCode);
                 Assert.Equal(HttpStatusCode.Forbidden, deniedRevise.StatusCode);
                 _ = await deniedMcpCreate.ExpectFailure("Forbidden");
                 _ = await deniedMcpRevise.ExpectFailure("Forbidden");
+                Assert.Equal(HttpStatusCode.Forbidden, deniedSelect.StatusCode);
+                _ = await deniedMcpSelect.ExpectFailure("Forbidden");
                 var sourceEvents = new List<object>();
                 await foreach (var record in factory.Services.GetRequiredService<IEventStore>()
                                    .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString(),
