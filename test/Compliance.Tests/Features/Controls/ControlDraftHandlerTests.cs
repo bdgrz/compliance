@@ -88,8 +88,8 @@ public sealed class ControlDraftHandlerTests
                 "GitHub production", Uuid.CreateVersion4(),
                 "Privileged access is administered there.", false)]);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
-            RbacIds.Member(tenantId, userId), "Author", DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            RbacIds.Member(tenantId, userId), "Author", DateTimeOffset.UtcNow));
         var request = new CreateControlDraft(tenantId, programId, "AC-RETRY", content);
         var context = new FixedRequestContext<CreateControlDraft>(request, actor, requestId);
         await fixture.Repository.SaveAsync(program, context, CancellationToken.None);

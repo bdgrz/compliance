@@ -105,7 +105,8 @@ public sealed class ImportBatch : Aggregate
         if (_canceled && expectedRevision <= _revision)
             return Result.Success;
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("import", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("import", _revision)
+                .ToRequestError());
         RaiseEvent(new ApplicationImportCanceled(_tenantId, Id, _revision + 1,
             reason.Trim(), actorMemberId, actorDisplay, canceledAt));
         return Result.Success;

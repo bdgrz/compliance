@@ -103,7 +103,7 @@ public sealed class ClientService : Aggregate
         if (_retired)
             return new RequestError(RequestErrorKind.Conflict, "The service is retired.");
         return expectedRevision == _revision ? null :
-            VersionedRecordRules.StaleRevision("service", _revision);
+            VersionedRecordRules.StaleRevision("service", _revision).ToRequestError();
     }
 
     static RequestError? Validate(string name, string purpose, string ownerReference)

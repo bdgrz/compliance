@@ -64,7 +64,7 @@ public sealed class ReviseControlDraftHandler(IAggregateExecutor executor,
                 "The control draft was not found."));
         if (request.ExpectedRevision != current.Revision)
             return Result.Failure(VersionedRecordRules.StaleRevision("control draft",
-                current.Revision));
+                current.Revision).ToRequestError());
         var structuralError = ControlDraft.ValidateContent(request.Content);
         if (structuralError is not null)
             return Result.Failure(structuralError);

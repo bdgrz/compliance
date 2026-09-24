@@ -288,7 +288,7 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, actorId, "Lead", now));
         var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
             actorId, "Lead", now);
         var boundary = new SystemBoundary(tenantId, boundaryId);
@@ -296,11 +296,10 @@ public sealed class ScopeSnapshotTests
         Assert.True(boundary.Create(programId, boundaryVersionId, content, actorId, "Lead", now)
             .IsSuccess);
         var decisionId = Uuid.CreateVersion4();
-        Assert.True(boundary.Review(boundaryVersionId, 1, decisionId, "accept", "Reviewed",
-            reviewerId, "Reviewer", now).IsSuccess);
-        Assert.True(boundary.Approve(boundaryVersionId, 1, Uuid.CreateVersion4(), decisionId,
-            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now)
-            .IsSuccess);
+        Assert.Null(boundary.Review(boundaryVersionId, 1, decisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now));
+        Assert.Null(boundary.Approve(boundaryVersionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now));
         var boundaryVersion = new BoundaryVersionView(tenantId, boundaryId, programId,
             boundaryVersionId, 1, content, "approved", new DateOnly(2027, 1, 1), actorId,
             "Lead", now);
@@ -389,25 +388,23 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, authorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, authorId, "Lead", now));
         var boundary = new SystemBoundary(tenantId, boundaryId);
         var content = new BoundaryContent("Scope", "readiness", ["security"], []);
         Assert.True(boundary.Create(programId, firstVersionId, content,
             authorId, "Lead", now).IsSuccess);
         var firstDecisionId = Uuid.CreateVersion4();
-        Assert.True(boundary.Review(firstVersionId, 1, firstDecisionId, "accept", "Reviewed",
-            reviewerId, "Reviewer", now).IsSuccess);
-        Assert.True(boundary.Approve(firstVersionId, 1, Uuid.CreateVersion4(), firstDecisionId,
-            new DateOnly(2027, 1, 1), "Approved", "impact-1", reviewerId, "Reviewer", now)
-            .IsSuccess);
-        Assert.True(boundary.ProposeSuccessor(firstVersionId, secondVersionId, content,
-            authorId, "Lead", now).IsSuccess);
+        Assert.Null(boundary.Review(firstVersionId, 1, firstDecisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now));
+        Assert.Null(boundary.Approve(firstVersionId, 1, Uuid.CreateVersion4(), firstDecisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact-1", reviewerId, "Reviewer", now));
+        Assert.Null(boundary.ProposeSuccessor(firstVersionId, secondVersionId, content,
+            authorId, "Lead", now));
         var secondDecisionId = Uuid.CreateVersion4();
-        Assert.True(boundary.Review(secondVersionId, 1, secondDecisionId, "accept", "Reviewed",
-            reviewerId, "Reviewer", now).IsSuccess);
-        Assert.True(boundary.Approve(secondVersionId, 1, Uuid.CreateVersion4(), secondDecisionId,
-            new DateOnly(2027, 2, 1), "Approved", "impact-2", reviewerId, "Reviewer", now)
-            .IsSuccess);
+        Assert.Null(boundary.Review(secondVersionId, 1, secondDecisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now));
+        Assert.Null(boundary.Approve(secondVersionId, 1, Uuid.CreateVersion4(), secondDecisionId,
+            new DateOnly(2027, 2, 1), "Approved", "impact-2", reviewerId, "Reviewer", now));
         var projected = projectedDraft
             ? new BoundaryVersionView(tenantId, boundaryId, programId, firstVersionId, 1,
                 content, "draft", null, authorId, "Lead", now)
@@ -488,18 +485,17 @@ public sealed class ScopeSnapshotTests
         var now = DateTimeOffset.UtcNow;
         var plan = new ProgramPlan(null, null, null, null, null, null);
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", plan, actorId, "Lead", now).IsSuccess);
+        Assert.Null(program.Create("SOC 2", plan, actorId, "Lead", now));
         var programRevision = new ProgramRevisionView(programId, 1, "SOC 2", plan,
             actorId, "Lead", now);
         var boundary = new SystemBoundary(tenantId, boundaryId);
         var content = new BoundaryContent("Scope", "readiness", ["security"], []);
         Assert.True(boundary.Create(programId, versionId, content, actorId, "Lead", now).IsSuccess);
         var decisionId = Uuid.CreateVersion4();
-        Assert.True(boundary.Review(versionId, 1, decisionId, "accept", "Reviewed",
-            reviewerId, "Reviewer", now).IsSuccess);
-        Assert.True(boundary.Approve(versionId, 1, Uuid.CreateVersion4(), decisionId,
-            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now)
-            .IsSuccess);
+        Assert.Null(boundary.Review(versionId, 1, decisionId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now));
+        Assert.Null(boundary.Approve(versionId, 1, Uuid.CreateVersion4(), decisionId,
+            new DateOnly(2027, 1, 1), "Approved", "impact", reviewerId, "Reviewer", now));
         var boundaryVersion = new BoundaryVersionView(tenantId, boundaryId, programId,
             versionId, 1, content, "approved", new DateOnly(2027, 1, 1), actorId,
             "Lead", now);

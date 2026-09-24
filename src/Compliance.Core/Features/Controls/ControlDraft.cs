@@ -98,7 +98,8 @@ public sealed class ControlDraft : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The control draft was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision)
+                .ToRequestError());
         var error = Validate(_identifier!, content);
         if (error is not null)
             return Result.Failure(error);
@@ -120,7 +121,8 @@ public sealed class ControlDraft : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The control draft was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision)
+                .ToRequestError());
         if (_currentContent?.Applicability is { Count: > 0 })
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "Discarding a control draft requires no retained applicability relationships."));

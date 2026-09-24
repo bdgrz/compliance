@@ -77,7 +77,8 @@ public sealed class RiskDraft : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The risk draft was not found."));
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("risk draft", _revision));
+            return Result.Failure(VersionedRecordRules.StaleRevision("risk draft", _revision)
+                .ToRequestError());
         var error = Validate(_identifier!, content);
         if (error is not null)
             return Result.Failure(error);

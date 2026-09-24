@@ -14,8 +14,8 @@ public sealed class ProjectionFreshnessTests
         var tenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
-            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow));
         var handler = new GetProgramHandler(new EmptyProgramDirectory(),
             new SourceReader(program));
 
@@ -37,8 +37,8 @@ public sealed class ProjectionFreshnessTests
         var tenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         var program = new ComplianceProgram(tenantId, programId);
-        Assert.True(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
-            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow));
         var programs = new EmptyProgramDirectory();
         var boundaries = new EmptyBoundaryDirectory();
         var handler = new GetProgramSetupWorkHandler(programs, boundaries, new SourceReader(program),
@@ -119,8 +119,8 @@ public sealed class ProjectionFreshnessTests
         var tenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         var source = new ComplianceProgram(tenantId, programId);
-        Assert.True(source.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
-            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(source.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow));
         var directory = new EmptyProgramDirectory();
         var consistency = new ProgramHistoryReadConsistency(directory, new SourceReader(source));
 

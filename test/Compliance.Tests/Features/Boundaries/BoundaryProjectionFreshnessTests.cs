@@ -24,11 +24,11 @@ public sealed class BoundaryProjectionFreshnessTests
         var source = new SystemBoundary(tenantId, boundaryId);
         Assert.True(source.Create(programId, versionId, content, authorId, "Author",
             DateTimeOffset.UtcNow).IsSuccess);
-        Assert.True(source.Review(versionId, 1, reviewId, "accept", "Reviewed",
-            reviewerId, "Reviewer", DateTimeOffset.UtcNow).IsSuccess);
-        Assert.True(source.Approve(versionId, 1, Uuid.CreateVersion4(), reviewId,
+        Assert.Null(source.Review(versionId, 1, reviewId, "accept", "Reviewed",
+            reviewerId, "Reviewer", DateTimeOffset.UtcNow));
+        Assert.Null(source.Approve(versionId, 1, Uuid.CreateVersion4(), reviewId,
             new DateOnly(2027, 1, 1), "Approved", "digest", reviewerId, "Reviewer",
-            DateTimeOffset.UtcNow).IsSuccess);
+            DateTimeOffset.UtcNow));
         var directory = new EmptyBoundaryDirectory
         {
             Current = new BoundaryView(tenantId, boundaryId, programId,

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
@@ -212,6 +213,25 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             content,
         });
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        var currentVersionDetail = $"Current draft version: {registration.DraftVersionId}; revision: 2.";
+        Assert.Contains(currentVersionDetail, await stale.Content.ReadAsStringAsync(),
+            StringComparison.Ordinal);
+        await using (var mcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            var staleMcp = await mcp.When("bdgrz.boundary.draft.revise",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["boundary_id"] = registration.BoundaryId,
+                    ["draft_version_id"] = registration.DraftVersionId,
+                    ["expected_revision"] = 1,
+                    ["content"] = content,
+                }).ExpectFailure("Conflict");
+            Assert.Contains(currentVersionDetail, Assert.IsType<JsonElement>(
+                staleMcp.StructuredJson).GetProperty("message").GetString(),
+                StringComparison.Ordinal);
+        }
         using var deniedRevise = await outsider.PutAsJsonAsync(draftPath, new
         {
             expected_revision = 2,
@@ -687,11 +707,11 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         var source = new SystemBoundary(tenantId, boundaryId);
         Assert.True(source.Create(programId, versionId, content, authorId,
             "Author", now).IsSuccess);
-        Assert.True(source.Review(versionId, 1, reviewId, "accept", "Reviewed",
-            reviewerId, "Reviewer", now.AddMinutes(1)).IsSuccess);
-        Assert.True(source.Approve(versionId, 1, approvalId, reviewId,
+        Assert.Null(source.Review(versionId, 1, reviewId, "accept", "Reviewed",
+            reviewerId, "Reviewer", now.AddMinutes(1)));
+        Assert.Null(source.Approve(versionId, 1, approvalId, reviewId,
             new DateOnly(2027, 1, 1), "Approved", "digest", reviewerId,
-            "Reviewer", now.AddMinutes(2)).IsSuccess);
+            "Reviewer", now.AddMinutes(2)));
         var identity = new CheckpointIdentity("BoundaryDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using (var batch = await directory.BeginAsync(
