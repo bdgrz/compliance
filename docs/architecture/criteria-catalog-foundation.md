@@ -1,9 +1,0 @@
-# Criteria catalog foundation checkpoint
-
-Issue #209 and accepted decision #59 require immutable editions of the 2017 Trust Services Criteria with the revised 2022 points of focus. The source identifier and hierarchy are drawn from the [AICPA publication](https://www.aicpa-cima.com/resources/download/2017-trust-services-criteria-with-revised-points-of-focus-2022). The runtime `bdgrz_partial_2017_tsc_2022_pof` edition is deliberately incomplete: it contains five numbered criteria, one from each category, and one locally identified focus under `CC6.1`. Every summary is original Bdgrz wording. No licensed criterion or focus text is stored.
-
-Numbered criteria retain their source IDs (`CC6.1`, `A1.1`, `C1.1`, `PI1.1`, `P1.1`). The AICPA publication does not number each point of focus, so the sample focus uses the product-owned identifier `bdgrz:focus:cc6-1:asset-inventory` and a null `source_identifier`. Its `parent_identifier` records the source criterion. That local ID does not claim to be a canonical AICPA focus ID.
-
-The catalog supports multiple immutable editions; entry IDs are unique within an edition. A Program selection event records the exact edition ID, and changing editions requires an explicit version-checked selection. The runtime edition has `is_complete=false`, and the selection handler rejects it. Positive remapping tests use complete in-memory fixture editions; they do not make the runtime edition selectable.
-
-Before production selection can be enabled, author and review original summaries for the complete criterion and focus hierarchy, validate category coverage and parent mappings against the source, publish a complete immutable edition, and test HTTP/MCP authorization, isolation, projection history, replay, lag, and split-host behavior. Licensed-text overlay remains separate under #351. Keep #209 open through #158 integration.
