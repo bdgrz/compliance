@@ -137,8 +137,7 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var result = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, snapshotId)),
             CancellationToken.None);
 
         // Assert
@@ -167,8 +166,7 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var result = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, leaf.Id)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, leaf.Id)),
             CancellationToken.None);
 
         // Assert
@@ -220,20 +218,16 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var missingResult = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, missingId)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, missingId)),
             CancellationToken.None);
         var malformedResult = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, malformedId)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, malformedId)),
             CancellationToken.None);
         var crossTenantResult = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, crossTenantId)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, crossTenantId)),
             CancellationToken.None);
         var cyclicResult = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, sourceId)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, sourceId)),
             CancellationToken.None);
 
         // Assert
@@ -264,8 +258,7 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var result = await handler.HandleAsync(
-            new SnapshotRequestContext<RegenerateProgramScopeSnapshotManifest>(
-                new RegenerateProgramScopeSnapshotManifest(tenantId, predecessor.Id)),
+            Context(new RegenerateProgramScopeSnapshotManifest(tenantId, predecessor.Id)),
             CancellationToken.None);
 
         // Assert
@@ -319,7 +312,7 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var result = await freezer.FreezeAsync(
-            new SnapshotRequestContext<AmendProgramScopeSnapshot>(request), tenantId, programId,
+            Context(request), tenantId, programId,
             1, boundaryId, boundaryVersionId, predecessor.Id, request.Reason,
             CancellationToken.None);
 
@@ -350,16 +343,16 @@ public sealed class ScopeSnapshotTests
         // Act
         var lag = await new GetSnapshotHandler(new SnapshotDirectoryStub(null),
             new SnapshotSourceReader(source)).HandleAsync(
-            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId, 1)),
+            Context(new GetSnapshot(tenantId, snapshotId, 1)),
             CancellationToken.None);
         var corrupt = await new GetSnapshotHandler(new SnapshotDirectoryStub(corrupted),
             new SnapshotSourceReader(source)).HandleAsync(
-            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId)),
+            Context(new GetSnapshot(tenantId, snapshotId)),
             CancellationToken.None);
         var foreign = await new GetSnapshotHandler(new SnapshotDirectoryStub(
                 corrupted with { TenantId = Uuid.CreateVersion4() }),
             new SnapshotSourceReader(source)).HandleAsync(
-            new SnapshotRequestContext<GetSnapshot>(new GetSnapshot(tenantId, snapshotId)),
+            Context(new GetSnapshot(tenantId, snapshotId)),
             CancellationToken.None);
 
         // Assert
@@ -418,8 +411,7 @@ public sealed class ScopeSnapshotTests
             boundaryId, firstVersionId);
 
         // Act
-        var result = await freezer.FreezeAsync(new SnapshotRequestContext<FreezeProgramScopeSnapshot>(
-            request), tenantId, programId, 1, boundaryId, firstVersionId,
+        var result = await freezer.FreezeAsync(Context(request), tenantId, programId, 1, boundaryId, firstVersionId,
             null, null, CancellationToken.None);
 
         // Assert
@@ -520,8 +512,7 @@ public sealed class ScopeSnapshotTests
                 new VerificationSourcesReader(snapshot, programSource ?? program,
                     boundarySource ?? boundary));
             var result = await handler.HandleAsync(
-                new SnapshotRequestContext<VerifyProgramScopeSnapshot>(
-                    new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
+                Context(new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
             return Assert.IsType<ProgramScopeSnapshotVerification>(result.Value);
         }
 
@@ -604,8 +595,7 @@ public sealed class ScopeSnapshotTests
 
         // Act
         var result = await handler.HandleAsync(
-            new SnapshotRequestContext<VerifyProgramScopeSnapshot>(
-                new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
+            Context(new VerifyProgramScopeSnapshot(tenantId, snapshotId)), CancellationToken.None);
 
         // Assert
         var verification = Assert.IsType<ProgramScopeSnapshotVerification>(result.Value);
@@ -772,16 +762,6 @@ public sealed class ScopeSnapshotTests
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
-    sealed class SnapshotRequestContext<TRequest>(TRequest request) : IRequestContext<TRequest>
-    {
-        public TRequest Request { get; } = request;
-        public ClaimsPrincipal Actor { get; } = new();
-        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-        public Uuid RequestId { get; } = Uuid.CreateVersion4();
-        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
-        public Uuid? CausationId => null;
-        public Uuid CauseId => RequestId;
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
-        public RequestInvocation Invocation { get; } = new DirectInvocation();
-    }
+    static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
+        new(request, new ClaimsPrincipal());
 }
