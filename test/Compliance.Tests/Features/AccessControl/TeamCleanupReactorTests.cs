@@ -48,11 +48,14 @@ public sealed class TeamCleanupReactorTests
             scenario.Requests, members));
 
         // Assert
+        Assert.Equal([TeamId], members.QueriedTeams);
         Assert.Empty(scenario.SentRequests);
     }
 
     sealed class FakeTeamMemberDirectoryReader(params TeamMemberView[] members) : ITeamMemberDirectoryReader
     {
+        public List<Uuid> QueriedTeams { get; } = [];
+
         public ValueTask<Page<TeamMemberView>> ListAsync(
             Uuid tenantId,
             Uuid teamId,
@@ -61,6 +64,12 @@ public sealed class TeamCleanupReactorTests
             string? search,
             bool descending,
             CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<TeamMemberView>(members, null));
+            Record(teamId, new Page<TeamMemberView>(members, null));
+
+        ValueTask<Page<TeamMemberView>> Record(Uuid teamId, Page<TeamMemberView> page)
+        {
+            QueriedTeams.Add(teamId);
+            return ValueTask.FromResult(page);
+        }
     }
 }
