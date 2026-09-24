@@ -9,13 +9,13 @@
     <PackageVersion Include="Cntryl.Fitz.Extensions" Version="1.4.2" />
     <PackageVersion Include="Cntryl.Fitz.Testing" Version="1.4.2" />
     <PackageVersion Include="Cntryl.LexKey" Version="0.1.2" />
-    <PackageVersion Include="Cntryl.Portia.Abstractions" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.AspNetCore" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.Fitz" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.Mcp" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.Mcp.AspNetCore" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.Mcp.Testing" Version="0.5.5" />
-    <PackageVersion Include="Cntryl.Portia.Testing" Version="0.5.5" />
+    <PackageVersion Include="Cntryl.Portia.Abstractions" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.AspNetCore" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.Fitz" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.Mcp" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.Mcp.AspNetCore" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.Mcp.Testing" Version="0.6.0" />
+    <PackageVersion Include="Cntryl.Portia.Testing" Version="0.6.0" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />

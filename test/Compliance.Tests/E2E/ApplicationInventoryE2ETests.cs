@@ -140,7 +140,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                     ["tenant_id"] = tenant.TenantId,
                     ["application_id"] = first.ApplicationId,
                 }).ExpectFailure("Conflict");
-            var structured = Assert.IsType<JsonElement>(pendingReferences.StructuredJson);
+            var structured = Assert.IsType<JsonElement>(pendingReferences.Error);
             Assert.True(structured.GetProperty("isTransient").GetBoolean());
         }
         using var unprojectedInstanceResponse = await owner.PostAsJsonAsync(

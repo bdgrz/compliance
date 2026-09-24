@@ -423,6 +423,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
                 options => options.PollInterval = TimeSpan.FromMilliseconds(10))
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2",
                 WorkloadScope.PerTenant, options => options.PollInterval = TimeSpan.FromMilliseconds(10))
+            .UseSingleProcessWorkloads()
             .AddWorkers();
         return builder.Build();
     }

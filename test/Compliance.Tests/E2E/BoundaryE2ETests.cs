@@ -229,7 +229,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                     ["content"] = content,
                 }).ExpectFailure("Conflict");
             Assert.Contains(currentVersionDetail, Assert.IsType<JsonElement>(
-                staleMcp.StructuredJson).GetProperty("message").GetString(),
+                staleMcp.Error).GetProperty("message").GetString(),
                 StringComparison.Ordinal);
         }
         using var deniedRevise = await outsider.PutAsJsonAsync(draftPath, new

@@ -14,9 +14,9 @@
       },
       "Cntryl.Portia.Abstractions": {
         "type": "Direct",
-        "requested": "[0.5.5, )",
-        "resolved": "0.5.5",
-        "contentHash": "2W2oygziNAXhS4mczIVU6l/hZXkizCRVTPG9hOYoKY5ijZka1IlrFjGo4GptjxmRelSRBR1nPGfObJHNmyOAuw==",
+        "requested": "[0.6.0, )",
+        "resolved": "0.6.0",
+        "contentHash": "S9HGEx2hOEJEopo+ncbCIOHk26d9XMlUPWJpHgV6u7+OlJ5wQSR1ewqZDaz0FX95Hwh6XlD1qcmLp6sBhV8r+w==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.12"
         }

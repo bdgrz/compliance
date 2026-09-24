@@ -183,7 +183,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                     ["draft_id"] = draftId,
                     ["minimum_draft_revision"] = 4,
                 }).ExpectFailure("Conflict");
-            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.StructuredJson)
+            Assert.True(Assert.IsType<JsonElement>(futureHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
             var invalidMinimumHistoryMcp = await mcp.When("bdgrz.commitment.draft.revision.list",
                 new Dictionary<string, object?>
@@ -193,7 +193,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                     ["draft_id"] = draftId,
                     ["minimum_draft_revision"] = 0,
                 }).ExpectFailure("Validation");
-            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.StructuredJson)
+            Assert.False(Assert.IsType<JsonElement>(invalidMinimumHistoryMcp.Error)
                 .GetProperty("isTransient").GetBoolean());
             _ = await mcp.When("bdgrz.commitment.draft.list", new Dictionary<string, object?>
             {

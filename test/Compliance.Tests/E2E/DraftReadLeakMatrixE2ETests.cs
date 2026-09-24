@@ -351,7 +351,8 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         using var response = await client.GetAsync(probe.HttpPath);
         var httpBody = await response.Content.ReadAsStringAsync();
         var call = await mcp.When(probe.Tool, probe.Args);
-        var structured = Assert.IsType<JsonElement>(call.StructuredJson);
+        // Failures carry Portia's details in result metadata; successes carry structured content.
+        var structured = Assert.IsType<JsonElement>(call.IsError ? call.Error : call.StructuredJson);
         return new(probe, response.StatusCode, httpBody, call.IsError,
             call.IsError ? structured.GetProperty("kind").GetString() : null,
             structured.GetRawText());
