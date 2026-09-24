@@ -49,11 +49,15 @@ public sealed class RoleCleanupReactorTests
             scenario.Requests, permissions, teams));
 
         // Assert
+        Assert.Equal([RoleId], permissions.QueriedRoles);
+        Assert.Equal([RoleId], teams.QueriedRoles);
         Assert.Empty(scenario.SentRequests);
     }
 
     sealed class FakeRolePermissionDirectoryReader(params RolePermissionView[] items) : IRolePermissionDirectoryReader
     {
+        public List<Uuid> QueriedRoles { get; } = [];
+
         public ValueTask<Page<RolePermissionView>> ListAsync(
             Uuid tenantId,
             Uuid roleId,
@@ -62,11 +66,19 @@ public sealed class RoleCleanupReactorTests
             string? search,
             bool descending,
             CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<RolePermissionView>(items, null));
+            Record(roleId, new Page<RolePermissionView>(items, null));
+
+        ValueTask<Page<RolePermissionView>> Record(Uuid roleId, Page<RolePermissionView> page)
+        {
+            QueriedRoles.Add(roleId);
+            return ValueTask.FromResult(page);
+        }
     }
 
     sealed class FakeRoleTeamDirectoryReader(params RoleTeamView[] items) : IRoleTeamDirectoryReader
     {
+        public List<Uuid> QueriedRoles { get; } = [];
+
         public ValueTask<Page<RoleTeamView>> ListAsync(
             Uuid tenantId,
             Uuid roleId,
@@ -75,6 +87,12 @@ public sealed class RoleCleanupReactorTests
             string? search,
             bool descending,
             CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<RoleTeamView>(items, null));
+            Record(roleId, new Page<RoleTeamView>(items, null));
+
+        ValueTask<Page<RoleTeamView>> Record(Uuid roleId, Page<RoleTeamView> page)
+        {
+            QueriedRoles.Add(roleId);
+            return ValueTask.FromResult(page);
+        }
     }
 }
