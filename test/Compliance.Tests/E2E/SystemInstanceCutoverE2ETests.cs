@@ -115,7 +115,7 @@ public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
             AssertLegacy(legacy, legacyId, legacyActor);
             AssertLegacy(Assert.IsType<JsonElement>(mcpLegacy.StructuredJson)
                 .GetProperty("result"), legacyId, legacyActor);
-            Assert.True(Assert.IsType<JsonElement>(mcpFuture.StructuredJson)
+            Assert.True(Assert.IsType<JsonElement>(mcpFuture.Error)
                 .GetProperty("isTransient").GetBoolean());
             foreach (var revision in new[]
                      {
