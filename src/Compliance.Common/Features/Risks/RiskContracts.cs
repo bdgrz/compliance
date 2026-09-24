@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -12,11 +14,34 @@ public sealed record RiskRegistration(Uuid RiskId, string Identifier, long Revis
 public sealed record RiskDraftView(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     string Identifier, long Revision, string Status, string OwnerResolution,
     RiskDraftContent Content,
-    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt);
+    Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt)
+{
+    readonly ActorReference? _lastChangedBy;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("last_changed_by")]
+    public ActorReference LastChangedBy
+    {
+        get => _lastChangedBy ?? ActorReference.ForMember(LastChangedByMemberId,
+            LastChangedByDisplay);
+        init => _lastChangedBy = value;
+    }
+}
 
 public sealed record RiskDraftRevisionView(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     string Identifier, long Revision, RiskDraftContent Content,
-    Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt);
+    Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt)
+{
+    readonly ActorReference? _actor;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("actor")]
+    public ActorReference Actor
+    {
+        get => _actor ?? ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+        init => _actor = value;
+    }
+}
 
 [Discriminator("bdgrz.risk.draft.create", 1)]
 public sealed record CreateRiskDraft(Uuid TenantId, Uuid ProgramId, string Identifier,
@@ -49,9 +74,23 @@ public sealed record ListRiskDraftRevisions(Uuid TenantId, Uuid ProgramId, Uuid 
 [Discriminator("bdgrz.risk.draft.created", 1)]
 public sealed record RiskDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     Uuid CreateRequestId, string Identifier, RiskDraftContent Content, Uuid ActorMemberId,
-    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}
 
 [Discriminator("bdgrz.risk.draft.revised", 1)]
 public sealed record RiskDraftRevised(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long Revision, RiskDraftContent Content, Uuid ActorMemberId,
-    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent;
+    string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}

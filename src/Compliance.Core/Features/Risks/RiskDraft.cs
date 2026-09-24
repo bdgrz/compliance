@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -60,7 +61,10 @@ public sealed class RiskDraft : Aggregate
                 : Result<RiskRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The risk identifier already exists with different draft content."));
         RiskDraftCreated created = new(_tenantId, programId, Id, createRequestId,
-            normalized, clean, actorMemberId, actorDisplay, changedAt);
+            normalized, clean, actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(created,
                 ComplianceCoreJsonContext.Default.RiskDraftCreated).Length >
             MaximumDraftEventPayloadBytes)
@@ -83,7 +87,10 @@ public sealed class RiskDraft : Aggregate
         if (error is not null)
             return Result.Failure(error);
         RiskDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
-            Clean(content), actorMemberId, actorDisplay, changedAt);
+            Clean(content), actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.RiskDraftRevised).Length >
             MaximumDraftEventPayloadBytes)

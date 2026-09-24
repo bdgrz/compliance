@@ -61,11 +61,17 @@ sealed class FitzControlDraftDirectoryV2(IKvClient client)
                         created.Identifier, 1, "draft", OwnerResolution(created.Content),
                         ApplicabilityResolution(created.Content),
                         created.Content, created.ActorMemberId, created.ActorDisplay,
-                        created.ChangedAt), ct).ConfigureAwait(false);
+                        created.ChangedAt)
+                    {
+                        LastChangedBy = created.Actor,
+                    }, ct).ConfigureAwait(false);
                 await ControlDraftDirectoryV2Schema.Revisions.InsertAsync(Transaction,
                     new ControlDraftRevisionView(created.TenantId, created.ProgramId,
                         created.ControlId, created.Identifier, 1, created.Content,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        Actor = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 break;
             case ControlDraftRevised revised:
@@ -85,13 +91,17 @@ sealed class FitzControlDraftDirectoryV2(IKvClient client)
                         Content = revised.Content,
                         LastChangedByMemberId = revised.ActorMemberId,
                         LastChangedByDisplay = revised.ActorDisplay,
+                        LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);
                 await ControlDraftDirectoryV2Schema.Revisions.InsertAsync(Transaction,
                     new ControlDraftRevisionView(revised.TenantId, revised.ProgramId,
                         revised.ControlId, current.Identifier, revised.Revision,
                         revised.Content, revised.ActorMemberId, revised.ActorDisplay,
-                        revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ChangedAt)
+                    {
+                        Actor = revised.Actor,
+                    }, ct).ConfigureAwait(false);
                 break;
             case ControlDraftDiscarded discarded:
                 var discardCurrent = await ControlDraftDirectoryV2Schema.Controls.GetAsync(

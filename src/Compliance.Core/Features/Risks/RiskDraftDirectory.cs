@@ -60,11 +60,17 @@ sealed class FitzRiskDraftDirectory(IKvClient client)
                     new RiskDraftView(created.TenantId, created.ProgramId, created.RiskId,
                         created.Identifier, 1, "draft_unassessed", "unresolved",
                         created.Content, created.ActorMemberId, created.ActorDisplay,
-                        created.ChangedAt), ct).ConfigureAwait(false);
+                        created.ChangedAt)
+                    {
+                        LastChangedBy = created.Actor,
+                    }, ct).ConfigureAwait(false);
                 await RiskDraftDirectorySchema.Revisions.InsertAsync(Transaction,
                     new RiskDraftRevisionView(created.TenantId, created.ProgramId,
                         created.RiskId, created.Identifier, 1, created.Content,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        Actor = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 break;
             case RiskDraftRevised revised:
@@ -82,13 +88,17 @@ sealed class FitzRiskDraftDirectory(IKvClient client)
                         Content = revised.Content,
                         LastChangedByMemberId = revised.ActorMemberId,
                         LastChangedByDisplay = revised.ActorDisplay,
+                        LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);
                 await RiskDraftDirectorySchema.Revisions.InsertAsync(Transaction,
                     new RiskDraftRevisionView(revised.TenantId, revised.ProgramId,
                         revised.RiskId, current.Identifier, revised.Revision,
                         revised.Content, revised.ActorMemberId, revised.ActorDisplay,
-                        revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ChangedAt)
+                    {
+                        Actor = revised.Actor,
+                    }, ct).ConfigureAwait(false);
                 break;
         }
     }

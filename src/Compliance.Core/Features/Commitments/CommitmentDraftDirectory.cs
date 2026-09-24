@@ -61,13 +61,19 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         created.DraftId, created.ServiceId, created.Kind, created.Identifier,
                         1, "draft", "unverified", "unresolved", "unresolved",
                         created.Statement, created.Context, created.SourceReference,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        LastChangedBy = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 await CommitmentDraftDirectorySchema.Revisions.InsertAsync(Transaction,
                     new CommitmentDraftRevisionView(created.TenantId, created.ProgramId,
                         created.DraftId, created.ServiceId, created.Kind, created.Identifier,
                         1, created.Statement, created.Context, created.SourceReference,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        Actor = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 break;
             case CommitmentDraftRevised revised:
@@ -87,6 +93,7 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         SourceReference = revised.SourceReference,
                         LastChangedByMemberId = revised.ActorMemberId,
                         LastChangedByDisplay = revised.ActorDisplay,
+                        LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);
                 await CommitmentDraftDirectorySchema.Revisions.InsertAsync(Transaction,
@@ -94,7 +101,10 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         revised.DraftId, current.ServiceId, current.Kind, current.Identifier,
                         revised.Revision, revised.Statement, revised.Context,
                         revised.SourceReference, revised.ActorMemberId,
-                        revised.ActorDisplay, revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ActorDisplay, revised.ChangedAt)
+                    {
+                        Actor = revised.Actor,
+                    }, ct).ConfigureAwait(false);
                 break;
         }
     }

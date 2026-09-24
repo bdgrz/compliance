@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Controls;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -48,6 +49,9 @@ public sealed class ControlDraftTests
         Assert.NotNull(created);
         Assert.Null(created.Content.OwnerReference);
         Assert.Null(created.Content.Applicability);
+        // The fixture is deliberately a pre-snapshot (legacy-shape) event with no "actor".
+        Assert.Null(created.StoredActor);
+        Assert.Equal(ActorReference.ForMember(AuthorId, "Author"), created.Actor);
     }
 
     [Fact]
