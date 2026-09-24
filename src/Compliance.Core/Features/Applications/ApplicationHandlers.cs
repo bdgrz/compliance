@@ -118,11 +118,12 @@ public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
                 isTransient: true));
         var existing = await directory.GetInstanceAsync(request.TenantId,
             context.RequestId, ct).ConfigureAwait(false);
+        // A projected row may be a legacy declaration with no instance stream to replay.
         if (existing is not null)
-            return existing.TenantId == request.TenantId &&
-                   existing.SystemInstanceId == context.RequestId &&
-                   Matches(existing.ApplicationId, existing.Name, existing.Kind,
-                       existing.AccessBoundaryReference, existing.SourceIdentifier, request)
+            return DeclaredSystemInstance.IsSameDeclaration(existing.ApplicationId,
+                    existing.Name, existing.Kind, existing.AccessBoundaryReference,
+                    existing.SourceIdentifier, request.ApplicationId, request.Name,
+                    request.Kind, request.AccessBoundaryReference, request.SourceIdentifier)
                 ? Result<SystemInstanceRegistration>.Success(
                     new SystemInstanceRegistration(context.RequestId))
                 : Result<SystemInstanceRegistration>.Failure(new RequestError(
@@ -135,17 +136,6 @@ public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
                 request.AccessBoundaryReference, request.SourceIdentifier,
                 memberId, display, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }
-
-    static string? NormalizeOptional(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    static bool Matches(Uuid applicationId, string name, string kind,
-        string? accessBoundaryReference, string? sourceIdentifier,
-        DeclareSystemInstance request) =>
-        applicationId == request.ApplicationId && name == request.Name?.Trim() &&
-        kind == request.Kind?.Trim() &&
-        accessBoundaryReference == NormalizeOptional(request.AccessBoundaryReference) &&
-        sourceIdentifier == NormalizeOptional(request.SourceIdentifier);
 }
 
 public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
@@ -323,8 +313,7 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
                 isTransient: true));
         var projection = await directory.GetAsync(tenantId, applicationId, ct)
             .ConfigureAwait(false);
-        if (projection is null || projection.TenantId != tenantId ||
-            projection.ApplicationId != applicationId || projection.Revision < source.Revision)
+        if (projection is null || projection.Revision < source.Revision)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The application projection has not reached the source revision.",
                 isTransient: true));
@@ -359,7 +348,7 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
                 return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The system instance projection has not reached the source revision.",
                     isTransient: true));
-            if (projected.TenantId != tenantId || projected.ApplicationId != applicationId)
+            if (projected.ApplicationId != applicationId)
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The system instance was not found."));
         }

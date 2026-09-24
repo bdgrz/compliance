@@ -48,23 +48,30 @@ public sealed class DeclaredSystemInstance : Aggregate
                 RequestErrorKind.Validation,
                 "A system instance requires its own identity, name, kind, and a bounded boundary reference."));
 
-        var normalizedName = name.Trim();
-        var normalizedKind = kind.Trim();
-        var normalizedBoundary = NormalizeOptional(accessBoundaryReference);
-        var normalizedSource = NormalizeOptional(sourceIdentifier);
         if (_created)
-            return _applicationId == applicationId && _name == normalizedName &&
-                   _kind == normalizedKind && _accessBoundaryReference == normalizedBoundary &&
-                   _sourceIdentifier == normalizedSource
+            return IsSameDeclaration(_applicationId, _name!, _kind!, _accessBoundaryReference,
+                    _sourceIdentifier, applicationId, name, kind, accessBoundaryReference,
+                    sourceIdentifier)
                 ? Result<SystemInstanceRegistration>.Success(new SystemInstanceRegistration(Id))
                 : Result<SystemInstanceRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The system instance already exists with different content."));
 
         RaiseEvent(new SystemInstanceRegistered(_tenantId, applicationId, Id, 1,
-            normalizedName, normalizedKind, normalizedBoundary, normalizedSource,
+            name.Trim(), kind.Trim(), NormalizeOptional(accessBoundaryReference),
+            NormalizeOptional(sourceIdentifier),
             actorMemberId, actorDisplay, changedAt));
         return Result<SystemInstanceRegistration>.Success(new SystemInstanceRegistration(Id));
     }
+
+    /// <summary>Compares a recorded declaration with a requested one after normalization.</summary>
+    public static bool IsSameDeclaration(Uuid recordedApplicationId, string recordedName,
+        string recordedKind, string? recordedBoundary, string? recordedSource,
+        Uuid applicationId, string? name, string? kind, string? accessBoundaryReference,
+        string? sourceIdentifier) =>
+        recordedApplicationId == applicationId && recordedName == name?.Trim() &&
+        recordedKind == kind?.Trim() &&
+        recordedBoundary == NormalizeOptional(accessBoundaryReference) &&
+        recordedSource == NormalizeOptional(sourceIdentifier);
 
     static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
