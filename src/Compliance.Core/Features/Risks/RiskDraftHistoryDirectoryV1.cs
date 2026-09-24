@@ -46,7 +46,10 @@ sealed class FitzRiskDraftHistoryDirectoryV1(IKvClient client)
             case RiskDraftCreated created:
                 await InsertAsync(new RiskDraftRevisionView(created.TenantId, created.ProgramId,
                     created.RiskId, created.Identifier, 1, created.Content,
-                    created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                    created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                {
+                    Actor = created.Actor,
+                }, ct)
                     .ConfigureAwait(false);
                 break;
             case RiskDraftRevised revised:
@@ -63,7 +66,10 @@ sealed class FitzRiskDraftHistoryDirectoryV1(IKvClient client)
                         "A risk draft history revision cannot project before its predecessor.");
                 await InsertAsync(new RiskDraftRevisionView(revised.TenantId, revised.ProgramId,
                     revised.RiskId, previous.Identifier, revised.Revision, revised.Content,
-                    revised.ActorMemberId, revised.ActorDisplay, revised.ChangedAt), ct)
+                    revised.ActorMemberId, revised.ActorDisplay, revised.ChangedAt)
+                {
+                    Actor = revised.Actor,
+                }, ct)
                     .ConfigureAwait(false);
                 break;
         }

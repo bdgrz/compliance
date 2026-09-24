@@ -53,7 +53,10 @@ sealed class FitzControlDraftHistoryDirectoryV1(IKvClient client)
                 await ControlDraftHistoryDirectoryV1Schema.Revisions.InsertAsync(Transaction,
                     new ControlDraftRevisionView(created.TenantId, created.ProgramId,
                         created.ControlId, created.Identifier, 1, created.Content,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        Actor = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 break;
             case ControlDraftRevised revised:
@@ -73,7 +76,10 @@ sealed class FitzControlDraftHistoryDirectoryV1(IKvClient client)
                     new ControlDraftRevisionView(revised.TenantId, revised.ProgramId,
                         revised.ControlId, predecessor.Identifier, revised.Revision,
                         revised.Content, revised.ActorMemberId, revised.ActorDisplay,
-                        revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ChangedAt)
+                    {
+                        Actor = revised.Actor,
+                    }, ct).ConfigureAwait(false);
                 break;
             case ControlDraftDiscarded:
                 break;

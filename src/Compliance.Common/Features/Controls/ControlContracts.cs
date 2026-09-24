@@ -21,15 +21,31 @@ public sealed record ControlDraftView(Uuid TenantId, Uuid ProgramId, Uuid Contro
     string ApplicabilityResolution, ControlDraftContent Content,
     Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt)
 {
-    public ActorReference LastChangedBy => ActorReference.ForMember(
-        LastChangedByMemberId, LastChangedByDisplay);
+    readonly ActorReference? _lastChangedBy;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("last_changed_by")]
+    public ActorReference LastChangedBy
+    {
+        get => _lastChangedBy ?? ActorReference.ForMember(LastChangedByMemberId,
+            LastChangedByDisplay);
+        init => _lastChangedBy = value;
+    }
 }
 
 public sealed record ControlDraftRevisionView(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     string Identifier, long Revision, ControlDraftContent Content,
     Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt)
 {
-    public ActorReference Actor => ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+    readonly ActorReference? _actor;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("actor")]
+    public ActorReference Actor
+    {
+        get => _actor ?? ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+        init => _actor = value;
+    }
 }
 
 [Discriminator("bdgrz.control.draft.create", 1)]

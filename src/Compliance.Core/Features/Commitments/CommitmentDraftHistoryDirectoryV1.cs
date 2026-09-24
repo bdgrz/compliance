@@ -55,7 +55,10 @@ sealed class FitzCommitmentDraftHistoryDirectoryV1(IKvClient client)
                     new CommitmentDraftRevisionView(created.TenantId, created.ProgramId,
                         created.DraftId, created.ServiceId, created.Kind, created.Identifier,
                         1, created.Statement, created.Context, created.SourceReference,
-                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt), ct)
+                        created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
+                    {
+                        Actor = created.Actor,
+                    }, ct)
                     .ConfigureAwait(false);
                 break;
             case CommitmentDraftRevised revised:
@@ -75,7 +78,10 @@ sealed class FitzCommitmentDraftHistoryDirectoryV1(IKvClient client)
                         revised.DraftId, predecessor.ServiceId, predecessor.Kind,
                         predecessor.Identifier, revised.Revision, revised.Statement,
                         revised.Context, revised.SourceReference, revised.ActorMemberId,
-                        revised.ActorDisplay, revised.ChangedAt), ct).ConfigureAwait(false);
+                        revised.ActorDisplay, revised.ChangedAt)
+                    {
+                        Actor = revised.Actor,
+                    }, ct).ConfigureAwait(false);
                 break;
         }
     }

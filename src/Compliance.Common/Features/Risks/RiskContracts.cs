@@ -16,15 +16,31 @@ public sealed record RiskDraftView(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     RiskDraftContent Content,
     Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt)
 {
-    public ActorReference LastChangedBy => ActorReference.ForMember(
-        LastChangedByMemberId, LastChangedByDisplay);
+    readonly ActorReference? _lastChangedBy;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("last_changed_by")]
+    public ActorReference LastChangedBy
+    {
+        get => _lastChangedBy ?? ActorReference.ForMember(LastChangedByMemberId,
+            LastChangedByDisplay);
+        init => _lastChangedBy = value;
+    }
 }
 
 public sealed record RiskDraftRevisionView(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     string Identifier, long Revision, RiskDraftContent Content,
     Uuid ChangedByMemberId, string ChangedByDisplay, DateTimeOffset ChangedAt)
 {
-    public ActorReference Actor => ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+    readonly ActorReference? _actor;
+
+    /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>
+    [JsonPropertyName("actor")]
+    public ActorReference Actor
+    {
+        get => _actor ?? ActorReference.ForMember(ChangedByMemberId, ChangedByDisplay);
+        init => _actor = value;
+    }
 }
 
 [Discriminator("bdgrz.risk.draft.create", 1)]
