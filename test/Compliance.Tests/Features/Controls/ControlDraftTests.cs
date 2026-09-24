@@ -129,6 +129,8 @@ public sealed class ControlDraftTests
             Assert.IsType<RequestError>(wrongProgramResult.Error).Kind);
         Assert.Empty(stale.PendingEvents);
         Assert.Empty(wrongProgram.PendingEvents);
+        Assert.Equal(2, wrongProgram.Aggregate.Revision);
+        Assert.Equal(ProgramId, wrongProgram.Aggregate.ProgramId);
         Assert.Equal((AuthorId, "Author One", "AC-02"),
             (created.ActorMemberId, created.ActorDisplay, created.Identifier));
         Assert.Equal((nextAuthorId, "Author Two", 2L),

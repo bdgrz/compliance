@@ -21,8 +21,6 @@ public sealed class ControlDraftActorSnapshotTests
         // Arrange
         var controlId = ControlDraft.IdFor(TenantId, ProgramId, "AC-01");
         var scenario = new AggregateScenario<ControlDraft>(new ControlDraft(TenantId, controlId));
-
-        // Act
         Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Create(
             ProgramId, Uuid.CreateVersion4(), "AC-01", Content(), MemberId, "First display",
             At))).IsSuccess);
@@ -31,6 +29,8 @@ public sealed class ControlDraftActorSnapshotTests
             ProgramId, 1, Content() with { Title = "Updated review" }, MemberId, "Second display",
             At.AddMinutes(1)))).IsSuccess);
         var revised = Assert.IsType<ControlDraftRevised>(Assert.Single(scenario.PendingEvents));
+
+        // Act
         Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
             ProgramId, 2, "Withdraw draft", MemberId, "Third display",
             At.AddMinutes(2)))).IsSuccess);
