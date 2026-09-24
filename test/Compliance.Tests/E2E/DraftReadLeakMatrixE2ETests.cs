@@ -50,91 +50,58 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     $"draft-matrix-outsider-{Guid.NewGuid():N}@example.com");
                 var first = await SeedAsync(owner, "A");
                 var second = await SeedAsync(owner, "B");
-
-                // Act
-                // Assert: exhaust every populated list, including a possible empty terminal page.
-                foreach (var seed in new[] { first, second })
-                {
-                    foreach (var spec in ListSpecs(seed))
-                        await AssertHttpPagesAsync(owner, spec);
-                    foreach (var spec in ExactSpecs(seed))
-                        AssertExact(await ReadHttpAsync(owner, spec.Path), spec);
-                }
-                foreach (var spec in ListSpecs(first))
-                {
-                    var foreign = ListSpecs(second).Single(other => other.Tool == spec.Tool);
-                    await AssertHttpCursorTransplantAsync(owner, spec, foreign);
-                }
-
                 await using var mcp = await McpScenario.ConnectAsync(owner,
                     new Uri(owner.BaseAddress!, "/mcp"));
+                await using var outsiderMcp = await McpScenario.ConnectAsync(outsider,
+                    new Uri(outsider.BaseAddress!, "/mcp"));
+
+                // Act: collect every positive read, cursor transplant, and denial probe.
+                var listWalks = new List<ListWalk>();
+                var exactReads = new List<ExactRead>();
                 foreach (var seed in new[] { first, second })
                 {
                     foreach (var spec in ListSpecs(seed))
-                        await AssertMcpPagesAsync(mcp, spec);
+                    {
+                        listWalks.Add(await WalkHttpPagesAsync(owner, spec));
+                        listWalks.Add(await WalkMcpPagesAsync(mcp, spec));
+                    }
                     foreach (var spec in ExactSpecs(seed))
-                        AssertExact(await ReadToolAsync(mcp, spec.Tool, spec.Args), spec);
+                    {
+                        exactReads.Add(new(spec, "HTTP", await ReadHttpAsync(owner, spec.Path)));
+                        exactReads.Add(new(spec, "MCP",
+                            await ReadToolAsync(mcp, spec.Tool, spec.Args)));
+                    }
                 }
+                var transplants = new List<ProbeResult>();
                 foreach (var spec in ListSpecs(first))
                 {
                     var foreign = ListSpecs(second).Single(other => other.Tool == spec.Tool);
-                    await AssertMcpCursorTransplantAsync(mcp, spec, foreign);
+                    transplants.Add(await ProbeCursorTransplantAsync(owner, mcp, spec, foreign));
                 }
+                var ownerProbes = new List<ProbeResult>();
+                foreach (var probe in DenialProbes(first, second))
+                    ownerProbes.Add(await RunProbeAsync(owner, mcp, probe));
+                var outsiderProbes = new List<ProbeResult>();
+                foreach (var probe in ListSpecs(second).Select(spec => spec.AsProbe("outsider"))
+                             .Concat(ExactSpecs(second).Select(spec => spec.AsProbe("outsider"))))
+                    outsiderProbes.Add(await RunProbeAsync(outsider, outsiderMcp, probe));
 
-                // A's IDs must not resolve beneath B's program, even for a user who owns both.
-                foreach (var spec in ExactSpecs(first))
-                {
-                    var foreign = ExactSpecs(second).Single(other => other.Tool == spec.Tool);
-                    var foreignPath = foreign.Path.Replace(foreign.RecordId.ToString(),
-                        spec.RecordId.ToString(), StringComparison.Ordinal);
-                    using var denied = await owner.GetAsync(foreignPath);
-                    Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                    var foreignArgs = new Dictionary<string, object?>(foreign.Args)
-                    {
-                        [foreign.RecordField] = spec.RecordId,
-                    };
-                    _ = await mcp.When(foreign.Tool, foreignArgs).ExpectFailure("NotFound");
-                }
-                foreach (var spec in ListSpecs(first))
-                {
-                    var foreignPath = spec.Path.Replace($"/tenants/{first.TenantId}/",
-                        $"/tenants/{second.TenantId}/", StringComparison.Ordinal);
-                    using var denied = await owner.GetAsync(foreignPath);
-                    Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                    var foreignArgs = new Dictionary<string, object?>(spec.Args)
-                    {
-                        ["tenant_id"] = second.TenantId,
-                    };
-                    _ = await mcp.When(spec.Tool, foreignArgs).ExpectFailure("NotFound");
-                }
-                foreach (var spec in ListSpecs(first).Where(item => item.ParentId is not null))
-                {
-                    var foreign = ListSpecs(second).Single(other => other.Tool == spec.Tool);
-                    var foreignPath = foreign.Path.Replace(foreign.ParentId!.Value.ToString(),
-                        spec.ParentId!.Value.ToString(), StringComparison.Ordinal);
-                    using var denied = await owner.GetAsync(foreignPath);
-                    Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                    var foreignArgs = new Dictionary<string, object?>(foreign.Args)
-                    {
-                        [foreign.ParentField!] = spec.ParentId,
-                    };
-                    _ = await mcp.When(foreign.Tool, foreignArgs).ExpectFailure("NotFound");
-                }
-
-                await using var outsiderMcp = await McpScenario.ConnectAsync(outsider,
-                    new Uri(outsider.BaseAddress!, "/mcp"));
-                foreach (var spec in ListSpecs(second))
-                {
-                    using var denied = await outsider.GetAsync(spec.Path);
-                    Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                    _ = await outsiderMcp.When(spec.Tool, spec.Args).ExpectFailure("NotFound");
-                }
-                foreach (var spec in ExactSpecs(second))
-                {
-                    using var denied = await outsider.GetAsync(spec.Path);
-                    Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
-                    _ = await outsiderMcp.When(spec.Tool, spec.Args).ExpectFailure("NotFound");
-                }
+                // Assert: every populated list is exhausted, including an empty terminal page.
+                Assert.Equal(2 * 2 * 6, listWalks.Count);
+                foreach (var walk in listWalks)
+                    AssertWalk(walk);
+                Assert.Equal(2 * 2 * 6, exactReads.Count);
+                foreach (var read in exactReads)
+                    AssertExact(read);
+                foreach (var result in transplants)
+                    AssertDenied(result, HttpStatusCode.BadRequest, "Validation");
+                // A member of both tenants cannot swap tenant, program, or record IDs.
+                Assert.Equal(6 + 3 + 12 + 12, ownerProbes.Count);
+                foreach (var result in ownerProbes)
+                    AssertDenied(result, HttpStatusCode.NotFound, "NotFound");
+                Assert.Equal(12, outsiderProbes.Count);
+                foreach (var result in outsiderProbes)
+                    AssertDenied(result, HttpStatusCode.NotFound, "NotFound");
             }
         }
         finally
@@ -249,7 +216,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await WaitForHttpAsync(owner, spec.Path + "?" + minimum + "=2");
         }
         foreach (var spec in ListSpecs(seed).Where(spec => spec.ParentId is null))
-            await WaitForHttpAsync(owner, spec.Path);
+            await WaitForListAsync(owner, spec);
         return seed;
     }
 
@@ -331,69 +298,131 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         ];
     }
 
-    static async Task AssertHttpPagesAsync(HttpClient owner, ListSpec spec)
+    static IEnumerable<Probe> DenialProbes(Seed first, Seed second)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        string? cursor = null;
-        var pages = 0;
-        do
+        // A's record IDs beneath B's tenant and program.
+        foreach (var spec in ExactSpecs(first))
         {
-            Assert.True(pages++ < 20, $"HTTP cursor did not terminate: {spec.Tool}");
-            var path = spec.Path + "?limit=1" +
-                (cursor is null ? string.Empty : "&cursor=" + Uri.EscapeDataString(cursor));
-            using var response = await owner.GetAsync(path);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var page = await ReadAsync(response);
-            AssertPage(page, spec, seen);
-            cursor = page.GetProperty("next_cursor").GetString();
-        } while (cursor is not null);
-        Assert.Equal(spec.ExpectedIds.Order(StringComparer.OrdinalIgnoreCase),
-            seen.Order(StringComparer.OrdinalIgnoreCase));
+            var foreign = ExactSpecs(second).Single(other => other.Tool == spec.Tool);
+            yield return new("record-swap " + spec.Tool,
+                foreign.Path.Replace(foreign.RecordId.ToString(), spec.RecordId.ToString(),
+                    StringComparison.Ordinal),
+                foreign.Tool,
+                new Dictionary<string, object?>(foreign.Args)
+                {
+                    [foreign.RecordField] = spec.RecordId,
+                });
+        }
+        foreach (var spec in ListSpecs(first).Where(item => item.ParentId is not null))
+        {
+            var foreign = ListSpecs(second).Single(other => other.Tool == spec.Tool);
+            yield return new("record-swap " + spec.Tool,
+                foreign.Path.Replace(foreign.ParentId!.Value.ToString(),
+                    spec.ParentId!.Value.ToString(), StringComparison.Ordinal),
+                foreign.Tool,
+                new Dictionary<string, object?>(foreign.Args)
+                {
+                    [foreign.ParentField!] = spec.ParentId,
+                });
+        }
+
+        // B's tenant with A's program and record IDs; A's tenant with B's program.
+        var specs = ListSpecs(first).Select(spec => (spec.Path, spec.Tool, spec.Args))
+            .Concat(ExactSpecs(first).Select(spec => (spec.Path, spec.Tool, spec.Args)));
+        foreach (var (path, tool, args) in specs)
+        {
+            yield return new("tenant-swap " + tool,
+                path.Replace($"/tenants/{first.TenantId}/", $"/tenants/{second.TenantId}/",
+                    StringComparison.Ordinal),
+                tool,
+                new Dictionary<string, object?>(args) { ["tenant_id"] = second.TenantId });
+            yield return new("program-swap " + tool,
+                path.Replace($"/programs/{first.ProgramId}/", $"/programs/{second.ProgramId}/",
+                    StringComparison.Ordinal)
+                    .Replace($"/programs/{first.ProgramId}", $"/programs/{second.ProgramId}",
+                        StringComparison.Ordinal),
+                tool,
+                new Dictionary<string, object?>(args) { ["program_id"] = second.ProgramId });
+        }
     }
 
-    static async Task AssertMcpPagesAsync(McpScenario mcp, ListSpec spec)
+    static async Task<ProbeResult> RunProbeAsync(HttpClient client, McpScenario mcp, Probe probe)
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var response = await client.GetAsync(probe.HttpPath);
+        var httpBody = await response.Content.ReadAsStringAsync();
+        var call = await mcp.When(probe.Tool, probe.Args);
+        var structured = Assert.IsType<JsonElement>(call.StructuredJson);
+        return new(probe, response.StatusCode, httpBody, call.IsError,
+            call.IsError ? structured.GetProperty("kind").GetString() : null,
+            structured.GetRawText());
+    }
+
+    static async Task<ProbeResult> ProbeCursorTransplantAsync(HttpClient owner,
+        McpScenario mcp, ListSpec from, ListSpec to)
+    {
+        var httpCursor = (await ReadHttpAsync(owner, from.Path + "?limit=1"))
+            .GetProperty("next_cursor").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(httpCursor));
+        var fromArgs = new Dictionary<string, object?>(from.Args) { ["limit"] = 1 };
+        var mcpCursor = (await ReadToolAsync(mcp, from.Tool, fromArgs))
+            .GetProperty("next_cursor").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(mcpCursor));
+        return await RunProbeAsync(owner, mcp, new("cursor-transplant " + from.Tool,
+            to.Path + "?limit=1&cursor=" + Uri.EscapeDataString(httpCursor),
+            to.Tool,
+            new Dictionary<string, object?>(to.Args) { ["limit"] = 1, ["cursor"] = mcpCursor }));
+    }
+
+    static void AssertDenied(ProbeResult result, HttpStatusCode status, string kind)
+    {
+        Assert.True(result.HttpStatus == status,
+            $"{result.Probe.Name} HTTP {result.Probe.HttpPath} returned " +
+            $"{(int)result.HttpStatus}: {result.HttpBody}");
+        Assert.True(result.McpIsError && result.McpKind == kind,
+            $"{result.Probe.Name} MCP {result.Probe.Tool} returned {result.McpBody}");
+    }
+
+    static async Task<ListWalk> WalkHttpPagesAsync(HttpClient owner, ListSpec spec)
+    {
+        var pages = new List<JsonElement>();
         string? cursor = null;
-        var pages = 0;
         do
         {
-            Assert.True(pages++ < 20, $"MCP cursor did not terminate: {spec.Tool}");
+            Assert.True(pages.Count < 20, $"HTTP cursor did not terminate: {spec.Tool}");
+            var path = spec.Path + "?limit=1" +
+                (cursor is null ? string.Empty : "&cursor=" + Uri.EscapeDataString(cursor));
+            var page = await ReadHttpAsync(owner, path);
+            pages.Add(page);
+            cursor = page.GetProperty("next_cursor").GetString();
+        } while (cursor is not null);
+        return new(spec, "HTTP", pages);
+    }
+
+    static async Task<ListWalk> WalkMcpPagesAsync(McpScenario mcp, ListSpec spec)
+    {
+        var pages = new List<JsonElement>();
+        string? cursor = null;
+        do
+        {
+            Assert.True(pages.Count < 20, $"MCP cursor did not terminate: {spec.Tool}");
             var args = new Dictionary<string, object?>(spec.Args) { ["limit"] = 1 };
             if (cursor is not null)
                 args["cursor"] = cursor;
             var page = await ReadToolAsync(mcp, spec.Tool, args);
-            AssertPage(page, spec, seen);
+            pages.Add(page);
             cursor = page.GetProperty("next_cursor").GetString();
         } while (cursor is not null);
+        return new(spec, "MCP", pages);
+    }
+
+    static void AssertWalk(ListWalk walk)
+    {
+        var spec = walk.Spec;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var page in walk.Pages)
+            AssertPage(page, spec, seen);
         Assert.Equal(spec.ExpectedIds.Order(StringComparer.OrdinalIgnoreCase),
             seen.Order(StringComparer.OrdinalIgnoreCase));
-    }
-
-    static async Task AssertHttpCursorTransplantAsync(HttpClient owner,
-        ListSpec from, ListSpec to)
-    {
-        var first = await ReadHttpAsync(owner, from.Path + "?limit=1");
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(cursor));
-        using var response = await owner.GetAsync(to.Path + "?limit=1&cursor=" +
-            Uri.EscapeDataString(cursor));
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    static async Task AssertMcpCursorTransplantAsync(McpScenario mcp,
-        ListSpec from, ListSpec to)
-    {
-        var fromArgs = new Dictionary<string, object?>(from.Args) { ["limit"] = 1 };
-        var first = await ReadToolAsync(mcp, from.Tool, fromArgs);
-        var cursor = first.GetProperty("next_cursor").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(cursor));
-        var toArgs = new Dictionary<string, object?>(to.Args)
-        {
-            ["limit"] = 1,
-            ["cursor"] = cursor,
-        };
-        _ = await mcp.When(to.Tool, toArgs).ExpectFailure("Validation");
     }
 
     static void AssertPage(JsonElement page, ListSpec spec, HashSet<string> seen)
@@ -411,8 +440,9 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         }
     }
 
-    static void AssertExact(JsonElement view, ExactSpec spec)
+    static void AssertExact(ExactRead read)
     {
+        var (spec, view) = (read.Spec, read.View);
         Assert.Equal(spec.Seed.TenantId.ToString(), view.GetProperty("tenant_id").GetString());
         Assert.Equal(spec.Seed.ProgramId.ToString(), view.GetProperty("program_id").GetString());
         Assert.Equal(spec.RecordId.ToString(), view.GetProperty(spec.RecordField).GetString());
@@ -462,6 +492,27 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException($"Draft projection did not catch up: {path}");
+    }
+
+    static async Task WaitForListAsync(HttpClient client, ListSpec spec)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(spec.Path + "?limit=100");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var ids = (await ReadAsync(response)).GetProperty("items").EnumerateArray()
+                    .Select(item => item.GetProperty(spec.IdField).ToString())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (spec.ExpectedIds.All(ids.Contains))
+                    return;
+            }
+            else
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            await Task.Delay(250);
+        }
+        throw new TimeoutException($"Draft list did not include every seeded record: {spec.Path}");
     }
 
     static async Task<Guid> CreateProgramAsync(HttpClient owner, Guid tenantId)
@@ -520,8 +571,24 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     sealed record ListSpec(string Path, string Tool, Dictionary<string, object?> Args,
         string IdField, string[] ExpectedIds, Seed Seed, Guid? ParentId = null,
-        string? ParentField = null);
+        string? ParentField = null)
+    {
+        public Probe AsProbe(string name) => new($"{name} {Tool}", Path, Tool, Args);
+    }
 
     sealed record ExactSpec(string Path, string Tool, Dictionary<string, object?> Args,
-        Seed Seed, Guid RecordId, string RecordField, long Revision);
+        Seed Seed, Guid RecordId, string RecordField, long Revision)
+    {
+        public Probe AsProbe(string name) => new($"{name} {Tool}", Path, Tool, Args);
+    }
+
+    sealed record ListWalk(ListSpec Spec, string Transport, List<JsonElement> Pages);
+
+    sealed record ExactRead(ExactSpec Spec, string Transport, JsonElement View);
+
+    sealed record Probe(string Name, string HttpPath, string Tool,
+        Dictionary<string, object?> Args);
+
+    sealed record ProbeResult(Probe Probe, HttpStatusCode HttpStatus, string HttpBody,
+        bool McpIsError, string? McpKind, string McpBody);
 }
