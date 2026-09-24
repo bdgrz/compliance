@@ -22,6 +22,16 @@ or instance events before returning an empty or partial page. The application's
 `has_system_instances` field is eventually projected; use the instance list for a
 complete relationship read.
 
+Pending-event checks read at most 256 tenant events after the V2 checkpoint. A larger
+backlog returns a retryable conflict instead of scanning further. A historical
+instance read trusts its projected row, which carries `legacy_application_revision`;
+the parent application stream is read only when the backlog exceeds that limit and
+the row is not yet projected.
+
+Boundary and control applicability references to a committed instance that has not
+projected yet return a retryable conflict. An unknown or foreign instance ID remains a
+permanent conflict.
+
 ## Replay and deployment
 
 The `ApplicationDirectoryV2` projection rebuilds in a new Fitz namespace from the
@@ -37,5 +47,14 @@ cannot honor the new stream boundary. During V2 backfill, new declarations retur
 retryable conflict if historical instance events remain behind its checkpoint; the
 tenant-scoped identity lookup then prevents a legacy ID from being reused under a
 different application. Read clients retry transient conflicts until the V2 worker
-has caught up. Do not delete the old application event streams or the old projection
+has caught up.
+
+If an old writer was not drained and the same instance ID reaches both an
+application stream and an instance stream, the projector keeps the first row it
+sees and keeps advancing. Identical content is ignored. Different content adds
+`declaration_conflict` to the kept row's `unresolved` facts so the collision is
+visible on instance reads. The later event's application revision history is still
+recorded.
+
+Do not delete the old application event streams or the old projection
 namespace during this cutover.
