@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Programs;
 
@@ -56,8 +58,9 @@ public sealed class ComplianceProgramTests
     public async Task ShouldAttributeProgramToSessionGivenProviderClaimsAppearFirst()
     {
         // Arrange
-        await using var fixture = new StoreFixture();
+        await using var provider = Services();
         var userId = Uuid.CreateVersion4();
+        var requestId = Uuid.CreateVersion4();
         var actor = new ClaimsPrincipal(new[]
         {
             new ClaimsIdentity(new[]
@@ -73,64 +76,36 @@ public sealed class ComplianceProgramTests
                 new Claim("email", "session@example.com"),
             }, "BdgrzSession"),
         });
-        var context = new RequestContext<CreateProgram>(
-            new CreateProgram(TenantId, "SOC 2", new ProgramPlan(null, null, null, null,
-                null, null)), actor);
-        var handler = new CreateProgramHandler(fixture.Repository, TimeProvider.System);
 
         // Act
-        var result = await handler.HandleAsync(context, CancellationToken.None);
-        DomainEvent? created = null;
-        await foreach (var record in fixture.Store.ReadAsync(
-                           new ComplianceProgram(TenantId, context.RequestId).Stream, 0,
-                           CancellationToken.None))
-            created = Assert.IsType<ProgramCreated>(record.Event);
+        await Create(provider, actor, requestId, "SOC 2")
+            .ExpectSuccess(new ProgramRegistration(requestId));
+        var events = await ProgramEvents(provider, requestId);
 
         // Assert
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(created);
-        Assert.Equal(RbacIds.Member(TenantId, userId),
-            Assert.IsType<ProgramCreated>(created).ActorMemberId);
-        Assert.Equal("session@example.com", Assert.IsType<ProgramCreated>(created).ActorDisplay);
+        var created = Assert.IsType<ProgramCreated>(Assert.Single(events));
+        Assert.Equal(RbacIds.Member(TenantId, userId), created.ActorMemberId);
+        Assert.Equal("session@example.com", created.ActorDisplay);
     }
 
     [Fact]
     public async Task ShouldReturnOriginalRegistrationGivenIdenticalCreateRetry()
     {
         // Arrange
-        await using var fixture = new StoreFixture();
+        await using var provider = Services();
         var requestId = Uuid.CreateVersion4();
-        var actor = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())],
-            "BdgrzSession"));
-        var plan = new ProgramPlan(null, null, null, null, null, null);
-        var handler = new CreateProgramHandler(fixture.Repository, TimeProvider.System);
-        var original = new RequestContext<CreateProgram>(
-            new CreateProgram(TenantId, "SOC 2", plan), actor, requestId);
-        var identical = new RequestContext<CreateProgram>(
-            new CreateProgram(TenantId, " SOC 2 ", plan), actor, requestId);
-        var changed = new RequestContext<CreateProgram>(
-            new CreateProgram(TenantId, "Different", plan), actor, requestId);
+        var actor = ProgramManagementServices.Actor(Uuid.CreateVersion4());
+        var registration = new ProgramRegistration(requestId);
 
         // Act
-        var first = await handler.HandleAsync(original, CancellationToken.None);
-        var retry = await handler.HandleAsync(identical, CancellationToken.None);
-        var rejected = await handler.HandleAsync(changed, CancellationToken.None);
-        var eventCount = 0;
-        await foreach (var record in fixture.Store.ReadAsync(
-                           new ComplianceProgram(TenantId, requestId).Stream, 0,
-                           CancellationToken.None))
-        {
-            Assert.IsType<ProgramCreated>(record.Event);
-            eventCount++;
-        }
+        await Create(provider, actor, requestId, "SOC 2").ExpectSuccess(registration);
+        await Create(provider, actor, requestId, " SOC 2 ").ExpectSuccess(registration);
+        await Create(provider, actor, requestId, "Different")
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var events = await ProgramEvents(provider, requestId);
 
         // Assert
-        Assert.Equal(requestId, Assert.IsType<ProgramRegistration>(first.Value).ProgramId);
-        Assert.Equal(first.Value, retry.Value);
-        Assert.Equal(RequestErrorKind.Conflict,
-            Assert.IsType<RequestError>(rejected.Error).Kind);
-        Assert.Equal(1, eventCount);
+        Assert.IsType<ProgramCreated>(Assert.Single(events));
     }
 
     [Fact]
@@ -292,18 +267,26 @@ public sealed class ComplianceProgramTests
         Assert.Single(new AggregateScenario<ComplianceProgram>(program).PendingEvents);
     }
 
-    sealed class RequestContext<TRequest>(TRequest request, ClaimsPrincipal actor,
-        Uuid? requestId = null)
-        : IRequestContext<TRequest>
+    static ServiceProvider Services() => ProgramManagementServices.Build(
+        new RecordingPermissionAuthorizer(allowed: true),
+        portia => portia.AddRequestHandler<CreateProgramHandler>());
+
+    static RequestExpectations<ProgramRegistration> Create(IServiceProvider provider,
+        ClaimsPrincipal actor, Uuid requestId, string name) => RequestScenario.For(provider)
+        .GivenActor(actor)
+        .GivenMetadata(new RequestMetadata(requestId, requestId, null))
+        .When(new CreateProgram(TenantId, name,
+            new ProgramPlan(null, null, null, null, null, null)))
+        .ExpectAuthorized()
+        .ExpectHandled();
+
+    static async Task<List<DomainEvent>> ProgramEvents(IServiceProvider provider, Uuid programId)
     {
-        public TRequest Request { get; } = request;
-        public ClaimsPrincipal Actor => actor;
-        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-        public Uuid RequestId { get; } = requestId ?? Uuid.CreateVersion4();
-        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
-        public Uuid? CausationId => null;
-        public Uuid CauseId => RequestId;
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
-        public RequestInvocation Invocation { get; } = new DirectInvocation();
+        var events = new List<DomainEvent>();
+        await foreach (var record in provider.GetRequiredService<IEventStore>().ReadAsync(
+                           new ComplianceProgram(TenantId, programId).Stream, 0,
+                           CancellationToken.None))
+            events.Add(record.Event);
+        return events;
     }
 }
