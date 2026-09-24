@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Versioning;
@@ -152,4 +153,80 @@ public sealed class CriteriaCatalogTests
             Assert.Fail("An incomplete edition must not append a Program event.");
     }
 
+    [Fact]
+    public void ShouldIgnoreRetryGivenSameEditionAlreadySelected()
+    {
+        // Arrange
+        var editionId = CriteriaCatalog.Platform.Edition.EditionId;
+        var program = new ComplianceProgram(TenantId, ProgramId);
+        Assert.Null(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null, null),
+            MemberId, "Lead", Now));
+        Assert.Null(program.SelectCriteriaEdition(1, editionId, MemberId, "Lead", Now));
+
+        // Act
+        var retry = program.SelectCriteriaEdition(1, editionId, MemberId, "Lead", Now.AddMinutes(1));
+
+        // Assert
+        Assert.Null(retry);
+        Assert.Equal(2, program.Revision);
+        Assert.Equal(2, new AggregateScenario<ComplianceProgram>(program).PendingEvents.Count);
+    }
+
+    [Fact]
+    public async Task ShouldPersistExactEditionAndReplayRevisionGivenStoredSelections()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var first = CriteriaCatalog.Platform.Edition;
+        var second = first with { EditionId = Uuid.CreateVersion4(), EditionLabel = "test_second" };
+        var catalog = new CriteriaCatalog([first, second],
+        [
+            .. CriteriaCatalog.Platform.Entries,
+            new(second.EditionId, "CC6.1", "CC6.1", "security", "criterion", null,
+                "Test second edition."),
+        ]);
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())],
+            "BdgrzSession"));
+        var create = new CreateProgramHandler(fixture.Repository, TimeProvider.System);
+        var creation = new RequestContext<CreateProgram>(new CreateProgram(TenantId, "SOC 2",
+            new ProgramPlan(null, null, null, null, null, null)), actor);
+        Assert.True((await create.HandleAsync(creation, CancellationToken.None)).IsSuccess);
+        var programId = creation.RequestId;
+        var select = new SelectProgramCriteriaEditionHandler(fixture.Repository, catalog,
+            TimeProvider.System);
+        Task<Result> SelectAsync(long revision, Uuid editionId) => select.HandleAsync(
+            new RequestContext<SelectProgramCriteriaEdition>(
+                new SelectProgramCriteriaEdition(TenantId, programId, revision, editionId),
+                actor), CancellationToken.None).AsTask();
+
+        // Act
+        var selected = await SelectAsync(1, first.EditionId);
+        var retried = await SelectAsync(1, first.EditionId);
+        var staleRemap = await SelectAsync(1, second.EditionId);
+        var remapped = await SelectAsync(2, second.EditionId);
+        var unknown = await SelectAsync(3, Uuid.CreateVersion4());
+        var stored = new List<ProgramCriteriaEditionSelected>();
+        await foreach (var record in fixture.Store.ReadAsync(
+                           new ComplianceProgram(TenantId, programId).Stream, 0,
+                           CancellationToken.None))
+            if (record.Event is ProgramCriteriaEditionSelected selection)
+                stored.Add(selection);
+        using var wire = JsonDocument.Parse(JsonSerializer.Serialize(stored[0],
+            ComplianceCoreJsonContext.Default.ProgramCriteriaEditionSelected));
+
+        // Assert
+        Assert.True(selected.IsSuccess);
+        Assert.True(retried.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, staleRemap.Error?.Kind);
+        Assert.True(remapped.IsSuccess);
+        Assert.Equal(RequestErrorKind.Validation, unknown.Error?.Kind);
+        Assert.Collection(stored,
+            ev => Assert.Equal((2L, first.EditionId), (ev.Revision, ev.EditionId)),
+            ev => Assert.Equal((3L, second.EditionId), (ev.Revision, ev.EditionId)));
+        Assert.Equal(first.EditionId.ToString(),
+            wire.RootElement.GetProperty("edition_id").GetString());
+        Assert.Equal("member", wire.RootElement.GetProperty("actor").GetProperty("kind")
+            .GetString());
+    }
 }
