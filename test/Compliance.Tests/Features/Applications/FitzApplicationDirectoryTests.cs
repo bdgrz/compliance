@@ -61,6 +61,96 @@ public sealed class FitzApplicationDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldKeepProjectingGivenLegacyAndRegisteredEventsWithSameInstanceKey()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var instanceId = Uuid.CreateVersion4();
+        var laterId = Uuid.CreateVersion4();
+        var legacyActor = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, legacyActor, "Original", now));
+            await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
+                instanceId, 2, "Production", "production", null, "payroll-prod",
+                legacyActor, "Legacy actor", now));
+            await directory.ApplyAsync(new SystemInstanceRegistered(tenantId, applicationId,
+                instanceId, 1, "Production", "production", null, "payroll-prod",
+                Uuid.CreateVersion4(), "New writer", now.AddMinutes(1)));
+            await directory.ApplyAsync(new SystemInstanceRegistered(tenantId, applicationId,
+                laterId, 1, "Staging", "staging", null, null,
+                Uuid.CreateVersion4(), "New writer", now.AddMinutes(2)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var instance = await directory.GetInstanceAsync(tenantId, instanceId);
+        var later = await directory.GetInstanceAsync(tenantId, laterId);
+
+        // Assert
+        Assert.Equal(legacyActor, instance?.DeclaredByMemberId);
+        Assert.Equal(2, instance?.LegacyApplicationRevision);
+        Assert.DoesNotContain("declaration_conflict", instance!.Unresolved);
+        Assert.NotNull(later);
+    }
+
+    [Fact]
+    public async Task ShouldKeepFirstRowAndFlagConflictGivenDifferentContentForSameInstanceKey()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var otherApplicationId = Uuid.CreateVersion4();
+        var instanceId = Uuid.CreateVersion4();
+        var legacyActor = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, legacyActor, "Original", now));
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, otherApplicationId,
+                "Benefits", "Run benefits", null, legacyActor, "Original", now));
+            await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
+                instanceId, 2, "Production", "production", null, "payroll-prod",
+                legacyActor, "Legacy actor", now));
+            await directory.ApplyAsync(new SystemInstanceRegistered(tenantId,
+                otherApplicationId, instanceId, 1, "Other", "production", null, null,
+                Uuid.CreateVersion4(), "New writer", now.AddMinutes(1)));
+            await directory.ApplyAsync(new SystemInstanceDeclared(tenantId, applicationId,
+                instanceId, 3, "Renamed", "production", null, "payroll-prod",
+                legacyActor, "Legacy actor", now.AddMinutes(2)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var instance = await directory.GetInstanceAsync(tenantId, instanceId);
+        var other = await directory.GetAsync(tenantId, otherApplicationId);
+        var otherInstances = await directory.ListInstancesAsync(tenantId, otherApplicationId,
+            10, null);
+        var history = await directory.ListRevisionsAsync(tenantId, applicationId, 10, null);
+
+        // Assert
+        Assert.Equal(applicationId, instance?.ApplicationId);
+        Assert.Equal("Production", instance?.Name);
+        Assert.Equal(legacyActor, instance?.DeclaredByMemberId);
+        Assert.Contains("declaration_conflict", instance!.Unresolved);
+        Assert.False(other?.HasSystemInstances);
+        Assert.Empty(otherInstances.Items);
+        Assert.Equal([1L, 2L, 3L], history?.Items.Select(item => item.Revision));
+    }
+
+    [Fact]
     public async Task ShouldPreserveTenantBoundaryAndUnresolvedFactsGivenManualDeclarations()
     {
         // Arrange

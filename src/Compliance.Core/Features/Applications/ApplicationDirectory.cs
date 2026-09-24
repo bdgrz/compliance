@@ -109,13 +109,15 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     instance.AccessBoundaryReference, instance.SourceIdentifier,
                     instance.ActorMemberId, instance.ActorDisplay, instance.ChangedAt,
                     1, instance.ApplicationRevision);
-                await ApplicationDirectorySchema.Instances.InsertAsync(Transaction,
-                    declaredInstance, ct).ConfigureAwait(false);
+                var declaredAdded = await AddInstanceAsync(declaredInstance, ct)
+                    .ConfigureAwait(false);
+                var hasInstances = application.HasSystemInstances || declaredAdded;
                 var instanceView = application with
                 {
                     Revision = instance.ApplicationRevision,
-                    HasSystemInstances = true,
-                    Unresolved = Gaps(application.OwnerReference, application.Classification, true),
+                    HasSystemInstances = hasInstances,
+                    Unresolved = Gaps(application.OwnerReference, application.Classification,
+                        hasInstances),
                     LastChangedByMemberId = instance.ActorMemberId,
                     LastChangedByDisplay = instance.ActorDisplay,
                     LastChangedAt = instance.ChangedAt,
@@ -133,9 +135,8 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     registered.Kind, registered.AccessBoundaryReference,
                     registered.SourceIdentifier, registered.ActorMemberId,
                     registered.ActorDisplay, registered.ChangedAt, registered.Revision, null);
-                await ApplicationDirectorySchema.Instances.InsertAsync(Transaction,
-                    registeredInstance, ct).ConfigureAwait(false);
-                if (!parent.HasSystemInstances)
+                if (await AddInstanceAsync(registeredInstance, ct).ConfigureAwait(false) &&
+                    !parent.HasSystemInstances)
                     await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction,
                         parent, parent with
                         {
@@ -145,6 +146,34 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 break;
         }
     }
+
+    /// <summary>
+    /// Adds a new instance row. A legacy application-stream declaration and a new instance
+    /// stream can share an ID if old writers were not drained. The first projected row wins so
+    /// the tenant cursor keeps moving; different content marks that row for review.
+    /// </summary>
+    async ValueTask<bool> AddInstanceAsync(SystemInstanceView candidate, CancellationToken ct)
+    {
+        var existing = await ApplicationDirectorySchema.Instances.GetAsync(Transaction,
+            candidate.SystemInstanceId, ct).ConfigureAwait(false);
+        if (existing is null)
+        {
+            await ApplicationDirectorySchema.Instances.InsertAsync(Transaction, candidate, ct)
+                .ConfigureAwait(false);
+            return true;
+        }
+        var sameDeclaration = existing.ApplicationId == candidate.ApplicationId &&
+            existing.Name == candidate.Name && existing.Kind == candidate.Kind &&
+            existing.AccessBoundaryReference == candidate.AccessBoundaryReference &&
+            existing.SourceIdentifier == candidate.SourceIdentifier;
+        if (!sameDeclaration && !existing.Unresolved.Contains(DeclarationConflict))
+            await ApplicationDirectorySchema.Instances.ReplaceAsync(Transaction, existing,
+                existing with { Unresolved = [.. existing.Unresolved, DeclarationConflict] }, ct)
+                .ConfigureAwait(false);
+        return false;
+    }
+
+    const string DeclarationConflict = "declaration_conflict";
 
     static SystemInstanceView InstanceView(Uuid tenantId, Uuid applicationId,
         Uuid instanceId, string name, string kind, string? accessBoundaryReference,
