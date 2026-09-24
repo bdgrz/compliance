@@ -92,8 +92,8 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
             request.TenantId, request.SystemInstanceId), ct).ConfigureAwait(false);
         var exists = instance.IsCreated
             ? instance.ApplicationId == request.ApplicationId
-            : await legacy.FindAsync(request.TenantId, request.ApplicationId,
-                request.SystemInstanceId, ct).ConfigureAwait(false) is not null;
+            : await legacy.ExistsAsync(request.TenantId, request.ApplicationId,
+                request.SystemInstanceId, ct).ConfigureAwait(false);
         if (!exists)
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The system instance was not found."));

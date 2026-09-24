@@ -26,7 +26,7 @@ public sealed class SystemInstanceReadTests
         var directory = new FitzApplicationDirectory(new InMemoryKvClient());
         var events = new InMemoryEventStore();
         var consistency = new SystemInstanceReadConsistency(directory,
-            new SourceReader(source, instance), new LegacySystemInstanceSource(events), events);
+            new SourceReader(source, instance), new LegacySystemInstanceSource(directory, events), events);
         var get = new GetSystemInstanceHandler(directory, consistency);
         var list = new ListSystemInstancesHandler(directory, consistency);
         var exactRequest = new RequestContext<GetSystemInstance>(new GetSystemInstance(
@@ -74,7 +74,7 @@ public sealed class SystemInstanceReadTests
         var directory = new FitzApplicationDirectory(new InMemoryKvClient());
         var events = new InMemoryEventStore();
         var consistency = new SystemInstanceReadConsistency(directory,
-            new SourceReader(source), new LegacySystemInstanceSource(events), events);
+            new SourceReader(source), new LegacySystemInstanceSource(directory, events), events);
         var list = new ListSystemInstancesHandler(directory, consistency);
         await ProjectAsync(directory, tenantId,
             new ApplicationDeclared(tenantId, applicationId, "Payroll", "Run payroll",
@@ -137,7 +137,7 @@ public sealed class SystemInstanceReadTests
         var instanceCheckpoint = await CheckpointAfterAsync(events, tenantId);
         var handler = new ListSystemInstancesHandler(directory,
             new SystemInstanceReadConsistency(directory, new SourceReader(source),
-                new LegacySystemInstanceSource(events), events));
+                new LegacySystemInstanceSource(directory, events), events));
         var request = new RequestContext<ListSystemInstances>(new ListSystemInstances(
             tenantId, applicationId, MinimumApplicationRevision: 1), new ClaimsPrincipal());
 

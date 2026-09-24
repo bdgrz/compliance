@@ -22,7 +22,7 @@ public sealed class ApplicationListContractTests
         var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source), new LegacySystemInstanceSource(events),
+                new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
                 events));
 
         // Act
@@ -51,7 +51,7 @@ public sealed class ApplicationListContractTests
         var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source), new LegacySystemInstanceSource(events),
+                new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
                 events));
 
         // Act

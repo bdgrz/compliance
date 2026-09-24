@@ -40,7 +40,7 @@ sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
                    instance.Revision >= source.Revision;
         // Historical declarations live in application streams. The directory
         // locates their parent without rebuilding an unbounded aggregate map.
-        return await legacy.FindAsync(tenantId, instance.ApplicationId,
-            instanceId, ct).ConfigureAwait(false) is not null;
+        return await legacy.ExistsAsync(tenantId, instance.ApplicationId,
+            instanceId, ct).ConfigureAwait(false);
     }
 }

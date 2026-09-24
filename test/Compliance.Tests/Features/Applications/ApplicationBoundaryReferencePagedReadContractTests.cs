@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Fitz.Extensions;
+using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -153,7 +154,8 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         var directory = new Directory { RejectCursor = rejectCursor };
         var events = new InMemoryEventStore();
         return new Scenario(tenantId, applicationId, systemInstanceId, directory,
-            new SourceReader(source, instance), new LegacySystemInstanceSource(events),
+            new SourceReader(source, instance), new LegacySystemInstanceSource(
+                new FitzApplicationDirectory(new InMemoryKvClient()), events),
             new ApplicationBoundaryReferenceReadConsistency(directory, events));
     }
 

@@ -109,18 +109,13 @@ public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
         // The V2 projector replays old and new streams in one tenant cursor. Until
         // pending old declarations are included, a projected ID lookup cannot rule
         // out a historical identity owned by another application.
-        var checkpoint = await directory.LoadCheckpointAsync(request.TenantId, ct)
-            .ConfigureAwait(false);
-        await foreach (var pending in events.ReadAsync(EventStreamPattern.ForPattern(
-                           request.TenantId.ToString()), checkpoint.Cursor, ct)
-                           .ConfigureAwait(false))
-        {
-            if (pending.Event is SystemInstanceDeclared)
-                return Result<SystemInstanceRegistration>.Failure(new RequestError(
-                    RequestErrorKind.Conflict,
-                    "Historical system instance declarations have not finished projecting.",
-                    isTransient: true));
-        }
+        var backlog = await ApplicationDirectoryBacklog.FindAsync(directory, events,
+            request.TenantId, static ev => ev is SystemInstanceDeclared, ct).ConfigureAwait(false);
+        if (!backlog.Clear)
+            return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                "Historical system instance declarations have not finished projecting.",
+                isTransient: true));
         var existing = await directory.GetInstanceAsync(request.TenantId,
             context.RequestId, ct).ConfigureAwait(false);
         if (existing is not null)
@@ -347,9 +342,8 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
             }
             else
             {
-                var historical = await legacy.FindAsync(tenantId, applicationId,
-                    instanceId, ct).ConfigureAwait(false);
-                if (historical is null)
+                if (!await legacy.ExistsAsync(tenantId, applicationId, instanceId, ct)
+                        .ConfigureAwait(false))
                     return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                         "The system instance was not found."));
                 instanceRevision = 1;
@@ -373,18 +367,13 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
         {
             // A list has no single instance stream to inspect. The versioned projector
             // processes old application and new instance events in one tenant cursor.
-            var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct)
-                .ConfigureAwait(false);
-            await foreach (var pending in events.ReadAsync(EventStreamPattern.ForPattern(
-                               tenantId.ToString()), checkpoint.Cursor, ct).ConfigureAwait(false))
-            {
-                if (pending.Event is not (ApplicationDeclared or ApplicationRevised or
-                    SystemInstanceDeclared or SystemInstanceRegistered))
-                    continue;
+            var backlog = await ApplicationDirectoryBacklog.FindAsync(directory, events,
+                tenantId, static ev => ev is ApplicationDeclared or ApplicationRevised or
+                    SystemInstanceDeclared or SystemInstanceRegistered, ct).ConfigureAwait(false);
+            if (!backlog.Clear)
                 return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The system instance list projection has not reached the source.",
                     isTransient: true));
-            }
         }
         return Result.Success;
     }
