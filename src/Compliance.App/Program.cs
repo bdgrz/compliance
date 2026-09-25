@@ -66,6 +66,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ChangeTenantSlug>()
         .AddMcpTool<ResolveMyTenantSlug>(tool => tool.ReadOnly())
         .AddMcpTool<CreateProgram>()
+        .AddMcpTool<ListCriteriaCatalogEditions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCriteriaCatalogEdition>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCriteriaCatalogEntries>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCriteriaCatalogEntry>(tool => tool.ReadOnly())
+        .AddMcpTool<SelectProgramCriteriaEdition>(tool => tool.Idempotent())
         .AddMcpTool<CreateControlDraft>()
         .AddMcpTool<ReviseControlDraft>(tool => tool.Idempotent())
         .AddMcpTool<DiscardControlDraft>(tool => tool.Destructive())
@@ -293,6 +298,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
     app.MapPortiaPost<CreateProgram, ProgramRegistration>("/api/v1/tenants/{tenant_id}/programs")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Programs");
+    app.MapPortiaGet<ListCriteriaCatalogEditions, IReadOnlyList<CriteriaCatalogEdition>>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaGet<GetCriteriaCatalogEdition, CriteriaCatalogEdition>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaGet<ListCriteriaCatalogEntries, Page<Criterion>>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaGet<GetCriteriaCatalogEntry, Criterion>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaPut<SelectProgramCriteriaEdition>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criteria-edition")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Programs");
     app.MapPortiaPut<ReviseProgram>("/api/v1/tenants/{tenant_id}/programs/{program_id}")

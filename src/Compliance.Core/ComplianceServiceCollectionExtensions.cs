@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Criteria;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
@@ -254,6 +256,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<PreviewApplicationImportHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
+            .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
+            .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
+            .AddRequestHandler<ListCriteriaCatalogEntriesHandler>()
+            .AddRequestHandler<GetCriteriaCatalogEntryHandler>()
             .AddRequestHandler<CreateControlDraftHandler>()
             .AddRequestHandler<ReviseControlDraftHandler>()
             .AddRequestHandler<DiscardControlDraftHandler>()
@@ -274,6 +280,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRiskDraftRevisionsHandler>()
             .AddRequestHandler<GetRiskDraftRevisionHandler>()
             .AddRequestHandler<ReviseProgramHandler>()
+            .AddRequestHandler<SelectProgramCriteriaEditionHandler>()
             .AddRequestHandler<GetProgramHandler>()
             .AddRequestHandler<ListProgramsHandler>()
             .AddRequestHandler<ListProgramRevisionsHandler>()

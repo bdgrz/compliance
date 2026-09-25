@@ -17,6 +17,7 @@ public sealed record ProgramRevisionView(Uuid ProgramId, long Revision, string N
     ProgramPlan Plan, Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt)
 {
     public ActorReference Actor => ActorReference.ForMember(ActorMemberId, ActorDisplay);
+    public Uuid? CriteriaEditionId { get; init; }
 }
 
 public sealed record ProgramView(Uuid TenantId, Uuid ProgramId, string Name, string Stage,
@@ -26,6 +27,7 @@ public sealed record ProgramView(Uuid TenantId, Uuid ProgramId, string Name, str
 {
     public ActorReference LastChangedBy => ActorReference.ForMember(
         LastChangedByMemberId, LastChangedByDisplay);
+    public Uuid? CriteriaEditionId { get; init; }
 }
 
 public interface IProgramManagementRequest : IRequestBase
@@ -40,6 +42,10 @@ public sealed record CreateProgram(Uuid TenantId, string Name, ProgramPlan Plan)
 [Discriminator("bdgrz.program.revise", 1)]
 public sealed record ReviseProgram(Uuid TenantId, Uuid ProgramId, long ExpectedRevision,
     string Name, ProgramPlan Plan) : IRequest, IProgramManagementRequest, ICallable;
+
+[Discriminator("bdgrz.program.criteria.select", 1)]
+public sealed record SelectProgramCriteriaEdition(Uuid TenantId, Uuid ProgramId,
+    long ExpectedRevision, Uuid EditionId) : IRequest, IProgramManagementRequest, ICallable;
 
 [Discriminator("bdgrz.program.get", 1)]
 public sealed record GetProgram(Uuid TenantId, Uuid ProgramId, long? MinimumRevision = null)
@@ -73,6 +79,17 @@ public sealed record ProgramCreated(Uuid TenantId, Uuid ProgramId, string Name, 
 public sealed record ProgramRevised(Uuid TenantId, Uuid ProgramId, long Revision,
     string Name, ProgramPlan Plan, Uuid ActorMemberId, string ActorDisplay,
     DateTimeOffset ChangedAt) : DomainEvent
+{
+    [JsonPropertyName("actor")]
+    public ActorReference? StoredActor { get; init; }
+
+    [JsonIgnore]
+    public ActorReference Actor => StoredActor ?? ActorReference.ForMember(ActorMemberId, ActorDisplay);
+}
+
+[Discriminator("bdgrz.program.criteria.selected", 1)]
+public sealed record ProgramCriteriaEditionSelected(Uuid TenantId, Uuid ProgramId, long Revision,
+    Uuid EditionId, Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
 {
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }
