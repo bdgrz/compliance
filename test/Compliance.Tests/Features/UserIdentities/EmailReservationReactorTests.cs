@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -11,15 +10,14 @@ public sealed class EmailReservationReactorTests
     {
         // Arrange
         var owner = Uuid.CreateVersion4();
-        var bus = new RecordingRequestBus();
-        var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var scenario = new ReactorScenario().Given(
+            new UserIdentityRegistered(owner, "oidc", "subject", "person@example.com"));
 
         // Act
-        await reactor.HandleAsync(new Context(new UserIdentityRegistered(owner, "oidc", "subject", "person@example.com")),
-            CancellationToken.None);
+        await scenario.RunAsync(Reactor(scenario));
 
         // Assert
-        var request = Assert.IsType<ReserveEmail>(Assert.Single(bus.Dispatched));
+        var request = Assert.IsType<ReserveEmail>(Assert.Single(scenario.SentRequests));
         Assert.Equal(owner, request.UserId);
         Assert.Equal("person@example.com", request.EmailAddress);
     }
@@ -28,84 +26,50 @@ public sealed class EmailReservationReactorTests
     public async Task ShouldSkipReservationGivenRegistrationWithoutEmail()
     {
         // Arrange
-        var bus = new RecordingRequestBus();
-        var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var scenario = new ReactorScenario().Given(
+            new UserIdentityRegistered(Uuid.CreateVersion4(), "oidc", "subject", null));
 
         // Act
-        await reactor.HandleAsync(new Context(new UserIdentityRegistered(Uuid.CreateVersion4(), "oidc", "subject", null)),
-            CancellationToken.None);
+        await scenario.RunAsync(Reactor(scenario));
 
         // Assert
-        Assert.Empty(bus.Dispatched);
+        Assert.Empty(scenario.SentRequests);
     }
 
     [Fact]
     public async Task ShouldAllowLaterRegistrationsGivenOwnershipConflict()
     {
         // Arrange
-        var bus = new RecordingRequestBus
-        {
-            DispatchResult = Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The email address belongs to another user.")),
-        };
-        var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var scenario = new ReactorScenario()
+            .Given(new UserIdentityRegistered(Uuid.CreateVersion4(), "oidc", "subject",
+                "person@example.com"))
+            .RespondTo<ReserveEmail>(Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The email address belongs to another user.")));
 
         // Act
-        await reactor.HandleAsync(new Context(new UserIdentityRegistered(
-            Uuid.CreateVersion4(), "oidc", "subject", "person@example.com")), CancellationToken.None);
+        await scenario.RunAsync(Reactor(scenario));
 
         // Assert
-        Assert.Single(bus.Dispatched);
+        Assert.IsType<ReserveEmail>(Assert.Single(scenario.SentRequests));
     }
 
     [Fact]
     public async Task ShouldRemainRetryableGivenDispatchFailure()
     {
         // Arrange
-        var bus = new RecordingRequestBus
-        {
-            DispatchResult = Result.Failure(new RequestError(RequestErrorKind.Validation, "Unexpected failure.")),
-        };
+        var scenario = new ReactorScenario()
+            .Given(new UserIdentityRegistered(Uuid.CreateVersion4(), "oidc", "subject",
+                "person@example.com"))
+            .RespondTo<ReserveEmail>(Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "Unexpected failure.")));
 
         // Act
-        var reactor = new EmailReservationReactor(new InMemoryProjectionCheckpointStore(), bus);
+        var run = scenario.RunAsync(Reactor(scenario));
 
         // Assert
-        await Assert.ThrowsAsync<ReactionCommandFailedException>(async () =>
-            await reactor.HandleAsync(new Context(new UserIdentityRegistered(
-                Uuid.CreateVersion4(), "oidc", "subject", "person@example.com")), CancellationToken.None));
+        await Assert.ThrowsAsync<ReactionCommandFailedException>(async () => await run);
     }
 
-    sealed class RecordingRequestBus : IRequestBus
-    {
-        public List<IRequestBase> Dispatched { get; } = [];
-        public Result DispatchResult { get; init; } = Result.Success;
-        public RequestDispatchContext CreateContext(ClaimsPrincipal actor, RequestMetadata? metadata = null) =>
-            new(actor, metadata: metadata);
-        public ValueTask<Result> AuthorizeAsync(IRequestBase request, RequestDispatchContext context,
-            CancellationToken ct = default) => throw new NotSupportedException();
-        public ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context,
-            CancellationToken ct = default)
-        {
-            Dispatched.Add(request);
-            return ValueTask.FromResult(DispatchResult);
-        }
-        public ValueTask<Result<TOut>> DispatchAsync<TOut>(IRequest<TOut> request, RequestDispatchContext context,
-            CancellationToken ct = default) => throw new NotSupportedException();
-        public IAsyncEnumerable<TOut> DispatchStreamAsync<TOut>(IStreamRequest<TOut> request,
-            RequestDispatchContext context, CancellationToken ct = default) => throw new NotSupportedException();
-    }
-
-    sealed class Context(UserIdentityRegistered trigger) : IReactorContext<UserIdentityRegistered>
-    {
-        public UserIdentityRegistered Trigger { get; } = trigger;
-        public DomainEventRecord Source { get; } = new(
-            new EventStreamAddress("bdgrz", "user-identities", Uuid.CreateVersion4().ToString()),
-            trigger, 0, EventCursor.Start);
-        public ClaimsPrincipal Actor => RequestActor.System;
-        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
-        public Uuid CauseId { get; } = Uuid.CreateVersion4();
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
-    }
+    static EmailReservationReactor Reactor(ReactorScenario scenario) =>
+        new(new InMemoryProjectionCheckpointStore(), scenario.Requests);
 }
