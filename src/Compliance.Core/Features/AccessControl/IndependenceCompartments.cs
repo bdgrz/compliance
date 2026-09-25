@@ -2,39 +2,6 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-/// <summary>The practice a firm-staff engagement assignment serves (M0-D26).</summary>
-public enum EngagementPractice
-{
-    Advisory,
-    Attest,
-}
-
-/// <summary>An advisory service the firm delivered to a client, as it bears on attest independence.</summary>
-public enum AdvisoryService
-{
-    ReadinessAssessment,
-    ControlDesign,
-    ControlImplementation,
-    ControlOperation,
-}
-
-/// <summary>The independence compartment a client record belongs to.</summary>
-public enum RecordCompartment
-{
-    Shared,
-    AdvisoryWorkingNotes,
-}
-
-/// <summary>One person's assignment to one client engagement.</summary>
-public sealed record EngagementAssignment(
-    Uuid ClientTenantId,
-    Uuid EngagementId,
-    Uuid UserId,
-    EngagementPractice Practice);
-
-/// <summary>A past or ongoing advisory engagement the firm delivered to one client.</summary>
-public sealed record AdvisoryEngagementRecord(Uuid ClientTenantId, AdvisoryService Service, DateOnly? EndedOn);
-
 /// <summary>
 ///     The M0-D26 strict independence wall between advisory and attest work for one client, as in-code
 ///     rules that engagement assignment, record authorizers, and engagement acceptance apply.
