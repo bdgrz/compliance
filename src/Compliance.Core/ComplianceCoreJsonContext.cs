@@ -56,6 +56,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ApplicationDeclared))]
 [JsonSerializable(typeof(ApplicationRevised))]
 [JsonSerializable(typeof(SystemInstanceDeclared))]
+[JsonSerializable(typeof(SystemInstanceRegistered))]
 [JsonSerializable(typeof(CreateProgram))]
 [JsonSerializable(typeof(ListCriteriaCatalogEditions))]
 [JsonSerializable(typeof(GetCriteriaCatalogEdition))]
