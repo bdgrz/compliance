@@ -98,13 +98,3 @@ public sealed class ComplianceCompositionTests
         _ = services.Remove(descriptor);
     }
 }
-
-[Discriminator("bdgrz.test.authorization.unprotected", 1)]
-sealed record UnprotectedCompositionRequest : IRequest;
-
-sealed class UnprotectedCompositionRequestHandler : IRequestHandler<UnprotectedCompositionRequest>
-{
-    public ValueTask<Result> HandleAsync(
-        IRequestContext<UnprotectedCompositionRequest> context,
-        CancellationToken ct) => ValueTask.FromResult(Result.Success);
-}

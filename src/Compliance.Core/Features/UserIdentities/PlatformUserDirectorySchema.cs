@@ -3,8 +3,6 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.UserIdentities;
 
-public sealed record PlatformUserDirectoryEntry(Uuid UserId);
-
 static class PlatformUserDirectorySchema
 {
     public static readonly KvDirectory<PlatformUserDirectoryEntry, Uuid> Directory = new(
