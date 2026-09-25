@@ -79,6 +79,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.system_instance.list",
             "bdgrz.system_instance.boundary_references.list",
             "bdgrz.program.create",
+            "bdgrz.criteria.editions.list",
+            "bdgrz.criteria.edition.get",
+            "bdgrz.criteria.entries.list",
+            "bdgrz.criteria.entry.get",
+            "bdgrz.program.criteria.select",
             "bdgrz.program.revise",
             "bdgrz.program.get",
             "bdgrz.program.list",
@@ -196,6 +201,16 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.risk.draft.revise").Idempotent);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.system_instance.boundary_references.list").ReadOnly);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.criteria.editions.list", "bdgrz.criteria.edition.get",
+                     "bdgrz.criteria.entries.list", "bdgrz.criteria.entry.get",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        var selectCriteria = Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.program.criteria.select");
+        Assert.True(selectCriteria.Idempotent);
+        Assert.NotEqual(true, selectCriteria.ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.snapshot.program_scope.manifest_regenerate").ReadOnly);
 
