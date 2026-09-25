@@ -3,10 +3,6 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
 
-/// <summary>Captures the input-projection watermarks that a derived setup-work read fences.</summary>
-public sealed record ProgramSetupWorkReadFence(ProjectionCheckpoint Program,
-    ProjectionCheckpoint Boundary);
-
 /// <summary>
 /// Confirms the two tenant-scoped projections that supply setup work have reached their source
 /// before exposing a derived result.

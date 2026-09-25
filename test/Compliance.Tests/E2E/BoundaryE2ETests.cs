@@ -798,8 +798,3 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 
 // Boundary lifecycle tests exercise a fresh broker so tenant bootstrap cannot queue behind
 // the unrelated tenant histories accumulated by the rest of the broker suite.
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class BoundaryBrokerCollectionDefinition : ICollectionFixture<BrokerStackFixture>
-{
-    public const string Name = "Boundary broker e2e";
-}

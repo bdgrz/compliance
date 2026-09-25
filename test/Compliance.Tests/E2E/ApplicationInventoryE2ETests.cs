@@ -1095,9 +1095,3 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
 }
 
 // Keep inventory bootstrap timing independent of tenant history from other broker tests.
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class ApplicationInventoryBrokerCollectionDefinition
-    : ICollectionFixture<BrokerStackFixture>
-{
-    public const string Name = "Application inventory broker e2e";
-}

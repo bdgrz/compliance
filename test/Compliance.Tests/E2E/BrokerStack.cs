@@ -5,10 +5,6 @@ using System.Text.Json;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-public sealed record PortableBrokerBackupRestore(string SourceProject, string RestoredProject,
-    string SourceVolume, string RestoredVolume, string BrokerImage,
-    string RestoredBrokerImage, string EventReaderVersion, string ArchiveSha256);
-
 /// <summary>
 ///     Owns the lifecycle of the e2e-only Fitz broker + storage stack (<c>E2E/compose.yml</c>):
 ///     starts it before the first e2e test runs, waits for the broker to actually report ready
