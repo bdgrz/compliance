@@ -55,3 +55,4 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
                 RequestErrorKind.NotFound, "The system instance was not found."))
             : Result<Page<ApplicationBoundaryReferenceView>>.Success(page);
     }
+}
