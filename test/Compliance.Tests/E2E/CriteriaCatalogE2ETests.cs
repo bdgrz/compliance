@@ -159,31 +159,33 @@ public sealed class CriteriaCatalogE2ETests(BrokerStackFixture broker)
                 Assert.Equal(
                     new[] { HttpStatusCode.NoContent, HttpStatusCode.Conflict },
                     new[] { raceSelect.StatusCode, raceRevise.StatusCode }.Order());
+                var selectionExpectedRevision = 1L;
                 if (raceSelect.StatusCode == HttpStatusCode.Conflict)
                 {
                     using var afterRevise = await owner.PutAsJsonAsync(
                         programPath + "/criteria-edition",
                         new { expected_revision = 2, edition_id = editionId });
                     Assert.Equal(HttpStatusCode.NoContent, afterRevise.StatusCode);
-                }
-                else
-                {
-                    using var afterSelect = await owner.PutAsJsonAsync(programPath,
-                        new { expected_revision = 2, name = "Criteria program revised", plan });
-                    Assert.Equal(HttpStatusCode.NoContent, afterSelect.StatusCode);
+                    selectionExpectedRevision = 2;
                 }
 
                 // Act: retry the selection (HTTP and MCP) and probe invalid selections.
                 using var httpRetry = await owner.PutAsJsonAsync(programPath + "/criteria-edition",
-                    new { expected_revision = 1, edition_id = editionId });
+                    new { expected_revision = selectionExpectedRevision, edition_id = editionId });
                 _ = await mcp.When("bdgrz.program.criteria.select",
                     new Dictionary<string, object?>
                     {
                         ["tenant_id"] = tenantId,
                         ["program_id"] = programId,
-                        ["expected_revision"] = 1,
+                        ["expected_revision"] = selectionExpectedRevision,
                         ["edition_id"] = editionId,
                     }).ExpectSuccess();
+                if (raceSelect.StatusCode == HttpStatusCode.NoContent)
+                {
+                    using var afterSelect = await owner.PutAsJsonAsync(programPath,
+                        new { expected_revision = 2, name = "Criteria program revised", plan });
+                    Assert.Equal(HttpStatusCode.NoContent, afterSelect.StatusCode);
+                }
                 using var unknownEdition = await owner.PutAsJsonAsync(
                     programPath + "/criteria-edition",
                     new { expected_revision = 3, edition_id = Uuid.CreateVersion4() });
