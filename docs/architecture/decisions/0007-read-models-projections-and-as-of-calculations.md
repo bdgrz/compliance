@@ -1,11 +1,11 @@
 # Read models, projections, and as-of calculations
 
-Status: accepted for M0-A05, 2026-09-22. It records the tenant-scoped
-projection contract already exercised by Program, Boundary, draft history, and
-application boundary-reference reads, and the dedicated projection-derived-read
-spike that proves it in standalone and split API/worker hosts. M0-A01 is
-accepted; its whole-platform recovery delivery remains a separate Portia/DevOps
-gate.
+Status: accepted for M0-A05, 2026-09-22; the projection revision contract was
+added 2026-09-26. It records the tenant-scoped projection contract already
+exercised by Program, Boundary, draft history, and application
+boundary-reference reads, and the dedicated projection-derived-read spike that
+proves it in standalone and split API/worker hosts. M0-A01 is accepted; its
+whole-platform recovery delivery remains a separate Portia/DevOps gate.
 
 Decision owner: Jeff Repanich, tech lead, 2026-09-22. Product-owned
 calculation semantics and any cross-client authority remain with the owners
