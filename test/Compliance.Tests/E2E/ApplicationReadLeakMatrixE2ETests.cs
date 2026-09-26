@@ -55,6 +55,20 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     $"application-matrix-outsider-{Guid.NewGuid():N}@example.com");
                 var first = await SeedAsync(owner, "A");
                 var second = await SeedAsync(owner, "B");
+                var firstAdditionalApplication = await AddApplicationAsync(owner, first,
+                    "A additional");
+                var secondAdditionalApplication = await AddApplicationAsync(owner, second,
+                    "B additional");
+
+                foreach (var tenant in new[] { first, second })
+                {
+                    var additionalApplication = tenant == first
+                        ? firstAdditionalApplication
+                        : secondAdditionalApplication;
+                    var other = tenant == first ? second : first;
+                    await AssertApplicationPagesAsync(owner, tenant, additionalApplication,
+                        other.TenantId);
+                }
 
                 // Act
                 // Assert: every page, including a cursor carried to the other tenant,
@@ -95,6 +109,16 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 await using (var mcp = await McpScenario.ConnectAsync(owner,
                                  new Uri(owner.BaseAddress!, "/mcp")))
                 {
+                    foreach (var tenant in new[] { first, second })
+                    {
+                        var additionalApplication = tenant == first
+                            ? firstAdditionalApplication
+                            : secondAdditionalApplication;
+                        var other = tenant == first ? second : first;
+                        await AssertApplicationMcpPagesAsync(mcp, tenant,
+                            additionalApplication, other.TenantId);
+                    }
+
                     foreach (var tenant in new[] { first, second })
                     {
                         foreach (var spec in ReadSpecs(tenant))
@@ -331,6 +355,104 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             }));
         return new Seed(label, tenantId, applicationId, instances, applicationBoundaries,
             instanceBoundaries);
+    }
+
+    static async Task<Guid> AddApplicationAsync(HttpClient owner, Seed seed, string label)
+    {
+        var path = $"/api/v1/tenants/{seed.TenantId}/applications";
+        var applicationId = Guid.Parse((await PostUntilAuthorizedAsync(owner, path,
+            new { name = "Payroll " + label, purpose = "Run payroll " + label }))
+            .GetProperty("application_id").GetString()!);
+        _ = await WaitForOkAsync(() => owner.GetAsync(path + "/" + applicationId));
+        return applicationId;
+    }
+
+    static async Task AssertApplicationPagesAsync(HttpClient owner, Seed tenant,
+        Guid additionalApplication, Guid otherTenantId)
+    {
+        var path = $"/api/v1/tenants/{tenant.TenantId}/applications";
+        var seen = new HashSet<Guid>();
+        string? cursor = null;
+        var pageCount = 0;
+        do
+        {
+            Assert.True(pageCount++ < 10, "HTTP application list cursor did not terminate.");
+            using var response = await owner.GetAsync(path + "?limit=1" + (cursor is null
+                ? string.Empty
+                : "&cursor=" + Uri.EscapeDataString(cursor)));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var page = await ReadAsync(response);
+            var items = page.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Single(items);
+            foreach (var item in items)
+            {
+                Assert.Equal(tenant.TenantId.ToString(), item.GetProperty("tenant_id").GetString());
+                Assert.Contains(item.GetProperty("application_id").GetString(), new[]
+                {
+                    tenant.ApplicationId.ToString(), additionalApplication.ToString(),
+                }, StringComparer.OrdinalIgnoreCase);
+                Assert.True(seen.Add(Guid.Parse(item.GetProperty("application_id").GetString()!)));
+            }
+            cursor = page.GetProperty("next_cursor").GetString();
+        } while (cursor is not null);
+
+        Assert.Equal(new[] { tenant.ApplicationId, additionalApplication }.Order(), seen.Order());
+        using var firstPage = await owner.GetAsync(path + "?limit=1");
+        var firstPageJson = await ReadAsync(firstPage);
+        var foreignPath = $"/api/v1/tenants/{otherTenantId}/applications";
+        using var transplanted = await owner.GetAsync(foreignPath + "?limit=1&cursor=" +
+            Uri.EscapeDataString(firstPageJson.GetProperty("next_cursor").GetString()!));
+        Assert.Equal(HttpStatusCode.BadRequest, transplanted.StatusCode);
+    }
+
+    static async Task AssertApplicationMcpPagesAsync(McpScenario mcp, Seed tenant,
+        Guid additionalApplication, Guid otherTenantId)
+    {
+        var seen = new HashSet<Guid>();
+        string? cursor = null;
+        var pageCount = 0;
+        do
+        {
+            Assert.True(pageCount++ < 10, "MCP application list cursor did not terminate.");
+            var args = new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenant.TenantId,
+                ["limit"] = 1,
+            };
+            if (cursor is not null)
+                args["cursor"] = cursor;
+            var call = await mcp.When("bdgrz.application.list", args).ExpectSuccess();
+            var page = Assert.IsType<JsonElement>(call.StructuredJson)
+                .GetProperty("result");
+            var items = page.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Single(items);
+            foreach (var item in items)
+            {
+                Assert.Equal(tenant.TenantId.ToString(), item.GetProperty("tenant_id").GetString());
+                Assert.Contains(item.GetProperty("application_id").GetString(), new[]
+                {
+                    tenant.ApplicationId.ToString(), additionalApplication.ToString(),
+                }, StringComparer.OrdinalIgnoreCase);
+                Assert.True(seen.Add(Guid.Parse(item.GetProperty("application_id").GetString()!)));
+            }
+            cursor = page.GetProperty("next_cursor").GetString();
+        } while (cursor is not null);
+
+        Assert.Equal(new[] { tenant.ApplicationId, additionalApplication }.Order(), seen.Order());
+        var firstPage = await mcp.When("bdgrz.application.list", new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenant.TenantId,
+            ["limit"] = 1,
+        }).ExpectSuccess();
+        var transplantedCursor = Assert.IsType<JsonElement>(firstPage.StructuredJson)
+            .GetProperty("result").GetProperty("next_cursor").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(transplantedCursor));
+        _ = await mcp.When("bdgrz.application.list", new Dictionary<string, object?>
+        {
+            ["tenant_id"] = otherTenantId,
+            ["limit"] = 1,
+            ["cursor"] = transplantedCursor,
+        }).ExpectFailure("Validation");
     }
 
     static async Task<Guid> CreateBoundaryAsync(HttpClient owner, string path,
