@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - develop
       - main
   pull_request:
   workflow_dispatch:
@@ -65,8 +66,23 @@ jobs:
       - name: Test with real broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
 
+  promotion-source:
+    name: Promotion source
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require the repository develop branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          test "$HEAD_REF" = "develop"
+          test "$HEAD_REPOSITORY" = "$BASE_REPOSITORY"
+
   native-container:
     name: Native container ${{ matrix.platform }}
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.base_ref == 'main')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 
