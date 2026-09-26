@@ -13,6 +13,8 @@ public sealed class DeclaredApplication : Aggregate
     string? _initialPurpose;
     string? _initialOwnerReference;
     string? _initialClassification;
+    Uuid? _initialSystemOwner;
+    Uuid? _initialAccessOwner;
 
     public bool IsCreated => _created;
     public long Revision => _revision;
@@ -30,6 +32,8 @@ public sealed class DeclaredApplication : Aggregate
             _initialPurpose = ev.Purpose;
             _initialOwnerReference = ev.OwnerReference;
             _initialClassification = ev.Classification;
+            _initialSystemOwner = ev.SystemOwnerPersonId;
+            _initialAccessOwner = ev.AccessOwnerPersonId;
         });
         On<ApplicationRevised>(ev => _revision = ev.Revision);
         // Historical application-stream declarations still own their old revision numbers.
@@ -39,14 +43,17 @@ public sealed class DeclaredApplication : Aggregate
 
     public Result<ApplicationRegistration> Declare(string name, string purpose,
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
-        DateTimeOffset changedAt, string? classification = null)
+        DateTimeOffset changedAt, string? classification = null,
+        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null)
     {
         var normalizedOwner = NormalizeOptional(ownerReference);
         var normalizedClassification = NormalizeOptional(classification);
         if (_created)
             return _initialName == name?.Trim() && _initialPurpose == purpose?.Trim() &&
                    _initialOwnerReference == normalizedOwner &&
-                   _initialClassification == normalizedClassification
+                   _initialClassification == normalizedClassification &&
+                   _initialSystemOwner == systemOwnerPersonId &&
+                   _initialAccessOwner == accessOwnerPersonId
                 ? Result<ApplicationRegistration>.Success(new ApplicationRegistration(Id))
                 : Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The application already exists with different content."));
@@ -54,13 +61,15 @@ public sealed class DeclaredApplication : Aggregate
         if (validation is not null)
             return Result<ApplicationRegistration>.Failure(validation);
         RaiseEvent(new ApplicationDeclared(_tenantId, Id, name.Trim(), purpose.Trim(),
-            normalizedOwner, actorMemberId, actorDisplay, changedAt, normalizedClassification));
+            normalizedOwner, actorMemberId, actorDisplay, changedAt, normalizedClassification,
+            systemOwnerPersonId, accessOwnerPersonId));
         return Result<ApplicationRegistration>.Success(new ApplicationRegistration(Id));
     }
 
     public Result Revise(long expectedRevision, string name, string purpose,
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
-        DateTimeOffset changedAt, string? classification = null)
+        DateTimeOffset changedAt, string? classification = null,
+        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null)
     {
         var check = CheckChange(expectedRevision);
         if (check is not null)
@@ -70,7 +79,8 @@ public sealed class DeclaredApplication : Aggregate
             return Result.Failure(validation);
         RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, name.Trim(),
             purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
-            actorDisplay, changedAt, NormalizeOptional(classification)));
+            actorDisplay, changedAt, NormalizeOptional(classification), systemOwnerPersonId,
+            accessOwnerPersonId));
         return Result.Success;
     }
 

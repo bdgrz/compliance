@@ -15,10 +15,13 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 var declaredView = new ApplicationView(declared.TenantId,
                     declared.ApplicationId, 1, declared.Name, declared.Purpose,
                     declared.OwnerReference, "manual", declared.ApplicationId.ToString(),
-                    false, Gaps(declared.OwnerReference, declared.Classification, false),
+                    false, Gaps(declared.OwnerReference, declared.Classification, false,
+                        declared.SystemOwnerPersonId, declared.AccessOwnerPersonId),
                     declared.ActorMemberId, declared.ActorDisplay, declared.ChangedAt)
                 {
                     Classification = declared.Classification,
+                    SystemOwnerPersonId = declared.SystemOwnerPersonId,
+                    AccessOwnerPersonId = declared.AccessOwnerPersonId,
                 };
                 await ApplicationDirectorySchema.Applications.InsertAsync(Transaction,
                     declaredView, ct).ConfigureAwait(false);
@@ -35,8 +38,11 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     Purpose = revised.Purpose,
                     OwnerReference = revised.OwnerReference,
                     Classification = revised.Classification,
+                    SystemOwnerPersonId = revised.SystemOwnerPersonId,
+                    AccessOwnerPersonId = revised.AccessOwnerPersonId,
                     Unresolved = Gaps(revised.OwnerReference, revised.Classification,
-                        before.HasSystemInstances),
+                        before.HasSystemInstances, revised.SystemOwnerPersonId,
+                        revised.AccessOwnerPersonId),
                     LastChangedByMemberId = revised.ActorMemberId,
                     LastChangedByDisplay = revised.ActorDisplay,
                     LastChangedAt = revised.ChangedAt,
@@ -60,8 +66,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                 {
                     Revision = instance.ApplicationRevision,
                     HasSystemInstances = hasInstances,
-                    Unresolved = Gaps(application.OwnerReference, application.Classification,
-                        hasInstances),
+                    Unresolved = Gaps(application, hasInstances),
                     LastChangedByMemberId = instance.ActorMemberId,
                     LastChangedByDisplay = instance.ActorDisplay,
                     LastChangedAt = instance.ChangedAt,
@@ -85,7 +90,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                         parent, parent with
                         {
                             HasSystemInstances = true,
-                            Unresolved = Gaps(parent.OwnerReference, parent.Classification, true),
+                            Unresolved = Gaps(parent, true),
                         }, ct).ConfigureAwait(false);
                 break;
         }
@@ -145,14 +150,24 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     changeKind, systemInstance?.SystemInstanceId, systemInstance)
                 {
                     Classification = view.Classification,
+                    SystemOwnerPersonId = view.SystemOwnerPersonId,
+                    AccessOwnerPersonId = view.AccessOwnerPersonId,
                 }, ct)
             .ConfigureAwait(false);
 
-    static IReadOnlyList<string> Gaps(string? owner, string? classification, bool hasInstances) =>
+    static IReadOnlyList<string> Gaps(ApplicationView view, bool hasInstances) =>
+        Gaps(view.OwnerReference, view.Classification, hasInstances,
+            view.SystemOwnerPersonId, view.AccessOwnerPersonId);
+
+    // M0-D05: every active application names a system owner and an access owner.
+    static IReadOnlyList<string> Gaps(string? owner, string? classification, bool hasInstances,
+        Uuid? systemOwnerPersonId, Uuid? accessOwnerPersonId) =>
     [string.IsNullOrWhiteSpace(owner) ? "owner_missing" : "owner_unverified",
         string.IsNullOrWhiteSpace(classification)
             ? "classification_unresolved" : "classification_unverified",
-        hasInstances ? "access_boundary_review_pending" : "system_instances_missing"];
+        hasInstances ? "access_boundary_review_pending" : "system_instances_missing",
+        .. systemOwnerPersonId is null ? ["system_owner_missing"] : Array.Empty<string>(),
+        .. accessOwnerPersonId is null ? ["access_owner_missing"] : Array.Empty<string>()];
 
     async ValueTask<ApplicationView> RequireApplicationAsync(Uuid applicationId, CancellationToken ct) =>
         await ApplicationDirectorySchema.Applications.GetAsync(Transaction, applicationId, ct)

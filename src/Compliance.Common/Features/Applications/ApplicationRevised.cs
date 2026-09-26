@@ -6,4 +6,5 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed record ApplicationRevised(Uuid TenantId, Uuid ApplicationId, long Revision,
     string Name, string Purpose, string? OwnerReference,
     Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt,
-    string? Classification = null) : DomainEvent;
+    string? Classification = null, Uuid? SystemOwnerPersonId = null,
+    Uuid? AccessOwnerPersonId = null) : DomainEvent;

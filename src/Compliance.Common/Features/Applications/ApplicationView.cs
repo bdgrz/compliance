@@ -10,4 +10,10 @@ public sealed record ApplicationView(Uuid TenantId, Uuid ApplicationId, long Rev
     string LastChangedByDisplay, DateTimeOffset LastChangedAt)
 {
     public string? Classification { get; init; }
+
+    /// <summary>The workforce person accountable for the system (M0-D05).</summary>
+    public Uuid? SystemOwnerPersonId { get; init; }
+
+    /// <summary>The workforce person accountable for who has access (M0-D05).</summary>
+    public Uuid? AccessOwnerPersonId { get; init; }
 }

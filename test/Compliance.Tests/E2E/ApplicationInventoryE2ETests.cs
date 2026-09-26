@@ -644,6 +644,9 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
         var applicationsPath = $"/api/v1/tenants/{tenant.TenantId}/applications";
+        var peoplePath = $"/api/v1/tenants/{tenant.TenantId}/people";
+        var systemOwnerId = await RecordPersonAsync(owner, peoplePath, "System Owner");
+        var accessOwnerId = await RecordPersonAsync(owner, peoplePath, "Access Owner");
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
 
         // Act
@@ -657,6 +660,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 purpose = "Run payroll",
                 owner_reference = "Finance",
                 classification = "internal",
+                system_owner_person_id = systemOwnerId,
+                access_owner_person_id = accessOwnerId,
             });
             if (response.StatusCode == HttpStatusCode.OK)
             {
@@ -691,6 +696,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Equal(1, application.Revision);
         Assert.Equal("manual", application.SourceKind);
         Assert.Equal("internal", application.Classification);
+        Assert.Equal(systemOwnerId, application.SystemOwnerPersonId);
+        Assert.Equal(accessOwnerId, application.AccessOwnerPersonId);
         Assert.Contains("classification_unverified", application.Unresolved);
         Assert.Contains("owner_unverified", application.Unresolved);
         using (var zeroLimit = await owner.GetAsync($"{applicationsPath}?limit=0"))
@@ -729,6 +736,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 ["name"] = "Benefits",
                 ["purpose"] = "Administer benefits",
                 ["classification"] = "internal",
+                ["system_owner_person_id"] = systemOwnerId,
+                ["access_owner_person_id"] = accessOwnerId,
             }).ExpectSuccess();
             _ = await mcp.When("bdgrz.application.list", new Dictionary<string, object?>
             {
@@ -1115,6 +1124,26 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] Guid TenantId);
     sealed record ProgramRegistrationDocument(
         [property: JsonPropertyName("program_id")] Guid ProgramId);
+    static async Task<Guid> RecordPersonAsync(HttpClient owner, string peoplePath,
+        string displayName)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.PostAsJsonAsync(peoplePath,
+                new { display_name = displayName });
+            if (response.StatusCode == HttpStatusCode.OK)
+                return (await response.Content.ReadFromJsonAsync<PersonRegistrationDocument>())!
+                    .PersonId;
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new InvalidOperationException("Person recording never became authorized.");
+    }
+
+    sealed record PersonRegistrationDocument(
+        [property: JsonPropertyName("person_id")] Guid PersonId);
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] Guid BoundaryId);
     sealed record ControlRegistrationDocument(
@@ -1126,6 +1155,8 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("revision")] long Revision,
         [property: JsonPropertyName("source_kind")] string SourceKind,
         [property: JsonPropertyName("classification")] string? Classification,
+        [property: JsonPropertyName("system_owner_person_id")] Guid? SystemOwnerPersonId,
+        [property: JsonPropertyName("access_owner_person_id")] Guid? AccessOwnerPersonId,
         [property: JsonPropertyName("unresolved")] string[] Unresolved);
     sealed record ApplicationPageDocument(
         [property: JsonPropertyName("items")] ApplicationDocument[] Items,
