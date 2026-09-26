@@ -10,4 +10,5 @@ global using Bdgrz.Compliance.Features.Risks;
 global using Bdgrz.Compliance.Features.Snapshots;
 global using Bdgrz.Compliance.Features.Tenants;
 global using Bdgrz.Compliance.Features.UserIdentities;
+global using Bdgrz.Compliance.Features.Workforce;
 global using Cntryl.Fitz.Extensions;
