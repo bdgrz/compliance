@@ -82,7 +82,7 @@ jobs:
 
   native-container:
     name: Native container ${{ matrix.platform }}
-    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.base_ref == 'main')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 

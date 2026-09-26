@@ -14,9 +14,10 @@ a merge commit for the promotion so `main` retains the history of `develop`;
 topic branches continue to use squash merges.
 
 Pull requests into `develop` require `Validate` and `Dependency review`. The
-native container matrix is skipped for these pull requests. Pull requests into
-`main` also run `Promotion source`, which rejects a branch other than this
-repository's `develop` branch, and run both native container builds.
+native container matrix is skipped for develop-bound pull requests and pushes.
+Pull requests into `main` also run `Promotion source`, which rejects a branch
+other than this repository's `develop` branch, and run both native container
+builds. Pushes to `main` and manual CI dispatch also run the native matrix.
 
 ## Change workflow
 
