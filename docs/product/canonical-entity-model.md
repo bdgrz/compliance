@@ -60,6 +60,12 @@ schema, standard prose, or test corpus is copied into this catalog.
 8. Standards-compatible does not mean copying an external JSON document into
    the domain. Adapters preserve the source payload and map it to canonical
    records with attributable decisions.
+9. Manual entry alone must be sufficient to establish and maintain the
+   canonical records needed for the product's intended workflows. Discovery,
+   ingestion, and connectors are optional ways to add source observations, not
+   prerequisites or alternate domain models. The model retains observations
+   alongside governed facts and supports future correlation and reconciliation
+   without requiring a conflict-resolution policy in advance.
 
 ## Canonical entity families
 
