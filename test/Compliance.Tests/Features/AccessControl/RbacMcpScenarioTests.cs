@@ -147,7 +147,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.platform.tenant.list",
             "bdgrz.tenant-member.list",
             "bdgrz.tenant.change-slug",
-            "bdgrz.tenant-slug.resolve-mine");
+            "bdgrz.tenant-slug.resolve-mine",
+            "bdgrz.workforce.person.record",
+            "bdgrz.workforce.person.revise",
+            "bdgrz.workforce.person.get",
+            "bdgrz.workforce.person.list");
         var tools = await scenario.ListTools();
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.revision.get").ReadOnly);

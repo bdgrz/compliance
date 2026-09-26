@@ -112,6 +112,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordPerson>()
+        .AddMcpTool<RevisePerson>(tool => tool.Idempotent())
+        .AddMcpTool<GetPerson>(tool => tool.ReadOnly())
+        .AddMcpTool<ListPeople>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -417,6 +421,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
+    app.MapPortiaPost<RecordPerson, PersonRegistration>(
+            "/api/v1/tenants/{tenant_id}/people")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPut<RevisePerson>(
+            "/api/v1/tenants/{tenant_id}/people/{person_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<GetPerson, PersonView>(
+            "/api/v1/tenants/{tenant_id}/people/{person_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<ListPeople, Page<PersonView>>(
+            "/api/v1/tenants/{tenant_id}/people")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

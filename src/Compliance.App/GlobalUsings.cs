@@ -10,6 +10,7 @@ global using Bdgrz.Compliance.Features.Risks;
 global using Bdgrz.Compliance.Features.Snapshots;
 global using Bdgrz.Compliance.Features.Tenants;
 global using Bdgrz.Compliance.Features.UserIdentities;
+global using Bdgrz.Compliance.Features.Workforce;
 global using Bdgrz.Compliance.Hosting;
 global using Bdgrz.Compliance.Hosting.Health;
 global using Cntryl.Fitz.Extensions;

@@ -148,6 +148,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ICommitmentDraftHistoryDirectoryReader>(provider =>
             provider.GetRequiredService<FitzCommitmentDraftHistoryDirectoryV1>());
         services.AddScoped<CommitmentDraftHistoryReadConsistency>();
+        services.AddScoped<FitzPersonDirectory>();
+        services.AddScoped<IPersonDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzPersonDirectory>());
+        services.AddScoped<IPersonDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzPersonDirectory>());
+        services.AddScoped<PersonReadConsistency>();
         services.AddScoped<FitzRiskDraftDirectory>();
         services.AddScoped<IRiskDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzRiskDraftDirectory>());
@@ -255,6 +261,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListApplicationImportRowsHandler>()
             .AddRequestHandler<PreviewApplicationImportHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
+            .AddRequestHandler<RecordPersonHandler>()
+            .AddRequestHandler<RevisePersonHandler>()
+            .AddRequestHandler<GetPersonHandler>()
+            .AddRequestHandler<ListPeopleHandler>()
+            .AddRequestAuthorizer<WorkforceAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
             .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
@@ -365,6 +376,8 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<WorkforceGrantBackfillReactor>(
+                "WorkforceGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
@@ -388,6 +401,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<CommitmentDraftHistoryDirectoryProjectorV1>(
                 "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
+            .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
