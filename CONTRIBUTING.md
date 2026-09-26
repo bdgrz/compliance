@@ -1,5 +1,23 @@
 # Contributing
 
+## Branch and release strategy
+
+`develop` is the default integration branch. Create feature, fix, hotfix, and
+chore branches from `develop`, then open pull requests back to `develop`. Do not
+push directly to `develop` or `main`. Merge topic branches into `develop` with
+a squash merge after the required checks pass.
+
+`main` is the release branch. Promote only by opening a pull request from this
+repository's `develop` branch to `main`. The promotion must pass the regular
+validation, dependency review, and native AMD64 and ARM64 container checks. Use
+a merge commit for the promotion so `main` retains the history of `develop`;
+topic branches continue to use squash merges.
+
+Pull requests into `develop` require `Validate` and `Dependency review`. The
+native container matrix is skipped for these pull requests. Pull requests into
+`main` also run `Promotion source`, which rejects a branch other than this
+repository's `develop` branch, and run both native container builds.
+
 ## Change workflow
 
 For each validated product story or existing delivery slice entering delivery,
