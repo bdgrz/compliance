@@ -36,6 +36,24 @@ and replays retained source events into a new resource. It does not reinterpret
 or reuse the older checkpoint. A cutover keeps the prior projection readable
 until the new projection is reconciled and authorized consumers have moved.
 
+Each projection maintains a simple, deterministic, monotonically increasing
+numeric revision for its published state. The projector increments it once
+for each source event it commits through the projection, even when an event
+does not change visible rows. It commits the revision atomically with the
+read-model changes and Portia checkpoint. A read may return its projection
+revision, and a caller may request a minimum projection revision; freshness is
+established by comparing those two values, without hydrating the source
+aggregate or scanning source events just to learn whether that projection has
+advanced. The
+projection revision is distinct from an aggregate's business revision and
+Portia's opaque event cursor, which remains a resume token and must not be
+interpreted numerically.
+
+A revision is scoped to its named projection identity and rebuild generation.
+A read spanning multiple projections must check each required projection
+revision or use an immutable snapshot; one projector's counter does not prove
+that another projection or the whole tenant is current.
+
 An authorized read may be eventually consistent only when its contract does
 not promise a source revision. A read that accepts an explicit source revision
 anchor returns a transient conflict if the source has not reached that revision
