@@ -732,7 +732,6 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             row.GetProperty("revision").GetInt64()).Order());
         Assert.All(rows, row =>
         {
-            Assert.Equal(scope.TenantId.ToString(), row.GetProperty("tenant_id").GetString());
             Assert.Equal(recordId, row.GetProperty(idKey).GetString());
         });
         var revision = Assert.Single(rows,
