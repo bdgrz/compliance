@@ -23,6 +23,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
     static readonly string[] SecurityCategory = ["security"];
+    static readonly string[] ControlEvidenceDescriptions = ["Access review record"];
 
     [Theory]
     [InlineData(false)]
@@ -362,6 +363,32 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             instanceBoundaries[index] = await CreateBoundaryAsync(owner, boundaryPath,
                 "system_instance", instances[0], label);
         }
+        var controlEntryId = Guid.NewGuid();
+        var controlId = Guid.Parse((await PostUntilAuthorizedAsync(owner,
+            $"/api/v1/tenants/{tenantId}/programs/{programId}/controls", new
+            {
+                identifier = $"APP-ACCESS-{label}",
+                content = new
+                {
+                    title = $"Review Payroll {label} access",
+                    objective = $"Ensure Payroll {label} access is reviewed",
+                    description = $"Payroll {label} access is reviewed before changes are approved.",
+                    implementation_narrative = "The compliance lead reviews the access listing.",
+                    expected_evidence_descriptions = ControlEvidenceDescriptions,
+                    applicability = new[]
+                    {
+                        new
+                        {
+                            entry_id = controlEntryId,
+                            subject_type = "application",
+                            subject = $"Payroll {label}",
+                            governed_record_id = applicationId,
+                            rationale = $"The draft applies to tenant {label}'s payroll application.",
+                            unresolved = false,
+                        },
+                    },
+                },
+            })).GetProperty("control_id").GetString()!);
         await ApproveBoundaryAsync(owner, reviewer, reviewerEmail, delivery,
             tenantId, applicationId, applicationBoundaries[0]);
         await WaitForItemsAsync(owner, applicationPath + "/boundary-references", 2);
@@ -373,8 +400,8 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 expected_application_revision = 3,
                 change_kind = "retire",
             }));
-        return new Seed(label, tenantId, applicationId, instances, applicationBoundaries,
-            instanceBoundaries);
+        return new Seed(label, tenantId, applicationId, programId, controlId, controlEntryId,
+            instances, applicationBoundaries, instanceBoundaries);
     }
 
     static async Task ApproveBoundaryAsync(HttpClient owner, HttpClient reviewer,
@@ -746,9 +773,29 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             Assert.Equal($"Declared in scope for tenant {seed.Label}.",
                 item.GetProperty("rationale").GetString());
         });
+        var controlReferences = preview.GetProperty("control_draft_references")
+            .EnumerateArray().ToArray();
+        var controlReference = Assert.Single(controlReferences);
+        Assert.Equal(seed.TenantId.ToString(), controlReference.GetProperty("tenant_id").GetString());
+        Assert.Equal("application", controlReference.GetProperty("subject_type").GetString());
+        Assert.Equal(seed.ApplicationId.ToString(),
+            controlReference.GetProperty("governed_record_id").GetString());
+        Assert.Equal($"APP-ACCESS-{seed.Label}",
+            controlReference.GetProperty("identifier").GetString());
+        Assert.Equal(1, controlReference.GetProperty("revision").GetInt64());
+        Assert.Equal(seed.ProgramId.ToString(), controlReference.GetProperty("program_id").GetString());
+        Assert.Equal(seed.ControlId.ToString(), controlReference.GetProperty("control_id").GetString());
+        Assert.Equal(seed.ControlEntryId.ToString(), controlReference.GetProperty("entry_id").GetString());
+        Assert.Equal($"Payroll {seed.Label}", controlReference.GetProperty("subject").GetString());
+        Assert.Equal($"The draft applies to tenant {seed.Label}'s payroll application.",
+            controlReference.GetProperty("rationale").GetString());
         var foreign = seed.TenantId == first.TenantId ? second : first;
         Assert.DoesNotContain(references, item => foreign.ApplicationBoundaries.Contains(
             Guid.Parse(item.GetProperty("boundary_id").GetString()!)));
+        Assert.DoesNotContain(controlReferences, item => item.GetProperty("tenant_id").GetString() ==
+            foreign.TenantId.ToString());
+        Assert.DoesNotContain(controlReferences, item => item.GetProperty("control_id").GetString() ==
+            foreign.ControlId.ToString());
     }
 
     static Dictionary<string, object?> PreviewArgs(Seed seed, Guid? tenantId = null) => new()
@@ -865,8 +912,9 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>();
 
-    sealed record Seed(string Label, Guid TenantId, Guid ApplicationId, Guid[] Instances,
-        Guid[] ApplicationBoundaries, Guid[] InstanceBoundaries);
+    sealed record Seed(string Label, Guid TenantId, Guid ApplicationId, Guid ProgramId,
+        Guid ControlId, Guid ControlEntryId, Guid[] Instances, Guid[] ApplicationBoundaries,
+        Guid[] InstanceBoundaries);
 
     sealed record ReadSpec(string Path, string Tool, string IdProperty, string[] ExpectedIds,
         string Label, Guid TenantId, Guid ApplicationOrSubjectId, Dictionary<string, object?> Args,
