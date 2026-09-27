@@ -34,4 +34,6 @@ The unrelated member gets `NotFound` for all 12 of tenant B's reads over both tr
 
 `ShouldReplayControlDraftHistoryAfterWorkerRestartGivenTwoTenants` covers Control replay in split-host mode. With the worker stopped, it appends revision 3 for one Control in each tenant and verifies that minimum-revision HTTP reads remain in conflict. After restarting the same worker application, HTTP and MCP current reads and revision-history lists expose revisions 1 through 3 with the correct tenant-owned Control IDs and revision 3 content.
 
-This evidence does not cover approved versions, stopped-worker replay for commitment and risk drafts, or other draft kinds. The broader #157 inventory is in [tenant-read-leak-matrix.md](tenant-read-leak-matrix.md).
+`ShouldReplayCommitmentAndRiskDraftHistoryAfterWorkerRestartGivenTwoTenants` covers Commitment and Risk replay in split-host mode. It appends revision 3 to one record of each kind in both tenants while the worker is stopped, confirms HTTP minimum-revision reads remain in conflict, then restarts the worker under the same identity. HTTP and MCP current reads and history lists must reach revision 3 and preserve revisions 1 through 3 for each tenant-owned record.
+
+This evidence does not cover approved versions or other draft kinds. The broader #157 inventory is in [tenant-read-leak-matrix.md](tenant-read-leak-matrix.md).
