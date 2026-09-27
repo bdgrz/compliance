@@ -832,7 +832,37 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     break;
                 await Task.Delay(250);
             }
-            Assert.Equal(HttpStatusCode.OK, access);
+            if (access != HttpStatusCode.OK)
+            {
+                var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
+                var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
+                await using var diagnostics = worker.Services.CreateAsyncScope();
+                var services = diagnostics.ServiceProvider;
+                var reader = services.GetRequiredService<IAggregateReader>();
+                var tenant = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.Tenants.Tenant(tenantId));
+                var member = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.AccessControl.Member(tenantId, parsedAdministratorId));
+                var assignment = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.AccessControl.TeamMember(tenantId,
+                        administratorsTeamId, memberId));
+                var memberships = services.GetRequiredService<
+                    Bdgrz.Compliance.Features.Tenants.ITenantMembershipDirectoryReader>();
+                var isMember = await memberships.IsMemberAsync(tenantId.ToString(), parsedAdministratorId);
+                var permissions = services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IPermissionAuthorizer>();
+                var tenantAccess = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess);
+                var rbacManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
+                var programManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
+                    $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
+                    $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
+                    $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
+            }
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
             Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 
