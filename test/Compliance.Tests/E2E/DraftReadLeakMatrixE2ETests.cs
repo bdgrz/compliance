@@ -323,7 +323,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         riskCurrent.GetProperty("risk_id").GetString());
                     Assert.Equal(3, riskCurrent.GetProperty("revision").GetInt64());
                     Assert.Equal($"Risk {scope.Label} after worker restart",
-                        riskCurrent.GetProperty("title").GetString());
+                        riskCurrent.GetProperty("content").GetProperty("title").GetString());
 
                     var mcpCommitment = await ReadToolAsync(mcp, "bdgrz.commitment.draft.get",
                         new Dictionary<string, object?>
@@ -354,7 +354,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         mcpRisk.GetProperty("risk_id").GetString());
                     Assert.Equal(3, mcpRisk.GetProperty("revision").GetInt64());
                     Assert.Equal($"Risk {scope.Label} after worker restart",
-                        mcpRisk.GetProperty("title").GetString());
+                        mcpRisk.GetProperty("content").GetProperty("title").GetString());
 
                     var commitmentHistoryPath = commitmentPath +
                         "/revisions?minimum_draft_revision=3";
@@ -367,7 +367,8 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         $"Commitment {scope.Label} after worker restart");
                     AssertReplayHistory((await ReadHttpAsync(owner, riskHistoryPath))
                         .GetProperty("items").EnumerateArray().ToArray(), "risk_id",
-                        scope.Risks[0], "title", $"Risk {scope.Label} after worker restart");
+                        scope.Risks[0], "content.title",
+                        $"Risk {scope.Label} after worker restart");
 
                     var mcpCommitmentHistory = await ReadToolAsync(mcp,
                         "bdgrz.commitment.draft.revision.list", new Dictionary<string, object?>
@@ -390,7 +391,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         "statement", $"Commitment {scope.Label} after worker restart");
                     AssertReplayHistory(mcpRiskHistory.GetProperty("items")
                         .EnumerateArray().ToArray(), "risk_id", scope.Risks[0],
-                        "title", $"Risk {scope.Label} after worker restart");
+                        "content.title", $"Risk {scope.Label} after worker restart");
                 }
             }
         }
@@ -558,7 +559,10 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         Assert.All(rows, row => Assert.Equal(recordId.ToString(),
             row.GetProperty(idKey).GetString()));
         var third = Assert.Single(rows, row => row.GetProperty("revision").GetInt64() == 3);
-        Assert.Equal(expectedContent, third.GetProperty(contentKey).GetString());
+        var content = third;
+        foreach (var property in contentKey.Split('.'))
+            content = content.GetProperty(property);
+        Assert.Equal(expectedContent, content.GetString());
     }
 
     static ListSpec[] ListSpecs(Seed seed)
