@@ -56,15 +56,15 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 AssertRows(scope, mcpBoundaries.Rows, "boundary_id", scope.BoundaryIds);
 
                 var httpVersions = await ReadHttpPagesAsync(owner,
-                    boundaryPath + "/versions", 1);
+                    boundaryPath + "/versions", 2);
                 var mcpVersions = await ReadMcpPagesAsync(mcp,
                     "bdgrz.boundary.versions.list", new Dictionary<string, object?>
                     {
                         ["tenant_id"] = scope.TenantId.ToString(),
                         ["boundary_id"] = scope.BoundaryIds[0],
-                    }, 1);
-                AssertRows(scope, httpVersions.Rows, "version_id", [scope.ApprovedVersionId]);
-                AssertRows(scope, mcpVersions.Rows, "version_id", [scope.ApprovedVersionId]);
+                    }, 2);
+                AssertRows(scope, httpVersions.Rows, "version_id", scope.ApprovedVersionIds);
+                AssertRows(scope, mcpVersions.Rows, "version_id", scope.ApprovedVersionIds);
                 Assert.All(httpVersions.Rows, row =>
                     Assert.Equal("approved", row.GetProperty("status").GetString()));
                 Assert.All(mcpVersions.Rows, row =>
@@ -98,6 +98,8 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 {
                     tenantACursors.Add("boundaries", new CursorPair(
                         httpBoundaries.FirstCursor!, mcpBoundaries.FirstCursor!));
+                    tenantACursors.Add("versions", new CursorPair(
+                        httpVersions.FirstCursor!, mcpVersions.FirstCursor!));
                     tenantACursors.Add("decisions", new CursorPair(
                         httpDecisions.FirstCursor!, mcpDecisions.FirstCursor!));
                     tenantACursors.Add("snapshots", new CursorPair(
@@ -113,7 +115,8 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     {
                         Assert.Equal(scope.BoundaryIds[0], result.GetProperty("boundary_id").GetString());
                         Assert.Equal(scope.ProgramId, result.GetProperty("program_id").GetString());
-                        Assert.Equal(scope.ApprovedVersionId, result.GetProperty("latest_approved_version")
+                        Assert.Equal(scope.LatestApprovedVersionId,
+                            result.GetProperty("latest_approved_version")
                             .GetProperty("version_id").GetString());
                     });
                 await AssertReadPairAsync(owner, mcp, tenantPath + "/boundaries/" +
@@ -123,23 +126,24 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                         ["boundary_id"] = scope.BoundaryIds[1],
                     }, result => Assert.Equal(scope.DraftVersionId,
                         result.GetProperty("draft").GetProperty("version_id").GetString()));
-                await AssertReadPairAsync(owner, mcp, boundaryPath + "/versions/" +
-                    scope.ApprovedVersionId, "bdgrz.boundary.version.get",
-                    new Dictionary<string, object?>
-                    {
-                        ["tenant_id"] = scope.TenantId.ToString(),
-                        ["boundary_id"] = scope.BoundaryIds[0],
-                        ["version_id"] = scope.ApprovedVersionId,
-                    }, result => Assert.Equal(scope.ApprovedVersionId,
-                        result.GetProperty("version_id").GetString()));
+                foreach (var versionId in scope.ApprovedVersionIds)
+                    await AssertReadPairAsync(owner, mcp, boundaryPath + "/versions/" +
+                        versionId, "bdgrz.boundary.version.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId.ToString(),
+                            ["boundary_id"] = scope.BoundaryIds[0],
+                            ["version_id"] = versionId,
+                        }, result => Assert.Equal(versionId,
+                            result.GetProperty("version_id").GetString()));
                 await AssertReadPairAsync(owner, mcp, boundaryPath +
-                    "/effective-version?effective_on=2027-01-15",
+                    "/effective-version?effective_on=2027-03-15",
                     "bdgrz.boundary.version.effective.get", new Dictionary<string, object?>
                     {
                         ["tenant_id"] = scope.TenantId.ToString(),
                         ["boundary_id"] = scope.BoundaryIds[0],
-                        ["effective_on"] = "2027-01-15",
-                    }, result => Assert.Equal(scope.ApprovedVersionId,
+                        ["effective_on"] = "2027-03-15",
+                    }, result => Assert.Equal(scope.LatestApprovedVersionId,
                         result.GetProperty("version_id").GetString()));
                 foreach (var decisionId in scope.DecisionIds)
                     await AssertReadPairAsync(owner, mcp, boundaryPath + "/decisions/" +
@@ -338,6 +342,43 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 snapshotId + "/verification", static result =>
                     result.GetProperty("verified").GetBoolean());
 
+        using var successorResponse = await owner.PostAsJsonAsync(firstPath + "/successors", new
+        {
+            expected_approved_version_id = first.VersionId,
+            content = new
+            {
+                statement = marker + " approved boundary successor",
+                engagement_stage = "readiness",
+                trust_services_categories = SecurityCategory,
+                entries = Array.Empty<object>(),
+            },
+        });
+        Assert.Equal(HttpStatusCode.OK, successorResponse.StatusCode);
+        var successorVersionId = (await ReadAsync(successorResponse))
+            .GetProperty("draft_version_id").GetString()!;
+        var successorPreview = await WaitForAsync(owner, firstPath + "/drafts/" +
+            successorVersionId + "/impact-preview?expected_revision=1", static result =>
+                result.GetProperty("complete").GetBoolean());
+        var successorReviewId = await ReviewAsync(owner, reviewer, firstPath,
+            successorVersionId);
+        using (var successorApproval = await reviewer.PostAsJsonAsync(firstPath + "/drafts/" +
+                   successorVersionId + "/approvals", new
+                   {
+                       expected_revision = 1,
+                       accepted_review_decision_id = successorReviewId,
+                       effective_from = "2027-02-01",
+                       rationale = "Approved as the successor for version history isolation.",
+                       impact_digest = successorPreview.GetProperty("digest").GetString(),
+                   }))
+            Assert.Equal(HttpStatusCode.NoContent, successorApproval.StatusCode);
+        var successorView = await WaitForAsync(owner, firstPath, result =>
+            result.GetProperty("latest_approved_version").GetProperty("version_id")
+                .GetString() == successorVersionId);
+        var successorApprovalId = successorView.GetProperty("latest_decision")
+            .GetProperty("decision_id").GetString()!;
+        await WaitForPageCountAsync(owner, firstPath + "/decisions", 4);
+        await WaitForPageCountAsync(owner, firstPath + "/versions", 2);
+
         var second = await CreateBoundaryAsync(owner, tenantId, programPath,
             marker + " open draft");
         _ = await WaitForAsync(owner, TenantPath(tenantId) + "/boundaries/" +
@@ -346,7 +387,9 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 result.GetProperty("changes").GetArrayLength() > 0);
         await WaitForPageCountAsync(owner, programPath + "/boundaries", 2);
         return new TenantScope(tenantId, programId, [first.BoundaryId, second.BoundaryId],
-            first.VersionId, second.VersionId, [reviewId, approvalId], snapshots);
+            [first.VersionId, successorVersionId], successorVersionId, first.VersionId,
+            second.VersionId, [reviewId, approvalId, successorReviewId, successorApprovalId],
+            snapshots);
     }
 
     static async Task GrantReviewerAsync(HttpClient owner, HttpClient reviewer,
@@ -589,7 +632,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         Assert.Equal(scope.TenantId.ToString(), manifest.GetProperty("tenant_id").GetString());
         Assert.Equal(scope.ProgramId, manifest.GetProperty("program_id").GetString());
         Assert.Equal(scope.BoundaryIds[0], manifest.GetProperty("boundary_id").GetString());
-        Assert.Equal(scope.ApprovedVersionId,
+        Assert.Equal(scope.SnapshotVersionId,
             manifest.GetProperty("approved_boundary_version_id").GetString());
     }
 
@@ -627,17 +670,17 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 new Dictionary<string, object?>(Args()) { ["boundary_id"] = source.BoundaryIds[0] }),
             new(boundaryPath + "/versions", "bdgrz.boundary.versions.list",
                 new Dictionary<string, object?>(Args()) { ["boundary_id"] = source.BoundaryIds[0] }),
-            new(boundaryPath + "/versions/" + source.ApprovedVersionId,
+            new(boundaryPath + "/versions/" + source.LatestApprovedVersionId,
                 "bdgrz.boundary.version.get", new Dictionary<string, object?>(Args())
                 {
                     ["boundary_id"] = source.BoundaryIds[0],
-                    ["version_id"] = source.ApprovedVersionId,
+                    ["version_id"] = source.LatestApprovedVersionId,
                 }),
-            new(boundaryPath + "/effective-version?effective_on=2027-01-15",
+            new(boundaryPath + "/effective-version?effective_on=2027-03-15",
                 "bdgrz.boundary.version.effective.get", new Dictionary<string, object?>(Args())
                 {
                     ["boundary_id"] = source.BoundaryIds[0],
-                    ["effective_on"] = "2027-01-15",
+                    ["effective_on"] = "2027-03-15",
                 }),
             new(boundaryPath + "/decisions", "bdgrz.boundary.decisions.list",
                 new Dictionary<string, object?>(Args()) { ["boundary_id"] = source.BoundaryIds[0] }),
@@ -691,6 +734,14 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     ["program_id"] = scope.ProgramId,
                     ["limit"] = 1,
                 }),
+            new CursorProbe("versions", tenantPath + "/boundaries/" + scope.BoundaryIds[0] +
+                "/versions?limit=1", "bdgrz.boundary.versions.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = scope.TenantId.ToString(),
+                    ["boundary_id"] = scope.BoundaryIds[0],
+                    ["limit"] = 1,
+                }),
             new CursorProbe("decisions", tenantPath + "/boundaries/" + scope.BoundaryIds[0] +
                 "/decisions?limit=1", "bdgrz.boundary.decisions.list",
                 new Dictionary<string, object?>
@@ -735,7 +786,8 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
     }
 
     sealed record TenantScope(Uuid TenantId, string ProgramId, IReadOnlyList<string> BoundaryIds,
-        string ApprovedVersionId, string DraftVersionId, IReadOnlyList<string> DecisionIds,
+        IReadOnlyList<string> ApprovedVersionIds, string LatestApprovedVersionId,
+        string SnapshotVersionId, string DraftVersionId, IReadOnlyList<string> DecisionIds,
         IReadOnlyList<string> SnapshotIds);
 
     sealed record BoundarySeed(string BoundaryId, string VersionId);
