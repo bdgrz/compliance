@@ -33,7 +33,7 @@ public sealed class SystemBoundaryTests
         AssertFailure(missing, CommandFailureCode.MissingRecord);
         var staleDraft = AssertFailure(stale, CommandFailureCode.VersionConflict);
         Assert.Equal(VersionConflictCode.StaleDraft, staleDraft.Version?.Code);
-        Assert.Equal(VersionId, staleDraft.Version?.CurrentVersionId);
+        Assert.Equal(VersionId.ToGuid(), staleDraft.Version?.CurrentVersionId);
         Assert.Equal(1, staleDraft.Version?.CurrentRevision);
         Assert.Contains("statement", AssertFailure(invalidCurrent,
             CommandFailureCode.InvalidContent).Message, StringComparison.Ordinal);
@@ -61,7 +61,7 @@ public sealed class SystemBoundaryTests
 
         var staleDraft = AssertFailure(stale, CommandFailureCode.VersionConflict);
         Assert.Equal(2, staleDraft.Version?.CurrentRevision);
-        Assert.Equal(VersionId, staleDraft.Version?.CurrentVersionId);
+        Assert.Equal(VersionId.ToGuid(), staleDraft.Version?.CurrentVersionId);
         AssertFailure(wrongVersion, CommandFailureCode.VersionConflict);
         Assert.Collection(new AggregateScenario<SystemBoundary>(boundary).PendingEvents,
             ev =>
@@ -320,7 +320,7 @@ public sealed class SystemBoundaryTests
             Content() with { Statement = "Stale successor" }, AuthorId, "Author", Now);
         var staleVersion = AssertFailure(staleSuccessor,
             CommandFailureCode.VersionConflict);
-        Assert.Equal(successorId, staleVersion.Version?.CurrentVersionId);
+        Assert.Equal(successorId.ToGuid(), staleVersion.Version?.CurrentVersionId);
     }
 
     [Fact]
@@ -386,7 +386,7 @@ public sealed class SystemBoundaryTests
             CommandFailureCode.VersionConflict).Version?.Code);
         var staleVersion = AssertFailure(staleSuccessor,
             CommandFailureCode.VersionConflict);
-        Assert.Equal(VersionId, staleVersion.Version?.CurrentVersionId);
+        Assert.Equal(VersionId.ToGuid(), staleVersion.Version?.CurrentVersionId);
         Assert.Equal(4, new AggregateScenario<SystemBoundary>(boundary).PendingEvents.Count);
     }
 
