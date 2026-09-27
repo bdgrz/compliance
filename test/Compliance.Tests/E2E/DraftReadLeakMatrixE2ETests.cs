@@ -221,6 +221,187 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         }
     }
 
+    [Fact]
+    public async Task ShouldReplayCommitmentAndRiskDraftHistoryAfterWorkerRestartGivenTwoTenants()
+    {
+        // Arrange: seed two populated tenants and stop the projection worker.
+        var applicationName = $"commitment-risk-replay-{Guid.NewGuid():N}";
+        var worker = BuildWorker(applicationName);
+        await worker.StartAsync();
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient owner;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                owner = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+
+            using (owner)
+            {
+                await TenantInvitationE2ETests.LoginAsync(owner,
+                    $"commitment-risk-replay-owner-{Guid.NewGuid():N}@example.com");
+                var first = await SeedAsync(owner, "Commitment-Risk-A");
+                var second = await SeedAsync(owner, "Commitment-Risk-B");
+                await worker.StopAsync();
+
+                // Act: append Commitment and Risk revisions while the projector is stopped.
+                foreach (var scope in new[] { first, second })
+                {
+                    var tenantPath = $"/api/v1/tenants/{scope.TenantId}";
+                    var commitmentPath = tenantPath + $"/programs/{scope.ProgramId}/commitment-drafts/" +
+                        scope.Commitments[0];
+                    using var commitment = await owner.PutAsJsonAsync(commitmentPath, new
+                    {
+                        expected_revision = 2,
+                        statement = $"Commitment {scope.Label} after worker restart",
+                        context = "Recorded while projection worker is stopped",
+                        source_reference = "Contract section 7",
+                    });
+                    Assert.Equal(HttpStatusCode.NoContent, commitment.StatusCode);
+                    using var staleCommitment = await owner.GetAsync(commitmentPath +
+                        "?minimum_revision=3");
+                    Assert.Equal(HttpStatusCode.Conflict, staleCommitment.StatusCode);
+
+                    var riskPath = tenantPath + $"/programs/{scope.ProgramId}/risks/" +
+                        scope.Risks[0] + "/draft";
+                    using var risk = await owner.PutAsJsonAsync(riskPath, new
+                    {
+                        expected_revision = 2,
+                        title = $"Risk {scope.Label} after worker restart",
+                        scenario = "Provider outage continues while worker is stopped",
+                        potential_effect = "Service requests remain unavailable",
+                        source_note = "Observed during projection recovery test",
+                    });
+                    Assert.Equal(HttpStatusCode.NoContent, risk.StatusCode);
+                    using var staleRisk = await owner.GetAsync(riskPath + "?minimum_revision=3");
+                    Assert.Equal(HttpStatusCode.Conflict, staleRisk.StatusCode);
+                }
+
+                // Act: start a fresh worker under the same identity to resume its checkpoints.
+                var stoppedWorker = worker;
+                worker = BuildWorker(applicationName);
+                stoppedWorker.Dispose();
+                await worker.StartAsync();
+
+                // Assert: each tenant reads only its own current records and complete histories.
+                await using var mcp = await McpScenario.ConnectAsync(owner,
+                    new Uri(owner.BaseAddress!, "/mcp"));
+                foreach (var scope in new[] { first, second })
+                {
+                    var tenantPath = $"/api/v1/tenants/{scope.TenantId}";
+                    var commitmentPath = tenantPath + $"/programs/{scope.ProgramId}/commitment-drafts/" +
+                        scope.Commitments[0];
+                    var riskPath = tenantPath + $"/programs/{scope.ProgramId}/risks/" +
+                        scope.Risks[0] + "/draft";
+                    var commitmentCurrentPath = commitmentPath + "?minimum_revision=3";
+                    var riskCurrentPath = riskPath + "?minimum_revision=3";
+                    await WaitForHttpAsync(owner, commitmentCurrentPath);
+                    await WaitForHttpAsync(owner, riskCurrentPath);
+                    var commitmentCurrent = await ReadHttpAsync(owner, commitmentCurrentPath);
+                    var riskCurrent = await ReadHttpAsync(owner, riskCurrentPath);
+                    Assert.Equal(scope.TenantId.ToString(),
+                        commitmentCurrent.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.ProgramId.ToString(),
+                        commitmentCurrent.GetProperty("program_id").GetString());
+                    Assert.Equal(scope.Commitments[0].ToString(),
+                        commitmentCurrent.GetProperty("draft_id").GetString());
+                    Assert.Equal(3, commitmentCurrent.GetProperty("revision").GetInt64());
+                    Assert.Equal($"Commitment {scope.Label} after worker restart",
+                        commitmentCurrent.GetProperty("statement").GetString());
+                    Assert.Equal(scope.TenantId.ToString(),
+                        riskCurrent.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.ProgramId.ToString(),
+                        riskCurrent.GetProperty("program_id").GetString());
+                    Assert.Equal(scope.Risks[0].ToString(),
+                        riskCurrent.GetProperty("risk_id").GetString());
+                    Assert.Equal(3, riskCurrent.GetProperty("revision").GetInt64());
+                    Assert.Equal($"Risk {scope.Label} after worker restart",
+                        riskCurrent.GetProperty("content").GetProperty("title").GetString());
+
+                    var mcpCommitment = await ReadToolAsync(mcp, "bdgrz.commitment.draft.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["draft_id"] = scope.Commitments[0],
+                            ["minimum_revision"] = 3,
+                        });
+                    var mcpRisk = await ReadToolAsync(mcp, "bdgrz.risk.draft.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["risk_id"] = scope.Risks[0],
+                            ["minimum_revision"] = 3,
+                        });
+                    Assert.Equal(scope.TenantId.ToString(),
+                        mcpCommitment.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.Commitments[0].ToString(),
+                        mcpCommitment.GetProperty("draft_id").GetString());
+                    Assert.Equal(3, mcpCommitment.GetProperty("revision").GetInt64());
+                    Assert.Equal($"Commitment {scope.Label} after worker restart",
+                        mcpCommitment.GetProperty("statement").GetString());
+                    Assert.Equal(scope.TenantId.ToString(),
+                        mcpRisk.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.Risks[0].ToString(),
+                        mcpRisk.GetProperty("risk_id").GetString());
+                    Assert.Equal(3, mcpRisk.GetProperty("revision").GetInt64());
+                    Assert.Equal($"Risk {scope.Label} after worker restart",
+                        mcpRisk.GetProperty("content").GetProperty("title").GetString());
+
+                    var commitmentHistoryPath = commitmentPath +
+                        "/revisions?minimum_draft_revision=3";
+                    var riskHistoryPath = riskPath + "/revisions?minimum_risk_revision=3";
+                    await WaitForHttpAsync(owner, commitmentHistoryPath);
+                    await WaitForHttpAsync(owner, riskHistoryPath);
+                    AssertReplayHistory((await ReadHttpAsync(owner, commitmentHistoryPath))
+                        .GetProperty("items").EnumerateArray().ToArray(), "draft_id",
+                        scope.Commitments[0], "statement",
+                        $"Commitment {scope.Label} after worker restart");
+                    AssertReplayHistory((await ReadHttpAsync(owner, riskHistoryPath))
+                        .GetProperty("items").EnumerateArray().ToArray(), "risk_id",
+                        scope.Risks[0], "content.title",
+                        $"Risk {scope.Label} after worker restart");
+
+                    var mcpCommitmentHistory = await ReadToolAsync(mcp,
+                        "bdgrz.commitment.draft.revision.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["draft_id"] = scope.Commitments[0],
+                            ["minimum_draft_revision"] = 3,
+                        });
+                    var mcpRiskHistory = await ReadToolAsync(mcp,
+                        "bdgrz.risk.draft.revisions.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["risk_id"] = scope.Risks[0],
+                            ["minimum_risk_revision"] = 3,
+                        });
+                    AssertReplayHistory(mcpCommitmentHistory.GetProperty("items")
+                        .EnumerateArray().ToArray(), "draft_id", scope.Commitments[0],
+                        "statement", $"Commitment {scope.Label} after worker restart");
+                    AssertReplayHistory(mcpRiskHistory.GetProperty("items")
+                        .EnumerateArray().ToArray(), "risk_id", scope.Risks[0],
+                        "content.title", $"Risk {scope.Label} after worker restart");
+                }
+            }
+        }
+        finally
+        {
+            await worker.StopAsync();
+            worker.Dispose();
+        }
+    }
+
     static async Task<Seed> SeedAsync(HttpClient owner, string label)
     {
         using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
@@ -368,6 +549,20 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         var third = Assert.Single(rows, row => row.GetProperty("revision").GetInt64() == 3);
         Assert.Equal($"Control {scope.Label} after worker restart",
             third.GetProperty("content").GetProperty("title").GetString());
+    }
+
+    static void AssertReplayHistory(JsonElement[] rows, string idKey, Guid recordId,
+        string contentKey, string expectedContent)
+    {
+        Assert.Equal([1L, 2L, 3L], rows.Select(row =>
+            row.GetProperty("revision").GetInt64()).Order());
+        Assert.All(rows, row => Assert.Equal(recordId.ToString(),
+            row.GetProperty(idKey).GetString()));
+        var third = Assert.Single(rows, row => row.GetProperty("revision").GetInt64() == 3);
+        var content = third;
+        foreach (var property in contentKey.Split('.'))
+            content = content.GetProperty(property);
+        Assert.Equal(expectedContent, content.GetString());
     }
 
     static ListSpec[] ListSpecs(Seed seed)
