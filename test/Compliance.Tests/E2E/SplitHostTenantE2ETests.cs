@@ -160,7 +160,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
         using (var denied = await creator.GetAsync(
                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
-            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
 
         Assert.NotNull(creatorId);
         var activationLag = new TransientTenantAccessPermissionLag();
