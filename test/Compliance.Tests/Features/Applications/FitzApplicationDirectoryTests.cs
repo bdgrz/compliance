@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
@@ -18,6 +19,12 @@ public sealed class FitzApplicationDirectoryTests
         var legacyActor = Uuid.CreateVersion4();
         var metadataActor = Uuid.CreateVersion4();
         var instanceActor = Uuid.CreateVersion4();
+        var declaredSnapshot = new ActorReference("member", "former-declarer",
+            "Declarer at creation");
+        var revisedSnapshot = new ActorReference("member", "former-editor",
+            "Editor at revision");
+        var instanceSnapshot = new ActorReference("member", "former-instance-owner",
+            "Instance owner at declaration");
         var now = DateTimeOffset.UtcNow;
         var identity = new CheckpointIdentity("ApplicationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString()));
@@ -27,16 +34,25 @@ public sealed class FitzApplicationDirectoryTests
                          identity, ProjectionCheckpoint.Start)))
         {
             await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
-                "Payroll", "Run payroll", null, legacyActor, "Original", now));
+                "Payroll", "Run payroll", null, legacyActor, "Original", now)
+            {
+                StoredActor = declaredSnapshot,
+            });
             await directory.ApplyAsync(new SystemInstanceDeclared(tenantId,
                 applicationId, legacyId, 2, "Legacy", "production", null,
                 "legacy-source", legacyActor, "Legacy actor", now.AddMinutes(1)));
             await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId,
                 3, "Payroll", "Run monthly payroll", null, metadataActor,
-                "Metadata actor", now.AddMinutes(2)));
+                "Metadata actor", now.AddMinutes(2))
+            {
+                StoredActor = revisedSnapshot,
+            });
             await directory.ApplyAsync(new SystemInstanceRegistered(tenantId,
                 applicationId, newId, 1, "New", "staging", null,
-                "new-source", instanceActor, "Instance actor", now.AddMinutes(3)));
+                "new-source", instanceActor, "Instance actor", now.AddMinutes(3))
+            {
+                StoredActor = instanceSnapshot,
+            });
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
         var application = await directory.GetAsync(tenantId, applicationId);
@@ -48,13 +64,19 @@ public sealed class FitzApplicationDirectoryTests
         Assert.Equal(3, application?.Revision);
         Assert.True(application?.HasSystemInstances);
         Assert.Equal(metadataActor, application?.LastChangedByMemberId);
+        Assert.Equal(revisedSnapshot, application?.LastChangedBy);
         Assert.Equal([1L, 2L, 3L], history?.Items.Select(item => item.Revision));
+        Assert.Equal(declaredSnapshot, history?.Items[0].Actor);
+        Assert.Equal(revisedSnapshot, history?.Items[2].Actor);
         Assert.Equal("system_instance_declared", history?.Items[1].ChangeKind);
         Assert.Equal(legacyId, history?.Items[1].SystemInstanceId);
         Assert.Equal(legacyActor, legacy?.DeclaredByMemberId);
+        Assert.Equal(ActorReference.ForMember(legacyActor, "Legacy actor"),
+            legacy?.DeclaredBy);
         Assert.Equal(2, legacy?.LegacyApplicationRevision);
         Assert.Equal(1, legacy?.Revision);
         Assert.Equal(instanceActor, current?.DeclaredByMemberId);
+        Assert.Equal(instanceSnapshot, current?.DeclaredBy);
         Assert.Equal(1, current?.Revision);
         Assert.Null(current?.LegacyApplicationRevision);
         Assert.Null(await directory.GetInstanceAsync(Uuid.CreateVersion4(), newId));

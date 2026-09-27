@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -59,7 +60,10 @@ public sealed class DeclaredSystemInstance : Aggregate
         RaiseEvent(new SystemInstanceRegistered(_tenantId, applicationId, Id, 1,
             name.Trim(), kind.Trim(), NormalizeOptional(accessBoundaryReference),
             NormalizeOptional(sourceIdentifier),
-            actorMemberId, actorDisplay, changedAt));
+            actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result<SystemInstanceRegistration>.Success(new SystemInstanceRegistration(Id));
     }
 

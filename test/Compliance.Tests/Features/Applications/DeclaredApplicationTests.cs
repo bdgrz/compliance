@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -43,8 +44,13 @@ public sealed class DeclaredApplicationTests
             StringComparison.Ordinal);
         Assert.True(current.IsSuccess);
         Assert.Equal(4, application.Revision);
-        Assert.Equal(4, Assert.IsType<ApplicationRevised>(Assert.Single(
-            new AggregateScenario<DeclaredApplication>(application).PendingEvents)).Revision);
+        var revisedEvent = Assert.IsType<ApplicationRevised>(Assert.Single(
+            new AggregateScenario<DeclaredApplication>(application).PendingEvents));
+        Assert.Equal(4, revisedEvent.Revision);
+        Assert.Equal(ActorReference.ForMember(actorId, "Manager"),
+            revisedEvent.StoredActor);
+        Assert.Equal(actorId.ToString(), revisedEvent.Actor.Id);
+        Assert.Equal("Manager", revisedEvent.Actor.Display);
     }
 
     [Fact]
@@ -62,7 +68,9 @@ public sealed class DeclaredApplicationTests
         // Assert
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(missingPurpose.Error).Kind);
         Assert.True(created.IsSuccess);
-        Assert.Single(new AggregateScenario<DeclaredApplication>(application).PendingEvents);
+        var createdEvent = Assert.IsType<ApplicationDeclared>(Assert.Single(
+            new AggregateScenario<DeclaredApplication>(application).PendingEvents));
+        Assert.Equal(ActorReference.ForMember(actorId, "Manager"), createdEvent.StoredActor);
     }
 
     [Fact]

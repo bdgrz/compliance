@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -62,7 +63,10 @@ public sealed class DeclaredApplication : Aggregate
             return Result<ApplicationRegistration>.Failure(validation);
         RaiseEvent(new ApplicationDeclared(_tenantId, Id, name.Trim(), purpose.Trim(),
             normalizedOwner, actorMemberId, actorDisplay, changedAt, normalizedClassification,
-            systemOwnerPersonId, accessOwnerPersonId));
+            systemOwnerPersonId, accessOwnerPersonId)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result<ApplicationRegistration>.Success(new ApplicationRegistration(Id));
     }
 
@@ -80,7 +84,10 @@ public sealed class DeclaredApplication : Aggregate
         RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, name.Trim(),
             purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
             actorDisplay, changedAt, NormalizeOptional(classification), systemOwnerPersonId,
-            accessOwnerPersonId));
+            accessOwnerPersonId)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return Result.Success;
     }
 
