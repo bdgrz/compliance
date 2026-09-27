@@ -88,9 +88,16 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
 
                 var roleTeams = await WaitForPageAsync(owner, roleTeamsPath,
-                    page => Ids(page, "team_id").Contains(scope.AdministratorsTeamId));
+                    page => scope.RoleTeamIds.All(id => Ids(page, "team_id").Contains(id)));
                 Assert.Contains(scope.AdministratorsTeamId, Ids(roleTeams, "team_id"));
                 Assert.All(Ids(roleTeams, "role_id"),
+                    roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
+                var roleTeamPages = await ReadAllHttpPagesAsync(owner,
+                    roleTeamsPath + "?limit=1");
+                Assert.True(roleTeamPages.Count >= 2);
+                AssertIds(scope.RoleTeamIds,
+                    roleTeamPages.SelectMany(page => Ids(page, "team_id")).ToArray());
+                Assert.All(roleTeamPages.SelectMany(page => Ids(page, "role_id")),
                     roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
                 Assert.Contains(scope.AdministratorsTeamId, Ids(await ReadHttpPageAsync(owner,
                     roleTeamsPath + "?search=" + scope.AdministratorsTeamId[..8]), "team_id"));
@@ -103,6 +110,14 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 scopeA.AdministrationRoleId + "/permissions");
             await AssertEmptyHttpPageAsync(owner, TenantPath(tenantB) + "/roles/" +
                 scopeA.AdministrationRoleId + "/teams");
+            var roleTeamCursor = await ReadHttpPageAsync(owner,
+                TenantPath(tenantA) + "/roles/" + scopeA.AdministrationRoleId + "/teams?limit=1");
+            var cursorAForRoleTeams = roleTeamCursor.GetProperty("next_cursor").GetString();
+            Assert.NotNull(cursorAForRoleTeams);
+            using (var foreignRoleTeamCursor = await owner.GetAsync(TenantPath(tenantB) +
+                       "/roles/" + scopeB.AdministrationRoleId + "/teams?limit=1&cursor=" +
+                       Uri.EscapeDataString(cursorAForRoleTeams)))
+                Assert.Equal(HttpStatusCode.BadRequest, foreignRoleTeamCursor.StatusCode);
 
             await using (var mcp = await McpScenario.ConnectAsync(owner,
                              new Uri(owner.BaseAddress!, "/mcp")))
@@ -141,6 +156,27 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                             ["search"] = scope.AdministratorsTeamId[..8],
                         });
                     Assert.Contains(scope.AdministratorsTeamId, Ids(roleTeams, "team_id"));
+                    var roleTeamPages = await ReadAllMcpPagesAsync(mcp,
+                        "bdgrz.rbac.role-team.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["role_id"] = scope.AdministrationRoleId,
+                            ["limit"] = 1,
+                        });
+                    Assert.True(roleTeamPages.Count >= 2);
+                    AssertIds(scope.RoleTeamIds,
+                        roleTeamPages.SelectMany(page => Ids(page, "team_id")).ToArray());
+                    Assert.All(roleTeamPages.SelectMany(page => Ids(page, "role_id")),
+                        roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
+                    if (scope == scopeA)
+                        _ = await mcp.When("bdgrz.rbac.role-team.list",
+                            new Dictionary<string, object?>
+                            {
+                                ["tenant_id"] = scopeB.TenantId.ToString(),
+                                ["role_id"] = scopeB.AdministrationRoleId,
+                                ["limit"] = 1,
+                                ["cursor"] = roleTeamPages[0].GetProperty("next_cursor").GetString(),
+                            }).ExpectFailure("Validation");
                 }
                 foreach (var (tool, parentKey, parentId) in new[]
                          {
@@ -402,13 +438,17 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 new { name = namePrefix + "-team-" + index });
             await PostUntilNoContentAsync(owner, rolesPath + "/" + roleIds[index],
                 new { name = namePrefix + "-role-" + index });
+            await PostUntilNoContentAsync(owner,
+                teamsPath + "/" + teamIds[index] + "/roles/" + administrationRole, new { });
         }
         _ = await WaitForPageAsync(owner, teamsPath + "?search=Matrix",
             page => Ids(page, "team_id").Length == 2);
         _ = await WaitForPageAsync(owner, rolesPath + "?search=Matrix",
             page => Ids(page, "role_id").Length == 2);
         return new TenantRbacScope(tenantId, teamIds, roleIds,
-            administratorsTeam, administrationRole, RbacIds.Member(tenantId, userId).ToString());
+            administratorsTeam, administrationRole, RbacIds.Member(tenantId, userId).ToString(),
+            new[] { administratorsTeam }.Concat(teamIds).OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray());
     }
 
     static async Task<Uuid> CreateTenantAsync(HttpClient owner, string name)
@@ -596,5 +636,5 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     sealed record TenantRbacScope(Uuid TenantId, IReadOnlyList<string> TeamIds,
         IReadOnlyList<string> RoleIds, string AdministratorsTeamId, string AdministrationRoleId,
-        string MemberId);
+        string MemberId, IReadOnlyList<string> RoleTeamIds);
 }
