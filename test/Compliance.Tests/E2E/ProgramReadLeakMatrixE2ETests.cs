@@ -341,10 +341,31 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
                         programRead.GetProperty("tenant_id").GetString());
                     Assert.Equal(scope.TenantId.ToString(),
                         serviceRead.GetProperty("tenant_id").GetString());
-                    await WaitForPageCountAsync(owner, programPath +
-                        "/revisions?minimum_program_revision=3", 3);
-                    await WaitForPageCountAsync(owner, servicePath +
-                        "/revisions?minimum_service_revision=3", 3);
+                    var programHistoryPath = programPath + "/revisions?minimum_program_revision=3";
+                    var serviceHistoryPath = servicePath + "/revisions?minimum_service_revision=3";
+                    await WaitForPageCountAsync(owner, programHistoryPath, 3);
+                    await WaitForPageCountAsync(owner, serviceHistoryPath, 3);
+                    var programHistory = Items(await ReadHttpAsync(owner, programHistoryPath));
+                    var serviceHistory = Items(await ReadHttpAsync(owner, serviceHistoryPath));
+                    AssertReplayedHistory(programHistory, scope, isProgram: true);
+                    AssertReplayedHistory(serviceHistory, scope, isProgram: false);
+
+                    var programHistoryRead = await ReadMcpAsync(mcp,
+                        "bdgrz.program.revisions.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId.ToString(),
+                            ["program_id"] = scope.ProgramIds[0],
+                            ["minimum_program_revision"] = 3,
+                        });
+                    var serviceHistoryRead = await ReadMcpAsync(mcp,
+                        "bdgrz.client-service.revisions.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId.ToString(),
+                            ["service_id"] = scope.ServiceIds[0],
+                            ["minimum_service_revision"] = 3,
+                        });
+                    AssertReplayedHistory(Items(programHistoryRead), scope, isProgram: true);
+                    AssertReplayedHistory(Items(serviceHistoryRead), scope, isProgram: false);
                 }
             }
         }
@@ -698,6 +719,28 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The read did not reach its replayed state: " + path);
+    }
+
+    static void AssertReplayedHistory(JsonElement[] rows, TenantScope scope, bool isProgram)
+    {
+        var idKey = isProgram ? "program_id" : "service_id";
+        var recordId = isProgram ? scope.ProgramIds[0] : scope.ServiceIds[0];
+        var recordName = isProgram
+            ? scope.Marker + " Program 1 after worker restart"
+            : scope.Marker + " Service 1 after worker restart";
+        Assert.Equal([1L, 2L, 3L], rows.Select(row =>
+            row.GetProperty("revision").GetInt64()).Order());
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(scope.TenantId.ToString(), row.GetProperty("tenant_id").GetString());
+            Assert.Equal(recordId, row.GetProperty(idKey).GetString());
+        });
+        var revision = Assert.Single(rows,
+            row => row.GetProperty("revision").GetInt64() == 3);
+        Assert.Equal(recordName, revision.GetProperty("name").GetString());
+        if (!isProgram)
+            Assert.Equal("Updated while the read worker is stopped",
+                revision.GetProperty("purpose").GetString());
     }
 
     static async Task<PageWalk> ReadHttpPagesAsync(HttpClient client, string path,
