@@ -380,12 +380,31 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
         return memberId;
     }
 
-    static Task WaitForMemberCountAsync(HttpClient operatorClient, Uuid tenantId, int count) =>
-        WaitUntilAsync(async () =>
+    static async Task WaitForMemberCountAsync(HttpClient operatorClient, Uuid tenantId, int count)
+    {
+        string? lastReadFailure = null;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
         {
-            var page = await ReadHttpAsync(operatorClient, TenantPath(tenantId) + "/members");
-            return page.GetProperty("items").GetArrayLength() == count;
-        }, $"The member list for {tenantId} did not reach {count} members.");
+            using var response = await operatorClient.GetAsync(TenantPath(tenantId) + "/members");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var page = await ReadJsonAsync(response);
+                var actualCount = page.GetProperty("items").GetArrayLength();
+                if (actualCount == count)
+                    return;
+                lastReadFailure = $"The member-list read returned {actualCount} members.";
+            }
+            else
+            {
+                lastReadFailure = $"The member-list read returned {(int)response.StatusCode}: " +
+                    await response.Content.ReadAsStringAsync();
+            }
+            await Task.Delay(250);
+        }
+        Assert.Fail($"The member list for {tenantId} did not reach {count} members. " +
+            lastReadFailure);
+    }
 
     static async Task<string[]> AssertTenantMemberPagesAsync(HttpClient operatorClient,
         Uuid tenantId, IReadOnlyCollection<Uuid> expectedIds, Uuid otherTenantId)
