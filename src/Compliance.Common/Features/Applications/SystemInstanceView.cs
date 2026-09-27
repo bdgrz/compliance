@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -9,6 +11,16 @@ public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
     Uuid DeclaredByMemberId,
     string DeclaredByDisplay, DateTimeOffset DeclaredAt)
 {
+    readonly ActorReference? _declaredBy;
+
+    [JsonPropertyName("declared_by")]
+    public ActorReference DeclaredBy
+    {
+        get => _declaredBy ?? ActorReference.ForMember(DeclaredByMemberId,
+            DeclaredByDisplay);
+        init => _declaredBy = value;
+    }
+
     public long Revision { get; init; }
     public long? LegacyApplicationRevision { get; init; }
 }

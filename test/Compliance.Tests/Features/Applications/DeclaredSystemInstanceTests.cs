@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -77,6 +78,8 @@ public sealed class DeclaredSystemInstanceTests
         Assert.Equal(1, ev.Revision);
         Assert.Equal("Production", ev.Name);
         Assert.Equal("payroll-prod", ev.SourceIdentifier);
+        Assert.Equal(ActorReference.ForMember(actorId, "Manager"), ev.StoredActor);
+        Assert.Equal(ActorReference.ForMember(actorId, "Manager"), ev.Actor);
     }
 
     [Fact]

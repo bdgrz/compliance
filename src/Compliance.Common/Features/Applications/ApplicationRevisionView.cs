@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -10,6 +12,16 @@ public sealed record ApplicationRevisionView(Uuid TenantId, Uuid ApplicationId, 
     string LastChangedByDisplay, DateTimeOffset LastChangedAt,
     string ChangeKind, Uuid? SystemInstanceId, SystemInstanceView? SystemInstance)
 {
+    readonly ActorReference? _actor;
+
+    [JsonPropertyName("actor")]
+    public ActorReference Actor
+    {
+        get => _actor ?? ActorReference.ForMember(LastChangedByMemberId,
+            LastChangedByDisplay);
+        init => _actor = value;
+    }
+
     public string? Classification { get; init; }
 
     /// <summary>The workforce person accountable for the system (M0-D05).</summary>

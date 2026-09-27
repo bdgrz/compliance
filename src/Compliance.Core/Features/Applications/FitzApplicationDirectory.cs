@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Fitz;
 using Cntryl.Portia;
 
@@ -22,6 +23,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     Classification = declared.Classification,
                     SystemOwnerPersonId = declared.SystemOwnerPersonId,
                     AccessOwnerPersonId = declared.AccessOwnerPersonId,
+                    LastChangedBy = declared.Actor,
                 };
                 await ApplicationDirectorySchema.Applications.InsertAsync(Transaction,
                     declaredView, ct).ConfigureAwait(false);
@@ -46,6 +48,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     LastChangedByMemberId = revised.ActorMemberId,
                     LastChangedByDisplay = revised.ActorDisplay,
                     LastChangedAt = revised.ChangedAt,
+                    LastChangedBy = revised.Actor,
                 };
                 await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction, before,
                     revisedView, ct).ConfigureAwait(false);
@@ -58,7 +61,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     instance.SystemInstanceId, instance.Name, instance.Kind,
                     instance.AccessBoundaryReference, instance.SourceIdentifier,
                     instance.ActorMemberId, instance.ActorDisplay, instance.ChangedAt,
-                    1, instance.ApplicationRevision);
+                    1, instance.ApplicationRevision, instance.Actor);
                 var declaredAdded = await AddInstanceAsync(declaredInstance, ct)
                     .ConfigureAwait(false);
                 var hasInstances = application.HasSystemInstances || declaredAdded;
@@ -70,6 +73,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     LastChangedByMemberId = instance.ActorMemberId,
                     LastChangedByDisplay = instance.ActorDisplay,
                     LastChangedAt = instance.ChangedAt,
+                    LastChangedBy = instance.Actor,
                 };
                 await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction, application,
                     instanceView, ct).ConfigureAwait(false);
@@ -83,7 +87,8 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     registered.ApplicationId, registered.SystemInstanceId, registered.Name,
                     registered.Kind, registered.AccessBoundaryReference,
                     registered.SourceIdentifier, registered.ActorMemberId,
-                    registered.ActorDisplay, registered.ChangedAt, registered.Revision, null);
+                    registered.ActorDisplay, registered.ChangedAt, registered.Revision, null,
+                    registered.Actor);
                 if (await AddInstanceAsync(registeredInstance, ct).ConfigureAwait(false) &&
                     !parent.HasSystemInstances)
                     await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction,
@@ -127,7 +132,8 @@ sealed class FitzApplicationDirectory(IKvClient client)
     static SystemInstanceView InstanceView(Uuid tenantId, Uuid applicationId,
         Uuid instanceId, string name, string kind, string? accessBoundaryReference,
         string? sourceIdentifier, Uuid actorMemberId, string actorDisplay,
-        DateTimeOffset changedAt, long revision, long? legacyApplicationRevision) =>
+        DateTimeOffset changedAt, long revision, long? legacyApplicationRevision,
+        ActorReference? actor = null) =>
         new(tenantId, applicationId, instanceId, name, kind, accessBoundaryReference,
             "manual", sourceIdentifier,
             [accessBoundaryReference is null
@@ -138,6 +144,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
         {
             Revision = revision,
             LegacyApplicationRevision = legacyApplicationRevision,
+            DeclaredBy = actor ?? ActorReference.ForMember(actorMemberId, actorDisplay),
         };
 
     async ValueTask InsertRevisionAsync(ApplicationView view, string changeKind,
@@ -152,6 +159,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     Classification = view.Classification,
                     SystemOwnerPersonId = view.SystemOwnerPersonId,
                     AccessOwnerPersonId = view.AccessOwnerPersonId,
+                    Actor = view.LastChangedBy,
                 }, ct)
             .ConfigureAwait(false);
 
