@@ -147,8 +147,12 @@ public sealed class SystemBoundary : Aggregate
                 "A boundary author cannot review their own draft.");
         if (outcome is not ("accept" or "request_changes") || string.IsNullOrWhiteSpace(rationale))
             return CommandFailure.InvalidContent("A review requires an outcome and rationale.");
-        RaiseEvent(new BoundaryReviewed(_tenantId, Id, draftVersionId, expectedRevision,
-            decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt));
+        BoundaryReviewed reviewed = new(_tenantId, Id, draftVersionId, expectedRevision,
+            decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt)
+        {
+            StoredActor = ActorReference.ForMember(reviewerMemberId, reviewerDisplay),
+        };
+        RaiseEvent(reviewed);
         return null;
     }
 
@@ -194,9 +198,13 @@ public sealed class SystemBoundary : Aggregate
             !EffectiveInterval.CanFollow(prior, effectiveFrom))
             return CommandFailure.InvalidContent(
                 "A successor must become effective after the previous approved version.");
-        RaiseEvent(new BoundaryApproved(_tenantId, Id, draftVersionId, expectedRevision,
+        BoundaryApproved approved = new(_tenantId, Id, draftVersionId, expectedRevision,
             approvalDecisionId, acceptedReviewDecisionId, approverMemberId, approverDisplay,
-            rationale.Trim(), effectiveFrom, decidedAt, impactDigest));
+            rationale.Trim(), effectiveFrom, decidedAt, impactDigest)
+        {
+            StoredActor = ActorReference.ForMember(approverMemberId, approverDisplay),
+        };
+        RaiseEvent(approved);
         return null;
     }
 
