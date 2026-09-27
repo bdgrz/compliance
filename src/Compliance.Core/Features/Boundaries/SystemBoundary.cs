@@ -132,7 +132,7 @@ public sealed class SystemBoundary : Aggregate
     VersionConflict? DraftVersionConflict(Uuid draftVersionId, long expectedRevision) =>
         _created && _draftVersionId != Uuid.Empty &&
         (draftVersionId != _draftVersionId || expectedRevision != _draftRevision)
-            ? VersionedRecordRules.StaleDraft("boundary", _draftVersionId, _draftRevision)
+            ? VersionedRecordRules.StaleDraft("boundary", _draftVersionId.ToGuid(), _draftRevision)
             : null;
 
     public CommandFailure? Review(Uuid draftVersionId, long expectedRevision, Uuid decisionId,
@@ -218,7 +218,8 @@ public sealed class SystemBoundary : Aggregate
             return CommandFailure.StateConflict("The boundary has no approved version.");
         if (expectedApprovedVersionId != _latestApprovedVersionId)
             return CommandFailure.ForVersion(
-                VersionedRecordRules.StaleApprovedVersion("boundary", _latestApprovedVersionId));
+                VersionedRecordRules.StaleApprovedVersion("boundary",
+                    _latestApprovedVersionId.ToGuid()));
         if (_draftVersionId != Uuid.Empty)
             return CommandFailure.StateConflict("The boundary already has an open successor draft.");
         var validation = Validate(content);
