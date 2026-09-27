@@ -3,15 +3,20 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
-///     EN-01 current-surface leak matrix: two real tenants with one member of both, plus an
-///     outsider, exercise tenant-owned pages through the API and MCP in both host modes.
+///     EN-01 current-surface leak matrix: two real tenants with a shared owner, additional
+///     tenant members, and an outsider exercise tenant-owned pages through HTTP and MCP in both
+///     host modes.
 /// </summary>
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
@@ -37,7 +42,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     [InlineData(false)]
     [InlineData(true)]
     public Task ShouldScopeRbacListsSearchAndCursorsGivenTwoTenants(bool splitHosts) =>
-        RunWithHostsAsync(splitHosts, async (owner, outsider) =>
+        RunWithHostsAndServicesAsync(splitHosts, async (owner, outsider, factory, worker) =>
         {
             // Arrange
             var userId = Uuid.Parse(await TenantInvitationE2ETests.LoginAsync(owner,
@@ -49,6 +54,13 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             var tenantB = await CreateTenantAsync(owner, "Read matrix B");
             var scopeA = await SeedRbacAsync(owner, tenantA, userId, "Matrix-A");
             var scopeB = await SeedRbacAsync(owner, tenantB, userId, "Matrix-B");
+            var invitedMemberA = await InviteAndAssignTeamMemberAsync(factory, worker,
+                splitHosts, owner, tenantA, scopeA.AdministratorsTeamId);
+            var invitedMemberB = await InviteAndAssignTeamMemberAsync(factory, worker,
+                splitHosts, owner, tenantB, scopeB.AdministratorsTeamId);
+            var expectedMemberIdsA = new List<string> { scopeA.MemberId, invitedMemberA };
+            var expectedMemberIdsB = new List<string> { scopeB.MemberId, invitedMemberB };
+            var memberPagesByTenant = new Dictionary<Uuid, IReadOnlyList<JsonElement>>();
 
             // Act and assert: names, cursors, and search results stay in their own realm.
             foreach (var scope in new[] { scopeA, scopeB })
@@ -69,13 +81,24 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 var membersPath = teamsPath + "/" + scope.AdministratorsTeamId + "/members";
                 var permissionsPath = rolesPath + "/" + scope.AdministrationRoleId + "/permissions";
                 var roleTeamsPath = rolesPath + "/" + scope.AdministrationRoleId + "/teams";
+                var expectedMemberIds = scope.TenantId == tenantA
+                    ? expectedMemberIdsA
+                    : expectedMemberIdsB;
                 var members = await WaitForPageAsync(owner, membersPath,
-                    page => Ids(page, "member_id").Contains(scope.MemberId));
+                    page => expectedMemberIds.All(id => Ids(page, "member_id").Contains(id)));
                 Assert.Contains(scope.MemberId, Ids(members, "member_id"));
                 Assert.All(Ids(members, "team_id"),
                     teamId => Assert.Equal(scope.AdministratorsTeamId, teamId));
                 Assert.Contains(scope.MemberId, Ids(await ReadHttpPageAsync(owner,
                     membersPath + "?search=" + scope.MemberId[..8]), "member_id"));
+                var memberPages = await ReadAllHttpPagesAsync(owner, membersPath + "?limit=1");
+                Assert.True(memberPages.Count >= 2);
+                AssertIds(expectedMemberIds,
+                    memberPages.SelectMany(page => Ids(page, "member_id")).ToArray());
+                Assert.All(memberPages, page => Assert.Single(Ids(page, "member_id")));
+                Assert.All(memberPages.SelectMany(page => Ids(page, "team_id")),
+                    teamId => Assert.Equal(scope.AdministratorsTeamId, teamId));
+                memberPagesByTenant[scope.TenantId] = memberPages;
 
                 var permissions = await WaitForPageAsync(owner,
                     permissionsPath + "?search=manage",
@@ -102,6 +125,14 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 Assert.Contains(scope.AdministratorsTeamId, Ids(await ReadHttpPageAsync(owner,
                     roleTeamsPath + "?search=" + scope.AdministratorsTeamId[..8]), "team_id"));
             }
+
+            var memberCursorA = memberPagesByTenant[tenantA][0]
+                .GetProperty("next_cursor").GetString();
+            Assert.NotNull(memberCursorA);
+            using (var foreignMemberCursor = await owner.GetAsync(TenantPath(tenantB) +
+                       "/teams/" + scopeB.AdministratorsTeamId + "/members?limit=1&cursor=" +
+                       Uri.EscapeDataString(memberCursorA)))
+                Assert.Equal(HttpStatusCode.BadRequest, foreignMemberCursor.StatusCode);
 
             // Foreign parent IDs disclose no edges, even to the member who owns both tenants.
             await AssertEmptyHttpPageAsync(owner, TenantPath(tenantB) + "/teams/" +
@@ -136,6 +167,35 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                             ["search"] = scope.MemberId[..8],
                         });
                     Assert.Contains(scope.MemberId, Ids(members, "member_id"));
+                    var memberPages = await ReadAllMcpPagesAsync(mcp,
+                        "bdgrz.rbac.team-member.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["team_id"] = scope.AdministratorsTeamId,
+                            ["limit"] = 1,
+                        });
+                    Assert.True(memberPages.Count >= 2);
+                    var expectedMemberIds = scope.TenantId == tenantA
+                        ? expectedMemberIdsA
+                        : expectedMemberIdsB;
+                    AssertIds(expectedMemberIds,
+                        memberPages.SelectMany(page => Ids(page, "member_id")).ToArray());
+                    Assert.All(memberPages, page => Assert.Single(Ids(page, "member_id")));
+                    Assert.All(memberPages.SelectMany(page => Ids(page, "team_id")),
+                        teamId => Assert.Equal(scope.AdministratorsTeamId, teamId));
+                    if (scope.TenantId == tenantA)
+                    {
+                        var memberCursor = memberPages[0].GetProperty("next_cursor").GetString();
+                        Assert.NotNull(memberCursor);
+                        _ = await mcp.When("bdgrz.rbac.team-member.list",
+                            new Dictionary<string, object?>
+                            {
+                                ["tenant_id"] = tenantB.ToString(),
+                                ["team_id"] = scopeB.AdministratorsTeamId,
+                                ["limit"] = 1,
+                                ["cursor"] = memberCursor,
+                            }).ExpectFailure("Validation");
+                    }
                     var permissionInput = new Dictionary<string, object?>
                     {
                         ["tenant_id"] = scope.TenantId,
@@ -372,7 +432,12 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 }).ExpectFailure("NotFound");
         });
 
-    async Task RunWithHostsAsync(bool splitHosts, Func<HttpClient, HttpClient, Task> exercise)
+    Task RunWithHostsAsync(bool splitHosts, Func<HttpClient, HttpClient, Task> exercise) =>
+        RunWithHostsAndServicesAsync(splitHosts,
+            (owner, outsider, _, _) => exercise(owner, outsider));
+
+    async Task RunWithHostsAndServicesAsync(bool splitHosts,
+        Func<HttpClient, HttpClient, WebApplicationFactory<Program>, IHost?, Task> exercise)
     {
         var applicationName = "compliance-read-matrix-" + Guid.NewGuid().ToString("N");
         IHost? worker = null;
@@ -409,7 +474,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             }
             using (owner)
             using (outsider)
-                await exercise(owner, outsider);
+                await exercise(owner, outsider, factory, worker);
         }
         finally
         {
@@ -508,6 +573,63 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("RBAC management remained unauthorized after tenant bootstrap.");
+    }
+
+    static async Task<string> InviteAndAssignTeamMemberAsync(
+        WebApplicationFactory<Program> factory, IHost? worker, bool splitHosts,
+        HttpClient owner, Uuid tenantId, string teamId)
+    {
+        var email = "read-matrix-member-" + Guid.NewGuid().ToString("N") + "@example.com";
+        using (var invitation = await owner.PostAsJsonAsync(
+                   TenantPath(tenantId) + "/invitations", new
+                   {
+                       email_address = email,
+                       affiliation = "client_personnel",
+                       administrator = false,
+                   }))
+            Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
+
+        using var member = CreateClient(factory, splitHosts);
+        var userId = Uuid.Parse(await TenantInvitationE2ETests.LoginAsync(member, email),
+            CultureInfo.InvariantCulture);
+        var services = worker?.Services ?? factory.Services;
+        var delivery = services.GetRequiredService<MockTenantInvitationDelivery>();
+        string? token = null;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline &&
+               !delivery.TryGetLatest(tenantId, email, out token))
+            await Task.Delay(250);
+        Assert.NotNull(token);
+
+        await TenantInvitationE2ETests.VerifyEmailAsync(factory, member, userId.ToString(), email,
+            services.GetRequiredService<MockEmailChallengeDelivery>());
+        using (var accepted = await member.PostAsJsonAsync(
+                   TenantPath(tenantId) + "/invitations/acceptance", new
+                   {
+                       email_address = email,
+                       token,
+                   }))
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+
+        var memberId = RbacIds.Member(tenantId, userId).ToString();
+        await PostUntilNoContentAsync(owner, TenantPath(tenantId) + "/teams/" + teamId +
+            "/members/" + memberId, new { });
+        return memberId;
+    }
+
+    static HttpClient CreateClient(WebApplicationFactory<Program> factory, bool splitHosts)
+    {
+        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
+                splitHosts ? "api" : "standalone");
+            return factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+        }
     }
 
     static async Task<JsonElement> WaitForPageAsync(HttpClient client, string path,
