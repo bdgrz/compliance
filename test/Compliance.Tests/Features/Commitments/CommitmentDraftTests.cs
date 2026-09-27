@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -63,12 +64,12 @@ public sealed class CommitmentDraftTests
             "Context", "Source C", AuthorId, "Author", Now);
 
         // Assert
-        Assert.True(revised.IsSuccess);
+        Assert.Null(revised);
         Assert.True(replay.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(duplicate.Error).Kind);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(stale.Error).Kind);
-        Assert.Equal(RequestErrorKind.NotFound,
-            Assert.IsType<RequestError>(wrongProgram.Error).Kind);
+        Assert.Equal(CommandFailureCode.VersionConflict, Assert.IsType<CommandFailure>(stale).Code);
+        Assert.Equal(CommandFailureCode.MissingRecord,
+            Assert.IsType<CommandFailure>(wrongProgram).Code);
         Assert.Collection(new AggregateScenario<CommitmentDraft>(draft).PendingEvents,
             created =>
             {

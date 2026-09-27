@@ -23,8 +23,8 @@ public sealed class RiskDraftActorSnapshotTests
         var risk = new RiskDraft(TenantId, riskId);
         Assert.True(risk.Create(ProgramId, Uuid.CreateVersion4(), "R-01", Content(),
             MemberId, "First display", At).IsSuccess);
-        Assert.True(risk.Revise(ProgramId, 1, Content() with { Scenario = "Extended outage" },
-            MemberId, "Second display", At.AddMinutes(1)).IsSuccess);
+        Assert.Null(risk.Revise(ProgramId, 1, Content() with { Scenario = "Extended outage" },
+            MemberId, "Second display", At.AddMinutes(1)));
 
         // Act
         var events = new AggregateScenario<RiskDraft>(risk).PendingEvents;

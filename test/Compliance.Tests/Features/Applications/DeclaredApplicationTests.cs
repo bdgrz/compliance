@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -39,10 +40,9 @@ public sealed class DeclaredApplicationTests
 
         // Assert
         Assert.True(createReplay.IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(stale.Error).Kind);
-        Assert.Contains("revision: 3", Assert.IsType<RequestError>(stale.Error).Message,
-            StringComparison.Ordinal);
-        Assert.True(current.IsSuccess);
+        Assert.Equal(CommandFailureCode.VersionConflict, Assert.IsType<CommandFailure>(stale).Code);
+        Assert.Equal(3, Assert.IsType<CommandFailure>(stale).Version!.CurrentRevision);
+        Assert.Null(current);
         Assert.Equal(4, application.Revision);
         var revisedEvent = Assert.IsType<ApplicationRevised>(Assert.Single(
             new AggregateScenario<DeclaredApplication>(application).PendingEvents));
@@ -94,8 +94,8 @@ public sealed class DeclaredApplicationTests
         // Assert
         Assert.True(declared.IsSuccess);
         Assert.True(replay.IsSuccess);
-        Assert.True(revised.IsSuccess);
-        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(oversized.Error).Kind);
+        Assert.Null(revised);
+        Assert.Equal(CommandFailureCode.InvalidContent, Assert.IsType<CommandFailure>(oversized).Code);
         Assert.Collection(new AggregateScenario<DeclaredApplication>(application).PendingEvents,
             ev => Assert.Equal("Internal", Assert.IsType<ApplicationDeclared>(ev).Classification),
             ev => Assert.Equal("Restricted", Assert.IsType<ApplicationRevised>(ev).Classification));

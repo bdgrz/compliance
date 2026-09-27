@@ -95,18 +95,17 @@ public sealed class ControlDraft : Aggregate
         return Result<ControlRegistration>.Success(new ControlRegistration(Id, normalized, 1));
     }
 
-    public Result Revise(Uuid programId, long expectedRevision, ControlDraftContent content,
+    public CommandFailure? Revise(Uuid programId, long expectedRevision, ControlDraftContent content,
         Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         if (!_created || _discarded || ProgramId != programId)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The control draft was not found."));
+            return CommandFailure.MissingRecord("The control draft was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
+                _revision));
         var error = Validate(_identifier!, content);
         if (error is not null)
-            return Result.Failure(error);
+            return CommandFailure.InvalidContent(error.Message!);
         ControlDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
             Clean(content), actorMemberId, actorDisplay, changedAt)
         {
@@ -115,27 +114,24 @@ public sealed class ControlDraft : Aggregate
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.ControlDraftRevised).Length >
             MaximumDraftEventPayloadBytes)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "The control draft exceeds the bounded event payload size."));
+            return CommandFailure.InvalidContent("The control draft exceeds the bounded event payload size.");
         RaiseEvent(revised);
-        return Result.Success;
+        return null;
     }
 
-    public Result Discard(Uuid programId, long expectedRevision, string rationale,
+    public CommandFailure? Discard(Uuid programId, long expectedRevision, string rationale,
         Uuid actorMemberId, string actorDisplay, DateTimeOffset discardedAt)
     {
         if (!_created || _discarded || ProgramId != programId)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The control draft was not found."));
+            return CommandFailure.MissingRecord("The control draft was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("control draft", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
+                _revision));
         if (_currentContent?.Applicability is { Count: > 0 })
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "Discarding a control draft requires no retained applicability relationships."));
+            return CommandFailure.StateConflict(
+                "Discarding a control draft requires no retained applicability relationships.");
         if (string.IsNullOrWhiteSpace(rationale))
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "Discarding a control draft requires a rationale."));
+            return CommandFailure.InvalidContent("Discarding a control draft requires a rationale.");
         var discarded = new ControlDraftDiscarded(_tenantId, programId, Id, _revision,
             actorMemberId, actorDisplay, rationale.Trim(), discardedAt)
         {
@@ -144,10 +140,10 @@ public sealed class ControlDraft : Aggregate
         if (JsonSerializer.SerializeToUtf8Bytes(discarded,
                 ComplianceCoreJsonContext.Default.ControlDraftDiscarded).Length >
             MaximumDraftEventPayloadBytes)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "The control draft discard exceeds the bounded event payload size."));
+            return CommandFailure.InvalidContent(
+                "The control draft discard exceeds the bounded event payload size.");
         RaiseEvent(discarded);
-        return Result.Success;
+        return null;
     }
 
     static RequestError? Validate(string identifier, ControlDraftContent? content)

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Versioning;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -30,8 +31,12 @@ public sealed class CommitmentDraftReplayTests
             programId, "service_commitment", "SC-01"), "service_commitment", "SC-01", 1);
         await Dispatch(provider, actor, original, requestId).ExpectSuccess(registration);
         await ProgramManagementServices.SeedAsync(provider, new ClientService(tenantId, serviceId),
-            service => service.Retire(1, "Service ended", actorId, "Author",
-                DateTimeOffset.UtcNow));
+            service =>
+            {
+                Assert.Null(service.Retire(1, "Service ended", actorId, "Author",
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
 
         // Act
         // Assert

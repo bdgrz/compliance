@@ -31,7 +31,7 @@ public sealed class ReviseControlDraftHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return await executor.ExecuteAsync(new ControlDraft(request.TenantId, request.ControlId),
-            control => AggregateOutcome.CommitOnSuccess(control.Revise(request.ProgramId,
+            control => CommandFailureRequestAdapter.ToOutcome(control.Revise(request.ProgramId,
                 request.ExpectedRevision, request.Content,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),

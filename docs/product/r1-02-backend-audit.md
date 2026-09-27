@@ -84,8 +84,11 @@ through class or dedicated collection fixtures within a nonparallel collection.
 Each fixture uses a unique Compose project and mapped port. This bounds test-history
 contention; it does not establish production startup performance with many
 tenants. That investigation remains in
-[Portia #58](https://github.com/cntryl/portia/issues/58). Backend children
-[#160](https://github.com/bdgrz/compliance/issues/160),
-[#162](https://github.com/bdgrz/compliance/issues/162), and
+[Portia #58](https://github.com/cntryl/portia/issues/58). The shared EN-02
+conflict-fact and Portia-boundary adapter acceptance is delivered by
+[PR #414](https://github.com/bdgrz/compliance/pull/414), which closes
+[#160](https://github.com/bdgrz/compliance/issues/160) after exact-head CI and
+squash merge. The R1-02 baseline
+[#162](https://github.com/bdgrz/compliance/issues/162) and downstream impact
 [#246](https://github.com/bdgrz/compliance/issues/246) remain open for the
 acceptance gaps above and their inherited decisions.

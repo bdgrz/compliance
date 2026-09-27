@@ -36,7 +36,7 @@ public sealed class ApplicationOwnerTests
         Assert.True(replay.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict,
             Assert.IsType<RequestError>(changedOwner.Error).Kind);
-        Assert.True(revised.IsSuccess);
+        Assert.Null(revised);
         var events = new AggregateScenario<DeclaredApplication>(application).PendingEvents;
         var declared = Assert.IsType<ApplicationDeclared>(events[0]);
         Assert.Equal(systemOwner, declared.SystemOwnerPersonId);

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -21,10 +22,10 @@ public sealed class ClientServiceTests
         var service = new ClientService(tenantId, serviceId);
         Assert.True(service.Create(programId, "Payroll", "Process payroll", "Operations",
             actorId, "Original display", now).IsSuccess);
-        Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
-            actorId, "Changed display", now.AddMinutes(1)).IsSuccess);
-        Assert.True(service.Retire(2, "Service ended", actorId, "Final display",
-            now.AddMinutes(2)).IsSuccess);
+        Assert.Null(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
+            actorId, "Changed display", now.AddMinutes(1)));
+        Assert.Null(service.Retire(2, "Service ended", actorId, "Final display",
+            now.AddMinutes(2)));
 
         // Act
         var events = new AggregateScenario<ClientService>(service).PendingEvents;
@@ -115,7 +116,7 @@ public sealed class ClientServiceTests
 
         service = await fixture.Repository.HydrateAsync(new ClientService(tenantId, serviceId),
             CancellationToken.None);
-        Assert.True(service.Retire(1, "Service ended", actorId, "Owner", now.AddDays(1)).IsSuccess);
+        Assert.Null(service.Retire(1, "Service ended", actorId, "Owner", now.AddDays(1)));
         await fixture.Repository.SaveAsync(service, new ExecutionContext(), CancellationToken.None);
         Assert.False(await activity.IsActiveAsync(tenantId, programId, serviceId));
     }
@@ -130,8 +131,8 @@ public sealed class ClientServiceTests
         var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
         Assert.True(service.Create(programId, "Payroll", "Process payroll", "Operations",
             actorId, "Owner", now).IsSuccess);
-        Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
-            actorId, "Owner", now.AddMinutes(1)).IsSuccess);
+        Assert.Null(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
+            actorId, "Owner", now.AddMinutes(1)));
 
         // Act
         var replay = service.Create(programId, " Payroll ", "Process payroll", "Operations",
@@ -165,18 +166,18 @@ public sealed class ClientServiceTests
         // Assert
         Assert.True(service.Create(programId, "Payroll", "Process payroll", "Operations",
             actorId, "Owner", now).IsSuccess);
-        var stale = Assert.IsType<RequestError>(service.Revise(0,
-            "Payroll", "Changed", "Operations", actorId, "Owner", now).Error);
-        Assert.Equal(RequestErrorKind.Conflict, stale.Kind);
-        Assert.Contains("revision: 1", stale.Message, StringComparison.Ordinal);
-        Assert.True(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
-            actorId, "Owner", now.AddDays(1)).IsSuccess);
-        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(service.Retire(2,
-            " ", actorId, "Owner", now).Error).Kind);
-        Assert.True(service.Retire(2, "Service ended", actorId, "Owner",
-            now.AddDays(2)).IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(service.Revise(3,
-            "Payroll", "Changed", "Operations", actorId, "Owner", now).Error).Kind);
+        var stale = Assert.IsType<CommandFailure>(service.Revise(0,
+            "Payroll", "Changed", "Operations", actorId, "Owner", now));
+        Assert.Equal(CommandFailureCode.VersionConflict, stale.Code);
+        Assert.Equal(1, stale.Version!.CurrentRevision);
+        Assert.Null(service.Revise(1, "Payroll", "Monthly payroll", "Operations",
+            actorId, "Owner", now.AddDays(1)));
+        Assert.Equal(CommandFailureCode.InvalidContent, Assert.IsType<CommandFailure>(service.Retire(2,
+            " ", actorId, "Owner", now)).Code);
+        Assert.Null(service.Retire(2, "Service ended", actorId, "Owner",
+            now.AddDays(2)));
+        Assert.Equal(CommandFailureCode.StateConflict, Assert.IsType<CommandFailure>(service.Revise(3,
+            "Payroll", "Changed", "Operations", actorId, "Owner", now)).Code);
         Assert.Collection(new AggregateScenario<ClientService>(service).PendingEvents,
             ev => Assert.IsType<ClientServiceCreated>(ev),
             ev => Assert.Equal(2, Assert.IsType<ClientServiceRevised>(ev).Revision),

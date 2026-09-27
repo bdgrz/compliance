@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
@@ -17,7 +18,7 @@ public sealed class DiscardControlDraftHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new ControlDraft(request.TenantId, request.ControlId),
-            control => AggregateOutcome.CommitOnSuccess(control.Discard(request.ProgramId,
+            control => CommandFailureRequestAdapter.ToOutcome(control.Discard(request.ProgramId,
                 request.ExpectedRevision, request.Rationale,
                 RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),

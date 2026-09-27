@@ -48,21 +48,19 @@ public sealed class Person : Aggregate
         return Result<PersonRegistration>.Success(new PersonRegistration(Id));
     }
 
-    public Result Revise(long expectedRevision, string displayName, string? workEmail,
+    public CommandFailure? Revise(long expectedRevision, string displayName, string? workEmail,
         ActorReference actor, DateTimeOffset changedAt)
     {
         if (!_created)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The person was not found."));
+            return CommandFailure.MissingRecord("The person was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("person", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("person", _revision));
         var validation = Validate(displayName, workEmail);
         if (validation is not null)
-            return Result.Failure(validation);
+            return CommandFailure.InvalidContent(validation.Message!);
         RaiseEvent(new PersonRevised(_tenantId, Id, _revision + 1, displayName.Trim(),
             NormalizeOptional(workEmail), actor, changedAt));
-        return Result.Success;
+        return null;
     }
 
     static RequestError? Validate(string displayName, string? workEmail)

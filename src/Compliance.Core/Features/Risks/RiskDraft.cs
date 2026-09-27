@@ -74,18 +74,17 @@ public sealed class RiskDraft : Aggregate
         return Result<RiskRegistration>.Success(new RiskRegistration(Id, normalized, 1));
     }
 
-    public Result Revise(Uuid programId, long expectedRevision, RiskDraftContent content,
+    public CommandFailure? Revise(Uuid programId, long expectedRevision, RiskDraftContent content,
         Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         if (!_created || ProgramId != programId)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The risk draft was not found."));
+            return CommandFailure.MissingRecord("The risk draft was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("risk draft", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("risk draft",
+                _revision));
         var error = Validate(_identifier!, content);
         if (error is not null)
-            return Result.Failure(error);
+            return CommandFailure.InvalidContent(error.Message!);
         RiskDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
             Clean(content), actorMemberId, actorDisplay, changedAt)
         {
@@ -94,10 +93,9 @@ public sealed class RiskDraft : Aggregate
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.RiskDraftRevised).Length >
             MaximumDraftEventPayloadBytes)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "The risk draft exceeds the bounded event payload size."));
+            return CommandFailure.InvalidContent("The risk draft exceeds the bounded event payload size.");
         RaiseEvent(revised);
-        return Result.Success;
+        return null;
     }
 
     static RequestError? Validate(string identifier, RiskDraftContent? content)

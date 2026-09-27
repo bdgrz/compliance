@@ -62,48 +62,47 @@ public sealed class ClientService : Aggregate
         return Result<ClientServiceRegistration>.Success(new ClientServiceRegistration(Id));
     }
 
-    public Result Revise(long expectedRevision, string name, string purpose,
+    public CommandFailure? Revise(long expectedRevision, string name, string purpose,
         string ownerReference, Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt)
     {
         var error = CheckChange(expectedRevision);
         if (error is not null)
-            return Result.Failure(error);
-        error = Validate(name, purpose, ownerReference);
-        if (error is not null)
-            return Result.Failure(error);
+            return error;
+        var validationError = Validate(name, purpose, ownerReference);
+        if (validationError is not null)
+            return CommandFailure.InvalidContent(validationError.Message!);
         RaiseEvent(new ClientServiceRevised(_tenantId, Id, _revision + 1, name.Trim(),
             purpose.Trim(), ownerReference.Trim(), actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
-        return Result.Success;
+        return null;
     }
 
-    public Result Retire(long expectedRevision, string rationale, Uuid actorMemberId,
+    public CommandFailure? Retire(long expectedRevision, string rationale, Uuid actorMemberId,
         string actorDisplay, DateTimeOffset changedAt)
     {
         var error = CheckChange(expectedRevision);
         if (error is not null)
-            return Result.Failure(error);
+            return error;
         if (string.IsNullOrWhiteSpace(rationale))
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "Retiring a service requires a rationale."));
+            return CommandFailure.InvalidContent("Retiring a service requires a rationale.");
         RaiseEvent(new ClientServiceRetired(_tenantId, Id, _revision + 1, rationale.Trim(),
             actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
-        return Result.Success;
+        return null;
     }
 
-    RequestError? CheckChange(long expectedRevision)
+    CommandFailure? CheckChange(long expectedRevision)
     {
         if (!_created)
-            return new RequestError(RequestErrorKind.NotFound, "The service was not found.");
+            return CommandFailure.MissingRecord("The service was not found.");
         if (_retired)
-            return new RequestError(RequestErrorKind.Conflict, "The service is retired.");
+            return CommandFailure.StateConflict("The service is retired.");
         return expectedRevision == _revision ? null :
-            VersionedRecordRules.StaleRevision("service", _revision).ToRequestError();
+            CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("service", _revision));
     }
 
     static RequestError? Validate(string name, string purpose, string ownerReference)

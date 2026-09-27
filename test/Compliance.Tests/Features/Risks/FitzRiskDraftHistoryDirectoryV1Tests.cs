@@ -94,8 +94,8 @@ public sealed class FitzRiskDraftHistoryDirectoryV1Tests
         var otherTenantId = Uuid.CreateVersion4();
         var programId = Uuid.CreateVersion4();
         var risk = CreateSource(tenantId, programId, "R-01");
-        Assert.True(risk.Revise(programId, 1, Content("Revised"), Uuid.CreateVersion4(),
-            "Editor", DateTimeOffset.UtcNow).IsSuccess);
+        Assert.Null(risk.Revise(programId, 1, Content("Revised"), Uuid.CreateVersion4(),
+            "Editor", DateTimeOffset.UtcNow));
         var created = new RiskDraftCreated(tenantId, programId, risk.Id,
             Uuid.CreateVersion4(), "R-01", Content("Initial"), Uuid.CreateVersion4(),
             "Author", new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero));

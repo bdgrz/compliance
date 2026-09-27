@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Risks;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -37,7 +38,7 @@ public sealed class RiskDraftTests
         Assert.True(risk.Create(ProgramId, requestId, "r-01", Content(), ActorId,
             "Author", Now).IsSuccess);
         Assert.True(risk.Revise(ProgramId, 1, Content() with { Scenario = "Changed" },
-            ActorId, "Editor", Now.AddMinutes(1)).IsSuccess);
+            ActorId, "Editor", Now.AddMinutes(1)) is null);
 
         // Act
         var replay = risk.Create(ProgramId, requestId, "R-01", Content(), ActorId,
@@ -52,9 +53,9 @@ public sealed class RiskDraftTests
         Assert.True(replay.IsSuccess);
         Assert.Equal(riskId, replay.Value.RiskId);
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(duplicate.Error).Kind);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(stale.Error).Kind);
-        Assert.Equal(RequestErrorKind.NotFound,
-            Assert.IsType<RequestError>(wrongProgram.Error).Kind);
+        Assert.Equal(CommandFailureCode.VersionConflict, Assert.IsType<CommandFailure>(stale).Code);
+        Assert.Equal(CommandFailureCode.MissingRecord,
+            Assert.IsType<CommandFailure>(wrongProgram).Code);
         Assert.Equal(2, risk.Revision);
         Assert.Collection(new AggregateScenario<RiskDraft>(risk).PendingEvents,
             ev => Assert.Equal(ActorId, Assert.IsType<RiskDraftCreated>(ev).ActorMemberId),
