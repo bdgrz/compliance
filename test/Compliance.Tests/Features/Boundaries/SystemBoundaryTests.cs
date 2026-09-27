@@ -252,6 +252,37 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
+    public void ShouldSnapshotActorsGivenReviewAndApprovalDecisions()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var reviewerId = Uuid.CreateVersion4();
+        var approverId = Uuid.CreateVersion4();
+        var reviewId = Uuid.CreateVersion4();
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
+            "Author", Now).IsSuccess);
+
+        // Act
+        Assert.Null(boundary.Review(VersionId, 1, reviewId, "accept", "Reviewed",
+            reviewerId, "Reviewer at review time", Now));
+        Assert.Null(boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", approverId,
+            "Approver at approval time", Now));
+
+        // Assert
+        var events = new AggregateScenario<SystemBoundary>(boundary).PendingEvents;
+        var review = Assert.IsType<BoundaryReviewed>(events[1]);
+        var approval = Assert.IsType<BoundaryApproved>(events[2]);
+        Assert.Equal(ActorReference.ForMember(reviewerId, "Reviewer at review time"),
+            review.StoredActor);
+        Assert.Equal(ActorReference.ForMember(reviewerId, "Reviewer at review time"), review.Actor);
+        Assert.Equal(ActorReference.ForMember(approverId, "Approver at approval time"),
+            approval.StoredActor);
+        Assert.Equal(ActorReference.ForMember(approverId, "Approver at approval time"),
+            approval.Actor);
+    }
+
+    [Fact]
     public void ShouldPreserveApprovedVersionAndRequireLaterDateGivenSuccessor()
     {
         // Arrange

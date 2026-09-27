@@ -80,6 +80,8 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                     }, 2);
                 AssertRows(scope, httpDecisions.Rows, "decision_id", scope.DecisionIds);
                 AssertRows(scope, mcpDecisions.Rows, "decision_id", scope.DecisionIds);
+                Assert.All(httpDecisions.Rows, AssertDecisionActor);
+                Assert.All(mcpDecisions.Rows, AssertDecisionActor);
 
                 var httpSnapshots = await ReadHttpPagesAsync(owner,
                     programPath + "/scope-snapshots", 2);
@@ -149,8 +151,11 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                             ["tenant_id"] = scope.TenantId.ToString(),
                             ["boundary_id"] = scope.BoundaryIds[0],
                             ["decision_id"] = decisionId,
-                        }, result => Assert.Equal(decisionId,
-                            result.GetProperty("decision_id").GetString()));
+                        }, result =>
+                        {
+                            Assert.Equal(decisionId, result.GetProperty("decision_id").GetString());
+                            AssertDecisionActor(result);
+                        });
                 await AssertReadPairAsync(owner, mcp, draftPath +
                     "/impact-preview?expected_revision=1", "bdgrz.boundary.impact.preview",
                     new Dictionary<string, object?>
@@ -591,6 +596,16 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         Assert.Equal(scope.BoundaryIds[0], manifest.GetProperty("boundary_id").GetString());
         Assert.Equal(scope.ApprovedVersionId,
             manifest.GetProperty("approved_boundary_version_id").GetString());
+    }
+
+    static void AssertDecisionActor(JsonElement decision)
+    {
+        var actor = decision.GetProperty("actor");
+        Assert.Equal("member", actor.GetProperty("kind").GetString());
+        Assert.Equal(decision.GetProperty("actor_member_id").GetString(),
+            actor.GetProperty("id").GetString());
+        Assert.Equal(decision.GetProperty("actor_display").GetString(),
+            actor.GetProperty("display").GetString());
     }
 
     static async Task AssertReadPairAsync(HttpClient owner, McpScenario mcp,

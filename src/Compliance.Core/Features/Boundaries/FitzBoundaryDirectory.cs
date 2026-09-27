@@ -78,7 +78,10 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     reviewedCurrent.LatestDecision is { } previousDecision &&
                     previousDecision.VersionId == reviewed.DraftVersionId &&
                     previousDecision.Revision == reviewed.Revision
-                        ? previousDecision.DecisionId : null, null, null);
+                        ? previousDecision.DecisionId : null, null, null)
+                {
+                    Actor = reviewed.Actor,
+                };
                 await BoundaryDirectorySchema.Decisions.InsertAsync(Transaction,
                     reviewDecision, ct).ConfigureAwait(false);
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, reviewedCurrent,
@@ -113,7 +116,10 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     approved.DraftVersionId, approved.Revision, "approve",
                     approved.ActorMemberId, approved.ActorDisplay,
                     approved.Rationale, approved.DecidedAt, null,
-                    approved.AcceptedReviewDecisionId, approved.ImpactDigest);
+                    approved.AcceptedReviewDecisionId, approved.ImpactDigest)
+                {
+                    Actor = approved.Actor,
+                };
                 await BoundaryDirectorySchema.Decisions.InsertAsync(Transaction,
                     approvalDecision, ct).ConfigureAwait(false);
                 await BoundaryDirectorySchema.Directory.ReplaceAsync(Transaction, approvedCurrent,
