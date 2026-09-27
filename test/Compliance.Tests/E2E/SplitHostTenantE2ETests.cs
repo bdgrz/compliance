@@ -156,6 +156,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.False(source.IsActive);
         }
 
+        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        using (var denied = await creator.GetAsync(
+                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
         using (var secondWorker = CreateActivationWorker(applicationName))
         {
             await secondWorker.StartAsync();
@@ -173,7 +178,6 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 await Task.Delay(250);
             }
             Assert.Equal("active", view?.Status);
-            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
             using var grant = await creator.GetAsync(
                 $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
             Assert.Equal(HttpStatusCode.OK, grant.StatusCode);
