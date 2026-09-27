@@ -1,8 +1,14 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
@@ -35,11 +41,13 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await using var factory = E2EAppFactory.Create(broker, applicationName);
             var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
             HttpClient owner;
+            HttpClient reviewer;
             try
             {
                 Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
                     splitHosts ? "api" : "standalone");
                 owner = factory.CreateClient();
+                reviewer = factory.CreateClient();
             }
             finally
             {
@@ -47,14 +55,23 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             }
 
             using (owner)
+            using (reviewer)
             using (var outsider = factory.CreateClient())
             {
                 await TenantInvitationE2ETests.LoginAsync(owner,
                     $"application-matrix-owner-{Guid.NewGuid():N}@example.com");
+                var reviewerEmail = $"application-matrix-reviewer-{Guid.NewGuid():N}@example.com";
+                var reviewerId = await TenantInvitationE2ETests.LoginAsync(reviewer, reviewerEmail);
+                await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer,
+                    reviewerId, reviewerEmail,
+                    splitHosts ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
+                var delivery = splitHosts
+                    ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+                    : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 await TenantInvitationE2ETests.LoginAsync(outsider,
                     $"application-matrix-outsider-{Guid.NewGuid():N}@example.com");
-                var first = await SeedAsync(owner, "A");
-                var second = await SeedAsync(owner, "B");
+                var first = await SeedAsync(owner, reviewer, reviewerEmail, delivery, "A");
+                var second = await SeedAsync(owner, reviewer, reviewerEmail, delivery, "B");
                 var firstAdditionalApplication = await AddApplicationAsync(owner, first,
                     "A additional");
                 var secondAdditionalApplication = await AddApplicationAsync(owner, second,
@@ -275,7 +292,8 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         return builder.Build();
     }
 
-    static async Task<Seed> SeedAsync(HttpClient owner, string label)
+    static async Task<Seed> SeedAsync(HttpClient owner, HttpClient reviewer,
+        string reviewerEmail, MockTenantInvitationDelivery delivery, string label)
     {
         var tenantId = Guid.Parse((await PostUntilAuthorizedAsync(owner,
             "/api/v1/tenants", new
@@ -344,6 +362,8 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             instanceBoundaries[index] = await CreateBoundaryAsync(owner, boundaryPath,
                 "system_instance", instances[0], label);
         }
+        await ApproveBoundaryAsync(owner, reviewer, reviewerEmail, delivery,
+            tenantId, applicationId, applicationBoundaries[0]);
         await WaitForItemsAsync(owner, applicationPath + "/boundary-references", 2);
         await WaitForItemsAsync(owner, applicationPath + "/system-instances/" + instances[0] +
             "/boundary-references", 2);
@@ -355,6 +375,91 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             }));
         return new Seed(label, tenantId, applicationId, instances, applicationBoundaries,
             instanceBoundaries);
+    }
+
+    static async Task ApproveBoundaryAsync(HttpClient owner, HttpClient reviewer,
+        string reviewerEmail, MockTenantInvitationDelivery delivery, Guid tenantId,
+        Guid applicationId, Guid boundaryId)
+    {
+        var tenantPath = $"/api/v1/tenants/{tenantId}";
+        using (var invitation = await owner.PostAsJsonAsync(tenantPath + "/invitations",
+                   new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false }))
+            Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
+        string? token = null;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline &&
+               !delivery.TryGetLatest(Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture),
+                   reviewerEmail, out token))
+            await Task.Delay(250);
+        Assert.NotNull(token);
+        using (var accepted = await reviewer.PostAsJsonAsync(tenantPath + "/invitations/acceptance",
+                   new { email_address = reviewerEmail, token }))
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+        using (var session = await reviewer.GetAsync("/auth/session"))
+        {
+            Assert.Equal(HttpStatusCode.OK, session.StatusCode);
+            var reviewerId = Uuid.Parse((await ReadAsync(session)).GetProperty("id").GetString()!,
+                CultureInfo.InvariantCulture);
+            var tenant = Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture);
+            var memberId = RbacIds.Member(tenant, reviewerId);
+            using var assigned = await owner.PostAsync(tenantPath + "/teams/" +
+                BuiltInRbac.PowerUsersTeamId(tenant) + "/members/" + memberId, null);
+            Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        }
+
+        var boundaryPath = tenantPath + "/boundaries/" + boundaryId;
+        var boundary = await WaitForOkAsync(() => owner.GetAsync(boundaryPath));
+        var versionId = boundary.GetProperty("draft").GetProperty("version_id").GetString()!;
+        var preview = await WaitForOkAsync(() => owner.GetAsync(boundaryPath + "/drafts/" +
+            versionId + "/impact-preview?expected_revision=1"));
+        string? reviewId = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var review = await reviewer.PostAsJsonAsync(boundaryPath + "/drafts/" +
+                versionId + "/reviews", new
+                {
+                    expected_revision = 1,
+                    outcome = "accept",
+                    rationale = "A separate tenant member reviewed this application reference.",
+                });
+            if (review.StatusCode == HttpStatusCode.NoContent)
+                break;
+            Assert.True(review.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
+                await review.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        var reviewed = await WaitForAsync(owner, boundaryPath, result =>
+            result.GetProperty("latest_decision").ValueKind == JsonValueKind.Object &&
+            result.GetProperty("latest_decision").GetProperty("outcome").GetString() == "accept");
+        reviewId = reviewed.GetProperty("latest_decision").GetProperty("decision_id").GetString();
+        using (var approved = await reviewer.PostAsJsonAsync(boundaryPath + "/drafts/" +
+                   versionId + "/approvals", new
+                   {
+                       expected_revision = 1,
+                       accepted_review_decision_id = reviewId,
+                       effective_from = "2027-01-01",
+                       rationale = "Approved for application reference isolation proof.",
+                       impact_digest = preview.GetProperty("digest").GetString(),
+                   }))
+            Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
+        var referencesPath = $"/api/v1/tenants/{tenantId}/applications/{applicationId}/boundary-references";
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var references = await owner.GetAsync(referencesPath);
+            if (references.StatusCode == HttpStatusCode.OK)
+            {
+                var rows = (await ReadAsync(references)).GetProperty("items").EnumerateArray();
+                if (rows.Any(item => item.GetProperty("boundary_id").GetString() == boundaryId.ToString() &&
+                                     item.GetProperty("status").GetString() == "approved"))
+                    return;
+            }
+            else
+                Assert.Equal(HttpStatusCode.Conflict, references.StatusCode);
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The approved application boundary reference was not projected.");
     }
 
     static async Task<Guid> AddApplicationAsync(HttpClient owner, Seed seed, string label)
@@ -514,7 +619,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 {
                     ["tenant_id"] = seed.TenantId,
                     ["application_id"] = seed.ApplicationId,
-                }),
+                }, ExpectedApprovedBoundaryId: seed.ApplicationBoundaries[0]),
             new(applicationPath + "/system-instances/" + seed.Instances[0] +
                 "/boundary-references", "bdgrz.system_instance.boundary_references.list",
                 "boundary_id", seed.InstanceBoundaries.Select(id => id.ToString()).ToArray(),
@@ -579,6 +684,14 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 Assert.Equal($"Payroll {spec.Label}", item.GetProperty("subject").GetString());
                 Assert.Equal($"Declared in scope for tenant {spec.Label}.",
                     item.GetProperty("rationale").GetString());
+                if (spec.ExpectedApprovedBoundaryId is { } approvedBoundaryId &&
+                    item.GetProperty("boundary_id").GetString() == approvedBoundaryId.ToString())
+                {
+                    Assert.Equal("approved", item.GetProperty("status").GetString());
+                    Assert.Equal("2027-01-01", item.GetProperty("effective_from").GetString());
+                }
+                else if (spec.Tool == "bdgrz.application.boundary_references.list")
+                    Assert.Equal("draft", item.GetProperty("status").GetString());
             }
         }
     }
@@ -728,6 +841,27 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         throw new TimeoutException($"GET {path} did not reach {count} items.");
     }
 
+    static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
+        Func<JsonElement, bool> ready)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var result = await ReadAsync(response);
+                if (ready(result))
+                    return result;
+            }
+            else
+                Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict,
+                    await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException($"GET {path} did not reach the expected state.");
+    }
+
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>();
 
@@ -736,5 +870,5 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     sealed record ReadSpec(string Path, string Tool, string IdProperty, string[] ExpectedIds,
         string Label, Guid TenantId, Guid ApplicationOrSubjectId, Dictionary<string, object?> Args,
-        string? MinimumRevisionQuery = null);
+        string? MinimumRevisionQuery = null, Guid? ExpectedApprovedBoundaryId = null);
 }
