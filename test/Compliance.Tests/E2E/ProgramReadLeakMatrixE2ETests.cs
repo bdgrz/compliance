@@ -235,22 +235,133 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await AssertExactDenialsAsync(owner, mcp, outsider, outsiderMcp, scopeA, scopeB);
         });
 
+    [Fact]
+    public async Task ShouldReplayProgramAndServiceReadsAfterWorkerRestartGivenTwoTenants()
+    {
+        // Arrange: prepare two tenants and stop the worker before new source events are written.
+        var applicationName = $"program-replay-{Guid.NewGuid():N}";
+        var worker = BuildWorker(applicationName);
+        await worker.StartAsync();
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient owner;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                owner = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+
+            using (owner)
+            {
+                await TenantInvitationE2ETests.LoginAsync(owner,
+                    $"program-replay-owner-{Guid.NewGuid():N}@example.com");
+                var tenantA = await CreateTenantAsync(owner, "Program replay A");
+                var tenantB = await CreateTenantAsync(owner, "Program replay B");
+                var scopeA = await SeedAsync(owner, tenantA, "Replay-A");
+                var scopeB = await SeedAsync(owner, tenantB, "Replay-B");
+                await worker.StopAsync();
+
+                var pending = new[] { scopeA, scopeB };
+                foreach (var scope in pending)
+                {
+                    var tenantPath = TenantPath(scope.TenantId);
+                    using var programRevision = await owner.PutAsJsonAsync(
+                        tenantPath + "/programs/" + scope.ProgramIds[0], new
+                        {
+                            expected_revision = 2,
+                            name = scope.Marker + " Program 1 after worker restart",
+                            plan = Plan(),
+                        });
+                    Assert.Equal(HttpStatusCode.NoContent, programRevision.StatusCode);
+                    using var serviceRevision = await owner.PutAsJsonAsync(
+                        tenantPath + "/client-services/" + scope.ServiceIds[0], new
+                        {
+                            expected_revision = 2,
+                            name = scope.Marker + " Service 1 after worker restart",
+                            purpose = "Updated while the read worker is stopped",
+                            owner_reference = "Operations",
+                        });
+                    Assert.Equal(HttpStatusCode.NoContent, serviceRevision.StatusCode);
+
+                    using var staleProgram = await owner.GetAsync(tenantPath + "/programs/" +
+                        scope.ProgramIds[0] + "?minimum_revision=3");
+                    using var staleService = await owner.GetAsync(tenantPath +
+                        "/client-services/" + scope.ServiceIds[0] + "?minimum_revision=3");
+                    Assert.Equal(HttpStatusCode.Conflict, staleProgram.StatusCode);
+                    Assert.Equal(HttpStatusCode.Conflict, staleService.StatusCode);
+                }
+
+                // Act: restart the same worker application so it resumes from its saved checkpoints.
+                worker.Dispose();
+                worker = BuildWorker(applicationName);
+                await worker.StartAsync();
+
+                // Assert: both tenants see only their own revisions after the projections catch up.
+                await using var mcp = await McpScenario.ConnectAsync(owner,
+                    new Uri(owner.BaseAddress!, "/mcp"));
+                foreach (var scope in pending)
+                {
+                    var tenantPath = TenantPath(scope.TenantId);
+                    var programPath = tenantPath + "/programs/" + scope.ProgramIds[0];
+                    var servicePath = tenantPath + "/client-services/" + scope.ServiceIds[0];
+                    var program = await WaitForReadAsync(owner,
+                        programPath + "?minimum_revision=3", "name",
+                        scope.Marker + " Program 1 after worker restart");
+                    var service = await WaitForReadAsync(owner,
+                        servicePath + "?minimum_revision=3", "name",
+                        scope.Marker + " Service 1 after worker restart");
+                    Assert.Equal(scope.TenantId.ToString(),
+                        program.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.TenantId.ToString(),
+                        service.GetProperty("tenant_id").GetString());
+                    Assert.Equal("Updated while the read worker is stopped",
+                        service.GetProperty("purpose").GetString());
+
+                    var programRead = await ReadMcpAsync(mcp, "bdgrz.program.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId.ToString(),
+                            ["program_id"] = scope.ProgramIds[0],
+                            ["minimum_revision"] = 3,
+                        });
+                    var serviceRead = await ReadMcpAsync(mcp, "bdgrz.client-service.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId.ToString(),
+                            ["service_id"] = scope.ServiceIds[0],
+                            ["minimum_revision"] = 3,
+                        });
+                    Assert.Equal(scope.TenantId.ToString(),
+                        programRead.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.TenantId.ToString(),
+                        serviceRead.GetProperty("tenant_id").GetString());
+                    await WaitForPageCountAsync(owner, programPath +
+                        "/revisions?minimum_program_revision=3", 3);
+                    await WaitForPageCountAsync(owner, servicePath +
+                        "/revisions?minimum_service_revision=3", 3);
+                }
+            }
+        }
+        finally
+        {
+            await worker.StopAsync();
+            worker.Dispose();
+        }
+    }
+
     async Task RunWithHostsAsync(bool splitHosts, Func<HttpClient, HttpClient, Task> exercise)
     {
         var applicationName = $"compliance-program-read-matrix-{Guid.NewGuid():N}";
         IHost? worker = null;
         if (splitHosts)
         {
-            var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
-            {
-                EnvironmentName = "Development",
-            });
-            builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
-            builder.Configuration["Fitz:ApplicationName"] = applicationName;
-            builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
-            builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
-                .AddWorkers();
-            worker = builder.Build();
+            worker = BuildWorker(applicationName);
             await worker.StartAsync();
         }
         try
@@ -282,6 +393,20 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 worker.Dispose();
             }
         }
+    }
+
+    IHost BuildWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
+            .AddWorkers();
+        return builder.Build();
     }
 
     static async Task<TenantScope> SeedAsync(HttpClient owner, Uuid tenantId, string marker)
@@ -551,6 +676,28 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The projection did not reach the expected page size: " + path);
+    }
+
+    static async Task<JsonElement> WaitForReadAsync(HttpClient client, string path,
+        string property, string expectedValue)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var result = await ReadJsonAsync(response);
+                if (result.GetProperty(property).GetString() == expectedValue)
+                    return result;
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The read did not reach its replayed state: " + path);
     }
 
     static async Task<PageWalk> ReadHttpPagesAsync(HttpClient client, string path,
