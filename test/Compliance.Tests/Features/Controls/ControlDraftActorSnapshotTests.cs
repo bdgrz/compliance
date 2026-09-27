@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -25,13 +26,13 @@ public sealed class ControlDraftActorSnapshotTests
             ProgramId, Uuid.CreateVersion4(), "AC-01", Content(), MemberId, "First display",
             At))).IsSuccess);
         var created = Assert.IsType<ControlDraftCreated>(Assert.Single(scenario.PendingEvents));
-        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Revise(
+        Assert.True(scenario.When(control => CommandFailureRequestAdapter.ToOutcome(control.Revise(
             ProgramId, 1, Content() with { Title = "Updated review" }, MemberId, "Second display",
             At.AddMinutes(1)))).IsSuccess);
         var revised = Assert.IsType<ControlDraftRevised>(Assert.Single(scenario.PendingEvents));
 
         // Act
-        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
+        Assert.True(scenario.When(control => CommandFailureRequestAdapter.ToOutcome(control.Discard(
             ProgramId, 2, "Withdraw draft", MemberId, "Third display",
             At.AddMinutes(2)))).IsSuccess);
 

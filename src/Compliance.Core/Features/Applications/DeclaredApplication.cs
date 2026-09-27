@@ -70,17 +70,17 @@ public sealed class DeclaredApplication : Aggregate
         return Result<ApplicationRegistration>.Success(new ApplicationRegistration(Id));
     }
 
-    public Result Revise(long expectedRevision, string name, string purpose,
+    public CommandFailure? Revise(long expectedRevision, string name, string purpose,
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt, string? classification = null,
         Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null)
     {
         var check = CheckChange(expectedRevision);
         if (check is not null)
-            return Result.Failure(check);
+            return check;
         var validation = Validate(name, purpose, ownerReference, classification);
         if (validation is not null)
-            return Result.Failure(validation);
+            return CommandFailure.InvalidContent(validation.Message!);
         RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, name.Trim(),
             purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
             actorDisplay, changedAt, NormalizeOptional(classification), systemOwnerPersonId,
@@ -88,13 +88,13 @@ public sealed class DeclaredApplication : Aggregate
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
-        return Result.Success;
+        return null;
     }
 
-    RequestError? CheckChange(long expectedRevision) => !_created
-        ? new RequestError(RequestErrorKind.NotFound, "The application was not found.")
+    CommandFailure? CheckChange(long expectedRevision) => !_created
+        ? CommandFailure.MissingRecord("The application was not found.")
         : expectedRevision == _revision ? null :
-            VersionedRecordRules.StaleRevision("application", _revision).ToRequestError();
+            CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("application", _revision));
 
     static RequestError? Validate(string name, string purpose, string? ownerReference,
         string? classification)

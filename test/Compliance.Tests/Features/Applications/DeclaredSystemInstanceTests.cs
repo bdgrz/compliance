@@ -32,7 +32,7 @@ public sealed class DeclaredSystemInstanceTests
         // Assert
         Assert.True(firstResult.IsSuccess);
         Assert.True(secondResult.IsSuccess);
-        Assert.True(revised.IsSuccess);
+        Assert.Null(revised);
         Assert.Equal(2, application.Revision);
         Assert.Equal(1, first.Revision);
         Assert.Equal(1, second.Revision);

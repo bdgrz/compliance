@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bdgrz.Compliance;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -66,7 +67,7 @@ public sealed class ControlDraftTests
             var scenario = Scenario("AC-01");
             Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Create(
                 ProgramId, requestId, "ac-01", original, AuthorId, "First author", Now))).IsSuccess);
-            Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Revise(
+            Assert.True(scenario.When(control => CommandFailureRequestAdapter.ToOutcome(control.Revise(
                 ProgramId, 1, original with { Title = "Updated title" }, AuthorId,
                 "Second author", Now.AddMinutes(1)))).IsSuccess);
             return scenario;
@@ -108,15 +109,15 @@ public sealed class ControlDraftTests
                 "AC-02", Content(), AuthorId, "Author One", Now))).IsSuccess));
         var created = Assert.IsType<ControlDraftCreated>(Assert.Single(stale.PendingEvents));
         Assert.All([stale, wrongProgram], scenario => Assert.True(scenario.When(control =>
-            AggregateOutcome.CommitOnSuccess(control.Revise(ProgramId, 1,
+            CommandFailureRequestAdapter.ToOutcome(control.Revise(ProgramId, 1,
                 Content() with { Title = "Revised" }, nextAuthorId, "Author Two",
                 Now.AddMinutes(1)))).IsSuccess));
         var revised = Assert.IsType<ControlDraftRevised>(Assert.Single(stale.PendingEvents));
 
         // Act
-        var staleResult = stale.When(control => AggregateOutcome.CommitOnSuccess(control.Revise(
+        var staleResult = stale.When(control => CommandFailureRequestAdapter.ToOutcome(control.Revise(
             ProgramId, 1, Content(), AuthorId, "Author One", Now)));
-        var wrongProgramResult = wrongProgram.When(control => AggregateOutcome.CommitOnSuccess(
+        var wrongProgramResult = wrongProgram.When(control => CommandFailureRequestAdapter.ToOutcome(
             control.Revise(Uuid.CreateVersion4(), 2, Content(), AuthorId, "Author One", Now)));
 
         // Assert
@@ -228,7 +229,7 @@ public sealed class ControlDraftTests
         AggregateScenario<ControlDraft> Discarded()
         {
             var scenario = Created();
-            Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
+            Assert.True(scenario.When(control => CommandFailureRequestAdapter.ToOutcome(control.Discard(
                 ProgramId, 1, "Not needed in this program.", AuthorId, "Author",
                 Now.AddMinutes(1)))).IsSuccess);
             return scenario;
@@ -237,20 +238,20 @@ public sealed class ControlDraftTests
         AggregateScenario<ControlDraft>[] afterDiscard = [Discarded(), Discarded(), Discarded()];
 
         // Act
-        var stale = Created().When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
+        var stale = Created().When(control => CommandFailureRequestAdapter.ToOutcome(control.Discard(
             ProgramId, 0, "Not needed in this program.", AuthorId, "Author", Now)));
-        var blank = Created().When(control => AggregateOutcome.CommitOnSuccess(control.Discard(
+        var blank = Created().When(control => CommandFailureRequestAdapter.ToOutcome(control.Discard(
             ProgramId, 1, " ", AuthorId, "Author", Now)));
-        var discarded = discardedScenario.When(control => AggregateOutcome.CommitOnSuccess(
+        var discarded = discardedScenario.When(control => CommandFailureRequestAdapter.ToOutcome(
             control.Discard(ProgramId, 1, "Not needed in this program.", AuthorId, "Author",
                 Now.AddMinutes(1))));
-        var revised = afterDiscard[0].When(control => AggregateOutcome.CommitOnSuccess(
+        var revised = afterDiscard[0].When(control => CommandFailureRequestAdapter.ToOutcome(
             control.Revise(ProgramId, 1, Content() with { Title = "Changed" }, AuthorId, "Author",
                 Now.AddMinutes(2))));
         var recreated = afterDiscard[1].When(control => AggregateOutcome.CommitOnSuccess(
             control.Create(ProgramId, Uuid.CreateVersion4(), "AC-06", Content(), AuthorId,
                 "Author", Now.AddMinutes(3))));
-        var discardedAgain = afterDiscard[2].When(control => AggregateOutcome.CommitOnSuccess(
+        var discardedAgain = afterDiscard[2].When(control => CommandFailureRequestAdapter.ToOutcome(
             control.Discard(ProgramId, 1, "Still not needed.", AuthorId, "Author",
                 Now.AddMinutes(4))));
 
@@ -281,7 +282,7 @@ public sealed class ControlDraftTests
         Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Create(
             ProgramId, Uuid.CreateVersion4(), "AC-07", Content(), AuthorId, "Author",
             Now))).IsSuccess);
-        Assert.True(scenario.When(control => AggregateOutcome.CommitOnSuccess(control.Revise(
+        Assert.True(scenario.When(control => CommandFailureRequestAdapter.ToOutcome(control.Revise(
             ProgramId, 1, Content() with
             {
                 Applicability =
@@ -292,7 +293,7 @@ public sealed class ControlDraftTests
             }, AuthorId, "Author", Now.AddMinutes(1)))).IsSuccess);
 
         // Act
-        var discarded = scenario.When(control => AggregateOutcome.CommitOnSuccess(
+        var discarded = scenario.When(control => CommandFailureRequestAdapter.ToOutcome(
             control.Discard(ProgramId, 2, "No longer needed.", AuthorId, "Author",
                 Now.AddMinutes(2))));
 

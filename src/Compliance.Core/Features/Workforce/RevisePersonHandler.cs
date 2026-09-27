@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -11,7 +12,7 @@ public sealed class RevisePersonHandler(IAggregateExecutor executor, TimeProvide
         var actor = WorkforceActor.From(context);
         var request = context.Request;
         return executor.ExecuteAsync(new Person(request.TenantId, request.PersonId),
-            person => AggregateOutcome.CommitOnSuccess(person.Revise(request.ExpectedRevision,
+            person => CommandFailureRequestAdapter.ToOutcome(person.Revise(request.ExpectedRevision,
                 request.DisplayName, request.WorkEmail, actor, clock.GetUtcNow())),
             context, ct);
     }

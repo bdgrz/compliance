@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -47,10 +48,11 @@ public sealed class PersonTests
         var absent = missing.Revise(1, "Nobody", null, editor, Now);
 
         // Assert
-        Assert.True(revised.IsSuccess);
+        Assert.Null(revised);
         Assert.Equal(2, person.Revision);
-        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(stale.Error).Kind);
-        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(absent.Error).Kind);
+        Assert.Equal(CommandFailureCode.VersionConflict,
+            Assert.IsType<CommandFailure>(stale).Code);
+        Assert.Equal(CommandFailureCode.MissingRecord, Assert.IsType<CommandFailure>(absent).Code);
         var ev = Assert.IsType<PersonRevised>(
             new AggregateScenario<Person>(person).PendingEvents[1]);
         Assert.Equal(2, ev.Revision);

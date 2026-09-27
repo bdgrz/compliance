@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Commitments;
@@ -13,7 +14,7 @@ public sealed class ReviseCommitmentDraftHandler(IAggregateExecutor executor,
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new CommitmentDraft(request.TenantId, request.DraftId),
-            draft => AggregateOutcome.CommitOnSuccess(draft.Revise(request.ProgramId,
+            draft => CommandFailureRequestAdapter.ToOutcome(draft.Revise(request.ProgramId,
                 request.ExpectedRevision, request.Statement, request.Context,
                 request.SourceReference, RbacIds.Member(request.TenantId, userId),
                 UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),

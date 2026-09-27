@@ -93,23 +93,21 @@ public sealed class ImportBatch : Aggregate
             new ApplicationImportRegistration(Id, 1, digest));
     }
 
-    public Result Cancel(long expectedRevision, string reason, Uuid actorMemberId,
+    public CommandFailure? Cancel(long expectedRevision, string reason, Uuid actorMemberId,
         string actorDisplay, DateTimeOffset canceledAt)
     {
         if (!_created)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The import batch was not found."));
+            return CommandFailure.MissingRecord("The import batch was not found.");
         if (string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "Cancellation requires a reason of at most 2000 characters."));
+            return CommandFailure.InvalidContent(
+                "Cancellation requires a reason of at most 2000 characters.");
         if (_canceled && expectedRevision <= _revision)
-            return Result.Success;
+            return null;
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("import", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("import", _revision));
         RaiseEvent(new ApplicationImportCanceled(_tenantId, Id, _revision + 1,
             reason.Trim(), actorMemberId, actorDisplay, canceledAt));
-        return Result.Success;
+        return null;
     }
 
     static string[] Findings(ApplicationImportInputRow row, HashSet<string> duplicated)

@@ -217,8 +217,8 @@ public sealed class CommitmentDraftHistoryReadTests
             actorId, "Author", DateTimeOffset.UtcNow).IsSuccess);
         while (source.Revision < sourceRevision)
         {
-            Assert.True(source.Revise(programId, source.Revision, "Updated statement", "Context",
-                "Source B", actorId, "Editor", DateTimeOffset.UtcNow).IsSuccess);
+            Assert.Null(source.Revise(programId, source.Revision, "Updated statement", "Context",
+                "Source B", actorId, "Editor", DateTimeOffset.UtcNow));
         }
         var historyRevision = projectedRevision is { } value
             ? Revision(tenantId, programId, draftId, value)

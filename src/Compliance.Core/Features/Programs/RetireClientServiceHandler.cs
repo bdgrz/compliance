@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -11,7 +12,7 @@ public sealed class RetireClientServiceHandler(IAggregateExecutor executor, Time
         var (memberId, display) = ClientServiceActor.Snapshot(context);
         return executor.ExecuteAsync(new ClientService(context.Request.TenantId,
                 context.Request.ServiceId),
-            service => AggregateOutcome.CommitOnSuccess(service.Retire(context.Request.ExpectedRevision,
+            service => CommandFailureRequestAdapter.ToOutcome(service.Retire(context.Request.ExpectedRevision,
                 context.Request.Rationale, memberId, display, clock.GetUtcNow())), context, ct);
     }
 }

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -139,10 +140,10 @@ public sealed class ImportBatchTests
             DateTimeOffset.UtcNow.AddMinutes(2));
 
         // Assert
-        Assert.True(canceled.IsSuccess);
-        Assert.True(replay.IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict,
-            Assert.IsType<RequestError>(future.Error).Kind);
+        Assert.Null(canceled);
+        Assert.Null(replay);
+        Assert.Equal(CommandFailureCode.VersionConflict,
+            Assert.IsType<CommandFailure>(future).Code);
         Assert.True(batch.IsCanceled);
         Assert.Equal(2, batch.Revision);
         Assert.Collection(new AggregateScenario<ImportBatch>(batch).PendingEvents,

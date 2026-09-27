@@ -348,8 +348,8 @@ public sealed class ApplicationChangePreviewTests
             tenantId, applicationId, "Payroll", "Run payroll", null, actorId, "Manager", now));
         var ready = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
             request, new ClaimsPrincipal()), CancellationToken.None);
-        Assert.True(source.Revise(1, "Payroll v2", "Run payroll", null,
-            actorId, "Manager", now).IsSuccess);
+        Assert.Null(source.Revise(1, "Payroll v2", "Run payroll", null,
+            actorId, "Manager", now));
         var stale = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
             request, new ClaimsPrincipal()), CancellationToken.None);
         var invalid = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(

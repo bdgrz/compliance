@@ -105,19 +105,18 @@ public sealed class CommitmentDraft : Aggregate
             Id, normalizedKind, normalizedIdentifier, 1));
     }
 
-    public Result Revise(Uuid programId, long expectedRevision, string statement,
+    public CommandFailure? Revise(Uuid programId, long expectedRevision, string statement,
         string context, string sourceReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt)
     {
         if (!_created || ProgramId != programId)
-            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The draft was not found."));
+            return CommandFailure.MissingRecord("The draft was not found.");
         if (expectedRevision != _revision)
-            return Result.Failure(VersionedRecordRules.StaleRevision("commitment draft", _revision)
-                .ToRequestError());
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision(
+                "commitment draft", _revision));
         var error = Validate(Kind!, Identifier!, statement, context, sourceReference);
         if (error is not null)
-            return Result.Failure(error);
+            return CommandFailure.InvalidContent(error.Message!);
         CommitmentDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
             statement.Trim(), context.Trim(), sourceReference.Trim(), actorMemberId,
             actorDisplay, changedAt)
@@ -127,10 +126,9 @@ public sealed class CommitmentDraft : Aggregate
         if (JsonSerializer.SerializeToUtf8Bytes(revised,
                 ComplianceCoreJsonContext.Default.CommitmentDraftRevised).Length >
             MaximumDraftEventPayloadBytes)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "The draft exceeds the bounded event payload size."));
+            return CommandFailure.InvalidContent("The draft exceeds the bounded event payload size.");
         RaiseEvent(revised);
-        return Result.Success;
+        return null;
     }
 
     static RequestError? Validate(string kind, string identifier, string statement,

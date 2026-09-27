@@ -24,8 +24,8 @@ public sealed class CommitmentDraftActorSnapshotTests
         Assert.True(draft.Create(ProgramId, Uuid.CreateVersion4(), ServiceId,
             "service_commitment", "SC-01", "First statement", "Draft context", "Source A",
             MemberId, "First display", At).IsSuccess);
-        Assert.True(draft.Revise(ProgramId, 1, "Second statement", "Draft context",
-            "Source B", MemberId, "Second display", At.AddMinutes(1)).IsSuccess);
+        Assert.Null(draft.Revise(ProgramId, 1, "Second statement", "Draft context",
+            "Source B", MemberId, "Second display", At.AddMinutes(1)));
 
         // Act
         var events = new AggregateScenario<CommitmentDraft>(draft).PendingEvents;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -16,7 +17,7 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor,
             return Result.Failure(owners);
         return await executor.ExecuteAsync(new DeclaredApplication(request.TenantId,
                 request.ApplicationId),
-            app => AggregateOutcome.CommitOnSuccess(app.Revise(request.ExpectedRevision,
+            app => CommandFailureRequestAdapter.ToOutcome(app.Revise(request.ExpectedRevision,
                 request.Name, request.Purpose, request.OwnerReference,
                 memberId, display, clock.GetUtcNow(), request.Classification,
                 request.SystemOwnerPersonId, request.AccessOwnerPersonId)), context, ct)
