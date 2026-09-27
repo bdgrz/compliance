@@ -111,6 +111,116 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         }
     }
 
+    [Fact]
+    public async Task ShouldReplayControlDraftHistoryAfterWorkerRestartGivenTwoTenants()
+    {
+        // Arrange: seed one control in each tenant, then stop the projection worker.
+        var applicationName = $"control-draft-replay-{Guid.NewGuid():N}";
+        var worker = BuildWorker(applicationName);
+        await worker.StartAsync();
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient owner;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                owner = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            }
+
+            using (owner)
+            {
+                await TenantInvitationE2ETests.LoginAsync(owner,
+                    $"control-replay-owner-{Guid.NewGuid():N}@example.com");
+                var first = await SeedControlAsync(owner, "A");
+                var second = await SeedControlAsync(owner, "B");
+                await worker.StopAsync();
+
+                // Act: append the third revision to both tenant streams with no projector running.
+                foreach (var scope in new[] { first, second })
+                {
+                    using var revised = await owner.PutAsJsonAsync(scope.DraftPath, new
+                    {
+                        expected_revision = 2,
+                        content = ControlContent($"Control {scope.Label} after worker restart"),
+                    });
+                    Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
+                    using var stale = await owner.GetAsync(scope.DraftPath +
+                        "?minimum_revision=3");
+                    Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+                }
+
+                var stoppedWorker = worker;
+                worker = BuildWorker(applicationName);
+                stoppedWorker.Dispose();
+                await worker.StartAsync();
+
+                // Assert: HTTP and MCP current/history reads catch up without crossing tenants.
+                await using var mcp = await McpScenario.ConnectAsync(owner,
+                    new Uri(owner.BaseAddress!, "/mcp"));
+                foreach (var scope in new[] { first, second })
+                {
+                    var currentPath = scope.DraftPath + "?minimum_revision=3";
+                    await WaitForHttpAsync(owner, currentPath);
+                    var current = await ReadHttpAsync(owner, currentPath);
+                    Assert.Equal(scope.TenantId.ToString(),
+                        current.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.ProgramId.ToString(),
+                        current.GetProperty("program_id").GetString());
+                    Assert.Equal(scope.ControlId.ToString(),
+                        current.GetProperty("control_id").GetString());
+                    Assert.Equal(3, current.GetProperty("revision").GetInt64());
+                    Assert.Equal($"Control {scope.Label} after worker restart",
+                        current.GetProperty("content").GetProperty("title").GetString());
+
+                    var currentMcp = await ReadToolAsync(mcp, "bdgrz.control.draft.get",
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["control_id"] = scope.ControlId,
+                            ["minimum_revision"] = 3,
+                        });
+                    Assert.Equal(scope.TenantId.ToString(),
+                        currentMcp.GetProperty("tenant_id").GetString());
+                    Assert.Equal(scope.ControlId.ToString(),
+                        currentMcp.GetProperty("control_id").GetString());
+                    Assert.Equal(3, currentMcp.GetProperty("revision").GetInt64());
+
+                    var historyPath = scope.DraftPath +
+                        "/revisions?minimum_control_draft_revision=3";
+                    await WaitForHttpAsync(owner, historyPath);
+                    var history = (await ReadHttpAsync(owner, historyPath))
+                        .GetProperty("items").EnumerateArray().ToArray();
+                    AssertControlReplayHistory(history, scope);
+                    var historyMcp = await ReadToolAsync(mcp,
+                        "bdgrz.control.draft.revisions.list", new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = scope.TenantId,
+                            ["program_id"] = scope.ProgramId,
+                            ["control_id"] = scope.ControlId,
+                            ["minimum_control_draft_revision"] = 3,
+                        });
+                    AssertControlReplayHistory(historyMcp.GetProperty("items")
+                        .EnumerateArray().ToArray(), scope);
+                }
+            }
+        }
+        finally
+        {
+            if (worker is not null)
+            {
+                await worker.StopAsync();
+                worker.Dispose();
+            }
+        }
+    }
+
     static async Task<Seed> SeedAsync(HttpClient owner, string label)
     {
         using var tenantResponse = await owner.PostAsJsonAsync("/api/v1/tenants", new
@@ -218,6 +328,46 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
         foreach (var spec in ListSpecs(seed).Where(spec => spec.ParentId is null))
             await WaitForListAsync(owner, spec);
         return seed;
+    }
+
+    static async Task<ControlReplayScope> SeedControlAsync(HttpClient owner, string label)
+    {
+        using var tenant = await owner.PostAsJsonAsync("/api/v1/tenants", new
+        {
+            name = $"Control replay tenant {label}",
+            slug = $"control-replay-{Guid.NewGuid():N}"[..24],
+        });
+        Assert.Equal(HttpStatusCode.OK, tenant.StatusCode);
+        var tenantId = Guid.Parse((await ReadAsync(tenant)).GetProperty("tenant_id").GetString()!);
+        var programId = await CreateProgramAsync(owner, tenantId);
+        var controlsPath = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls";
+        using var created = await owner.PostAsJsonAsync(controlsPath, new
+        {
+            identifier = $"CR-{label}-01",
+            content = ControlContent($"Control {label} initial"),
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var controlId = Guid.Parse((await ReadAsync(created)).GetProperty("control_id").GetString()!);
+        var draftPath = controlsPath + $"/{controlId}/draft";
+        using var revised = await owner.PutAsJsonAsync(draftPath, new
+        {
+            expected_revision = 1,
+            content = ControlContent($"Control {label} before worker restart"),
+        });
+        Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
+        await WaitForHttpAsync(owner, draftPath + "?minimum_revision=2");
+        return new ControlReplayScope(label, tenantId, programId, controlId, draftPath);
+    }
+
+    static void AssertControlReplayHistory(JsonElement[] rows, ControlReplayScope scope)
+    {
+        Assert.Equal([1L, 2L, 3L], rows.Select(row =>
+            row.GetProperty("revision").GetInt64()).Order());
+        Assert.All(rows, row => Assert.Equal(scope.ControlId.ToString(),
+            row.GetProperty("control_id").GetString()));
+        var third = Assert.Single(rows, row => row.GetProperty("revision").GetInt64() == 3);
+        Assert.Equal($"Control {scope.Label} after worker restart",
+            third.GetProperty("content").GetProperty("title").GetString());
     }
 
     static ListSpec[] ListSpecs(Seed seed)
@@ -569,6 +719,9 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     sealed record Seed(string Label, Guid TenantId, Guid ProgramId, Guid[] Controls,
         Guid[] Commitments, Guid[] Risks);
+
+    sealed record ControlReplayScope(string Label, Guid TenantId, Guid ProgramId,
+        Guid ControlId, string DraftPath);
 
     sealed record ListSpec(string Path, string Tool, Dictionary<string, object?> Args,
         string IdField, string[] ExpectedIds, Seed Seed, Guid? ParentId = null,

@@ -32,4 +32,6 @@ The member of both tenants runs these denial probes over HTTP and MCP:
 
 The unrelated member gets `NotFound` for all 12 of tenant B's reads over both transports.
 
-This evidence covers only current drafts and draft history. It does not cover approved versions, other draft kinds, a stopped worker, or replay. The broader #157 inventory is in [tenant-read-leak-matrix.md](tenant-read-leak-matrix.md).
+`ShouldReplayControlDraftHistoryAfterWorkerRestartGivenTwoTenants` covers Control replay in split-host mode. With the worker stopped, it appends revision 3 for one Control in each tenant and verifies that minimum-revision HTTP reads remain in conflict. After restarting the same worker application, HTTP and MCP current reads and revision-history lists expose revisions 1 through 3 with the correct tenant-owned Control IDs and revision 3 content.
+
+This evidence does not cover approved versions, stopped-worker replay for commitment and risk drafts, or other draft kinds. The broader #157 inventory is in [tenant-read-leak-matrix.md](tenant-read-leak-matrix.md).
