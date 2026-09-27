@@ -127,12 +127,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         }
         using var creator = client;
         var email = $"creator-{Guid.NewGuid():N}@example.com";
+        string? creatorId = null;
 
         using (var firstWorker = CreateActivationWorker(applicationName))
         {
             await firstWorker.StartAsync();
-            var userId = await TenantInvitationE2ETests.LoginAsync(creator, email);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email,
+            creatorId = await TenantInvitationE2ETests.LoginAsync(creator, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email,
                 firstWorker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             await firstWorker.StopAsync();
         }
@@ -161,7 +162,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
 
+        Assert.NotNull(creatorId);
         var activationLag = new TransientTenantAccessPermissionLag();
+        activationLag.TargetUser(creatorId);
         using (var secondWorker = CreateActivationWorker(applicationName, activationLag))
         {
             await secondWorker.StartAsync();
@@ -695,6 +698,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
     {
         // Arrange
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
+        var activationLag = new TransientTenantAccessPermissionLag();
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
@@ -703,6 +707,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
         using var worker = builder.Build();
 
         // Act
@@ -796,6 +801,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
 
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);
+            activationLag.TargetUser(administratorId);
             var acceptancePath = $"/api/v1/tenants/{tenantId}/invitations/acceptance";
             using var unverified = await administratorClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = administratorEmail, token = invitationToken });
@@ -806,6 +812,14 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var accepted = await administratorClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = administratorEmail, token = invitationToken });
             Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+
+            using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+            using (var deniedDuringLag = await administratorClient.GetAsync(
+                       $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+                Assert.Equal(HttpStatusCode.Forbidden, deniedDuringLag.StatusCode);
+            Assert.True(activationLag.FailureCount >= 1);
+            activationLag.Release();
 
             deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             var access = HttpStatusCode.Forbidden;

@@ -9,14 +9,19 @@ sealed class TransientTenantAccessPermissionLag
     readonly TaskCompletionSource _firstFailure = new(TaskCreationOptions.RunContinuationsAsynchronously);
     int _failureCount;
     int _released;
+    string? _targetUserId;
 
     internal int FailureCount => Volatile.Read(ref _failureCount);
 
     internal Task WaitForFirstFailureAsync(CancellationToken ct) => _firstFailure.Task.WaitAsync(ct);
 
-    internal bool ShouldFail(string permission)
+    internal void TargetUser(string userId) => Interlocked.Exchange(ref _targetUserId, userId);
+
+    internal bool ShouldFail(Uuid userId, string permission)
     {
-        if (permission != RbacPermissions.TenantAccess || Volatile.Read(ref _released) == 1)
+        if (permission != RbacPermissions.TenantAccess ||
+            !string.Equals(userId.ToString(), Volatile.Read(ref _targetUserId), StringComparison.Ordinal) ||
+            Volatile.Read(ref _released) == 1)
             return false;
 
         _ = Interlocked.Increment(ref _failureCount);
@@ -31,7 +36,7 @@ sealed class TransientTenantAccessPermissionAuthorizer(IPermissionAuthorizer inn
     TransientTenantAccessPermissionLag lag) : IPermissionAuthorizer
 {
     public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
-        CancellationToken ct = default) => lag.ShouldFail(permission)
+        CancellationToken ct = default) => lag.ShouldFail(userId, permission)
         ? ValueTask.FromResult(false)
         : inner.IsAllowedAsync(tenantId, userId, memberId, permission, ct);
 }

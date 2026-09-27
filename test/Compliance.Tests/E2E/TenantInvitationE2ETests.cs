@@ -16,74 +16,13 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
     [Fact]
-    public async Task ShouldRecoverAdministratorActivationGivenTransientPermissionProjectionLag()
-    {
-        // Arrange
-        var lag = new TransientTenantAccessPermissionLag();
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
-        WebApplicationFactory<Program> factory;
-        HttpClient creator;
-        try
-        {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "standalone");
-            factory = E2EAppFactory.Create(broker)
-                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
-                    TransientTenantAccessPermissionTestRegistration.Install(services, lag)));
-            creator = factory.CreateClient();
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
-        }
-
-        await using var factoryToDispose = factory;
-        using var creatorToDispose = creator;
-        var email = $"creator-{Guid.NewGuid():N}@example.com";
-        var creatorId = await LoginAsync(creator, email);
-        await VerifyEmailAsync(factory, creator, creatorId, email);
-
-        // Act
-        using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", new
-        {
-            name = "Transient Activation",
-            slug = $"transient-{Guid.NewGuid():N}"[..24],
-            legal_name = "Transient Activation LLC",
-        });
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
-        var registration = await registered.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
-        Assert.NotNull(registration);
-        var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
-        using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-        await lag.WaitForFirstFailureAsync(activationDeadline.Token);
-
-        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
-        using (var denied = await creator.GetAsync(
-                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
-            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
-        Assert.True(lag.FailureCount >= 1);
-        lag.Release();
-
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        var access = HttpStatusCode.Forbidden;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await creator.GetAsync(
-                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
-            access = response.StatusCode;
-            if (access == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(HttpStatusCode.OK, access);
-    }
-
-    [Fact]
     public async Task ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation()
     {
         // Arrange
-        await using var factory = E2EAppFactory.Create(broker);
+        var activationLag = new TransientTenantAccessPermissionLag();
+        await using var factory = E2EAppFactory.Create(broker)
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                TransientTenantAccessPermissionTestRegistration.Install(services, activationLag)));
         using var operatorClient = factory.CreateClient();
         using var administratorClient = factory.CreateClient();
         var operatorEmail = $"operator-{Guid.NewGuid():N}@example.com";
@@ -118,6 +57,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.NotNull(invitationToken);
 
         var administratorId = await LoginAsync(administratorClient, administratorEmail);
+        activationLag.TargetUser(administratorId);
         var acceptance = $"/api/v1/tenants/{tenantId}/invitations/acceptance";
         using var unverified = await administratorClient.PostAsJsonAsync(acceptance,
             new { email_address = administratorEmail, token = invitationToken });
@@ -131,6 +71,15 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             new { email_address = administratorEmail, token = invitationToken });
         Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
 
+        using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+        using (var deniedDuringLag = await administratorClient.GetAsync(
+                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+            Assert.Equal(HttpStatusCode.Forbidden, deniedDuringLag.StatusCode);
+        Assert.True(activationLag.FailureCount >= 1);
+        activationLag.Release();
+
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var access = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
