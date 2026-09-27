@@ -19,6 +19,13 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
     static readonly string[] ImportReadSuffixes = ["", "/rows", "/preview"];
+    static readonly string[] ImportCursorTools =
+    [
+        "bdgrz.application_import.rows.list",
+        "bdgrz.application_import.preview",
+    ];
+    static readonly string[] ImportSourceIdsA = ["A-1", "A-2", "A-3"];
+    static readonly string[] ImportSourceIdsB = ["B-1"];
     static readonly string[] ImportReadTools =
     [
         "bdgrz.application_import.get",
@@ -228,10 +235,15 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             var rowsB = await ReadHttpPageAsync(owner, pathB + "/rows");
             Assert.Equal("B-1", Assert.Single(Ids(rowsB, "source_record_id")));
             Assert.Null(rowsB.GetProperty("next_cursor").GetString());
-            var previewA = await ReadHttpPageAsync(owner, pathA + "/preview");
+            var previewPagesA = await ReadAllHttpPagesAsync(owner,
+                pathA + "/preview?limit=1");
             var previewB = await ReadHttpPageAsync(owner, pathB + "/preview");
-            Assert.Equal(3, Ids(previewA, "source_record_id").Length);
-            Assert.All(Ids(previewA, "source_record_id"), id => Assert.StartsWith("A-", id));
+            AssertIds(ImportSourceIdsA, previewPagesA
+                .SelectMany(page => Ids(page, "source_record_id")).ToArray());
+            Assert.All(previewPagesA, page => Assert.True(
+                Ids(page, "source_record_id").Length <= 1));
+            Assert.All(previewPagesA.SelectMany(page => page.GetProperty("items").EnumerateArray()),
+                row => Assert.Equal(tenantA.ToString(), row.GetProperty("tenant_id").GetString()));
             Assert.Equal("B-1", Assert.Single(Ids(previewB, "source_record_id")));
 
             foreach (var suffix in ImportReadSuffixes)
@@ -246,6 +258,11 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             using (var foreignCursor = await owner.GetAsync(pathB + "/rows?limit=1&cursor=" +
                        Uri.EscapeDataString(cursorA)))
                 Assert.Equal(HttpStatusCode.BadRequest, foreignCursor.StatusCode);
+            var previewCursorA = previewPagesA[0].GetProperty("next_cursor").GetString();
+            Assert.NotNull(previewCursorA);
+            using (var foreignPreviewCursor = await owner.GetAsync(pathB + "/preview?limit=1&cursor=" +
+                       Uri.EscapeDataString(previewCursorA)))
+                Assert.Equal(HttpStatusCode.BadRequest, foreignPreviewCursor.StatusCode);
 
             await using (var mcp = await McpScenario.ConnectAsync(owner,
                              new Uri(owner.BaseAddress!, "/mcp")))
@@ -263,18 +280,44 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     };
                     var view = await ReadMcpResultAsync(mcp, "bdgrz.application_import.get", input);
                     AssertImportCounts(view, tenant, batch, rows, rows == 3 ? 1 : 0);
-                    var rowPage = await ReadMcpPageAsync(mcp,
-                        "bdgrz.application_import.rows.list", input);
-                    var previewPage = await ReadMcpPageAsync(mcp,
-                        "bdgrz.application_import.preview", input);
-                    Assert.Equal(rows, Ids(rowPage, "source_record_id").Length);
-                    Assert.Equal(rows, Ids(previewPage, "source_record_id").Length);
-                    Assert.Null(rowPage.GetProperty("next_cursor").GetString());
-                    Assert.Null(previewPage.GetProperty("next_cursor").GetString());
-                    Assert.All(Ids(rowPage, "tenant_id"),
+                    var rowPages = await ReadAllMcpPagesAsync(mcp,
+                        "bdgrz.application_import.rows.list",
+                        new Dictionary<string, object?>(input) { ["limit"] = 1 });
+                    var previewPages = await ReadAllMcpPagesAsync(mcp,
+                        "bdgrz.application_import.preview",
+                        new Dictionary<string, object?>(input) { ["limit"] = 1 });
+                    var expectedIds = tenant == tenantA ? ImportSourceIdsA : ImportSourceIdsB;
+                    AssertIds(expectedIds,
+                        rowPages.SelectMany(page => Ids(page, "source_record_id")).ToArray());
+                    AssertIds(expectedIds,
+                        previewPages.SelectMany(page => Ids(page, "source_record_id")).ToArray());
+                    Assert.All(rowPages, page => Assert.True(
+                        Ids(page, "source_record_id").Length <= 1));
+                    Assert.All(previewPages, page => Assert.True(
+                        Ids(page, "source_record_id").Length <= 1));
+                    Assert.All(rowPages.SelectMany(page => Ids(page, "tenant_id")),
                         id => Assert.Equal(tenant.ToString(), id));
-                    Assert.All(Ids(previewPage, "tenant_id"),
+                    Assert.All(previewPages.SelectMany(page => Ids(page, "tenant_id")),
                         id => Assert.Equal(tenant.ToString(), id));
+                }
+                foreach (var tool in ImportCursorTools)
+                {
+                    var firstPage = await ReadMcpPageAsync(mcp, tool,
+                        new Dictionary<string, object?>
+                        {
+                            ["tenant_id"] = tenantA.ToString(),
+                            ["batch_id"] = batchA,
+                            ["limit"] = 1,
+                        });
+                    var cursor = firstPage.GetProperty("next_cursor").GetString();
+                    Assert.NotNull(cursor);
+                    _ = await mcp.When(tool, new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantB.ToString(),
+                        ["batch_id"] = batchB,
+                        ["limit"] = 1,
+                        ["cursor"] = cursor,
+                    }).ExpectFailure("Validation");
                 }
                 foreach (var tool in ImportReadTools)
                     _ = await mcp.When(tool, new Dictionary<string, object?>
