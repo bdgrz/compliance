@@ -819,6 +819,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                        $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
                 Assert.Equal(HttpStatusCode.Forbidden, deniedDuringLag.StatusCode);
             Assert.True(activationLag.FailureCount >= 1);
+            var invitationReactorCheckpoint = new CheckpointIdentity("TenantInvitation",
+                EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
+            await using var checkpointScope = worker.Services.CreateAsyncScope();
+            var checkpointStore = checkpointScope.ServiceProvider.GetRequiredService<IProjectionCheckpointStore>();
+            var checkpointBeforeRecovery = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
             activationLag.Release();
 
             deadline = DateTimeOffset.UtcNow.AddSeconds(45);
@@ -857,10 +862,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
                 var programManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                var checkpointAfterRecovery = await services.GetRequiredService<IProjectionCheckpointStore>()
+                    .LoadAsync(invitationReactorCheckpoint);
                 Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
                     $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
                     $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
                     $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
             }
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
