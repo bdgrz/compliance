@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
@@ -14,6 +15,70 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
 {
+    [Fact]
+    public async Task ShouldRecoverAdministratorActivationGivenTransientPermissionProjectionLag()
+    {
+        // Arrange
+        var lag = new TransientTenantAccessPermissionLag();
+        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        WebApplicationFactory<Program> factory;
+        HttpClient creator;
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "standalone");
+            factory = E2EAppFactory.Create(broker)
+                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                    TransientTenantAccessPermissionTestRegistration.Install(services, lag)));
+            creator = factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+        }
+
+        await using var factoryToDispose = factory;
+        using var creatorToDispose = creator;
+        var email = $"creator-{Guid.NewGuid():N}@example.com";
+        var creatorId = await LoginAsync(creator, email);
+        await VerifyEmailAsync(factory, creator, creatorId, email);
+
+        // Act
+        using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", new
+        {
+            name = "Transient Activation",
+            slug = $"transient-{Guid.NewGuid():N}"[..24],
+            legal_name = "Transient Activation LLC",
+        });
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+        var registration = await registered.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
+        Assert.NotNull(registration);
+        var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+        using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        await lag.WaitForFirstFailureAsync(activationDeadline.Token);
+
+        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        using (var denied = await creator.GetAsync(
+                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+            Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+        Assert.True(lag.FailureCount >= 1);
+        lag.Release();
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var access = HttpStatusCode.Forbidden;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await creator.GetAsync(
+                $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+            access = response.StatusCode;
+            if (access == HttpStatusCode.OK)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(HttpStatusCode.OK, access);
+    }
+
     [Fact]
     public async Task ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation()
     {

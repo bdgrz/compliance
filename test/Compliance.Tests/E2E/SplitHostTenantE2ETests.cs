@@ -161,9 +161,14 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
             Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
 
-        using (var secondWorker = CreateActivationWorker(applicationName))
+        var activationLag = new TransientTenantAccessPermissionLag();
+        using (var secondWorker = CreateActivationWorker(applicationName, activationLag))
         {
             await secondWorker.StartAsync();
+            using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+            Assert.True(activationLag.FailureCount >= 1);
+            activationLag.Release();
             var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             Tenant? view = null;
             while (DateTimeOffset.UtcNow < deadline)
@@ -1059,7 +1064,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         return Process.Start(start) ?? throw new InvalidOperationException("Could not start the worker host.");
     }
 
-    IHost CreateActivationWorker(string applicationName)
+    IHost CreateActivationWorker(string applicationName, TransientTenantAccessPermissionLag? activationLag = null)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -1069,6 +1074,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        if (activationLag is not null)
+            TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
         return builder.Build();
     }
 
