@@ -283,6 +283,26 @@ public sealed class SystemBoundaryTests
     }
 
     [Fact]
+    public void ShouldSnapshotActorGivenDraftDiscard()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        var discarderId = Uuid.CreateVersion4();
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId,
+            "Author", Now).IsSuccess);
+
+        // Act
+        Assert.Null(boundary.DiscardDraft(VersionId, 1, "Withdrawn",
+            discarderId, "Discarder at discard time", Now));
+
+        // Assert
+        var discarded = Assert.IsType<BoundaryDraftDiscarded>(
+            new AggregateScenario<SystemBoundary>(boundary).PendingEvents[1]);
+        Assert.Equal(ActorReference.ForMember(discarderId, "Discarder at discard time"),
+            discarded.Actor);
+    }
+
+    [Fact]
     public void ShouldPreserveApprovedVersionAndRequireLaterDateGivenSuccessor()
     {
         // Arrange

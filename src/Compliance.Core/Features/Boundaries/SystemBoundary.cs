@@ -168,7 +168,10 @@ public sealed class SystemBoundary : Aggregate
         if (string.IsNullOrWhiteSpace(rationale))
             return CommandFailure.InvalidContent("Discarding a draft requires a rationale.");
         RaiseEvent(new BoundaryDraftDiscarded(_tenantId, Id, draftVersionId,
-            expectedRevision, actorMemberId, actorDisplay, rationale.Trim(), discardedAt));
+            expectedRevision, actorMemberId, actorDisplay, rationale.Trim(), discardedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return null;
     }
 

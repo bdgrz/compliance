@@ -35,7 +35,7 @@ Each backend child owns its authorized HTTP API and machine-appropriate MCP surf
 
 Close each child only when its own acceptance evidence is complete. Keep the product parent open until all backend and frontend children and the integrated product outcome pass. A later product slice still depends on its first slice directly or transitively, in addition to any slice-specific blockers. Backfill the initial pair for active stories first; create children for other validated stories when scheduled.
 
-Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The initial R1-15, EN-01, and R1-01 bundle uses #152, #157, and #158. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324); it blocks #157 and carries the same non-UI dependencies.
+Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. PR #159 seeded R1-15, EN-01, and R1-01 in #152, #157, and #158; it was partial and did not close those children. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
 
 Keep the merged implementation trail in the [backend delivery ledger](backend-delivery-ledger.md). When a child or discovery issue is already complete, use a synthetic documentation PR to record its exact implementation or decision commit, acceptance evidence, and known limits. That PR improves tracking; it does not close an open child or substitute for missing backend proof.
 
@@ -2428,7 +2428,7 @@ Implementation subtasks:
 - [ ] Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
 - [ ] Prove cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions, and standalone/split-host parity end to end.
 
-### EN-01 Enforce server-side authorization, tenant isolation, and actor attribution
+### EN-01 Provide shared authorization and actor-reference foundations
 
 Priority: P0
 
@@ -2436,11 +2436,11 @@ Type: enabler
 
 Area: workspace
 
-Why: Every story requires server-enforced authorization and attributable actions, and every client organization is now a tenant. Without one shared mechanism, each slice would invent its own checks, actor model, and tenant filtering.
+Why: Every story requires server-enforced authorization and attributable actions, and every client organization is now a tenant. This enabler supplies one reusable mechanism. The product-level matrix remains with [EN-01 parent #87](https://github.com/bdgrz/compliance/issues/87); each backend child proves the tenant isolation of the surface it implements.
 
 Scope:
 
-- An organization (tenant) context resolved for every request, job, and message from the authenticated platform user and an explicit active-organization selection, following M0-A07.
+- One explicit `tenant_id` for every organization-scoped request, tool call, job, and message, validated against the authenticated platform user's membership, following M0-A07. The caller selects the tenant per operation; no active-tenant session or token claim grants access.
 - An authorization evaluation pipeline for commands and queries, following the M0-A04 decision.
 - ActorReference for members and named system processes, with a display snapshot.
 - Filtering for lists and counts, and consistent forbidden or not-found Problem Details.
@@ -2449,33 +2449,35 @@ Scope:
 Out of scope:
 
 - Member invitation, team administration, and role UX (R1-04).
-- Record-specific responsibilities (R2-01).
+- Lost-identity replacement and recovery policy (R1-04a backend #183).
+- Member suspension, deprovisioning, and orphaned-work recovery (R1-04d backend #190).
+- Feature-specific authorization and cross-tenant proof, which stays with each owning backend child.
 
 Acceptance criteria:
 
-- [ ] Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
-- [ ] A platform user with memberships in several organizations acts in exactly one resolved organization per request, and every query, write, artifact access, projection, job, and notification is scoped to it.
-- [ ] An automated cross-tenant leak suite covering APIs, search, counts, exports, artifacts, background jobs, and notifications runs in CI.
-- [ ] Cross-organization access is denied and cannot be distinguished from a missing resource.
-- [ ] Historical actor attribution survives rename, identity replacement, and deprovisioning.
-- [ ] Restricted records are absent from lists and counts, not merely hidden in the UI.
-- [ ] System-process actions cannot be mistaken for member actions.
-- [ ] Behavior is identical in standalone and split API/worker host modes.
+- [x] Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
+- [x] A platform user with memberships in several organizations acts in exactly one tenant per operation. Each owning backend child proves its current HTTP/MCP surfaces; future surfaces add the same proof in their backend child.
+- [x] Cross-organization access is denied and cannot be distinguished from a missing resource; restricted rows are filtered before lists, pagination, or counts.
+- [x] Current member actions record an immutable ActorReference with a stable member ID and display snapshot; named process actions remain distinct. Identity-replacement workflow proof stays in #183; deprovisioned-member history stays in #190.
+- [x] Shared authorization and tenant-context behavior is proved in standalone and split API/worker modes.
+- [x] The foundation has end-to-end consumers. The broader integrated authorization outcome remains open under product parent #87.
 
 Implementation subtasks:
 
-- [ ] Incorporate the canonical platform-user, membership, role, permission, assignment, and actor-reference semantics approved in M0-D28.
-- [ ] Implement the request context and evaluation pipeline.
-- [ ] Implement ActorReference persistence and display snapshots.
-- [ ] Add allow/deny test helpers and the architecture test.
-- [ ] Prove the pipeline through R1-01's create, view, and revise flow.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- [x] Incorporate the canonical platform-user, membership, role, permission, assignment, and actor-reference semantics approved in M0-D28.
+- [x] Implement the request context and evaluation pipeline.
+- [x] Implement ActorReference persistence and display snapshots.
+- [x] Add allow/deny test helpers and the architecture test.
+- [x] Prove the pipeline through the current R1-15 and R1-01 program flows; retain their remaining feature acceptance in #152 and #158.
+- [x] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
-First consumer: R1-01
+Evidence: PR #159 established the tenant and Program consumers; PR #325 made Portia authorization composition fail closed; PR #344 added denied-action records; PR #366 persisted member and named-system ActorReferences. `ComplianceWebTests` checks authorization metadata and tenant route scope. The tenant identity, tenant/RBAC, Program, criteria, draft, boundary/snapshot, and application read-matrix E2Es cover current HTTP/MCP isolation in standalone and split hosts. Actor snapshot E2Es cover immutable history after display changes and distinct system actors. Full product acceptance and feature-specific read matrices remain with #87 and their owning backend children.
+
+First consumers: R1-15 and R1-01 (initial end-to-end foundation use is recorded in PR #159; their remaining backend acceptance stays in #152 and #158).
 
 Depends on: M0-A04, M0-A07, M0-D03, M0-D25, M0-D28
 
-Blocks: EN-04, EN-05, EN-06, F1-08, R1-01, R1-04, R1-15, R2-11
+Blocks: EN-04, EN-05, EN-06, F1-08, R1-01, R1-04, R1-15, R2-11. Each blocked backend child proves its own route-level authorization and tenant isolation. Identity-replacement and deprovisioning lifecycle acceptance remains with #183 and #190; the full product matrix remains open under #87.
 
 ### EN-02 Provide versioned records, effective history, and change-impact preview
 
