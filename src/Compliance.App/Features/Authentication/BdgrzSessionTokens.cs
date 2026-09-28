@@ -45,11 +45,12 @@ public sealed class BdgrzSessionTokens
         return new BdgrzSessionTokens(signingSecret);
     }
 
-    public string Issue(Uuid userId, string? emailAddress, DateTimeOffset now)
+    public string Issue(Uuid userIdentityId, Uuid userId, string? emailAddress, DateTimeOffset now)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new("user_identity_id", userIdentityId.ToString()),
             new("email_verified", "false", ClaimValueTypes.Boolean),
         };
         if (emailAddress is not null)

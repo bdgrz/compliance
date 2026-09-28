@@ -22,9 +22,12 @@ public sealed class UserIdentityTests
         Assert.Equal(identity.Id, result.Value.UserIdentityId);
         Assert.Equal(userId, result.Value.UserId);
         Assert.Equal("person@example.com", result.Value.EmailAddress);
-        var property = Assert.Single(typeof(UserIdentity).GetProperties(), property =>
-            property.DeclaringType == typeof(UserIdentity));
-        Assert.Equal(nameof(UserIdentity.IsRegistered), property.Name);
+        Assert.Equal(
+            [nameof(UserIdentity.IsRegistered), nameof(UserIdentity.IsRevoked), nameof(UserIdentity.UserId)],
+            typeof(UserIdentity).GetProperties()
+                .Where(property => property.DeclaringType == typeof(UserIdentity))
+                .Select(property => property.Name)
+                .Order(StringComparer.Ordinal));
         Assert.True(identity.IsRegistered);
     }
 
@@ -139,6 +142,50 @@ public sealed class UserIdentityTests
         Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
         Assert.Equal(0UL, identity.Version);
         Assert.Empty(scenario.PendingAudits);
+    }
+
+    [Fact]
+    public void ShouldRejectAuthenticationGivenRevokedProviderIdentity()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var identity = new UserIdentity("example-provider", "subject-45");
+        Assert.True(identity.Register(userId, "person@example.com").IsSuccess);
+        Assert.True(identity.Revoke(Uuid.CreateVersion4(), DateTimeOffset.UtcNow).IsSuccess);
+
+        // Act
+        var result = identity.Authenticate();
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Unauthorized, result.Error.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldHydrateRevokedIdentityByStableIdGivenAnIssuedSessionReference()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var userId = Uuid.CreateVersion4();
+        var replacement = new UserIdentity("second-provider", "new-subject");
+        Assert.True(replacement.Register(userId, null).IsSuccess);
+        await fixture.Repository.SaveAsync(replacement, new ExecutionContext(), CancellationToken.None);
+        var retired = new UserIdentity("first-provider", "old-subject");
+        Assert.True(retired.Register(userId, "person@example.com").IsSuccess);
+        Assert.True(retired.Revoke(replacement.Id, DateTimeOffset.UtcNow).IsSuccess);
+        await fixture.Repository.SaveAsync(retired, new ExecutionContext(), CancellationToken.None);
+
+        // Act
+        var identity = await fixture.Repository.HydrateAsync(
+            new UserIdentity(retired.Id), CancellationToken.None);
+        var result = identity.Authenticate();
+
+        // Assert
+        Assert.True(identity.IsRegistered);
+        Assert.True(identity.IsRevoked);
+        Assert.Equal(userId, identity.UserId);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Unauthorized, result.Error.Kind);
     }
 
     sealed class ExecutionContext : IExecutionContext

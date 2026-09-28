@@ -7,4 +7,10 @@ public interface IEmailChallengeDelivery
 {
     ValueTask SendAsync(Uuid challengeId, Uuid userId, string emailAddress, string token,
         CancellationToken ct);
+
+    ValueTask SendRecoveryAsync(Uuid challengeId, Uuid userId, string emailAddress, string token,
+        CancellationToken ct);
+
+    ValueTask SendRecoveryCompletedAsync(Uuid challengeId, Uuid userId, string emailAddress,
+        CancellationToken ct);
 }

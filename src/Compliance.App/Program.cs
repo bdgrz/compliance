@@ -250,6 +250,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
                 "/api/v1/my/oidc-identity-links")
             .RequireAuthorization(ComplianceAuthorizationPolicies.IdentityLink)
             .WithTags("Users");
+        app.MapPortiaPost<StartIdentityRecovery>("/api/v1/identity-recovery/challenges")
+            .AllowAnonymous()
+            .WithTags("Users");
+        app.MapPortiaPost<GetIdentityRecoveryOptions, IdentityRecoveryOptions>(
+                "/api/v1/identity-recovery/options")
+            .RequireAuthorization(ComplianceAuthorizationPolicies.OidcContinuation)
+            .WithTags("Users");
+        app.MapPortiaPost<CompleteIdentityRecovery>("/api/v1/identity-recovery/completions")
+            .RequireAuthorization(ComplianceAuthorizationPolicies.OidcContinuation)
+            .WithTags("Users");
     }
     app.MapPortiaPost<RegisterTenant, TenantRegistration>("/api/v1/tenants")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

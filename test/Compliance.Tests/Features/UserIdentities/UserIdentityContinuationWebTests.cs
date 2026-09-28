@@ -69,19 +69,24 @@ public sealed class UserIdentityContinuationWebTests
         using var client = factory.CreateClient();
         var firstUserId = Uuid.CreateVersion4();
         var secondUserId = Uuid.CreateVersion4();
+        var sessionIdentity = new UserIdentity("https://prior-issuer.example/", "prior-subject");
+        var secondSessionIdentity = new UserIdentity("https://prior-issuer.example/", "second-prior-subject");
+        Assert.True(sessionIdentity.Register(firstUserId, null).IsSuccess);
+        Assert.True(secondSessionIdentity.Register(secondUserId, null).IsSuccess);
+        var writer = factory.Services.GetRequiredService<IAggregateWriter>();
+        await writer.SaveAsync(sessionIdentity, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        await writer.SaveAsync(secondSessionIdentity, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
         var providerToken = Token("https://issuer.example/", "compliance-api",
             ProviderSecret, "provider-subject");
 
         // Act
         using var providerOnly = await PostLinkAsync(client, providerToken, null);
-        using var sessionOnly = await PostLinkAsync(client, null,
-            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
-        using var linked = await PostLinkAsync(client, providerToken,
-            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
-        using var replayed = await PostLinkAsync(client, providerToken,
-            Token("bdgrz", "bdgrz-browser", SessionSecret, firstUserId.ToString()));
+        var sessionToken = SessionToken(firstUserId, sessionIdentity.Id);
+        using var sessionOnly = await PostLinkAsync(client, null, sessionToken);
+        using var linked = await PostLinkAsync(client, providerToken, sessionToken);
+        using var replayed = await PostLinkAsync(client, providerToken, sessionToken);
         using var taken = await PostLinkAsync(client, providerToken,
-            Token("bdgrz", "bdgrz-browser", SessionSecret, secondUserId.ToString()));
+            SessionToken(secondUserId, secondSessionIdentity.Id));
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, providerOnly.StatusCode);
@@ -93,6 +98,77 @@ public sealed class UserIdentityContinuationWebTests
         var replay = await replayed.Content.ReadFromJsonAsync<LinkedIdentityDocument>();
         Assert.Equal(firstUserId.ToString(), link?.UserId);
         Assert.Equal(link, replay);
+    }
+
+    [Fact]
+    public async Task ShouldRejectExistingSessionGivenItsProviderIdentityWasRevoked()
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+        var userId = Uuid.CreateVersion4();
+        var retired = new UserIdentity("https://issuer.example/", "retired-subject");
+        var replacement = new UserIdentity("https://issuer.example/", "replacement-subject");
+        Assert.True(retired.Register(userId, null).IsSuccess);
+        Assert.True(replacement.Register(userId, null).IsSuccess);
+        var writer = factory.Services.GetRequiredService<IAggregateWriter>();
+        await writer.SaveAsync(retired, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        await writer.SaveAsync(replacement, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        var token = SessionToken(userId, retired.Id);
+        using var before = await GetSessionAsync(client, token);
+        retired = await factory.Services.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new UserIdentity(retired.Id), CancellationToken.None);
+        Assert.True(retired.Revoke(replacement.Id, DateTimeOffset.UtcNow).IsSuccess);
+        await writer.SaveAsync(retired, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+
+        // Act
+        using var after = await GetSessionAsync(client, token);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLegacySessionGivenIdentityBindingClaimIsMissing()
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+        var legacyToken = Token("bdgrz", "bdgrz-browser", SessionSecret,
+            Uuid.CreateVersion4().ToString());
+
+        // Act
+        using var response = await GetSessionAsync(client, legacyToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldRequireProviderProofForRecoveryOptionsAndCompletionGivenAnonymousCaller()
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+
+        // Act
+        using var start = await client.PostAsJsonAsync(
+            "/api/v1/identity-recovery/challenges",
+            new RecoveryStartDocument("unknown@example.com"), CancellationToken.None);
+        using var options = await client.PostAsJsonAsync(
+            "/api/v1/identity-recovery/options",
+            new RecoveryProofDocument("unknown@example.com", Uuid.CreateVersion4(), "proof"),
+            CancellationToken.None);
+        using var complete = await client.PostAsJsonAsync(
+            "/api/v1/identity-recovery/completions",
+            new RecoveryCompletionDocument("unknown@example.com", Uuid.CreateVersion4(),
+                "proof", Uuid.CreateVersion4()), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, start.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, options.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, complete.StatusCode);
     }
 
     [Fact]
@@ -281,11 +357,23 @@ public sealed class UserIdentityContinuationWebTests
         return await client.SendAsync(request, CancellationToken.None);
     }
 
-    static string Token(string issuer, string audience, string secret, string subject)
+    static async Task<HttpResponseMessage> GetSessionAsync(HttpClient client, string token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/auth/session");
+        request.Headers.Add("Cookie", $"bdgrz_session={token}");
+        return await client.SendAsync(request, CancellationToken.None);
+    }
+
+    static string SessionToken(Uuid userId, Uuid userIdentityId) => Token(
+        "bdgrz", "bdgrz-browser", SessionSecret, userId.ToString(),
+        [new Claim("user_identity_id", userIdentityId.ToString())]);
+
+    static string Token(string issuer, string audience, string secret, string subject,
+        Claim[]? additionalClaims = null)
     {
         var now = DateTime.UtcNow;
         var token = new JwtSecurityToken(issuer, audience,
-            [new Claim(JwtRegisteredClaimNames.Sub, subject)], now.AddMinutes(-1),
+            [new Claim(JwtRegisteredClaimNames.Sub, subject), .. additionalClaims ?? []], now.AddMinutes(-1),
             now.AddMinutes(30), new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                 SecurityAlgorithms.HmacSha256));
@@ -314,4 +402,19 @@ public sealed class UserIdentityContinuationWebTests
     sealed record LinkedIdentityDocument(
         [property: JsonPropertyName("user_id")] string UserId,
         [property: JsonPropertyName("user_identity_id")] string UserIdentityId);
+
+    sealed record RecoveryStartDocument(
+        [property: JsonPropertyName("email_address")] string EmailAddress);
+
+    sealed record RecoveryProofDocument(
+        [property: JsonPropertyName("email_address")] string EmailAddress,
+        [property: JsonPropertyName("challenge_id")] Uuid ChallengeId,
+        [property: JsonPropertyName("token")] string Token);
+
+    sealed record RecoveryCompletionDocument(
+        [property: JsonPropertyName("email_address")] string EmailAddress,
+        [property: JsonPropertyName("challenge_id")] Uuid ChallengeId,
+        [property: JsonPropertyName("token")] string Token,
+        [property: JsonPropertyName("old_identity_id")] Uuid OldIdentityId);
+
 }

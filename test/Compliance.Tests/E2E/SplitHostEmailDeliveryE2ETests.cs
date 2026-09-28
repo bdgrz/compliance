@@ -151,6 +151,19 @@ public sealed class SplitHostEmailDeliveryE2ETests(BrokerStackFixture broker) : 
             if (pauseAfterSend)
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
         }
+
+        public ValueTask SendRecoveryAsync(Uuid challengeId, Uuid userId, string emailAddress,
+            string token, CancellationToken ct) => SendAsync(challengeId, userId, emailAddress, token, ct);
+
+        public ValueTask SendRecoveryCompletedAsync(Uuid challengeId, Uuid userId,
+            string emailAddress, CancellationToken ct)
+        {
+            _ = challengeId;
+            _ = userId;
+            _ = emailAddress;
+            ct.ThrowIfCancellationRequested();
+            return ValueTask.CompletedTask;
+        }
     }
 
     sealed record StatusDocument([property: JsonPropertyName("delivery_status")] string DeliveryStatus);

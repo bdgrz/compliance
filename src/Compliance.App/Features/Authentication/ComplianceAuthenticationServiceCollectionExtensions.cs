@@ -1,4 +1,7 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Cntryl.Portia;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -139,6 +142,36 @@ public static class ComplianceAuthenticationServiceCollectionExtensions
                     }
 
                     return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    if (!Uuid.TryParse(context.Principal?.FindFirst("user_identity_id")?.Value,
+                            CultureInfo.InvariantCulture, out var identityId))
+                    {
+                        context.Fail("The session is not bound to a provider identity.");
+                        return;
+                    }
+
+                    try
+                    {
+                        var reader = context.HttpContext.RequestServices.GetRequiredService<IAggregateReader>();
+                        var identity = await reader.HydrateAsync(new UserIdentity(identityId),
+                            context.HttpContext.RequestAborted).ConfigureAwait(false);
+                        if (!identity.IsRegistered || identity.IsRevoked ||
+                            !Uuid.TryParse(context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value,
+                                CultureInfo.InvariantCulture, out var userId) || identity.UserId != userId)
+                        {
+                            context.Fail("The session identity is no longer active.");
+                        }
+                    }
+                    catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception)
+                    {
+                        context.Fail("The session identity could not be validated.");
+                    }
                 },
             };
         });

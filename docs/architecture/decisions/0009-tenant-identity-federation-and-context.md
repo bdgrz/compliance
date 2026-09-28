@@ -24,6 +24,7 @@ R1-15 adopts the consequences below.
   an organization identifier in a request body; the route value wins. MCP tools
   carry one explicit `tenant_id` and run the same request authorizer.
 - Only sign-in, self-scoped (`/api/v1/my/`, `/api/v1/users/{user_id}/`,
+  `/api/v1/identity-recovery/`,
   `/api/v1/tenants/mine`, `/api/v1/tenant-slugs/{slug}/mine`), organization
   creation (`POST /api/v1/tenants`), and platform-operator routes may omit
   `tenant_id`.

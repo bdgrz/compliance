@@ -61,7 +61,23 @@ public sealed class EmailChallengeTokenKeys
             ? token!
             : throw new InvalidOperationException("The email delivery token key is unavailable.");
 
+    public string DeriveRecovery(string keyId, Uuid challengeId, Uuid userId,
+        string emailAddress, DateTimeOffset expiresAt) =>
+        TryDeriveRecovery(keyId, challengeId, userId, emailAddress, expiresAt, out var token)
+            ? token!
+            : throw new InvalidOperationException("The email delivery token key is unavailable.");
+
     public bool TryDerive(string? keyId, Uuid challengeId, Uuid userId,
+        string emailAddress, DateTimeOffset expiresAt, out string? token)
+        => TryDerive(keyId, "bdgrz-email-challenge-v1", challengeId, userId,
+            emailAddress, expiresAt, out token);
+
+    public bool TryDeriveRecovery(string? keyId, Uuid challengeId, Uuid userId,
+        string emailAddress, DateTimeOffset expiresAt, out string? token)
+        => TryDerive(keyId, "bdgrz-identity-recovery-v1", challengeId, userId,
+            emailAddress, expiresAt, out token);
+
+    bool TryDerive(string? keyId, string purpose, Uuid challengeId, Uuid userId,
         string emailAddress, DateTimeOffset expiresAt, out string? token)
     {
         token = null;
@@ -71,7 +87,7 @@ public sealed class EmailChallengeTokenKeys
         // The random challenge ID provides unique input. The HMAC key is shared by API and
         // worker; retaining the previous key for 15 minutes permits in-flight delivery.
         var input = Encoding.UTF8.GetBytes(string.Join('\n',
-            "bdgrz-email-challenge-v1", challengeId.ToString(), userId.ToString(),
+            purpose, challengeId.ToString(), userId.ToString(),
             emailAddress, expiresAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)));
         token = Convert.ToHexString(HMACSHA256.HashData(key, input));
         return true;

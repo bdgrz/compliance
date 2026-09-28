@@ -52,6 +52,12 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
         services.AddScoped<IEmailAddressDirectoryReader>(
             provider => provider.GetRequiredService<FitzEmailAddressDirectory>());
+        services.AddScoped<FitzUserIdentityDirectory>();
+        services.AddScoped<IUserIdentityDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzUserIdentityDirectory>());
+        services.AddScoped<IUserIdentityDirectoryReader>(
+            provider => provider.GetRequiredService<FitzUserIdentityDirectory>());
+        services.AddScoped<IUserIdentityDirectoryReadConsistency, IdentityDirectoryReadConsistency>();
         services.AddScoped<FitzPlatformUserDirectory>();
         services.AddScoped<IPlatformUserDirectoryProjection>(
             provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
@@ -216,6 +222,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<ContinueWithOidcProviderAuthorizer>()
             .AddRequestHandler<LinkOidcProviderIdentityHandler>()
             .AddRequestAuthorizer<LinkOidcProviderIdentityAuthorizer>()
+            .AddRequestHandler<StartIdentityRecoveryHandler>()
+            .AddRequestHandler<CompleteIdentityRecoveryHandler>()
+            .AddRequestAuthorizer<IdentityRecoveryAuthorizer>()
+            .AddRequestHandler<GetIdentityRecoveryOptionsHandler>()
+            .AddRequestAuthorizer<IdentityRecoveryOptionsAuthorizer>()
             .AddRequestHandler<ReserveEmailHandler>()
             .AddRequestHandler<IssueEmailChallengeHandler>()
             .AddRequestHandler<CompleteEmailChallengeHandler>()
@@ -369,7 +380,9 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
+            .AddReactor<IdentityRecoveryNoticeReactor>("IdentityRecoveryNoticeV1", WorkloadScope.Global)
             .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectory", WorkloadScope.Global)
+            .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
             // This narrow backfill has its own checkpoint so it can safely replay historical
@@ -416,7 +429,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))
-            .RequireAuthorization();
+            .RequireAuthorization(options => options.AllowAnonymous<StartIdentityRecovery>());
 
         services.AddHostedService<PlatformOperatorRosterBootstrap>();
         return portia;
