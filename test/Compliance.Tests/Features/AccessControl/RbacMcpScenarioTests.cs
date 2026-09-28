@@ -133,6 +133,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.rbac.team-role.assign",
             "bdgrz.rbac.team-role.remove",
             "bdgrz.rbac.role-team.list",
+            "bdgrz.responsibilities.conflicts.preview",
+            "bdgrz.responsibilities.list",
             "bdgrz.tenant-membership.list-mine",
             "bdgrz.tenant.register",
             "bdgrz.tenant.suspend",
@@ -169,6 +171,10 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application_import.rows.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.responsibilities.conflicts.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.responsibilities.list").ReadOnly);
         foreach (var name in new[]
                  {
                      "bdgrz.control.draft.get", "bdgrz.control.draft.list",

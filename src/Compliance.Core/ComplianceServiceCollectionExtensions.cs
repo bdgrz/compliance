@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -194,6 +195,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<IBoundaryImpactContributor, ControlBoundaryImpactContributor>();
+        services.AddScoped<FitzResponsibilitySetDirectory>();
+        services.AddScoped<IResponsibilitySetDirectory>(provider =>
+            provider.GetRequiredService<FitzResponsibilitySetDirectory>());
+        services.AddScoped<IResponsibilitySetProjection>(provider =>
+            provider.GetRequiredService<FitzResponsibilitySetDirectory>());
+        services.AddScoped<IResponsibilityScopeValidator, BoundaryResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
             GovernedBoundaryReferenceValidator>();
@@ -332,6 +339,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RecordSeparationOfDutiesWaiverHandler>()
             .AddRequestHandler<ApproveSeparationOfDutiesWaiverHandler>()
             .AddRequestHandler<GetSeparationOfDutiesWaiverHandler>()
+            .AddRequestHandler<AssignResponsibilityHandler>()
+            .AddRequestHandler<RevokeResponsibilityHandler>()
+            .AddRequestHandler<ListResponsibilitiesHandler>()
+            .AddRequestHandler<PreviewResponsibilityConflictsHandler>()
             .AddRequestHandler<ProposeBoundarySuccessorHandler>()
             .AddRequestHandler<FreezeProgramScopeSnapshotHandler>()
             .AddRequestHandler<AmendProgramScopeSnapshotHandler>()
@@ -429,6 +440,7 @@ public static class ComplianceServiceCollectionExtensions
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
+            .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
