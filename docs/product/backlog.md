@@ -851,7 +851,7 @@ Public references: No external normative source; product decision recorded in
 
 ### M0-D24 Define the accessibility target and supported-browser baseline
 
-Decided 2026-09-22: see [M0-D24 accessibility and browsers](decisions/m0-d24-accessibility-and-browsers.md). WCAG 2.2 AA; the current and previous major versions of desktop Chrome, Edge, Firefox, and Safari.
+Accepted 2026-09-22 by the product owner: [M0-D24 accessibility and browsers](decisions/m0-d24-accessibility-and-browsers.md). Every first-release browser workflow targets WCAG 2.2 Level AA and supports the current and previous major versions of desktop Chrome, Edge, Firefox, and Safari.
 
 Priority: P0
 
@@ -859,28 +859,28 @@ Type: Product discovery
 
 Area: product
 
-Decision needed: Which accessibility standard, conformance level, assistive-technology combinations, and browser versions must every first-release browser workflow support?
+The [accessibility and browser support contract](accessibility-and-browser-support.md) defines the assistive-technology, interaction, browser, automated-test, and manual-evidence requirements for every frontend child.
 
-Questions to answer:
+Accepted decisions:
 
-- [ ] Select the accessibility standard and conformance target, including any documented exceptions and approval authority.
-- [ ] Name the supported desktop and mobile browsers and the version-support policy.
-- [ ] Choose the keyboard, focus, contrast, zoom, screen-reader, reduced-motion, and error-announcement acceptance baseline.
-- [ ] Define the automated and manual evidence required for a story to satisfy the accessible-UI contract.
-- [ ] Decide how unsupported browsers and known accessibility limitations are communicated and tracked.
+- [x] Use WCAG 2.2 Level AA for every first-release browser workflow; the product owner approves exceptions.
+- [x] Support current and previous major desktop Chrome, Edge, Firefox, and Safari versions. Mobile browsers may display the product but are not supported workflow targets.
+- [x] Require keyboard operation, visible and unobscured focus, the documented contrast and target-size thresholds, 200% zoom, 320 CSS px reflow, semantic screen-reader exposure, reduced-motion support, and identified and announced errors.
+- [x] Require zero axe-core WCAG 2.2 AA violations for rendered pages, document-level shell checks, and the documented manual pass for layout and assistive-technology behavior.
+- [x] Show a non-blocking supported-browser notice outside the supported range; track known accessibility limitations with the `accessibility` label and list them in the accessibility statement until fixed.
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
 
-Blocks: frontend children for every story and first product delivery slice. It does not block backend children.
+Blocks: frontend children and their first product delivery slices. It does not block backend children. All 28 currently open frontend children are formally linked to this blocker.
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] The product-backlog contract, test strategy, browser support statement, and affected story acceptance criteria reflect the decision.
-- [ ] Every scheduled frontend child records M0-D24 as a blocker; backend children omit it. Later product slices depend on their first slice directly or transitively.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- [x] The decision, rationale, owner, and date are recorded in the decision document and the GitHub issue.
+- [x] The product-backlog contract, automated and manual test strategy, browser support statement, and global frontend definition of done reflect the decision.
+- [x] Every currently open frontend child records M0-D24 as a blocker; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
+- [x] Remaining product-specific accessibility and browser-policy uncertainty is captured as a follow-up issue if discovered; no open decision remains here.
 
-Source: Product brief open decision on accessibility targets and supported browsers; backlog design review 2026-09-14.
+Source: Product brief and the product owner's decision dated 2026-09-22. The normative accessibility standard is [W3C WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
 ### M0-D25 Define the client tenancy boundary, firm-staff affiliation, and data ownership
 

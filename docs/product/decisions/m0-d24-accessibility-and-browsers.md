@@ -2,6 +2,8 @@
 
 Status: accepted product decision, 2026-09-22. Decision owner: Jeff Repanich,
 product owner. It closes [M0-D24 #136](https://github.com/bdgrz/compliance/issues/136).
+The normative standard is the [W3C Web Content Accessibility Guidelines
+(WCAG) 2.2 Recommendation](https://www.w3.org/TR/WCAG22/).
 
 | Question | Decision and rationale |
 | --- | --- |
@@ -19,4 +21,7 @@ product owner. It closes [M0-D24 #136](https://github.com/bdgrz/compliance/issue
 - Every scheduled frontend child keeps M0-D24 as a blocker, now resolved.
   Backend children omit it.
 
-No remaining uncertainty requires a follow-up discovery issue.
+No remaining uncertainty requires a follow-up discovery issue. The browser
+banner, route-specific automated checks, and manual evidence are delivered by
+the affected frontend stories under the shared definition of done; this
+decision does not claim those workflows are already implemented.

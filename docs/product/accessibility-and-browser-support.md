@@ -16,6 +16,9 @@ approves any exception. A known limitation is tracked as a GitHub issue with
 the `accessibility` label, and it is listed in the in-product accessibility
 statement until fixed.
 
+The normative standard is the [W3C Web Content Accessibility Guidelines
+(WCAG) 2.2 Recommendation](https://www.w3.org/TR/WCAG22/).
+
 ## Test strategy
 
 Every frontend child needs both kinds of evidence before it is done.
