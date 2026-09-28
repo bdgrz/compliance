@@ -24,7 +24,7 @@ public sealed class PreviewResponsibilityConflictsHandler(IResponsibilitySetDire
         if (request.EffectiveUntil is { } until && until <= request.EffectiveFrom)
             return Result<ResponsibilityConflictPreview>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The responsibility interval must end after it starts."));
-        if (!Enum.IsDefined(request.Type))
+        if (!ResponsibilityTypeWireName.TryParse(request.Type, out var responsibilityType))
             return Result<ResponsibilityConflictPreview>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The responsibility type is invalid."));
         var view = await directory.GetAsync(request.TenantId, request.Scope, ct).ConfigureAwait(false);
@@ -34,7 +34,7 @@ public sealed class PreviewResponsibilityConflictsHandler(IResponsibilitySetDire
                 RequestErrorKind.Conflict, "The responsibility projection has an invalid scope."));
         var memberId = RbacIds.Member(request.TenantId, request.MemberUserId);
         var proposed = new ResponsibilityAssignmentView(request.TenantId, Uuid.Empty, memberId,
-            request.Type, request.Scope, request.EffectiveFrom, Uuid.Empty, request.EffectiveFrom,
+            responsibilityType, request.Scope, request.EffectiveFrom, Uuid.Empty, request.EffectiveFrom,
             request.EffectiveUntil, null, Uuid.Empty, []);
         var conflicts = ResponsibilityConflictPolicy.FindConflicts(view?.Assignments ?? [], proposed);
         return Result<ResponsibilityConflictPreview>.Success(new ResponsibilityConflictPreview(

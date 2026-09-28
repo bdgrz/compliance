@@ -590,6 +590,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<PreviewResponsibilityConflicts, ResponsibilityConflictPreview>(
             "/api/v1/tenants/{tenant_id}/responsibilities/conflict-preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithDescription("The type query value must be control_owner, evidence_contributor, assigned_reviewer, access_reviewer, corrective_action_owner, or policy_approver.")
         .WithTags("Responsibilities");
     app.MapPortiaGet<GetBoundaryVersion, BoundaryVersionView>(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}")

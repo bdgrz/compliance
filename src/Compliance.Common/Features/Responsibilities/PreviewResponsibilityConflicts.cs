@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.Responsibilities;
 
 [Discriminator("bdgrz.responsibilities.conflicts.preview", 1)]
 public sealed record PreviewResponsibilityConflicts(Uuid TenantId, Uuid MemberUserId,
-    ResponsibilityType Type, string RecordType, Uuid RecordId, Uuid VersionId,
+    string Type, string RecordType, Uuid RecordId, Uuid VersionId,
     long ScopeRevision, DateTimeOffset EffectiveFrom, DateTimeOffset? EffectiveUntil)
     : IRequest<ResponsibilityConflictPreview>, ITenantAccessRequest, ICallable
 {

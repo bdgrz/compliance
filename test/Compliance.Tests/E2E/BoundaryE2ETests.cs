@@ -298,7 +298,9 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{tenant.TenantId}/invitations",
             new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false });
         Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
-        var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+        var delivery = splitHosts
+            ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+            : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
         string? token = null;
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(Uuid.Parse(tenant.TenantId, CultureInfo.InvariantCulture),
@@ -307,7 +309,8 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(token);
         using var reviewer = factory.CreateClient();
         var reviewerId = await TenantInvitationE2ETests.LoginAsync(reviewer, reviewerEmail);
-        await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer, reviewerId, reviewerEmail);
+        await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer, reviewerId, reviewerEmail,
+            splitHosts ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
         using var accepted = await reviewer.PostAsJsonAsync(
             $"/api/v1/tenants/{tenant.TenantId}/invitations/acceptance",
             new { email_address = reviewerEmail, token });
