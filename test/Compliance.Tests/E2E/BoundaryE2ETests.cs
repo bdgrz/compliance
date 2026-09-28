@@ -449,20 +449,21 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         }
         Assert.Null(projected?.Draft);
         Assert.Equal(registration.DraftVersionId, projected?.LatestApprovedVersion?.VersionId);
+        var approvedBoundaryRevision = projected!.Revision;
         using var versionResponse = await owner.GetAsync(
-            $"{boundaryPath}/versions/{registration.DraftVersionId}?minimum_boundary_revision=4");
+            $"{boundaryPath}/versions/{registration.DraftVersionId}?minimum_boundary_revision={approvedBoundaryRevision}");
         Assert.Equal(HttpStatusCode.OK, versionResponse.StatusCode);
         var version = await versionResponse.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
         Assert.Equal("approved", version?.Status);
         Assert.Equal("2027-01-01", version?.EffectiveFrom);
         Assert.Equal("Service A and its provider are in scope.", version?.Content.Statement);
         using var versionsResponse = await owner.GetAsync(
-            $"{boundaryPath}/versions?minimum_boundary_revision=4");
+            $"{boundaryPath}/versions?minimum_boundary_revision={approvedBoundaryRevision}");
         Assert.Equal(HttpStatusCode.OK, versionsResponse.StatusCode);
         var versions = await versionsResponse.Content.ReadFromJsonAsync<BoundaryVersionPageDocument>();
         Assert.Equal(registration.DraftVersionId, Assert.Single(versions?.Items ?? []).VersionId);
         using var effective = await owner.GetAsync(
-            $"{boundaryPath}/effective-version?effective_on=2027-01-01&minimum_boundary_revision=4");
+            $"{boundaryPath}/effective-version?effective_on=2027-01-01&minimum_boundary_revision={approvedBoundaryRevision}");
         Assert.True(effective.StatusCode == HttpStatusCode.OK,
             await effective.Content.ReadAsStringAsync());
         var effectiveVersion = await effective.Content.ReadFromJsonAsync<BoundaryVersionDocument>();
@@ -476,22 +477,22 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         {
             using var future = await owner.GetAsync(route +
                 (route.Contains('?') ? "&" : "?") +
-                "minimum_boundary_revision=5");
+                $"minimum_boundary_revision={approvedBoundaryRevision + 1}");
             using var invalid = await owner.GetAsync(route +
                 (route.Contains('?') ? "&" : "?") +
                 "minimum_boundary_revision=0");
             using var denied = await outsider.GetAsync(route +
                 (route.Contains('?') ? "&" : "?") +
-                "minimum_boundary_revision=4");
+                $"minimum_boundary_revision={approvedBoundaryRevision}");
             Assert.Equal(HttpStatusCode.Conflict, future.StatusCode);
             Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         }
         using var absentVersion = await owner.GetAsync(
-            $"{boundaryPath}/versions/{Uuid.CreateVersion4()}?minimum_boundary_revision=4");
+            $"{boundaryPath}/versions/{Uuid.CreateVersion4()}?minimum_boundary_revision={approvedBoundaryRevision}");
         using var absentBoundary = await owner.GetAsync(
             $"/api/v1/tenants/{tenant.TenantId}/boundaries/{Uuid.CreateVersion4()}/versions" +
-            "?minimum_boundary_revision=4");
+            $"?minimum_boundary_revision={approvedBoundaryRevision}");
         Assert.Equal(HttpStatusCode.NotFound, absentVersion.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, absentBoundary.StatusCode);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
@@ -501,7 +502,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             {
                 ["tenant_id"] = tenant.TenantId,
                 ["boundary_id"] = registration.BoundaryId,
-                ["minimum_boundary_revision"] = 4,
+                ["minimum_boundary_revision"] = approvedBoundaryRevision,
             };
             _ = await mcp.When("bdgrz.boundary.version.get",
                 new Dictionary<string, object?>(anchor)
@@ -523,7 +524,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                     ["tenant_id"] = tenant.TenantId,
                     ["boundary_id"] = registration.BoundaryId,
                     ["version_id"] = registration.DraftVersionId,
-                    ["minimum_boundary_revision"] = 4,
+                    ["minimum_boundary_revision"] = approvedBoundaryRevision,
                 }).ExpectFailure();
         using var beforeEffective = await owner.GetAsync(
             $"{boundaryPath}/effective-version?effective_on=2026-12-31");
@@ -581,7 +582,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         using var crossTenantList = await owner.GetAsync(
             $"/api/v1/tenants/{secondTenant.TenantId}/programs/{program.ProgramId}/boundaries");
         using var crossTenantVersion = await owner.GetAsync(
-            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}/versions/{registration.DraftVersionId}?minimum_boundary_revision=4");
+            $"/api/v1/tenants/{secondTenant.TenantId}/boundaries/{registration.BoundaryId}/versions/{registration.DraftVersionId}?minimum_boundary_revision={approvedBoundaryRevision}");
         Assert.Equal(HttpStatusCode.NotFound, crossTenantBoundary.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, crossTenantVersion.StatusCode);
