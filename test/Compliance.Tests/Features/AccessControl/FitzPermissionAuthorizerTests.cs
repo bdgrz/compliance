@@ -1,11 +1,124 @@
+using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 public sealed class FitzPermissionAuthorizerTests
 {
+    [Fact]
+    public async Task ShouldDenyGivenTeamMemberRemovalHasNotReachedPermissionProjection()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        var membership = new FixedMembershipDirectory(true);
+        using var services = CreateServices(client, membership, events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var identity = new CheckpointIdentity("PermissionProjection", pattern);
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        var assignmentId = RbacIds.TeamMember(tenantId, teamId, memberId);
+        DomainEvent assigned = new TeamMemberAssigned(tenantId, teamId, memberId);
+        assigned.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), assignmentId, 1,
+            DateTimeOffset.UtcNow));
+        DomainEvent removal = new TeamMemberRemoved(tenantId, teamId, memberId);
+        removal.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), assignmentId, 2,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-team-members",
+            assignmentId.ToString()), 0, [assigned, removal]);
+
+        // Act
+        var allowedWhileProjectionLags = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await using var batch = await permissions.BeginAsync(new ProjectionBatchContext(
+                identity, new ProjectionCheckpoint(cursor)));
+            await permissions.ApplyAsync(record.Event);
+            cursor = record.NextCursor;
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+        var allowedAfterProjectionRecovers = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.False(allowedWhileProjectionLags);
+        Assert.False(allowedAfterProjectionRecovers);
+    }
+
+    [Fact]
+    public async Task ShouldAllowGivenAnotherMembersTeamRemovalHasNotReachedPermissionProjection()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        using var services = CreateServices(client, new FixedMembershipDirectory(true), events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        var otherMemberId = RbacIds.Member(tenantId, Uuid.CreateVersion4());
+        var assignmentId = RbacIds.TeamMember(tenantId, teamId, otherMemberId);
+        DomainEvent removal = new TeamMemberRemoved(tenantId, teamId, otherMemberId);
+        removal.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), assignmentId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-team-members",
+            assignmentId.ToString()), 0, [removal]);
+
+        // Act
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldAllowGivenUnprojectedProgramEventDoesNotChangePermissions()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        var events = new InMemoryEventStore();
+        using var services = CreateServices(new InMemoryKvClient(),
+            new FixedMembershipDirectory(true), events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        var programId = Uuid.CreateVersion4();
+        DomainEvent created = new ProgramCreated(tenantId, programId, "SOC 2",
+            new ProgramPlan(null, null, null, null, null, null), memberId, "Owner",
+            DateTimeOffset.UtcNow);
+        created.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), programId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "programs",
+            programId.ToString()), 0, [created]);
+
+        // Act
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
     [Fact]
     public async Task ShouldDenyFirmStaffGivenPersistedPreUpgradePermissionGrant()
     {
@@ -17,7 +130,7 @@ public sealed class FitzPermissionAuthorizerTests
         var teamId = Uuid.CreateVersion4();
         var roleId = Uuid.CreateVersion4();
         var memberships = new FitzTenantMembershipDirectoryReader(client);
-        var permissions = new FitzPermissionAuthorizer(client, memberships);
+        var permissions = new FitzPermissionAuthorizer(client, memberships, new InMemoryEventStore());
         var permissionIdentity = new CheckpointIdentity("PermissionProjection",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using (var batch = await permissions.BeginAsync(new ProjectionBatchContext(
@@ -48,5 +161,32 @@ public sealed class FitzPermissionAuthorizerTests
 
         // Assert
         Assert.False(allowed);
+    }
+
+    static ServiceProvider CreateServices(IKvClient client,
+        ITenantMembershipDirectoryReader memberships, IDomainEventReader events) =>
+        new ServiceCollection()
+            .AddSingleton(client)
+            .AddSingleton(memberships)
+            .AddSingleton(events)
+            .BuildServiceProvider();
+
+    static async Task SeedActiveTeamGrantAsync(FitzPermissionAuthorizer permissions,
+        Uuid tenantId, Uuid userId, Uuid teamId, Uuid roleId)
+    {
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var identity = new CheckpointIdentity("PermissionProjection", pattern);
+        await using var batch = await permissions.BeginAsync(new ProjectionBatchContext(
+            identity, ProjectionCheckpoint.Start));
+        await permissions.ApplyAsync(new MemberRegistered(tenantId,
+            RbacIds.Member(tenantId, userId), userId));
+        await permissions.ApplyAsync(new TeamDefined(tenantId, teamId, "Administrators"));
+        await permissions.ApplyAsync(new RoleDefined(tenantId, roleId, "Org Admin"));
+        await permissions.ApplyAsync(new TeamMemberAssigned(tenantId, teamId,
+            RbacIds.Member(tenantId, userId)));
+        await permissions.ApplyAsync(new TeamRoleAssigned(tenantId, teamId, roleId));
+        await permissions.ApplyAsync(new RolePermissionAssigned(tenantId, roleId,
+            RbacPermissions.TenantAccess));
+        await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 }

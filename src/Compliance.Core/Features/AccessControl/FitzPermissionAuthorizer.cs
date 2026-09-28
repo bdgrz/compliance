@@ -9,7 +9,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     query-side reads open their own read-only transaction on the resource it writes for the
 ///     given tenant.
 /// </summary>
-sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships)
+sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships,
+    IDomainEventReader events)
     : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection,
       IPermissionAuthorizer, IMemberAccessReader
 {
@@ -58,10 +59,40 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         if (membership is not { Affiliation: "client_personnel" } ||
             membership.TenantId != tenantId || membership.UserId != userId)
             return false;
+        var currentAccess = await ReadAsync(tenantId, memberId, ct).ConfigureAwait(false);
+        if (await HasPendingRevocationAsync(tenantId, memberId, permission, currentAccess, ct)
+                .ConfigureAwait(false))
+            return false;
 
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         var grant = await tx.GetAsync(PermissionProjectionKeys.Grant(memberId, permission), ct).ConfigureAwait(false);
         return grant.Found;
+    }
+
+    async ValueTask<bool> HasPendingRevocationAsync(Uuid tenantId, Uuid memberId,
+        string permission, IReadOnlyList<MemberAccessEdge> currentAccess, CancellationToken ct)
+    {
+        var remainingPaths = currentAccess.Where(edge => edge.Permissions.Contains(permission,
+            StringComparer.Ordinal)).ToList();
+        if (remainingPaths.Count == 0)
+            return false;
+
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var checkpoint = await base.LoadCheckpointAsync(new CheckpointIdentity(
+                "PermissionProjection", pattern), ct)
+            .ConfigureAwait(false);
+        await using var pending = events.ReadAsync(pattern, checkpoint.Cursor, ct).GetAsyncEnumerator(ct);
+        while (await pending.MoveNextAsync().ConfigureAwait(false))
+        {
+            var domainEvent = pending.Current.Event;
+            if (PermissionProjector.RevokesAllMemberAccess(domainEvent, memberId))
+                return true;
+            remainingPaths.RemoveAll(edge => PermissionProjector.RevokesAccessPath(domainEvent,
+                memberId, permission, edge));
+            if (remainingPaths.Count == 0)
+                return true;
+        }
+        return false;
     }
 
     public async ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId,
