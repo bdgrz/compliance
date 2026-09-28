@@ -59,7 +59,9 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         if (membership is not { Affiliation: "client_personnel" } ||
             membership.TenantId != tenantId || membership.UserId != userId)
             return false;
-        if (await HasPendingSourceAsync(tenantId, ct).ConfigureAwait(false))
+        var currentAccess = await ReadAsync(tenantId, memberId, ct).ConfigureAwait(false);
+        if (await HasPendingRevocationAsync(tenantId, memberId, permission, currentAccess, ct)
+                .ConfigureAwait(false))
             return false;
 
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
@@ -67,8 +69,14 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         return grant.Found;
     }
 
-    async ValueTask<bool> HasPendingSourceAsync(Uuid tenantId, CancellationToken ct)
+    async ValueTask<bool> HasPendingRevocationAsync(Uuid tenantId, Uuid memberId,
+        string permission, IReadOnlyList<MemberAccessEdge> currentAccess, CancellationToken ct)
     {
+        var remainingPaths = currentAccess.Where(edge => edge.Permissions.Contains(permission,
+            StringComparer.Ordinal)).ToList();
+        if (remainingPaths.Count == 0)
+            return false;
+
         var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
         var checkpoint = await base.LoadCheckpointAsync(new CheckpointIdentity(
                 "PermissionProjection", pattern), ct)
@@ -76,7 +84,12 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         await using var pending = events.ReadAsync(pattern, checkpoint.Cursor, ct).GetAsyncEnumerator(ct);
         while (await pending.MoveNextAsync().ConfigureAwait(false))
         {
-            if (PermissionProjector.Handles(pending.Current.Event))
+            var domainEvent = pending.Current.Event;
+            if (PermissionProjector.RevokesAllMemberAccess(domainEvent, memberId))
+                return true;
+            remainingPaths.RemoveAll(edge => PermissionProjector.RevokesAccessPath(domainEvent,
+                memberId, permission, edge));
+            if (remainingPaths.Count == 0)
                 return true;
         }
         return false;

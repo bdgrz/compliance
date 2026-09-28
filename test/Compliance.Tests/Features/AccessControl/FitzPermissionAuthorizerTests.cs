@@ -58,6 +58,37 @@ public sealed class FitzPermissionAuthorizerTests
     }
 
     [Fact]
+    public async Task ShouldAllowGivenAnotherMembersTeamRemovalHasNotReachedPermissionProjection()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        using var services = CreateServices(client, new FixedMembershipDirectory(true), events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        var otherMemberId = RbacIds.Member(tenantId, Uuid.CreateVersion4());
+        var assignmentId = RbacIds.TeamMember(tenantId, teamId, otherMemberId);
+        DomainEvent removal = new TeamMemberRemoved(tenantId, teamId, otherMemberId);
+        removal.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), assignmentId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-team-members",
+            assignmentId.ToString()), 0, [removal]);
+
+        // Act
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
     public async Task ShouldAllowGivenUnprojectedProgramEventDoesNotChangePermissions()
     {
         // Arrange

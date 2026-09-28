@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
@@ -17,12 +16,23 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
       IProjectorHandler<TeamRoleAssigned>,
       IProjectorHandler<TeamRoleRemoved>
 {
-    static readonly FrozenSet<Type> HandledEventTypes = typeof(PermissionProjector).GetInterfaces()
-        .Where(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IProjectorHandler<>))
-        .Select(type => type.GetGenericArguments()[0])
-        .ToFrozenSet();
+    public static bool RevokesAllMemberAccess(DomainEvent domainEvent, Uuid memberId) =>
+        domainEvent is MemberRegistered member && member.MemberId == memberId &&
+        !string.Equals(member.Affiliation, "client_personnel", StringComparison.Ordinal);
 
-    public static bool Handles(DomainEvent domainEvent) => HandledEventTypes.Contains(domainEvent.GetType());
+    public static bool RevokesAccessPath(DomainEvent domainEvent, Uuid memberId,
+        string permission, MemberAccessEdge currentAccess) => domainEvent switch
+        {
+            TeamMemberRemoved removed => removed.MemberId == memberId &&
+                removed.TeamId == currentAccess.TeamId,
+            TeamDeleted deleted => currentAccess.TeamId == deleted.TeamId,
+            TeamRoleRemoved removed => currentAccess.TeamId == removed.TeamId &&
+                currentAccess.RoleId == removed.RoleId,
+            RoleDeleted deleted => currentAccess.RoleId == deleted.RoleId,
+            RolePermissionRemoved removed => currentAccess.RoleId == removed.RoleId &&
+                currentAccess.Permissions.Contains(permission, StringComparer.Ordinal),
+            _ => false,
+        };
 
     public ValueTask HandleAsync(MemberRegistered ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
