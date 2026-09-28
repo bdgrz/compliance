@@ -1,6 +1,6 @@
 # Compliance product brief
 
-Status: working draft
+Status: accepted product direction, updated 2026-09-28
 
 The product's controlled vocabulary, identity boundaries, and cross-workflow
 relationships are defined in [domain-model.md](domain-model.md). The user-story
@@ -166,39 +166,34 @@ M0 must establish baselines and targets (M0-D18), but the product should ultimat
 - time to onboard a new client organization to a working program;
 - number of attempted independence conflicts blocked and exceptions approved.
 
-## Open product decisions
+## Product decisions
 
-Each open decision is assigned to an M0 discovery item in
-[backlog.md](backlog.md#m0---design-and-discovery). A story that depends on a
-decision is not ready until the decision is incorporated. An item marked as
-pending in the backlog's GitHub issue index must be created and linked before
-its affected stories are scheduled.
+The M0 discovery decisions behind this brief are recorded under
+[`decisions/`](decisions/) and
+[`../architecture/decisions/`](../architecture/decisions/). A story that
+depends on a decision implements its recorded data-shape rules; a change to a
+decision updates its record, the affected stories, and the issue.
 
-| Decision | Tracked in |
+| Question | Decided in |
 | --- | --- |
-| Readiness, Type I, or Type II as the first engagement | M0-D01 |
-| Trust Services categories in scope | M0-D01 |
-| Target audit and observation-period dates | M0-D01 |
-| Exact system boundary and subservice-organization treatment | M0-D01, M0-D11 |
-| The service commitments, system requirements, CUECs, and CSOCs applicable to the first engagement | M0-D09 |
-| Source, edition, and permitted use of SOC 2 criteria content | M0-D02 |
-| Multiple client organizations per deployment are required; whether one client needs more than one workspace | M0-D03, M0-D25 |
-| Required roles and acceptable self-review exceptions for a small team | M0-D03 |
-| Authoritative sources for the application inventory and human identity roster | M0-D05, M0-D06 |
-| The first reviewed applications, source export formats, NHI classifications, and effective-access rules | M0-D07 |
-| The minimum technology, information, data-flow, workforce, and NHI-owner inventories needed for the first system description and control evaluation | M0-D08, M0-D06 |
-| The risk methodology, material-vendor threshold, and minimum vendor-review evidence | M0-D10, M0-D11 |
-| Which prohibited or required access expectations apply to each reviewed system | M0-D07 |
-| Evidence retention, deletion, legal-hold, and artifact-recovery expectations | M0-D16, M0-A03; the whole-platform recovery boundary is accepted in ADR 0003 and delivery remains in Portia #70 |
-| First cloud provider and first evidence sources to automate | M0-D20 |
-| How the readiness advisor and auditor want to review work in progress | M0-D14, M0-D17 |
-| The auditor's required control matrix, population, sample, package, assertion, representation-letter, and portal or workbook formats | M0-D17 |
-| Whether optional Availability, Processing Integrity, Confidentiality, or Privacy categories are in scope; Privacy requires additional validated lifecycle stories before complete product support is claimed | M0-D01 |
-| The tenant boundary, firm-staff affiliation, firm-owned material, who may create organizations, and tenant vocabulary | M0-D25 |
-| Independence rules for a firm that provides advisory and attest services | M0-D26 |
-| Whether the platform supports the firm's own attest workpapers | M0-D27 |
-| Tenant resolution, slug and `tenant_id` routing, reserved routes, and client identity federation | M0-A07 |
-| The complete canonical entity and relationship vocabulary, source mappings, and which public standards are usable in an Apache-2.0 product | M0-D28 |
+| First engagement type, Trust Services categories in scope, target audit and observation-period dates, and optional categories (Privacy requires additional validated lifecycle stories before complete support is claimed) | [M0-D01](decisions/m0-d01-program-targets.md) |
+| System boundary and subservice-organization treatment | [M0-D01](decisions/m0-d01-program-targets.md), [M0-D11](decisions/m0-d11-vendors.md) |
+| Service commitments, system requirements, CUECs, and CSOCs for the first engagement | [M0-D09](decisions/m0-d09-commitments.md) |
+| Source, edition, and permitted use of SOC 2 criteria content | [M0-D02](decisions/m0-d02-criteria-content.md) |
+| Client organizations per deployment and workspaces per client | [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), [M0-D25](decisions/m0-d25-client-tenancy.md) |
+| Required roles and acceptable self-review exceptions for a small team | [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md) |
+| Authoritative sources for the application inventory and human identity roster | [M0-D05](decisions/m0-d05-application-inventory.md), [M0-D06](decisions/m0-d06-workforce-source.md) |
+| First reviewed applications, source export formats, NHI classifications, access expectations, and effective-access rules | [M0-D07](decisions/m0-d07-access-review-population.md) |
+| Minimum technology, information, data-flow, workforce, and NHI-owner inventories | [M0-D08](decisions/m0-d08-technology-inventory.md), [M0-D06](decisions/m0-d06-workforce-source.md) |
+| Risk methodology, material-vendor threshold, and minimum vendor-review evidence | [M0-D10](decisions/m0-d10-risk-method.md), [M0-D11](decisions/m0-d11-vendors.md) |
+| Evidence retention, deletion, legal hold, and artifact recovery | [M0-D16](decisions/m0-d16-evidence-handling.md), [ADR 0006](../architecture/decisions/0006-artifact-content-storage-spike.md); platform recovery in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md) |
+| First cloud provider and evidence sources to automate | [M0-D20](decisions/m0-d20-integration-sources.md) |
+| How the readiness advisor and auditor review work in progress | [M0-D14](decisions/m0-d14-advisor-collaboration.md), [M0-D17](decisions/m0-d17-audit-deliverables.md) |
+| The auditor's control matrix, population, sample, package, assertion, representation-letter, and portal or workbook formats | [M0-D17](decisions/m0-d17-audit-deliverables.md) |
+| Tenant boundary, firm-staff affiliation, firm-owned material, organization creation, and tenant vocabulary | [M0-D25](decisions/m0-d25-client-tenancy.md) |
+| Independence rules for a firm that provides advisory and attest services | [M0-D26](decisions/m0-d26-independence.md) |
+| Whether the platform supports the firm's own attest workpapers | [M0-D27](decisions/m0-d27-attest-scope.md) |
+| Tenant resolution, slug and `tenant_id` routing, reserved routes, and client identity federation | [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md) |
 
 ## Release story
 

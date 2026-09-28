@@ -1,8 +1,7 @@
 # Client tenancy and operator provisioning
 
-Status: implementation decision for the R1-15 API/MCP slice, 2026-09-19;
-amended for accepted M0-D25 and M0-A07 decisions, 2026-09-23.
-Decision owner: product owner and tech lead; backend acceptance remains in #152.
+Status: accepted for R1-15, 2026-09-19; amended for accepted M0-D25 and M0-A07
+decisions, 2026-09-23. Decision owner: product owner and tech lead.
 
 > [!NOTE]
 > Superseded in part by [ADR 0009](0009-tenant-identity-federation-and-context.md),
@@ -82,7 +81,7 @@ The API and MCP surfaces use Portia command/query authorization and event-source
 
 ## Follow-up
 
-M0-D25 and M0-A07 are accepted in the product decision and ADR 0009. #152
-still owns remaining tenant acceptance and inherited EN-01 proof; #269 owns
-engagement-specific staff grants. Later features must prove tenant isolation
-for their own records and surfaces.
+M0-D25 and M0-A07 are accepted in the product decision and ADR 0009. #269 owns
+engagement-specific staff grants. Later features prove tenant isolation for
+their own records and surfaces under
+[ADR 0002](0002-authorization-and-tenant-isolation.md#evidence).

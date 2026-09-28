@@ -1,6 +1,6 @@
 # Compliance domain model
 
-Status: working product and domain contract, updated 2026-09-22
+Status: accepted product and domain contract, updated 2026-09-28
 
 This document defines the shared language and relationships used by the
 Compliance product backlog. It is a product model, not a database schema or a
@@ -90,7 +90,7 @@ Cross-context references use stable identities and explicit versions or
 snapshots when history matters. One context must not silently mutate another
 context's aggregate.
 
-### Ownership decisions and remaining questions
+### Ownership decisions
 
 The 2026-09-14 backlog design review found concepts that this model and the
 backlog assign to more than one owner, or to none. [M0-D22's ownership
@@ -99,8 +99,7 @@ system-instance records to R1-10, people and service identities to R1-11,
 client services to R1-02, locations and operational processes to R1-12,
 early incident references and control-to-risk treatment to R1-07.
 [M0-D23's assurance vocabulary](decisions/m0-d23-assurance-vocabulary.md)
-assigns the assurance records and readiness rules below. Other rows remain
-open decisions before their dependent stories are ready:
+assigns the assurance records and readiness rules below:
 
 | Concern | Conflict | Decision |
 | --- | --- | --- |
@@ -114,8 +113,8 @@ open decisions before their dependent stories are ready:
 | "Tenant" and "organization" | Decided: tenant is the technical name of a client organization; `tenant_id` in contracts, organization in product text | [M0-D25](decisions/m0-d25-client-tenancy.md) |
 | "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
-When a decision is made, update this document, the affected stories, and the
-issue. Keep a resolved row only while it clarifies shared ownership.
+When a later decision changes ownership, update this document, the affected
+stories, and the issue.
 
 ## Tenancy and firm services
 
@@ -726,37 +725,33 @@ its downstream impact.
 - Standalone and split API/worker deployments expose the same business
   behavior, authorization, history, and failure semantics.
 
-## Initial open decisions
+## Decision records
 
-These remain product decisions rather than implementation guesses. Each is
-tracked as an M0 discovery issue. Rows marked decided on 2026-09-22 are
-incorporated into the approved [canonical entity model](canonical-entity-model.md);
-the corresponding decision records are under `docs/product/decisions/`.
+Every M0 discovery decision this model depends on has been made. The product
+decision records are under [`decisions/`](decisions/) and the architecture
+decision records under
+[`../architecture/decisions/`](../architecture/decisions/). Remaining
+first-client facts are gathered in the linked issues; they do not reopen these
+decisions.
 
-| Decision | Tracked in |
+| Question | Decided in |
 | --- | --- |
-| Whether one client organization needs more than one collaboration workspace; multiple client organizations per deployment are required | Decided: one per organization (M0-D03, M0-D25) |
-| Which built-in access roles are required and which actions each permits | Decided 2026-09-22 in M0-D03; permission sets in M0-A04 |
-| Which small-team self-review exceptions are acceptable and who approves them | Decided: Org Admin SoD waiver (M0-D03) |
-| Whether IdP group mapping is required for the first release | Decided 2026-09-22 in M0-D03: not in the first release |
-| How invitations work for providers that do not support application-managed invitations | Decided: application-managed email invitations (M0-D03) |
-| The authoritative workforce source, minimum worker attributes, privacy boundary, and joiner, mover, or leaver observation rules | Decided (M0-D06); first client's HRIS in #347 |
-| The minimum system-component, information-asset, classification, and data-flow inventory needed for the first approved boundary and system description | Decided 2026-09-22 in M0-D08 |
-| Which customer commitments, system requirements, CUECs, and CSOCs apply and who approves them | M0-D09 |
-| The risk scoring or qualitative method, risk appetite, acceptance authority, and material-vendor threshold | M0-D10, M0-D11 |
-| The first vendor-assessment evidence set and treatment of SOC report coverage gaps, bridge letters, exceptions, and subservice organizations | M0-D11 |
-| Retention, deletion, legal hold, and artifact-recovery rules for identity and evidence records | M0-D16, M0-A03; the whole-platform recovery boundary is accepted in ADR 0003 and delivery remains in Portia #70 |
-| Which external principal and entitlement shapes are required by the first real access-review population | M0-D07 |
-| Which source is authoritative for people, employment status, managers, and non-human identity ownership | Decided 2026-09-22 in M0-D06 |
-| How detailed initial access expectations must be and whether reusable access profiles emerge from the first real campaigns | M0-D07 |
-| How nested groups and provider-specific effective-access calculations should be represented for the first reviewed applications | M0-D07 |
-| Whether advisors or auditors use scoped platform membership or a handoff-only workflow | Decided 2026-09-22 in M0-D14 for advisors; auditor delivery in M0-D17 and M0-D27 |
-| The audit firm's required population definitions, reconciliation fields, sample identifiers, package shape, and representation-letter workflow | M0-D17 |
-| Whether an optional Trust Services category requires category-specific workflows beyond the shared control and evidence model | M0-D01 |
-| The ownership conflicts and release-wide UI baseline listed under [Unresolved ownership](#unresolved-ownership) | M0-D22, M0-D23, M0-D24 (decided) |
-| How snapshots, artifact storage, authorization, projections, and imports realize this model | M0-A02 through M0-A06; persistence is accepted in ADR 0003 and imports in ADR 0005 |
-| The tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary | Decided 2026-09-22 in M0-D25; offboarding retention follow-up in #346 |
-| Independence rules for advisory and attest services | M0-D26 |
-| Whether the firm's own attest workpapers belong in the platform | M0-D27 |
-| Tenant resolution, slug and `tenant_id` routing, the reserved-route registry, and client identity federation | M0-A07 |
-| The complete canonical entity and relationship model, public sources, and acceptable-use decisions | Approved in M0-D28 (2026-09-22); provider-specific source mappings are delivery work in the consuming story |
+| Collaboration workspaces per client organization (one); multiple client organizations per deployment | [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), [M0-D25](decisions/m0-d25-client-tenancy.md) |
+| Built-in access roles, permitted actions, self-review exceptions, IdP group mapping, and invitations | [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md); permission sets in [ADR 0002](../architecture/decisions/0002-authorization-and-tenant-isolation.md) |
+| Authoritative workforce source, minimum worker attributes, privacy boundary, joiner/mover/leaver rules, and non-human identity ownership | [M0-D06](decisions/m0-d06-workforce-source.md); the first client's HRIS in #347 |
+| Minimum system-component, information-asset, classification, and data-flow inventory | [M0-D08](decisions/m0-d08-technology-inventory.md) |
+| Applicable commitments, system requirements, CUECs, and CSOCs, and who approves them | [M0-D09](decisions/m0-d09-commitments.md) |
+| Risk method, appetite, and acceptance authority | [M0-D10](decisions/m0-d10-risk-method.md) |
+| Material-vendor threshold, vendor-assessment evidence, SOC report gaps, bridge letters, and subservice treatment | [M0-D11](decisions/m0-d11-vendors.md) |
+| Retention, deletion, legal hold, and artifact recovery | [M0-D16](decisions/m0-d16-evidence-handling.md), [ADR 0006](../architecture/decisions/0006-artifact-content-storage-spike.md); platform recovery in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md) |
+| External principal and entitlement shapes, access expectations, nested groups, and effective access for the first access-review population | [M0-D07](decisions/m0-d07-access-review-population.md) |
+| Advisor and auditor participation | [M0-D14](decisions/m0-d14-advisor-collaboration.md), [M0-D17](decisions/m0-d17-audit-deliverables.md), [M0-D27](decisions/m0-d27-attest-scope.md) |
+| Audit-firm population definitions, sample identifiers, package shape, and representation-letter workflow | [M0-D17](decisions/m0-d17-audit-deliverables.md) |
+| Optional Trust Services categories | [M0-D01](decisions/m0-d01-program-targets.md) |
+| Record ownership, assurance vocabulary, and UI baseline | [M0-D22](decisions/m0-d22-canonical-ownership.md), [M0-D23](decisions/m0-d23-assurance-vocabulary.md), [M0-D24](decisions/m0-d24-accessibility-and-browsers.md) |
+| Persistence, snapshots, artifact storage, authorization, projections, and imports | ADRs [0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md) through [0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md) |
+| Tenant boundary, firm-staff affiliation, firm-owned material, organization creation, and tenant vocabulary | [M0-D25](decisions/m0-d25-client-tenancy.md); offboarding retention in #346 |
+| Independence rules for advisory and attest services | [M0-D26](decisions/m0-d26-independence.md) |
+| The firm's own attest workpapers | [M0-D27](decisions/m0-d27-attest-scope.md) |
+| Tenant resolution, slug and `tenant_id` routing, reserved routes, and identity federation | [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md) |
+| Canonical entities, relationships, public sources, and acceptable use | [Canonical entity model](canonical-entity-model.md) (M0-D28); provider-specific source mappings are delivered by the consuming story |

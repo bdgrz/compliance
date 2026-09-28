@@ -189,7 +189,8 @@ the API host, which serves HTTP in both standalone and split mode.
     assignment.
 - These items stay with their owning issues and do not block this decision:
   - Identity replacement, revocation, reauthentication requirements, and
-    lost-identity recovery belong to
+    lost-identity recovery are decided in
+    [ADR 0010](0010-verified-email-identity-recovery.md) for
     [R1-04a #183](https://github.com/bdgrz/compliance/issues/183).
   - Whether an organization may require its members to sign in through its
     own issuer belongs to F1-06 #268.
