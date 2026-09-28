@@ -8,7 +8,8 @@ namespace Bdgrz.Compliance.Features.Boundaries;
 public sealed record BoundaryApproved(Uuid TenantId, Uuid BoundaryId, Uuid DraftVersionId,
     long Revision, Uuid ApprovalDecisionId, Uuid AcceptedReviewDecisionId, Uuid ActorMemberId,
     string ActorDisplay, string Rationale, DateOnly EffectiveFrom,
-    DateTimeOffset DecidedAt, string ImpactDigest) : DomainEvent
+    DateTimeOffset DecidedAt, string ImpactDigest,
+    Uuid? SeparationOfDutiesWaiverId = null) : DomainEvent
 {
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }

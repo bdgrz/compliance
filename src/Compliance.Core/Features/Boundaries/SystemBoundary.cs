@@ -25,6 +25,7 @@ public sealed class SystemBoundary : Aggregate
     public bool IsVisible => _draftContent is not null || _latestApprovedVersionId != Uuid.Empty;
     public Uuid ProgramId => _programId;
     public long Revision => _revision;
+    public Uuid DraftAuthorMemberId => _draftAuthorMemberId;
     public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
     public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
 
@@ -137,18 +138,27 @@ public sealed class SystemBoundary : Aggregate
 
     public CommandFailure? Review(Uuid draftVersionId, long expectedRevision, Uuid decisionId,
         string outcome, string rationale, Uuid reviewerMemberId, string reviewerDisplay,
-        DateTimeOffset decidedAt)
+        DateTimeOffset decidedAt, SeparationOfDutiesWaiver? separationOfDutiesWaiver = null)
     {
         var current = CheckDraft(draftVersionId, expectedRevision);
         if (current is not null)
             return current;
-        if (reviewerMemberId == _draftAuthorMemberId)
+        if (reviewerMemberId == _draftAuthorMemberId &&
+            (separationOfDutiesWaiver?.TenantId != _tenantId ||
+             separationOfDutiesWaiver.Allows(new SeparationOfDutiesWaiverScope(
+                SeparationOfDutiesRecordTypes.Boundary, Id, draftVersionId,
+                expectedRevision, SeparationOfDutiesActions.Review), reviewerMemberId,
+                decidedAt) != true))
             return CommandFailure.ActorProhibited(
                 "A boundary author cannot review their own draft.");
+        if (reviewerMemberId != _draftAuthorMemberId && separationOfDutiesWaiver is not null)
+            return CommandFailure.ActorProhibited(
+                "A separation-of-duties waiver may only be used by its beneficiary.");
         if (outcome is not ("accept" or "request_changes") || string.IsNullOrWhiteSpace(rationale))
             return CommandFailure.InvalidContent("A review requires an outcome and rationale.");
         BoundaryReviewed reviewed = new(_tenantId, Id, draftVersionId, expectedRevision,
-            decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt)
+            decisionId, outcome, reviewerMemberId, reviewerDisplay, rationale.Trim(), decidedAt,
+            separationOfDutiesWaiver?.Id)
         {
             StoredActor = ActorReference.ForMember(reviewerMemberId, reviewerDisplay),
         };
@@ -177,14 +187,23 @@ public sealed class SystemBoundary : Aggregate
 
     public CommandFailure? Approve(Uuid draftVersionId, long expectedRevision,
         Uuid approvalDecisionId, Uuid acceptedReviewDecisionId, DateOnly effectiveFrom, string rationale,
-        string impactDigest, Uuid approverMemberId, string approverDisplay, DateTimeOffset decidedAt)
+        string impactDigest, Uuid approverMemberId, string approverDisplay, DateTimeOffset decidedAt,
+        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null)
     {
         var current = CheckDraft(draftVersionId, expectedRevision);
         if (current is not null)
             return current;
-        if (approverMemberId == _draftAuthorMemberId)
+        if (approverMemberId == _draftAuthorMemberId &&
+            (separationOfDutiesWaiver?.TenantId != _tenantId ||
+             separationOfDutiesWaiver.Allows(new SeparationOfDutiesWaiverScope(
+                SeparationOfDutiesRecordTypes.Boundary, Id, draftVersionId,
+                expectedRevision, SeparationOfDutiesActions.Approve), approverMemberId,
+                decidedAt) != true))
             return CommandFailure.ActorProhibited(
                 "A boundary author cannot approve their own draft.");
+        if (approverMemberId != _draftAuthorMemberId && separationOfDutiesWaiver is not null)
+            return CommandFailure.ActorProhibited(
+                "A separation-of-duties waiver may only be used by its beneficiary.");
         // Drafts recorded before a content rule existed must satisfy it before approval.
         if (Validate(_draftContent) is { } invalidContent)
             return CommandFailure.InvalidContent(invalidContent);
@@ -203,7 +222,8 @@ public sealed class SystemBoundary : Aggregate
                 "A successor must become effective after the previous approved version.");
         BoundaryApproved approved = new(_tenantId, Id, draftVersionId, expectedRevision,
             approvalDecisionId, acceptedReviewDecisionId, approverMemberId, approverDisplay,
-            rationale.Trim(), effectiveFrom, decidedAt, impactDigest)
+            rationale.Trim(), effectiveFrom, decidedAt, impactDigest,
+            separationOfDutiesWaiver?.Id)
         {
             StoredActor = ActorReference.ForMember(approverMemberId, approverDisplay),
         };

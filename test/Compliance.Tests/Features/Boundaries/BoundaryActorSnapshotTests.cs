@@ -74,6 +74,7 @@ public sealed class BoundaryActorSnapshotTests
         var currentDecision = legacyDecision with
         {
             Actor = ActorReference.ForMember(MemberId, "Reviewer at decision time"),
+            SeparationOfDutiesWaiverId = Uuid.CreateVersion4(),
         };
 
         // Act
@@ -85,6 +86,8 @@ public sealed class BoundaryActorSnapshotTests
         // Assert
         AssertActor(legacyJson["actor"]);
         AssertActor(currentJson["actor"]);
+        Assert.False((bool)legacyJson["separation_of_duties_waived"]!);
+        Assert.True((bool)currentJson["separation_of_duties_waived"]!);
     }
 
     static void AssertActor(JsonNode? actor)

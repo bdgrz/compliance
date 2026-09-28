@@ -8,6 +8,40 @@ namespace Bdgrz.Compliance.Tests.Features.Boundaries;
 public sealed class FitzBoundaryDirectoryTests
 {
     [Fact]
+    public async Task ShouldProjectWaiverEvidenceGivenBoundaryReview()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var boundaryId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var draftId = Uuid.CreateVersion4();
+        var waiverId = Uuid.CreateVersion4();
+        var directory = new FitzBoundaryDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity("BoundaryDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        var now = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new BoundaryDraftCreated(tenantId, boundaryId,
+                programId, draftId, new BoundaryContent("Scope", "readiness", ["security"], []),
+                Uuid.CreateVersion4(), "Author", now));
+            await directory.ApplyAsync(new BoundaryReviewed(tenantId, boundaryId, draftId, 1,
+                Uuid.CreateVersion4(), "accept", Uuid.CreateVersion4(), "Reviewer",
+                "Self-reviewed under approved waiver.", now.AddMinutes(1), waiverId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        var decision = await directory.GetDecisionAsync(tenantId, boundaryId,
+            (await directory.GetAsync(tenantId, boundaryId))!.LatestDecision!.DecisionId);
+        Assert.Equal(waiverId, decision?.SeparationOfDutiesWaiverId);
+        Assert.True(decision?.SeparationOfDutiesWaived);
+    }
+
+    [Fact]
     public async Task ShouldWaitForExactProjectedRevisionGivenImpactPreview()
     {
         // Arrange

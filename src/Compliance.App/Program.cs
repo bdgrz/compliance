@@ -592,6 +592,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaGet<GetSeparationOfDutiesWaiver, SeparationOfDutiesWaiverView>(
+            "/api/v1/tenants/{tenant_id}/separation-of-duties-waivers/{waiver_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
     app.MapPortiaPost<FreezeProgramScopeSnapshot, SnapshotRegistration>(
             "/api/v1/tenants/{tenant_id}/scope-snapshots")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -629,6 +633,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaPost<RecordSeparationOfDutiesWaiver, SeparationOfDutiesWaiverView>(
+            "/api/v1/tenants/{tenant_id}/separation-of-duties-waivers")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
+    app.MapPortiaPost<ApproveSeparationOfDutiesWaiver, SeparationOfDutiesWaiverView>(
+            "/api/v1/tenants/{tenant_id}/separation-of-duties-waivers/{waiver_id}/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
     app.MapPortiaPost<ProposeBoundarySuccessor, BoundaryRegistration>(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/successors")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
