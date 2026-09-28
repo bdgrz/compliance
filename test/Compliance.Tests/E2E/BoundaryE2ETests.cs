@@ -623,8 +623,31 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         }
         Assert.Equal(6, responsibilitySet?.Revision);
         Assert.Equal(4, responsibilitySet?.Assignments.Count);
+        var concurrentReviewerAssignment = Assert.Single(responsibilitySet?.Assignments ?? [],
+            item => item.MemberId == reviewerMemberId.ToString() && item.RevocationReason is null);
+        using var revokeConcurrentAssignment = await owner.PostAsJsonAsync(
+            $"{responsibilitiesPath}/{concurrentReviewerAssignment.AssignmentId}/revocation", new
+            {
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                reason = "The concurrent responsibility decision is complete.",
+            });
+        Assert.Equal(HttpStatusCode.NoContent, revokeConcurrentAssignment.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 7)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(7, responsibilitySet?.Revision);
 
         HttpResponseMessage? reviewed = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             reviewed = await reviewer.PostAsJsonAsync($"{draftPath}/reviews", new
@@ -635,14 +658,16 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             });
             if (reviewed.StatusCode == HttpStatusCode.NoContent)
                 break;
-            Assert.True(reviewed.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
-                await reviewed.Content.ReadAsStringAsync());
+            var failure = $"{(int)reviewed.StatusCode} {await reviewed.Content.ReadAsStringAsync()}";
+            Assert.True(reviewed.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound, failure);
             reviewed.Dispose();
             await Task.Delay(250);
         }
         Assert.NotNull(reviewed);
         using (reviewed)
-            Assert.Equal(HttpStatusCode.NoContent, reviewed.StatusCode);
+            Assert.True(reviewed.StatusCode == HttpStatusCode.NoContent,
+                $"Expected review to succeed after the concurrent responsibility was revoked; " +
+                $"received {(int)reviewed.StatusCode} {await reviewed.Content.ReadAsStringAsync()}");
 
         BoundaryDecisionDocument? decision = null;
         while (DateTimeOffset.UtcNow < deadline)
