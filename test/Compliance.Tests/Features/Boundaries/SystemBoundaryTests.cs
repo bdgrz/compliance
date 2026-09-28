@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -342,6 +343,110 @@ public sealed class SystemBoundaryTests
         var decision = Assert.IsType<BoundaryApproved>(
             new AggregateScenario<SystemBoundary>(boundary).PendingEvents[^1]);
         Assert.Equal(valid.Id, decision.SeparationOfDutiesWaiverId);
+    }
+
+    [Fact]
+    public void ShouldDenyReviewerWithOverlappingWorkResponsibilityGivenNoWaiver()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var reviewer = Uuid.CreateVersion4();
+        var scope = new ResponsibilityScope("boundary", BoundaryId, VersionId, 1);
+        Assert.Null(boundary.AssignResponsibility(scope, Uuid.CreateVersion4(), reviewer,
+            ResponsibilityType.ControlOwner, AuthorId, "Author", Now, Now, null, []));
+
+        // Act
+        var result = boundary.Review(VersionId, 1, Uuid.CreateVersion4(), "accept",
+            "Review complete", reviewer, "Reviewer", Now.AddMinutes(2));
+
+        // Assert
+        AssertFailure(result, CommandFailureCode.ActorProhibited);
+        Assert.DoesNotContain(new AggregateScenario<SystemBoundary>(boundary).PendingEvents,
+            ev => ev is BoundaryReviewed);
+    }
+
+    [Fact]
+    public void ShouldApproveSelfReviewResponsibilityGivenExactActiveWaiver()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var approver = Uuid.CreateVersion4();
+        var reviewId = Uuid.CreateVersion4();
+        Assert.Null(boundary.Review(VersionId, 1, reviewId, "accept", "Review complete",
+            Uuid.CreateVersion4(), "Reviewer", Now));
+        var responsibilityScope = new ResponsibilityScope("boundary", BoundaryId, VersionId, 1);
+        Assert.Null(boundary.AssignResponsibility(responsibilityScope, Uuid.CreateVersion4(),
+            approver, ResponsibilityType.ControlOwner, AuthorId, "Author", Now, Now, null, []));
+        var waiverScope = new SeparationOfDutiesWaiverScope(
+            SeparationOfDutiesRecordTypes.Boundary, BoundaryId, VersionId, 1,
+            SeparationOfDutiesActions.Approve);
+        var waiver = CreateWaiver(waiverScope, approver);
+
+        // Act
+        var denied = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", approver, "Approver",
+            Now.AddMinutes(2));
+        var allowed = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", approver, "Approver",
+            Now.AddMinutes(2), waiver);
+
+        // Assert
+        AssertFailure(denied, CommandFailureCode.ActorProhibited);
+        Assert.Null(allowed);
+        var approval = Assert.IsType<BoundaryApproved>(
+            new AggregateScenario<SystemBoundary>(boundary).PendingEvents[^1]);
+        Assert.Equal(waiver.Id, approval.SeparationOfDutiesWaiverId);
+    }
+
+    [Fact]
+    public void ShouldRejectRetroactiveConflictGivenUnwaivedReviewFact()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var reviewer = Uuid.CreateVersion4();
+        var reviewedAt = Now.AddMinutes(2);
+        Assert.Null(boundary.Review(VersionId, 1, Uuid.CreateVersion4(), "accept",
+            "Reviewed", reviewer, "Reviewer", reviewedAt));
+        var scope = new ResponsibilityScope("boundary", BoundaryId, VersionId, 1);
+
+        // Act
+        var retroactive = boundary.AssignResponsibility(scope, Uuid.CreateVersion4(), reviewer,
+            ResponsibilityType.ControlOwner, AuthorId, "Author", reviewedAt.AddMinutes(1),
+            Now, null, []);
+        var prospective = boundary.AssignResponsibility(scope, Uuid.CreateVersion4(), reviewer,
+            ResponsibilityType.ControlOwner, AuthorId, "Author", reviewedAt.AddMinutes(1),
+            reviewedAt.AddMinutes(1), null, []);
+
+        // Assert
+        AssertFailure(retroactive, CommandFailureCode.StateConflict);
+        Assert.Null(prospective);
+    }
+
+    [Fact]
+    public void ShouldAllowRetroactiveConflictGivenReviewFactWithAcceptedExactWaiver()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var scope = new ResponsibilityScope("boundary", BoundaryId, VersionId, 1);
+        var waiverScope = new SeparationOfDutiesWaiverScope(
+            SeparationOfDutiesRecordTypes.Boundary, BoundaryId, VersionId, 1,
+            SeparationOfDutiesActions.Review);
+        var waiver = CreateWaiver(waiverScope, AuthorId);
+        var reviewedAt = Now.AddMinutes(2);
+        Assert.Null(boundary.Review(VersionId, 1, Uuid.CreateVersion4(), "accept",
+            "Reviewed under the approved waiver", AuthorId, "Author", reviewedAt, waiver));
+
+        // Act
+        var assignment = boundary.AssignResponsibility(scope, Uuid.CreateVersion4(), AuthorId,
+            ResponsibilityType.ControlOwner, Uuid.CreateVersion4(), "Admin",
+            reviewedAt.AddMinutes(1), Now, null, []);
+
+        // Assert
+        Assert.Null(assignment);
     }
 
     static SeparationOfDutiesWaiver CreateWaiver(SeparationOfDutiesWaiverScope scope,

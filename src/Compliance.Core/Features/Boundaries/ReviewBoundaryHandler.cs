@@ -16,7 +16,6 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, IAggregat
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
         var memberId = RbacIds.Member(request.TenantId, userId);
-        var now = clock.GetUtcNow();
         var waiverId = request.SeparationOfDutiesWaiverId;
         SeparationOfDutiesWaiver? waiver = null;
         if (waiverId is not null)
@@ -25,9 +24,18 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, IAggregat
                 waiverId.Value), ct).ConfigureAwait(false);
         }
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
-            boundary => CommandFailureRequestAdapter.ToOutcome(boundary.Review(request.DraftVersionId,
-                request.ExpectedRevision, context.RequestId, request.Outcome, request.Rationale,
-                memberId, UserIdentityClaims.BdgrzDisplay(context.Actor, userId), now, waiver)),
+            boundary =>
+            {
+                if (boundary.DraftVersionId != request.DraftVersionId ||
+                    boundary.DraftRevision != request.ExpectedRevision)
+                    return AggregateOutcome.Discard(Result.Failure(new RequestError(
+                        RequestErrorKind.Conflict,
+                        "The boundary draft changed. Reload it before review.")));
+                return CommandFailureRequestAdapter.ToOutcome(boundary.Review(request.DraftVersionId,
+                    request.ExpectedRevision, context.RequestId, request.Outcome, request.Rationale,
+                    memberId, UserIdentityClaims.BdgrzDisplay(context.Actor, userId),
+                    clock.GetUtcNow(), waiver));
+            },
             context, ct).ConfigureAwait(false);
     }
 }

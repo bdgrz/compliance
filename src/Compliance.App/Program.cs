@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 
 var hostMode = ComplianceHostModeParser.Parse(
@@ -128,6 +129,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseBoundaryDraft>(tool => tool.Idempotent())
         .AddMcpTool<DiscardBoundaryDraft>(tool => tool.Destructive())
         .AddMcpTool<GetBoundary>(tool => tool.ReadOnly())
+        .AddMcpTool<ListResponsibilities>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewResponsibilityConflicts>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramBoundaries>(tool => tool.ReadOnly())
         .AddMcpTool<GetBoundaryVersion>(tool => tool.ReadOnly())
         .AddMcpTool<ListBoundaryVersions>(tool => tool.ReadOnly())
@@ -572,6 +575,23 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Boundaries");
+    app.MapPortiaPost<AssignResponsibility>(
+            "/api/v1/tenants/{tenant_id}/responsibilities")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Responsibilities");
+    app.MapPortiaPost<RevokeResponsibility>(
+            "/api/v1/tenants/{tenant_id}/responsibilities/{assignment_id}/revocation")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Responsibilities");
+    app.MapPortiaGet<ListResponsibilities, ResponsibilitySetView>(
+            "/api/v1/tenants/{tenant_id}/responsibilities")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Responsibilities");
+    app.MapPortiaGet<PreviewResponsibilityConflicts, ResponsibilityConflictPreview>(
+            "/api/v1/tenants/{tenant_id}/responsibilities/conflict-preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithDescription("The type query value must be control_owner, evidence_contributor, assigned_reviewer, access_reviewer, corrective_action_owner, or policy_approver.")
+        .WithTags("Responsibilities");
     app.MapPortiaGet<GetBoundaryVersion, BoundaryVersionView>(
             "/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

@@ -6,11 +6,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Fitz;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -18,13 +20,33 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 {
-    [Fact]
-    public async Task ShouldProjectTenantScopedDraftGivenBoundaryCreationAndRevision()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldProjectTenantScopedDraftGivenBoundaryCreationAndRevision(bool splitHosts)
     {
         // Arrange
-        await using var factory = E2EAppFactory.Create(broker);
-        using var owner = factory.CreateClient();
-        using var outsider = factory.CreateClient();
+        var applicationName = $"compliance-boundary-sod-{Guid.NewGuid():N}";
+        using var worker = splitHosts ? BuildWorker(applicationName) : null;
+        if (worker is not null)
+            await worker.StartAsync();
+        await using var factory = E2EAppFactory.Create(broker, applicationName);
+        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        HttpClient ownerClient;
+        HttpClient outsiderClient;
+        try
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
+                splitHosts ? "api" : "standalone");
+            ownerClient = factory.CreateClient();
+            outsiderClient = factory.CreateClient();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+        }
+        using var owner = ownerClient;
+        using var outsider = outsiderClient;
         var ownerId = await TenantInvitationE2ETests.LoginAsync(owner,
             $"boundary-owner-{Guid.NewGuid():N}@example.com");
         await TenantInvitationE2ETests.LoginAsync(outsider,
@@ -276,7 +298,9 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{tenant.TenantId}/invitations",
             new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false });
         Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
-        var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+        var delivery = splitHosts
+            ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
+            : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
         string? token = null;
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(Uuid.Parse(tenant.TenantId, CultureInfo.InvariantCulture),
@@ -285,7 +309,8 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(token);
         using var reviewer = factory.CreateClient();
         var reviewerId = await TenantInvitationE2ETests.LoginAsync(reviewer, reviewerEmail);
-        await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer, reviewerId, reviewerEmail);
+        await TenantInvitationE2ETests.VerifyEmailAsync(factory, reviewer, reviewerId, reviewerEmail,
+            splitHosts ? worker!.Services.GetRequiredService<MockEmailChallengeDelivery>() : null);
         using var accepted = await reviewer.PostAsJsonAsync(
             $"/api/v1/tenants/{tenant.TenantId}/invitations/acceptance",
             new { email_address = reviewerEmail, token });
@@ -360,6 +385,133 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, waiverRead.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, deniedWaiverRead.StatusCode);
 
+        var responsibilitiesPath = $"/api/v1/tenants/{tenant.TenantId}/responsibilities";
+        var assignmentRequest = new
+        {
+            member_user_id = ownerId,
+            record_type = "boundary",
+            record_id = registration.BoundaryId,
+            version_id = registration.DraftVersionId,
+            scope_revision = 2,
+            effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+            effective_until = (DateTimeOffset?)null,
+        };
+        using var ownerWorkAssignment = await owner.PostAsJsonAsync(responsibilitiesPath,
+            new
+            {
+                assignmentRequest.member_user_id,
+                type = "control_owner",
+                assignmentRequest.record_type,
+                assignmentRequest.record_id,
+                assignmentRequest.version_id,
+                assignmentRequest.scope_revision,
+                assignmentRequest.effective_from,
+                assignmentRequest.effective_until,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            });
+        Assert.Equal(HttpStatusCode.NoContent, ownerWorkAssignment.StatusCode);
+        var responsibilityListPath = responsibilitiesPath +
+            $"?record_type=boundary&record_id={registration.BoundaryId}" +
+            $"&version_id={registration.DraftVersionId}&scope_revision=2";
+        ResponsibilitySetDocument? responsibilitySet = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+                if (responsibilitySet?.Revision >= 1)
+                    break;
+            }
+            await Task.Delay(250);
+        }
+        Assert.Equal(1, responsibilitySet?.Revision);
+        Assert.Single(responsibilitySet?.Assignments ?? []);
+        using var deniedResponsibilityList = await outsider.GetAsync(responsibilityListPath);
+        Assert.Equal(HttpStatusCode.NotFound, deniedResponsibilityList.StatusCode);
+        using var reviewerWorkAssignment = await owner.PostAsJsonAsync(responsibilitiesPath,
+            new
+            {
+                member_user_id = reviewerId,
+                type = "control_owner",
+                assignmentRequest.record_type,
+                assignmentRequest.record_id,
+                assignmentRequest.version_id,
+                assignmentRequest.scope_revision,
+                assignmentRequest.effective_from,
+                assignmentRequest.effective_until,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            });
+        Assert.Equal(HttpStatusCode.NoContent, reviewerWorkAssignment.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 2)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(2, responsibilitySet?.Revision);
+        var reviewerWorkAssignmentView = Assert.Single(responsibilitySet?.Assignments ?? [],
+            item => item.MemberId == reviewerMemberId.ToString());
+        var previewPath = $"{responsibilitiesPath}/conflict-preview?member_user_id={reviewerId}" +
+            "&type=assigned_reviewer&record_type=boundary" +
+            $"&record_id={registration.BoundaryId}&version_id={registration.DraftVersionId}" +
+            "&scope_revision=2" +
+            $"&effective_from={Uri.EscapeDataString(DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture))}";
+        using var previewResponse = await owner.GetAsync(previewPath);
+        Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
+        var preview = await previewResponse.Content.ReadFromJsonAsync<ResponsibilityConflictPreviewDocument>();
+        Assert.Equal("self_review", Assert.Single(preview?.Conflicts ?? []).Kind);
+        using var deniedResponsibilityPreview = await outsider.GetAsync(previewPath);
+        Assert.Equal(HttpStatusCode.NotFound, deniedResponsibilityPreview.StatusCode);
+        await using (var mcp = await McpScenario.ConnectAsync(owner,
+                         new Uri(owner.BaseAddress!, "/mcp")))
+        {
+            _ = await mcp.When("bdgrz.responsibilities.conflicts.preview",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["member_user_id"] = reviewerId,
+                    ["type"] = "assigned_reviewer",
+                    ["record_type"] = "boundary",
+                    ["record_id"] = registration.BoundaryId,
+                    ["version_id"] = registration.DraftVersionId,
+                    ["scope_revision"] = 2,
+                    ["effective_from"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                }).ExpectSuccess();
+        }
+        using var deniedReviewerSelfReview = await reviewer.PostAsJsonAsync(
+            $"{draftPath}/reviews", new
+            {
+                expected_revision = 2,
+                outcome = "accept",
+                rationale = "A reviewer with a work responsibility must be blocked.",
+            });
+        Assert.Equal(HttpStatusCode.Forbidden, deniedReviewerSelfReview.StatusCode);
+        using var revokeReviewerWork = await owner.PostAsJsonAsync(
+            $"{responsibilitiesPath}/{reviewerWorkAssignmentView.AssignmentId}/revocation", new
+            {
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                reason = "The temporary work responsibility is complete.",
+            });
+        Assert.Equal(HttpStatusCode.NoContent, revokeReviewerWork.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 3)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(3, responsibilitySet?.Revision);
+
         using var waivedSelfReview = await owner.PostAsJsonAsync($"{draftPath}/reviews", new
         {
             expected_revision = 2,
@@ -381,7 +533,121 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(waivedDecision);
         Assert.Equal(waiver.WaiverId, waivedDecision.SeparationOfDutiesWaiverId);
 
+        using var ownerReviewAssignment = await owner.PostAsJsonAsync(responsibilitiesPath,
+            new
+            {
+                assignmentRequest.member_user_id,
+                type = "assigned_reviewer",
+                assignmentRequest.record_type,
+                assignmentRequest.record_id,
+                assignmentRequest.version_id,
+                assignmentRequest.scope_revision,
+                assignmentRequest.effective_from,
+                assignmentRequest.effective_until,
+                separation_of_duties_waiver_ids = new[] { waiver.WaiverId },
+            });
+        Assert.Equal(HttpStatusCode.NoContent, ownerReviewAssignment.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 4)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(4, responsibilitySet?.Revision);
+        var assignedReviewer = Assert.Single(responsibilitySet?.Assignments ?? [],
+            item => item.Type == "assigned_reviewer");
+        Assert.Equal(waiver.WaiverId, Assert.Single(assignedReviewer.SeparationOfDutiesWaiverIds));
+        using var revokeResponsibility = await owner.PostAsJsonAsync(
+            $"{responsibilitiesPath}/{assignedReviewer.AssignmentId}/revocation", new
+            {
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                reason = "Review is complete.",
+            });
+        Assert.Equal(HttpStatusCode.NoContent, revokeResponsibility.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 5)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(5, responsibilitySet?.Revision);
+        Assert.Equal("Review is complete.", Assert.Single(responsibilitySet?.Assignments ?? [],
+            item => item.AssignmentId == assignedReviewer.AssignmentId).RevocationReason);
+
+        var competingWrites = await Task.WhenAll(
+            owner.PostAsJsonAsync(responsibilitiesPath, new
+            {
+                member_user_id = reviewerId,
+                type = "control_owner",
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                effective_until = (DateTimeOffset?)null,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            }),
+            owner.PostAsJsonAsync(responsibilitiesPath, new
+            {
+                member_user_id = reviewerId,
+                type = "assigned_reviewer",
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                effective_until = (DateTimeOffset?)null,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            }));
+        Assert.Single(competingWrites, response => response.StatusCode == HttpStatusCode.NoContent);
+        Assert.Single(competingWrites, response => response.StatusCode == HttpStatusCode.Conflict);
+        foreach (var response in competingWrites)
+            response.Dispose();
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 6)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(6, responsibilitySet?.Revision);
+        Assert.Equal(4, responsibilitySet?.Assignments.Count);
+        var concurrentReviewerAssignment = Assert.Single(responsibilitySet?.Assignments ?? [],
+            item => item.MemberId == reviewerMemberId.ToString() && item.RevocationReason is null);
+        using var revokeConcurrentAssignment = await owner.PostAsJsonAsync(
+            $"{responsibilitiesPath}/{concurrentReviewerAssignment.AssignmentId}/revocation", new
+            {
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                scope_revision = 2,
+                reason = "The concurrent responsibility decision is complete.",
+            });
+        Assert.Equal(HttpStatusCode.NoContent, revokeConcurrentAssignment.StatusCode);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(responsibilityListPath);
+            responsibilitySet = await response.Content.ReadFromJsonAsync<ResponsibilitySetDocument>();
+            if (responsibilitySet?.Revision >= 7)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(7, responsibilitySet?.Revision);
+
         HttpResponseMessage? reviewed = null;
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
             reviewed = await reviewer.PostAsJsonAsync($"{draftPath}/reviews", new
@@ -392,14 +658,16 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             });
             if (reviewed.StatusCode == HttpStatusCode.NoContent)
                 break;
-            Assert.True(reviewed.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
-                await reviewed.Content.ReadAsStringAsync());
+            var failure = $"{(int)reviewed.StatusCode} {await reviewed.Content.ReadAsStringAsync()}";
+            Assert.True(reviewed.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound, failure);
             reviewed.Dispose();
             await Task.Delay(250);
         }
         Assert.NotNull(reviewed);
         using (reviewed)
-            Assert.Equal(HttpStatusCode.NoContent, reviewed.StatusCode);
+            Assert.True(reviewed.StatusCode == HttpStatusCode.NoContent,
+                $"Expected review to succeed after the concurrent responsibility was revoked; " +
+                $"received {(int)reviewed.StatusCode} {await reviewed.Content.ReadAsStringAsync()}");
 
         BoundaryDecisionDocument? decision = null;
         while (DateTimeOffset.UtcNow < deadline)
@@ -836,6 +1104,20 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(versionId, caughtUp.Value.VersionId);
     }
 
+    IHost BuildWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
+            .AddWorkers();
+        return builder.Build();
+    }
+
     sealed class SourceReader(Aggregate source) : IAggregateReader
     {
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
@@ -848,6 +1130,18 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         [property: JsonPropertyName("waiver_id")] string WaiverId,
         string Status,
         bool Active);
+    sealed record ResponsibilitySetDocument(long Revision,
+        IReadOnlyList<ResponsibilityAssignmentDocument> Assignments);
+    sealed record ResponsibilityAssignmentDocument(
+        [property: JsonPropertyName("assignment_id")] string AssignmentId,
+        [property: JsonPropertyName("member_id")] string MemberId,
+        string Type,
+        [property: JsonPropertyName("separation_of_duties_waiver_ids")]
+        IReadOnlyList<string> SeparationOfDutiesWaiverIds,
+        [property: JsonPropertyName("revocation_reason")] string? RevocationReason);
+    sealed record ResponsibilityConflictPreviewDocument(
+        IReadOnlyList<ResponsibilityConflictDocument> Conflicts);
+    sealed record ResponsibilityConflictDocument(string Kind);
     sealed record ProgramDocument([property: JsonPropertyName("program_id")] string ProgramId);
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] string BoundaryId,

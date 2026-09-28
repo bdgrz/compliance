@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance;
@@ -183,6 +184,19 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(SeparationOfDutiesWaiverView))]
 [JsonSerializable(typeof(SeparationOfDutiesWaiverRecorded))]
 [JsonSerializable(typeof(SeparationOfDutiesWaiverApproved))]
+[JsonSerializable(typeof(AssignResponsibility))]
+[JsonSerializable(typeof(RevokeResponsibility))]
+[JsonSerializable(typeof(ListResponsibilities))]
+[JsonSerializable(typeof(PreviewResponsibilityConflicts))]
+[JsonSerializable(typeof(ResponsibilityConflictPreview))]
+[JsonSerializable(typeof(ResponsibilitySetView))]
+[JsonSerializable(typeof(ResponsibilityAssignmentView))]
+[JsonSerializable(typeof(ResponsibilityScope))]
+[JsonSerializable(typeof(ResponsibilityType))]
+[JsonSerializable(typeof(ResponsibilityConflictKind))]
+[JsonSerializable(typeof(ResponsibilityConflictView))]
+[JsonSerializable(typeof(ResponsibilityAssigned))]
+[JsonSerializable(typeof(ResponsibilityRevoked))]
 [JsonSerializable(typeof(ProposeBoundarySuccessor))]
 [JsonSerializable(typeof(BoundaryScopeEntry))]
 [JsonSerializable(typeof(BoundaryContent))]
