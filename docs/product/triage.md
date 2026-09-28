@@ -1,6 +1,6 @@
 # Product backlog triage
 
-Status: working product-owner review, updated 2026-09-22
+Status: product-priority and evidence review. Live delivery state is in the [GitHub Project](https://github.com/orgs/bdgrz/projects/1); the [delivery cycle](delivery-cycle.md) defines current milestone exits and queue.
 
 This review prevents the backlog from becoming a catalog of plausible features. A story may describe a sensible capability and still be the wrong thing to build now.
 
@@ -13,13 +13,11 @@ parallel subsystems.
 The rationale for added, refined, and intentionally deferred capabilities is
 recorded in the dated [SOC 2 product gap analysis](gap-analysis.md).
 
-The 2026-09-14 backlog design review found that the P0 set could not meet the
-R1 and R2 milestone exits, that half of the P0 stories still embedded
-unresolved validation, and that several shared primitives had no owner or two
-owners. The backlog therefore now has an **M0 - Design and discovery**
-milestone of discovery and architecture-decision issues, six approved shared
-enablers in R1, and outcome-level delivery slices for the largest P0 stories.
-Their contract is defined in [backlog.md](backlog.md#product-backlog-contract).
+The 2026-09-14 design review established the M0 decisions, shared enablers,
+and outcome-level delivery slices. M0 is closed. The 2026-09-28 reset split R1
+into R1.0 program and access foundation, R1.1 governed manual source records,
+and R1.2 integrated readiness. The [backlog contract](backlog.md#product-backlog-contract)
+defines product scope; milestone and queue fields in GitHub select delivery.
 
 The same day, the product direction widened to a small SOC 2 firm that
 provides both advisory and attest services to many clients. Client
@@ -28,28 +26,16 @@ and the first release stays tenant-ready rather than firm-complete: the tenancy
 foundations (M0-D25, M0-A07, EN-01, and R1-15) are P0, and firm operations are
 planned in **F1 - Multi-client firm operations**.
 
-Each validated story or existing product slice entering delivery gets separate
-backend and frontend child issues with its milestone and applicable dependencies.
-The frontend child depends on the backend child and M0-D24; backend children
-omit that UI-only blocker. Close each child with its own acceptance evidence,
-and keep the product parent open until both and the integrated outcome pass.
-Backend dependencies use upstream backend children rather than UI-dependent
-product parents. Finish the R1-15 backend proof before starting another
-feature, then follow actual
-dependencies through R1, R2, T1, T2, T3, and F1. An unvalidated P2 hypothesis
-stays visible and unscheduled.
+Existing backend and frontend children keep separate acceptance evidence.
+Future children are created only for independently closable work. Backend
+dependencies use upstream backend capabilities rather than UI-dependent product
+parents. One capability bundle is Active at a time; a high priority does not
+override an open dependency. An unvalidated P2 hypothesis remains in Discovery.
 
-Use one PR for a reviewable backend capability that may satisfy several
-dependent issue children. Keep separate acceptance evidence for each child and
-close each only when its own backend criteria pass. The first bundle tracks
-R1-15, EN-01, and R1-01 in #152, #157, and #158. Avoid PRs that deliver only
-one test or one technical layer of that capability.
-
-The [backend delivery ledger](backend-delivery-ledger.md) records merged
-capability bundles, completed records, and remaining acceptance gaps. For a
-child that is already complete, a synthetic documentation PR records the exact
-implementation or decision commit and evidence without inventing additional
-behavior or changing the state of unrelated product parents.
+Use one PR for a reviewable capability that may satisfy several dependent
+issue children. Keep separate acceptance evidence for each child and close only
+the criteria that passed. Avoid PRs that deliver only one test or one technical
+layer. The owning issues and PRs record delivery evidence and remaining gaps.
 
 ## Evidence levels
 

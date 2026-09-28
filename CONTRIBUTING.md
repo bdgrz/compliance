@@ -21,20 +21,21 @@ builds. Pushes to `main` and manual CI dispatch also run the native matrix.
 
 ## Change workflow
 
-For each validated product story or existing delivery slice entering delivery,
-create an initial backend child and a frontend child under the product parent.
-Add a later backend child when downstream records are required to finish backend
-acceptance, so the baseline can be consumed before its follow-up is complete.
-Give every child the parent's milestone and record applicable dependencies
-explicitly. Backend children omit the UI-only M0-D24 blocker; frontend children
-depend on M0-D24 and all applicable backend children. Keep the product parent
-open until all children and the integrated acceptance criteria are complete. Do
-not schedule delivery children for unvalidated P2 hypotheses.
-For an upstream feature or enabler, link a backend child to its applicable
-backend child or children;
-link a frontend child to an upstream frontend child when that browser workflow
-is required. Do not let a still-open product parent make backend work wait for
-UI completion.
+Use the [delivery cycle](docs/product/delivery-cycle.md) and the GitHub Project
+delivery queue to select the next capability. Milestones describe product
+outcomes; the queue describes whether an issue can be worked now. Keep one
+capability bundle active at a time. An issue marked P0 is not automatically
+ready when an upstream implementation or external decision remains open.
+
+Create one outcome issue for a new validated product need. Add a child only when
+it has independent acceptance, a useful review boundary, and a reason to close
+separately. Existing backend and frontend children remain valid acceptance
+records; a reviewable capability PR may satisfy several of them. Do not create
+one PR per technical layer or per test. Do not create delivery children for an
+unvalidated P2 hypothesis. A product parent closes only after its integrated
+API-to-UI outcome passes. A backend dependency points to the upstream backend
+capability, not an open product parent waiting for UI. A frontend issue depends
+on the contracts it consumes and the accepted accessibility/browser baseline.
 
 Close a backend child only after linking its merged PR, focused and full
 applicable test results, broker and split-host evidence, and exact-head CI
@@ -45,7 +46,7 @@ browser tests, and applicable repository checks are evidenced by a merged PR.
 The frontend consumes backend contracts; it does not redefine authorization or
 domain policy.
 
-1. Open a branch for one reviewable backend capability. Bundle dependent child issues when they share contracts, canonical records, or acceptance tests. Keep domain code within the ownership boundaries documented in `README.md`.
+1. Take the lowest Run order item marked Ready, move its capability bundle to Active, and open a branch for that reviewable outcome. Bundle dependent child issues when they share contracts, canonical records, or acceptance tests. Keep domain code within the ownership boundaries documented in `README.md`.
 2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
    Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
 3. During development, run the focused test through the framework. Its build runs Portia generation, Cntryl.Conventions, and the .NET AOT analyzer with warnings-as-errors, without publishing a native image. Native publish still checks trimming and architecture-specific runtime behavior:
@@ -65,6 +66,7 @@ domain policy.
 
 5. Push the reviewed bundle and run hosted CI on its final head. Native AOT builds on both architectures remain required before merge, but start alongside Validate so they do not extend the critical path by their full duration. Repeat the local focused test for a correction; rerun the full gate and exact-head CI only after the final correction.
 6. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
+7. After merge, read back each covered issue against its own acceptance evidence. Close satisfied children, leave explicit gaps on partial children, update the parent only when the integrated outcome is proven, and refresh project queue and Run order before selecting another capability.
 
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
 
