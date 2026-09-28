@@ -64,6 +64,15 @@ Keep each old key available until every challenge issued under it has expired.
 SMTP delivery can retry after an unacknowledged send and does not guarantee
 exactly-once delivery.
 
+Deploy the new projector and reactors before enabling the recovery API so every
+worker can deserialize and process the new event types. Switch the API pool only
+after every instance can validate identity-bound sessions; drain the old API
+instances before accepting recovery completion, since an older instance cannot
+enforce the new immediate-revocation check. After these events have been
+written, rollback to a binary that does not know their event discriminators is
+not safe. Recover by rolling forward or deploying a version that understands
+these events.
+
 ## Consequences
 
 Recovery is a personal HTTP-only flow; it is not an MCP tool. A successful
