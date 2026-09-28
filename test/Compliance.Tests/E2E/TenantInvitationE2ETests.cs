@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
@@ -18,7 +19,10 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
     public async Task ShouldGrantTenantAccessGivenVerifiedAcceptedAdministratorInvitation()
     {
         // Arrange
-        await using var factory = E2EAppFactory.Create(broker);
+        var activationLag = new TransientTenantAccessPermissionLag();
+        await using var factory = E2EAppFactory.Create(broker)
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                TransientTenantAccessPermissionTestRegistration.Install(services, activationLag)));
         using var operatorClient = factory.CreateClient();
         using var administratorClient = factory.CreateClient();
         var operatorEmail = $"operator-{Guid.NewGuid():N}@example.com";
@@ -53,6 +57,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.NotNull(invitationToken);
 
         var administratorId = await LoginAsync(administratorClient, administratorEmail);
+        activationLag.TargetUser(administratorId);
         var acceptance = $"/api/v1/tenants/{tenantId}/invitations/acceptance";
         using var unverified = await administratorClient.PostAsJsonAsync(acceptance,
             new { email_address = administratorEmail, token = invitationToken });
@@ -66,6 +71,15 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             new { email_address = administratorEmail, token = invitationToken });
         Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
 
+        using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+        using (var deniedDuringLag = await administratorClient.GetAsync(
+                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+            Assert.Equal(HttpStatusCode.Forbidden, deniedDuringLag.StatusCode);
+        Assert.True(activationLag.FailureCount >= 1);
+        activationLag.Release();
+
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var access = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {

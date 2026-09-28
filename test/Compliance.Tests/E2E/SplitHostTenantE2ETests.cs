@@ -127,12 +127,13 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         }
         using var creator = client;
         var email = $"creator-{Guid.NewGuid():N}@example.com";
+        string? creatorId = null;
 
         using (var firstWorker = CreateActivationWorker(applicationName))
         {
             await firstWorker.StartAsync();
-            var userId = await TenantInvitationE2ETests.LoginAsync(creator, email);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, userId, email,
+            creatorId = await TenantInvitationE2ETests.LoginAsync(creator, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, email,
                 firstWorker.Services.GetRequiredService<MockEmailChallengeDelivery>());
             await firstWorker.StopAsync();
         }
@@ -156,9 +157,21 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.False(source.IsActive);
         }
 
-        using (var secondWorker = CreateActivationWorker(applicationName))
+        var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        using (var denied = await creator.GetAsync(
+                   $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+
+        Assert.NotNull(creatorId);
+        var activationLag = new TransientTenantAccessPermissionLag();
+        activationLag.TargetUser(creatorId);
+        using (var secondWorker = CreateActivationWorker(applicationName, activationLag))
         {
             await secondWorker.StartAsync();
+            using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+            Assert.True(activationLag.FailureCount >= 1);
+            activationLag.Release();
             var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             Tenant? view = null;
             while (DateTimeOffset.UtcNow < deadline)
@@ -173,7 +186,6 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 await Task.Delay(250);
             }
             Assert.Equal("active", view?.Status);
-            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
             using var grant = await creator.GetAsync(
                 $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
             Assert.Equal(HttpStatusCode.OK, grant.StatusCode);
@@ -686,6 +698,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
     {
         // Arrange
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
+        var activationLag = new TransientTenantAccessPermissionLag();
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
@@ -694,6 +707,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
         using var worker = builder.Build();
 
         // Act
@@ -787,6 +801,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
 
             var administratorId = await TenantInvitationE2ETests.LoginAsync(administratorClient,
                 administratorEmail);
+            activationLag.TargetUser(administratorId);
             var acceptancePath = $"/api/v1/tenants/{tenantId}/invitations/acceptance";
             using var unverified = await administratorClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = administratorEmail, token = invitationToken });
@@ -797,6 +812,19 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var accepted = await administratorClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = administratorEmail, token = invitationToken });
             Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+
+            using var activationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
+            using (var deniedDuringLag = await administratorClient.GetAsync(
+                       $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}"))
+                Assert.Equal(HttpStatusCode.Forbidden, deniedDuringLag.StatusCode);
+            Assert.True(activationLag.FailureCount >= 1);
+            var invitationReactorCheckpoint = new CheckpointIdentity("TenantInvitation",
+                EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
+            await using var checkpointScope = worker.Services.CreateAsyncScope();
+            var checkpointStore = checkpointScope.ServiceProvider.GetRequiredService<IProjectionCheckpointStore>();
+            var checkpointBeforeRecovery = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            activationLag.Release();
 
             deadline = DateTimeOffset.UtcNow.AddSeconds(45);
             var access = HttpStatusCode.Forbidden;
@@ -809,7 +837,40 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     break;
                 await Task.Delay(250);
             }
-            Assert.Equal(HttpStatusCode.OK, access);
+            if (access != HttpStatusCode.OK)
+            {
+                var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
+                var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
+                await using var diagnostics = worker.Services.CreateAsyncScope();
+                var services = diagnostics.ServiceProvider;
+                var reader = services.GetRequiredService<IAggregateReader>();
+                var tenant = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.Tenants.Tenant(tenantId));
+                var member = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.AccessControl.Member(tenantId, parsedAdministratorId));
+                var assignment = await reader.HydrateAsync(
+                    new Bdgrz.Compliance.Features.AccessControl.TeamMember(tenantId,
+                        administratorsTeamId, memberId));
+                var memberships = services.GetRequiredService<
+                    Bdgrz.Compliance.Features.Tenants.ITenantMembershipDirectoryReader>();
+                var isMember = await memberships.IsMemberAsync(tenantId.ToString(), parsedAdministratorId);
+                var permissions = services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IPermissionAuthorizer>();
+                var tenantAccess = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess);
+                var rbacManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
+                var programManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
+                    memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                var checkpointAfterRecovery = await services.GetRequiredService<IProjectionCheckpointStore>()
+                    .LoadAsync(invitationReactorCheckpoint);
+                Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
+                    $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
+                    $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
+                    $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
+                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
+            }
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
             Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 
@@ -1055,7 +1116,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         return Process.Start(start) ?? throw new InvalidOperationException("Could not start the worker host.");
     }
 
-    IHost CreateActivationWorker(string applicationName)
+    IHost CreateActivationWorker(string applicationName, TransientTenantAccessPermissionLag? activationLag = null)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -1065,6 +1126,8 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
+        if (activationLag is not null)
+            TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
         return builder.Build();
     }
 
