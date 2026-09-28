@@ -26,6 +26,7 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
 {
     const string SessionSecret = "bdgrz-recovery-e2e-session-signing-key-01";
     const string ProviderSecret = "bdgrz-recovery-e2e-provider-signing-key-01";
+    const string BootstrapOperatorId = "71148ac3-3488-4895-b706-85749f260e47";
 
     [Fact]
     public async Task ShouldReplaceIdentityAcrossApiAndWorkerGivenVerifiedRecoveryEmail()
@@ -154,6 +155,7 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Configuration["Compliance:EmailDelivery:ActiveTokenKeyId"] = "test-key";
         builder.Configuration["Compliance:EmailDelivery:TokenKeys:test-key"] = key;
+        builder.Configuration["PlatformOperators:UserIds:0"] = BootstrapOperatorId;
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: false)
             .AddWorkers();
         builder.Services.AddSingleton<IEmailChallengeDelivery>(delivery);
@@ -168,6 +170,7 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
             builder.UseSetting("Compliance:Authentication:ClientId", "compliance-spa");
             builder.UseSetting("BDGRZ_SESSION_SIGNING_KEY", SessionSecret);
+            builder.UseSetting("PlatformOperators:UserIds:0", BootstrapOperatorId);
             builder.UseSetting("Compliance:EmailDelivery:ActiveTokenKeyId", "test-key");
             builder.UseSetting("Compliance:EmailDelivery:TokenKeys:test-key", key);
             builder.ConfigureServices(services =>
