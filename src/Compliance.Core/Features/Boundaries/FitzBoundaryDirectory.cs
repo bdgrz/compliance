@@ -78,7 +78,8 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     reviewedCurrent.LatestDecision is { } previousDecision &&
                     previousDecision.VersionId == reviewed.DraftVersionId &&
                     previousDecision.Revision == reviewed.Revision
-                        ? previousDecision.DecisionId : null, null, null)
+                        ? previousDecision.DecisionId : null, null, null,
+                    reviewed.SeparationOfDutiesWaiverId)
                 {
                     Actor = reviewed.Actor,
                 };
@@ -116,7 +117,8 @@ sealed class FitzBoundaryDirectory(IKvClient client)
                     approved.DraftVersionId, approved.Revision, "approve",
                     approved.ActorMemberId, approved.ActorDisplay,
                     approved.Rationale, approved.DecidedAt, null,
-                    approved.AcceptedReviewDecisionId, approved.ImpactDigest)
+                    approved.AcceptedReviewDecisionId, approved.ImpactDigest,
+                    approved.SeparationOfDutiesWaiverId)
                 {
                     Actor = approved.Actor,
                 };

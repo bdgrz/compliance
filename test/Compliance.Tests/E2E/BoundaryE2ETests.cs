@@ -25,7 +25,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();
         using var outsider = factory.CreateClient();
-        await TenantInvitationE2ETests.LoginAsync(owner,
+        var ownerId = await TenantInvitationE2ETests.LoginAsync(owner,
             $"boundary-owner-{Guid.NewGuid():N}@example.com");
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"boundary-outsider-{Guid.NewGuid():N}@example.com");
@@ -298,6 +298,88 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{tenant.TenantId}/teams/" +
             $"{BuiltInRbac.PowerUsersTeamId(tenantId)}/members/{reviewerMemberId}", null);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        using var assignedAdmin = await owner.PostAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/teams/" +
+            $"{BuiltInRbac.AdministratorsTeamId(tenantId)}/members/{reviewerMemberId}", null);
+        Assert.Equal(HttpStatusCode.NoContent, assignedAdmin.StatusCode);
+
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var waiverPath = $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers";
+        var waiverRequest = new
+        {
+            scope = new
+            {
+                record_type = "boundary",
+                record_id = registration.BoundaryId,
+                version_id = registration.DraftVersionId,
+                revision = 2,
+                action = "review",
+            },
+            beneficiary_user_id = ownerId,
+            rationale = "No other qualified reviewer is available this week.",
+            expires_at = DateTimeOffset.UtcNow.AddDays(1),
+        };
+        using var deniedWaiverRequest = await outsider.PostAsJsonAsync(waiverPath, waiverRequest);
+        Assert.Equal(HttpStatusCode.NotFound, deniedWaiverRequest.StatusCode);
+        using var waiverResponse = await owner.PostAsJsonAsync(waiverPath, waiverRequest);
+        Assert.Equal(HttpStatusCode.OK, waiverResponse.StatusCode);
+        var waiver = await waiverResponse.Content.ReadFromJsonAsync<WaiverDocument>();
+        Assert.NotNull(waiver);
+        using var requesterApprovalAttempt = await owner.PostAsJsonAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers/" +
+            $"{waiver.WaiverId}/approvals", new { });
+        Assert.Equal(HttpStatusCode.Forbidden, requesterApprovalAttempt.StatusCode);
+        HttpResponseMessage? approvedWaiver = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            approvedWaiver = await reviewer.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers/" +
+                $"{waiver.WaiverId}/approvals", new { });
+            if (approvedWaiver.StatusCode == HttpStatusCode.OK)
+                break;
+            var failure = $"{(int)approvedWaiver.StatusCode} " +
+                          await approvedWaiver.Content.ReadAsStringAsync();
+            Assert.True(approvedWaiver.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
+                failure);
+            approvedWaiver.Dispose();
+            approvedWaiver = null;
+            await Task.Delay(250);
+        }
+        Assert.NotNull(approvedWaiver);
+        WaiverDocument? approvedWaiverView;
+        using (approvedWaiver!)
+        {
+            Assert.Equal(HttpStatusCode.OK, approvedWaiver.StatusCode);
+            approvedWaiverView = await approvedWaiver.Content.ReadFromJsonAsync<WaiverDocument>();
+        }
+        Assert.Equal("active", approvedWaiverView?.Status);
+        using var waiverRead = await owner.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers/{waiver.WaiverId}");
+        using var deniedWaiverRead = await outsider.GetAsync(
+            $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers/{waiver.WaiverId}");
+        Assert.Equal(HttpStatusCode.OK, waiverRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deniedWaiverRead.StatusCode);
+
+        using var waivedSelfReview = await owner.PostAsJsonAsync($"{draftPath}/reviews", new
+        {
+            expected_revision = 2,
+            outcome = "accept",
+            rationale = "The exact revision was self-reviewed under the approved waiver.",
+            separation_of_duties_waiver_id = waiver.WaiverId,
+        });
+        Assert.Equal(HttpStatusCode.NoContent, waivedSelfReview.StatusCode);
+        BoundaryDecisionDocument? waivedDecision = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await owner.GetAsync(boundaryPath);
+            var view = await response.Content.ReadFromJsonAsync<BoundaryDocument>();
+            waivedDecision = view?.LatestDecision;
+            if (waivedDecision?.SeparationOfDutiesWaived == true)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.NotNull(waivedDecision);
+        Assert.Equal(waiver.WaiverId, waivedDecision.SeparationOfDutiesWaiverId);
 
         HttpResponseMessage? reviewed = null;
         while (DateTimeOffset.UtcNow < deadline)
@@ -325,7 +407,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             using var response = await owner.GetAsync(boundaryPath);
             var view = await response.Content.ReadFromJsonAsync<BoundaryDocument>();
             decision = view?.LatestDecision;
-            if (decision?.Outcome == "accept")
+            if (decision?.Outcome == "accept" && decision.DecisionId != waivedDecision.DecisionId)
                 break;
             await Task.Delay(250);
         }
@@ -452,9 +534,12 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         using var decisionsResponse = await owner.GetAsync($"{boundaryPath}/decisions");
         Assert.Equal(HttpStatusCode.OK, decisionsResponse.StatusCode);
         var decisions = await decisionsResponse.Content.ReadFromJsonAsync<BoundaryDecisionPageDocument>();
-        Assert.Equal(["accept", "approve"], decisions?.Items.Select(item => item.Outcome));
-        Assert.Equal(decision.DecisionId, decisions?.Items[1].ReliesOnDecisionId);
-        Assert.Equal(reviewedPreview.Digest, decisions?.Items[1].ImpactDigest);
+        Assert.Equal(["accept", "accept", "approve"], decisions?.Items.Select(item => item.Outcome));
+        var projectedWaivedDecision = Assert.Single(decisions?.Items.Where(item =>
+            item.SeparationOfDutiesWaived) ?? []);
+        Assert.Equal(waiver.WaiverId, projectedWaivedDecision.SeparationOfDutiesWaiverId);
+        Assert.Equal(decision.DecisionId, decisions?.Items[2].ReliesOnDecisionId);
+        Assert.Equal(reviewedPreview.Digest, decisions?.Items[2].ImpactDigest);
         using var acceptedReview = await owner.GetAsync(
             $"{boundaryPath}/decisions/{decision.DecisionId}");
         Assert.Equal(HttpStatusCode.OK, acceptedReview.StatusCode);
@@ -758,6 +843,10 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     }
 
     sealed record TenantDocument([property: JsonPropertyName("tenant_id")] string TenantId);
+    sealed record WaiverDocument(
+        [property: JsonPropertyName("waiver_id")] string WaiverId,
+        string Status,
+        bool Active);
     sealed record ProgramDocument([property: JsonPropertyName("program_id")] string ProgramId);
     sealed record BoundaryRegistrationDocument(
         [property: JsonPropertyName("boundary_id")] string BoundaryId,
@@ -781,7 +870,9 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
     sealed record BoundaryDecisionDocument(
         [property: JsonPropertyName("decision_id")] string DecisionId, string Outcome,
         [property: JsonPropertyName("relies_on_decision_id")] string? ReliesOnDecisionId,
-        [property: JsonPropertyName("impact_digest")] string? ImpactDigest);
+        [property: JsonPropertyName("impact_digest")] string? ImpactDigest,
+        [property: JsonPropertyName("separation_of_duties_waived")] bool SeparationOfDutiesWaived,
+        [property: JsonPropertyName("separation_of_duties_waiver_id")] string? SeparationOfDutiesWaiverId);
     sealed record BoundaryDecisionPageDocument(IReadOnlyList<BoundaryDecisionDocument> Items);
     sealed record BoundaryImpactPreviewDocument(bool Complete, string Digest,
         IReadOnlyList<BoundaryChangeDocument> Changes,

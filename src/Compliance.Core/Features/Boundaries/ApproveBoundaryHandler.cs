@@ -1,10 +1,11 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Boundaries;
 
 public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
-    BoundaryImpactService impact, IBoundaryDirectoryReader boundaries,
+    IAggregateReader reader, BoundaryImpactService impact, IBoundaryDirectoryReader boundaries,
     IBoundaryReferenceValidator references, TimeProvider clock)
     : IRequestHandler<ApproveBoundary>
 {
@@ -38,12 +39,21 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
+        var memberId = RbacIds.Member(request.TenantId, userId);
+        var now = clock.GetUtcNow();
+        var waiverId = request.SeparationOfDutiesWaiverId;
+        SeparationOfDutiesWaiver? waiver = null;
+        if (waiverId is not null)
+        {
+            waiver = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId,
+                waiverId.Value), ct).ConfigureAwait(false);
+        }
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.BoundaryId),
             boundary => CommandFailureRequestAdapter.ToOutcome(boundary.Approve(request.DraftVersionId,
                 request.ExpectedRevision, context.RequestId, request.AcceptedReviewDecisionId,
                 request.EffectiveFrom, request.Rationale, request.ImpactDigest,
-                RbacIds.Member(request.TenantId, userId),
-                UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow())),
+                memberId, UserIdentityClaims.BdgrzDisplay(context.Actor, userId), now,
+                waiver)),
             context, ct).ConfigureAwait(false);
     }
 }

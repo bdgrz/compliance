@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
@@ -280,6 +281,77 @@ public sealed class SystemBoundaryTests
             approval.StoredActor);
         Assert.Equal(ActorReference.ForMember(approverId, "Approver at approval time"),
             approval.Actor);
+    }
+
+    [Fact]
+    public void ShouldRequireApprovedExactWaiverGivenAuthorSelfReview()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var decisionId = Uuid.CreateVersion4();
+        var scope = new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.Boundary,
+            BoundaryId, VersionId, 1, SeparationOfDutiesActions.Review);
+        var mismatched = CreateWaiver(scope with { Revision = 2 }, AuthorId);
+        var foreignTenant = CreateWaiver(scope, AuthorId, Uuid.CreateVersion4());
+        var valid = CreateWaiver(scope, AuthorId);
+
+        // Act
+        var denied = boundary.Review(VersionId, 1, Uuid.CreateVersion4(), "accept",
+            "Reviewed", AuthorId, "Author", Now.AddMinutes(2), mismatched);
+        var deniedForeign = boundary.Review(VersionId, 1, Uuid.CreateVersion4(), "accept",
+            "Reviewed", AuthorId, "Author", Now.AddMinutes(2), foreignTenant);
+        var accepted = boundary.Review(VersionId, 1, decisionId, "accept",
+            "Reviewed under approved waiver", AuthorId, "Author", Now.AddMinutes(2), valid);
+
+        // Assert
+        AssertFailure(denied, CommandFailureCode.ActorProhibited);
+        AssertFailure(deniedForeign, CommandFailureCode.ActorProhibited);
+        Assert.Null(accepted);
+        var decision = Assert.IsType<BoundaryReviewed>(
+            new AggregateScenario<SystemBoundary>(boundary).PendingEvents[^1]);
+        Assert.Equal(valid.Id, decision.SeparationOfDutiesWaiverId);
+    }
+
+    [Fact]
+    public void ShouldRequireApprovedExactWaiverGivenAuthorSelfApproval()
+    {
+        // Arrange
+        var boundary = new SystemBoundary(TenantId, BoundaryId);
+        Assert.True(boundary.Create(ProgramId, VersionId, Content(), AuthorId, "Author", Now).IsSuccess);
+        var reviewer = Uuid.CreateVersion4();
+        var reviewId = Uuid.CreateVersion4();
+        Assert.Null(boundary.Review(VersionId, 1, reviewId, "accept", "Reviewed",
+            reviewer, "Reviewer", Now));
+        var scope = new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.Boundary,
+            BoundaryId, VersionId, 1, SeparationOfDutiesActions.Approve);
+        var wrongAction = CreateWaiver(scope with { Action = SeparationOfDutiesActions.Review }, AuthorId);
+        var valid = CreateWaiver(scope, AuthorId);
+
+        // Act
+        var denied = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", AuthorId, "Author",
+            Now.AddMinutes(2), wrongAction);
+        var approved = boundary.Approve(VersionId, 1, Uuid.CreateVersion4(), reviewId,
+            new DateOnly(2027, 1, 1), "Approved", "digest", AuthorId, "Author",
+            Now.AddMinutes(2), valid);
+
+        // Assert
+        AssertFailure(denied, CommandFailureCode.ActorProhibited);
+        Assert.Null(approved);
+        var decision = Assert.IsType<BoundaryApproved>(
+            new AggregateScenario<SystemBoundary>(boundary).PendingEvents[^1]);
+        Assert.Equal(valid.Id, decision.SeparationOfDutiesWaiverId);
+    }
+
+    static SeparationOfDutiesWaiver CreateWaiver(SeparationOfDutiesWaiverScope scope,
+        Uuid beneficiary, Uuid? tenantId = null)
+    {
+        var waiver = new SeparationOfDutiesWaiver(tenantId ?? TenantId, Uuid.CreateVersion4());
+        Assert.Null(waiver.Record(scope, beneficiary, Uuid.CreateVersion4(), "Requester",
+            "No other qualified reviewer is available.", Now, Now.AddDays(1)));
+        Assert.Null(waiver.Approve(Uuid.CreateVersion4(), "Approver", Now.AddMinutes(1)));
+        return waiver;
     }
 
     [Fact]
