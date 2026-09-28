@@ -166,6 +166,7 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
     WebApplicationFactory<Program> CreateExternalFactory(string applicationName, string key) =>
         E2EAppFactory.Create(broker, applicationName).WithWebHostBuilder(builder =>
         {
+            builder.UseSetting("BDGRZ_DEVELOPER_AUTH", "false");
             builder.UseSetting("Compliance:Authentication:Mode", "External");
             builder.UseSetting("Compliance:Authentication:Authority", "https://issuer.example/");
             builder.UseSetting("Compliance:Authentication:Audience", "compliance-api");
