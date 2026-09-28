@@ -9,7 +9,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     query-side reads open their own read-only transaction on the resource it writes for the
 ///     given tenant.
 /// </summary>
-sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships)
+sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships,
+    IDomainEventReader events)
     : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection,
       IPermissionAuthorizer, IMemberAccessReader
 {
@@ -58,10 +59,27 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         if (membership is not { Affiliation: "client_personnel" } ||
             membership.TenantId != tenantId || membership.UserId != userId)
             return false;
+        if (await HasPendingSourceAsync(tenantId, ct).ConfigureAwait(false))
+            return false;
 
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         var grant = await tx.GetAsync(PermissionProjectionKeys.Grant(memberId, permission), ct).ConfigureAwait(false);
         return grant.Found;
+    }
+
+    async ValueTask<bool> HasPendingSourceAsync(Uuid tenantId, CancellationToken ct)
+    {
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var checkpoint = await base.LoadCheckpointAsync(new CheckpointIdentity(
+                "PermissionProjection", pattern), ct)
+            .ConfigureAwait(false);
+        await using var pending = events.ReadAsync(pattern, checkpoint.Cursor, ct).GetAsyncEnumerator(ct);
+        while (await pending.MoveNextAsync().ConfigureAwait(false))
+        {
+            if (PermissionProjector.Handles(pending.Current.Event))
+                return true;
+        }
+        return false;
     }
 
     public async ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId,

@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
@@ -16,6 +17,13 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
       IProjectorHandler<TeamRoleAssigned>,
       IProjectorHandler<TeamRoleRemoved>
 {
+    static readonly FrozenSet<Type> HandledEventTypes = typeof(PermissionProjector).GetInterfaces()
+        .Where(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IProjectorHandler<>))
+        .Select(type => type.GetGenericArguments()[0])
+        .ToFrozenSet();
+
+    public static bool Handles(DomainEvent domainEvent) => HandledEventTypes.Contains(domainEvent.GetType());
+
     public ValueTask HandleAsync(MemberRegistered ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 
