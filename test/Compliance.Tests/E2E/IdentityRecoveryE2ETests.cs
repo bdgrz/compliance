@@ -55,7 +55,8 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
         var userId = Uuid.CreateVersion4();
         var oldIdentity = new UserIdentity("https://issuer.example/", "old-subject");
         var foreignIdentity = new UserIdentity("https://issuer.example/", "foreign-subject");
-        var writer = factory.Services.GetRequiredService<IAggregateWriter>();
+        using var scope = factory.Services.CreateScope();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
         Assert.True(oldIdentity.Register(userId, email).IsSuccess);
         Assert.True(foreignIdentity.Register(Uuid.CreateVersion4(), null).IsSuccess);
         await writer.SaveAsync(oldIdentity, new RequestDispatchContext(RequestActor.System),
@@ -134,7 +135,7 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
         Assert.Equal(HttpStatusCode.NoContent, completed.StatusCode);
         using var afterRevocation = await GetSessionAsync(owner, sessionCookie);
         Assert.Equal(HttpStatusCode.Unauthorized, afterRevocation.StatusCode);
-        var reader = factory.Services.GetRequiredService<IAggregateReader>();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
         var replacement = await reader.HydrateAsync(
             new UserIdentity("https://issuer.example/", "new-subject"), CancellationToken.None);
         var retired = await reader.HydrateAsync(new UserIdentity(oldIdentity.Id), CancellationToken.None);

@@ -50,7 +50,8 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
                 ProviderSecret, "split-provider-subject");
             await using (var firstFactory = CreateExternalFactory(applicationName))
             {
-                await firstFactory.Services.GetRequiredService<IAggregateWriter>().SaveAsync(
+                using var scope = firstFactory.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<IAggregateWriter>().SaveAsync(
                     existingIdentity, new RequestDispatchContext(RequestActor.System),
                     CancellationToken.None);
                 using var firstClient = firstFactory.CreateClient();
