@@ -31,7 +31,10 @@ public sealed class ComplianceWebTests
             .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/v1/", StringComparison.Ordinal) == true)
             .Where(endpoint => endpoint.RoutePattern.RawText is not
                 "/api/v1/developer-user-sessions" and not "/api/v1/oidc-user-sessions" and not
-                "/api/v1/my/oidc-identity-links")
+                "/api/v1/my/oidc-identity-links" and not
+                "/api/v1/identity-recovery/challenges" and not
+                "/api/v1/identity-recovery/options" and not
+                "/api/v1/identity-recovery/completions")
             .ToArray();
 
         // Assert
@@ -62,6 +65,7 @@ public sealed class ComplianceWebTests
             "/api/v1/oidc-user-sessions",
             "/api/v1/my/",
             "/api/v1/users/{user_id}/",
+            "/api/v1/identity-recovery/",
             "/api/v1/platform/",
             "/api/v1/tenant-slugs/{slug}/mine",
         ];
@@ -123,6 +127,38 @@ public sealed class ComplianceWebTests
         Assert.NotNull(await factory.Services.GetRequiredService<IAuthorizationPolicyProvider>()
             .GetPolicyAsync(policy!));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShouldDeclareRecoveryAuthorizationGivenPlatformRecoveryEndpoints()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Production");
+        using var client = factory.CreateClient();
+
+        // Act
+        var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText is
+                "/api/v1/identity-recovery/challenges" or
+                "/api/v1/identity-recovery/options" or
+                "/api/v1/identity-recovery/completions")
+            .ToDictionary(endpoint => endpoint.RoutePattern.RawText!);
+
+        // Assert
+        Assert.Equal(3, endpoints.Count);
+        Assert.NotNull(endpoints["/api/v1/identity-recovery/challenges"]
+            .Metadata.GetMetadata<IAllowAnonymous>());
+        foreach (var route in new[]
+                 {
+                     "/api/v1/identity-recovery/options",
+                     "/api/v1/identity-recovery/completions",
+                 })
+        {
+            var policy = Assert.Single(endpoints[route].Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy;
+            Assert.Equal("BdgrzOidcContinuation", policy);
+            Assert.Null(endpoints[route].Metadata.GetMetadata<IAllowAnonymous>());
+        }
     }
 
     [Fact]

@@ -12,6 +12,58 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class EmailChallengeDeliveryReactorTests
 {
     [Fact]
+    public async Task ShouldDeliverRecoveryCodeGivenVerifiedEmailAndRecoveryChallenge()
+    {
+        // Arrange
+        var owner = Uuid.CreateVersion4();
+        const string email = "recovery@example.com";
+        var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddMinutes(15);
+        var secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Compliance:EmailDelivery:ActiveTokenKeyId"] = "current",
+                ["Compliance:EmailDelivery:TokenKeys:current"] = secret,
+            }).Build();
+        var keys = EmailChallengeTokenKeys.FromConfiguration(configuration, false);
+        var challengeId = Uuid.CreateVersion4();
+        var token = keys.DeriveRecovery("current", challengeId, owner, email, expiresAt);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var address = new EmailAddress(email);
+        var emailProof = "previously-verified";
+        Assert.True(address.Reserve(owner).IsSuccess);
+        Assert.True(address.IssueChallenge(owner, Uuid.CreateVersion4(),
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(emailProof))),
+            expiresAt, now).IsSuccess);
+        Assert.True(address.CompleteChallenge(owner, emailProof, now).IsSuccess);
+        Assert.True(address.IssueRecoveryChallenge(owner, challengeId, hash, expiresAt,
+            now, "current").IsSuccess);
+        await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var delivery = new FailingOnceDelivery(failFirst: false);
+        var reactor = new EmailChallengeDeliveryReactor(new InMemoryProjectionCheckpointStore(),
+            reader, writer, delivery, keys, TimeProvider.System);
+
+        // Act
+        await reactor.HandleAsync(new RecoveryContext(new IdentityRecoveryChallengeIssued(
+            owner, email, challengeId, hash, expiresAt, "current")), CancellationToken.None);
+        var updated = await reader.HydrateAsync(new EmailAddress(email), CancellationToken.None);
+
+        // Assert
+        Assert.Equal("delivered", updated.RecoveryDeliveryStatus);
+        Assert.Equal((challengeId, token), Assert.Single(delivery.Attempts));
+        Assert.NotEqual(keys.Derive("current", challengeId, owner, email, expiresAt), token);
+    }
+
+    [Fact]
     public async Task ShouldRecordFailureAndDeliverLaterUserGivenSmtpFailure()
     {
         // Arrange
@@ -203,11 +255,38 @@ public sealed class EmailChallengeDeliveryReactorTests
                 throw new InvalidOperationException("provider secret and recipient must stay hidden");
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask SendRecoveryAsync(Uuid challengeId, Uuid userId, string emailAddress,
+            string token, CancellationToken ct) => SendAsync(challengeId, userId, emailAddress, token, ct);
+
+        public ValueTask SendRecoveryCompletedAsync(Uuid challengeId, Uuid userId,
+            string emailAddress, CancellationToken ct)
+        {
+            _ = challengeId;
+            _ = userId;
+            _ = emailAddress;
+            ct.ThrowIfCancellationRequested();
+            return ValueTask.CompletedTask;
+        }
     }
 
     sealed class Context(EmailChallengeIssued trigger) : IReactorContext<EmailChallengeIssued>
     {
         public EmailChallengeIssued Trigger { get; } = trigger;
+        public DomainEventRecord Source { get; } = new(
+            new EventStreamAddress("bdgrz", "email-addresses", Uuid.CreateVersion4().ToString()),
+            trigger, 0, EventCursor.Start);
+        public ClaimsPrincipal Actor => RequestActor.System;
+        public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
+        public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
+        public Uuid CauseId { get; } = Uuid.CreateVersion4();
+        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+    }
+
+    sealed class RecoveryContext(IdentityRecoveryChallengeIssued trigger)
+        : IReactorContext<IdentityRecoveryChallengeIssued>
+    {
+        public IdentityRecoveryChallengeIssued Trigger { get; } = trigger;
         public DomainEventRecord Source { get; } = new(
             new EventStreamAddress("bdgrz", "email-addresses", Uuid.CreateVersion4().ToString()),
             trigger, 0, EventCursor.Start);

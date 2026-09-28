@@ -14,7 +14,8 @@ static class UserSessionCookie
         {
             http.Response.Cookies.Append(
                 BdgrzSessionTokens.CookieName,
-                sessionTokens.Issue(result.Value.UserId, result.Value.EmailAddress, DateTimeOffset.UtcNow),
+                sessionTokens.Issue(result.Value.UserIdentityId, result.Value.UserId,
+                    result.Value.EmailAddress, DateTimeOffset.UtcNow),
                 new CookieOptions
                 {
                     HttpOnly = true,

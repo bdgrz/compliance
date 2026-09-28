@@ -145,4 +145,99 @@ public sealed class EmailAddressTests
         Assert.Equal(secondId, address.CurrentChallengeId);
         Assert.Equal("expired", address.GetChallengeStatus(now.AddMinutes(15)).DeliveryStatus);
     }
+
+    [Fact]
+    public void ShouldRequireVerifiedOwnedEmailGivenRecoveryChallenge()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var address = new EmailAddress("person@example.com");
+        Assert.True(address.Reserve(userId).IsSuccess);
+
+        // Act
+        var result = address.IssueRecoveryChallenge(userId, Uuid.CreateVersion4(),
+            new string('a', 64), now.AddMinutes(15), now, "key-1");
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
+    }
+
+    [Fact]
+    public void ShouldBindRecoveryChallengeToOneReplacementGivenValidEmailProof()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var oldIdentityId = Uuid.CreateVersion4();
+        var replacementIdentityId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var recoveryToken = new string('A', 64);
+        var address = new EmailAddress("person@example.com");
+        Assert.True(address.Reserve(userId).IsSuccess);
+        var emailTokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("verified")));
+        Assert.True(address.IssueChallenge(userId, Uuid.CreateVersion4(), emailTokenHash,
+            now.AddMinutes(15), now).IsSuccess);
+        Assert.True(address.CompleteChallenge(userId, "verified", now).IsSuccess);
+        var challengeId = Uuid.CreateVersion4();
+        var recoveryHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(recoveryToken)));
+        Assert.True(address.IssueRecoveryChallenge(userId, challengeId, recoveryHash,
+            now.AddMinutes(15), now, "key-1").IsSuccess);
+
+        // Act
+        var claimed = address.ClaimIdentityRecovery(userId, challengeId, recoveryToken,
+            oldIdentityId, replacementIdentityId, now.AddMinutes(1));
+        var replay = address.ClaimIdentityRecovery(userId, challengeId, recoveryToken,
+            oldIdentityId, replacementIdentityId, now.AddMinutes(2));
+        var replayAfterExpiry = address.ClaimIdentityRecovery(userId, challengeId, recoveryToken,
+            oldIdentityId, replacementIdentityId, now.AddMinutes(16));
+        var retargeted = address.ClaimIdentityRecovery(userId, challengeId, recoveryToken,
+            oldIdentityId, Uuid.CreateVersion4(), now.AddMinutes(2));
+        var retargetedAfterExpiry = address.ClaimIdentityRecovery(userId, challengeId, recoveryToken,
+            oldIdentityId, Uuid.CreateVersion4(), now.AddMinutes(16));
+
+        // Assert
+        Assert.True(claimed.IsSuccess);
+        Assert.True(replay.IsSuccess);
+        Assert.True(replayAfterExpiry.IsSuccess);
+        Assert.False(retargeted.IsSuccess);
+        Assert.False(retargetedAfterExpiry.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, retargeted.Error.Kind);
+        Assert.Equal(RequestErrorKind.Conflict, retargetedAfterExpiry.Error.Kind);
+        Assert.True(address.IsVerified);
+        Assert.Equal(challengeId, address.CurrentRecoveryChallengeId);
+    }
+
+    [Fact]
+    public void ShouldRejectMalformedRecoveryTokenGivenProofValidation()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var address = new EmailAddress("person@example.com");
+        Assert.True(address.Reserve(userId).IsSuccess);
+        const string verifiedToken = "verified";
+        Assert.True(address.IssueChallenge(userId, Uuid.CreateVersion4(),
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(verifiedToken))),
+            now.AddMinutes(15), now).IsSuccess);
+        Assert.True(address.CompleteChallenge(userId, verifiedToken, now).IsSuccess);
+        const string recoveryToken = "recovery-token";
+        var challengeId = Uuid.CreateVersion4();
+        Assert.True(address.IssueRecoveryChallenge(userId, challengeId,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(recoveryToken))),
+            now.AddMinutes(15), now, "key-1").IsSuccess);
+
+        // Act
+        var malformedToken = address.ValidateIdentityRecoveryChallenge(userId, challengeId,
+            recoveryToken, now);
+        var oversizedToken = address.ValidateIdentityRecoveryChallenge(userId, challengeId,
+            new string('A', 1_000_000), now);
+        var nonHexToken = address.ValidateIdentityRecoveryChallenge(userId, challengeId,
+            new string('Z', 64), now);
+
+        // Assert
+        Assert.False(malformedToken.IsSuccess);
+        Assert.False(oversizedToken.IsSuccess);
+        Assert.False(nonHexToken.IsSuccess);
+    }
 }

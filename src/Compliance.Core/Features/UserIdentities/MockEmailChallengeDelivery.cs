@@ -17,6 +17,19 @@ public sealed class MockEmailChallengeDelivery : IEmailChallengeDelivery
         return ValueTask.CompletedTask;
     }
 
+    public ValueTask SendRecoveryAsync(Uuid challengeId, Uuid userId, string emailAddress,
+        string token, CancellationToken ct) => SendAsync(challengeId, userId, emailAddress, token, ct);
+
+    public ValueTask SendRecoveryCompletedAsync(Uuid challengeId, Uuid userId,
+        string emailAddress, CancellationToken ct)
+    {
+        _ = challengeId;
+        _ = userId;
+        _ = emailAddress;
+        ct.ThrowIfCancellationRequested();
+        return ValueTask.CompletedTask;
+    }
+
     public bool TryGetLatest(Uuid userId, string emailAddress, out string? token) =>
         _messages.TryGetValue((userId, emailAddress), out token);
 }

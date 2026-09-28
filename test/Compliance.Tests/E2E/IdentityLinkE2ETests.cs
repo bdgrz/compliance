@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Portia;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
@@ -43,10 +44,16 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
         try
         {
             var userId = Uuid.CreateVersion4();
+            var existingIdentity = new UserIdentity("https://issuer.example/", "existing-session-subject");
+            Assert.True(existingIdentity.Register(userId, null).IsSuccess);
             var providerToken = Token("https://issuer.example/", "compliance-api",
                 ProviderSecret, "split-provider-subject");
             await using (var firstFactory = CreateExternalFactory(applicationName))
             {
+                using var scope = firstFactory.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<IAggregateWriter>().SaveAsync(
+                    existingIdentity, new RequestDispatchContext(RequestActor.System),
+                    CancellationToken.None);
                 using var firstClient = firstFactory.CreateClient();
                 using var request = new HttpRequestMessage(HttpMethod.Post,
                     "/api/v1/my/oidc-identity-links")
@@ -56,7 +63,8 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
                     "Bearer", providerToken);
                 request.Headers.Add("Cookie", "bdgrz_session=" + Token("bdgrz",
-                    "bdgrz-browser", SessionSecret, userId.ToString()));
+                    "bdgrz-browser", SessionSecret, userId.ToString(),
+                    [new Claim("user_identity_id", existingIdentity.Id.ToString())]));
 
                 // Act
                 using var linked = await firstClient.SendAsync(request, CancellationToken.None);
@@ -119,11 +127,12 @@ public sealed class IdentityLinkE2ETests(BrokerStackFixture broker) : IClassFixt
             });
         });
 
-    static string Token(string issuer, string audience, string secret, string subject)
+    static string Token(string issuer, string audience, string secret, string subject,
+        Claim[]? additionalClaims = null)
     {
         var now = DateTime.UtcNow;
         var token = new JwtSecurityToken(issuer, audience,
-            [new Claim(JwtRegisteredClaimNames.Sub, subject)], now.AddMinutes(-1),
+            [new Claim(JwtRegisteredClaimNames.Sub, subject), .. additionalClaims ?? []], now.AddMinutes(-1),
             now.AddMinutes(30), new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                 SecurityAlgorithms.HmacSha256));
