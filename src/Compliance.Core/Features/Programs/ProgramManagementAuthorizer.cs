@@ -42,10 +42,14 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
                     "The actor may not manage this program."));
         }
 
-        if (context.Request is PreviewApplicationChange)
+        if (context.Request is PreviewApplicationChange preview)
         {
             // The preview summarizes references across an application and may cross Programs.
             // A grant to one Program cannot authorize the whole tenant-owned response.
+            if (!await resourceScopes.IsTenantApplicationAsync(tenantId, preview.ApplicationId, ct)
+                    .ConfigureAwait(false))
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The application was not found."));
             var visibility = await scopedPermissions.GetProgramVisibilityAsync(tenantId, userId,
                     memberId, IProgramReadRequest.ReadPermission, ct)
                 .ConfigureAwait(false);

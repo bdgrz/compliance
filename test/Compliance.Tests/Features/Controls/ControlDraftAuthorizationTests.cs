@@ -298,5 +298,8 @@ public sealed class ControlDraftAuthorizationTests
 
         public ValueTask<Uuid?> ResolveProgramIdAsync(Uuid tenantId, IProgramResourceRequest request,
             CancellationToken ct = default) => ValueTask.FromResult<Uuid?>(null);
+
+        public ValueTask<bool> IsTenantApplicationAsync(Uuid tenantId, Uuid applicationId,
+            CancellationToken ct = default) => ValueTask.FromResult(false);
     }
 }

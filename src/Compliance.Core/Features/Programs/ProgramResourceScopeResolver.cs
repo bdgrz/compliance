@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Snapshots;
 using Cntryl.Fitz.Extensions;
@@ -24,6 +25,18 @@ sealed class ProgramResourceScopeResolver(IProgramDirectoryReader programs,
         // catches up. The aggregate stream is addressed by both tenant and program ID.
         var source = await reader.HydrateAsync(new ComplianceProgram(tenantId, programId), ct)
             .ConfigureAwait(false);
+        return source.IsCreated;
+    }
+
+    public async ValueTask<bool> IsTenantApplicationAsync(Uuid tenantId, Uuid applicationId,
+        CancellationToken ct = default)
+    {
+        if (tenantId == Uuid.Empty || applicationId == Uuid.Empty)
+            return false;
+        // A preview spans Programs, but the application ID itself must exist in this tenant
+        // before an organization-wide grant is evaluated.
+        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId,
+                applicationId), ct).ConfigureAwait(false);
         return source.IsCreated;
     }
 

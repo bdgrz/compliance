@@ -35,8 +35,9 @@ static class ProgramManagementServices
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString()),
             new Claim("email", "author@example.com")], "BdgrzSession"));
 
-    public static IProgramResourceScopeResolver ResourceScopes(Uuid? programId = null) =>
-        new TestProgramResourceScopeResolver(programId);
+    public static IProgramResourceScopeResolver ResourceScopes(Uuid? programId = null,
+        bool applicationExists = true) =>
+        new TestProgramResourceScopeResolver(programId, applicationExists);
 
     public static async Task SeedAsync<TAggregate>(IServiceProvider provider, TAggregate aggregate,
         Func<TAggregate, Result> operation) where TAggregate : Aggregate
@@ -67,7 +68,7 @@ static class ProgramManagementServices
     }
 }
 
-sealed class TestProgramResourceScopeResolver(Uuid? programId = null)
+sealed class TestProgramResourceScopeResolver(Uuid? programId = null, bool applicationExists = true)
     : IProgramResourceScopeResolver
 {
     public ValueTask<bool> IsTenantProgramAsync(Uuid tenantId, Uuid requestedProgramId,
@@ -75,4 +76,7 @@ sealed class TestProgramResourceScopeResolver(Uuid? programId = null)
 
     public ValueTask<Uuid?> ResolveProgramIdAsync(Uuid tenantId, IProgramResourceRequest request,
         CancellationToken ct = default) => ValueTask.FromResult(programId);
+
+    public ValueTask<bool> IsTenantApplicationAsync(Uuid tenantId, Uuid applicationId,
+        CancellationToken ct = default) => ValueTask.FromResult(applicationExists);
 }

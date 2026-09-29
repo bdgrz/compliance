@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Snapshots;
@@ -119,6 +120,30 @@ public sealed class ProgramResourceScopeResolverTests
         // Assert
         Assert.False(programExists);
         Assert.Null(boundaryProgram);
+    }
+
+    [Fact]
+    public async Task ShouldResolveOnlyTenantOwnedApplicationGivenSourceBeforeProjection()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var foreignTenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var application = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(application.Declare("Application", "Purpose", null,
+            Uuid.CreateVersion4(), "Admin", DateTimeOffset.UtcNow).IsSuccess);
+        var resolver = new ProgramResourceScopeResolver(new MissingProgramDirectory(),
+            null!, null!, null!, new SourceReader(application));
+
+        // Act
+        var owned = await resolver.IsTenantApplicationAsync(tenantId, applicationId);
+        var foreign = await resolver.IsTenantApplicationAsync(foreignTenantId, applicationId);
+        var missing = await resolver.IsTenantApplicationAsync(tenantId, Uuid.CreateVersion4());
+
+        // Assert
+        Assert.True(owned);
+        Assert.False(foreign);
+        Assert.False(missing);
     }
 
     static ComplianceProgram CreatedProgram(Uuid tenantId, Uuid programId)

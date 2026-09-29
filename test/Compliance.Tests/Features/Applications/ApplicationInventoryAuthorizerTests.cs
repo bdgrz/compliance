@@ -78,6 +78,27 @@ public sealed class ApplicationInventoryAuthorizerTests
     }
 
     [Fact]
+    public async Task ShouldHideMissingApplicationGivenPreviewWithoutOrganizationGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var authorizer = new ProgramManagementAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes(applicationExists: false));
+        var context = new RequestContext<IProgramManagementRequest>(
+            new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
+    [Fact]
     public async Task ShouldDenyFirmStaffGivenHistoricalInventoryGrant()
     {
         // Arrange
