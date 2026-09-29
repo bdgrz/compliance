@@ -21,6 +21,8 @@ The product coverage decisions behind this version are recorded in
 
 ## Product-backlog contract
 
+This backlog defines scope, acceptance criteria, and dependencies. GitHub issues and pull requests track delivery state and evidence; this document does not.
+
 Every product-backlog item is a user story that delivers a business outcome. Infrastructure, schema, API, background processing, and UI tasks may be implementation subtasks, but they are not separate product-backlog items. Backend and frontend children are delivery tracking under that story, not new business outcomes.
 
 Three kinds of non-story issue are explicit exceptions:
@@ -35,7 +37,7 @@ Each backend child owns its authorized HTTP API and machine-appropriate MCP surf
 
 Close each child only when its own acceptance evidence is complete. Keep the product parent open until the integrated product outcome passes. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
 
-Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. PR #159 seeded R1-15, EN-01, and R1-01 in #152, #157, and #158; it was partial and did not close those children. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
+Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
 
 Record merged implementation, exact acceptance evidence, and remaining limits on the owning GitHub issue and PR. Close a completed child against that evidence; do not create a synthetic documentation PR to represent work already merged.
 
@@ -135,12 +137,12 @@ Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisi
 
 Questions to answer:
 
-- [ ] Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
-- [ ] Decide which categories beyond Security are in scope (Availability, Processing Integrity, Confidentiality, Privacy) and the rationale.
-- [ ] If Privacy is selected, decide whether a separate personal-information-lifecycle backlog is required before the product claims support.
-- [ ] Identify the audit firm and which engagement dates it has confirmed.
-- [ ] List the services in the first system boundary.
-- [ ] Set due dates on the R1, R2, and T1 milestones once targets are agreed.
+- Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
+- Decide which categories beyond Security are in scope (Availability, Processing Integrity, Confidentiality, Privacy) and the rationale.
+- If Privacy is selected, decide whether a separate personal-information-lifecycle backlog is required before the product claims support.
+- Identify the audit firm and which engagement dates it has confirmed.
+- List the services in the first system boundary.
+- Set due dates on the R1, R2, and T1 milestones once targets are agreed.
 
 Involve: Compliance lead, readiness consultant, audit firm.
 
@@ -148,9 +150,9 @@ Blocks: R1-01, R1-02, R1-03, T1-01, T2-01
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Product brief open decisions (first engagement, categories, dates, optional categories); R1-03 subtask on engagement categories.
 
@@ -168,12 +170,12 @@ Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisi
 
 Questions to answer:
 
-- [ ] Confirm the edition: 2017 Trust Services Criteria with 2022 revised points of focus.
-- [ ] Confirm AICPA permitted use for storing and displaying criteria text in the product, exports, and packages, or whether only identifiers plus customer-supplied text are allowed.
-- [ ] Decide whether points of focus are modeled and mappable or reference-only.
-- [ ] Identify who supplies the initial catalog file (for example, the consultant's workbook) and its identifiers.
-- [ ] Decide how a later edition is introduced without changing existing engagements.
-- [ ] Confirm the terms permit the firm to use the same criteria content across multiple client organizations and in client-facing exports and templates.
+- Confirm the edition: 2017 Trust Services Criteria with 2022 revised points of focus.
+- Confirm AICPA permitted use for storing and displaying criteria text in the product, exports, and packages, or whether only identifiers plus customer-supplied text are allowed.
+- Decide whether points of focus are modeled and mappable or reference-only.
+- Identify who supplies the initial catalog file (for example, the consultant's workbook) and its identifiers.
+- Decide how a later edition is introduced without changing existing engagements.
+- Confirm the terms permit the firm to use the same criteria content across multiple client organizations and in client-facing exports and templates.
 
 Involve: Compliance lead, readiness consultant; legal review of AICPA terms if needed.
 
@@ -181,9 +183,9 @@ Blocks: F1-04, R1-03, R1-06
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Product brief open decision on criteria source and permitted use; R1-03 requirements.
 
@@ -203,13 +205,13 @@ Decision needed: Which built-in roles, access scopes, and separation-of-duties e
 
 Questions to answer:
 
-- [ ] Confirm the first built-in role catalog and the actions each role permits.
-- [ ] Define the scope hierarchy (organization, program, engagement, shared resource) for grants.
-- [ ] Decide the acceptable small-team self-review or self-approval exceptions and who approves them.
-- [ ] Decide whether the first release needs one workspace or several collaboration workspaces per organization.
-- [ ] Decide invitation behavior for Auth0 and Entra, and whether IdP group mapping is required for the first release.
-- [ ] Decide whether responsibilities (for example, control owner) can be assigned to people who never sign in, and how their work is attributed.
-- [ ] Multiple client organizations per deployment are now required (M0-D25). Define separate role catalogs or scopes for firm staff and client personnel, and whether a firm staff member's roles are granted per client organization or through engagement assignment.
+- Confirm the first built-in role catalog and the actions each role permits.
+- Define the scope hierarchy (organization, program, engagement, shared resource) for grants.
+- Decide the acceptable small-team self-review or self-approval exceptions and who approves them.
+- Decide whether the first release needs one workspace or several collaboration workspaces per organization.
+- Decide invitation behavior for Auth0 and Entra, and whether IdP group mapping is required for the first release.
+- Decide whether responsibilities (for example, control owner) can be assigned to people who never sign in, and how their work is attributed.
+- Multiple client organizations per deployment are now required (M0-D25). Define separate role catalogs or scopes for firm staff and client personnel, and whether a firm staff member's roles are granted per client organization or through engagement assignment.
 
 Involve: Compliance lead, organization administrator, readiness consultant.
 
@@ -217,9 +219,9 @@ Blocks: EN-01, EN-04, R1-04, R2-01, R2-05, R2-11
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-04 validation subtask; domain model open decisions on roles, self-review, workspaces, IdP groups, invitations; R2-05 independence rules.
 
@@ -235,12 +237,12 @@ Decision needed: What readiness material already exists, in what shape, and whic
 
 Questions to answer:
 
-- [ ] Collect sample files for controls, mappings, policies, evidence, owners, risks, vendors, gaps, and consultant findings.
-- [ ] Record each source's stable identifiers, or the lack of them.
-- [ ] Decide how owners named in source files (names, emails) match members or workforce people.
-- [ ] Decide how consultant-authored content is attributed without fabricating platform actors.
-- [ ] Rank record families by adoption value to set the R1-09 slice order.
-- [ ] Decide which material is acceptable to re-enter manually instead of importing.
+- Collect sample files for controls, mappings, policies, evidence, owners, risks, vendors, gaps, and consultant findings.
+- Record each source's stable identifiers, or the lack of them.
+- Decide how owners named in source files (names, emails) match members or workforce people.
+- Decide how consultant-authored content is attributed without fabricating platform actors.
+- Rank record families by adoption value to set the R1-09 slice order.
+- Decide which material is acceptable to re-enter manually instead of importing.
 
 Involve: Compliance lead, readiness consultant.
 
@@ -248,9 +250,9 @@ Blocks: R1-09
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-09 validation subtask.
 
@@ -268,11 +270,11 @@ Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisi
 
 Questions to answer:
 
-- [ ] Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
-- [ ] Agree on the minimum inventory fields and ownership expectations (system owner, access owner).
-- [ ] For the first applications (for example, AWS accounts and GitHub organizations), define the reviewed-system boundary: tenant, organization, account, or environment.
-- [ ] Define access-review inclusion and exclusion criteria and who approves them.
-- [ ] Decide alias, duplicate, and retirement rules using real examples.
+- Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
+- Agree on the minimum inventory fields and ownership expectations (system owner, access owner).
+- For the first applications (for example, AWS accounts and GitHub organizations), define the reviewed-system boundary: tenant, organization, account, or environment.
+- Define access-review inclusion and exclusion criteria and who approves them.
+- Decide alias, duplicate, and retirement rules using real examples.
 
 Involve: Compliance lead, system owners, readiness consultant.
 
@@ -280,9 +282,9 @@ Blocks: R1-10, R2-06
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-10 validation subtask; R2-06 validation subtask (application list).
 
@@ -300,11 +302,11 @@ Decision needed: Which source is authoritative for people, employment status, an
 
 Questions to answer:
 
-- [ ] Identify the authoritative people source (HRIS, payroll, spreadsheet) and any corroborating sources, with precedence.
-- [ ] Agree on the minimum worker attributes and the privacy boundary for sensitive fields.
-- [ ] Define joiner, mover, and leaver observation rules, including contractors and external collaborators.
-- [ ] Decide who may own an NHI (person or team), the required purpose and review date, and how ownership is reviewed.
-- [ ] Decide the accepted manual fallback when no system source exists.
+- Identify the authoritative people source (HRIS, payroll, spreadsheet) and any corroborating sources, with precedence.
+- Agree on the minimum worker attributes and the privacy boundary for sensitive fields.
+- Define joiner, mover, and leaver observation rules, including contractors and external collaborators.
+- Decide who may own an NHI (person or team), the required purpose and review date, and how ownership is reviewed.
+- Decide the accepted manual fallback when no system source exists.
 
 Involve: Compliance lead, HR or people operations, engineering leadership.
 
@@ -312,9 +314,9 @@ Blocks: R1-11, R2-06, R2-10
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-11 validation subtask; R2-06 validation subtask (identity roster); R2-10 joiner-mover-leaver behavior.
 
@@ -332,12 +334,12 @@ Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisi
 
 Questions to answer:
 
-- [ ] Choose the first reviewed systems and collect sample exports from each provider.
-- [ ] Catalog the principal kinds (account, group, role, service principal, workload identity) and entitlement shapes present.
-- [ ] Define how nested groups, role assumption, and effective access are calculated for those providers.
-- [ ] Define human and NHI classification rules and how ambiguous or shared accounts are handled.
-- [ ] Write the initial access expectations, including the AWS no-IAM-user expectation and privileged entitlements.
-- [ ] Confirm with the consultant which reviewer-assignment and remediation-verification evidence the auditor accepts.
+- Choose the first reviewed systems and collect sample exports from each provider.
+- Catalog the principal kinds (account, group, role, service principal, workload identity) and entitlement shapes present.
+- Define how nested groups, role assumption, and effective access are calculated for those providers.
+- Define human and NHI classification rules and how ambiguous or shared accounts are handled.
+- Write the initial access expectations, including the AWS no-IAM-user expectation and privileged entitlements.
+- Confirm with the consultant which reviewer-assignment and remediation-verification evidence the auditor accepts.
 
 Involve: Compliance lead, system owners, access reviewers, readiness consultant.
 
@@ -345,9 +347,9 @@ Blocks: R2-06
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-06 validation subtask.
 
@@ -365,10 +367,10 @@ Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisi
 
 Questions to answer:
 
-- [ ] List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
-- [ ] Define the information classification scheme and retention expectations to record.
-- [ ] Decide the granularity of data flows and their required protection expectations.
-- [ ] Identify the sources (cloud console, MDM, repository host) and whether each is authoritative or discovery-only.
+- List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
+- Define the information classification scheme and retention expectations to record.
+- Decide the granularity of data flows and their required protection expectations.
+- Identify the sources (cloud console, MDM, repository host) and whether each is authoritative or discovery-only.
 
 Involve: Compliance lead, engineering leadership, readiness consultant.
 
@@ -376,9 +378,9 @@ Blocks: R1-12
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-12 validation subtask.
 
@@ -396,10 +398,10 @@ Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisi
 
 Questions to answer:
 
-- [ ] Collect source artifacts: MSAs, SLAs, the security addendum, privacy notices, and policies.
-- [ ] Draft the first list of service commitments and system requirements with owners.
-- [ ] Draft the first list of CUECs and CSOCs with the consultant.
-- [ ] Agree on the minimum fields and the approval authority.
+- Collect source artifacts: MSAs, SLAs, the security addendum, privacy notices, and policies.
+- Draft the first list of service commitments and system requirements with owners.
+- Draft the first list of CUECs and CSOCs with the consultant.
+- Agree on the minimum fields and the approval authority.
 
 Involve: Compliance lead, legal or contracts owner, readiness consultant.
 
@@ -407,9 +409,9 @@ Blocks: R1-13
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-13 validation subtask.
 
@@ -427,11 +429,11 @@ Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisi
 
 Questions to answer:
 
-- [ ] Choose a qualitative or quantitative method and the likelihood and impact scales.
-- [ ] Define materiality, risk appetite, and tolerance thresholds.
-- [ ] Define the treatment vocabulary and the time-bounded acceptance authority.
-- [ ] Set the periodic reassessment cadence and trigger events.
-- [ ] Confirm the method with the readiness consultant.
+- Choose a qualitative or quantitative method and the likelihood and impact scales.
+- Define materiality, risk appetite, and tolerance thresholds.
+- Define the treatment vocabulary and the time-bounded acceptance authority.
+- Set the periodic reassessment cadence and trigger events.
+- Confirm the method with the readiness consultant.
 
 Involve: Compliance lead, management approver, readiness consultant.
 
@@ -439,9 +441,9 @@ Blocks: R1-07
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-07 validation subtask.
 
@@ -459,10 +461,10 @@ Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisi
 
 Questions to answer:
 
-- [ ] Define the material-provider threshold and classify the current vendor list against it.
-- [ ] Define the initial due-diligence evidence set and review cadence.
-- [ ] Define which assurance-report fields to capture, including coverage gaps and bridge-letter use.
-- [ ] Decide carve-out or inclusive treatment for each subservice organization, with its CSOCs.
+- Define the material-provider threshold and classify the current vendor list against it.
+- Define the initial due-diligence evidence set and review cadence.
+- Define which assurance-report fields to capture, including coverage gaps and bridge-letter use.
+- Decide carve-out or inclusive treatment for each subservice organization, with its CSOCs.
 
 Involve: Compliance lead, procurement or finance owner, readiness consultant.
 
@@ -470,9 +472,9 @@ Blocks: R1-14
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R1-14 validation subtask.
 
@@ -488,11 +490,11 @@ Decision needed: Who must acknowledge which policies and complete which training
 
 Questions to answer:
 
-- [ ] Define the audience rule for each policy.
-- [ ] Agree on acknowledgement language and reminder cadence.
-- [ ] Identify required security-awareness training and its delivery source (LMS or manual).
-- [ ] Define the exception policy and the joiner, mover, and leaver behavior for campaigns.
-- [ ] Confirm the evidence format the auditor accepts for completion.
+- Define the audience rule for each policy.
+- Agree on acknowledgement language and reminder cadence.
+- Identify required security-awareness training and its delivery source (LMS or manual).
+- Define the exception policy and the joiner, mover, and leaver behavior for campaigns.
+- Confirm the evidence format the auditor accepts for completion.
 
 Involve: Compliance lead, policy owners, HR or people operations.
 
@@ -500,9 +502,9 @@ Blocks: R2-10
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-10 validation subtask.
 
@@ -518,10 +520,10 @@ Decision needed: How are control design and implementation evaluated reproducibl
 
 Questions to answer:
 
-- [ ] Collect the consultant's evaluation procedures for a representative set of controls.
-- [ ] Define the assertions, inspected items, and result vocabulary for design, implementation, and evidence sufficiency.
-- [ ] Define when a deviation requires a finding, corrective action, exception, or retest.
-- [ ] Define tester competence and independence rules and the small-team exceptions (with M0-D03).
+- Collect the consultant's evaluation procedures for a representative set of controls.
+- Define the assertions, inspected items, and result vocabulary for design, implementation, and evidence sufficiency.
+- Define when a deviation requires a finding, corrective action, exception, or retest.
+- Define tester competence and independence rules and the small-team exceptions (with M0-D03).
 
 Involve: Compliance lead, readiness consultant.
 
@@ -529,9 +531,9 @@ Blocks: R2-05
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-05 validation subtask.
 
@@ -547,11 +549,11 @@ Decision needed: How do the readiness consultants want to review work in progres
 
 Questions to answer:
 
-- [ ] Ask whether the consultants prefer indexed handoffs, secure scoped links, direct product access, or their own platform.
-- [ ] Define what 'consultant validated' means and how it differs from internal approval.
-- [ ] Decide whether draft material may be shared, and under which approval.
-- [ ] Define how feedback is returned and attributed, and whether sharing can be revoked.
-- [ ] Our firm's advisors now work as platform members assigned to client organizations (M0-D25). Decide whether external consultants engaged directly by a client still need the handoff workflow.
+- Ask whether the consultants prefer indexed handoffs, secure scoped links, direct product access, or their own platform.
+- Define what 'consultant validated' means and how it differs from internal approval.
+- Decide whether draft material may be shared, and under which approval.
+- Define how feedback is returned and attributed, and whether sharing can be revoked.
+- Our firm's advisors now work as platform members assigned to client organizations (M0-D25). Decide whether external consultants engaged directly by a client still need the handoff workflow.
 
 Involve: Compliance lead, readiness consultant.
 
@@ -559,9 +561,9 @@ Blocks: R2-08
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-08 validation subtask; triage validation queue item 1.
 
@@ -577,10 +579,10 @@ Decision needed: What does the small team need from one accountable work view on
 
 Questions to answer:
 
-- [ ] Identify the minimum source workflows the first queue must include.
-- [ ] Define the priority and materiality ordering rules.
-- [ ] Define the assignment actions (assign, claim, delegate, escalate) and who may perform them.
-- [ ] Define reminder, digest, and escalation expectations, and whether email is required.
+- Identify the minimum source workflows the first queue must include.
+- Define the priority and materiality ordering rules.
+- Define the assignment actions (assign, claim, delegate, escalate) and who may perform them.
+- Define reminder, digest, and escalation expectations, and whether email is required.
 
 Involve: Compliance lead, control owners.
 
@@ -588,9 +590,9 @@ Blocks: R2-11
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-11 validation subtask.
 
@@ -606,12 +608,12 @@ Decision needed: Which handling classes, retention periods, holds, redaction, an
 
 Questions to answer:
 
-- [ ] Define the handling classes and what may be stored at all (for example, never credentials).
-- [ ] Set retention periods and the rules for engagement holds and legal holds.
-- [ ] Define the redaction workflow and the disposition authority.
-- [ ] Define the content-inspection or malware-scanning boundary and quarantine behavior.
-- [ ] Set backup and recovery expectations for evidence.
-- [ ] Confirm what the auditor expects to be shared, and how.
+- Define the handling classes and what may be stored at all (for example, never credentials).
+- Set retention periods and the rules for engagement holds and legal holds.
+- Define the redaction workflow and the disposition authority.
+- Define the content-inspection or malware-scanning boundary and quarantine behavior.
+- Set backup and recovery expectations for evidence.
+- Confirm what the auditor expects to be shared, and how.
 
 Involve: Compliance lead, security owner, legal.
 
@@ -619,9 +621,9 @@ Blocks: F1-01, R2-12
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: R2-12 validation subtask; product brief open decision on retention, legal hold, backup, and recovery.
 
@@ -637,12 +639,12 @@ Decision needed: Which outputs, formats, and collaboration model does the audit 
 
 Questions to answer:
 
-- [ ] Collect the required control matrix, evidence index, and system-description section formats.
-- [ ] Collect the population, sample, and selection formats with stable identifiers, plus the treatment of late or corrected rows.
-- [ ] Confirm the package, workbook, portal, archive, and naming expectations.
-- [ ] Confirm the management assertion and representation-letter sequence, signers, and templates.
-- [ ] Ask whether the auditor wants direct product access, exported packages, or their own platform.
-- [ ] For clients the firm examines, our own attest team is the audit firm. Separate the formats our attest team needs (M0-D27) from those external audit firms require for advisory clients.
+- Collect the required control matrix, evidence index, and system-description section formats.
+- Collect the population, sample, and selection formats with stable identifiers, plus the treatment of late or corrected rows.
+- Confirm the package, workbook, portal, archive, and naming expectations.
+- Confirm the management assertion and representation-letter sequence, signers, and templates.
+- Ask whether the auditor wants direct product access, exported packages, or their own platform.
+- For clients the firm examines, our own attest team is the audit firm. Separate the formats our attest team needs (M0-D27) from those external audit firms require for advisory clients.
 
 Involve: Compliance lead, management approver, audit firm.
 
@@ -650,9 +652,9 @@ Blocks: T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, T3-06
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Validation subtasks in T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, and T3-06; triage validation queue items 2 and 7.
 
@@ -668,10 +670,10 @@ Decision needed: What are today's baselines for the brief's candidate success me
 
 Questions to answer:
 
-- [ ] Measure the current time to identify missing, stale, rejected, or overdue audit work.
-- [ ] Measure the current median time to answer an evidence request.
-- [ ] Measure how much parallel spreadsheet or drive tracking the team does today.
-- [ ] Agree on the target values and how each will be measured in the product.
+- Measure the current time to identify missing, stale, rejected, or overdue audit work.
+- Measure the current median time to answer an evidence request.
+- Measure how much parallel spreadsheet or drive tracking the team does today.
+- Agree on the target values and how each will be measured in the product.
 
 Involve: Compliance lead, product owner.
 
@@ -679,9 +681,9 @@ Blocks: nothing directly; informs product measures
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Product brief: 'M0 must establish baselines and targets'.
 
@@ -697,9 +699,9 @@ Decision needed: Are periodic policy, risk, vendor, and management reviews ordin
 
 Questions to answer:
 
-- [ ] Observe the first real policy, risk, and vendor reviews using the general control-occurrence workflow.
-- [ ] Observe one management compliance review and record what the general workflow could not support.
-- [ ] Recommend keeping, merging, or closing T2-06 and T2-09.
+- Observe the first real policy, risk, and vendor reviews using the general control-occurrence workflow.
+- Observe one management compliance review and record what the general workflow could not support.
+- Recommend keeping, merging, or closing T2-06 and T2-09.
 
 Involve: Compliance lead, management approver.
 
@@ -707,9 +709,9 @@ Blocks: T2-06, T2-09
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Validation subtasks in T2-06 and T2-09; triage validation queue item 3.
 
@@ -725,9 +727,9 @@ Decision needed: Which integrations would save meaningful work, and what must ea
 
 Questions to answer:
 
-- [ ] Measure manual inventory, population, access, and evidence effort by source.
-- [ ] For each candidate source, answer the ten integration questions in gap-analysis.md (business question, authority, identifiers, completeness, matching, proposals, least privilege, freshness, retained snapshots, manual fallback).
-- [ ] Rank connectors by measured savings.
+- Measure manual inventory, population, access, and evidence effort by source.
+- For each candidate source, answer the ten integration questions in gap-analysis.md (business question, authority, identifiers, completeness, matching, proposals, least privilege, freshness, retained snapshots, manual fallback).
+- Rank connectors by measured savings.
 
 Involve: Compliance lead, engineering.
 
@@ -735,9 +737,9 @@ Blocks: T2-08
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: T2-08 validation subtask; gap analysis 'Next discovery: inventory data integrations'; triage validation queue item 6.
 
@@ -753,10 +755,10 @@ Decision needed: Which change and incident facts must Compliance hold to assess 
 
 Questions to answer:
 
-- [ ] Define the minimum change and incident fields and the source links to ITSM or the incident tool.
-- [ ] Define the materiality threshold for 'significant change'.
-- [ ] Define the restricted-detail boundary and which conclusions are shareable with the auditor.
-- [ ] Define how a significant change affects the system description and closure.
+- Define the minimum change and incident fields and the source links to ITSM or the incident tool.
+- Define the materiality threshold for 'significant change'.
+- Define the restricted-detail boundary and which conclusions are shareable with the auditor.
+- Define how a significant change affects the system description and closure.
 
 Involve: Compliance lead, engineering leadership, security owner.
 
@@ -764,9 +766,9 @@ Blocks: T2-07
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: T2-07 validation subtask.
 
@@ -786,13 +788,13 @@ Decision needed: Several concepts have two owners or none. Decide one owner and 
 
 Questions to answer:
 
-- [ ] ReviewedSystem: domain-model.md lists it under both Application inventory and External access governance. Choose one owning context.
-- [ ] AccessSubject versus Person: R2-06 imports its own access-subject roster with employment status and manager, duplicating R1-11's workforce roster. Decide whether R2-06 uses R1-11's roster, or define the difference.
-- [ ] NHI records: R1-11 owns NHI-owner relationships, yet AccessSubject is created by R2-06, which comes later. Decide where an NHI is first created.
-- [ ] Missing entities: Service, Location, and Process or Procedure are referenced by the boundary, commitments, providers, and system description but never defined. Choose their owning context and delivering story.
-- [ ] Incidents: R1-07 reassessment uses incidents, but IncidentReference is only defined in T2-07. Decide whether a minimal incident reference is needed in R1 or R2.
-- [ ] Control-to-risk relationship: choose R1-05 (control applicability) or R1-07 (risk treatment) as the owner.
-- [ ] Update the affected issue bodies and domain-model.md with the decisions.
+- ReviewedSystem: domain-model.md lists it under both Application inventory and External access governance. Choose one owning context.
+- AccessSubject versus Person: R2-06 imports its own access-subject roster with employment status and manager, duplicating R1-11's workforce roster. Decide whether R2-06 uses R1-11's roster, or define the difference.
+- NHI records: R1-11 owns NHI-owner relationships, yet AccessSubject is created by R2-06, which comes later. Decide where an NHI is first created.
+- Missing entities: Service, Location, and Process or Procedure are referenced by the boundary, commitments, providers, and system description but never defined. Choose their owning context and delivering story.
+- Incidents: R1-07 reassessment uses incidents, but IncidentReference is only defined in T2-07. Decide whether a minimal incident reference is needed in R1 or R2.
+- Control-to-risk relationship: choose R1-05 (control applicability) or R1-07 (risk treatment) as the owner.
+- Update the affected issue bodies and domain-model.md with the decisions.
 
 Involve: Product owner, tech lead.
 
@@ -800,9 +802,9 @@ Blocks: R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Backlog design review 2026-09-14; domain-model.md bounded-context table; R1-05, R1-07, R1-11, R2-06, T2-07 domain slices.
 
@@ -827,12 +829,12 @@ Decision needed: Assurance terms overlap across stories. Define one vocabulary a
 
 Questions to answer:
 
-- [ ] Gap (R1-08), Finding (R2-07), deviation (R2-05), and provider coverage gap (R1-14): decide whether these are one record with kinds or distinct records, and how they relate.
-- [ ] 'Exception' currently means both an approved waiver (access expectation, separation of duties, occurrence) and an auditor-found test exception (T3-04). Rename one.
-- [ ] Risk acceptance is owned by both R1-07 (RiskTreatment acceptance) and R2-07 (RiskAcceptance). Choose one owner.
-- [ ] Review and approval: R2-05 owns Review and ReviewDecision, yet R1-02, R1-05, R1-06, R1-13, and R2-02 need approval earlier, and the domain model forbids a universal Review aggregate. Define the boundary of the shared decision primitive (EN-04).
-- [ ] Readiness: R1-08 (ReadinessAssessment), R2-09 (ReadinessSnapshot), T2-04 (projection definitions), and T2-09 (ManagementReviewSnapshot) split one concern. Name the single rules owner and how the others reuse it.
-- [ ] Update the affected issue bodies and domain-model.md with the decisions.
+- Gap (R1-08), Finding (R2-07), deviation (R2-05), and provider coverage gap (R1-14): decide whether these are one record with kinds or distinct records, and how they relate.
+- 'Exception' currently means both an approved waiver (access expectation, separation of duties, occurrence) and an auditor-found test exception (T3-04). Rename one.
+- Risk acceptance is owned by both R1-07 (RiskTreatment acceptance) and R2-07 (RiskAcceptance). Choose one owner.
+- Review and approval: R2-05 owns Review and ReviewDecision, yet R1-02, R1-05, R1-06, R1-13, and R2-02 need approval earlier, and the domain model forbids a universal Review aggregate. Define the boundary of the shared decision primitive (EN-04).
+- Readiness: R1-08 (ReadinessAssessment), R2-09 (ReadinessSnapshot), T2-04 (projection definitions), and T2-09 (ManagementReviewSnapshot) split one concern. Name the single rules owner and how the others reuse it.
+- Update the affected issue bodies and domain-model.md with the decisions.
 
 Involve: Product owner, tech lead, readiness consultant.
 
@@ -840,9 +842,9 @@ Blocks: EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Backlog design review 2026-09-14.
 
@@ -863,11 +865,11 @@ The [accessibility and browser support contract](accessibility-and-browser-suppo
 
 Accepted decisions:
 
-- [x] Use WCAG 2.2 Level AA for every first-release browser workflow; the product owner approves exceptions.
-- [x] Support current and previous major desktop Chrome, Edge, Firefox, and Safari versions. Mobile browsers may display the product but are not supported workflow targets.
-- [x] Require keyboard operation, visible and unobscured focus, the documented contrast and target-size thresholds, 200% zoom, 320 CSS px reflow, semantic screen-reader exposure, reduced-motion support, and identified and announced errors.
-- [x] Require zero axe-core WCAG 2.2 AA violations for rendered pages, document-level shell checks, and the documented manual pass for layout and assistive-technology behavior.
-- [x] Show a non-blocking supported-browser notice outside the supported range; track known accessibility limitations with the `accessibility` label and list them in the accessibility statement until fixed.
+- Use WCAG 2.2 Level AA for every first-release browser workflow; the product owner approves exceptions.
+- Support current and previous major desktop Chrome, Edge, Firefox, and Safari versions. Mobile browsers may display the product but are not supported workflow targets.
+- Require keyboard operation, visible and unobscured focus, the documented contrast and target-size thresholds, 200% zoom, 320 CSS px reflow, semantic screen-reader exposure, reduced-motion support, and identified and announced errors.
+- Require zero axe-core WCAG 2.2 AA violations for rendered pages, document-level shell checks, and the documented manual pass for layout and assistive-technology behavior.
+- Show a non-blocking supported-browser notice outside the supported range; track known accessibility limitations with the `accessibility` label and list them in the accessibility statement until fixed.
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
 
@@ -875,10 +877,10 @@ Blocks: frontend children and their first product delivery slices. It does not b
 
 Done when:
 
-- [x] The decision, rationale, owner, and date are recorded in the decision document and the GitHub issue.
-- [x] The product-backlog contract, automated and manual test strategy, browser support statement, and global frontend definition of done reflect the decision.
-- [x] Every currently open frontend child records M0-D24 as a blocker; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
-- [x] Remaining product-specific accessibility and browser-policy uncertainty is captured as a follow-up issue if discovered; no open decision remains here.
+- The decision, rationale, owner, and date are recorded in the decision document and the GitHub issue.
+- The product-backlog contract, automated and manual test strategy, browser support statement, and global frontend definition of done reflect the decision.
+- Every currently open frontend child records M0-D24 as a blocker; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
+- Remaining product-specific accessibility and browser-policy uncertainty is captured as a follow-up issue if discovered; no open decision remains here.
 
 Source: Product brief and the product owner's decision dated 2026-09-22. The normative accessibility standard is [W3C WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
@@ -898,15 +900,15 @@ Decision needed: Each client organization is a tenant and there is no firm entit
 
 Questions to answer:
 
-- [ ] Confirm the client organization is the only tenant boundary and that every business record belongs to exactly one organization.
-- [ ] Define which content is platform-level rather than tenant-owned (criteria catalog editions, firm templates, the firm-staff directory) and how tenants reference it by version without copying client data back out.
-- [ ] Define membership affiliation (client personnel or firm staff) and where a firm staff member's practice designation (advisory, attest) is recorded without a firm entity.
-- [ ] Decide where firm-owned material lives inside a client organization (advisory working notes, future attest documentation), who can see it, and how it is retained when the client leaves.
-- [ ] Decide who may create, suspend, and offboard organizations (platform operators) and how each client's first administrator is bootstrapped.
-- [ ] Decide who may create an organization in the sign-in flow (select or create): only platform operators, as R1-15 currently requires, or also self-service users.
-- [ ] Settle the vocabulary: the product proposes `tenant_id` in APIs while the domain model says organization. Choose one term, or define tenant as the technical name of a client organization everywhere.
-- [ ] Decide whether firm staff reach client records only through engagement assignment or also through standing access.
-- [ ] Record the triggers for revisiting the no-firm-entity decision, for example hosting more than one firm or firm-level retention obligations that cannot live inside client tenants.
+- Confirm the client organization is the only tenant boundary and that every business record belongs to exactly one organization.
+- Define which content is platform-level rather than tenant-owned (criteria catalog editions, firm templates, the firm-staff directory) and how tenants reference it by version without copying client data back out.
+- Define membership affiliation (client personnel or firm staff) and where a firm staff member's practice designation (advisory, attest) is recorded without a firm entity.
+- Decide where firm-owned material lives inside a client organization (advisory working notes, future attest documentation), who can see it, and how it is retained when the client leaves.
+- Decide who may create, suspend, and offboard organizations (platform operators) and how each client's first administrator is bootstrapped.
+- Decide who may create an organization in the sign-in flow (select or create): only platform operators, as R1-15 currently requires, or also self-service users.
+- Settle the vocabulary: the product proposes `tenant_id` in APIs while the domain model says organization. Choose one term, or define tenant as the technical name of a client organization everywhere.
+- Decide whether firm staff reach client records only through engagement assignment or also through standing access.
+- Record the triggers for revisiting the no-firm-entity decision, for example hosting more than one firm or firm-level retention obligations that cannot live inside client tenants.
 
 Involve: Firm leadership, product owner, tech lead.
 
@@ -914,9 +916,9 @@ Blocks: M0-D26, EN-01, F1-01, F1-04, F1-07, R1-15
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Multi-client firm decision 2026-09-14: clients are the only tenant, firm staff and client users both sign in.
 
@@ -932,12 +934,12 @@ Decision needed: The firm both advises and examines clients. Decide which indepe
 
 Questions to answer:
 
-- [ ] Identify the governing requirements with the firm's independence or quality-management partner, including the AICPA Code of Professional Conduct independence rules for nonattest services and the firm's system of quality management.
-- [ ] Classify each advisory service (readiness assessment, control design, implementation, operating controls on the client's behalf, vCISO) as compatible, conditionally compatible, or impairing for a client the firm also examines.
-- [ ] Define look-back and cooling-off periods and whether they apply per client, per person, or per engagement.
-- [ ] Define staff separation: who may serve both practices and which advisory material attest staff may see.
-- [ ] Define what engagement acceptance must document (independence evaluation, management-responsibility acknowledgement for nonattest services, approver).
-- [ ] Decide how an advisory client that later requests an examination is evaluated.
+- Identify the governing requirements with the firm's independence or quality-management partner, including the AICPA Code of Professional Conduct independence rules for nonattest services and the firm's system of quality management.
+- Classify each advisory service (readiness assessment, control design, implementation, operating controls on the client's behalf, vCISO) as compatible, conditionally compatible, or impairing for a client the firm also examines.
+- Define look-back and cooling-off periods and whether they apply per client, per person, or per engagement.
+- Define staff separation: who may serve both practices and which advisory material attest staff may see.
+- Define what engagement acceptance must document (independence evaluation, management-responsibility acknowledgement for nonattest services, approver).
+- Decide how an advisory client that later requests an examination is evaluated.
 
 Involve: Firm leadership, independence or quality-management partner, legal counsel.
 
@@ -947,9 +949,9 @@ Blocks: F1-07, F1-08
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Multi-client firm decision 2026-09-14: advisory and attest services with independence walls.
 
@@ -965,11 +967,11 @@ Decision needed: Should the platform support the firm's own SOC 2 examinations (
 
 Questions to answer:
 
-- [ ] Inventory the attest team's current audit software, workpaper review, and documentation retention obligations.
-- [ ] Decide whether tests of controls, deviations, and report drafting are in product scope and how they stay separate from management's records.
-- [ ] Decide how attest documentation is retained when a client offboards, given that client organizations are the only tenant (M0-D25).
-- [ ] Decide how the attest team receives populations, samples, and evidence (in-product access or package handoff), and update T1-03, T1-04, T3-02, and T3-03 accordingly.
-- [ ] Decide whether the product-brief non-goal of not replacing auditor workpaper systems still stands.
+- Inventory the attest team's current audit software, workpaper review, and documentation retention obligations.
+- Decide whether tests of controls, deviations, and report drafting are in product scope and how they stay separate from management's records.
+- Decide how attest documentation is retained when a client offboards, given that client organizations are the only tenant (M0-D25).
+- Decide how the attest team receives populations, samples, and evidence (in-product access or package handoff), and update T1-03, T1-04, T3-02, and T3-03 accordingly.
+- Decide whether the product-brief non-goal of not replacing auditor workpaper systems still stands.
 
 Involve: Firm attest leadership, independence or quality-management partner, product owner.
 
@@ -977,9 +979,9 @@ Blocks: F1-01, T1-03
 
 Done when:
 
-- [ ] The decision, rationale, decision owner, and date are recorded in the issue.
-- [ ] Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
-- [ ] Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
+- The decision, rationale, decision owner, and date are recorded in the issue.
+- Each blocked story's requirements, domain slice, and acceptance criteria reflect the decision, or the open point is explicitly excluded from that story.
+- Remaining uncertainty is captured as a follow-up discovery issue rather than left implicit.
 
 Source: Multi-client firm decision 2026-09-14; product-brief and gap-analysis non-goals on auditor workpapers.
 
@@ -997,30 +999,30 @@ public standards may safely inform an Apache-2.0 implementation?
 
 Questions to answer:
 
-- [ ] Define every canonical entity and first-class relationship needed by the
+- Define every canonical entity and first-class relationship needed by the
   first release, including organization, person, work relationship, platform
   user, membership, application, system instance, device, compute instance,
   account, service identity, group, group member, role, entitlement, access
   assignment, information asset, provider, and provenance records.
-- [ ] For each entity and relationship, record its canonical meaning, stable
+- For each entity and relationship, record its canonical meaning, stable
   identity, required and optional attributes, allowed reference types,
   cardinalities, time semantics, lifecycle vocabulary, and invariants without
   deciding aggregate, transaction, storage, API, or service boundaries.
-- [ ] Distinguish person from employee/work relationship, platform user from
+- Distinguish person from employee/work relationship, platform user from
   membership and external account, application from system instance, physical
   device from compute instance, group from `GroupMember`, role from group and
   responsibility, direct assignment from effective access, and source
   observation from governed fact.
-- [ ] Map each supported source shape to canonical entities without making a
+- Map each supported source shape to canonical entities without making a
   provider-specific schema canonical or losing the original source identity.
-- [ ] Give every standards-derived statement a direct, versioned public
+- Give every standards-derived statement a direct, versioned public
   reference and a use classification from
   [source-reference-policy.md](source-reference-policy.md).
-- [ ] Verify the implementation, copyright, attribution, redistribution,
+- Verify the implementation, copyright, attribution, redistribution,
   trademark, and material patent terms for the exact source and version. Exclude
   any information whose use is not affirmatively acceptable for this
   Apache-2.0 product.
-- [ ] Update `canonical-entity-model.md`, `domain-model.md`, all blocked issue
+- Update `canonical-entity-model.md`, `domain-model.md`, all blocked issue
   bodies, delivery slices, and implementation subtasks to use the approved
   vocabulary and links.
 
@@ -1031,17 +1033,17 @@ Blocks: EN-01, EN-05, R1-04, R1-10, R1-11, R1-12, R1-15, R2-06
 
 Done when:
 
-- [ ] The canonical entity and relationship catalog is complete for every
+- The canonical entity and relationship catalog is complete for every
   blocked story, internally consistent, and approved with rationale, owner, and
   date.
-- [ ] Every entity and relationship has public semantic references or is
+- Every entity and relationship has public semantic references or is
   explicitly labeled an original product decision.
-- [ ] Every active reference appears in the approved-source register with exact
+- Every active reference appears in the approved-source register with exact
   version and use terms; excluded sources contribute no model or implementation
   information.
-- [ ] The model explicitly defers aggregate, transaction, persistence, API, and
+- The model explicitly defers aggregate, transaction, persistence, API, and
   service-boundary design.
-- [ ] Each blocked story and first delivery slice incorporates the approved
+- Each blocked story and first delivery slice incorporates the approved
   terms, references, mappings, and conformance tests in its domain slice,
   acceptance criteria, and implementation subtasks.
 
@@ -1070,13 +1072,13 @@ covered, and observed times.
 
 Questions to answer:
 
-- [x] Document what Portia and Fitz provide for durable state, event logs, queries, and transactions in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md).
-- [x] Choose event-sourced rather than relational-temporal or hybrid authoritative storage, with rationale in ADR 0003.
-- [x] Choose opaque UUID identities, immutable approved versions, and distinct occurred, effective, covered, and observed times.
-- [x] Choose optimistic stream concurrency with a transient conflict contract.
-- [x] Define organization isolation through immutable tenant realms and tenant-scoped projections.
-- [x] Define versioned events and projections, readers-before-writers migration, whole-platform recovery scope, a 15-minute RPO, and a 4-hour RTO. Portia/Fitz owns recovery plumbing; DevOps owns timed operational proof.
-- [x] Choose logical tenant partitions in the event store; physical per-tenant restore is out of scope, while export and deletion remain application workflows.
+- Document what Portia and Fitz provide for durable state, event logs, queries, and transactions in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md).
+- Choose event-sourced rather than relational-temporal or hybrid authoritative storage, with rationale in ADR 0003.
+- Choose opaque UUID identities, immutable approved versions, and distinct occurred, effective, covered, and observed times.
+- Choose optimistic stream concurrency with a transient conflict contract.
+- Define organization isolation through immutable tenant realms and tenant-scoped projections.
+- Define versioned events and projections, readers-before-writers migration, whole-platform recovery scope, a 15-minute RPO, and a 4-hour RTO. Portia/Fitz owns recovery plumbing; DevOps owns timed operational proof.
+- Choose logical tenant partitions in the event store; physical per-tenant restore is out of scope, while export and deletion remain application workflows.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1084,9 +1086,9 @@ Blocks: M0-A02, M0-A05, M0-A06, EN-02, EN-03
 
 Done when:
 
-- [x] The accepted ADR, including options considered and consequences, is committed under `docs/architecture/decisions/`.
-- [x] Thin standalone and split API/worker probes prove durable source restart, local-volume restore, and projection replay in PRs #321 and #328.
-- [x] The blocked architecture records and enablers reference the accepted decision; production recovery delivery stays in [cntryl/portia#70](https://github.com/cntryl/portia/issues/70).
+- The accepted ADR, including options considered and consequences, is committed under `docs/architecture/decisions/`.
+- Thin standalone and split API/worker probes prove durable source restart, local-volume restore, and projection replay in PRs #321 and #328.
+- The blocked architecture records and enablers reference the accepted decision; production recovery delivery stays in [cntryl/portia#70](https://github.com/cntryl/portia/issues/70).
 
 Source: domain-model.md 'History, snapshots, and time'; backlog design review.
 
@@ -1102,11 +1104,11 @@ Context: Seven snapshot types (workforce, population, readiness, Type I baseline
 
 Questions to answer:
 
-- [ ] Choose how snapshots are represented: references to immutable versions plus content hashes, or materialized copies.
-- [ ] Define canonical serialization and hashing for content identity.
-- [ ] Define amendment records and how downstream impact is identified.
-- [ ] Define how deterministic regeneration (equivalent package manifests) is guaranteed.
-- [ ] Set size and performance expectations for large access and audit populations.
+- Choose how snapshots are represented: references to immutable versions plus content hashes, or materialized copies.
+- Define canonical serialization and hashing for content identity.
+- Define amendment records and how downstream impact is identified.
+- Define how deterministic regeneration (equivalent package manifests) is guaranteed.
+- Set size and performance expectations for large access and audit populations.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1116,9 +1118,9 @@ Blocks: EN-03
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md snapshot rules; T1-01, T3-01, T1-05 acceptance criteria.
 
@@ -1132,7 +1134,7 @@ immutable source records referenced by a streamed, chunked population digest
 with a 250,000-row technical bound, revised with M0-D07 evidence. Package
 composition, signing, retention, holds, and recovery targets stay with their
 own stories; the workforce, access-population, and engagement snapshots adopt
-the mechanism in R1-11d, R2-06, T1-01, and T3-01. EN-03 remains open for its
+the mechanism in R1-11d, R2-06, T1-01, and T3-01. EN-03 owns its
 own acceptance criteria.
 
 ### M0-A03 ADR: Evidence and artifact storage, inspection, and access
@@ -1147,13 +1149,13 @@ Context: Evidence, policy files, provider reports, and packages need immutable c
 
 Questions to answer:
 
-- [ ] Choose the blob store and content-addressed layout, with encryption at rest.
-- [ ] Set the upload size limits and resumable upload behavior.
-- [ ] Define content validation, malware inspection, and quarantine.
-- [ ] Choose the download authorization model (proxied or short-lived signed URLs) and delivery logging.
-- [ ] Define storage-level hooks for redacted derivatives, retention, holds, and disposition.
-- [ ] Confirm deduplication never crosses organizations.
-- [ ] Define per-organization storage partitioning and encryption keys, and per-organization export and disposition.
+- Choose the blob store and content-addressed layout, with encryption at rest.
+- Set the upload size limits and resumable upload behavior.
+- Define content validation, malware inspection, and quarantine.
+- Choose the download authorization model (proxied or short-lived signed URLs) and delivery logging.
+- Define storage-level hooks for redacted derivatives, retention, holds, and disposition.
+- Confirm deduplication never crosses organizations.
+- Define per-organization storage partitioning and encryption keys, and per-organization export and disposition.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1161,9 +1163,9 @@ Blocks: EN-06
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: R2-03, R2-12, T1-05 requirements.
 
@@ -1179,13 +1181,13 @@ Context: Authorization combines active membership, a scoped grant, responsibilit
 
 Questions to answer:
 
-- [ ] Choose the evaluation model and where it is enforced for commands and queries.
-- [ ] Define how restricted records are excluded from lists, counts, search, notifications, and exports.
-- [ ] Define field-level restrictions for workforce and evidence data.
-- [ ] Choose a policy engine or an in-code policy approach that is compatible with Native AOT.
-- [ ] Define logging of denied actions and cross-organization isolation tests.
-- [ ] Choose the architecture test that fails when an endpoint lacks an explicit policy.
-- [ ] Define how authorization evaluates a platform user with memberships in several organizations, how firm-staff access to a client is granted and revoked through engagement assignment, and how independence compartments (M0-D26) are enforced.
+- Choose the evaluation model and where it is enforced for commands and queries.
+- Define how restricted records are excluded from lists, counts, search, notifications, and exports.
+- Define field-level restrictions for workforce and evidence data.
+- Choose a policy engine or an in-code policy approach that is compatible with Native AOT.
+- Define logging of denied actions and cross-organization isolation tests.
+- Choose the architecture test that fails when an endpoint lacks an explicit policy.
+- Define how authorization evaluates a platform user with memberships in several organizations, how firm-staff access to a client is granted and revoked through engagement assignment, and how independence compartments (M0-D26) are enforced.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1193,9 +1195,9 @@ Blocks: EN-01
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md 'Responsibility and separation of duties'; R1-04 and R2-11 acceptance criteria.
 
@@ -1211,12 +1213,12 @@ Context: Readiness, the work queue, and every status count must reconcile to sou
 
 Questions to answer:
 
-- [ ] Choose the projection strategy (synchronous or asynchronous) and consistency guarantees.
-- [ ] Define as-of calculation identity and reproducibility for historical readiness.
-- [ ] Define the stale-data and calculation-failure states shown to users.
-- [ ] Define authorization-aware projections.
-- [ ] Define background work over Fitz with parity between standalone and split API/worker hosts.
-- [ ] Define organization-scoped projections, and how a later cross-client portfolio or work queue is authorized without leaking restricted client data.
+- Choose the projection strategy (synchronous or asynchronous) and consistency guarantees.
+- Define as-of calculation identity and reproducibility for historical readiness.
+- Define the stale-data and calculation-failure states shown to users.
+- Define authorization-aware projections.
+- Define background work over Fitz with parity between standalone and split API/worker hosts.
+- Define organization-scoped projections, and how a later cross-client portfolio or work queue is authorized without leaking restricted client data.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1226,9 +1228,9 @@ Blocks: F1-02, R1-08, R2-11
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: R1-08, R2-11, T2-04 acceptance criteria.
 
@@ -1256,12 +1258,12 @@ Context: Every import or collection needs preview, explicit acceptance, partial-
 
 Questions to answer:
 
-- [x] Define the staged import model: upload, parse, validate, preview, accept, cancel.
-- [x] Define atomic versus explicitly accepted-subset semantics.
-- [x] Define idempotency keys, source identity, and replay detection.
-- [x] Define missing-row and tombstone reconciliation states.
-- [x] Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
-- [x] Ensure every job, message, retry, and progress report carries and verifies its organization context.
+- Define the staged import model: upload, parse, validate, preview, accept, cancel.
+- Define atomic versus explicitly accepted-subset semantics.
+- Define idempotency keys, source identity, and replay detection.
+- Define missing-row and tombstone reconciliation states.
+- Define worker job orchestration, retries, progress reporting, and large-file handling across host modes.
+- Ensure every job, message, retry, and progress report carries and verifies its organization context.
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1271,9 +1273,9 @@ Blocks: EN-05
 
 Done when:
 
-- [x] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes. Transferred to EN-05 backend #195 by product-owner decision, 2026-09-22.
-- [x] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes. Transferred to EN-05 backend #195 by product-owner decision, 2026-09-22.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: domain-model.md cross-story integration rules; R1-09, R1-10, R1-11, R2-06 requirements.
 
@@ -1285,8 +1287,9 @@ the URL tenant ID is authoritative even when a JSON body supplies another,
 tenant streams and projections retain that ID, platform grants never come from
 IdP claims, and OIDC continuation does not silently link a second identity
 from an existing session. A broker with client-specific connections is the
-chosen expansion direction. Client slug naming and log retention, the reviewed
-identity-linking flow, and production federation rollout remain open.
+chosen expansion direction. The accepted tenant-context
+and identity-federation decisions are in
+[ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md).
 
 Priority: P0
 
@@ -1298,17 +1301,17 @@ Context: Client organizations become tenants. Firm staff hold memberships in sev
 
 Questions to answer:
 
-- [ ] Confirm the proposed routing: slug-based browser routes and `tenant_id` path parameters on organization-scoped APIs; the server verifies membership for the `tenant_id` on every request and never trusts an organization identifier in a request body.
-- [ ] Implement the slug rules defined in R1-15 with one reserved-route registry shared by server validation and the SPA router, plus an automated check that fails when a new top-level server or client route is missing from the registry or equals an existing organization slug.
-- [ ] Define slug changes: redirect history for members, and a rule that a retired slug is never reassigned to another organization so old links cannot land in a different client's tenant.
-- [ ] Define slug resolution without enumeration: the browser resolves slug to `tenant_id` from the signed-in user's own membership list, and an unknown slug and a slug the user cannot access produce the same not-found result.
-- [ ] Decide whether slugs may identify clients by name, given client confidentiality in URLs, browser history, logs, and referrer headers, and set the referrer policy accordingly.
-- [ ] Choose the opaque `tenant_id` format (non-sequential) and confirm it is the only organization identifier in API contracts, logs, jobs, and events.
-- [ ] Choose the approach for many client identity providers: a broker with per-organization connections (for example Auth0 Organizations or Entra External ID) or multiple trusted issuers.
-- [ ] Define the platform user that binds issuer plus subject once and holds memberships in several organizations, and how one person with two identities is handled.
-- [ ] Decide how organization context propagates through Fitz messages, background jobs, caches, logs, and telemetry.
-- [ ] Decide whether any token claim may carry organization membership or roles, or whether the platform remains the only authority.
-- [ ] Define the automated cross-tenant leak test strategy (APIs, search, counts, artifacts, projections, jobs, notifications, exports).
+- Confirm the proposed routing: slug-based browser routes and `tenant_id` path parameters on organization-scoped APIs; the server verifies membership for the `tenant_id` on every request and never trusts an organization identifier in a request body.
+- Implement the slug rules defined in R1-15 with one reserved-route registry shared by server validation and the SPA router, plus an automated check that fails when a new top-level server or client route is missing from the registry or equals an existing organization slug.
+- Define slug changes: redirect history for members, and a rule that a retired slug is never reassigned to another organization so old links cannot land in a different client's tenant.
+- Define slug resolution without enumeration: the browser resolves slug to `tenant_id` from the signed-in user's own membership list, and an unknown slug and a slug the user cannot access produce the same not-found result.
+- Decide whether slugs may identify clients by name, given client confidentiality in URLs, browser history, logs, and referrer headers, and set the referrer policy accordingly.
+- Choose the opaque `tenant_id` format (non-sequential) and confirm it is the only organization identifier in API contracts, logs, jobs, and events.
+- Choose the approach for many client identity providers: a broker with per-organization connections (for example Auth0 Organizations or Entra External ID) or multiple trusted issuers.
+- Define the platform user that binds issuer plus subject once and holds memberships in several organizations, and how one person with two identities is handled.
+- Decide how organization context propagates through Fitz messages, background jobs, caches, logs, and telemetry.
+- Decide whether any token claim may carry organization membership or roles, or whether the platform remains the only authority.
+- Define the automated cross-tenant leak test strategy (APIs, search, counts, artifacts, projections, jobs, notifications, exports).
 
 Involve: Tech lead, engineers; product owner for trade-offs that affect product rules.
 
@@ -1316,9 +1319,9 @@ Blocks: EN-01, F1-06, R1-15
 
 Done when:
 
-- [ ] The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
-- [ ] A thin spike proves the decision in both standalone and split API/worker host modes.
-- [ ] Each blocked enabler or story is updated to reference the decision.
+- The ADR, including options considered and consequences, is accepted and committed under `docs/architecture/decisions/`.
+- A thin spike proves the decision in both standalone and split API/worker host modes.
+- Each blocked enabler or story is updated to reference the decision.
 
 Source: Multi-client firm decision 2026-09-14; README authentication section.
 
@@ -1356,18 +1359,18 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Given an authorized compliance lead, when a program is created, then the team can see its current stage, next stage, target dates, and unresolved setup work.
-- [ ] Given a saved program, when its target dates or advisor change, then the current plan updates and the prior values remain traceable.
-- [ ] Given an incomplete setup, the product identifies the exact decisions required before the readiness assessment can begin.
-- [ ] A user without program-administration rights cannot create or alter the program.
-- [ ] A program and everything it owns are visible only within its client organization, including to firm staff who serve other clients.
+- Given an authorized compliance lead, when a program is created, then the team can see its current stage, next stage, target dates, and unresolved setup work.
+- Given a saved program, when its target dates or advisor change, then the current plan updates and the prior values remain traceable.
+- Given an incomplete setup, the product identifies the exact decisions required before the readiness assessment can begin.
+- A user without program-administration rights cannot create or alter the program.
+- A program and everything it owns are visible only within its client organization, including to firm staff who serve other clients.
 
 Implementation subtasks:
 
-- [ ] Define program identity, stage-transition rules, date semantics, and traceable plan revisions in the shared domain model.
-- [ ] Deliver authorized create, view, and revise behavior through the API, persistence, and browser workflow, including all required failure states.
-- [ ] Project unresolved setup work from real downstream records rather than a second checklist or manually assigned completion status.
-- [ ] Prove the complete flow, denied behavior, revision history, and standalone/split-host parity with focused acceptance tests.
+- Define program identity, stage-transition rules, date semantics, and traceable plan revisions in the shared domain model.
+- Deliver authorized create, view, and revise behavior through the API, persistence, and browser workflow, including all required failure states.
+- Project unresolved setup work from real downstream records rather than a second checklist or manually assigned completion status.
+- Prove the complete flow, denied behavior, revision history, and standalone/split-host parity with focused acceptance tests.
 
 ### R1-02 Define the system boundary and intended audit scope
 
@@ -1401,17 +1404,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can create, review, and approve a versioned system-boundary statement.
-- [ ] Every inclusion, exclusion, and assumption has an owner and rationale.
-- [ ] Later boundary changes identify affected controls, evidence, risks, vendors, and engagements before approval.
-- [ ] Historical engagements retain the exact boundary version that applied to them.
+- The team can create, review, and approve a versioned system-boundary statement.
+- Every inclusion, exclusion, and assumption has an owner and rationale.
+- Later boundary changes identify affected controls, evidence, risks, vendors, and engagements before approval.
+- Historical engagements retain the exact boundary version that applied to them.
 
 Implementation subtasks:
 
-- [ ] Define boundary versions, structured scope relationships, review decisions, and impact-analysis invariants without reducing the boundary to an unversioned document.
-- [ ] Deliver authorized author, review, approve, and revise behavior through the API and accessible browser workflow.
-- [ ] Connect boundary changes to affected controls, evidence, risks, vendors, readiness, and engagement snapshots before approval.
-- [ ] Prove version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior end to end.
+- Define boundary versions, structured scope relationships, review decisions, and impact-analysis invariants without reducing the boundary to an unversioned document.
+- Deliver authorized author, review, approve, and revise behavior through the API and accessible browser workflow.
+- Connect boundary changes to affected controls, evidence, risks, vendors, readiness, and engagement snapshots before approval.
+- Prove version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior end to end.
 
 Backend delivery is split between the [R1-02a boundary baseline](https://github.com/bdgrz/compliance/issues/162)
 and [R1-02b downstream impact completion](https://github.com/bdgrz/compliance/issues/246).
@@ -1420,7 +1423,7 @@ downstream contexts are absent. The second child depends on the owning control,
 evidence, risk, provider, readiness, and engagement records. Boundary-consuming
 backend children use the baseline without requiring the second child first.
 The [frontend child](https://github.com/bdgrz/compliance/issues/178) depends on
-both backend slices. The product story remains open for the complete workflow.
+both backend slices.
 
 ### R1-03 Select a traceable SOC 2 criteria catalog
 
@@ -1453,20 +1456,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] An authorized user can import or select a catalog and review its provenance before using it.
-- [ ] Missing identifiers, duplicate criteria, and incompatible revisions are rejected with actionable explanations.
-- [ ] A newer catalog never silently changes an existing engagement.
-- [ ] Users can browse and filter the selected criteria by identifier, category, and scope status.
-- [ ] A selected optional category exposes missing category-specific controls, workflows, evidence, or product support as gaps rather than silently treating the shared model as complete.
-- [ ] One organization's criteria selection, guidance, and mappings are never visible to or changed by another organization using the same catalog edition.
+- An authorized user can import or select a catalog and review its provenance before using it.
+- Missing identifiers, duplicate criteria, and incompatible revisions are rejected with actionable explanations.
+- A newer catalog never silently changes an existing engagement.
+- Users can browse and filter the selected criteria by identifier, category, and scope status.
+- A selected optional category exposes missing category-specific controls, workflows, evidence, or product support as gaps rather than silently treating the shared model as complete.
+- One organization's criteria selection, guidance, and mappings are never visible to or changed by another organization using the same catalog edition.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D01 and M0-D02 before finalizing this story's rules.
-- [ ] Define catalog-edition identity, criterion identity, import validation, permitted-use metadata, explicit selection, and product-support gap rules.
-- [ ] Deliver authorized import or selection, preview, browse, and scope behavior through the API and browser, including incompatible-revision failures.
-- [ ] Bind mappings and engagement snapshots to exact catalog editions while keeping organization guidance separate from source text.
-- [ ] Prove duplicate and missing identifier handling, edition stability, authorization, filtering, and snapshot preservation end to end.
+- Incorporate the decisions recorded in M0-D01 and M0-D02 before finalizing this story's rules.
+- Define catalog-edition identity, criterion identity, import validation, permitted-use metadata, explicit selection, and product-support gap rules.
+- Deliver authorized import or selection, preview, browse, and scope behavior through the API and browser, including incompatible-revision failures.
+- Bind mappings and engagement snapshots to exact catalog editions while keeping organization guidance separate from source text.
+- Prove duplicate and missing identifier handling, edition stability, authorization, filtering, and snapshot preservation end to end.
 
 ### R1-04 Invite the compliance team and assign responsibilities
 
@@ -1504,19 +1507,19 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] An administrator can invite or activate an externally authenticated user and explain the access being granted.
-- [ ] Each user sees only the programs, records, and actions allowed by their responsibilities.
-- [ ] Assignment conflicts are surfaced before approval or review work is accepted.
-- [ ] Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
-- [ ] A firm staff member's grants and responsibilities in one client organization never apply in another.
+- An administrator can invite or activate an externally authenticated user and explain the access being granted.
+- Each user sees only the programs, records, and actions allowed by their responsibilities.
+- Assignment conflicts are surfaced before approval or review work is accepted.
+- Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
+- A firm staff member's grants and responsibilities in one client organization never apply in another.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D03 and M0-D28 before finalizing this story's rules; use the canonical identity entities and the approved public references without deciding aggregate boundaries.
-- [ ] Define member and identity-binding lifecycles, platform-team membership, access grants, revocation, actor attribution, and responsibility boundaries.
-- [ ] Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
-- [ ] Enforce every allow and deny decision on the server, including direct grants, team grants, removed team memberships, suspension, deprovisioning, and separation-of-duties conflicts.
-- [ ] Prove identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states, and standalone/split-host parity end to end.
+- Incorporate the decisions recorded in M0-D03 and M0-D28 before finalizing this story's rules; use the canonical identity entities and the approved public references without deciding aggregate boundaries.
+- Define member and identity-binding lifecycles, platform-team membership, access grants, revocation, actor attribution, and responsibility boundaries.
+- Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
+- Enforce every allow and deny decision on the server, including direct grants, team grants, removed team memberships, suspension, deprovisioning, and separation-of-duties conflicts.
+- Prove identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states, and standalone/split-host parity end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -1526,10 +1529,10 @@ Outcome: As an organization administrator, I can invite or activate an externall
 
 Acceptance criteria:
 
-- [ ] An administrator can invite or activate an externally authenticated user and explain the access being granted.
-- [ ] The provider identity is keyed by issuer plus subject; an email or display-name change does not create a new member.
-- [ ] Replacing or adding a provider identity preserves the member's authorship and assignments.
-- [ ] Pending and active member lifecycle states are visible, with their loading, empty, error, and forbidden states.
+- An administrator can invite or activate an externally authenticated user and explain the access being granted.
+- The provider identity is keyed by issuer plus subject; an email or display-name change does not create a new member.
+- Replacing or adding a provider identity preserves the member's authorship and assignments.
+- Pending and active member lifecycle states are visible, with their loading, empty, error, and forbidden states.
 
 Not in this slice:
 
@@ -1542,9 +1545,9 @@ Outcome: As a member, I see only the programs, records, and actions my access gr
 
 Acceptance criteria:
 
-- [ ] Each user sees only the programs, records, and actions allowed by their responsibilities.
-- [ ] Every grant records its scope, source, grantor, effective interval, and revocation.
-- [ ] Out-of-scope commands and queries are denied on the server, and the UI shows a usable forbidden state.
+- Each user sees only the programs, records, and actions allowed by their responsibilities.
+- Every grant records its scope, source, grantor, effective interval, and revocation.
+- Out-of-scope commands and queries are denied on the server, and the UI shows a usable forbidden state.
 
 Not in this slice:
 
@@ -1558,8 +1561,8 @@ Outcome: As an organization administrator, I can manage platform teams that rece
 
 Acceptance criteria:
 
-- [ ] A team grant applies to its current members and stops applying when a member leaves the team.
-- [ ] A team can receive access or responsibility but is never recorded as the actor of an action.
+- A team grant applies to its current members and stops applying when a member leaves the team.
+- A team can receive access or responsibility but is never recorded as the actor of an action.
 
 Not in this slice:
 
@@ -1573,8 +1576,8 @@ Outcome: As an organization administrator, I can suspend or deprovision a member
 
 Acceptance criteria:
 
-- [ ] Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
-- [ ] A suspended or deprovisioned member's historical actions still show the correct attribution.
+- Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
+- A suspended or deprovisioned member's historical actions still show the correct attribution.
 
 Not in this slice:
 
@@ -1588,9 +1591,9 @@ Outcome: As a compliance lead, I can see when one person holds conflicting respo
 
 Acceptance criteria:
 
-- [ ] Assignment conflicts are surfaced before approval or review work is accepted.
-- [ ] One person may hold several responsibilities, and conflicts are visible.
-- [ ] Approved small-team exceptions record their approver, rationale, and interval, following M0-D03.
+- Assignment conflicts are surfaced before approval or review work is accepted.
+- One person may hold several responsibilities, and conflicts are visible.
+- Approved small-team exceptions record their approver, rationale, and interval, following M0-D03.
 
 Not in this slice:
 
@@ -1640,20 +1643,20 @@ Example:
 
 Acceptance criteria:
 
-- [ ] A control owner can understand what must happen, why, where, and what evidence is expected without reading implementation details.
-- [ ] A draft control can be reviewed before activation.
-- [ ] Activating, superseding, or retiring a control preserves its earlier use and relationships.
-- [ ] Duplicate identifiers and removal of an in-use control fail safely with an explanation.
-- [ ] A proposed change identifies affected mappings, responsibilities, future work, evidence expectations, readiness, and engagements before approval.
-- [ ] Deletion is available only for an unused draft and cannot remove a control merely because the current user can no longer see its historical relationships.
+- A control owner can understand what must happen, why, where, and what evidence is expected without reading implementation details.
+- A draft control can be reviewed before activation.
+- Activating, superseding, or retiring a control preserves its earlier use and relationships.
+- Duplicate identifiers and removal of an in-use control fail safely with an explanation.
+- A proposed change identifies affected mappings, responsibilities, future work, evidence expectations, readiness, and engagements before approval.
+- Deletion is available only for an unused draft and cannot remove a control merely because the current user can no longer see its historical relationships.
 
 Implementation subtasks:
 
-- [ ] Define stable control identity, draft creation and editing, activation, successor-version, effective-date, supersession, retirement, narrowly permitted deletion, required narrative, expected-evidence semantics, and in-use protections.
-- [ ] Deliver authorized create, review, activate, supersede, retire, browse, and inspect behavior through the API and browser.
-- [ ] Deliver authorized successor proposal, relationship editing, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
-- [ ] Connect control versions to applications, reviewed systems, scope, risks, mappings, responsibilities, occurrences, evidence, readiness, and frozen engagements without duplicating those records.
-- [ ] Prove lifecycle transitions, identifier conflicts, template provenance, forbidden actions, historical relationships, and accessible failure recovery end to end.
+- Define stable control identity, draft creation and editing, activation, successor-version, effective-date, supersession, retirement, narrowly permitted deletion, required narrative, expected-evidence semantics, and in-use protections.
+- Deliver authorized create, review, activate, supersede, retire, browse, and inspect behavior through the API and browser.
+- Deliver authorized successor proposal, relationship editing, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
+- Connect control versions to applications, reviewed systems, scope, risks, mappings, responsibilities, occurrences, evidence, readiness, and frozen engagements without duplicating those records.
+- Prove lifecycle transitions, identifier conflicts, template provenance, forbidden actions, historical relationships, and accessible failure recovery end to end.
 
 ### R1-06 Map controls to criteria and explain applicability
 
@@ -1682,17 +1685,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every in-scope criterion shows its mapped controls or an explicit unresolved gap.
-- [ ] Draft mappings cannot make validated coverage appear complete.
-- [ ] Coverage calculations do not increase merely because duplicate mappings exist.
-- [ ] Mapping changes preserve the engagement history they affected.
+- Every in-scope criterion shows its mapped controls or an explicit unresolved gap.
+- Draft mappings cannot make validated coverage appear complete.
+- Coverage calculations do not increase merely because duplicate mappings exist.
+- Mapping changes preserve the engagement history they affected.
 
 Implementation subtasks:
 
-- [ ] Define mapping identity, many-to-many uniqueness, applicability rationale, review-state transitions, and version compatibility.
-- [ ] Deliver authorized propose, review, approve, supersede, browse, and explain behavior through the API and browser.
-- [ ] Integrate mappings with coverage, gaps, advisor feedback, imports, and engagement snapshots while keeping draft and reviewed assertions distinct.
-- [ ] Prove duplicate resistance, not-applicable approval, forbidden review, edition changes, coverage reconciliation, and historical preservation end to end.
+- Define mapping identity, many-to-many uniqueness, applicability rationale, review-state transitions, and version compatibility.
+- Deliver authorized propose, review, approve, supersede, browse, and explain behavior through the API and browser.
+- Integrate mappings with coverage, gaps, advisor feedback, imports, and engagement snapshots while keeping draft and reviewed assertions distinct.
+- Prove duplicate resistance, not-applicable approval, forbidden review, edition changes, coverage reconciliation, and historical preservation end to end.
 
 ### R1-07 Assess scoped risks and choose treatment
 
@@ -1742,20 +1745,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can explain the method and rationale behind inherent, target, and residual risk without relying on color alone.
-- [ ] Each material risk has an owner, current assessment, treatment decision, due date or accepted interval, and review state.
-- [ ] Acceptance above the configured authority or beyond its expiry is blocked and appears as a readiness gap.
-- [ ] Treatment cannot appear complete until required action and evidence are independently reviewed.
-- [ ] Reassessment preserves prior conclusions and identifies changed scope, controls, assumptions, and treatment.
-- [ ] Unauthorized users cannot alter assessment methods, approve acceptance, or hide material risk.
+- The team can explain the method and rationale behind inherent, target, and residual risk without relying on color alone.
+- Each material risk has an owner, current assessment, treatment decision, due date or accepted interval, and review state.
+- Acceptance above the configured authority or beyond its expiry is blocked and appears as a readiness gap.
+- Treatment cannot appear complete until required action and evidence are independently reviewed.
+- Reassessment preserves prior conclusions and identifies changed scope, controls, assumptions, and treatment.
+- Unauthorized users cannot alter assessment methods, approve acceptance, or hide material risk.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D10 before finalizing this story's rules.
-- [ ] Define risk identity, assessment versions, method version, inherent and residual semantics, treatment, acceptance, reassessment triggers, review, and expiry invariants.
-- [ ] Deliver authorized identify, assess, relate, treat, accept, review, reassess, browse, and compare behavior through the API and browser.
-- [ ] Connect risks to boundary, commitments, assets, providers, controls, evidence, findings, accountable work, readiness, management review, and snapshots without duplicating those records.
-- [ ] Prove changed methods, incomplete assessments, unauthorized or expired acceptance, treatment verification, concurrent reassessment, history, and readiness reconciliation end to end.
+- Incorporate the decisions recorded in M0-D10 before finalizing this story's rules.
+- Define risk identity, assessment versions, method version, inherent and residual semantics, treatment, acceptance, reassessment triggers, review, and expiry invariants.
+- Deliver authorized identify, assess, relate, treat, accept, review, reassess, browse, and compare behavior through the API and browser.
+- Connect risks to boundary, commitments, assets, providers, controls, evidence, findings, accountable work, readiness, management review, and snapshots without duplicating those records.
+- Prove changed methods, incomplete assessments, unauthorized or expired acceptance, treatment verification, concurrent reassessment, history, and readiness reconciliation end to end.
 
 ### R1-08 Complete the readiness assessment and own the gap plan
 
@@ -1792,20 +1795,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every readiness status drills into the records and rules behind it.
-- [ ] No criterion is considered addressed solely because it has a draft mapping.
-- [ ] Every material gap has an owner, target date, and next action or approved risk treatment.
-- [ ] Unknown, unowned, missing-from-source, or unresolved-scope applications and reviewed systems remain visible readiness gaps.
-- [ ] The team can filter the gap plan by owner, severity, criterion, control, and target stage.
-- [ ] The product does not claim that completing the internal assessment guarantees audit success.
-- [ ] Evidence-governance capabilities that are not yet delivered (retention, hold, redaction, disclosure; R2-12) appear as explicit readiness gaps rather than being omitted or treated as satisfied.
+- Every readiness status drills into the records and rules behind it.
+- No criterion is considered addressed solely because it has a draft mapping.
+- Every material gap has an owner, target date, and next action or approved risk treatment.
+- Unknown, unowned, missing-from-source, or unresolved-scope applications and reviewed systems remain visible readiness gaps.
+- The team can filter the gap plan by owner, severity, criterion, control, and target stage.
+- The product does not claim that completing the internal assessment guarantees audit success.
+- Evidence-governance capabilities that are not yet delivered (retention, hold, redaction, disclosure; R2-12) appear as explicit readiness gaps rather than being omitted or treated as satisfied.
 
 Implementation subtasks:
 
-- [ ] Define assessment inputs, explainable rules, as-of semantics, gap identity, severity and ownership, and explicit unknown or draft treatment.
-- [ ] Deliver authorized assessment, drill-down, filtering, gap assignment, advisor annotation, and recalculation behavior through the API and browser.
-- [ ] Reconcile every readiness result to source records and route new or resolved gaps through the shared finding, remediation, evidence, and review workflows.
-- [ ] Prove stale, missing, draft, rejected, unresolved, corrected, and unauthorized cases plus historical assessment reproducibility end to end.
+- Define assessment inputs, explainable rules, as-of semantics, gap identity, severity and ownership, and explicit unknown or draft treatment.
+- Deliver authorized assessment, drill-down, filtering, gap assignment, advisor annotation, and recalculation behavior through the API and browser.
+- Reconcile every readiness result to source records and route new or resolved gaps through the shared finding, remediation, evidence, and review workflows.
+- Prove stale, missing, draft, rejected, unresolved, corrected, and unauthorized cases plus historical assessment reproducibility end to end.
 
 ### R1-09 Bring existing readiness work into the program
 
@@ -1849,19 +1852,19 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
-- [ ] A failed or canceled import cannot leave an apparently complete partial program.
-- [ ] Every imported record can be traced to its source and import batch.
-- [ ] Repeating the same import does not silently duplicate controls, relationships, evidence, or findings.
-- [ ] Conflicting changes require an explicit resolution and preserve both the source value and the accepted result.
-- [ ] After import, the readiness assessment reconciles to the accepted records and clearly shows what still remains outside the product.
+- The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- A failed or canceled import cannot leave an apparently complete partial program.
+- Every imported record can be traced to its source and import batch.
+- Repeating the same import does not silently duplicate controls, relationships, evidence, or findings.
+- Conflicting changes require an explicit resolution and preserve both the source value and the accepted result.
+- After import, the readiness assessment reconciles to the accepted records and clearly shows what still remains outside the product.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D04 and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
-- [ ] Deliver authorized upload, parse, preview, correct, accept, cancel, and retry behavior through the API, any required worker processing, and browser.
-- [ ] Route accepted items through the owning contexts, including identity and responsibility resolution, lifecycle checks, provenance, evidence content identity, and readiness recalculation.
-- [ ] Prove replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
+- Incorporate the decisions recorded in M0-D04 and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
+- Deliver authorized upload, parse, preview, correct, accept, cancel, and retry behavior through the API, any required worker processing, and browser.
+- Route accepted items through the owning contexts, including identity and responsibility resolution, lifecycle checks, provenance, evidence content identity, and readiness recalculation.
+- Prove replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -1871,11 +1874,11 @@ Outcome: As a compliance lead, I can bring the consultant-built control inventor
 
 Acceptance criteria:
 
-- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
-- [ ] A failed or canceled import cannot leave an apparently complete partial program.
-- [ ] Every imported record can be traced to its source and import batch.
-- [ ] Invalid or unresolved rows block whole-batch acceptance; correction and restaging retain a rejected-item report.
-- [ ] Unknown owners and ambiguous mappings are resolved or rejected before acceptance; imported records follow the normal control and mapping lifecycle.
+- The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- A failed or canceled import cannot leave an apparently complete partial program.
+- Every imported record can be traced to its source and import batch.
+- Invalid or unresolved rows block whole-batch acceptance; correction and restaging retain a rejected-item report.
+- Unknown owners and ambiguous mappings are resolved or rejected before acceptance; imported records follow the normal control and mapping lifecycle.
 
 Not in this slice:
 
@@ -1891,10 +1894,10 @@ Outcome: As a compliance lead, I can import existing policy and evidence metadat
 
 Acceptance criteria:
 
-- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
-- [ ] Unsupported, oversized, or corrupt files are rejected before acceptance with an actionable report.
-- [ ] Every imported artifact keeps its source filename or identifier, import batch, importer, import time, and content identity.
-- [ ] Imported policies enter the normal policy lifecycle and are never implicitly approved.
+- The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- Unsupported, oversized, or corrupt files are rejected before acceptance with an actionable report.
+- Every imported artifact keeps its source filename or identifier, import batch, importer, import time, and content identity.
+- Imported policies enter the normal policy lifecycle and are never implicitly approved.
 
 Not in this slice:
 
@@ -1908,9 +1911,9 @@ Outcome: As a compliance lead, I can import the existing boundary, workforce and
 
 Acceptance criteria:
 
-- [ ] The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
-- [ ] Every imported record can be traced to its source and import batch.
-- [ ] Consultant findings retain external-author provenance and are never fabricated as platform activity.
+- The team can preview counts, relationships, warnings, and errors before any imported record becomes active.
+- Every imported record can be traced to its source and import batch.
+- Consultant findings retain external-author provenance and are never fabricated as platform activity.
 
 Not in this slice:
 
@@ -1924,9 +1927,9 @@ Outcome: As a compliance lead, I can re-import updated consultant material witho
 
 Acceptance criteria:
 
-- [ ] Repeating the same import does not silently duplicate controls, relationships, evidence, or findings.
-- [ ] Conflicting changes require an explicit resolution and preserve both the source value and the accepted result.
-- [ ] After import, the readiness assessment reconciles to the accepted records and clearly shows what still remains outside the product.
+- Repeating the same import does not silently duplicate controls, relationships, evidence, or findings.
+- Conflicting changes require an explicit resolution and preserve both the source value and the accepted result.
+- After import, the readiness assessment reconciles to the accepted records and clearly shows what still remains outside the product.
 
 Depends on: R1-08, R1-09a
 
@@ -1980,21 +1983,21 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can manually add or import applications, preview validation and matching, and resolve duplicates or aliases before acceptance.
-- [ ] Every active application shows an owner, business purpose, classification, concrete reviewed systems, and access-review scope status or an explicit unresolved gap.
-- [ ] Each inclusion or exclusion decision is attributable, time-aware, reviewable, and visible in readiness rather than hidden in import configuration.
-- [ ] Unknown, missing-from-source, unowned, duplicate, and retired applications remain distinguishable and cannot silently disappear from scope.
-- [ ] A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns subject to authorization.
-- [ ] Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
-- [ ] Unauthorized users cannot discover restricted applications or change inventory, ownership, classification, or review scope.
+- The team can manually add or import applications, preview validation and matching, and resolve duplicates or aliases before acceptance.
+- Every active application shows an owner, business purpose, classification, concrete reviewed systems, and access-review scope status or an explicit unresolved gap.
+- Each inclusion or exclusion decision is attributable, time-aware, reviewable, and visible in readiness rather than hidden in import configuration.
+- Unknown, missing-from-source, unowned, duplicate, and retired applications remain distinguishable and cannot silently disappear from scope.
+- A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns subject to authorization.
+- Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
+- Unauthorized users cannot discover restricted applications or change inventory, ownership, classification, or review scope.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D05 and M0-D28 and define minimum inventory fields, ownership, application-versus-system-instance boundaries, aliases, lifecycle, source confidence, and scope-decision rules from approved public references.
-- [ ] Define stable application and reviewed-system identity, source-aware import and reconciliation, explicit inclusion or exclusion, relationship, impact, retirement, and narrowly permitted unused-draft deletion semantics.
-- [ ] Deliver authorized add, import, preview, match, reconcile, classify, own, scope, relate, revise, retire, browse, and inspect behavior through the API and browser.
-- [ ] Connect applications to boundary, vendors, controls, policies, evidence, external access governance, work, readiness, automation, and engagement snapshots without creating duplicate system records.
-- [ ] Prove duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay, and standalone/split-host parity end to end.
+- Incorporate the decisions recorded in M0-D05 and M0-D28 and define minimum inventory fields, ownership, application-versus-system-instance boundaries, aliases, lifecycle, source confidence, and scope-decision rules from approved public references.
+- Define stable application and reviewed-system identity, source-aware import and reconciliation, explicit inclusion or exclusion, relationship, impact, retirement, and narrowly permitted unused-draft deletion semantics.
+- Deliver authorized add, import, preview, match, reconcile, classify, own, scope, relate, revise, retire, browse, and inspect behavior through the API and browser.
+- Connect applications to boundary, vendors, controls, policies, evidence, external access governance, work, readiness, automation, and engagement snapshots without creating duplicate system records.
+- Prove duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay, and standalone/split-host parity end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -2004,9 +2007,9 @@ Outcome: As a compliance lead, I can manually record each application and its co
 
 Acceptance criteria:
 
-- [ ] Every active application shows an owner, business purpose, classification, and concrete reviewed systems, or an explicit unresolved gap.
-- [ ] A reviewed system has its own source identifier and access boundary and is never reused for an unrelated application.
-- [ ] Unauthorized users cannot discover restricted applications or change inventory, ownership, or classification.
+- Every active application shows an owner, business purpose, classification, and concrete reviewed systems, or an explicit unresolved gap.
+- A reviewed system has its own source identifier and access boundary and is never reused for an unrelated application.
+- Unauthorized users cannot discover restricted applications or change inventory, ownership, or classification.
 
 Not in this slice:
 
@@ -2020,9 +2023,9 @@ Outcome: As a compliance lead, I can import an application list, match it to exi
 
 Acceptance criteria:
 
-- [ ] The team can import applications, preview validation and matching, and resolve duplicates or aliases before acceptance.
-- [ ] Unknown, missing-from-source, unowned, duplicate, and retired applications remain distinguishable and cannot silently disappear from scope.
-- [ ] Each application preserves whether it was declared, imported, or discovered, from which source, and when.
+- The team can import applications, preview validation and matching, and resolve duplicates or aliases before acceptance.
+- Unknown, missing-from-source, unowned, duplicate, and retired applications remain distinguishable and cannot silently disappear from scope.
+- Each application preserves whether it was declared, imported, or discovered, from which source, and when.
 
 Depends on: R1-10a
 
@@ -2032,8 +2035,8 @@ Outcome: As a compliance lead, I can record an attributable inclusion, exclusion
 
 Acceptance criteria:
 
-- [ ] Each inclusion or exclusion decision is attributable, time-aware, reviewable, and visible in readiness rather than hidden in import configuration.
-- [ ] Every active application shows its access-review scope status or an explicit unresolved gap.
+- Each inclusion or exclusion decision is attributable, time-aware, reviewable, and visible in readiness rather than hidden in import configuration.
+- Every active application shows its access-review scope status or an explicit unresolved gap.
 
 Depends on: R1-10a
 
@@ -2042,15 +2045,15 @@ Depends on: R1-10a
 The bounded backend change-preview contract is documented in
 [application-change-preview-v1.md](application-change-preview-v1.md). It reports
 known boundary and direct current Control-draft references with explicit pending
-contexts; governed successor approval and retirement remain open.
+contexts.
 
 Outcome: As a compliance lead, I can relate applications to the boundary, vendors, controls, policies, and evidence sources, and change or retire them only after seeing the impact.
 
 Acceptance criteria:
 
-- [ ] A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns, subject to authorization.
-- [ ] Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
-- [ ] Retirement preserves prior relationships and snapshots.
+- A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns, subject to authorization.
+- Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
+- Retirement preserves prior relationships and snapshots.
 
 Depends on: R1-10a
 
@@ -2108,20 +2111,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can import or manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
-- [ ] Each person and NHI owner shows its source, freshness, lifecycle, relationships, and unresolved conflicts without using email as the stable identifier.
-- [ ] Joiners, movers, leavers, unmatched access principals, ownerless NHIs, missing source data, and stale observations remain visibly unresolved.
-- [ ] A frozen workforce snapshot remains stable after later roster changes and resolves every included row to its accepted source facts.
-- [ ] Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
-- [ ] Sensitive fields and roster discovery are restricted to authorized users while the minimum review context remains usable.
+- The team can import or manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
+- Each person and NHI owner shows its source, freshness, lifecycle, relationships, and unresolved conflicts without using email as the stable identifier.
+- Joiners, movers, leavers, unmatched access principals, ownerless NHIs, missing source data, and stale observations remain visibly unresolved.
+- A frozen workforce snapshot remains stable after later roster changes and resolves every included row to its accepted source facts.
+- Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
+- Sensitive fields and roster discovery are restricted to authorized users while the minimum review context remains usable.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D06 and M0-D28 before finalizing this story's rules; use `Person`, `WorkRelationship`, `ServiceIdentity`, and their first-class relationships with approved public references.
-- [ ] Define person and source identity, lifecycle observations, manager and owner relationships, correlation, reconciliation, conflict, freshness, snapshot, and retention rules.
-- [ ] Deliver authorized manual entry, import, preview, match, reconcile, classify, own, browse, freeze, and inspect behavior through the API, bounded processing where needed, and browser.
-- [ ] Connect workforce context to platform responsibility without merging identities and to policy, training, access, evidence, control, readiness, population, and snapshot workflows.
-- [ ] Prove conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and end-to-end reconciliation.
+- Incorporate the decisions recorded in M0-D06 and M0-D28 before finalizing this story's rules; use `Person`, `WorkRelationship`, `ServiceIdentity`, and their first-class relationships with approved public references.
+- Define person and source identity, lifecycle observations, manager and owner relationships, correlation, reconciliation, conflict, freshness, snapshot, and retention rules.
+- Deliver authorized manual entry, import, preview, match, reconcile, classify, own, browse, freeze, and inspect behavior through the API, bounded processing where needed, and browser.
+- Connect workforce context to platform responsibility without merging identities and to policy, training, access, evidence, control, readiness, population, and snapshot workflows.
+- Prove conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and end-to-end reconciliation.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -2131,9 +2134,9 @@ Outcome: As a compliance lead, I can record employees, contractors, and external
 
 Acceptance criteria:
 
-- [ ] The team can manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
-- [ ] Each person shows their source, freshness, lifecycle, and relationships without using email as the stable identifier.
-- [ ] Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
+- The team can manually record a roster, preview source precedence and conflicts, and accept only an attributable reconciled result.
+- Each person shows their source, freshness, lifecycle, and relationships without using email as the stable identifier.
+- Workforce source changes do not silently alter Compliance membership, provider access, review decisions, or historical authorship.
 
 Not in this slice:
 
@@ -2147,8 +2150,8 @@ Outcome: As a compliance lead, I can see joiners, movers, leavers, duplicates, c
 
 Acceptance criteria:
 
-- [ ] Joiners, movers, leavers, missing source data, and stale observations remain visibly unresolved.
-- [ ] People present only in an access source are surfaced for deliberate treatment.
+- Joiners, movers, leavers, missing source data, and stale observations remain visibly unresolved.
+- People present only in an access source are surfaced for deliberate treatment.
 
 Depends on: R1-11a
 
@@ -2158,9 +2161,9 @@ Outcome: As a compliance lead, I can record the accountable human or team owner,
 
 Acceptance criteria:
 
-- [ ] Each NHI owner shows its source, freshness, lifecycle, relationships, and unresolved conflicts.
-- [ ] Ownerless NHIs remain visibly unresolved.
-- [ ] Groups and roles are never classified as people or NHIs.
+- Each NHI owner shows its source, freshness, lifecycle, relationships, and unresolved conflicts.
+- Ownerless NHIs remain visibly unresolved.
+- Groups and roles are never classified as people or NHIs.
 
 Not in this slice:
 
@@ -2174,8 +2177,8 @@ Outcome: As a compliance lead, I can freeze the roster used by a review, campaig
 
 Acceptance criteria:
 
-- [ ] A frozen workforce snapshot remains stable after later roster changes and resolves every included row to its accepted source facts.
-- [ ] Sensitive fields and roster discovery are restricted to authorized users while the minimum review context remains usable.
+- A frozen workforce snapshot remains stable after later roster changes and resolves every included row to its accepted source facts.
+- Sensitive fields and roster discovery are restricted to authorized users while the minimum review context remains usable.
 
 Depends on: EN-03, R1-11a
 
@@ -2230,20 +2233,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can see which material component, information, and data-flow categories are complete, unresolved, excluded, stale, or missing from expected sources.
-- [ ] Every active in-scope record has an accountable owner, classification, lifecycle, source or declaration, and explicit boundary relationship.
-- [ ] Duplicate, aliased, nested, shared, and missing-source records require review and cannot silently change scope or ownership.
-- [ ] A user can navigate from an asset or flow to the services, applications, providers, risks, controls, policies, evidence, and description sections it affects.
-- [ ] Changing classification, flow, lifecycle, or scope previews downstream readiness and engagement impact before approval.
-- [ ] Restricted information and topology are protected without making required audit relationships unverifiable.
+- The team can see which material component, information, and data-flow categories are complete, unresolved, excluded, stale, or missing from expected sources.
+- Every active in-scope record has an accountable owner, classification, lifecycle, source or declaration, and explicit boundary relationship.
+- Duplicate, aliased, nested, shared, and missing-source records require review and cannot silently change scope or ownership.
+- A user can navigate from an asset or flow to the services, applications, providers, risks, controls, policies, evidence, and description sections it affects.
+- Changing classification, flow, lifecycle, or scope previews downstream readiness and engagement impact before approval.
+- Restricted information and topology are protected without making required audit relationships unverifiable.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D08 and M0-D28 before finalizing this story's rules; use the canonical application, system-instance, device, compute, network, resource, information, and provider entities with approved public references.
-- [ ] Define stable identities, source matching, ownership, classification, lifecycle, flow versioning, scope decisions, reconciliation, retirement, and impact rules.
-- [ ] Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
-- [ ] Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
-- [ ] Prove missing and partial sources, aliases, conflicting classification, restricted visibility, flow revision, retirement, replay, historical engagement use, and end-to-end readiness reconciliation.
+- Incorporate the decisions recorded in M0-D08 and M0-D28 before finalizing this story's rules; use the canonical application, system-instance, device, compute, network, resource, information, and provider entities with approved public references.
+- Define stable identities, source matching, ownership, classification, lifecycle, flow versioning, scope decisions, reconciliation, retirement, and impact rules.
+- Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
+- Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
+- Prove missing and partial sources, aliases, conflicting classification, restricted visibility, flow revision, retirement, replay, historical engagement use, and end-to-end readiness reconciliation.
 
 ### R1-13 Record service commitments, system requirements, and user responsibilities
 
@@ -2290,20 +2293,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can trace every approved commitment or requirement to its source, owner, exact version, applicability, interpretation, and review decision.
-- [ ] CUECs and CSOCs are distinguishable from organization controls and cannot count as internally performed merely because they are documented.
-- [ ] Conflicts, expired sources, missing owners, unsupported interpretations, and unmet or unmapped requirements remain visible in readiness.
-- [ ] A proposed change shows affected scope, criteria, controls, policies, risks, providers, description sections, and engagements before approval.
-- [ ] Historical snapshots and delivered packages retain the exact commitments, requirements, CUECs, and CSOCs that applied.
-- [ ] The product never presents imported contractual text or a generated interpretation as legal advice or auditor approval.
+- The team can trace every approved commitment or requirement to its source, owner, exact version, applicability, interpretation, and review decision.
+- CUECs and CSOCs are distinguishable from organization controls and cannot count as internally performed merely because they are documented.
+- Conflicts, expired sources, missing owners, unsupported interpretations, and unmet or unmapped requirements remain visible in readiness.
+- A proposed change shows affected scope, criteria, controls, policies, risks, providers, description sections, and engagements before approval.
+- Historical snapshots and delivered packages retain the exact commitments, requirements, CUECs, and CSOCs that applied.
+- The product never presents imported contractual text or a generated interpretation as legal advice or auditor approval.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D09 before finalizing this story's rules.
-- [ ] Define stable identities, source and version provenance, applicability, interpretation, conflict, review, effective-date, supersession, withdrawal, and impact rules.
-- [ ] Deliver authorized capture or import, relate, review, approve, revise, supersede, browse, and inspect behavior through the API and browser.
-- [ ] Connect approved records to boundary, inventories, providers, criteria, controls, policies, risks, readiness, system description, assertions, packages, and snapshots.
-- [ ] Prove conflicting sources, expired and unmapped records, forbidden approval, concurrent revision, impact preview, historical retrieval, and package stability end to end.
+- Incorporate the decisions recorded in M0-D09 before finalizing this story's rules.
+- Define stable identities, source and version provenance, applicability, interpretation, conflict, review, effective-date, supersession, withdrawal, and impact rules.
+- Deliver authorized capture or import, relate, review, approve, revise, supersede, browse, and inspect behavior through the API and browser.
+- Connect approved records to boundary, inventories, providers, criteria, controls, policies, risks, readiness, system description, assertions, packages, and snapshots.
+- Prove conflicting sources, expired and unmapped records, forbidden approval, concurrent revision, impact preview, historical retrieval, and package stability end to end.
 
 ### R1-14 Evaluate vendors and subservice organizations
 
@@ -2355,20 +2358,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every material provider has an owner, approved boundary treatment, current assessment or explicit gap, and next review date.
-- [ ] Assurance evidence shows exact scope and covered period; a stale report or bridge letter cannot silently imply current or complete coverage.
-- [ ] Provider exceptions, missing complementary controls, uncovered services, and contract gaps produce owned remediation or authorized time-bounded acceptance.
-- [ ] Renewal, material service change, and termination identify affected systems, data, controls, evidence, responsibilities, and scope before approval.
-- [ ] Subservice organizations and their CUECs or CSOCs remain distinguishable from ordinary vendors and the organization's own controls.
-- [ ] Restricted contracts and reports are least-privilege while approved audit-facing conclusions remain deliberately shareable.
+- Every material provider has an owner, approved boundary treatment, current assessment or explicit gap, and next review date.
+- Assurance evidence shows exact scope and covered period; a stale report or bridge letter cannot silently imply current or complete coverage.
+- Provider exceptions, missing complementary controls, uncovered services, and contract gaps produce owned remediation or authorized time-bounded acceptance.
+- Renewal, material service change, and termination identify affected systems, data, controls, evidence, responsibilities, and scope before approval.
+- Subservice organizations and their CUECs or CSOCs remain distinguishable from ordinary vendors and the organization's own controls.
+- Restricted contracts and reports are least-privilege while approved audit-facing conclusions remain deliberately shareable.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D11 before finalizing this story's rules.
-- [ ] Define provider identity, service relationships, assessment versions, evidence coverage, exception, boundary treatment, review, renewal, termination, and acceptance rules.
-- [ ] Deliver authorized record, import, classify, assess, review, relate, remediate, accept risk, renew, terminate, browse, and inspect behavior through the API and browser.
-- [ ] Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
-- [ ] Prove stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and end-to-end readiness reconciliation.
+- Incorporate the decisions recorded in M0-D11 before finalizing this story's rules.
+- Define provider identity, service relationships, assessment versions, evidence coverage, exception, boundary treatment, review, renewal, termination, and acceptance rules.
+- Deliver authorized record, import, classify, assess, review, relate, remediate, accept risk, renew, terminate, browse, and inspect behavior through the API and browser.
+- Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
+- Prove stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and end-to-end readiness reconciliation.
 
 ### R1-15 Provision a client organization and its first administrators
 
@@ -2409,24 +2412,24 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Any signed-in platform user with a verified email can create a client organization and becomes its first Org Admin; only an authorized platform operator can suspend or reactivate one (amended by M0-D25, 2026-09-22).
-- [ ] An existing operator can grant or revoke operator status in the product; every grant and revocation is audit logged, configuration seeds only the first operator, and the last operator cannot be revoked (M0-D25).
-- [ ] An operator sees tenant metadata only and cannot read an organization's business records without a membership or engagement assignment (M0-D25).
-- [ ] A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
-- [ ] A user with memberships in two organizations never sees, counts, searches, or receives notifications about records from the organization that is not active.
-- [ ] Suspending an organization blocks access immediately for its members and assigned firm staff and preserves all records and history.
-- [ ] The active organization is visible on every page, and switching it cannot carry cached or unsaved data across tenants.
-- [ ] Browser routes use the organization slug, and every organization-scoped API call uses the `tenant_id`; the server rejects a request whose `tenant_id` the caller is not a member of.
-- [ ] An unknown slug and a slug the user cannot access produce the same not-found result, so organization slugs cannot be enumerated.
-- [ ] A slug that is shorter than 4 or longer than 63 characters, uses characters other than lowercase letters, digits, and single inner hyphens, does not start with a letter, matches the `tenant_id` format, or equals a reserved route is rejected on the server with an explanation naming the rule.
-- [ ] Adding a top-level server or client route that is missing from the reserved-route registry, or that equals an existing organization slug, fails an automated check.
-- [ ] After a slug change, old links redirect members to the organization, and the retired slug can never be assigned to a different organization.
+- Any signed-in platform user with a verified email can create a client organization and becomes its first Org Admin; only an authorized platform operator can suspend or reactivate one (amended by M0-D25, 2026-09-22).
+- An existing operator can grant or revoke operator status in the product; every grant and revocation is audit logged, configuration seeds only the first operator, and the last operator cannot be revoked (M0-D25).
+- An operator sees tenant metadata only and cannot read an organization's business records without a membership or engagement assignment (M0-D25).
+- A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
+- A user with memberships in two organizations never sees, counts, searches, or receives notifications about records from the organization that is not active.
+- Suspending an organization blocks access immediately for its members and assigned firm staff and preserves all records and history.
+- The active organization is visible on every page, and switching it cannot carry cached or unsaved data across tenants.
+- Browser routes use the organization slug, and every organization-scoped API call uses the `tenant_id`; the server rejects a request whose `tenant_id` the caller is not a member of.
+- An unknown slug and a slug the user cannot access produce the same not-found result, so organization slugs cannot be enumerated.
+- A slug that is shorter than 4 or longer than 63 characters, uses characters other than lowercase letters, digits, and single inner hyphens, does not start with a letter, matches the `tenant_id` format, or equals a reserved route is rejected on the server with an explanation naming the rule.
+- Adding a top-level server or client route that is missing from the reserved-route registry, or that equals an existing organization slug, fails an automated check.
+- After a slug change, old links redirect members to the organization, and the retired slug can never be assigned to a different organization.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D25, M0-D28, and M0-A07 and define canonical organization, platform-user, membership, identity, lifecycle, operator-authority, bootstrap, and affiliation rules from approved public references.
-- [ ] Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
-- [ ] Prove cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions, and standalone/split-host parity end to end.
+- Incorporate the decisions recorded in M0-D25, M0-D28, and M0-A07 and define canonical organization, platform-user, membership, identity, lifecycle, operator-authority, bootstrap, and affiliation rules from approved public references.
+- Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
+- Prove cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions, and standalone/split-host parity end to end.
 
 ### EN-01 Provide shared authorization and actor-reference foundations
 
@@ -2455,29 +2458,28 @@ Out of scope:
 
 Acceptance criteria:
 
-- [x] Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
-- [x] A platform user with memberships in several organizations acts in exactly one tenant per operation. Each owning backend child proves its current HTTP/MCP surfaces; future surfaces add the same proof in their backend child.
-- [x] Cross-organization access is denied and cannot be distinguished from a missing resource; restricted rows are filtered before lists, pagination, or counts.
-- [x] Current member actions record an immutable ActorReference with a stable member ID and display snapshot; named process actions remain distinct. Identity-replacement workflow proof stays in #183; deprovisioned-member history stays in #190.
-- [x] Shared authorization and tenant-context behavior is proved in standalone and split API/worker modes.
-- [x] The foundation has end-to-end consumers. The broader integrated authorization outcome remains open under product parent #87.
+- Every business endpoint under `/api/v1` declares an explicit authorization policy, and an architecture test fails when one is missing.
+- A platform user with memberships in several organizations acts in exactly one tenant per operation. Each owning backend child proves its current HTTP/MCP surfaces; future surfaces add the same proof in their backend child.
+- Cross-organization access is denied and cannot be distinguished from a missing resource; restricted rows are filtered before lists, pagination, or counts.
+- Current member actions record an immutable ActorReference with a stable member ID and display snapshot; named process actions remain distinct.
+- Shared authorization and tenant-context behavior is proved in standalone and split API/worker modes.
+- The foundation has end-to-end consumers.
 
 Implementation subtasks:
 
-- [x] Incorporate the canonical platform-user, membership, role, permission, assignment, and actor-reference semantics approved in M0-D28.
-- [x] Implement the request context and evaluation pipeline.
-- [x] Implement ActorReference persistence and display snapshots.
-- [x] Add allow/deny test helpers and the architecture test.
-- [x] Prove the pipeline through the current R1-15 and R1-01 program flows; retain their remaining feature acceptance in #152 and #158.
-- [x] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Incorporate the canonical platform-user, membership, role, permission, assignment, and actor-reference semantics approved in M0-D28.
+- Implement the request context and evaluation pipeline.
+- Implement ActorReference persistence and display snapshots.
+- Add allow/deny test helpers and the architecture test.
+- Prove the pipeline through the current R1-15 and R1-01 program flows.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
-Evidence: PR #159 established the tenant and Program consumers; PR #325 made Portia authorization composition fail closed; PR #344 added denied-action records; PR #366 persisted member and named-system ActorReferences. `ComplianceWebTests` checks authorization metadata and tenant route scope. The tenant identity, tenant/RBAC, Program, criteria, draft, boundary/snapshot, and application read-matrix E2Es cover current HTTP/MCP isolation in standalone and split hosts. Actor snapshot E2Es cover immutable history after display changes and distinct system actors. Full product acceptance and feature-specific read matrices remain with #87 and their owning backend children.
 
-First consumers: R1-15 and R1-01 (initial end-to-end foundation use is recorded in PR #159; their remaining backend acceptance stays in #152 and #158).
+First consumers: R1-15 and R1-01.
 
 Depends on: M0-A04, M0-A07, M0-D03, M0-D25, M0-D28
 
-Blocks: EN-04, EN-05, EN-06, F1-08, R1-01, R1-04, R1-15, R2-11. Each blocked backend child proves its own route-level authorization and tenant isolation. Identity-replacement and deprovisioning lifecycle acceptance remains with #183 and #190; the full product matrix remains open under #87.
+Blocks: EN-04, EN-05, EN-06, F1-08, R1-01, R1-04, R1-15, R2-11. Each blocked backend child proves its own route-level authorization and tenant isolation.
 
 ### EN-02 Provide versioned records, effective history, and change-impact preview
 
@@ -2504,19 +2506,19 @@ Out of scope:
 
 Acceptance criteria:
 
-- [ ] An approved version cannot be changed in place through any API.
-- [ ] The version effective on any selected date is retrievable.
-- [ ] A concurrent edit returns a conflict that identifies the newer version.
-- [ ] An impact preview lists affected records contributed by each registered context before approval.
-- [ ] Deletion is refused for any record that was ever approved or referenced.
+- An approved version cannot be changed in place through any API.
+- The version effective on any selected date is retrievable.
+- A concurrent edit returns a conflict that identifies the newer version.
+- An impact preview lists affected records contributed by each registered context before approval.
+- Deletion is refused for any record that was ever approved or referenced.
 
 Implementation subtasks:
 
-- [ ] Implement the version and effective-interval primitives from M0-A01.
-- [ ] Implement the concurrency and conflict contract.
-- [ ] Implement the impact-preview contribution contract.
-- [ ] Prove it through R1-02's boundary versioning flow.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Implement the version and effective-interval primitives from M0-A01.
+- Implement the concurrency and conflict contract.
+- Implement the impact-preview contribution contract.
+- Prove it through R1-02's boundary versioning flow.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
 First consumer: R1-02
 
@@ -2547,18 +2549,18 @@ Out of scope:
 
 Acceptance criteria:
 
-- [ ] A frozen snapshot is unchanged by later source changes, and its content identity verifies.
-- [ ] An amendment is attributable, links to its original, and never mutates it.
-- [ ] Regenerating the same snapshot contents yields an equivalent content identity.
-- [ ] A partial freeze failure cannot produce an apparently complete snapshot.
-- [ ] A snapshot references only records from its own organization, plus explicitly versioned platform-level content such as a criteria catalog edition.
+- A frozen snapshot is unchanged by later source changes, and its content identity verifies.
+- An amendment is attributable, links to its original, and never mutates it.
+- Regenerating the same snapshot contents yields an equivalent content identity.
+- A partial freeze failure cannot produce an apparently complete snapshot.
+- A snapshot references only records from its own organization, plus explicitly versioned platform-level content such as a criteria catalog edition.
 
 Implementation subtasks:
 
-- [ ] Implement snapshot and amendment primitives from M0-A02.
-- [ ] Implement the canonical hashing and verification.
-- [ ] Prove it through R1-11's workforce snapshot slice.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Implement snapshot and amendment primitives from M0-A02.
+- Implement the canonical hashing and verification.
+- Prove it through R1-11's workforce snapshot slice.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
 First consumer: R1-11d workforce snapshot
 
@@ -2594,17 +2596,17 @@ Out of scope:
 
 Acceptance criteria:
 
-- [ ] A decision always identifies the exact version it applies to and cannot be moved to another version.
-- [ ] Self-review is blocked on the server unless an approved exception applies, and the denial is explained.
-- [ ] Decisions are immutable; a later decision supersedes and never overwrites.
-- [ ] Each consuming workflow keeps its own lifecycle states.
+- A decision always identifies the exact version it applies to and cannot be moved to another version.
+- Self-review is blocked on the server unless an approved exception applies, and the denial is explained.
+- Decisions are immutable; a later decision supersedes and never overwrites.
+- Each consuming workflow keeps its own lifecycle states.
 
 Implementation subtasks:
 
-- [ ] Implement the decision primitive and separation-of-duties evaluation.
-- [ ] Integrate with EN-01 authorization and EN-02 versions.
-- [ ] Prove it through R1-02 boundary approval.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Implement the decision primitive and separation-of-duties evaluation.
+- Integrate with EN-01 authorization and EN-02 versions.
+- Prove it through R1-02 boundary approval.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
 First consumer: R1-02
 
@@ -2637,22 +2639,22 @@ Out of scope:
 
 Acceptance criteria:
 
-- [ ] Nothing imported becomes active before explicit acceptance.
-- [ ] A failed or canceled import leaves no partial active records.
-- [ ] Replaying the same source creates no duplicates and reports unchanged rows.
-- [ ] Missing rows produce explicit reconciliation states and never silent deletion.
-- [ ] Progress and failures are visible and recoverable in standalone and split hosts.
-- [ ] Import batches, staged rows, and rejected-item reports belong to one organization and can never be accepted into another.
+- Nothing imported becomes active before explicit acceptance.
+- A failed or canceled import leaves no partial active records.
+- Replaying the same source creates no duplicates and reports unchanged rows.
+- Missing rows produce explicit reconciliation states and never silent deletion.
+- Progress and failures are visible and recoverable in standalone and split hosts.
+- Import batches, staged rows, and rejected-item reports belong to one organization and can never be accepted into another.
 
 Implementation subtasks:
 
-- [ ] Implement the canonical external-identifier, observation, source, and correlation semantics approved in M0-D28; reject source fields or schemas that are absent from the approved public-reference register.
-- [ ] Implement batch, staging, and preview primitives.
-- [ ] Implement replay and reconciliation classification.
-- [ ] Implement worker execution and progress.
-- [ ] Prove it through R1-10b application import.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
-- [ ] Prove the ADR 0005 barrier in standalone and split API/worker hosts, including a worker crash and restart mid-accept (roll forward) and a cancellation before commit (nothing visible).
+- Implement the canonical external-identifier, observation, source, and correlation semantics approved in M0-D28; reject source fields or schemas that are absent from the approved public-reference register.
+- Implement batch, staging, and preview primitives.
+- Implement replay and reconciliation classification.
+- Implement worker execution and progress.
+- Prove it through R1-10b application import.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Prove the ADR 0005 barrier in standalone and split API/worker hosts, including a worker crash and restart mid-accept (roll forward) and a cancellation before commit (nothing visible).
 
 First consumer: R1-10b application import
 
@@ -2688,19 +2690,19 @@ Out of scope:
 
 Acceptance criteria:
 
-- [ ] An artifact's content can never be replaced silently; a correction is a new artifact.
-- [ ] Unsupported, oversized, interrupted, or failed-inspection uploads never appear successful.
-- [ ] Permission to view a related record does not grant access to a restricted artifact.
-- [ ] Downloads are authorized and recorded.
-- [ ] Artifacts, derived artifacts, and content-identity deduplication never cross organizations.
+- An artifact's content can never be replaced silently; a correction is a new artifact.
+- Unsupported, oversized, interrupted, or failed-inspection uploads never appear successful.
+- Permission to view a related record does not grant access to a restricted artifact.
+- Downloads are authorized and recorded.
+- Artifacts, derived artifacts, and content-identity deduplication never cross organizations.
 
 Implementation subtasks:
 
-- [ ] Implement the storage adapter and content identity.
-- [ ] Implement validation, inspection, and quarantine.
-- [ ] Implement authorized download.
-- [ ] Prove it through R2-03 evidence upload.
-- [ ] Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Implement the storage adapter and content identity.
+- Implement validation, inspection, and quarantine.
+- Implement authorized download.
+- Prove it through R2-03 evidence upload.
+- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
 
 First consumer: R2-03
 
@@ -2740,17 +2742,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Active controls without required ownership or cadence are visible as blockers.
-- [ ] Owners see their current and upcoming responsibilities.
-- [ ] Changing ownership reassigns open work explicitly without changing historical authorship.
-- [ ] Retiring a control stops future work and leaves existing work and evidence readable.
+- Active controls without required ownership or cadence are visible as blockers.
+- Owners see their current and upcoming responsibilities.
+- Changing ownership reassigns open work explicitly without changing historical authorship.
+- Retiring a control stops future work and leaves existing work and evidence readable.
 
 Implementation subtasks:
 
-- [ ] Define owner, backup, reviewer, cadence, effective-interval, team-assignment, conflict, and orphaned-work invariants.
-- [ ] Deliver authorized assignment and cadence preview, approval, revision, and work-view behavior through the API and browser.
-- [ ] Connect approved cadence to occurrences and responsibilities to the shared work queue, authorization decisions, evidence expectations, and readiness blockers.
-- [ ] Prove reassignment, team membership change, deprovisioning, schedule revision, retirement, conflicts, history, and denied behavior end to end.
+- Define owner, backup, reviewer, cadence, effective-interval, team-assignment, conflict, and orphaned-work invariants.
+- Deliver authorized assignment and cadence preview, approval, revision, and work-view behavior through the API and browser.
+- Connect approved cadence to occurrences and responsibilities to the shared work queue, authorization decisions, evidence expectations, and readiness blockers.
+- Prove reassignment, team membership change, deprovisioning, schedule revision, retirement, conflicts, history, and denied behavior end to end.
 
 ### R2-02 Maintain approved policies and review cycles
 
@@ -2793,20 +2795,20 @@ Example:
 
 Acceptance criteria:
 
-- [ ] Only an approved version can be represented as the current policy.
-- [ ] The team can retrieve the version effective on a selected date.
-- [ ] Superseding a policy preserves prior approvals and audit relationships.
-- [ ] A policy document alone cannot make an operating control appear performed.
-- [ ] A proposed policy or applicability change identifies affected controls, systems, owners, review work, readiness, and engagements before approval.
-- [ ] Deletion is available only for an unused draft; a policy used by a control, decision, snapshot, handoff, or package can only be superseded or retired.
+- Only an approved version can be represented as the current policy.
+- The team can retrieve the version effective on a selected date.
+- Superseding a policy preserves prior approvals and audit relationships.
+- A policy document alone cannot make an operating control appear performed.
+- A proposed policy or applicability change identifies affected controls, systems, owners, review work, readiness, and engagements before approval.
+- Deletion is available only for an unused draft; a policy used by a control, decision, snapshot, handoff, or package can only be superseded or retired.
 
 Implementation subtasks:
 
-- [ ] Define policy identity, draft editing, immutable approved versions, effective dates, applicability relationships, approval authority, review cadence, supersession, retirement, and narrowly permitted deletion.
-- [ ] Deliver authorized draft, upload or author, review, approve, publish, supersede, retire, and retrieve-by-date behavior through the API and browser.
-- [ ] Deliver authorized relationship editing, successor proposal, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
-- [ ] Connect policies to applications, reviewed systems, controls, criteria, risks, vendors, processes, evidence, work queues, readiness, requests, and frozen snapshots while keeping policy state separate from control coverage and performance.
-- [ ] Prove exact-version approval, overdue review, concurrent edits, rejected documents, historical retrieval, forbidden actions, and downstream readiness effects end to end.
+- Define policy identity, draft editing, immutable approved versions, effective dates, applicability relationships, approval authority, review cadence, supersession, retirement, and narrowly permitted deletion.
+- Deliver authorized draft, upload or author, review, approve, publish, supersede, retire, and retrieve-by-date behavior through the API and browser.
+- Deliver authorized relationship editing, successor proposal, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
+- Connect policies to applications, reviewed systems, controls, criteria, risks, vendors, processes, evidence, work queues, readiness, requests, and frozen snapshots while keeping policy state separate from control coverage and performance.
+- Prove exact-version approval, overdue review, concurrent edits, rejected documents, historical retrieval, forbidden actions, and downstream readiness effects end to end.
 
 ### R2-03 Request and capture trustworthy evidence
 
@@ -2836,17 +2838,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] A contributor can submit evidence and see upload or validation progress and outcome.
-- [ ] Unsupported, oversized, interrupted, duplicate, or unauthorized submissions fail safely without a false success.
-- [ ] Reviewers can locate evidence by control, request, source, owner, period, and status.
-- [ ] Historical links survive correction, replacement, and later-period reuse.
+- A contributor can submit evidence and see upload or validation progress and outcome.
+- Unsupported, oversized, interrupted, duplicate, or unauthorized submissions fail safely without a false success.
+- Reviewers can locate evidence by control, request, source, owner, period, and status.
+- Historical links survive correction, replacement, and later-period reuse.
 
 Implementation subtasks:
 
-- [ ] Define artifact identity, content hashing, provenance, sensitivity, covered-period, request, reuse, correction, and support-relationship rules.
-- [ ] Deliver authorized request, upload or link, validate, inspect, relate, correct, reuse, and retrieve behavior through the API, any bounded background processing, and browser.
-- [ ] Apply artifact and relationship authorization everywhere evidence appears; record source, collector or system actor, failures, review context, and sharing history.
-- [ ] Prove duplicate, oversized, interrupted, unauthorized, stale, outside-period, corrected, and reused evidence behavior plus package retrievability end to end.
+- Define artifact identity, content hashing, provenance, sensitivity, covered-period, request, reuse, correction, and support-relationship rules.
+- Deliver authorized request, upload or link, validate, inspect, relate, correct, reuse, and retrieve behavior through the API, any bounded background processing, and browser.
+- Apply artifact and relationship authorization everywhere evidence appears; record source, collector or system actor, failures, review context, and sharing history.
+- Prove duplicate, oversized, interrupted, unauthorized, stale, outside-period, corrected, and reused evidence behavior plus package retrievability end to end.
 
 ### R2-04 Perform a control and attest to the result
 
@@ -2876,17 +2878,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] An owner can complete the performance only when required information and support are present.
-- [ ] Failed, skipped, or not-applicable results create the required gap or review path.
-- [ ] The product distinguishes performance from independent review.
-- [ ] A reviewer can reconstruct the exact attestation and evidence that existed at completion.
+- An owner can complete the performance only when required information and support are present.
+- Failed, skipped, or not-applicable results create the required gap or review path.
+- The product distinguishes performance from independent review.
+- A reviewer can reconstruct the exact attestation and evidence that existed at completion.
 
 Implementation subtasks:
 
-- [ ] Define occurrence identity, expected-versus-ad-hoc semantics, result states, required rationale and support, submission, correction, and performer rules.
-- [ ] Deliver authorized view, perform, attach support, attest, submit, and correct behavior through the API and accessible browser workflow.
-- [ ] Route submissions into independent review and failed, skipped, missing, or not-applicable outcomes into the shared gap or exception path and readiness model.
-- [ ] Prove exact control and evidence versions, self-action restrictions, concurrent submission, correction history, population reconciliation, and denied behavior end to end.
+- Define occurrence identity, expected-versus-ad-hoc semantics, result states, required rationale and support, submission, correction, and performer rules.
+- Deliver authorized view, perform, attach support, attest, submit, and correct behavior through the API and accessible browser workflow.
+- Route submissions into independent review and failed, skipped, missing, or not-applicable outcomes into the shared gap or exception path and readiness model.
+- Prove exact control and evidence versions, self-action restrictions, concurrent submission, correction history, population reconciliation, and denied behavior end to end.
 
 ### R2-05 Review control design, implementation, and evidence
 
@@ -2935,20 +2937,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The user can reproduce what was evaluated, which exact versions and items were inspected, what procedure was performed, and how each conclusion was reached.
-- [ ] Design, implementation, evidence sufficiency, and Type II operating effectiveness cannot be conflated in the API, UI, readiness calculation, or export.
-- [ ] Deviations and failed procedures produce an owned finding, corrective action, approved exception, or unresolved result rather than disappearing inside reviewer notes.
-- [ ] Accepted, rejected, and change-requested decisions produce clear next states, including retest when required.
-- [ ] Rejection reopens the correct work and never deletes the submitted evidence.
-- [ ] Unauthorized self-review is blocked by the server and explained in the UI.
-- [ ] Readiness status reflects the latest valid review without hiding prior decisions.
+- The user can reproduce what was evaluated, which exact versions and items were inspected, what procedure was performed, and how each conclusion was reached.
+- Design, implementation, evidence sufficiency, and Type II operating effectiveness cannot be conflated in the API, UI, readiness calculation, or export.
+- Deviations and failed procedures produce an owned finding, corrective action, approved exception, or unresolved result rather than disappearing inside reviewer notes.
+- Accepted, rejected, and change-requested decisions produce clear next states, including retest when required.
+- Rejection reopens the correct work and never deletes the submitted evidence.
+- Unauthorized self-review is blocked by the server and explained in the UI.
+- Readiness status reflects the latest valid review without hiding prior decisions.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D13 and M0-D03 and define plan versions, assertion and procedure results, applicable populations or inspected items, conclusions, deviations, retest, review assignment, and independence rules.
-- [ ] Deliver authorized plan, assign, perform, document, submit, inspect, comment, accept, reject, request-change, remediate, and retest behavior through the API and browser.
-- [ ] Bind evaluations to exact scope, inventory, commitment, risk, criterion, control, policy, provider, and evidence versions and connect decisions to work, findings, readiness, descriptions, and snapshots.
-- [ ] Prove insufficient and conflicting evidence, failed procedures, deviation handling, design-versus-operation distinctions, self-review denial, concurrent revisions, rework, retest, small-team exceptions, and historical reproducibility end to end.
+- Incorporate the decisions recorded in M0-D13 and M0-D03 and define plan versions, assertion and procedure results, applicable populations or inspected items, conclusions, deviations, retest, review assignment, and independence rules.
+- Deliver authorized plan, assign, perform, document, submit, inspect, comment, accept, reject, request-change, remediate, and retest behavior through the API and browser.
+- Bind evaluations to exact scope, inventory, commitment, risk, criterion, control, policy, provider, and evidence versions and connect decisions to work, findings, readiness, descriptions, and snapshots.
+- Prove insufficient and conflicting evidence, failed procedures, deviation handling, design-versus-operation distinctions, self-review denial, concurrent revisions, rework, retest, small-team exceptions, and historical reproducibility end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -2958,8 +2960,8 @@ Outcome: As a compliance reviewer, I can define a versioned evaluation plan: obj
 
 Acceptance criteria:
 
-- [ ] An evaluation plan is versioned and bound to the exact boundary, commitment, risk, criterion, control, policy, provider, and evidence versions it evaluates.
-- [ ] Tester competence and independence requirements are recorded and checked when work is assigned.
+- An evaluation plan is versioned and bound to the exact boundary, commitment, risk, criterion, control, policy, provider, and evidence versions it evaluates.
+- Tester competence and independence requirements are recorded and checked when work is assigned.
 
 Not in this slice:
 
@@ -2971,8 +2973,8 @@ Outcome: As a compliance reviewer, I can perform the planned procedure and recor
 
 Acceptance criteria:
 
-- [ ] The user can reproduce what was evaluated, which exact versions and items were inspected, what procedure was performed, and how each conclusion was reached.
-- [ ] Design, implementation, evidence sufficiency, and Type II operating effectiveness cannot be conflated in the API, UI, readiness calculation, or export.
+- The user can reproduce what was evaluated, which exact versions and items were inspected, what procedure was performed, and how each conclusion was reached.
+- Design, implementation, evidence sufficiency, and Type II operating effectiveness cannot be conflated in the API, UI, readiness calculation, or export.
 
 Depends on: R2-05a
 
@@ -2982,10 +2984,10 @@ Outcome: As an assigned reviewer, I can accept, reject, or request changes to an
 
 Acceptance criteria:
 
-- [ ] Accepted, rejected, and change-requested decisions produce clear next states, including retest when required.
-- [ ] Rejection reopens the correct work and never deletes the submitted evidence.
-- [ ] Unauthorized self-review is blocked by the server and explained in the UI.
-- [ ] Readiness status reflects the latest valid review without hiding prior decisions.
+- Accepted, rejected, and change-requested decisions produce clear next states, including retest when required.
+- Rejection reopens the correct work and never deletes the submitted evidence.
+- Unauthorized self-review is blocked by the server and explained in the UI.
+- Readiness status reflects the latest valid review without hiding prior decisions.
 
 Depends on: R2-05b
 
@@ -2995,8 +2997,8 @@ Outcome: As a compliance lead, I see every deviation or failed procedure become 
 
 Acceptance criteria:
 
-- [ ] Deviations and failed procedures produce an owned finding, corrective action, approved exception, or unresolved result rather than disappearing inside reviewer notes.
-- [ ] Retest preserves the original plan, execution, decision, and remediation.
+- Deviations and failed procedures produce an owned finding, corrective action, approved exception, or unresolved result rather than disappearing inside reviewer notes.
+- Retest preserves the original plan, execution, decision, and remediation.
 
 Depends on: R2-05c, R2-07
 
@@ -3090,26 +3092,26 @@ Example:
 
 Acceptance criteria:
 
-- [ ] Invalid, duplicate, incomplete, or ambiguous import rows are shown before acceptance.
-- [ ] Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
-- [ ] Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
-- [ ] Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
-- [ ] Every reviewed account or service principal has an explicit human, NHI, or unresolved classification; each NHI has an accountable owner and purpose or remains an actionable gap.
-- [ ] Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
-- [ ] Expected, unexpected, prohibited, missing, and unresolved access are explainable from approved expectations but do not pre-decide a review outcome.
-- [ ] Every population item has an attributable decision or explicit unresolved status.
-- [ ] Bulk decisions require preview and shared rationale.
-- [ ] A campaign cannot complete while required remediation is unverified unless an approved exception exists.
-- [ ] The final campaign snapshot includes population, decisions, remediation, evidence, and history.
+- Invalid, duplicate, incomplete, or ambiguous import rows are shown before acceptance.
+- Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
+- Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
+- Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
+- Every reviewed account or service principal has an explicit human, NHI, or unresolved classification; each NHI has an accountable owner and purpose or remains an actionable gap.
+- Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
+- Expected, unexpected, prohibited, missing, and unresolved access are explainable from approved expectations but do not pre-decide a review outcome.
+- Every population item has an attributable decision or explicit unresolved status.
+- Bulk decisions require preview and shared rationale.
+- A campaign cannot complete while required remediation is unverified unless an approved exception exists.
+- The final campaign snapshot includes population, decisions, remediation, evidence, and history.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D07, M0-D05, M0-D06, and M0-D28 before finalizing this story's rules; every external semantic source must be in the approved public-reference register.
-- [ ] Define person, work-relationship, account, and service-identity lifecycle and correlation; `Group` and direct `GroupMember` relationships; external roles and entitlements; direct access assignments and explainable effective-access paths; resource identity; and optional platform-membership correlation using the canonical model.
-- [ ] Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
-- [ ] Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
-- [ ] Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
-- [ ] Prove employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history end to end.
+- Incorporate the decisions recorded in M0-D07, M0-D05, M0-D06, and M0-D28 before finalizing this story's rules; every external semantic source must be in the approved public-reference register.
+- Define person, work-relationship, account, and service-identity lifecycle and correlation; `Group` and direct `GroupMember` relationships; external roles and entitlements; direct access assignments and explainable effective-access paths; resource identity; and optional platform-membership correlation using the canonical model.
+- Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
+- Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
+- Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
+- Prove employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -3119,10 +3121,10 @@ Outcome: As an access reviewer, I can attest the observed accounts, groups, role
 
 Acceptance criteria:
 
-- [ ] Invalid, duplicate, incomplete, or ambiguous observed facts are shown before acceptance.
-- [ ] Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
-- [ ] Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
-- [ ] Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
+- Invalid, duplicate, incomplete, or ambiguous observed facts are shown before acceptance.
+- Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
+- Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
+- Groups and roles remain distinguishable from human and NHI subjects, including when they convey inherited or assumable access.
 
 Not in this slice:
 
@@ -3137,9 +3139,9 @@ Outcome: As an access reviewer, I can explicitly classify each account or servic
 
 Acceptance criteria:
 
-- [ ] Every reviewed account or service principal has an explicit human, NHI, or unresolved classification; each NHI has an accountable owner and purpose or remains an actionable gap.
-- [ ] Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
-- [ ] Provider hints only propose a classification; a change preserves the prior decision.
+- Every reviewed account or service principal has an explicit human, NHI, or unresolved classification; each NHI has an accountable owner and purpose or remains an actionable gap.
+- Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
+- Provider hints only propose a classification; a change preserves the prior decision.
 
 Depends on: R1-11, R2-06a
 
@@ -3149,8 +3151,8 @@ Outcome: As an access-review owner, I can approve expected, required, and prohib
 
 Acceptance criteria:
 
-- [ ] Expected, unexpected, prohibited, missing, and unresolved access are explainable from approved expectations but do not pre-decide a review outcome.
-- [ ] Expectations record rationale, approver, effective interval, and expiring exceptions.
+- Expected, unexpected, prohibited, missing, and unresolved access are explainable from approved expectations but do not pre-decide a review outcome.
+- Expectations record rationale, approver, effective interval, and expiring exceptions.
 
 Depends on: R2-06a
 
@@ -3160,9 +3162,9 @@ Outcome: As an access-review owner, I can launch a campaign that freezes its pop
 
 Acceptance criteria:
 
-- [ ] Every population item has an attributable decision or explicit unresolved status.
-- [ ] Bulk decisions require preview and shared rationale.
-- [ ] The launched population, reviewers, instructions, and deadline are frozen.
+- Every population item has an attributable decision or explicit unresolved status.
+- Bulk decisions require preview and shared rationale.
+- The launched population, reviewers, instructions, and deadline are frozen.
 
 Not in this slice:
 
@@ -3176,9 +3178,9 @@ Outcome: As an access-review owner, I can track required changes to independent 
 
 Acceptance criteria:
 
-- [ ] A campaign cannot complete while required remediation is unverified, unless an approved exception exists.
-- [ ] The final campaign snapshot includes population, decisions, remediation, evidence, and history.
-- [ ] Provider-side changes and platform-side verification remain distinct facts.
+- A campaign cannot complete while required remediation is unverified, unless an approved exception exists.
+- The final campaign snapshot includes population, decisions, remediation, evidence, and history.
+- Provider-side changes and platform-side verification remain distinct facts.
 
 Depends on: R2-06d
 
@@ -3211,17 +3213,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Closing a finding requires resolution evidence and authorized review.
-- [ ] Expired exceptions return to an actionable state.
-- [ ] Readiness views distinguish remediated, accepted, overdue, and unresolved items.
-- [ ] Changing severity, ownership, or due date is attributable and visible.
+- Closing a finding requires resolution evidence and authorized review.
+- Expired exceptions return to an actionable state.
+- Readiness views distinguish remediated, accepted, overdue, and unresolved items.
+- Changing severity, ownership, or due date is attributable and visible.
 
 Implementation subtasks:
 
-- [ ] Define source, severity, lifecycle, ownership, due date, root cause, corrective action, verification, reopening, closure, and expiring risk-acceptance rules.
-- [ ] Deliver authorized create or convert, relate, assign, investigate, remediate, accept risk, verify, close, reopen, and inspect behavior through the API and browser.
-- [ ] Connect corrective work to the shared work queue, evidence and review workflows, readiness, engagement findings, and next-period commitments.
-- [ ] Prove expired exceptions, missing closure evidence, source-text protection, reassignment, unauthorized approval, reopening, history, and downstream status reconciliation end to end.
+- Define source, severity, lifecycle, ownership, due date, root cause, corrective action, verification, reopening, closure, and expiring risk-acceptance rules.
+- Deliver authorized create or convert, relate, assign, investigate, remediate, accept risk, verify, close, reopen, and inspect behavior through the API and browser.
+- Connect corrective work to the shared work queue, evidence and review workflows, readiness, engagement findings, and next-period commitments.
+- Prove expired exceptions, missing closure evidence, source-text protection, reassignment, unauthorized approval, reopening, history, and downstream status reconciliation end to end.
 
 ### R2-08 Collaborate with a readiness advisor on work in progress
 
@@ -3253,19 +3255,19 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The compliance lead can preview exactly what will be shared before delivery.
-- [ ] The consultant can review only intentionally shared material through the agreed workflow.
-- [ ] Feedback becomes attributable, actionable work without letting an external collaborator silently alter source records.
-- [ ] Internal approval, consultant validation, and future auditor conclusions remain distinct.
-- [ ] Repeated handoffs identify changes instead of duplicating all previously shared material.
-- [ ] If direct product access is not validated, the story can be completed through a secure handoff and feedback-capture workflow.
+- The compliance lead can preview exactly what will be shared before delivery.
+- The consultant can review only intentionally shared material through the agreed workflow.
+- Feedback becomes attributable, actionable work without letting an external collaborator silently alter source records.
+- Internal approval, consultant validation, and future auditor conclusions remain distinct.
+- Repeated handoffs identify changes instead of duplicating all previously shared material.
+- If direct product access is not validated, the story can be completed through a secure handoff and feedback-capture workflow.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D14 and define selection, draft visibility, external authorship, validation meaning, delivery, revocation, and change-comparison rules.
-- [ ] Deliver authorized assemble, preview, share or export, receive or record feedback, respond, assign, and revoke behavior through the API, any bounded package processing, and browser.
-- [ ] Reuse platform membership and scoped access grants if direct access is selected; otherwise preserve external-author and delivery provenance without fabricating platform actors.
-- [ ] Connect feedback to owning records, requests, work queues, gaps, review, and readiness; prove least privilege, repeated handoffs, exact versions, failures, and history end to end.
+- Incorporate the decisions recorded in M0-D14 and define selection, draft visibility, external authorship, validation meaning, delivery, revocation, and change-comparison rules.
+- Deliver authorized assemble, preview, share or export, receive or record feedback, respond, assign, and revoke behavior through the API, any bounded package processing, and browser.
+- Reuse platform membership and scoped access grants if direct access is selected; otherwise preserve external-author and delivery provenance without fabricating platform actors.
+- Connect feedback to owning records, requests, work queues, gaps, review, and readiness; prove least privilege, repeated handoffs, exact versions, failures, and history end to end.
 
 ### R2-09 Make and record the Type I entry decision
 
@@ -3302,19 +3304,19 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] No draft, stale, rejected, missing, or unverified material appears complete.
-- [ ] All material unresolved items are explicitly acknowledged in the decision.
-- [ ] The decision records approvers, rationale, time, and snapshot identity.
-- [ ] Later changes do not silently alter the historical decision.
-- [ ] The product states that internal approval is not an auditor opinion.
-- [ ] Evidence-governance capabilities that are not yet delivered (R2-12) appear as explicitly acknowledged unresolved items in the decision rather than being omitted or treated as satisfied.
+- No draft, stale, rejected, missing, or unverified material appears complete.
+- All material unresolved items are explicitly acknowledged in the decision.
+- The decision records approvers, rationale, time, and snapshot identity.
+- Later changes do not silently alter the historical decision.
+- The product states that internal approval is not an auditor opinion.
+- Evidence-governance capabilities that are not yet delivered (R2-12) appear as explicitly acknowledged unresolved items in the decision rather than being omitted or treated as satisfied.
 
 Implementation subtasks:
 
-- [ ] Define readiness-snapshot contents, calculation identity, blocker rules, acknowledgement, required approvers, and approve/defer/approve-with-exceptions transitions.
-- [ ] Deliver authorized preview, drill-down, sign-off, defer, and exception acknowledgement through the API and accessible browser workflow.
-- [ ] Bind the decision to exact source versions and route deferrals or conditions into the shared finding, responsibility, and work model while preserving later changes separately.
-- [ ] Prove incomplete and stale inputs, unresolved acknowledgements, separation of duties, concurrent changes, denied approval, immutable history, and transition effects end to end.
+- Define readiness-snapshot contents, calculation identity, blocker rules, acknowledgement, required approvers, and approve/defer/approve-with-exceptions transitions.
+- Deliver authorized preview, drill-down, sign-off, defer, and exception acknowledgement through the API and accessible browser workflow.
+- Bind the decision to exact source versions and route deferrals or conditions into the shared finding, responsibility, and work model while preserving later changes separately.
+- Prove incomplete and stale inputs, unresolved acknowledgements, separation of duties, concurrent changes, denied approval, immutable history, and transition effects end to end.
 
 ### R2-10 Publish policies and verify acknowledgement and training
 
@@ -3364,20 +3366,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team can explain why every person was included, excluded, added, or removed from a campaign and which workforce snapshot supplied that decision.
-- [ ] Each acknowledgement or completion identifies the exact policy or training version, person, source, time, and evidence.
-- [ ] Missing delivery, overdue work, source failure, declined acknowledgement, and approved exceptions remain distinct and drillable.
-- [ ] Policy supersession does not rewrite a launched or completed campaign and can deliberately trigger a successor campaign.
-- [ ] Campaign totals reconcile to individually inspectable people and results and can supply a frozen audit population.
-- [ ] Restricted workforce details and training records are least-privilege while appropriate aggregate and audit evidence remain available.
+- The team can explain why every person was included, excluded, added, or removed from a campaign and which workforce snapshot supplied that decision.
+- Each acknowledgement or completion identifies the exact policy or training version, person, source, time, and evidence.
+- Missing delivery, overdue work, source failure, declined acknowledgement, and approved exceptions remain distinct and drillable.
+- Policy supersession does not rewrite a launched or completed campaign and can deliberately trigger a successor campaign.
+- Campaign totals reconcile to individually inspectable people and results and can supply a frozen audit population.
+- Restricted workforce details and training records are least-privilege while appropriate aggregate and audit evidence remain available.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D12 and M0-D06 before finalizing this story's rules.
-- [ ] Define campaign identity, version binding, audience rules and freeze, delivery, acknowledgement, completion observation, reminder, exception, reconciliation, and successor rules.
-- [ ] Deliver authorized assemble, preview, launch, deliver or import, acknowledge, remind, reconcile, review, close, and inspect behavior through the API, bounded processing where needed, and browser.
-- [ ] Connect campaigns to workforce, policies, training sources, evidence, controls, work queues, findings, readiness, populations, packages, and snapshots without duplicate person or policy records.
-- [ ] Prove audience changes, wrong versions, missing and partial sources, duplicate completion, failed delivery, overdue and exception states, authorization, replay, and population reconciliation end to end.
+- Incorporate the decisions recorded in M0-D12 and M0-D06 before finalizing this story's rules.
+- Define campaign identity, version binding, audience rules and freeze, delivery, acknowledgement, completion observation, reminder, exception, reconciliation, and successor rules.
+- Deliver authorized assemble, preview, launch, deliver or import, acknowledge, remind, reconcile, review, close, and inspect behavior through the API, bounded processing where needed, and browser.
+- Connect campaigns to workforce, policies, training sources, evidence, controls, work queues, findings, readiness, populations, packages, and snapshots without duplicate person or policy records.
+- Prove audience changes, wrong versions, missing and partial sources, duplicate completion, failed delivery, overdue and exception states, authorization, replay, and population reconciliation end to end.
 
 ### R2-11 Manage accountable compliance work
 
@@ -3423,20 +3425,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every displayed work item resolves to one authoritative source record and its current allowed action; counts reconcile after source changes.
-- [ ] A contributor can understand what is required, why it matters, when it is due, what blocks it, and where to act without opening a parallel tracker.
-- [ ] Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
-- [ ] Completing source work removes or advances the projected item; changing only the projection can never create false completion.
-- [ ] Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
-- [ ] Restricted work is absent rather than discoverable to unauthorized users, including through counts, notifications, and search.
+- Every displayed work item resolves to one authoritative source record and its current allowed action; counts reconcile after source changes.
+- A contributor can understand what is required, why it matters, when it is due, what blocks it, and where to act without opening a parallel tracker.
+- Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
+- Completing source work removes or advances the projected item; changing only the projection can never create false completion.
+- Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
+- Restricted work is absent rather than discoverable to unauthorized users, including through counts, notifications, and search.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D15 before finalizing this story's rules.
-- [ ] Define projection identity, source-state mapping, assignment and delegation, orphaning, due and blocked semantics, notification preference, delivery, deduplication, and reconciliation rules.
-- [ ] Deliver authorized personal and team queues, filters, assignment actions, source navigation, reminder preferences, digest, acknowledgement, and escalation through the API, bounded processing, and browser.
-- [ ] Integrate source workflows through stable identities and explicit allowed actions; derive counts and measures from those records without introducing generic completion state.
-- [ ] Prove stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search, and standalone/split-host parity end to end.
+- Incorporate the decisions recorded in M0-D15 before finalizing this story's rules.
+- Define projection identity, source-state mapping, assignment and delegation, orphaning, due and blocked semantics, notification preference, delivery, deduplication, and reconciliation rules.
+- Deliver authorized personal and team queues, filters, assignment actions, source navigation, reminder preferences, digest, acknowledgement, and escalation through the API, bounded processing, and browser.
+- Integrate source workflows through stable identities and explicit allowed actions; derive counts and measures from those records without introducing generic completion state.
+- Prove stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search, and standalone/split-host parity end to end.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -3446,10 +3448,10 @@ Outcome: As a compliance contributor, I can see my, my team's, and unassigned wo
 
 Acceptance criteria:
 
-- [ ] Every displayed work item resolves to one authoritative source record and its current allowed action; counts reconcile after source changes.
-- [ ] A contributor can see what is required, why it matters, when it is due, what blocks it, and where to act without opening a parallel tracker.
-- [ ] Completing source work removes or advances the projected item; changing only the projection can never create false completion.
-- [ ] Restricted work is absent, not merely hidden, for unauthorized users, including in counts and search.
+- Every displayed work item resolves to one authoritative source record and its current allowed action; counts reconcile after source changes.
+- A contributor can see what is required, why it matters, when it is due, what blocks it, and where to act without opening a parallel tracker.
+- Completing source work removes or advances the projected item; changing only the projection can never create false completion.
+- Restricted work is absent, not merely hidden, for unauthorized users, including in counts and search.
 
 Not in this slice:
 
@@ -3462,8 +3464,8 @@ Outcome: As an authorized user, I can assign, claim, delegate, reassign, or esca
 
 Acceptance criteria:
 
-- [ ] Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
-- [ ] Orphaned work appears immediately when membership, teams, responsibilities, scope, or source records change.
+- Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
+- Orphaned work appears immediately when membership, teams, responsibilities, scope, or source records change.
 
 Depends on: R2-11a
 
@@ -3473,8 +3475,8 @@ Outcome: As a contributor, I can receive configurable in-product reminders and d
 
 Acceptance criteria:
 
-- [ ] Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
-- [ ] Restricted work never appears in notifications to unauthorized users.
+- Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
+- Restricted work never appears in notifications to unauthorized users.
 
 Depends on: R2-11a
 
@@ -3525,20 +3527,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every governed artifact has an explainable classification, effective retention rule, access policy, source identity, and current availability state.
-- [ ] Users who may view a control cannot infer, preview, download, export, or share a restricted artifact without separate authorization.
-- [ ] A hold blocks disposition and survives ordinary retention expiry until an authorized release is recorded.
-- [ ] Redacted derivatives and later corrections preserve their source relationships, approvals, and distinct content identities.
-- [ ] Disposition cannot remove content still required by a frozen or delivered engagement record without an explicit permitted policy and visible impact.
-- [ ] Quarantined, missing, disposed, and access-denied content cannot appear as accepted or successfully packaged evidence.
+- Every governed artifact has an explainable classification, effective retention rule, access policy, source identity, and current availability state.
+- Users who may view a control cannot infer, preview, download, export, or share a restricted artifact without separate authorization.
+- A hold blocks disposition and survives ordinary retention expiry until an authorized release is recorded.
+- Redacted derivatives and later corrections preserve their source relationships, approvals, and distinct content identities.
+- Disposition cannot remove content still required by a frozen or delivered engagement record without an explicit permitted policy and visible impact.
+- Quarantined, missing, disposed, and access-denied content cannot appear as accepted or successfully packaged evidence.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D16 before finalizing this story's rules.
-- [ ] Define policy and assignment versions, artifact-level authorization, hold precedence, derivative identity, quarantine, disposition, delivery, availability, and historical-reliance rules.
-- [ ] Deliver authorized classify, restrict, hold, release, derive, review, disclose, revoke where possible, preview-disposition, dispose, and inspect-history behavior through the API, bounded processing, and browser.
-- [ ] Apply the same decisions to evidence, imports, provider reports, workforce snapshots, responses, exports, and packages and expose availability to readiness and validation without duplicating artifacts.
-- [ ] Prove malicious or invalid content, restricted metadata, stale policy, active holds, redaction errors, partial disposition, downloaded-copy warnings, denied sharing, package validation, and historical traceability end to end.
+- Incorporate the decisions recorded in M0-D16 before finalizing this story's rules.
+- Define policy and assignment versions, artifact-level authorization, hold precedence, derivative identity, quarantine, disposition, delivery, availability, and historical-reliance rules.
+- Deliver authorized classify, restrict, hold, release, derive, review, disclose, revoke where possible, preview-disposition, dispose, and inspect-history behavior through the API, bounded processing, and browser.
+- Apply the same decisions to evidence, imports, provider reports, workforce snapshots, responses, exports, and packages and expose availability to readiness and validation without duplicating artifacts.
+- Prove malicious or invalid content, restricted metadata, stale policy, active holds, redaction errors, partial disposition, downloaded-copy warnings, denied sharing, package validation, and historical traceability end to end.
 
 ## T1 - SOC 2 Type I supported
 
@@ -3580,17 +3582,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The team previews the complete baseline and blockers before confirmation.
-- [ ] Confirming the baseline gives it a stable identity and time.
-- [ ] Later source changes do not alter the frozen baseline.
-- [ ] An amendment explains the reason, approver, changed scope, and affected package material.
+- The team previews the complete baseline and blockers before confirmation.
+- Confirming the baseline gives it a stable identity and time.
+- Later source changes do not alter the frozen baseline.
+- An amendment explains the reason, approver, changed scope, and affected package material.
 
 Implementation subtasks:
 
-- [ ] Define engagement identity, Type I date, baseline contents, blocker and scope-difference rules, confirmation, and amendment impact semantics.
-- [ ] Deliver authorized engagement setup, baseline preview, drill-down, confirmation, and amendment behavior through the API and browser.
-- [ ] Resolve baseline items to exact source versions and reuse the shared snapshot model for every downstream Type I workflow without cloning mutable alternatives.
-- [ ] Prove incomplete previews, concurrent source changes, denied confirmation, amendments, package impact, historical stability, and standalone/split-host parity end to end.
+- Define engagement identity, Type I date, baseline contents, blocker and scope-difference rules, confirmation, and amendment impact semantics.
+- Deliver authorized engagement setup, baseline preview, drill-down, confirmation, and amendment behavior through the API and browser.
+- Resolve baseline items to exact source versions and reuse the shared snapshot model for every downstream Type I workflow without cloning mutable alternatives.
+- Prove incomplete previews, concurrent source changes, denied confirmation, amendments, package impact, historical stability, and standalone/split-host parity end to end.
 
 ### T1-02 Author, approve, and maintain the system description
 
@@ -3631,20 +3633,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Required sections show complete, incomplete, and not-applicable states with rationale.
-- [ ] Reviewers can comment and approve the exact version.
-- [ ] The approved description is bound to the Type I baseline.
-- [ ] A Type II version identifies its covered period, significant changes, and exact close snapshot and cannot imply unchanged operation when source records changed.
-- [ ] Stale, missing, or contradictory source relationships are visible before approval and package generation.
-- [ ] Later edits create a new version and cannot alter a delivered package silently.
+- Required sections show complete, incomplete, and not-applicable states with rationale.
+- Reviewers can comment and approve the exact version.
+- The approved description is bound to the Type I baseline.
+- A Type II version identifies its covered period, significant changes, and exact close snapshot and cannot imply unchanged operation when source records changed.
+- Stale, missing, or contradictory source relationships are visible before approval and package generation.
+- Later edits create a new version and cannot alter a delivered package silently.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Define version, section completeness, source binding, contradiction and staleness, not-applicable, review, approval, Type I baseline, Type II period, assertion, and close-snapshot rules.
-- [ ] Deliver authorized authoring, source linking and refresh, section status, review, approval, version comparison, period-change view, and export through the API and browser.
-- [ ] Reuse platform responsibilities and review decisions, preserve governed source relationships, and feed the exact approved version into assertions, requests, populations, packages, and snapshots.
-- [ ] Prove incomplete and contradictory sections, source-version changes, significant period changes, forbidden approval, concurrent edits, exact-version comments, export failure, and delivered-package stability end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Define version, section completeness, source binding, contradiction and staleness, not-applicable, review, approval, Type I baseline, Type II period, assertion, and close-snapshot rules.
+- Deliver authorized authoring, source linking and refresh, section status, review, approval, version comparison, period-change view, and export through the API and browser.
+- Reuse platform responsibilities and review decisions, preserve governed source relationships, and feed the exact approved version into assertions, requests, populations, packages, and snapshots.
+- Prove incomplete and contradictory sections, source-version changes, significant period changes, forbidden approval, concurrent edits, exact-version comments, export failure, and delivered-package stability end to end.
 
 ### T1-03 Give the auditor least-privilege engagement access
 
@@ -3675,17 +3677,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The auditor cannot view another program, engagement, or unshared draft.
-- [ ] The auditor can inspect and download shared support but cannot mutate source records.
-- [ ] The UI makes external visibility clear before material is shared.
-- [ ] Revoked access fails immediately while prior activity remains attributable.
+- The auditor cannot view another program, engagement, or unshared draft.
+- The auditor can inspect and download shared support but cannot mutate source records.
+- The UI makes external visibility clear before material is shared.
+- Revoked access fails immediately while prior activity remains attributable.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 and define scope, draft-sharing, time-bound grant, download, comment, and revocation rules.
-- [ ] Deliver provider-authenticated auditor activation and engagement-scoped sharing through the existing membership and authorization API and browser experience.
-- [ ] Enforce read, download, request, and comment permissions server-side on every referenced artifact while preserving visibility and actor history after revocation.
-- [ ] Prove cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states end to end.
+- Incorporate the decisions recorded in M0-D17 and define scope, draft-sharing, time-bound grant, download, comment, and revocation rules.
+- Deliver provider-authenticated auditor activation and engagement-scoped sharing through the existing membership and authorization API and browser experience.
+- Enforce read, download, request, and comment permissions server-side on every referenced artifact while preserving visibility and actor history after revocation.
+- Prove cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states end to end.
 
 ### T1-04 Respond to auditor requests and samples
 
@@ -3715,17 +3717,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Contributors see the requests they own and the exact material requested.
-- [ ] The auditor sees only responses intentionally delivered.
-- [ ] Reopened requests preserve prior responses and explanation.
-- [ ] Overdue, blocked, submitted, accepted, and resolved states are explainable and filterable.
+- Contributors see the requests they own and the exact material requested.
+- The auditor sees only responses intentionally delivered.
+- Reopened requests preserve prior responses and explanation.
+- Overdue, blocked, submitted, accepted, and resolved states are explainable and filterable.
 
 Implementation subtasks:
 
-- [ ] Define request source, lifecycle, assignment, response version, evidence linking, internal-review policy, external delivery, reopen, and due-date rules.
-- [ ] Deliver authorized create or receive, assign, discuss, assemble, review, deliver, reopen, and filter behavior through the API and browser.
-- [ ] Reuse evidence identity, support relationships, work queues, scoped external access, review decisions, and delivery history rather than creating audit-only copies.
-- [ ] Prove missing and unauthorized evidence, rejected responses, late and reopened requests, concurrent edits, exact delivery visibility, reporting reconciliation, and history end to end.
+- Define request source, lifecycle, assignment, response version, evidence linking, internal-review policy, external delivery, reopen, and due-date rules.
+- Deliver authorized create or receive, assign, discuss, assemble, review, deliver, reopen, and filter behavior through the API and browser.
+- Reuse evidence identity, support relationships, work queues, scoped external access, review decisions, and delivery history rather than creating audit-only copies.
+- Prove missing and unauthorized evidence, rejected responses, late and reopened requests, concurrent edits, exact delivery visibility, reporting reconciliation, and history end to end.
 
 ### T1-05 Produce and validate the Type I package
 
@@ -3767,21 +3769,21 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every index entry resolves to the included record or artifact.
-- [ ] Validation errors block a clean package; authorized overrides require rationale.
-- [ ] Package generation reports progress and cannot claim success after partial failure.
-- [ ] Regenerating the same snapshot produces an equivalent manifest.
-- [ ] Delivered packages remain retrievable exactly as delivered.
-- [ ] The control matrix, evidence index, and other tabular outputs reconcile to the same records as the human-readable index and manifest.
-- [ ] Management-authored, auditor-authored, and product-calculated content are labeled and cannot be mistaken for one another.
+- Every index entry resolves to the included record or artifact.
+- Validation errors block a clean package; authorized overrides require rationale.
+- Package generation reports progress and cannot claim success after partial failure.
+- Regenerating the same snapshot produces an equivalent manifest.
+- Delivered packages remain retrievable exactly as delivered.
+- The control matrix, evidence index, and other tabular outputs reconcile to the same records as the human-readable index and manifest.
+- Management-authored, auditor-authored, and product-calculated content are labeled and cannot be mistaken for one another.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Define manifest identity, output schemas, deterministic ordering, content identity, source authorship, authorization filtering, validation, override, generation, retention, amendment, and delivery rules.
-- [ ] Deliver authorized preview, validate, generate, monitor, download, deliver, amend, and retrieve behavior through the API, bounded worker processing, and browser.
-- [ ] Resolve every manifest entry to the shared record or artifact identity and record the member or system actor for each attempt and delivery.
-- [ ] Prove missing, stale, rejected, unauthorized, inconsistent tables, interrupted, retried, and partially generated cases; equivalent regeneration; least privilege; attribution distinctions; amendments; and exact retrieval end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Define manifest identity, output schemas, deterministic ordering, content identity, source authorship, authorization filtering, validation, override, generation, retention, amendment, and delivery rules.
+- Deliver authorized preview, validate, generate, monitor, download, deliver, amend, and retrieve behavior through the API, bounded worker processing, and browser.
+- Resolve every manifest entry to the shared record or artifact identity and record the member or system actor for each attempt and delivery.
+- Prove missing, stale, rejected, unauthorized, inconsistent tables, interrupted, retried, and partially generated cases; equivalent regeneration; least privilege; attribution distinctions; amendments; and exact retrieval end to end.
 
 ### T1-06 Track Type I observations and audit findings
 
@@ -3810,17 +3812,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Each item retains its exact source and relevant Type I snapshot relationships.
-- [ ] Internal changes cannot silently alter auditor-provided wording.
-- [ ] Closure requires evidence and authorized review.
-- [ ] Open items flow into the Type II operating plan with visible priority and ownership.
+- Each item retains its exact source and relevant Type I snapshot relationships.
+- Internal changes cannot silently alter auditor-provided wording.
+- Closure requires evidence and authorized review.
+- Open items flow into the Type II operating plan with visible priority and ownership.
 
 Implementation subtasks:
 
-- [ ] Define Type I source and baseline references, classification, external wording, response, corrective-action, closure, and roll-forward rules within the shared finding model.
-- [ ] Deliver authorized capture or import, inspect, relate, assign, respond, remediate, review, close, and reopen behavior through the API and browser.
-- [ ] Preserve auditor authorship and reuse evidence, responsibilities, work queues, review, readiness, and next-period planning without duplicating findings.
-- [ ] Prove immutable source wording, denied edits and closure, missing evidence, reopen history, baseline traceability, and Type II plan continuity end to end.
+- Define Type I source and baseline references, classification, external wording, response, corrective-action, closure, and roll-forward rules within the shared finding model.
+- Deliver authorized capture or import, inspect, relate, assign, respond, remediate, review, close, and reopen behavior through the API and browser.
+- Preserve auditor authorship and reuse evidence, responsibilities, work queues, review, readiness, and next-period planning without duplicating findings.
+- Prove immutable source wording, denied edits and closure, missing evidence, reopen history, baseline traceability, and Type II plan continuity end to end.
 
 ### T1-07 Record the Type I outcome and approve the Type II plan
 
@@ -3857,20 +3859,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The recorded result links to the exact Type I baseline and delivered package.
-- [ ] Management approval identifies the exact assertion wording, system description, package, known exceptions, approvers, and time.
-- [ ] An auditor-provided representation letter and issued report retain external provenance and cannot be edited into platform-authored conclusions.
-- [ ] Only authorized management can approve transition into the Type II plan.
-- [ ] Open findings and changed controls retain ownership and do not disappear during roll-forward.
-- [ ] The product distinguishes uploaded auditor conclusions from product-generated readiness status.
+- The recorded result links to the exact Type I baseline and delivered package.
+- Management approval identifies the exact assertion wording, system description, package, known exceptions, approvers, and time.
+- An auditor-provided representation letter and issued report retain external provenance and cannot be edited into platform-authored conclusions.
+- Only authorized management can approve transition into the Type II plan.
+- Open findings and changed controls retain ownership and do not disappear during roll-forward.
+- The product distinguishes uploaded auditor conclusions from product-generated readiness status.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Define assertion-version binding, representation-letter provenance and signed artifact, outcome-source provenance, report reference, management review, operating-plan contents, completeness, approval, and transition rules.
-- [ ] Deliver authorized assertion review and approval, representation-letter retention, outcome recording, plan assembly, gap drill-down, review, approval, and transition preview through the API and browser.
-- [ ] Resolve every plan entry to shared controls, responsibilities, cadence, evidence expectations, findings, and approved changes without copying them into an unrelated planning model.
-- [ ] Prove changed assertion inputs, hidden exceptions, wrong or missing signers, external-source protection, inconsistent plans, missing ownership or cadence, denied approval, outcome-source distinction, open-remediation continuity, and immutable Type I history end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Define assertion-version binding, representation-letter provenance and signed artifact, outcome-source provenance, report reference, management review, operating-plan contents, completeness, approval, and transition rules.
+- Deliver authorized assertion review and approval, representation-letter retention, outcome recording, plan assembly, gap drill-down, review, approval, and transition preview through the API and browser.
+- Resolve every plan entry to shared controls, responsibilities, cadence, evidence expectations, findings, and approved changes without copying them into an unrelated planning model.
+- Prove changed assertion inputs, hidden exceptions, wrong or missing signers, external-source protection, inconsistent plans, missing ownership or cadence, denied approval, outcome-source distinction, open-remediation continuity, and immutable Type I history end to end.
 
 ## T2 - SOC 2 Type II period operated
 
@@ -3912,17 +3914,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Starting the period creates a stable opening snapshot and operating plan.
-- [ ] Every required control has an owner, cadence, and expected occurrence population.
-- [ ] Unresolved opening gaps are visible and acknowledged.
-- [ ] Later changes preserve effective dates and never rewrite earlier occurrences.
+- Starting the period creates a stable opening snapshot and operating plan.
+- Every required control has an owner, cadence, and expected occurrence population.
+- Unresolved opening gaps are visible and acknowledged.
+- Later changes preserve effective dates and never rewrite earlier occurrences.
 
 Implementation subtasks:
 
-- [ ] Define period identity, boundaries, opening snapshot, expected population, overlap, planned-change, effective-date, approval, and amendment rules.
-- [ ] Deliver authorized period preview, blocker drill-down, start, inspect, and controlled-change behavior through the API and browser.
-- [ ] Resolve the opening plan to shared records and establish one period identity consumed by scheduling, evidence, access reviews, readiness, close, and packages.
-- [ ] Prove overlaps, missing ownership or cadence, unresolved acknowledgement, denied start, later changes, historical occurrences, and standalone/split-host parity end to end.
+- Define period identity, boundaries, opening snapshot, expected population, overlap, planned-change, effective-date, approval, and amendment rules.
+- Deliver authorized period preview, blocker drill-down, start, inspect, and controlled-change behavior through the API and browser.
+- Resolve the opening plan to shared records and establish one period identity consumed by scheduling, evidence, access reviews, readiness, close, and packages.
+- Prove overlaps, missing ownership or cadence, unresolved acknowledgement, denied start, later changes, historical occurrences, and standalone/split-host parity end to end.
 
 ### T2-02 Operate a recurring control calendar
 
@@ -3952,17 +3954,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Owners can see what is due, why it is due, and the covered period.
-- [ ] Repeated scheduling cannot create duplicate required occurrences.
-- [ ] A cadence change previews added, retained, and removed future work before approval.
-- [ ] Historical and active occurrences remain separate and traceable.
+- Owners can see what is due, why it is due, and the covered period.
+- Repeated scheduling cannot create duplicate required occurrences.
+- A cadence change previews added, retained, and removed future work before approval.
+- Historical and active occurrences remain separate and traceable.
 
 Implementation subtasks:
 
-- [ ] Define deterministic occurrence identity, recurring/event/ad-hoc generation, due and covered-period semantics, effective changes, cancellation, and replay rules.
-- [ ] Deliver authorized calendar and work-queue queries, schedule-change preview and approval, and occurrence navigation through the API, bounded scheduler work, and browser.
-- [ ] Reuse control occurrences, responsibilities, performance, evidence, review, gaps, and readiness rather than introducing independent calendar completion state.
-- [ ] Prove duplicate prevention across retries and restarts, time boundaries, schedule edits, team and owner changes, historical separation, failed generation, and host-mode parity end to end.
+- Define deterministic occurrence identity, recurring/event/ad-hoc generation, due and covered-period semantics, effective changes, cancellation, and replay rules.
+- Deliver authorized calendar and work-queue queries, schedule-change preview and approval, and occurrence navigation through the API, bounded scheduler work, and browser.
+- Reuse control occurrences, responsibilities, performance, evidence, review, gaps, and readiness rather than introducing independent calendar completion state.
+- Prove duplicate prevention across retries and restarts, time boundaries, schedule edits, team and owner changes, historical separation, failed generation, and host-mode parity end to end.
 
 ### T2-03 Collect and review evidence for every required occurrence
 
@@ -3992,17 +3994,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every expected occurrence resolves to completed and accepted, validly not applicable, approved exception, or unresolved gap.
-- [ ] Old or outside-period evidence cannot make a current occurrence complete without an explicit valid rule.
-- [ ] Review queues prioritize overdue and material work.
-- [ ] Population totals reconcile to their underlying occurrence records.
+- Every expected occurrence resolves to completed and accepted, validly not applicable, approved exception, or unresolved gap.
+- Old or outside-period evidence cannot make a current occurrence complete without an explicit valid rule.
+- Review queues prioritize overdue and material work.
+- Population totals reconcile to their underlying occurrence records.
 
 Implementation subtasks:
 
-- [ ] Define completeness and period-applicability rules, accepted terminal states, reused-evidence explanation, correction behavior, and population reconciliation.
-- [ ] Deliver authorized occurrence support and review workflows plus population drill-down through the shared APIs and connected browser experience.
-- [ ] Feed missing, rejected, stale, or exception-backed occurrences into shared work, findings, and readiness while retaining all submissions and decisions.
-- [ ] Prove every terminal state, outside-period and reused evidence, corrections, review priority, denied access, exact totals, and immutable history end to end.
+- Define completeness and period-applicability rules, accepted terminal states, reused-evidence explanation, correction behavior, and population reconciliation.
+- Deliver authorized occurrence support and review workflows plus population drill-down through the shared APIs and connected browser experience.
+- Feed missing, rejected, stale, or exception-backed occurrences into shared work, findings, and readiness while retaining all submissions and decisions.
+- Prove every terminal state, outside-period and reused evidence, corrections, review priority, denied access, exact totals, and immutable history end to end.
 
 ### T2-04 Monitor readiness and intervene before gaps age
 
@@ -4033,17 +4035,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Counts reconcile with the underlying filtered records and show an as-of time.
-- [ ] Draft, unreviewed, stale, and exception-backed work remains visibly distinct.
-- [ ] Team members can filter their actionable work by date, severity, control, and status.
-- [ ] Status changes are explainable and never depend on hidden manual overrides.
+- Counts reconcile with the underlying filtered records and show an as-of time.
+- Draft, unreviewed, stale, and exception-backed work remains visibly distinct.
+- Team members can filter their actionable work by date, severity, control, and status.
+- Status changes are explainable and never depend on hidden manual overrides.
 
 Implementation subtasks:
 
-- [ ] Define each measure, status, forecast, as-of time, authorization filter, materiality rule, and source-record reconciliation.
-- [ ] Deliver authorized overview, filtering, drill-down, work navigation, and stale-data or calculation-failure states through the API and browser.
-- [ ] Build the work experience as a projection over domain-owned responsibilities and activities, never as a second independently editable task system.
-- [ ] Prove counts and filters against underlying records, per-member and team visibility, unassigned work, status transitions, forecast changes, denied drill-down, and calculation failures end to end.
+- Define each measure, status, forecast, as-of time, authorization filter, materiality rule, and source-record reconciliation.
+- Deliver authorized overview, filtering, drill-down, work navigation, and stale-data or calculation-failure states through the API and browser.
+- Build the work experience as a projection over domain-owned responsibilities and activities, never as a second independently editable task system.
+- Prove counts and filters against underlying records, per-member and team visibility, unassigned work, status transitions, forecast changes, denied drill-down, and calculation failures end to end.
 
 ### T2-05 Run recurring application access reviews
 
@@ -4076,19 +4078,19 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Each campaign retains its own source population, configuration, decisions, and evidence.
-- [ ] Every currently in-scope reviewed system has an accepted current source snapshot or approved exception; missing collection cannot appear as zero access.
-- [ ] Human and NHI classification, ownership, grant paths, and expectation changes remain visible and reviewable.
-- [ ] Population changes are informative and never pre-decide review outcomes.
-- [ ] Required remediation is tracked to verified completion or approved exception.
-- [ ] Campaign cadence and completion contribute accurately to observation-period readiness.
+- Each campaign retains its own source population, configuration, decisions, and evidence.
+- Every currently in-scope reviewed system has an accepted current source snapshot or approved exception; missing collection cannot appear as zero access.
+- Human and NHI classification, ownership, grant paths, and expectation changes remain visible and reviewable.
+- Population changes are informative and never pre-decide review outcomes.
+- Required remediation is tracked to verified completion or approved exception.
+- Campaign cadence and completion contribute accurately to observation-period readiness.
 
 Implementation subtasks:
 
-- [ ] Define campaign-template reuse, application-scope reconciliation, new snapshot identity, human and NHI subject correlation, principal and grant-path correlation, expectation comparison, cadence, and non-inheritance of decisions.
-- [ ] Deliver authorized repeat-import preview, campaign creation, population comparison, assignment, decision, remediation, verification, and completion through the shared API and browser workflows.
-- [ ] Preserve external-versus-platform identity boundaries and connect each campaign to shared evidence, control occurrences, work, findings, exceptions, readiness, and period snapshots.
-- [ ] Prove added, removed, changed, missing, prohibited, expired, and ambiguous grants; provider identifier continuity; human and NHI ownership changes; missing system snapshots; prior-history isolation; unverified remediation; and exact period contribution end to end.
+- Define campaign-template reuse, application-scope reconciliation, new snapshot identity, human and NHI subject correlation, principal and grant-path correlation, expectation comparison, cadence, and non-inheritance of decisions.
+- Deliver authorized repeat-import preview, campaign creation, population comparison, assignment, decision, remediation, verification, and completion through the shared API and browser workflows.
+- Preserve external-versus-platform identity boundaries and connect each campaign to shared evidence, control occurrences, work, findings, exceptions, readiness, and period snapshots.
+- Prove added, removed, changed, missing, prohibited, expired, and ambiguous grants; provider identifier continuity; human and NHI ownership changes; missing system snapshots; prior-history isolation; unverified remediation; and exact period contribution end to end.
 
 ### T2-06 Complete periodic policy, risk, and vendor reviews
 
@@ -4123,17 +4125,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Owners see upcoming and overdue governance reviews in the same work experience.
-- [ ] A completed review identifies the exact policy, risk, or vendor version reviewed.
-- [ ] Material changes identify affected controls, scope, and evidence.
-- [ ] Skipped or overdue reviews remain visible and require resolution or approved exception.
+- Owners see upcoming and overdue governance reviews in the same work experience.
+- A completed review identifies the exact policy, risk, or vendor version reviewed.
+- Material changes identify affected controls, scope, and evidence.
+- Skipped or overdue reviews remain visible and require resolution or approved exception.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D19 and define subject-specific decision and material-change rules.
-- [ ] Deliver authorized scheduling, work queue, exact-version review, evidence, decision, next-date, and exception behavior through shared APIs and the browser.
-- [ ] Route material decisions into control and scope impact analysis, corrective work, evidence expectations, and readiness while preserving prior versions and decisions.
-- [ ] Prove due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status end to end.
+- Incorporate the decisions recorded in M0-D19 and define subject-specific decision and material-change rules.
+- Deliver authorized scheduling, work queue, exact-version review, evidence, decision, next-date, and exception behavior through shared APIs and the browser.
+- Route material decisions into control and scope impact analysis, corrective work, evidence expectations, and readiness while preserving prior versions and decisions.
+- Prove due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status end to end.
 
 ### T2-07 Assess system changes and incidents for compliance impact
 
@@ -4167,18 +4169,18 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Material items cannot close until control and scope impact has been reviewed.
-- [ ] Affected records show the relationship and resulting decision.
-- [ ] Period reporting distinguishes planned change, incident response, and unresolved exception.
-- [ ] The active Type II system description identifies evaluated significant changes and cannot remain approved with an unresolved material contradiction.
-- [ ] Restricted incident details remain protected while audit-relevant conclusions can be shared deliberately.
+- Material items cannot close until control and scope impact has been reviewed.
+- Affected records show the relationship and resulting decision.
+- Period reporting distinguishes planned change, incident response, and unresolved exception.
+- The active Type II system description identifies evaluated significant changes and cannot remain approved with an unresolved material contradiction.
+- Restricted incident details remain protected while audit-relevant conclusions can be shared deliberately.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D21 before finalizing this story's rules.
-- [ ] Deliver authorized capture or import, relate, assess, restrict, share conclusions, create follow-up work, and close behavior through the API and browser.
-- [ ] Reuse shared source provenance, responsibilities, evidence, reviews, findings, scope impact, readiness, period history, and package selection.
-- [ ] Prove planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility end to end.
+- Incorporate the decisions recorded in M0-D21 before finalizing this story's rules.
+- Deliver authorized capture or import, relate, assess, restrict, share conclusions, create follow-up work, and close behavior through the API and browser.
+- Reuse shared source provenance, responsibilities, evidence, reviews, findings, scope impact, readiness, period history, and package selection.
+- Prove planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility end to end.
 
 ### T2-08 Automate selected inventory, access, and evidence collection
 
@@ -4237,29 +4239,29 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The UI explains requested provider access before connection and supports test, disable, and revoke.
-- [ ] Successful collections enter the same inventory, population, evidence, reconciliation, and review workflows as equivalent manual submissions.
-- [ ] The complete manual workflow remains usable when the connector runtime is unavailable, disabled, or has never been deployed.
-- [ ] Permission denial, rate limiting, partial results, stale data, and provider removal are visible and cannot appear complete.
-- [ ] Repeated collection does not create duplicate evidence for the same source snapshot.
-- [ ] Missing source records require explicit tombstone or reconciliation treatment and cannot silently delete, merge, retire, or de-scope governed records.
-- [ ] Each current inventory or population view explains its source coverage, last complete observation, outstanding conflicts, and accountable owner.
-- [ ] Users never see provider credential material after configuration.
+- The UI explains requested provider access before connection and supports test, disable, and revoke.
+- Successful collections enter the same inventory, population, evidence, reconciliation, and review workflows as equivalent manual submissions.
+- The complete manual workflow remains usable when the connector runtime is unavailable, disabled, or has never been deployed.
+- Permission denial, rate limiting, partial results, stale data, and provider removal are visible and cannot appear complete.
+- Repeated collection does not create duplicate evidence for the same source snapshot.
+- Missing source records require explicit tombstone or reconciliation treatment and cannot silently delete, merge, retire, or de-scope governed records.
+- Each current inventory or population view explains its source coverage, last complete observation, outstanding conflicts, and accountable owner.
+- Users never see provider credential material after configuration.
 
 Implementation subtasks:
 
-- [ ] Run the inventory-integration discovery in the gap analysis before scheduling this P2 story; measure the first manual workflow and validate source authority, stable identifiers, completeness, matching, tombstones, freshness, and business value.
-- [ ] After the functional domain and manual workflows are proven, define and
+- Run the inventory-integration discovery in the gap analysis before scheduling this P2 story; measure the first manual workflow and validate source authority, stable identifiers, completeness, matching, tombstones, freshness, and business value.
+- After the functional domain and manual workflows are proven, define and
   version the executable process protocol, including bounded job input,
   canonical streaming output, diagnostics, completion and failure semantics,
   cancellation, and compatibility negotiation.
-- [ ] Implement the same connector-execution contract in cloud workers and
+- Implement the same connector-execution contract in cloud workers and
   customer-hosted agents without giving connectors control-plane or
   deployment-specific responsibilities.
-- [ ] Define least-privilege scopes, credential custody, source and raw-snapshot identity, collection boundaries, pagination, normalization, reconciliation, freshness, disable, and revocation rules.
-- [ ] Deliver authorized connection consent, test, scope and schedule configuration, run status, disable, and revoke behavior through the API, bounded worker execution, and browser.
-- [ ] Normalize results into existing workforce, inventory, external-access, population, or evidence primitives with provider identifiers, system-actor attribution, idempotency, partial-failure detail, preview, and ordinary human review.
-- [ ] Prove denied and revoked credentials, pagination gaps, rate limiting, partial and stale results, tombstones, ambiguous matches, retries, duplicate snapshots, secret non-disclosure, cross-organization isolation, reconciliation history, and manual-workflow parity end to end.
+- Define least-privilege scopes, credential custody, source and raw-snapshot identity, collection boundaries, pagination, normalization, reconciliation, freshness, disable, and revocation rules.
+- Deliver authorized connection consent, test, scope and schedule configuration, run status, disable, and revoke behavior through the API, bounded worker execution, and browser.
+- Normalize results into existing workforce, inventory, external-access, population, or evidence primitives with provider identifiers, system-actor attribution, idempotency, partial-failure detail, preview, and ordinary human review.
+- Prove denied and revoked credentials, pagination gaps, rate limiting, partial and stale results, tombstones, ambiguous matches, retries, duplicate snapshots, secret non-disclosure, cross-organization isolation, reconciliation history, and manual-workflow parity end to end.
 
 Delivery slices: this story is delivered through the following outcome slices,
 tracked as GitHub sub-issues. The parent's requirements, domain slice, and
@@ -4274,17 +4276,17 @@ submission.
 
 Acceptance criteria:
 
-- [ ] At least one source whose equivalent manual domain workflow is already
+- At least one source whose equivalent manual domain workflow is already
   functional can be configured, tested, collected, previewed, reconciled, and
   reviewed end to end.
-- [ ] A disposable connector executable receives one bounded collection job and
+- A disposable connector executable receives one bounded collection job and
   streams versioned canonical records separately from diagnostics; successful
   exit commits the staged run, while failure, cancellation, or partial output
   cannot appear complete or advance durable source state.
-- [ ] The cloud worker owns connector selection, credential delivery, resource
+- The cloud worker owns connector selection, credential delivery, resource
   limits, durable staging, cancellation, and run status without granting the
   connector control-plane responsibilities.
-- [ ] Disabling or removing the connector runtime leaves the equivalent manual
+- Disabling or removing the connector runtime leaves the equivalent manual
   workflow fully usable.
 
 Depends on: M0-D20, M0-D24
@@ -4297,15 +4299,15 @@ the ordinary reconciliation and review workflow.
 
 Acceptance criteria:
 
-- [ ] A customer-hosted agent launches the same connector artifact with the same
+- A customer-hosted agent launches the same connector artifact with the same
   versioned process contract used by the cloud worker.
-- [ ] The agent owns its outbound control-plane communication, local credential
+- The agent owns its outbound control-plane communication, local credential
   resolution, artifact verification, resource limits, cancellation, and durable
   delivery; the connector contains no cloud-versus-customer deployment logic.
-- [ ] Disconnects, retries, duplicate delivery, agent or connector upgrades,
+- Disconnects, retries, duplicate delivery, agent or connector upgrades,
   revoked credentials, and incomplete runs remain visible and cannot create a
   completed source snapshot.
-- [ ] The customer can disable the agent and continue the equivalent workflow
+- The customer can disable the agent and continue the equivalent workflow
   through manual entry or import.
 
 Depends on: T2-08a
@@ -4346,17 +4348,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The review identifies the exact as-of snapshot and unresolved material items.
-- [ ] Management can approve, request action, or defer with rationale.
-- [ ] Assigned actions appear in accountable work queues.
-- [ ] Later data changes do not silently change the historical review.
+- The review identifies the exact as-of snapshot and unresolved material items.
+- Management can approve, request action, or defer with rationale.
+- Assigned actions appear in accountable work queues.
+- Later data changes do not silently change the historical review.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D19 and define snapshot, agenda, quorum or approver, decision, action, and deferral rules.
-- [ ] Deliver authorized assemble, preview, conduct, decide, approve, assign, and inspect behavior through shared APIs and the browser.
-- [ ] Bind the review to exact source records and route actions through shared responsibilities, findings or corrective work, evidence, and readiness.
-- [ ] Prove incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion end to end.
+- Incorporate the decisions recorded in M0-D19 and define snapshot, agenda, quorum or approver, decision, action, and deferral rules.
+- Deliver authorized assemble, preview, conduct, decide, approve, assign, and inspect behavior through shared APIs and the browser.
+- Bind the review to exact source records and route actions through shared responsibilities, findings or corrective work, evidence, and readiness.
+- Prove incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion end to end.
 
 ## T3 - SOC 2 Type II examination supported
 
@@ -4397,18 +4399,18 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The close preview reconciles expected and actual populations.
-- [ ] Unresolved material items are acknowledged rather than omitted.
-- [ ] Closing records approver, time, rationale, and stable snapshot identity.
-- [ ] Later source changes cannot alter the snapshot.
-- [ ] Amendments are attributable and identify affected examination material.
+- The close preview reconciles expected and actual populations.
+- Unresolved material items are acknowledged rather than omitted.
+- Closing records approver, time, rationale, and stable snapshot identity.
+- Later source changes cannot alter the snapshot.
+- Amendments are attributable and identify affected examination material.
 
 Implementation subtasks:
 
-- [ ] Define close contents, expected-versus-actual reconciliation, blockers, acknowledgements, approval, immutable identity, and amendment impact rules.
-- [ ] Deliver authorized close preview, drill-down, approval, freeze, inspect, and amend behavior through the API, bounded snapshot processing, and browser.
-- [ ] Resolve all entries to shared source identities and versions and make the close snapshot the only source for downstream examination workflows.
-- [ ] Prove missing and duplicate populations, concurrent changes, unresolved acknowledgements, denied approval, partial freeze failure, amendments, later source changes, and host-mode parity end to end.
+- Define close contents, expected-versus-actual reconciliation, blockers, acknowledgements, approval, immutable identity, and amendment impact rules.
+- Deliver authorized close preview, drill-down, approval, freeze, inspect, and amend behavior through the API, bounded snapshot processing, and browser.
+- Resolve all entries to shared source identities and versions and make the close snapshot the only source for downstream examination workflows.
+- Prove missing and duplicate populations, concurrent changes, unresolved acknowledgements, denied approval, partial freeze failure, amendments, later source changes, and host-mode parity end to end.
 
 ### T3-02 Demonstrate complete audit populations
 
@@ -4454,20 +4456,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Population totals and source boundaries reconcile to individually inspectable rows and their source or collection snapshot.
-- [ ] Included, excluded, missing, duplicate, rejected, unresolved, canceled, not-applicable, and exception-backed rows remain distinguishable as applicable.
-- [ ] An exported population identifies its source snapshot and calculation time.
-- [ ] Partial collection, pagination gaps, changed queries, or missing source evidence cannot appear as a complete population.
-- [ ] Later corrections do not silently alter a population already used for sampling.
-- [ ] Restricted columns and linked artifacts remain protected in inspection and export without changing population identity or totals.
+- Population totals and source boundaries reconcile to individually inspectable rows and their source or collection snapshot.
+- Included, excluded, missing, duplicate, rejected, unresolved, canceled, not-applicable, and exception-backed rows remain distinguishable as applicable.
+- An exported population identifies its source snapshot and calculation time.
+- Partial collection, pagination gaps, changed queries, or missing source evidence cannot appear as a complete population.
+- Later corrections do not silently alter a population already used for sampling.
+- Restricted columns and linked artifacts remain protected in inspection and export without changing population identity or totals.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Define source universe, definition version, inclusion, exclusion, reconciliation, effective-date, row identity, missing and duplicate classification, source snapshot, completeness, calculation time, amendment, freeze, and export rules.
-- [ ] Deliver authorized population define or import, generate, inspect, filter, reconcile, export, amend, and freeze-for-sample behavior through the API, bounded processing, and browser.
-- [ ] Resolve population rows to exact source facts and shared occurrence, performance, workforce, inventory, access, decision, evidence, and exception records where applicable while enforcing field and artifact authorization.
-- [ ] Prove source and pagination gaps, changed definitions, every row classification, exact totals, restricted fields and evidence, export failure, source amendments, sample binding, and historical stability end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Define source universe, definition version, inclusion, exclusion, reconciliation, effective-date, row identity, missing and duplicate classification, source snapshot, completeness, calculation time, amendment, freeze, and export rules.
+- Deliver authorized population define or import, generate, inspect, filter, reconcile, export, amend, and freeze-for-sample behavior through the API, bounded processing, and browser.
+- Resolve population rows to exact source facts and shared occurrence, performance, workforce, inventory, access, decision, evidence, and exception records where applicable while enforcing field and artifact authorization.
+- Prove source and pagination gaps, changed definitions, every row classification, exact totals, restricted fields and evidence, export failure, source amendments, sample binding, and historical stability end to end.
 
 ### T3-03 Fulfill Type II sample and evidence requests
 
@@ -4497,18 +4499,18 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Each sample resolves to the exact frozen population item.
-- [ ] Contributors can see what remains missing before submission.
-- [ ] Only internally approved responses become externally visible when review is required.
-- [ ] Reopened requests preserve prior deliveries and reasons.
-- [ ] Request status and response-time reporting reconcile with the underlying history.
+- Each sample resolves to the exact frozen population item.
+- Contributors can see what remains missing before submission.
+- Only internally approved responses become externally visible when review is required.
+- Reopened requests preserve prior deliveries and reasons.
+- Request status and response-time reporting reconcile with the underlying history.
 
 Implementation subtasks:
 
-- [ ] Define sample-selection source, frozen item reference, request lifecycle, ownership, supplemental evidence, review policy, delivery, reopen, and timing rules.
-- [ ] Deliver authorized sample capture or import, request assignment, response assembly, review, delivery, follow-up, reopen, and reporting through shared APIs and the browser.
-- [ ] Reuse platform responsibilities, scoped external visibility, evidence identity, support relationships, review decisions, work queues, and delivery records.
-- [ ] Prove invalid or amended population references, missing support, denied visibility, rejected and reopened responses, concurrent edits, exact delivery history, and metric reconciliation end to end.
+- Define sample-selection source, frozen item reference, request lifecycle, ownership, supplemental evidence, review policy, delivery, reopen, and timing rules.
+- Deliver authorized sample capture or import, request assignment, response assembly, review, delivery, follow-up, reopen, and reporting through shared APIs and the browser.
+- Reuse platform responsibilities, scoped external visibility, evidence identity, support relationships, review decisions, work queues, and delivery records.
+- Prove invalid or amended population references, missing support, denied visibility, rejected and reopened responses, concurrent edits, exact delivery history, and metric reconciliation end to end.
 
 ### T3-04 Resolve examination exceptions and remediation commitments
 
@@ -4540,17 +4542,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Internal users cannot silently alter auditor-authored text.
-- [ ] Resolution requires evidence and authorized review.
-- [ ] Accepted risk and planned remediation remain distinct.
-- [ ] Open and closed items appear accurately in handoff and roll-forward views.
+- Internal users cannot silently alter auditor-authored text.
+- Resolution requires evidence and authorized review.
+- Accepted risk and planned remediation remain distinct.
+- Open and closed items appear accurately in handoff and roll-forward views.
 
 Implementation subtasks:
 
-- [ ] Define examination source, immutable wording, affected-record references, management response, root cause, corrective action, risk acceptance, closure, and roll-forward rules.
-- [ ] Deliver authorized capture or import, inspect, relate, respond, assign, remediate, accept risk, review, close, and reopen behavior through shared APIs and the browser.
-- [ ] Preserve auditor authorship and reuse work queues, evidence, review, readiness, package, and roll-forward relationships rather than creating an audit-only exception store.
-- [ ] Prove source-text protection, frozen-record references, denied closure, missing evidence, risk-versus-remediation distinctions, reopen history, package accuracy, and next-period continuity end to end.
+- Define examination source, immutable wording, affected-record references, management response, root cause, corrective action, risk acceptance, closure, and roll-forward rules.
+- Deliver authorized capture or import, inspect, relate, respond, assign, remediate, accept risk, review, close, and reopen behavior through shared APIs and the browser.
+- Preserve auditor authorship and reuse work queues, evidence, review, readiness, package, and roll-forward relationships rather than creating an audit-only exception store.
+- Prove source-text protection, frozen-record references, denied closure, missing evidence, risk-versus-remediation distinctions, reopen history, package accuracy, and next-period continuity end to end.
 
 ### T3-05 Produce and validate the Type II package
 
@@ -4593,21 +4595,21 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every index entry resolves and every included artifact matches its manifest identity.
-- [ ] Validation errors block clean delivery; authorized overrides require rationale.
-- [ ] Partial or interrupted generation cannot appear successful.
-- [ ] Regenerating the same snapshot produces an equivalent manifest.
-- [ ] Access to delivered packages is least-privilege and recorded.
-- [ ] Population, sample, control-matrix, evidence-index, and request tables reconcile to the same records as the human-readable index and manifest.
-- [ ] Management-authored, auditor-authored, and product-calculated content are labeled and cannot be mistaken for one another.
+- Every index entry resolves and every included artifact matches its manifest identity.
+- Validation errors block clean delivery; authorized overrides require rationale.
+- Partial or interrupted generation cannot appear successful.
+- Regenerating the same snapshot produces an equivalent manifest.
+- Access to delivered packages is least-privilege and recorded.
+- Population, sample, control-matrix, evidence-index, and request tables reconcile to the same records as the human-readable index and manifest.
+- Management-authored, auditor-authored, and product-calculated content are labeled and cannot be mistaken for one another.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Extend the shared package definition and output schemas for period, source inventories, population, sample, request, response, exception, management-response, assertion input, and amendment content while preserving deterministic identity, authorship, and authorization rules.
-- [ ] Deliver authorized preview, validate, generate, monitor, override, download, deliver, and retrieve behavior through shared APIs, bounded worker processing, and browser.
-- [ ] Resolve every manifest entry to exact shared records and artifacts, enforce their sharing policy, and record member or system actors for attempts and delivery.
-- [ ] Prove completeness, period applicability, table reconciliation, attribution distinctions, restricted content, partial and interrupted generation, retry, equivalent regeneration, least privilege, amendments, and exact retained retrieval end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Extend the shared package definition and output schemas for period, source inventories, population, sample, request, response, exception, management-response, assertion input, and amendment content while preserving deterministic identity, authorship, and authorization rules.
+- Deliver authorized preview, validate, generate, monitor, override, download, deliver, and retrieve behavior through shared APIs, bounded worker processing, and browser.
+- Resolve every manifest entry to exact shared records and artifacts, enforce their sharing policy, and record member or system actors for attempts and delivery.
+- Prove completeness, period applicability, table reconciliation, attribution distinctions, restricted content, partial and interrupted generation, retry, equivalent regeneration, least privilege, amendments, and exact retained retrieval end to end.
 
 ### T3-06 Record management sign-off and the Type II outcome
 
@@ -4643,20 +4645,20 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Approvers review the exact immutable snapshot and package.
-- [ ] Management approval identifies the exact assertion wording, system description, population and exception state, package, approvers, and time.
-- [ ] The auditor-provided representation letter, tests and results, exceptions, and issued report retain external provenance and cannot be edited into platform-authored conclusions.
-- [ ] Unresolved material items cannot be hidden from sign-off.
-- [ ] The recorded outcome clearly identifies its source and is not inferred by the product.
-- [ ] Later changes make the sign-off historical rather than modifying it.
+- Approvers review the exact immutable snapshot and package.
+- Management approval identifies the exact assertion wording, system description, population and exception state, package, approvers, and time.
+- The auditor-provided representation letter, tests and results, exceptions, and issued report retain external provenance and cannot be edited into platform-authored conclusions.
+- Unresolved material items cannot be hidden from sign-off.
+- The recorded outcome clearly identifies its source and is not inferred by the product.
+- Later changes make the sign-off historical rather than modifying it.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
-- [ ] Define required approvers, assertion version and exact input binding, representation-letter provenance and signed artifact, management decision, outcome provenance, report reference, commitment, and historical-supersession rules.
-- [ ] Deliver authorized sign-off preview, assertion review and approval, representation-letter retention, drill-down, decision, comments, outcome recording, report linking, and commitment assignment through the API and browser.
-- [ ] Reuse platform actors, responsibilities, findings, risk acceptance, work queues, packages, and snapshot history while preserving the three distinct conclusion sources.
-- [ ] Prove changed assertion inputs, hidden or unresolved item prevention, wrong or missing signers, denied approval, external-source protection, source attribution, concurrent amendment, immutable sign-off, final commitments, and downstream rollover end to end.
+- Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
+- Define required approvers, assertion version and exact input binding, representation-letter provenance and signed artifact, management decision, outcome provenance, report reference, commitment, and historical-supersession rules.
+- Deliver authorized sign-off preview, assertion review and approval, representation-letter retention, drill-down, decision, comments, outcome recording, report linking, and commitment assignment through the API and browser.
+- Reuse platform actors, responsibilities, findings, risk acceptance, work queues, packages, and snapshot history while preserving the three distinct conclusion sources.
+- Prove changed assertion inputs, hidden or unresolved item prevention, wrong or missing signers, denied approval, external-source protection, source attribution, concurrent amendment, immutable sign-off, final commitments, and downstream rollover end to end.
 
 ### T3-07 Roll the program into continuous compliance and the next period
 
@@ -4686,18 +4688,18 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] The preview distinguishes carried-forward, changed, retired, and unresolved items.
-- [ ] Open remediation and commitments retain owner, due date, and source engagement.
-- [ ] New-period schedules do not duplicate prior occurrences.
-- [ ] Historical trends reconcile to each underlying period.
-- [ ] The team can begin the next cycle without altering the completed audit record.
+- The preview distinguishes carried-forward, changed, retired, and unresolved items.
+- Open remediation and commitments retain owner, due date, and source engagement.
+- New-period schedules do not duplicate prior occurrences.
+- Historical trends reconcile to each underlying period.
+- The team can begin the next cycle without altering the completed audit record.
 
 Implementation subtasks:
 
-- [ ] Define eligible carry-forward records, change classification, open-commitment continuity, schedule boundary, comparison measures, approval, and safe replay rules.
-- [ ] Deliver authorized roll-forward preview, inspect, select, revise, approve, create-next-period, and compare behavior through the API, bounded processing, and browser.
-- [ ] Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
-- [ ] Prove carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability end to end.
+- Define eligible carry-forward records, change classification, open-commitment continuity, schedule boundary, comparison measures, approval, and safe replay rules.
+- Deliver authorized roll-forward preview, inspect, select, revise, approve, create-next-period, and compare behavior through the API, bounded processing, and browser.
+- Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
+- Prove carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability end to end.
 
 ## F1 - Multi-client firm operations
 
@@ -4732,17 +4734,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Onboarding records which template versions were applied and creates only draft client records.
-- [ ] Offboarding revokes all client and firm-staff access to the organization at the recorded effective time.
-- [ ] The client export reconciles to the organization's records and artifacts and lists anything withheld with the reason.
-- [ ] Records under an engagement hold, legal hold, or retention obligation are not disposed of, and the reason is visible.
-- [ ] Disposition removes the organization's content from every store, index, projection, and backup according to the approved plan and records the result.
+- Onboarding records which template versions were applied and creates only draft client records.
+- Offboarding revokes all client and firm-staff access to the organization at the recorded effective time.
+- The client export reconciles to the organization's records and artifacts and lists anything withheld with the reason.
+- Records under an engagement hold, legal hold, or retention obligation are not disposed of, and the reason is visible.
+- Disposition removes the organization's content from every store, index, projection, and backup according to the approved plan and records the result.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D25, M0-D16, and M0-D27 and define lifecycle, export contents, firm-retained material, and disposition rules.
-- [ ] Deliver authorized onboard, suspend, reactivate, export, offboard, and dispose behavior through the API, bounded worker processing, and browser.
-- [ ] Prove export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions end to end.
+- Incorporate the decisions recorded in M0-D25, M0-D16, and M0-D27 and define lifecycle, export contents, firm-retained material, and disposition rules.
+- Deliver authorized onboard, suspend, reactivate, export, offboard, and dispose behavior through the API, bounded worker processing, and browser.
+- Prove export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions end to end.
 
 ### F1-02 See the client portfolio across organizations
 
@@ -4769,16 +4771,16 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] A staff member sees exactly the clients they are authorized for, and each summary reconciles to that client's own views at the stated as-of time.
-- [ ] Revoking an assignment removes the client from the portfolio immediately.
-- [ ] Portfolio search, export, and notifications never disclose unauthorized clients or restricted client details.
-- [ ] Opening a client from the portfolio switches the active organization visibly.
+- A staff member sees exactly the clients they are authorized for, and each summary reconciles to that client's own views at the stated as-of time.
+- Revoking an assignment removes the client from the portfolio immediately.
+- Portfolio search, export, and notifications never disclose unauthorized clients or restricted client details.
+- Opening a client from the portfolio switches the active organization visibly.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D25 and M0-A05 and define portfolio measures, authorization, and as-of semantics.
-- [ ] Deliver the portfolio overview, filters, drill-down, and organization switch through the API and browser.
-- [ ] Prove per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant leak tests end to end.
+- Incorporate the decisions recorded in M0-D25 and M0-A05 and define portfolio measures, authorization, and as-of semantics.
+- Deliver the portfolio overview, filters, drill-down, and organization switch through the API and browser.
+- Prove per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant leak tests end to end.
 
 ### F1-03 Plan firm staff assignments and capacity across clients
 
@@ -4803,15 +4805,15 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] An assignment proposal that would breach an independence wall is blocked with an explanation.
-- [ ] Workload totals reconcile to the underlying client work items.
-- [ ] A workload view never reveals client details the viewer is not authorized to see.
+- An assignment proposal that would breach an independence wall is blocked with an explanation.
+- Workload totals reconcile to the underlying client work items.
+- A workload view never reveals client details the viewer is not authorized to see.
 
 Implementation subtasks:
 
-- [ ] Before scheduling this P2 story, confirm with firm leadership that capacity planning belongs in the platform rather than an existing resource tool.
-- [ ] Deliver authorized assignment overview, proposal, approval, and workload drill-down through the API and browser.
-- [ ] Prove independence blocks, reconciliation, and restricted visibility end to end.
+- Before scheduling this P2 story, confirm with firm leadership that capacity planning belongs in the platform rather than an existing resource tool.
+- Deliver authorized assignment overview, proposal, approval, and workload drill-down through the API and browser.
+- Prove independence blocks, reconciliation, and restricted visibility end to end.
 
 ### F1-04 Maintain a reusable template library and apply it to clients
 
@@ -4839,16 +4841,16 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Applying a template creates drafts in exactly one organization, each traceable to the template version.
-- [ ] A template update never changes an existing client record; it produces a reviewable proposal for each affected client.
-- [ ] No client identifier, evidence, or client-authored text enters a template without an explicit reviewed contribution.
-- [ ] Client users cannot see which other clients use a template.
+- Applying a template creates drafts in exactly one organization, each traceable to the template version.
+- A template update never changes an existing client record; it produces a reviewable proposal for each affected client.
+- No client identifier, evidence, or client-authored text enters a template without an explicit reviewed contribution.
+- Client users cannot see which other clients use a template.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D25 and M0-D02 and define template scope, versioning, application, successor proposals, and contribution rules.
-- [ ] Deliver authorized template authoring, approval, application, change impact, and client adoption through the API and browser.
-- [ ] Prove provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation end to end.
+- Incorporate the decisions recorded in M0-D25 and M0-D02 and define template scope, versioning, application, successor proposals, and contribution rules.
+- Deliver authorized template authoring, approval, application, change impact, and client adoption through the API and browser.
+- Prove provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation end to end.
 
 ### F1-05 Work one queue across all my client organizations
 
@@ -4873,16 +4875,16 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] Every item shows its client and resolves to one source record in that client organization.
-- [ ] Counts reconcile to each client's own queue for the same user.
-- [ ] Losing access to one client removes its items immediately without affecting other clients.
-- [ ] Restricted work in one client is never disclosed through the cross-client queue, counts, or digests.
+- Every item shows its client and resolves to one source record in that client organization.
+- Counts reconcile to each client's own queue for the same user.
+- Losing access to one client removes its items immediately without affecting other clients.
+- Restricted work in one client is never disclosed through the cross-client queue, counts, or digests.
 
 Implementation subtasks:
 
-- [ ] Define cross-organization aggregation, authorization, ordering, and digest grouping rules.
-- [ ] Deliver the cross-client queue, filters, and source navigation through the API and browser.
-- [ ] Prove revocation, reconciliation, restricted work, and cross-tenant leak tests end to end.
+- Define cross-organization aggregation, authorization, ordering, and digest grouping rules.
+- Deliver the cross-client queue, filters, and source navigation through the API and browser.
+- Prove revocation, reconciliation, restricted work, and cross-tenant leak tests end to end.
 
 ### F1-06 Let client users sign in through their own identity providers
 
@@ -4908,16 +4910,16 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] A user authenticated through one client's connection cannot reach any other organization unless separately a member.
-- [ ] Disabling a connection blocks new sign-ins through it immediately while preserving attribution.
-- [ ] A misconfigured or unreachable provider fails safely with an actionable error.
-- [ ] Connection secrets are never displayed after configuration.
+- A user authenticated through one client's connection cannot reach any other organization unless separately a member.
+- Disabling a connection blocks new sign-ins through it immediately while preserving attribution.
+- A misconfigured or unreachable provider fails safely with an actionable error.
+- Connection secrets are never displayed after configuration.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decision recorded in M0-A07 and define connection, discovery, mapping, and rotation rules.
-- [ ] Deliver authorized connection setup, test, disable, rotation, and sign-in routing through the API and browser.
-- [ ] Prove wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure, and host-mode parity end to end.
+- Incorporate the decision recorded in M0-A07 and define connection, discovery, mapping, and rotation rules.
+- Deliver authorized connection setup, test, disable, rotation, and sign-in routing through the API and browser.
+- Prove wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure, and host-mode parity end to end.
 
 ### F1-07 Record client engagements and accept them after independence checks
 
@@ -4945,16 +4947,16 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] No firm staff member can access a client's records without an active engagement assignment or an approved exception.
-- [ ] An engagement cannot start without a recorded acceptance decision and independence evaluation.
-- [ ] The approver sees every advisory and attest engagement for the client with its period and services before deciding.
-- [ ] Amending or closing an engagement preserves history and changes staff access at the effective time.
+- No firm staff member can access a client's records without an active engagement assignment or an approved exception.
+- An engagement cannot start without a recorded acceptance decision and independence evaluation.
+- The approver sees every advisory and attest engagement for the client with its period and services before deciding.
+- Amending or closing an engagement preserves history and changes staff access at the effective time.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decisions recorded in M0-D25, M0-D26, and M0-D27 and define engagement types, acceptance, assignment-based access, amendment, and closure rules.
-- [ ] Deliver authorized create, evaluate, accept, assign, amend, and close behavior through the API and browser.
-- [ ] Prove assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval end to end.
+- Incorporate the decisions recorded in M0-D25, M0-D26, and M0-D27 and define engagement types, acceptance, assignment-based access, amendment, and closure rules.
+- Deliver authorized create, evaluate, accept, assign, amend, and close behavior through the API and browser.
+- Prove assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval end to end.
 
 ### F1-08 Enforce independence walls between advisory and attest work
 
@@ -4983,17 +4985,17 @@ Domain slice:
 
 Acceptance criteria:
 
-- [ ] An attest engagement or staff assignment that breaches the approved rules cannot be accepted, and the explanation cites the rule and the conflicting service or assignment.
-- [ ] Attest staff cannot create, edit, or approve client management records, enforced on the server.
-- [ ] Advisory-only and attest-only material is inaccessible to the other team, including through search, counts, exports, and notifications.
-- [ ] Every evaluation, exception, and rule-set change is attributable and retained.
-- [ ] A later change to services or assignments triggers re-evaluation of affected attest engagements.
+- An attest engagement or staff assignment that breaches the approved rules cannot be accepted, and the explanation cites the rule and the conflicting service or assignment.
+- Attest staff cannot create, edit, or approve client management records, enforced on the server.
+- Advisory-only and attest-only material is inaccessible to the other team, including through search, counts, exports, and notifications.
+- Every evaluation, exception, and rule-set change is attributable and retained.
+- A later change to services or assignments triggers re-evaluation of affected attest engagements.
 
 Implementation subtasks:
 
-- [ ] Incorporate the decision recorded in M0-D26 and define rule-set versions, service classification, cooling-off periods, compartments, exceptions, and re-evaluation.
-- [ ] Deliver authorized service recording, evaluation, exception approval, compartment administration, and evaluation history through the API and browser.
-- [ ] Prove blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history end to end.
+- Incorporate the decision recorded in M0-D26 and define rule-set versions, service classification, cooling-off periods, compartments, exceptions, and re-evaluation.
+- Deliver authorized service recording, evaluation, exception approval, compartment administration, and evaluation history through the API and browser.
+- Prove blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history end to end.
 
 ## GitHub issue index
 
@@ -5101,7 +5103,7 @@ and UI dependencies directly in GitHub.
 | R1-13 | [#51](https://github.com/bdgrz/compliance/issues/51) | R1 | P0 | M0-D09, EN-02, EN-04, R1-02 |
 | R1-14 | [#52](https://github.com/bdgrz/compliance/issues/52) | R1 | P0 | M0-D11, M0-D23, EN-02, EN-06, R1-02, R1-10, R1-13 |
 | R1-15 | [#127](https://github.com/bdgrz/compliance/issues/127) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01 |
-| R1-15 backend | [#152](https://github.com/bdgrz/compliance/issues/152) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01; PR #151 credited, split-host proof pending |
+| R1-15 backend | [#152](https://github.com/bdgrz/compliance/issues/152) | R1 | P0 | M0-A07, M0-D25, M0-D28, EN-01 |
 | R2-01 | [#15](https://github.com/bdgrz/compliance/issues/15) | R2 | P0 | M0-D03, R1-04, R1-05 |
 | R2-02 | [#16](https://github.com/bdgrz/compliance/issues/16) | R2 | P0 | EN-02, EN-04, EN-06, R1-04 |
 | R2-03 | [#17](https://github.com/bdgrz/compliance/issues/17) | R2 | P0 | EN-06, R1-04 |

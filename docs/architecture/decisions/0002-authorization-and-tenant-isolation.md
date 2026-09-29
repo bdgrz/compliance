@@ -172,3 +172,12 @@ identifiers, in both the standalone host and the split API host with an
 independent worker. `IndependenceCompartmentsTests` and `FieldRestrictionsTests`
 prove the in-code independence and field-redaction rules; they read no host
 state, so they behave the same in both host modes.
+
+Every tenant-owned HTTP and MCP read carries a two-tenant read-leak test in
+both standalone and split API/worker hosts (the `*ReadLeakMatrixE2ETests`
+suites). The test seeds two populated tenants, an actor who may read both, and
+an outsider; pages every list through exhaustion; rejects cursors transplanted
+between tenants; and checks returned rows, counters, and foreign record IDs.
+The backend change that introduces a new tenant-owned read, count, export, job,
+notification, or artifact-content route adds that surface to the matrix,
+including restricted-row filtering before counting and pagination.
