@@ -36,7 +36,6 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
         var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         var delivery = new RecordingDelivery();
         using var worker = CreateWorker(applicationName, key, delivery);
-        await worker.StartAsync();
         await using var factory = CreateExternalFactory(applicationName, key);
         var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
         HttpClient client;
@@ -71,8 +70,21 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClass
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(verificationToken))),
             now.AddMinutes(15), now).IsSuccess);
         Assert.True(address.CompleteChallenge(userId, verificationToken, now).IsSuccess);
-        await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System),
-            CancellationToken.None);
+        try
+        {
+            await writer.SaveAsync(address, new RequestDispatchContext(RequestActor.System),
+                CancellationToken.None);
+        }
+        catch (EventStreamConcurrencyException exception)
+        {
+            throw new InvalidOperationException(
+                "The verified-email seed collided in email-addresses before the independent worker started.",
+                exception);
+        }
+
+        // The registration reactor can now observe the seeded reservation as an idempotent
+        // replay. Start the worker only after all direct source writes have committed.
+        await worker.StartAsync();
 
         // Act: the API writes the challenge; the independent worker delivers it.
         using var started = await owner.PostAsJsonAsync("/api/v1/identity-recovery/challenges",
