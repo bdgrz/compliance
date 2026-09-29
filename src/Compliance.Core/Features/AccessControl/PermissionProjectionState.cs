@@ -22,6 +22,15 @@ sealed class PermissionProjectionState
                 else
                     Members.Add(member.MemberId);
                 break;
+            case MemberSuspended member:
+                Members.Remove(member.MemberId);
+                break;
+            case MemberReinstated member:
+                if (member.Affiliation == "client_personnel")
+                    Members.Add(member.MemberId);
+                else
+                    Members.Remove(member.MemberId);
+                break;
             case TeamDefined team:
                 Teams.Add(team.TeamId);
                 break;

@@ -116,6 +116,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.snapshot.program_scope.manifest_regenerate",
             "bdgrz.snapshot.program.list",
             "bdgrz.member.access.get",
+            "bdgrz.member.responsibilities.list",
             "bdgrz.rbac.team.define",
             "bdgrz.rbac.team.delete",
             "bdgrz.rbac.team.get",
@@ -148,6 +149,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.platform.operator.revoke",
             "bdgrz.platform.tenant.list",
             "bdgrz.tenant-member.list",
+            "bdgrz.tenant.member.get",
+            "bdgrz.tenant.member.reinstate",
+            "bdgrz.tenant.member.suspend",
             "bdgrz.tenant.change-slug",
             "bdgrz.tenant-slug.resolve-mine",
             "bdgrz.workforce.person.record",
@@ -175,6 +179,14 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.responsibilities.conflicts.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.responsibilities.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.member.responsibilities.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.tenant.member.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.tenant.member.reinstate").Idempotent);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.tenant.member.suspend").Destructive);
         foreach (var name in new[]
                  {
                      "bdgrz.control.draft.get", "bdgrz.control.draft.list",

@@ -11,6 +11,36 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class FitzPermissionAuthorizerTests
 {
     [Fact]
+    public async Task ShouldDenyGivenMemberSuspensionHasNotReachedPermissionProjection()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        using var services = CreateServices(client, new FixedMembershipDirectory(true), events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        DomainEvent suspension = new MemberSuspended(tenantId, memberId, userId, Uuid.CreateVersion4(),
+            "Alex Admin", DateTimeOffset.UtcNow, "Employment ended.");
+        suspension.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-members",
+            memberId.ToString()), 0, [suspension]);
+
+        // Act
+        var allowedWhileProjectionLags = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.False(allowedWhileProjectionLags);
+    }
+
+    [Fact]
     public async Task ShouldDenyGivenTeamMemberRemovalHasNotReachedPermissionProjection()
     {
         // Arrange

@@ -25,6 +25,43 @@ sealed class FitzTenantMembershipDirectoryReader
                 Transaction,
                 new TenantMembershipView(registered.UserId, registered.TenantId, registered.Affiliation),
                 ct).ConfigureAwait(false);
+            return;
+        }
+
+        switch (domainEvent)
+        {
+            case MemberSuspended suspended:
+                var current = await TenantMembershipDirectorySchema.Directory.GetAsync(Transaction,
+                    suspended.UserId, ct).ConfigureAwait(false);
+                if (current is null)
+                    throw new InvalidOperationException("A member suspension cannot project before registration.");
+                await TenantMembershipDirectorySchema.Directory.ReplaceAsync(Transaction, current,
+                    current with
+                    {
+                        IsSuspended = true,
+                        SuspendedAt = suspended.SuspendedAt,
+                        SuspendedByMemberId = suspended.SuspendedByMemberId,
+                        SuspendedByDisplay = suspended.SuspendedByDisplay,
+                        SuspensionReason = suspended.Reason,
+                        ReinstatedAt = null,
+                        ReinstatedByMemberId = Uuid.Empty,
+                        ReinstatedByDisplay = null,
+                    }, ct).ConfigureAwait(false);
+                break;
+            case MemberReinstated reinstated:
+                var suspendedMembership = await TenantMembershipDirectorySchema.Directory.GetAsync(
+                    Transaction, reinstated.UserId, ct).ConfigureAwait(false);
+                if (suspendedMembership is null)
+                    throw new InvalidOperationException("A member reinstatement cannot project before registration.");
+                await TenantMembershipDirectorySchema.Directory.ReplaceAsync(Transaction, suspendedMembership,
+                    suspendedMembership with
+                    {
+                        IsSuspended = false,
+                        ReinstatedAt = reinstated.ReinstatedAt,
+                        ReinstatedByMemberId = reinstated.ReinstatedByMemberId,
+                        ReinstatedByDisplay = reinstated.ReinstatedByDisplay,
+                    }, ct).ConfigureAwait(false);
+                break;
         }
     }
 
@@ -36,7 +73,7 @@ sealed class FitzTenantMembershipDirectoryReader
     }
 
     public async ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-        await GetAsync(tenantId, userId, ct).ConfigureAwait(false) is not null;
+        await GetAsync(tenantId, userId, ct).ConfigureAwait(false) is { IsSuspended: false };
 
     public async ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
         CancellationToken ct = default)

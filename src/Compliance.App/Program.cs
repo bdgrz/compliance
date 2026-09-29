@@ -39,6 +39,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListTeams>(tool => tool.ReadOnly())
         .AddMcpTool<AssignTeamMember>(tool => tool.Idempotent())
         .AddMcpTool<RemoveTeamMember>(tool => tool.Destructive())
+        .AddMcpTool<SuspendMember>(tool => tool.Destructive())
+        .AddMcpTool<ReinstateMember>(tool => tool.Idempotent())
+        .AddMcpTool<GetTenantMember>(tool => tool.ReadOnly())
+        .AddMcpTool<ListMemberResponsibilities>(tool => tool.ReadOnly())
         .AddMcpTool<ListTeamMembers>(tool => tool.ReadOnly())
         .AddMcpTool<DefineRole>(tool => tool.Idempotent())
         .AddMcpTool<DeleteRole>(tool => tool.Destructive())
@@ -296,6 +300,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/members/{user_id}/access")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Access control");
+    app.MapPortiaPost<SuspendMember>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
+    app.MapPortiaDelete<ReinstateMember>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
+    app.MapPortiaGet<GetTenantMember, TenantMembershipView>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
+    app.MapPortiaGet<ListMemberResponsibilities, IReadOnlyList<ResponsibilityAssignmentView>>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/responsibilities")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Responsibilities");
     app.MapPortiaPost<AcceptTenantInvitation>("/api/v1/tenants/{tenant_id}/invitations/acceptance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");

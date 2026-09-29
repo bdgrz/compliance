@@ -95,6 +95,42 @@ public sealed class PermissionProjectionStateTests
     }
 
     [Fact]
+    public void ShouldRevokeAndRestorePermissionGivenMemberSuspensionAndReinstatement()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var actorMemberId = Uuid.CreateVersion4();
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        var at = DateTimeOffset.UtcNow;
+        var state = new PermissionProjectionState();
+        state.Apply(new MemberRegistered(tenantId, memberId, userId));
+        state.Apply(new TeamDefined(tenantId, teamId, "Administrators"));
+        state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId));
+        state.Apply(new RoleDefined(tenantId, roleId, "Tenant Administration"));
+        state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
+        state.Apply(new RolePermissionAssigned(tenantId, roleId, RbacPermissions.TenantAccess));
+
+        // Act
+        state.Apply(new MemberSuspended(tenantId, memberId, userId, actorMemberId,
+            "Alex Admin", at, "Employment ended."));
+        var grantsWhileSuspended = state.Materialize();
+        state.Apply(new MemberReinstated(tenantId, memberId, userId, "client_personnel",
+            actorMemberId, "Alex Admin", at.AddHours(1)));
+        var grantsAfterReinstatement = state.Materialize();
+
+        // Assert
+        Assert.Empty(grantsWhileSuspended);
+        Assert.Collection(grantsAfterReinstatement, grant =>
+        {
+            Assert.Equal(memberId, grant.MemberId);
+            Assert.Equal(RbacPermissions.TenantAccess, grant.Permission);
+        });
+    }
+
+    [Fact]
     public void ShouldRemovePermissionGivenTeamMemberRemoval()
     {
         // Arrange
