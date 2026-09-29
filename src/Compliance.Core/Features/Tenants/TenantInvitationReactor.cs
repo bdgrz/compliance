@@ -1,8 +1,10 @@
 using Cntryl.Portia;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed partial class TenantInvitationReactor(IProjectionCheckpointStore checkpoints, IRequestBus bus)
+public sealed partial class TenantInvitationReactor(IProjectionCheckpointStore checkpoints, IRequestBus bus,
+    ILogger<TenantInvitationReactor> logger)
     : Reactor(checkpoints, EventStreamPattern.ForTenant("tenant-invitations")),
       IReactorHandler<TenantInvitationAccepted>
 {
@@ -22,8 +24,9 @@ public sealed partial class TenantInvitationReactor(IProjectionCheckpointStore c
         {
             await bus.SendReactionAsync(new AssignTeamMember(context.Trigger.TenantId,
                 BuiltInRbac.AdministratorsTeamId(context.Trigger.TenantId), memberId), context, ct);
-            await bus.SendReactionAsync(new ActivateTenant(context.Trigger.TenantId,
-                context.Trigger.UserId, context.Trigger.EmailAddress), context, ct);
+            await TenantActivationRetry.SendAsync(bus,
+                new ActivateTenant(context.Trigger.TenantId, context.Trigger.UserId,
+                    context.Trigger.EmailAddress), context, logger, ct);
         }
     }
 }

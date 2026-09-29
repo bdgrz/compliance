@@ -11,6 +11,7 @@ using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -699,15 +700,34 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         // Arrange
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
         var activationLag = new TransientTenantAccessPermissionLag();
+        var activationProbe = new ActivationReactionProbe();
+        using var workerLogs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
+        string WorkerFaults() => string.Join(";", workerLogs.Records
+            .Where(record => record.Level >= LogLevel.Error &&
+                             (record.Category.Contains("PortiaWorkloadService", StringComparison.Ordinal) ||
+                              record.Category.Contains("FleetPartitionRunner", StringComparison.Ordinal) ||
+                              record.Category.Contains("MultiTenantRunner", StringComparison.Ordinal)))
+            .TakeLast(40)
+            .Select(record => $"{activationProbe.ElapsedMillisecondsAt(record.RecordedTimestamp):F0}ms:" +
+                $"{record.Category}:{record.Message}:{record.ExceptionText}"));
+        string ActivationLogs(Uuid targetTenantId) => string.Join(";", workerLogs.Records
+            .Where(record => record.Category.EndsWith("TenantInvitationReactor", StringComparison.Ordinal) &&
+                             string.Equals(record.Value("TenantId")?.ToString(), targetTenantId.ToString(),
+                                 StringComparison.Ordinal))
+            .TakeLast(40)
+            .Select(record => $"{activationProbe.ElapsedMillisecondsAt(record.RecordedTimestamp):F0}ms:" +
+                $"{record.EventName}:{record.Message}"));
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
         });
+        builder.Logging.AddProvider(workerLogs);
         builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
+        ActivationReactionProbe.Install(builder.Services, activationProbe);
         using var worker = builder.Build();
 
         // Act
@@ -746,7 +766,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var registration = await registered.Content.ReadFromJsonAsync<Registration>();
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            activationProbe.TargetTenant(tenantId);
             var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            var administratorRoleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
 
             await using (var restrictedFactory = E2EAppFactory.Create(broker, applicationName)
                              .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
@@ -823,10 +845,135 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
             await using var checkpointScope = worker.Services.CreateAsyncScope();
             var checkpointStore = checkpointScope.ServiceProvider.GetRequiredService<IProjectionCheckpointStore>();
+            var checkpointAtFirstFailure = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
+            var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
+            var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(90);
+            var projectionStarted = Stopwatch.GetTimestamp();
+            var permissionProjectionIdentity = new CheckpointIdentity("PermissionProjection",
+                EventStreamPattern.ForPattern(tenantId.ToString()));
+            var projectionServices = checkpointScope.ServiceProvider;
+            var projectionGate = new BrokerProjectionGate(
+                projectionServices.GetRequiredService<IDomainEventReader>(),
+                projectionServices.GetRequiredService<Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>(),
+                permissionProjectionIdentity);
+            var requiredGrantEvents = new Dictionary<string, DomainEventRecord>(StringComparer.Ordinal);
+            var requiredPermissions = new HashSet<string>(StringComparer.Ordinal)
+            {
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess,
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage,
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage,
+            };
+            var permissionProgress = new List<string>();
+            string? lastPermissionCursor = null;
+            var lastGrantEventCount = 0;
+            var nextProgressSampleMs = 0.0;
+            var membershipProjected = false;
+            var underlyingTenantAccess = false;
+            var underlyingRbacManage = false;
+            var underlyingProgramManage = false;
+            var requiredEventsCheckpointed = false;
+            var localRetryWindowExpired = false;
+            var permissionCheckpoint = ProjectionCheckpoint.Start;
+            IReadOnlyList<Bdgrz.Compliance.Features.AccessControl.MemberAccessEdge> projectedAccessEdges = [];
+            while (DateTimeOffset.UtcNow < projectionDeadline)
+            {
+                foreach (var record in await projectionGate.ReadNewEventsAsync())
+                {
+                    if (record.Event is Bdgrz.Compliance.Features.AccessControl.RolePermissionAssigned grant &&
+                        grant.RoleId == administratorRoleId && requiredPermissions.Contains(grant.Permission))
+                        requiredGrantEvents[grant.Permission] = record;
+                }
+                var requiredEventIds = requiredGrantEvents.Values
+                    .Select(record => record.Event.Metadata.EventId).ToHashSet();
+                (permissionCheckpoint, requiredEventsCheckpointed) =
+                    await projectionGate.ObserveAsync(requiredEventIds);
+                membershipProjected = await projectionServices.GetRequiredService<
+                    Bdgrz.Compliance.Features.Tenants.ITenantMembershipDirectoryReader>()
+                    .IsMemberAsync(tenantId.ToString(), parsedAdministratorId);
+                projectedAccessEdges = await projectionServices.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
+                    .ReadAsync(tenantId, memberId);
+                var underlyingPermissions = projectionServices.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.FitzPermissionAuthorizer>();
+                underlyingTenantAccess = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess);
+                underlyingRbacManage = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
+                underlyingProgramManage = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                var cursor = permissionCheckpoint.Cursor.ToString();
+                var elapsedMs = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
+                localRetryWindowExpired = workerLogs.Records.Any(record =>
+                    record.Category.EndsWith("TenantInvitationReactor", StringComparison.Ordinal) &&
+                    record.EventName == "LogActivationDeferred" &&
+                    string.Equals(record.Value("TenantId")?.ToString(), tenantId.ToString(),
+                        StringComparison.Ordinal));
+                if (permissionProgress.Count == 0 || cursor != lastPermissionCursor ||
+                    requiredGrantEvents.Count != lastGrantEventCount || elapsedMs >= nextProgressSampleMs)
+                {
+                    permissionProgress.Add($"{elapsedMs:F0}ms:cursor={cursor}:events={requiredGrantEvents.Count}:" +
+                        $"checkpointed={requiredEventsCheckpointed}:underlying=" +
+                        $"{underlyingTenantAccess},{underlyingRbacManage},{underlyingProgramManage}");
+                    lastPermissionCursor = cursor;
+                    lastGrantEventCount = requiredGrantEvents.Count;
+                    nextProgressSampleMs = elapsedMs + 5000;
+                }
+                if (requiredGrantEvents.Count == requiredPermissions.Count &&
+                    requiredEventsCheckpointed && membershipProjected &&
+                    underlyingTenantAccess && underlyingRbacManage && underlyingProgramManage &&
+                    activationProbe.FailedAttempts >= 5 && localRetryWindowExpired && elapsedMs >= 12_000)
+                    break;
+                await Task.Delay(250);
+            }
+            if (DateTimeOffset.UtcNow >= projectionDeadline)
+            {
+                var pendingEvents = new List<string>();
+                await using var pending = projectionGate.ReadPendingAsync(permissionCheckpoint)
+                    .GetAsyncEnumerator();
+                while (pendingEvents.Count < 100 && await pending.MoveNextAsync())
+                {
+                    var record = pending.Current;
+                    pendingEvents.Add($"{record.ResourceOffset}:{record.Event.GetType().Name}:" +
+                        $"{record.Event.Metadata.OccurredOn:O}:{record.Stream}");
+                }
+                Assert.Fail($"Administrator projection did not become ready while activation was held. " +
+                    $"membershipProjected={membershipProjected}; permissionCheckpoint={permissionCheckpoint.Cursor}; " +
+                    $"requiredGrantEvents={string.Join(";", requiredGrantEvents.Select(item =>
+                        $"{item.Key}:{item.Value.ResourceOffset}:{item.Value.Event.Metadata.OccurredOn:O}"))}; " +
+                    $"requiredEventsCheckpointed={requiredEventsCheckpointed}; " +
+                    $"localRetryWindowExpired={localRetryWindowExpired}; " +
+                    $"underlyingPermissions={underlyingTenantAccess},{underlyingRbacManage},{underlyingProgramManage}; " +
+                    $"accessEdges={string.Join(";", projectedAccessEdges.Select(edge =>
+                        $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
+                    $"permissionProgress={string.Join(";", permissionProgress)}; " +
+                    $"pendingPermissionEvents={string.Join(";", pendingEvents)}; " +
+                    $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                    $"workerFaults={WorkerFaults()}.");
+            }
+
+            // Release just after another failed activation. This isolates reactor retry
+            // latency from the time needed to build the underlying permission projection.
+            var failedAttemptsAtReadiness = activationProbe.FailedAttempts;
+            while (DateTimeOffset.UtcNow < projectionDeadline &&
+                   activationProbe.FailedAttempts == failedAttemptsAtReadiness)
+                await Task.Delay(50);
+            Assert.True(activationProbe.FailedAttempts > failedAttemptsAtReadiness,
+                $"Activation did not retry after projection readiness: {string.Join(";", activationProbe.Attempts)}; " +
+                $"permissionProgress={string.Join(";", permissionProgress)}; workerFaults={WorkerFaults()}");
             var checkpointBeforeRecovery = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            Assert.Equal(checkpointAtFirstFailure, checkpointBeforeRecovery);
+            var releasedAtMs = activationProbe.ElapsedMilliseconds;
             activationLag.Release();
 
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            // The scheduler's two-second retry cap applies between passes. A replay also
+            // rechecks durable member and team assignments before dispatching activation;
+            // under the full broker suite, one observed recovery took about 16 seconds.
+            // Keep the post-readiness phase bounded below the original 45-second contract.
+            deadline = DateTimeOffset.UtcNow.AddSeconds(30);
             var access = HttpStatusCode.Forbidden;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -839,8 +986,6 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             }
             if (access != HttpStatusCode.OK)
             {
-                var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
-                var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
                 await using var diagnostics = worker.Services.CreateAsyncScope();
                 var services = diagnostics.ServiceProvider;
                 var reader = services.GetRequiredService<IAggregateReader>();
@@ -862,15 +1007,73 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
                 var programManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                var accessEdges = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
+                    .ReadAsync(tenantId, memberId);
+                var rolePermissionPage = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IRolePermissionDirectoryReader>()
+                    .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
+                var administratorRoleTeams = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IRoleTeamDirectoryReader>()
+                    .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
+                var permissionCheckpointAfterRecovery = await services.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
+                    .LoadCheckpointAsync(new CheckpointIdentity("PermissionProjection",
+                        EventStreamPattern.ForPattern(tenantId.ToString())));
+                var pendingPermissionEventTypes = new List<string>();
+                await using (var pendingPermissionEvents = services.GetRequiredService<IDomainEventReader>()
+                                 .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
+                                     permissionCheckpointAfterRecovery.Cursor, CancellationToken.None).GetAsyncEnumerator())
+                {
+                    while (pendingPermissionEventTypes.Count < 100 &&
+                           await pendingPermissionEvents.MoveNextAsync())
+                        pendingPermissionEventTypes.Add(pendingPermissionEvents.Current.Event.GetType().Name);
+                }
                 var checkpointAfterRecovery = await services.GetRequiredService<IProjectionCheckpointStore>()
                     .LoadAsync(invitationReactorCheckpoint);
                 Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
                     $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
                     $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
                     $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"tenantId={tenantId}; userId={parsedAdministratorId}; memberId={memberId}; " +
+                    $"administratorTeamId={administratorsTeamId}; administratorRoleId={administratorRoleId}; " +
+                    $"administratorRoleTeams={string.Join(",", administratorRoleTeams.Items.Select(item => item.TeamId))}; " +
+                    $"accessEdges={string.Join(";", accessEdges.Select(edge =>
+                        $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
+                    $"administratorRolePermissions={string.Join(",", rolePermissionPage.Items
+                        .Select(item => item.Permission))}; " +
+                    $"permissionProjectionCursor={permissionCheckpointAfterRecovery.Cursor}; " +
+                    $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
+                    $"permissionProgress={string.Join(";", permissionProgress)}; " +
+                    $"releasedAt={releasedAtMs:F0}ms; " +
+                    $"elapsedSinceRelease={activationProbe.ElapsedMilliseconds - releasedAtMs:F0}ms; " +
+                    $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                    $"preparationAttempts={string.Join(";", activationProbe.PreparationAttempts)}; " +
+                    $"activationLogs={ActivationLogs(tenantId)}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
-                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
+                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}; " +
+                    $"workerFaults={WorkerFaults()}.");
             }
+            // The activation event is visible before the reactor commits its checkpoint.
+            // Await that separate durable phase instead of racing the successful HTTP read.
+            var checkpointDeadline = DateTimeOffset.UtcNow.AddSeconds(10);
+            var checkpointAfterSuccess = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            while (checkpointAfterSuccess.Cursor == checkpointBeforeRecovery.Cursor &&
+                   DateTimeOffset.UtcNow < checkpointDeadline)
+            {
+                await Task.Delay(50);
+                checkpointAfterSuccess = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            }
+            Assert.True(checkpointAfterSuccess.Cursor != checkpointBeforeRecovery.Cursor,
+                $"Activation became visible but invitation checkpoint did not advance. " +
+                $"before={checkpointBeforeRecovery.Cursor}; after={checkpointAfterSuccess.Cursor}; " +
+                $"releasedAt={releasedAtMs:F0}ms; " +
+                $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                $"preparationAttempts={string.Join(";", activationProbe.PreparationAttempts)}; " +
+                $"activationLogs={ActivationLogs(tenantId)}; " +
+                $"workerFaults={WorkerFaults()}");
+            Assert.True(activationProbe.FailedAttempts >= 1);
+            Assert.True(activationProbe.SuccessfulAttempts >= 1);
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
             Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 

@@ -12,7 +12,7 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
         var userId = context.Request.FirstAdministratorUserId;
         var tenant = await reader.HydrateAsync(new Tenant(tenantId), ct).ConfigureAwait(false);
         // A losing concurrent slug claim is terminal. A successful reaction lets the
-        // global bootstrap reactor checkpoint and continue to later registrations.
+        // tenant activation reactor checkpoint instead of retrying a rejected registration.
         if (tenant.IsRegistrationRejected)
             return Result.Success;
 
@@ -20,7 +20,10 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
         var member = await reader.HydrateAsync(new Member(tenantId, userId), ct).ConfigureAwait(false);
         var assignment = await reader.HydrateAsync(new TeamMember(tenantId,
             BuiltInRbac.AdministratorsTeamId(tenantId), memberId), ct).ConfigureAwait(false);
-        if (!member.IsRegistered || member.Affiliation != "client_personnel" || !assignment.IsAssigned ||
+        if (member.IsRegistered && member.Affiliation != "client_personnel")
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The first administrator must be client personnel."));
+        if (!member.IsRegistered || !assignment.IsAssigned ||
             !await memberships.IsMemberAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false) ||
             !await permissions.IsAllowedAsync(tenantId, userId, memberId,
                 RbacPermissions.TenantAccess, ct)

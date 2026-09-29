@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using Bdgrz.Compliance;
@@ -146,7 +147,7 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
         [property: System.Text.Json.Serialization.JsonPropertyName("tenant_id")] string TenantId);
 
     internal sealed record LogRecord(string Category, LogLevel Level, string? EventName, string Message,
-        IReadOnlyList<KeyValuePair<string, object?>> State)
+        IReadOnlyList<KeyValuePair<string, object?>> State, string? ExceptionText, long RecordedTimestamp)
     {
         public object? Value(string key) => State.FirstOrDefault(pair => pair.Key == key).Value;
     }
@@ -174,7 +175,7 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
             {
                 var values = state as IReadOnlyList<KeyValuePair<string, object?>> ?? [];
                 records.Enqueue(new LogRecord(category, logLevel, eventId.Name, formatter(state, exception),
-                    values.ToArray()));
+                    values.ToArray(), exception?.ToString(), Stopwatch.GetTimestamp()));
             }
         }
     }
