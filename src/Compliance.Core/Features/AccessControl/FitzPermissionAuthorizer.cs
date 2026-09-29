@@ -10,7 +10,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     given tenant.
 /// </summary>
 sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirectoryReader memberships,
-    IDomainEventReader events)
+    IDomainEventReader events, IMemberAccessEligibility sourceMember)
     : FitzKvProjectionStore(client, Route, "PermissionProjection"), IPermissionProjection,
       IPermissionAuthorizer, IMemberAccessReader
 {
@@ -87,10 +87,17 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
 
         // The projector may have caught up while pending events were scanned. Re-read the
         // materialized key so a completed revocation cannot race past that checkpoint.
-        await using var finalRead = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
-        var currentGrant = await finalRead.GetAsync(PermissionProjectionKeys.Grant(memberId, permission), ct)
-            .ConfigureAwait(false);
-        return currentGrant.Found;
+        bool currentGrantFound;
+        await using (var finalRead = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false))
+        {
+            var currentGrant = await finalRead.GetAsync(
+                PermissionProjectionKeys.Grant(memberId, permission), ct).ConfigureAwait(false);
+            currentGrantFound = currentGrant.Found;
+        }
+        // A suspension can commit after the pending-event scan and before this final key read.
+        // Hydrate the tenant-addressed member stream at the last positive decision point.
+        return currentGrantFound &&
+            await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false);
     }
 
     async ValueTask<bool> HasPendingRevocationAsync(Uuid tenantId, Uuid memberId,
