@@ -21,23 +21,61 @@ public sealed class FitzPermissionAuthorizerTests
         var memberId = RbacIds.Member(tenantId, userId);
         var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
         var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
-        using var services = CreateServices(client, new FixedMembershipDirectory(true), events);
+        var membership = new FixedMembershipDirectory(true);
+        using var services = CreateServices(client, membership, events);
         var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
         var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var identity = new CheckpointIdentity("PermissionProjection", pattern);
         await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        Assert.True(await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess));
         DomainEvent suspension = new MemberSuspended(tenantId, memberId, userId, Uuid.CreateVersion4(),
             "Alex Admin", DateTimeOffset.UtcNow, "Employment ended.");
         suspension.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 1,
             DateTimeOffset.UtcNow));
-        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-members",
-            memberId.ToString()), 0, [suspension]);
+        var stream = new EventStreamAddress(tenantId.ToString(), "rbac-members", memberId.ToString());
+        await events.AppendAsync(stream, 0, [suspension]);
 
         // Act
         var allowedWhileProjectionLags = await permissions.IsAllowedAsync(tenantId, userId,
             memberId, RbacPermissions.TenantAccess);
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await using var batch = await permissions.BeginAsync(new ProjectionBatchContext(
+                identity, new ProjectionCheckpoint(cursor)));
+            await permissions.ApplyAsync(record.Event);
+            cursor = record.NextCursor;
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+        var deniedAfterProjection = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+
+        DomainEvent reinstatement = new MemberReinstated(tenantId, memberId, userId,
+            "client_personnel",
+            Uuid.CreateVersion4(), "Alex Admin", DateTimeOffset.UtcNow);
+        reinstatement.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 2,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(stream, 1, [reinstatement]);
+        var deniedWhileReinstatementLags = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+        var restartedPermissions = new FitzPermissionAuthorizer(client, membership, events);
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await using var batch = await restartedPermissions.BeginAsync(new ProjectionBatchContext(
+                identity, new ProjectionCheckpoint(cursor)));
+            await restartedPermissions.ApplyAsync(record.Event);
+            cursor = record.NextCursor;
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+        var allowedAfterRecovery = await restartedPermissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
 
         // Assert
         Assert.False(allowedWhileProjectionLags);
+        Assert.False(deniedAfterProjection);
+        Assert.False(deniedWhileReinstatementLags);
+        Assert.True(allowedAfterRecovery);
     }
 
     [Fact]

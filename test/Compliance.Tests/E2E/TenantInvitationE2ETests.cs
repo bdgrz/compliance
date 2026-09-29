@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,37 +21,24 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
     public async Task ShouldSuspendAndReinstateMemberGivenAdministratorAndIndependentLifecycleHistory()
     {
         // Arrange
-        await using var factory = E2EAppFactory.Create(broker);
-        using var operatorClient = factory.CreateClient();
+        await using var factory = E2EAppFactory.Create(broker)
+            .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
         using var administratorClient = factory.CreateClient();
-        await LoginAsync(operatorClient, $"operator-{Guid.NewGuid():N}@example.com");
         var administratorEmail = $"administrator-{Guid.NewGuid():N}@example.com";
-        using var registrationResponse = await operatorClient.PostAsJsonAsync("/api/v1/tenants", new
+        var administratorId = await LoginAsync(administratorClient, administratorEmail);
+        await VerifyEmailAsync(factory, administratorClient, administratorId, administratorEmail);
+        using var registrationResponse = await administratorClient.PostAsJsonAsync("/api/v1/tenants", new
         {
             name = "Member lifecycle E2E",
             slug = $"member-life-{Guid.NewGuid():N}"[..24],
             legal_name = "Member Lifecycle LLC",
-            first_administrator_email = administratorEmail,
         });
         Assert.Equal(HttpStatusCode.OK, registrationResponse.StatusCode);
         var registration = await registrationResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(registration);
         var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
-        var invitationDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
-        string? administratorToken = null;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        while (DateTimeOffset.UtcNow < deadline &&
-               !invitationDelivery.TryGetLatest(tenantId, administratorEmail, out administratorToken))
-            await Task.Delay(250);
-        Assert.NotNull(administratorToken);
-
-        var administratorId = await LoginAsync(administratorClient, administratorEmail);
-        await VerifyEmailAsync(factory, administratorClient, administratorId, administratorEmail);
-        using var acceptedAdministrator = await administratorClient.PostAsJsonAsync(
-            $"/api/v1/tenants/{tenantId}/invitations/acceptance",
-            new { email_address = administratorEmail, token = administratorToken });
-        Assert.Equal(HttpStatusCode.NoContent, acceptedAdministrator.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var administratorAccess = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -67,6 +56,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             $"/api/v1/tenants/{tenantId}/invitations",
             new { email_address = memberEmail, affiliation = "client_personnel" });
         Assert.Equal(HttpStatusCode.NoContent, invitedMember.StatusCode);
+        var invitationDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
         string? memberToken = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline &&
@@ -82,17 +72,71 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             new { email_address = memberEmail, token = memberToken });
         Assert.Equal(HttpStatusCode.NoContent, acceptedMember.StatusCode);
 
+        var standardUsersTeamId = BuiltInRbac.StandardUsersTeamId(tenantId);
+        var memberId = RbacIds.Member(tenantId, Uuid.Parse(memberUserId, CultureInfo.InvariantCulture));
+        using var assignedMember = await administratorClient.PostAsJsonAsync(
+            $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}/members/{memberId}", new { });
+        Assert.Equal(HttpStatusCode.NoContent, assignedMember.StatusCode);
+        var memberTeamPath = $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}";
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var memberAccess = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
-            using var response = await memberClient.GetAsync($"/api/v1/tenants/{tenantId}");
+            using var response = await memberClient.GetAsync(memberTeamPath);
             memberAccess = response.StatusCode;
             if (memberAccess == HttpStatusCode.OK)
                 break;
             await Task.Delay(250);
         }
         Assert.Equal(HttpStatusCode.OK, memberAccess);
+        await using var memberMcp = await McpScenario.ConnectAsync(memberClient,
+            new Uri(memberClient.BaseAddress!, "/mcp"));
+        var teamArguments = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId.ToString(),
+            ["team_id"] = standardUsersTeamId.ToString(),
+        };
+        _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
+
+        var boundaryId = Uuid.CreateVersion4();
+        var boundaryVersionId = Uuid.CreateVersion4();
+        var boundary = new SystemBoundary(tenantId, boundaryId);
+        Assert.True(boundary.Create(Uuid.CreateVersion4(), boundaryVersionId,
+            new BoundaryContent("Member responsibility", "readiness", ["security"], []),
+            Uuid.Parse(administratorId, CultureInfo.InvariantCulture), "Administrator",
+            DateTimeOffset.UtcNow).IsSuccess);
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IAggregateWriter>().SaveAsync(
+                boundary, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        using var assignedResponsibility = await administratorClient.PostAsJsonAsync(
+            $"/api/v1/tenants/{tenantId}/responsibilities", new
+            {
+                member_user_id = memberUserId,
+                type = "control_owner",
+                record_type = "boundary",
+                record_id = boundaryId,
+                version_id = boundaryVersionId,
+                scope_revision = 1,
+                effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                effective_until = (DateTimeOffset?)null,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            });
+        Assert.Equal(HttpStatusCode.NoContent, assignedResponsibility.StatusCode);
+        var orphanedWorkPath = $"/api/v1/tenants/{tenantId}/members/{memberUserId}/responsibilities";
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        JsonElement openAssignments = default;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administratorClient.GetAsync(orphanedWorkPath);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            openAssignments = await response.Content.ReadFromJsonAsync<JsonElement>();
+            if (openAssignments.ValueKind == JsonValueKind.Array && openAssignments.GetArrayLength() == 1)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(1, openAssignments.GetArrayLength());
+        var assignmentId = openAssignments[0].GetProperty("assignment_id").GetString();
+        Assert.NotNull(assignmentId);
 
         // Act
         using var selfSuspension = await administratorClient.PostAsJsonAsync(
@@ -124,8 +168,24 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.Equal("Access review is overdue.", membership.SuspensionReason);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
             membership.SuspendedByMemberId);
-        using var denied = await memberClient.GetAsync($"/api/v1/tenants/{tenantId}");
-        Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+        using var denied = await memberClient.GetAsync(memberTeamPath);
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectFailure();
+        using var orphanedWork = await administratorClient.GetAsync(orphanedWorkPath);
+        Assert.Equal(HttpStatusCode.OK, orphanedWork.StatusCode);
+        var orphanedAssignments = await orphanedWork.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(assignmentId, Assert.Single(orphanedAssignments.EnumerateArray())
+            .GetProperty("assignment_id").GetString());
+        await using (var readMcp = await McpScenario.ConnectAsync(administratorClient,
+                         new Uri(administratorClient.BaseAddress!, "/mcp")))
+        {
+            _ = await readMcp.When("bdgrz.member.responsibilities.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId.ToString(),
+                    ["user_id"] = memberUserId,
+                }).ExpectSuccess();
+        }
 
         using var reinstated = await administratorClient.DeleteAsync(
             $"/api/v1/tenants/{tenantId}/members/{memberUserId}/suspensions");
@@ -134,13 +194,14 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         memberAccess = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
-            using var response = await memberClient.GetAsync($"/api/v1/tenants/{tenantId}");
+            using var response = await memberClient.GetAsync(memberTeamPath);
             memberAccess = response.StatusCode;
             if (memberAccess == HttpStatusCode.OK)
                 break;
             await Task.Delay(250);
         }
         Assert.Equal(HttpStatusCode.OK, memberAccess);
+        _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
         MemberLifecycleDocument? reinstatedMembership = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
@@ -160,6 +221,51 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.NotNull(reinstatedMembership.ReinstatedAt);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
             reinstatedMembership.ReinstatedByMemberId);
+
+        // Run the same lifecycle through MCP, with the member still using HTTP and MCP to
+        // prove that both surfaces consult the current authorization state.
+        await using var administratorMcp = await McpScenario.ConnectAsync(administratorClient,
+            new Uri(administratorClient.BaseAddress!, "/mcp"));
+        var memberArguments = new Dictionary<string, object?>
+        {
+            ["tenant_id"] = tenantId.ToString(),
+            ["user_id"] = memberUserId,
+        };
+        _ = await administratorMcp.When("bdgrz.tenant.member.suspend",
+            new Dictionary<string, object?>(memberArguments)
+            {
+                ["reason"] = "MCP access review is overdue.",
+            }).ExpectSuccess();
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        MemberLifecycleDocument? mcpSuspendedMembership = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var readback = await administratorClient.GetAsync(
+                $"/api/v1/tenants/{tenantId}/members/{memberUserId}");
+            Assert.Equal(HttpStatusCode.OK, readback.StatusCode);
+            mcpSuspendedMembership = await readback.Content.ReadFromJsonAsync<MemberLifecycleDocument>();
+            if (mcpSuspendedMembership?.IsSuspended == true)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.True(mcpSuspendedMembership?.IsSuspended);
+        using (var deniedAfterMcp = await memberClient.GetAsync(memberTeamPath))
+            Assert.Equal(HttpStatusCode.NotFound, deniedAfterMcp.StatusCode);
+        _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectFailure();
+        _ = await administratorMcp.When("bdgrz.tenant.member.get", memberArguments).ExpectSuccess();
+        _ = await administratorMcp.When("bdgrz.tenant.member.reinstate", memberArguments).ExpectSuccess();
+        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        memberAccess = HttpStatusCode.Forbidden;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await memberClient.GetAsync(memberTeamPath);
+            memberAccess = response.StatusCode;
+            if (memberAccess == HttpStatusCode.OK)
+                break;
+            await Task.Delay(250);
+        }
+        Assert.Equal(HttpStatusCode.OK, memberAccess);
+        _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
     }
 
     [Fact]
