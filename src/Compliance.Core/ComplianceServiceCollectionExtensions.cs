@@ -418,6 +418,14 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            // Creator activation follows its durable team assignment on a tenant workload,
+            // so a stalled activation cannot hold the global RBAC bootstrap cursor.
+            .AddReactor<TenantSelfServiceActivationReactor>("TenantSelfServiceActivationV1",
+                WorkloadScope.PerTenant, options =>
+                {
+                    options.MaximumFailureDelay = TimeSpan.FromSeconds(2);
+                    options.FailureAttemptLimit = 20;
+                })
             // This narrow backfill has its own checkpoint so it can safely replay historical
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(

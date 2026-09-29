@@ -54,9 +54,5 @@ public sealed partial class TenantRbacBootstrapReactor(
 
         foreach (var command in commands)
             await bus.SendReactionAsync(command, context, ct);
-
-        if (context.Trigger.CreatorIsAdministrator && context.Trigger.ActivationRequired)
-            await bus.SendReactionAsync(new ActivateTenant(tenantId,
-                context.Trigger.OwnerUserId), context, ct);
     }
 }

@@ -50,10 +50,39 @@ public sealed class TenantRbacBootstrapReactorTests
             TeamId: var teamId, MemberId: var memberId,
         } && teamId == BuiltInRbac.AdministratorsTeamId(tenantId) &&
             memberId == RbacIds.Member(tenantId, creatorId));
-        Assert.Contains(scenario.SentRequests, request => request is ActivateTenant
+        Assert.DoesNotContain(scenario.SentRequests, request => request is ActivateTenant);
+    }
+
+    [Fact]
+    public async Task ShouldBootstrapLaterTenantGivenEarlierSelfServiceActivationIsTransient()
+    {
+        // Arrange
+        var firstTenantId = Uuid.CreateVersion4();
+        var firstCreatorId = Uuid.CreateVersion4();
+        var laterTenantId = Uuid.CreateVersion4();
+        var laterCreatorId = Uuid.CreateVersion4();
+        var scenario = new ReactorScenario().Given(
+            new TenantRegistered(firstTenantId, firstCreatorId, "First", "first",
+                "First LLC", CreatorIsAdministrator: true, ActivationRequired: true),
+            new TenantRegistered(laterTenantId, laterCreatorId, "Later", "later",
+                "Later LLC", CreatorIsAdministrator: true, ActivationRequired: true))
+            .RespondTo<ActivateTenant>(Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The first administrator is still being provisioned.", isTransient: true)));
+        var checkpoints = new InMemoryProjectionCheckpointStore();
+        var reactor = new TenantRbacBootstrapReactor(checkpoints, scenario.Requests);
+
+        // Act
+        await scenario.RunAsync(reactor);
+
+        // Assert
+        Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
         {
-            FirstAdministratorUserId: var userId,
-        } && userId == creatorId);
+            TenantId: var tenantId,
+            Permission: RbacPermissions.TenantRbacManage,
+        } && tenantId == laterTenantId);
+        Assert.DoesNotContain(scenario.SentRequests, request => request is ActivateTenant);
+        Assert.NotEqual(ProjectionCheckpoint.Start,
+            await checkpoints.LoadAsync(new CheckpointIdentity(reactor.Name, reactor.Pattern)));
     }
 
     [Fact]
