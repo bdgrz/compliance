@@ -36,6 +36,20 @@ Every open issue belongs to the project and has a priority and one **Delivery qu
 
 Jev can classify issue shape, spot likely blockers, and challenge a proposed bundle. Its probabilities are triage signals. GitHub issue state, product decisions, code, tests, and exact-head CI determine closure and readiness. Recheck Jev disagreements against those sources; do not turn a model judgment into an automatic issue closure.
 
+### Jev-assisted triage
+
+`scripts/backlog-jev.mjs` runs these judgments over the live backlog. The script owns the dependency graph, thresholds, and ranking; Jev answers only the semantic questions. It reads GitHub and never edits it. Load the TypeSafe key only into the command's environment:
+
+```sh
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs triage --milestone R1
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs criteria 209 211
+```
+
+- Run `triage` in step 5 after each merge. It reports Blocked issues whose recorded blockers are all closed, a Ready ranking by release value and downstream fanout, issues to split before starting, possibly satisfied issues, bundle candidates, parents whose children are all closed, and whether Discovery issues block the manual path.
+- Promote to Ready only when every recorded blocker is closed and the unrecorded-blocker probability is below 0.5. At 0.5 or above, read the cited text and either record the missing dependency or clear the flag.
+- Split an issue before starting it when Jev classifies it `split_needed` with confidence of at least 0.7. Each part must be independently closable.
+- Before closing an issue, or when it has absorbed partial PRs, run `criteria`. It extracts acceptance criteria from the issue body and judges each against merged PR descriptions and progress comments. Use its remaining list for the gap comment or the split; a `close candidate` verdict still requires reading the linked evidence.
+
 ## Backlog hygiene
 
 - Do not require a full future engagement, connector, or artifact workflow to close a useful manual baseline. Put the later acceptance on its owning issue and keep incomplete contexts explicit and fail closed.
