@@ -65,6 +65,31 @@ public sealed class AccessGrantProposalValidatorTests
     }
 
     [Fact]
+    public async Task ShouldAllowProgramGrantGivenSourceCommittedBeforeProjection()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var program = new ComplianceProgram(tenantId, programId);
+        Assert.Null(program.Create("Program", new ProgramPlan(null, null, null, null, null, null),
+            Uuid.CreateVersion4(), "Admin", DateTimeOffset.UtcNow));
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
+            new RoleDirectory(roleId), ResourceScopes(tenantId, program, false));
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId)),
+            new AccessGrantScope(AccessGrantScopeKind.Program, programId)));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
     public async Task ShouldRejectMismatchedRoleRecordGivenGrantProposal()
     {
         // Arrange
@@ -73,7 +98,7 @@ public sealed class AccessGrantProposalValidatorTests
         var roleId = Uuid.CreateVersion4();
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
-            new RoleDirectory(roleId, Uuid.CreateVersion4()), new ProgramDirectory(tenantId));
+            new RoleDirectory(roleId, Uuid.CreateVersion4()), ResourceScopes(tenantId));
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -94,7 +119,7 @@ public sealed class AccessGrantProposalValidatorTests
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(Uuid.CreateVersion4(), tenantId, "client_personnel"),
             new TeamDirectory(Uuid.CreateVersion4()), new RoleDirectory(roleId),
-            new ProgramDirectory(tenantId));
+            ResourceScopes(tenantId));
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -113,7 +138,7 @@ public sealed class AccessGrantProposalValidatorTests
         var roleId = Uuid.CreateVersion4();
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(userId, tenantId, "client_personnel", Uuid.CreateVersion4()),
-            new TeamDirectory(), new RoleDirectory(roleId), new ProgramDirectory(tenantId));
+            new TeamDirectory(), new RoleDirectory(roleId), ResourceScopes(tenantId));
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -150,7 +175,13 @@ public sealed class AccessGrantProposalValidatorTests
     static AccessGrantProposalValidator Validator(Uuid tenantId, Uuid roleId, Uuid userId,
         string affiliation, Uuid? programTenantId = null) =>
         new(new MembershipReader(userId, tenantId, affiliation),
-            new TeamDirectory(), new RoleDirectory(roleId), new ProgramDirectory(programTenantId ?? tenantId));
+            new TeamDirectory(), new RoleDirectory(roleId),
+            ResourceScopes(programTenantId ?? tenantId));
+
+    static ProgramResourceScopeResolver ResourceScopes(Uuid programTenantId,
+        ComplianceProgram? source = null, bool projected = true) =>
+        new(new ProgramDirectory(programTenantId, projected),
+            null!, null!, null!, new SourceReader(source));
 
     static AccessGrantProposal Proposal(Uuid tenantId, Uuid roleId, AccessGrantPrincipal principal,
         AccessGrantScope? scope = null) => new(principal, roleId,
@@ -199,13 +230,13 @@ public sealed class AccessGrantProposalValidatorTests
             ValueTask.FromResult(new Page<TeamView>([], null));
     }
 
-    sealed class ProgramDirectory(Uuid programTenantId) : IProgramDirectoryReader
+    sealed class ProgramDirectory(Uuid programTenantId, bool projected) : IProgramDirectoryReader
     {
         public ValueTask<ProgramView?> GetAsync(Uuid tenantId, Uuid programId,
             CancellationToken ct = default) => ValueTask.FromResult<ProgramView?>(
-            new ProgramView(programTenantId, programId, "Program", "readiness", null, 1,
+            projected ? new ProgramView(programTenantId, programId, "Program", "readiness", null, 1,
                 new ProgramPlan(null, null, null, null, null, null), Uuid.CreateVersion4(),
-                "Admin", DateTimeOffset.UnixEpoch, []));
+                "Admin", DateTimeOffset.UnixEpoch, []) : null);
 
         public ValueTask<Page<ProgramView>> ListAsync(Uuid tenantId, int limit, string? cursor,
             CancellationToken ct = default) => ValueTask.FromResult(new Page<ProgramView>([], null));
@@ -220,5 +251,13 @@ public sealed class AccessGrantProposalValidatorTests
 
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+    }
+
+    sealed class SourceReader(ComplianceProgram? source) : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult(source is not null && source.Stream == aggregate.Stream &&
+                aggregate is ComplianceProgram ? (TAggregate)(Aggregate)source : aggregate);
     }
 }

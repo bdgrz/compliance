@@ -5,7 +5,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader memberships,
-    ITeamDirectoryReader teams, IRoleDirectoryReader roles, IProgramDirectoryReader programs)
+    ITeamDirectoryReader teams, IRoleDirectoryReader roles,
+    IProgramResourceScopeResolver resourceScopes)
     : IAccessGrantProposalValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, AccessGrantProposal proposal,
@@ -29,8 +30,8 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
 
         if (proposal.Scope.Kind == AccessGrantScopeKind.Program)
         {
-            var program = await programs.GetAsync(tenantId, proposal.Scope.Id, ct).ConfigureAwait(false);
-            if (program is null || program.TenantId != tenantId || program.ProgramId != proposal.Scope.Id)
+            if (!await resourceScopes.IsTenantProgramAsync(tenantId, proposal.Scope.Id, ct)
+                    .ConfigureAwait(false))
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The program scope was not found in this organization."));
         }
