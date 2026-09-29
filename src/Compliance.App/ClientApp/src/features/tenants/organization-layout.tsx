@@ -79,6 +79,33 @@ function OrganizationNavigation() {
   );
 }
 
+export function OrganizationLoading() {
+  return (
+    <Page background="muted" center>
+      <Block as="section" align="center" justify="center" grow>
+        <Spinner label="Opening organization" />
+      </Block>
+    </Page>
+  );
+}
+
+export function OrganizationFailed({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <Page>
+      <EmptyState
+        title="Organization could not be opened"
+        titleAs="h1"
+        description={message}
+        action={
+          <Button variant="primary" onPress={onRetry}>
+            Try again
+          </Button>
+        }
+      />
+    </Page>
+  );
+}
+
 // Deliberately identical for unknown, retired, and denied slugs.
 export function OrganizationUnavailable() {
   return (
@@ -139,22 +166,14 @@ export function OrganizationLayout({ children }: { children?: unknown }) {
   const current = resolution.value;
   if (resolution.error || current?.kind === 'failed') {
     return (
-      <Page>
-        <EmptyState
-          title="Organization could not be opened"
-          titleAs="h1"
-          description={
-            current?.kind === 'failed'
-              ? current.message
-              : (resolution.error?.message ?? 'Unable to open this organization.')
-          }
-          action={
-            <Button variant="primary" onPress={() => resolution.refresh()}>
-              Try again
-            </Button>
-          }
-        />
-      </Page>
+      <OrganizationFailed
+        message={
+          current?.kind === 'failed'
+            ? current.message
+            : (resolution.error?.message ?? 'Unable to open this organization.')
+        }
+        onRetry={() => resolution.refresh()}
+      />
     );
   }
 
@@ -163,13 +182,7 @@ export function OrganizationLayout({ children }: { children?: unknown }) {
   }
 
   if (resolution.pending || current?.kind !== 'ready') {
-    return (
-      <Page background="muted" center>
-        <Block as="section" align="center" justify="center" grow>
-          <Spinner label="Opening organization" />
-        </Block>
-      </Page>
-    );
+    return <OrganizationLoading />;
   }
 
   return (

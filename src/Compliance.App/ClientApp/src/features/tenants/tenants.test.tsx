@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { accessibilityViolations } from '../../accessibility/axe.js';
 import { stubApi } from '../../test-support/api-stub.js';
 import { pageRegistry } from '../../pages/_routes.js';
-import { OrganizationBar, OrganizationUnavailable } from './organization-layout.js';
+import {
+  OrganizationBar,
+  OrganizationFailed,
+  OrganizationLoading,
+  OrganizationUnavailable,
+} from './organization-layout.js';
 import { SelectTenantPage } from './pages/select-tenant.js';
 import {
   chooseOrganizationEntry,
@@ -202,6 +207,30 @@ describe('organization navigation accessibility (M0-D24)', () => {
     const container = mount(() => <OrganizationUnavailable />);
 
     expect(container.querySelector('h1')?.textContent).toBe('Organization unavailable');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldAnnounceLoadingWhileTheOrganizationResolves', async () => {
+    const container = mount(() => <OrganizationLoading />);
+
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-label')).toBe(
+      'Opening organization'
+    );
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldRetryResolutionGivenTheOrganizationFailedToOpen', async () => {
+    // Arrange
+    const onRetry = vi.fn();
+    const container = mount(() => <OrganizationFailed message="The request failed (503)." onRetry={onRetry} />);
+    const retry = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('Try again'));
+
+    // Act
+    retry?.click();
+
+    // Assert
+    expect(container.textContent).toContain('The request failed (503).');
+    expect(onRetry).toHaveBeenCalledOnce();
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 
