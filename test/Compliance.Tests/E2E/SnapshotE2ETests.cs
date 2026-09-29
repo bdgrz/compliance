@@ -168,6 +168,8 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     $"{BuiltInRbac.PowerUsersTeamId(parsedTenantId)}/members/{reviewerMemberId}",
                     null);
                 Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+                await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner,
+                    parsedTenantId);
 
                 await PostUntilNoContentAsync(reviewer, $"{draftPath}/reviews", new
                 {

@@ -384,6 +384,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         using var assigned = await owner.PostAsync(tenantPath + "/teams/" +
             BuiltInRbac.PowerUsersTeamId(tenantId) + "/members/" + memberId, null);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenantId);
     }
 
     static async Task<string> ReviewAsync(HttpClient owner, HttpClient reviewer,

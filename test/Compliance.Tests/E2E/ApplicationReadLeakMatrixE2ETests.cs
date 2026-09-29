@@ -433,6 +433,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             using var assigned = await owner.PostAsync(tenantPath + "/teams/" +
                 BuiltInRbac.PowerUsersTeamId(tenant) + "/members/" + memberId, null);
             Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+            await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenant);
         }
 
         var boundaryPath = tenantPath + "/boundaries/" + boundaryId;

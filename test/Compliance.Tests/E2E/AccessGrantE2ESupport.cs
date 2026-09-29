@@ -32,6 +32,19 @@ static class AccessGrantE2ESupport
         using var document = JsonDocument.Parse(await session.Content.ReadAsStringAsync());
         var userId = Uuid.Parse(document.RootElement.GetProperty("id").GetString()!,
             CultureInfo.InvariantCulture);
+        return await IssueOrganizationGrantAsync(client, tenantId, "member",
+            RbacIds.Member(tenantId, userId), BuiltInRbac.TenantAdministrationRoleId(tenantId),
+            "founder-setup");
+    }
+
+    public static Task<Uuid> IssuePowerUserTeamOrganizationGrantAsync(HttpClient client,
+        Uuid tenantId) => IssueOrganizationGrantAsync(client, tenantId, "team",
+        BuiltInRbac.PowerUsersTeamId(tenantId), BuiltInRbac.ComplianceManagementRoleId(tenantId),
+        "power-user-team-setup");
+
+    static async Task<Uuid> IssueOrganizationGrantAsync(HttpClient client, Uuid tenantId,
+        string principalKind, Uuid principalId, Uuid roleId, string sourceId)
+    {
         var grantId = Uuid.CreateVersion4();
         var path = $"/api/v1/tenants/{tenantId}/access-grants/{grantId}";
         var listPath = $"/api/v1/tenants/{tenantId}/access-grants";
@@ -43,9 +56,12 @@ static class AccessGrantE2ESupport
                 foreach (var grant in grants.RootElement.GetProperty("grants").EnumerateArray())
                 {
                     var terms = grant.GetProperty("terms");
-                    if (terms.GetProperty("source").GetProperty("id").GetString() == "founder-setup" &&
+                    if (terms.GetProperty("source").GetProperty("id").GetString() == sourceId &&
+                        terms.GetProperty("role_id").GetString() == roleId.ToString() &&
+                        terms.GetProperty("principal").GetProperty("kind").GetString() ==
+                        principalKind &&
                         terms.GetProperty("principal").GetProperty("id").GetString() ==
-                        RbacIds.Member(tenantId, userId).ToString() &&
+                        principalId.ToString() &&
                         (!grant.TryGetProperty("revoked_at", out var revoked) ||
                          revoked.ValueKind == JsonValueKind.Null))
                         return Uuid.Parse(grant.GetProperty("grant_id").GetString()!,
@@ -55,10 +71,10 @@ static class AccessGrantE2ESupport
         }
         var proposal = new
         {
-            principal = new { kind = "member", id = RbacIds.Member(tenantId, userId).ToString() },
-            role_id = BuiltInRbac.TenantAdministrationRoleId(tenantId).ToString(),
+            principal = new { kind = principalKind, id = principalId.ToString() },
+            role_id = roleId.ToString(),
             scope = new { kind = "organization", id = tenantId.ToString() },
-            source = new { kind = "manual", id = "founder-setup" },
+            source = new { kind = "manual", id = sourceId },
             effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
             effective_until = (DateTimeOffset?)null,
         };
@@ -81,7 +97,7 @@ static class AccessGrantE2ESupport
         }
 
         Assert.True(succeeded,
-            $"The founder could not issue organization grant {grantId} in tenant {tenantId}: " +
+            $"The {principalKind} could not receive organization grant {grantId} in tenant {tenantId}: " +
             lastResponse);
 
         var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
@@ -103,7 +119,7 @@ static class AccessGrantE2ESupport
             await Task.Delay(250);
         }
 
-        throw new TimeoutException($"Founder organization grant {grantId} in tenant {tenantId} " +
+        throw new TimeoutException($"{principalKind} organization grant {grantId} in tenant {tenantId} " +
             $"did not reach the projection; last GET: {lastProjection}");
     }
 }

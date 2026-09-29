@@ -328,6 +328,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{tenant.TenantId}/teams/" +
             $"{BuiltInRbac.AdministratorsTeamId(tenantId)}/members/{reviewerMemberId}", null);
         Assert.Equal(HttpStatusCode.NoContent, assignedAdmin.StatusCode);
+        await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenantId);
 
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var waiverPath = $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers";
