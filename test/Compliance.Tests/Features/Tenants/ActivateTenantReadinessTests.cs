@@ -8,6 +8,46 @@ namespace Bdgrz.Compliance.Tests.Features.Tenants;
 public sealed class ActivateTenantReadinessTests
 {
     [Fact]
+    public async Task ShouldRejectActivationPermanentlyGivenFirmStaffAdministrator()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships { Ready = true });
+        services.AddSingleton<IPermissionAuthorizer>(new Permissions { Ready = true });
+        services.AddPortia()
+            .AddRequestHandler<ActivateTenantHandler>()
+            .AddRequestAuthorizer<ActivateTenantAuthorizer>();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var tenant = new Tenant(tenantId);
+        Assert.True(tenant.Register(creatorId, "Acme", "acme", creatorIsAdministrator: true).IsSuccess);
+        Assert.True(tenant.ConfirmSlug("acme").IsSuccess);
+        await writer.SaveAsync(tenant, new RequestDispatchContext(RequestActor.System));
+        var member = new Member(tenantId, creatorId);
+        Assert.True(member.Register("firm_staff").IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        var assignment = new TeamMember(tenantId, BuiltInRbac.AdministratorsTeamId(tenantId),
+            RbacIds.Member(tenantId, creatorId));
+        Assert.True(assignment.Assign().IsSuccess);
+        await writer.SaveAsync(assignment, new RequestDispatchContext(RequestActor.System));
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>()
+            .SendAsync(new ActivateTenant(tenantId, creatorId), RequestActor.System);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
+        Assert.False(result.Error.IsTransient);
+        Assert.False((await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new Tenant(tenantId))).IsActive);
+    }
+
+    [Fact]
     public async Task ShouldCheckpointActivationGivenRejectedSlugWithoutAdministratorProjection()
     {
         // Arrange

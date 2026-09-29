@@ -401,7 +401,14 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
             .AddRequestAuthorizer<TenantLifecycleReactionAuthorizer>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
-            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
+            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant, options =>
+            {
+                // Activation can wait for membership and permission projectors on another host.
+                // Keep replay gaps short after the local transient retry window expires while
+                // retaining a finite failure limit for permanently invalid invitations.
+                options.MaximumFailureDelay = TimeSpan.FromSeconds(2);
+                options.FailureAttemptLimit = 20;
+            })
             .AddReactor<TenantInvitationDeliveryReactor>("TenantInvitationDeliveryV1",
                 WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)

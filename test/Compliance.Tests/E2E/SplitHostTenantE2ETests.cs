@@ -760,6 +760,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
             activationProbe.TargetTenant(tenantId);
             var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            var administratorRoleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
 
             await using (var restrictedFactory = E2EAppFactory.Create(broker, applicationName)
                              .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
@@ -843,53 +844,81 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var projectionStarted = Stopwatch.GetTimestamp();
             var permissionProjectionIdentity = new CheckpointIdentity("PermissionProjection",
                 EventStreamPattern.ForPattern(tenantId.ToString()));
+            var projectionServices = checkpointScope.ServiceProvider;
+            var projectionGate = new BrokerProjectionGate(
+                projectionServices.GetRequiredService<IDomainEventReader>(),
+                projectionServices.GetRequiredService<Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>(),
+                permissionProjectionIdentity);
+            var requiredGrantEvents = new Dictionary<string, DomainEventRecord>(StringComparer.Ordinal);
+            var requiredPermissions = new HashSet<string>(StringComparer.Ordinal)
+            {
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess,
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage,
+                Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage,
+            };
             var permissionProgress = new List<string>();
             string? lastPermissionCursor = null;
+            var lastGrantEventCount = 0;
             var nextProgressSampleMs = 0.0;
             var membershipProjected = false;
+            var underlyingTenantAccess = false;
+            var underlyingRbacManage = false;
+            var underlyingProgramManage = false;
+            var requiredEventsCheckpointed = false;
+            var permissionCheckpoint = ProjectionCheckpoint.Start;
             IReadOnlyList<Bdgrz.Compliance.Features.AccessControl.MemberAccessEdge> projectedAccessEdges = [];
             while (DateTimeOffset.UtcNow < projectionDeadline)
             {
-                await using var projectionScope = worker.Services.CreateAsyncScope();
-                var services = projectionScope.ServiceProvider;
-                membershipProjected = await services.GetRequiredService<
+                foreach (var record in await projectionGate.ReadNewEventsAsync())
+                {
+                    if (record.Event is Bdgrz.Compliance.Features.AccessControl.RolePermissionAssigned grant &&
+                        grant.RoleId == administratorRoleId && requiredPermissions.Contains(grant.Permission))
+                        requiredGrantEvents[grant.Permission] = record;
+                }
+                var requiredEventIds = requiredGrantEvents.Values
+                    .Select(record => record.Event.Metadata.EventId).ToHashSet();
+                (permissionCheckpoint, requiredEventsCheckpointed) =
+                    await projectionGate.ObserveAsync(requiredEventIds);
+                membershipProjected = await projectionServices.GetRequiredService<
                     Bdgrz.Compliance.Features.Tenants.ITenantMembershipDirectoryReader>()
                     .IsMemberAsync(tenantId.ToString(), parsedAdministratorId);
-                projectedAccessEdges = await services.GetRequiredService<
+                projectedAccessEdges = await projectionServices.GetRequiredService<
                         Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
                     .ReadAsync(tenantId, memberId);
-                var projectedPermissions = projectedAccessEdges.SelectMany(edge => edge.Permissions)
-                    .ToHashSet(StringComparer.Ordinal);
-                var permissionCheckpoint = await services.GetRequiredService<
-                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
-                    .LoadCheckpointAsync(permissionProjectionIdentity);
+                var underlyingPermissions = projectionServices.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.FitzPermissionAuthorizer>();
+                underlyingTenantAccess = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess);
+                underlyingRbacManage = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
+                underlyingProgramManage = await underlyingPermissions.IsAllowedAsync(tenantId,
+                    parsedAdministratorId, memberId,
+                    Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
                 var cursor = permissionCheckpoint.Cursor.ToString();
                 var elapsedMs = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
                 if (permissionProgress.Count == 0 || cursor != lastPermissionCursor ||
-                    elapsedMs >= nextProgressSampleMs)
+                    requiredGrantEvents.Count != lastGrantEventCount || elapsedMs >= nextProgressSampleMs)
                 {
-                    permissionProgress.Add($"{elapsedMs:F0}ms:cursor={cursor}:grants=" +
-                        string.Join(",", projectedPermissions));
+                    permissionProgress.Add($"{elapsedMs:F0}ms:cursor={cursor}:events={requiredGrantEvents.Count}:" +
+                        $"checkpointed={requiredEventsCheckpointed}:underlying=" +
+                        $"{underlyingTenantAccess},{underlyingRbacManage},{underlyingProgramManage}");
                     lastPermissionCursor = cursor;
+                    lastGrantEventCount = requiredGrantEvents.Count;
                     nextProgressSampleMs = elapsedMs + 5000;
                 }
-                if (membershipProjected && activationProbe.FailedAttempts >= 5 &&
-                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess) &&
-                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage) &&
-                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage))
+                if (requiredGrantEvents.Count == requiredPermissions.Count &&
+                    requiredEventsCheckpointed && membershipProjected &&
+                    underlyingTenantAccess && underlyingRbacManage && underlyingProgramManage &&
+                    activationProbe.FailedAttempts >= 5 && elapsedMs >= 12_000)
                     break;
                 await Task.Delay(250);
             }
             if (DateTimeOffset.UtcNow >= projectionDeadline)
             {
-                await using var lagScope = worker.Services.CreateAsyncScope();
-                var services = lagScope.ServiceProvider;
-                var checkpoint = await services.GetRequiredService<
-                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
-                    .LoadCheckpointAsync(permissionProjectionIdentity);
                 var pendingEvents = new List<string>();
-                await using var pending = services.GetRequiredService<IDomainEventReader>()
-                    .ReadAsync(permissionProjectionIdentity.Pattern, checkpoint.Cursor, CancellationToken.None)
+                await using var pending = projectionGate.ReadPendingAsync(permissionCheckpoint)
                     .GetAsyncEnumerator();
                 while (pendingEvents.Count < 100 && await pending.MoveNextAsync())
                 {
@@ -898,7 +927,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                         $"{record.Event.Metadata.OccurredOn:O}:{record.Stream}");
                 }
                 Assert.Fail($"Administrator projection did not become ready while activation was held. " +
-                    $"membershipProjected={membershipProjected}; " +
+                    $"membershipProjected={membershipProjected}; permissionCheckpoint={permissionCheckpoint.Cursor}; " +
+                    $"requiredGrantEvents={string.Join(";", requiredGrantEvents.Select(item =>
+                        $"{item.Key}:{item.Value.ResourceOffset}:{item.Value.Event.Metadata.OccurredOn:O}"))}; " +
+                    $"requiredEventsCheckpointed={requiredEventsCheckpointed}; " +
+                    $"underlyingPermissions={underlyingTenantAccess},{underlyingRbacManage},{underlyingProgramManage}; " +
                     $"accessEdges={string.Join(";", projectedAccessEdges.Select(edge =>
                         $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
                     $"permissionProgress={string.Join(";", permissionProgress)}; " +
@@ -957,21 +990,20 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 var accessEdges = await services.GetRequiredService<
                     Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
                     .ReadAsync(tenantId, memberId);
-                var administratorRoleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
                 var rolePermissionPage = await services.GetRequiredService<
                     Bdgrz.Compliance.Features.AccessControl.IRolePermissionDirectoryReader>()
                     .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
                 var administratorRoleTeams = await services.GetRequiredService<
                     Bdgrz.Compliance.Features.AccessControl.IRoleTeamDirectoryReader>()
                     .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
-                var permissionCheckpoint = await services.GetRequiredService<
+                var permissionCheckpointAfterRecovery = await services.GetRequiredService<
                         Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
                     .LoadCheckpointAsync(new CheckpointIdentity("PermissionProjection",
                         EventStreamPattern.ForPattern(tenantId.ToString())));
                 var pendingPermissionEventTypes = new List<string>();
                 await using (var pendingPermissionEvents = services.GetRequiredService<IDomainEventReader>()
                                  .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
-                                     permissionCheckpoint.Cursor, CancellationToken.None).GetAsyncEnumerator())
+                                     permissionCheckpointAfterRecovery.Cursor, CancellationToken.None).GetAsyncEnumerator())
                 {
                     while (pendingPermissionEventTypes.Count < 100 &&
                            await pendingPermissionEvents.MoveNextAsync())
@@ -990,7 +1022,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                         $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
                     $"administratorRolePermissions={string.Join(",", rolePermissionPage.Items
                         .Select(item => item.Permission))}; " +
-                    $"permissionProjectionCursor={permissionCheckpoint.Cursor}; " +
+                    $"permissionProjectionCursor={permissionCheckpointAfterRecovery.Cursor}; " +
                     $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
                     $"permissionProgress={string.Join(";", permissionProgress)}; " +
                     $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
