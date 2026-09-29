@@ -443,6 +443,8 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
             versionId + "/impact-preview?expected_revision=1"));
         string? reviewId = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var reviewedCommand = false;
+        string? lastReviewResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var review = await reviewer.PostAsJsonAsync(boundaryPath + "/drafts/" +
@@ -453,11 +455,18 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     rationale = "A separate tenant member reviewed this application reference.",
                 });
             if (review.StatusCode == HttpStatusCode.NoContent)
+            {
+                reviewedCommand = true;
                 break;
+            }
+            lastReviewResponse = $"{(int)review.StatusCode} " +
+                await review.Content.ReadAsStringAsync();
             Assert.True(review.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
-                await review.Content.ReadAsStringAsync());
+                lastReviewResponse);
             await Task.Delay(250);
         }
+        Assert.True(reviewedCommand, $"Review command for {boundaryPath} did not succeed; " +
+            $"last response: {lastReviewResponse}");
         var reviewed = await WaitForAsync(owner, boundaryPath, result =>
             result.GetProperty("latest_decision").ValueKind == JsonValueKind.Object &&
             result.GetProperty("latest_decision").GetProperty("outcome").GetString() == "accept");
