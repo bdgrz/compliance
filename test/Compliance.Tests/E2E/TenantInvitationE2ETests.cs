@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Portia;
@@ -427,8 +428,9 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
                     .HydrateAsync(new TenantInvitation(tenantId, emailAddress));
                 sourceEventRecorded = invitation.CurrentDeliveryAttemptId is not null;
                 deliveryStatus = invitation.DeliveryStatus;
-                directoryWorkerAdvanced = await services.GetRequiredService<IProjectionCheckpointStore>()
-                    .LoadAsync(checkpoint) != ProjectionCheckpoint.Start;
+                directoryWorkerAdvanced = await services
+                    .GetRequiredService<ITenantInvitationDirectoryProjection>()
+                    .LoadCheckpointAsync(checkpoint) != ProjectionCheckpoint.Start;
             }
             if (sourceEventRecorded && directoryWorkerAdvanced && deliveryStatus == "delivered" &&
                 delivery.TryGetLatest(tenantId, emailAddress, out token) && token is not null)
@@ -472,11 +474,12 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
                 var membership = await services.GetRequiredService<ITenantMembershipDirectoryReader>()
                     .GetAsync(tenantId.ToString(), userId);
                 projectedSuspended = membership?.IsSuspended ?? !suspended;
-                var checkpoints = services.GetRequiredService<IProjectionCheckpointStore>();
-                membershipWorkerAdvanced = await checkpoints.LoadAsync(membershipCheckpoint) !=
-                    ProjectionCheckpoint.Start;
-                permissionWorkerAdvanced = await checkpoints.LoadAsync(permissionCheckpoint) !=
-                    ProjectionCheckpoint.Start;
+                membershipWorkerAdvanced = await services
+                    .GetRequiredService<ITenantMembershipDirectoryProjection>()
+                    .LoadCheckpointAsync(membershipCheckpoint) != ProjectionCheckpoint.Start;
+                permissionWorkerAdvanced = await services
+                    .GetRequiredService<IPermissionProjection>()
+                    .LoadCheckpointAsync(permissionCheckpoint) != ProjectionCheckpoint.Start;
                 permissionAllowed = await services.GetRequiredService<IPermissionAuthorizer>()
                     .IsAllowedAsync(tenantId, userId, memberId, RbacPermissions.TenantAccess);
             }
@@ -540,11 +543,12 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
                 var membership = await services.GetRequiredService<ITenantMembershipDirectoryReader>()
                     .GetAsync(tenantId.ToString(), parsedUserId);
                 membershipProjected = membership is { IsSuspended: false };
-                var checkpoints = services.GetRequiredService<IProjectionCheckpointStore>();
-                membershipWorkerAdvanced = await checkpoints.LoadAsync(membershipCheckpoint) !=
-                    ProjectionCheckpoint.Start;
-                permissionWorkerAdvanced = await checkpoints.LoadAsync(permissionCheckpoint) !=
-                    ProjectionCheckpoint.Start;
+                membershipWorkerAdvanced = await services
+                    .GetRequiredService<ITenantMembershipDirectoryProjection>()
+                    .LoadCheckpointAsync(membershipCheckpoint) != ProjectionCheckpoint.Start;
+                permissionWorkerAdvanced = await services
+                    .GetRequiredService<IPermissionProjection>()
+                    .LoadCheckpointAsync(permissionCheckpoint) != ProjectionCheckpoint.Start;
                 permissionAllowed = await services.GetRequiredService<IPermissionAuthorizer>()
                     .IsAllowedAsync(tenantId, parsedUserId, memberId, permission);
             }

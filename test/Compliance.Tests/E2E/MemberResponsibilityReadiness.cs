@@ -32,8 +32,8 @@ static class MemberResponsibilityReadiness
                     .ReadAssignments().FirstOrDefault(item => item.MemberId == memberId)
                     ?.AssignmentId ?? Uuid.Empty;
                 workerCheckpointAdvanced = await scope.ServiceProvider
-                    .GetRequiredService<IProjectionCheckpointStore>().LoadAsync(checkpointIdentity) !=
-                    ProjectionCheckpoint.Start;
+                    .GetRequiredService<FitzMemberResponsibilityIndex>()
+                    .LoadCheckpointAsync(checkpointIdentity) != ProjectionCheckpoint.Start;
                 indexed = sourceAssignment != Uuid.Empty &&
                     (await scope.ServiceProvider.GetRequiredService<IMemberResponsibilityIndex>()
                         .GetAsync(tenantId, memberId))
