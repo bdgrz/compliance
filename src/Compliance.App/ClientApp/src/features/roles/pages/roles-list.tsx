@@ -1,4 +1,5 @@
 import { state } from '@askrjs/askr';
+import { resource } from '@askrjs/askr/resources';
 import {
   Block,
   Button,
@@ -10,23 +11,22 @@ import {
   PageHeader,
 } from '@askrjs/themes/components';
 
-import { defineRole, deleteRole, listRoles, type RoleSummary } from '../roles.js';
+import { defineRole, deleteRole, listRoles } from '../roles.js';
+import { organizationPath } from '../../tenants/tenants.js';
 
 export function RolesListPage() {
-  const [roles, setRoles] = state<RoleSummary[] | null>(null);
   const [name, setName] = state('');
-  const [error, setError] = state<string | null>(null);
+  const [actionError, setError] = state<string | null>(null);
+  const [version, setVersion] = state(0);
   const [submitting, setSubmitting] = state(false);
 
-  function load() {
-    void listRoles()
-      .then(setRoles)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load roles.')
-      );
-  }
+  const rolesResource = resource(() => listRoles(), [version()]);
+  const roles = () => (rolesResource.pending ? null : rolesResource.value);
+  const error = () => actionError() ?? rolesResource.error?.message ?? null;
 
-  load();
+  function reload() {
+    setVersion(version() + 1);
+  }
 
   async function create(event?: { preventDefault?: () => void }) {
     event?.preventDefault?.();
@@ -35,7 +35,7 @@ export function RolesListPage() {
     try {
       await defineRole(name());
       setName('');
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to create the role.');
     } finally {
@@ -47,7 +47,7 @@ export function RolesListPage() {
     setError(null);
     try {
       await deleteRole(roleId);
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to delete the role.');
     }
@@ -88,7 +88,7 @@ export function RolesListPage() {
             <CardContent>
               <Block direction="row" gap="md" align="center" justify="between">
                 <Button asChild variant="ghost">
-                  <a href={`/roles/${role.roleId}`}>{role.name}</a>
+                  <a href={organizationPath(`/roles/${role.roleId}`)}>{role.name}</a>
                 </Button>
                 <Button variant="destructive" onPress={() => void remove(role.roleId)}>
                   Delete

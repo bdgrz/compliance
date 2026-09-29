@@ -6,7 +6,8 @@ import type {
 
 const client = createApiClient();
 
-const activeTenantKey = 'bdgrz.compliance.active-tenant-slug';
+const rememberedSlugKey = 'bdgrz.compliance.active-tenant-slug';
+const movedFromKey = 'bdgrz.compliance.tenant-slug-moved-from';
 
 export interface TenantMembershipSummary {
   tenantId: string;
@@ -17,12 +18,126 @@ export interface TenantMembershipSummary {
 export interface ActiveTenant {
   tenantId: string;
   slug: string;
+  name: string;
 }
 
 // Mirrors TenantSlugs.TryNormalize's rule (src/Compliance.Core/Features/Tenants/TenantSlugs.cs) so
 // the form can reject an invalid slug before a round trip — the server remains the source of truth
 // and re-validates (reserved routes, retired slugs, and uniqueness can't be checked client-side).
 export const slugPattern = /^[a-z](?:[a-z0-9]|-(?=[a-z0-9])){3,62}$/;
+
+// The organization resolved from the current document's URL. It lives only in memory: API adapters
+// read the tenant_id from here, never from storage, so a request can only target the organization
+// the URL names. Switching organizations reloads the document, which discards it together with
+// every other piece of in-memory tenant data.
+let activeTenant: ActiveTenant | null = null;
+
+export function currentTenant(): ActiveTenant | null {
+  return activeTenant;
+}
+
+export function requireActiveTenantId(): string {
+  if (!activeTenant) {
+    throw new Error('No active organization is selected.');
+  }
+
+  return activeTenant.tenantId;
+}
+
+// Browser path inside the active organization, e.g. organizationPath('/teams') -> '/acme/teams'.
+export function organizationPath(path = ''): string {
+  return activeTenant ? `/${activeTenant.slug}${path}` : '/';
+}
+
+export type TenantRouteResolution =
+  | { kind: 'ready'; tenant: ActiveTenant }
+  | { kind: 'redirect'; href: string }
+  | { kind: 'reload'; href: string }
+  | { kind: 'unavailable' }
+  | { kind: 'failed'; message: string };
+
+interface BrowserLocation {
+  pathname: string;
+  search: string;
+  hash: string;
+}
+
+// Resolves the slug in the browser location to the organization it names. Unknown, retired, and
+// denied slugs are all 'unavailable', so the page cannot reveal whether an organization exists. A
+// renamed organization resolves to a redirect onto its current slug.
+export async function resolveTenantRoute(
+  slug: string,
+  location: BrowserLocation
+): Promise<TenantRouteResolution> {
+  if (!slugPattern.test(slug)) {
+    return { kind: 'unavailable' };
+  }
+
+  const result = await client.resolveMyTenantSlug({ params: { slug } });
+  if (!result.ok) {
+    return [400, 403, 404].includes(result.status)
+      ? { kind: 'unavailable' }
+      : { kind: 'failed', message: describeFailure(result) };
+  }
+
+  if (!result.data) {
+    return { kind: 'unavailable' };
+  }
+
+  const { tenant_id: tenantId, current_slug: currentSlug, redirect } = result.data;
+  if (redirect || currentSlug !== slug) {
+    const rest = location.pathname.slice(slug.length + 1);
+    return { kind: 'redirect', href: `/${currentSlug}${rest}${location.search}${location.hash}` };
+  }
+
+  // Another organization is already loaded in this document: reload so nothing held in memory for
+  // it can reach this organization's pages.
+  if (activeTenant && activeTenant.tenantId !== tenantId) {
+    return { kind: 'reload', href: `${location.pathname}${location.search}${location.hash}` };
+  }
+
+  let memberships: TenantMembershipSummary[];
+  try {
+    memberships = await listMyTenants();
+  } catch (failure) {
+    return {
+      kind: 'failed',
+      message: failure instanceof Error ? failure.message : 'Unable to load your organizations.',
+    };
+  }
+
+  const membership = memberships.find((tenant) => tenant.tenantId === tenantId);
+  if (!membership) {
+    return { kind: 'unavailable' };
+  }
+
+  activeTenant = { tenantId, slug: currentSlug, name: membership.name };
+  rememberSlug(currentSlug);
+  return { kind: 'ready', tenant: activeTenant };
+}
+
+export type OrganizationEntry =
+  | { kind: 'enter'; href: string }
+  | { kind: 'choose' }
+  | { kind: 'none' };
+
+// Where to send a signed-in user who has not named an organization: straight into their only
+// organization, into the one they last used if it is still theirs, otherwise to the selector.
+export function chooseOrganizationEntry(
+  memberships: TenantMembershipSummary[],
+  rememberedSlug: string | null,
+  suffix = ''
+): OrganizationEntry {
+  if (memberships.length === 0) {
+    return { kind: 'none' };
+  }
+
+  const target =
+    memberships.length === 1
+      ? memberships[0]
+      : memberships.find((tenant) => tenant.slug === rememberedSlug);
+  return target ? { kind: 'enter', href: `/${target.slug}${suffix}` } : { kind: 'choose' };
+}
 
 export async function registerTenant(
   name: string,
@@ -59,65 +174,53 @@ export async function listMyTenants(): Promise<TenantMembershipSummary[]> {
   return tenants;
 }
 
-export function readActiveTenant(): ActiveTenant | null {
+// Only the slug is remembered, as a routing convenience for '/'. It never selects the tenant_id an
+// API request uses; the URL does.
+export function readRememberedSlug(): string | null {
   try {
-    const stored = window.localStorage.getItem(activeTenantKey);
-    if (!stored) {
-      return null;
-    }
-
-    const parsed: unknown = JSON.parse(stored);
-    return typeof parsed === 'object' &&
-      parsed !== null &&
-      typeof (parsed as ActiveTenant).tenantId === 'string' &&
-      typeof (parsed as ActiveTenant).slug === 'string'
-      ? (parsed as ActiveTenant)
-      : null;
+    const stored = window.localStorage.getItem(rememberedSlugKey);
+    return stored && slugPattern.test(stored) ? stored : null;
   } catch {
     return null;
   }
 }
 
-export function writeActiveTenant(tenant: ActiveTenant): void {
+function rememberSlug(slug: string): void {
   try {
-    window.localStorage.setItem(activeTenantKey, JSON.stringify(tenant));
+    window.localStorage.setItem(rememberedSlugKey, slug);
   } catch {
     // Best-effort convenience only; nothing depends on this succeeding.
   }
 }
 
 // A different user signing in on the same browser must not silently inherit the previous user's
-// tenant selection, so this is cleared on sign-out.
+// organization, so this is cleared on sign-out.
 export function clearActiveTenant(): void {
+  activeTenant = null;
   try {
-    window.localStorage.removeItem(activeTenantKey);
+    window.localStorage.removeItem(rememberedSlugKey);
   } catch {
     // Best-effort convenience only; nothing depends on this succeeding.
   }
 }
 
-// Implements the post-sign-in redirect rule: 0 tenants -> create, 1 -> remember and continue here,
-// 2+ with none remembered yet -> let the caller send the user to the selector. Returns true when
-// the caller should render its own page (an active tenant is settled), false when it already
-// redirected and the caller should render nothing further.
-export async function ensureActiveTenant(): Promise<boolean> {
-  if (readActiveTenant() !== null) {
-    return true;
+// Carries "this organization's address changed" across the redirect's document load.
+export function recordSlugMove(previousSlug: string): void {
+  try {
+    window.sessionStorage.setItem(movedFromKey, previousSlug);
+  } catch {
+    // The notice is informational; the redirect itself does not depend on it.
   }
+}
 
-  const tenants = await listMyTenants();
-  if (tenants.length === 0) {
-    window.location.assign('/organizations/new');
-    return false;
+export function takeSlugMove(): string | null {
+  try {
+    const previous = window.sessionStorage.getItem(movedFromKey);
+    window.sessionStorage.removeItem(movedFromKey);
+    return previous;
+  } catch {
+    return null;
   }
-
-  if (tenants.length === 1) {
-    writeActiveTenant({ tenantId: tenants[0]!.tenantId, slug: tenants[0]!.slug });
-    return true;
-  }
-
-  window.location.assign('/organizations');
-  return false;
 }
 
 function describeFailure(result: { ok: false; kind: string; status?: number }): string {

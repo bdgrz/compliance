@@ -77,6 +77,25 @@ svg {
   padding-block: var(--ak-space-lg, 1.5rem);
 }
 
+.organization-bar {
+  padding-block-end: var(--ak-space-sm, 0.75rem);
+  border-block-end: 1px solid var(--ak-color-border);
+}
+
+.organization-bar-label {
+  color: var(--ak-color-text-muted, GrayText);
+  font-size: 0.8125rem;
+}
+
+.organization-bar-name {
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+
+.organization-bar-notice {
+  margin: 0;
+}
+
 @media (max-width: 47.999rem) {
   .app-sidebar {
     position: static;

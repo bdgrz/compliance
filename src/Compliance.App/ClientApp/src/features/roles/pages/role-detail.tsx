@@ -1,4 +1,5 @@
 import { state } from '@askrjs/askr';
+import { resource } from '@askrjs/askr/resources';
 import {
   Block,
   Button,
@@ -18,40 +19,28 @@ import {
   listRoleTeams,
   removeRolePermission,
   removeTeamRole,
-  type RolePermissionSummary,
-  type RoleSummary,
-  type RoleTeamSummary,
 } from '../roles.js';
+import { organizationPath } from '../../tenants/tenants.js';
 
 export function RoleDetailPage({ roleId }: { roleId: string }) {
-  const [role, setRole] = state<RoleSummary | null>(null);
-  const [permissions, setPermissions] = state<RolePermissionSummary[] | null>(null);
-  const [teams, setTeams] = state<RoleTeamSummary[] | null>(null);
   const [permission, setPermission] = state('');
   const [teamId, setTeamId] = state('');
-  const [error, setError] = state<string | null>(null);
+  const [actionError, setError] = state<string | null>(null);
+  const [version, setVersion] = state(0);
   const [submittingPermission, setSubmittingPermission] = state(false);
   const [submittingTeam, setSubmittingTeam] = state(false);
 
-  function load() {
-    void getRole(roleId)
-      .then(setRole)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load the role.')
-      );
-    void listRolePermissions(roleId)
-      .then(setPermissions)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load the role permissions.')
-      );
-    void listRoleTeams(roleId)
-      .then(setTeams)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load the role teams.')
-      );
-  }
+  const roleResource = resource(() => getRole(roleId), [roleId, version()]);
+  const role = () => (roleResource.pending ? null : roleResource.value);
+  const permissionsResource = resource(() => listRolePermissions(roleId), [roleId, version()]);
+  const permissions = () => (permissionsResource.pending ? null : permissionsResource.value);
+  const teamsResource = resource(() => listRoleTeams(roleId), [roleId, version()]);
+  const teams = () => (teamsResource.pending ? null : teamsResource.value);
+  const error = () => actionError() ?? roleResource.error?.message ?? permissionsResource.error?.message ?? teamsResource.error?.message ?? null;
 
-  load();
+  function reload() {
+    setVersion(version() + 1);
+  }
 
   async function addPermission(event?: { preventDefault?: () => void }) {
     event?.preventDefault?.();
@@ -60,7 +49,7 @@ export function RoleDetailPage({ roleId }: { roleId: string }) {
     try {
       await assignRolePermission(roleId, permission());
       setPermission('');
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to add that permission.');
     } finally {
@@ -72,7 +61,7 @@ export function RoleDetailPage({ roleId }: { roleId: string }) {
     setError(null);
     try {
       await removeRolePermission(roleId, targetPermission);
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to remove that permission.');
     }
@@ -85,7 +74,7 @@ export function RoleDetailPage({ roleId }: { roleId: string }) {
     try {
       await assignTeamRole(roleId, teamId());
       setTeamId('');
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to grant that team this role.');
     } finally {
@@ -97,7 +86,7 @@ export function RoleDetailPage({ roleId }: { roleId: string }) {
     setError(null);
     try {
       await removeTeamRole(roleId, targetTeamId);
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to remove that team.');
     }
@@ -181,7 +170,7 @@ export function RoleDetailPage({ roleId }: { roleId: string }) {
         </CardContent>
       </Card>
       <Button asChild variant="ghost">
-        <a href="/roles">Back to roles</a>
+        <a href={organizationPath('/roles')}>Back to roles</a>
       </Button>
     </Page>
   );

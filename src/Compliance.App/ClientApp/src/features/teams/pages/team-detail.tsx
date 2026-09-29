@@ -1,4 +1,5 @@
 import { state } from '@askrjs/askr';
+import { resource } from '@askrjs/askr/resources';
 import {
   Block,
   Button,
@@ -15,31 +16,24 @@ import {
   getTeam,
   listTeamMembers,
   removeTeamMember,
-  type TeamMemberSummary,
-  type TeamSummary,
 } from '../teams.js';
+import { organizationPath } from '../../tenants/tenants.js';
 
 export function TeamDetailPage({ teamId }: { teamId: string }) {
-  const [team, setTeam] = state<TeamSummary | null>(null);
-  const [members, setMembers] = state<TeamMemberSummary[] | null>(null);
   const [memberId, setMemberId] = state('');
-  const [error, setError] = state<string | null>(null);
+  const [actionError, setError] = state<string | null>(null);
+  const [version, setVersion] = state(0);
   const [submitting, setSubmitting] = state(false);
 
-  function load() {
-    void getTeam(teamId)
-      .then(setTeam)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load the team.')
-      );
-    void listTeamMembers(teamId)
-      .then(setMembers)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load the team members.')
-      );
-  }
+  const teamResource = resource(() => getTeam(teamId), [teamId, version()]);
+  const team = () => (teamResource.pending ? null : teamResource.value);
+  const membersResource = resource(() => listTeamMembers(teamId), [teamId, version()]);
+  const members = () => (membersResource.pending ? null : membersResource.value);
+  const error = () => actionError() ?? teamResource.error?.message ?? membersResource.error?.message ?? null;
 
-  load();
+  function reload() {
+    setVersion(version() + 1);
+  }
 
   async function add(event?: { preventDefault?: () => void }) {
     event?.preventDefault?.();
@@ -48,7 +42,7 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
     try {
       await assignTeamMember(teamId, memberId());
       setMemberId('');
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to add that member.');
     } finally {
@@ -60,7 +54,7 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
     setError(null);
     try {
       await removeTeamMember(teamId, targetMemberId);
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to remove that member.');
     }
@@ -110,7 +104,7 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
         ))}
       </Block>
       <Button asChild variant="ghost">
-        <a href="/teams">Back to teams</a>
+        <a href={organizationPath('/teams')}>Back to teams</a>
       </Button>
     </Page>
   );

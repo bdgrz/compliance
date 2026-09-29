@@ -1,7 +1,7 @@
-import { defineApi, createClient, del, empty, get, json, post } from "@askrjs/fetch";
+import { defineApi, createClient, content, del, empty, get, json, post, put } from "@askrjs/fetch";
 import type { ClientOptions } from "@askrjs/fetch";
-import type { Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B } from "./schemas";
-import type { AssignRolePermissionPath, AssignTeamMemberPath, AssignTeamRolePath, DefineRolePath, DefineTeamPath, DeleteRolePath, DeleteTeamPath, GetRolePath, GetTeamPath, ListMyTenantsQuery, ListRolePermissionsPath, ListRolePermissionsQuery, ListRoleTeamsPath, ListRoleTeamsQuery, ListRolesPath, ListRolesQuery, ListTeamMembersPath, ListTeamMembersQuery, ListTeamsPath, ListTeamsQuery, RemoveRolePermissionPath, RemoveTeamMemberPath, RemoveTeamRolePath, RequestTenantSlugSurrenderPath } from "./operations";
+import type { Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C, Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF, Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F, Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D, Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA, Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51, Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5, Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF, Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D, Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82, Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11, Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A, Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F, Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5, Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552, Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA, Portia3115C5308C1E17753EFACC8F1ED1916351FD777796131BD3E35D75C5D4E1E415, Portia317D1FB1FCD29A7DD0797791039C62768591F13C9FDBA864BA12B4FD00EC056C, Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5, Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64, Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4, Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82, Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia4D2B2E7846C05C249F068D80B37B37F2C75C5ADD864571B26E4DF5A345F9CD19, Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE, Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C, Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3, Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453, Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137, Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4, Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317, Portia5DAD64FAA90520CAB8D26EA34171BA23DCFCC7C27E8F9E4C62DB581CD28EEC56, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A, Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1, Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D, Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902, Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64, Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C, Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1, Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010, Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48, Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C, Portia8E394EAF88AA2A7C8FFD2FC3F0EF138F753B34F45673B6225474AFED0CB59A46, Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7, Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782, Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66, Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F, PortiaA061B71D56F46AF68311A2B1F0B839D542E35F3F14FA3469112AC9DBB2C8EF35, PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341, PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64, PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508, PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C, PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3, PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219, PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05, PortiaB4F7BAA8B99F52AE6970F7ACF0928494556285076363E5938D8AA4FF64C9EC95, PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886, PortiaBDB3727E11513755EF2C20FC36CA203734F5F1EAB005F72399870A161757C2FE, PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979, PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3, PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520, PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE, PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781, PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC, PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8, PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8, PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD, PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582, PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C, PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873, PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F, PortiaDEDCF320D66371B8A514AC43F05EF3AFD0C2C09B2E6784A1FAA3AB8ADC9C402D, PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738, PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B, PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626, PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7, PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3, PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979, PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319, PortiaFDA3055E83DE2E638D548DE1150B986A21043869BFD9C65F10F6CFFBBDE7AA25, PortiaFE118EE4B74A4501C2BC3C6DDF29D5D7C5248C8FE0F51D9F3D797DE0F5856377 } from "./schemas";
+import type { AcceptTenantInvitationPath, AmendProgramScopeSnapshotPath, ApproveBoundaryPath, ApproveSeparationOfDutiesWaiverPath, AssignResponsibilityPath, AssignRolePermissionPath, AssignTeamMemberPath, AssignTeamRolePath, CancelApplicationImportPath, ChangeTenantSlugPath, CompleteEmailChallengePath, CreateBoundaryPath, CreateClientServicePath, CreateCommitmentDraftPath, CreateControlDraftPath, CreateProgramPath, CreateRiskDraftPath, DeclareApplicationPath, DeclareSystemInstancePath, DefineRolePath, DefineTeamPath, DeleteRolePath, DeleteTeamPath, DiscardBoundaryDraftPath, DiscardControlDraftPath, FreezeProgramScopeSnapshotPath, GetApplicationImportPath, GetApplicationImportQuery, GetApplicationPath, GetApplicationQuery, GetApplicationRevisionPath, GetBoundaryDecisionPath, GetBoundaryPath, GetBoundaryQuery, GetBoundaryVersionPath, GetBoundaryVersionQuery, GetClientServicePath, GetClientServiceQuery, GetClientServiceRevisionPath, GetCommitmentDraftPath, GetCommitmentDraftQuery, GetCommitmentDraftRevisionPath, GetControlDraftPath, GetControlDraftQuery, GetControlDraftRevisionPath, GetCriteriaCatalogEditionPath, GetCriteriaCatalogEntryPath, GetEffectiveBoundaryVersionPath, GetEffectiveBoundaryVersionQuery, GetEmailAddressPath, GetEmailChallengeStatusPath, GetMemberAccessPath, GetMemberAccessQuery, GetPersonPath, GetPersonQuery, GetProgramPath, GetProgramQuery, GetProgramRevisionPath, GetProgramSetupWorkPath, GetProgramSetupWorkQuery, GetRiskDraftPath, GetRiskDraftQuery, GetRiskDraftRevisionPath, GetRolePath, GetSeparationOfDutiesWaiverPath, GetSnapshotPath, GetSnapshotQuery, GetSystemInstancePath, GetSystemInstanceQuery, GetTeamPath, GetTenantMemberPath, GetTenantPath, GrantAccessPath, InviteOrganizationMemberPath, InviteTenantMemberPath, IssueEmailChallengePath, ListAccessGrantsPath, ListApplicationBoundaryReferencesPath, ListApplicationBoundaryReferencesQuery, ListApplicationImportRowsPath, ListApplicationImportRowsQuery, ListApplicationRevisionsPath, ListApplicationRevisionsQuery, ListApplicationsPath, ListApplicationsQuery, ListBoundaryDecisionsPath, ListBoundaryDecisionsQuery, ListBoundaryVersionsPath, ListBoundaryVersionsQuery, ListClientServiceRevisionsPath, ListClientServiceRevisionsQuery, ListClientServicesPath, ListClientServicesQuery, ListCommitmentDraftRevisionsPath, ListCommitmentDraftRevisionsQuery, ListCommitmentDraftsPath, ListCommitmentDraftsQuery, ListControlDraftRevisionsPath, ListControlDraftRevisionsQuery, ListControlDraftsPath, ListControlDraftsQuery, ListCriteriaCatalogEditionsPath, ListCriteriaCatalogEntriesPath, ListCriteriaCatalogEntriesQuery, ListEmailAddressesPath, ListEmailAddressesQuery, ListMemberResponsibilitiesPath, ListMyTenantsQuery, ListPeoplePath, ListPeopleQuery, ListProgramBoundariesPath, ListProgramBoundariesQuery, ListProgramClientServicesPath, ListProgramClientServicesQuery, ListProgramRevisionsPath, ListProgramRevisionsQuery, ListProgramSnapshotsPath, ListProgramSnapshotsQuery, ListProgramsPath, ListProgramsQuery, ListResponsibilitiesPath, ListResponsibilitiesQuery, ListRiskDraftRevisionsPath, ListRiskDraftRevisionsQuery, ListRiskDraftsPath, ListRiskDraftsQuery, ListRolePermissionsPath, ListRolePermissionsQuery, ListRoleTeamsPath, ListRoleTeamsQuery, ListRolesPath, ListRolesQuery, ListSystemInstanceBoundaryReferencesPath, ListSystemInstanceBoundaryReferencesQuery, ListSystemInstancesPath, ListSystemInstancesQuery, ListTeamMembersPath, ListTeamMembersQuery, ListTeamsPath, ListTeamsQuery, ListTenantInvitationsPath, ListTenantInvitationsQuery, ListTenantMembersPath, ListTenantMembersQuery, ListTenantsQuery, PreviewApplicationChangePath, PreviewApplicationImportPath, PreviewApplicationImportQuery, PreviewBoundaryImpactPath, PreviewBoundaryImpactQuery, PreviewResponsibilityConflictsPath, PreviewResponsibilityConflictsQuery, ProposeBoundarySuccessorPath, ReactivateTenantPath, RecordPersonPath, RecordSeparationOfDutiesWaiverPath, RegenerateProgramScopeSnapshotManifestPath, ReinstateMemberPath, RemoveRolePermissionPath, RemoveTeamMemberPath, RemoveTeamRolePath, ReserveEmailPath, ResolveMyTenantSlugPath, RetireClientServicePath, ReviewBoundaryPath, ReviseApplicationPath, ReviseBoundaryDraftPath, ReviseClientServicePath, ReviseCommitmentDraftPath, ReviseControlDraftPath, RevisePersonPath, ReviseProgramPath, ReviseRiskDraftPath, RevokeAccessGrantPath, RevokeResponsibilityPath, SelectProgramCriteriaEditionPath, StageApplicationImportPath, SuspendMemberPath, SuspendTenantPath, VerifyProgramScopeSnapshotPath } from "./operations";
 
 export const api = defineApi({
   continueWithDeveloperIdentity: post("/api/v1/developer-user-sessions")
@@ -59,10 +59,282 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
+  grantPlatformOperator: post("/api/v1/platform/operator-grants")
+    .body(json<{
+  "user_id": string;
+  "reason": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  revokePlatformOperator: post("/api/v1/platform/operator-revocations")
+    .body(json<{
+  "user_id": string;
+  "reason": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listPlatformOperators: get("/api/v1/platform/operators")
+    .returns(json<Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listTenants: get("/api/v1/platform/tenants")
+    .query<ListTenantsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  resolveMyTenantSlug: get("/api/v1/tenant-slugs/{slug}/mine")
+    .params<ResolveMyTenantSlugPath>({ "slug": { style: "simple", explode: false } })
+    .returns(json<Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
   registerTenant: post("/api/v1/tenants")
     .body(json<{
   "name": string | null;
   "slug": string | null;
+  "legal_name"?: string | null;
+  "first_administrator_email"?: string | null;
 }>())
     .returns(json<Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94>())
     .errors({ "400": json<{
@@ -117,7 +389,7 @@ export const api = defineApi({
 }>() }),
   listMyTenants: get("/api/v1/tenants/mine")
     .query<ListMyTenantsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
-    .returns(json<PortiaA79F728CB0B620D8928F1E786F7B1B23A937E23A33A65D5C092E345876533FC4>())
+    .returns(json<Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137>())
     .errors({ "400": json<{
   "type": string;
   "title": string;
@@ -168,8 +440,5166 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  listRoles: get("/api/v1/tenants/{tenantId}/roles")
-    .params<ListRolesPath>({ "tenantId": { style: "simple", explode: false } })
+  getTenant: get("/api/v1/tenants/{tenant_id}")
+    .params<GetTenantPath>({ "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listAccessGrants: get("/api/v1/tenants/{tenant_id}/access-grants")
+    .params<ListAccessGrantsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  grantAccess: post("/api/v1/tenants/{tenant_id}/access-grants/{grant_id}")
+    .params<GrantAccessPath>({ "grant_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "proposal": PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  revokeAccessGrant: del("/api/v1/tenants/{tenant_id}/access-grants/{grant_id}")
+    .params<RevokeAccessGrantPath>({ "grant_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  stageApplicationImport: post("/api/v1/tenants/{tenant_id}/application-imports")
+    .params<StageApplicationImportPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "submission_id": string;
+  "source_key": string | null;
+  "source_namespace": string | null;
+  "coverage": string | null;
+  "rows": PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781;
+}>())
+    .returns(json<PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getApplicationImport: get("/api/v1/tenants/{tenant_id}/application-imports/{batch_id}")
+    .params<GetApplicationImportPath>({ "batch_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetApplicationImportQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  cancelApplicationImport: post("/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations")
+    .params<CancelApplicationImportPath>({ "batch_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_batch_revision": number | string;
+  "reason": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  previewApplicationImport: get("/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview")
+    .params<PreviewApplicationImportPath>({ "batch_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<PreviewApplicationImportQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listApplicationImportRows: get("/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows")
+    .params<ListApplicationImportRowsPath>({ "batch_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListApplicationImportRowsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_revision": { style: "form", explode: true } })
+    .returns(json<PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listApplications: get("/api/v1/tenants/{tenant_id}/applications")
+    .params<ListApplicationsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListApplicationsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia5DAD64FAA90520CAB8D26EA34171BA23DCFCC7C27E8F9E4C62DB581CD28EEC56>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  declareApplication: post("/api/v1/tenants/{tenant_id}/applications")
+    .params<DeclareApplicationPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "name": string | null;
+  "purpose": string | null;
+  "owner_reference"?: string | null;
+  "classification"?: string | null;
+  "system_owner_person_id"?: string;
+  "access_owner_person_id"?: string;
+}>())
+    .returns(json<Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getApplication: get("/api/v1/tenants/{tenant_id}/applications/{application_id}")
+    .params<GetApplicationPath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetApplicationQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia317D1FB1FCD29A7DD0797791039C62768591F13C9FDBA864BA12B4FD00EC056C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseApplication: put("/api/v1/tenants/{tenant_id}/applications/{application_id}")
+    .params<ReviseApplicationPath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "name": string | null;
+  "purpose": string | null;
+  "owner_reference"?: string | null;
+  "classification"?: string | null;
+  "system_owner_person_id"?: string;
+  "access_owner_person_id"?: string;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listApplicationBoundaryReferences: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/boundary-references")
+    .params<ListApplicationBoundaryReferencesPath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListApplicationBoundaryReferencesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  previewApplicationChange: post("/api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews")
+    .params<PreviewApplicationChangePath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_application_revision": number | string;
+  "change_kind": string | null;
+  "name"?: string | null;
+  "purpose"?: string | null;
+  "owner_reference"?: string | null;
+  "classification"?: string | null;
+}>())
+    .returns(json<PortiaFDA3055E83DE2E638D548DE1150B986A21043869BFD9C65F10F6CFFBBDE7AA25>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listApplicationRevisions: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions")
+    .params<ListApplicationRevisionsPath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListApplicationRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_application_revision": { style: "form", explode: true } })
+    .returns(json<PortiaA061B71D56F46AF68311A2B1F0B839D542E35F3F14FA3469112AC9DBB2C8EF35>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getApplicationRevision: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
+    .params<GetApplicationRevisionPath>({ "application_id": { style: "simple", explode: false }, "revision": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<PortiaB4F7BAA8B99F52AE6970F7ACF0928494556285076363E5938D8AA4FF64C9EC95>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listSystemInstances: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances")
+    .params<ListSystemInstancesPath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListSystemInstancesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_application_revision": { style: "form", explode: true } })
+    .returns(json<PortiaDEDCF320D66371B8A514AC43F05EF3AFD0C2C09B2E6784A1FAA3AB8ADC9C402D>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  declareSystemInstance: post("/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances")
+    .params<DeclareSystemInstancePath>({ "application_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_application_revision": number | string;
+  "name": string | null;
+  "kind": string | null;
+  "access_boundary_reference"?: string | null;
+  "source_identifier"?: string | null;
+}>())
+    .returns(json<PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getSystemInstance: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}")
+    .params<GetSystemInstancePath>({ "application_id": { style: "simple", explode: false }, "system_instance_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetSystemInstanceQuery>({ "minimum_application_revision": { style: "form", explode: true }, "minimum_instance_revision": { style: "form", explode: true } })
+    .returns(json<PortiaFE118EE4B74A4501C2BC3C6DDF29D5D7C5248C8FE0F51D9F3D797DE0F5856377>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listSystemInstanceBoundaryReferences: get("/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/boundary-references")
+    .params<ListSystemInstanceBoundaryReferencesPath>({ "application_id": { style: "simple", explode: false }, "system_instance_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListSystemInstanceBoundaryReferencesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getBoundary: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}")
+    .params<GetBoundaryPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetBoundaryQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listBoundaryDecisions: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions")
+    .params<ListBoundaryDecisionsPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListBoundaryDecisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getBoundaryDecision: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/decisions/{decision_id}")
+    .params<GetBoundaryDecisionPath>({ "boundary_id": { style: "simple", explode: false }, "decision_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseBoundaryDraft: put("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}")
+    .params<ReviseBoundaryDraftPath>({ "boundary_id": { style: "simple", explode: false }, "draft_version_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "content": Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  approveBoundary: post("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/approvals")
+    .params<ApproveBoundaryPath>({ "boundary_id": { style: "simple", explode: false }, "draft_version_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "accepted_review_decision_id": string;
+  "effective_from": string;
+  "rationale": string | null;
+  "impact_digest": string | null;
+  "separation_of_duties_waiver_id"?: string;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  discardBoundaryDraft: post("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/discards")
+    .params<DiscardBoundaryDraftPath>({ "boundary_id": { style: "simple", explode: false }, "draft_version_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "rationale": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  previewBoundaryImpact: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/impact-preview")
+    .params<PreviewBoundaryImpactPath>({ "boundary_id": { style: "simple", explode: false }, "draft_version_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<PreviewBoundaryImpactQuery>({ "expected_revision": { style: "form", explode: true } })
+    .returns(json<Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviewBoundary: post("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/drafts/{draft_version_id}/reviews")
+    .params<ReviewBoundaryPath>({ "boundary_id": { style: "simple", explode: false }, "draft_version_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "outcome": string | null;
+  "rationale": string | null;
+  "separation_of_duties_waiver_id"?: string;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getEffectiveBoundaryVersion: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/effective-version")
+    .params<GetEffectiveBoundaryVersionPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetEffectiveBoundaryVersionQuery>({ "effective_on": { style: "form", explode: true }, "minimum_boundary_revision": { style: "form", explode: true } })
+    .returns(json<Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  proposeBoundarySuccessor: post("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/successors")
+    .params<ProposeBoundarySuccessorPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_approved_version_id": string;
+  "content": Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F;
+}>())
+    .returns(json<Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listBoundaryVersions: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions")
+    .params<ListBoundaryVersionsPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListBoundaryVersionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_boundary_revision": { style: "form", explode: true } })
+    .returns(json<Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getBoundaryVersion: get("/api/v1/tenants/{tenant_id}/boundaries/{boundary_id}/versions/{version_id}")
+    .params<GetBoundaryVersionPath>({ "boundary_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false }, "version_id": { style: "simple", explode: false } })
+    .query<GetBoundaryVersionQuery>({ "minimum_boundary_revision": { style: "form", explode: true } })
+    .returns(json<Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listClientServices: get("/api/v1/tenants/{tenant_id}/client-services")
+    .params<ListClientServicesPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListClientServicesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getClientService: get("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
+    .params<GetClientServicePath>({ "service_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetClientServiceQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseClientService: put("/api/v1/tenants/{tenant_id}/client-services/{service_id}")
+    .params<ReviseClientServicePath>({ "service_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "name": string | null;
+  "purpose": string | null;
+  "owner_reference": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  retireClientService: post("/api/v1/tenants/{tenant_id}/client-services/{service_id}/retirements")
+    .params<RetireClientServicePath>({ "service_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "rationale": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listClientServiceRevisions: get("/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions")
+    .params<ListClientServiceRevisionsPath>({ "service_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListClientServiceRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_service_revision": { style: "form", explode: true } })
+    .returns(json<PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getClientServiceRevision: get("/api/v1/tenants/{tenant_id}/client-services/{service_id}/revisions/{revision}")
+    .params<GetClientServiceRevisionPath>({ "revision": { style: "simple", explode: false }, "service_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listCriteriaCatalogEditions: get("/api/v1/tenants/{tenant_id}/criteria-editions")
+    .params<ListCriteriaCatalogEditionsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getCriteriaCatalogEdition: get("/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}")
+    .params<GetCriteriaCatalogEditionPath>({ "edition_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listCriteriaCatalogEntries: get("/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries")
+    .params<ListCriteriaCatalogEntriesPath>({ "edition_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListCriteriaCatalogEntriesQuery>({ "category": { style: "form", explode: true }, "cursor": { style: "form", explode: true }, "kind": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "parent_identifier": { style: "form", explode: true } })
+    .returns(json<PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getCriteriaCatalogEntry: get("/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
+    .params<GetCriteriaCatalogEntryPath>({ "edition_id": { style: "simple", explode: false }, "identifier": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  inviteTenantMember: post("/api/v1/tenants/{tenant_id}/invitations")
+    .params<InviteTenantMemberPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "email_address": string | null;
+  "affiliation": string | null;
+  "administrator"?: boolean;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  acceptTenantInvitation: post("/api/v1/tenants/{tenant_id}/invitations/acceptance")
+    .params<AcceptTenantInvitationPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "email_address": string | null;
+  "token": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listTenantInvitations: get("/api/v1/tenants/{tenant_id}/member-invitations")
+    .params<ListTenantInvitationsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListTenantInvitationsQuery>({ "cursor": { style: "form", explode: true }, "email_address": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  inviteOrganizationMember: post("/api/v1/tenants/{tenant_id}/member-invitations")
+    .params<InviteOrganizationMemberPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "email_address": string | null;
+  "built_in_role": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listTenantMembers: get("/api/v1/tenants/{tenant_id}/members")
+    .params<ListTenantMembersPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListTenantMembersQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaBDB3727E11513755EF2C20FC36CA203734F5F1EAB005F72399870A161757C2FE>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getTenantMember: get("/api/v1/tenants/{tenant_id}/members/{user_id}")
+    .params<GetTenantMemberPath>({ "tenant_id": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(json<Portia3115C5308C1E17753EFACC8F1ED1916351FD777796131BD3E35D75C5D4E1E415>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getMemberAccess: get("/api/v1/tenants/{tenant_id}/members/{user_id}/access")
+    .params<GetMemberAccessPath>({ "tenant_id": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .query<GetMemberAccessQuery>({ "expected_built_in_role": { style: "form", explode: true } })
+    .returns(json<Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listMemberResponsibilities: get("/api/v1/tenants/{tenant_id}/members/{user_id}/responsibilities")
+    .params<ListMemberResponsibilitiesPath>({ "tenant_id": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(json<Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  suspendMember: post("/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
+    .params<SuspendMemberPath>({ "tenant_id": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .body(json<{
+  "reason": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reinstateMember: del("/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
+    .params<ReinstateMemberPath>({ "tenant_id": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listPeople: get("/api/v1/tenants/{tenant_id}/people")
+    .params<ListPeoplePath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListPeopleQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  recordPerson: post("/api/v1/tenants/{tenant_id}/people")
+    .params<RecordPersonPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "display_name": string | null;
+  "work_email"?: string | null;
+}>())
+    .returns(json<PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getPerson: get("/api/v1/tenants/{tenant_id}/people/{person_id}")
+    .params<GetPersonPath>({ "person_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetPersonQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  revisePerson: put("/api/v1/tenants/{tenant_id}/people/{person_id}")
+    .params<RevisePersonPath>({ "person_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "display_name": string | null;
+  "work_email"?: string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listPrograms: get("/api/v1/tenants/{tenant_id}/programs")
+    .params<ListProgramsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListProgramsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createProgram: post("/api/v1/tenants/{tenant_id}/programs")
+    .params<CreateProgramPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "name": string | null;
+  "plan": Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F;
+}>())
+    .returns(json<Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getProgram: get("/api/v1/tenants/{tenant_id}/programs/{program_id}")
+    .params<GetProgramPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetProgramQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseProgram: put("/api/v1/tenants/{tenant_id}/programs/{program_id}")
+    .params<ReviseProgramPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "name": string | null;
+  "plan": Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listProgramBoundaries: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
+    .params<ListProgramBoundariesPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListProgramBoundariesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createBoundary: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/boundaries")
+    .params<CreateBoundaryPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "content": Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F;
+}>())
+    .returns(json<Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listProgramClientServices: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
+    .params<ListProgramClientServicesPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListProgramClientServicesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createClientService: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
+    .params<CreateClientServicePath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "name": string | null;
+  "purpose": string | null;
+  "owner_reference": string | null;
+}>())
+    .returns(json<PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listCommitmentDrafts: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts")
+    .params<ListCommitmentDraftsPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListCommitmentDraftsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createCommitmentDraft: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts")
+    .params<CreateCommitmentDraftPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "service_id": string;
+  "kind": string | null;
+  "identifier": string | null;
+  "statement": string | null;
+  "context": string | null;
+  "source_reference": string | null;
+}>())
+    .returns(json<PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getCommitmentDraft: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}")
+    .params<GetCommitmentDraftPath>({ "draft_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetCommitmentDraftQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseCommitmentDraft: put("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}")
+    .params<ReviseCommitmentDraftPath>({ "draft_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "statement": string | null;
+  "context": string | null;
+  "source_reference": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listCommitmentDraftRevisions: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/revisions")
+    .params<ListCommitmentDraftRevisionsPath>({ "draft_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListCommitmentDraftRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_draft_revision": { style: "form", explode: true } })
+    .returns(json<Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getCommitmentDraftRevision: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/revisions/{revision}")
+    .params<GetCommitmentDraftRevisionPath>({ "draft_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "revision": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listControlDrafts: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+    .params<ListControlDraftsPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListControlDraftsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia4D2B2E7846C05C249F068D80B37B37F2C75C5ADD864571B26E4DF5A345F9CD19>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createControlDraft: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls")
+    .params<CreateControlDraftPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "identifier": string | null;
+  "content": PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520;
+}>())
+    .returns(json<PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getControlDraft: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+    .params<GetControlDraftPath>({ "control_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetControlDraftQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<Portia8E394EAF88AA2A7C8FFD2FC3F0EF138F753B34F45673B6225474AFED0CB59A46>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseControlDraft: put("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft")
+    .params<ReviseControlDraftPath>({ "control_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "content": PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  discardControlDraft: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/discards")
+    .params<DiscardControlDraftPath>({ "control_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "rationale": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listControlDraftRevisions: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions")
+    .params<ListControlDraftRevisionsPath>({ "control_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListControlDraftRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_control_draft_revision": { style: "form", explode: true } })
+    .returns(json<PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getControlDraftRevision: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions/{revision}")
+    .params<GetControlDraftRevisionPath>({ "control_id": { style: "simple", explode: false }, "program_id": { style: "simple", explode: false }, "revision": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  selectProgramCriteriaEdition: put("/api/v1/tenants/{tenant_id}/programs/{program_id}/criteria-edition")
+    .params<SelectProgramCriteriaEditionPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "edition_id": string;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listProgramRevisions: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions")
+    .params<ListProgramRevisionsPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListProgramRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_program_revision": { style: "form", explode: true } })
+    .returns(json<Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getProgramRevision: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}")
+    .params<GetProgramRevisionPath>({ "program_id": { style: "simple", explode: false }, "revision": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listRiskDrafts: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+    .params<ListRiskDraftsPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListRiskDraftsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  createRiskDraft: post("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
+    .params<CreateRiskDraftPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "identifier": string | null;
+  "title": string | null;
+  "scenario": string | null;
+  "potential_effect": string | null;
+  "source_note"?: string | null;
+}>())
+    .returns(json<PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getRiskDraft: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+    .params<GetRiskDraftPath>({ "program_id": { style: "simple", explode: false }, "risk_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetRiskDraftQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reviseRiskDraft: put("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft")
+    .params<ReviseRiskDraftPath>({ "program_id": { style: "simple", explode: false }, "risk_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "title": string | null;
+  "scenario": string | null;
+  "potential_effect": string | null;
+  "source_note"?: string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listRiskDraftRevisions: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions")
+    .params<ListRiskDraftRevisionsPath>({ "program_id": { style: "simple", explode: false }, "risk_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListRiskDraftRevisionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "minimum_risk_revision": { style: "form", explode: true } })
+    .returns(json<PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getRiskDraftRevision: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions/{revision}")
+    .params<GetRiskDraftRevisionPath>({ "program_id": { style: "simple", explode: false }, "revision": { style: "simple", explode: false }, "risk_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listProgramSnapshots: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/scope-snapshots")
+    .params<ListProgramSnapshotsPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<ListProgramSnapshotsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getProgramSetupWork: get("/api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work")
+    .params<GetProgramSetupWorkPath>({ "program_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetProgramSetupWorkQuery>({ "boundary_cursor": { style: "form", explode: true }, "boundary_id": { style: "form", explode: true }, "boundary_limit": { style: "form", explode: true }, "minimum_boundary_revision": { style: "form", explode: true }, "minimum_program_revision": { style: "form", explode: true } })
+    .returns(json<Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listResponsibilities: get("/api/v1/tenants/{tenant_id}/responsibilities")
+    .params<ListResponsibilitiesPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<ListResponsibilitiesQuery>({ "minimum_revision": { style: "form", explode: true }, "record_id": { style: "form", explode: true }, "record_type": { style: "form", explode: true }, "scope_revision": { style: "form", explode: true }, "version_id": { style: "form", explode: true } })
+    .returns(json<PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  assignResponsibility: post("/api/v1/tenants/{tenant_id}/responsibilities")
+    .params<AssignResponsibilityPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "member_user_id": string;
+  "type": "control_owner" | "evidence_contributor" | "assigned_reviewer" | "access_reviewer" | "corrective_action_owner" | "policy_approver";
+  "record_type": string | null;
+  "record_id": string;
+  "version_id": string;
+  "scope_revision": number | string;
+  "effective_from": string;
+  "effective_until"?: string;
+  "separation_of_duties_waiver_ids": Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  previewResponsibilityConflicts: get("/api/v1/tenants/{tenant_id}/responsibilities/conflict-preview")
+    .params<PreviewResponsibilityConflictsPath>({ "tenant_id": { style: "simple", explode: false } })
+    .query<PreviewResponsibilityConflictsQuery>({ "effective_from": { style: "form", explode: true }, "effective_until": { style: "form", explode: true }, "member_user_id": { style: "form", explode: true }, "record_id": { style: "form", explode: true }, "record_type": { style: "form", explode: true }, "scope_revision": { style: "form", explode: true }, "type": { style: "form", explode: true }, "version_id": { style: "form", explode: true } })
+    .returns(json<Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  revokeResponsibility: post("/api/v1/tenants/{tenant_id}/responsibilities/{assignment_id}/revocation")
+    .params<RevokeResponsibilityPath>({ "assignment_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "record_type": string | null;
+  "record_id": string;
+  "version_id": string;
+  "scope_revision": number | string;
+  "reason": string | null;
+}>())
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listRoles: get("/api/v1/tenants/{tenant_id}/roles")
+    .params<ListRolesPath>({ "tenant_id": { style: "simple", explode: false } })
     .query<ListRolesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "search": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
     .returns(json<Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4>())
     .errors({ "400": json<{
@@ -222,8 +5652,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  getRole: get("/api/v1/tenants/{tenantId}/roles/{roleId}")
-    .params<GetRolePath>({ "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  getRole: get("/api/v1/tenants/{tenant_id}/roles/{role_id}")
+    .params<GetRolePath>({ "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(json<Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680>())
     .errors({ "400": json<{
   "type": string;
@@ -275,8 +5705,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  defineRole: post("/api/v1/tenants/{tenantId}/roles/{roleId}")
-    .params<DefineRolePath>({ "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  defineRole: post("/api/v1/tenants/{tenant_id}/roles/{role_id}")
+    .params<DefineRolePath>({ "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .body(json<{
   "name": string | null;
 }>())
@@ -331,8 +5761,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  deleteRole: del("/api/v1/tenants/{tenantId}/roles/{roleId}")
-    .params<DeleteRolePath>({ "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  deleteRole: del("/api/v1/tenants/{tenant_id}/roles/{role_id}")
+    .params<DeleteRolePath>({ "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -384,8 +5814,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  listRolePermissions: get("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions")
-    .params<ListRolePermissionsPath>({ "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  listRolePermissions: get("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions")
+    .params<ListRolePermissionsPath>({ "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .query<ListRolePermissionsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "search": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
     .returns(json<PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B>())
     .errors({ "400": json<{
@@ -438,8 +5868,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  assignRolePermission: post("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
-    .params<AssignRolePermissionPath>({ "permission": { style: "simple", explode: false }, "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  assignRolePermission: post("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions/{permission}")
+    .params<AssignRolePermissionPath>({ "permission": { style: "simple", explode: false }, "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -491,8 +5921,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  removeRolePermission: del("/api/v1/tenants/{tenantId}/roles/{roleId}/permissions/{permission}")
-    .params<RemoveRolePermissionPath>({ "permission": { style: "simple", explode: false }, "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  removeRolePermission: del("/api/v1/tenants/{tenant_id}/roles/{role_id}/permissions/{permission}")
+    .params<RemoveRolePermissionPath>({ "permission": { style: "simple", explode: false }, "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -544,8 +5974,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  listRoleTeams: get("/api/v1/tenants/{tenantId}/roles/{roleId}/teams")
-    .params<ListRoleTeamsPath>({ "roleId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  listRoleTeams: get("/api/v1/tenants/{tenant_id}/roles/{role_id}/teams")
+    .params<ListRoleTeamsPath>({ "role_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .query<ListRoleTeamsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "search": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
     .returns(json<Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E>())
     .errors({ "400": json<{
@@ -598,8 +6028,455 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  requestTenantSlugSurrender: del("/api/v1/tenants/{tenantId}/slugs/{slug}")
-    .params<RequestTenantSlugSurrenderPath>({ "slug": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  freezeProgramScopeSnapshot: post("/api/v1/tenants/{tenant_id}/scope-snapshots")
+    .params<FreezeProgramScopeSnapshotPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "program_id": string;
+  "expected_program_revision": number | string;
+  "boundary_id": string;
+  "approved_boundary_version_id": string;
+}>())
+    .returns(json<PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getSnapshot: get("/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}")
+    .params<GetSnapshotPath>({ "snapshot_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .query<GetSnapshotQuery>({ "minimum_revision": { style: "form", explode: true } })
+    .returns(json<PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  amendProgramScopeSnapshot: post("/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/amendments")
+    .params<AmendProgramScopeSnapshotPath>({ "snapshot_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "program_id": string;
+  "expected_program_revision": number | string;
+  "boundary_id": string;
+  "approved_boundary_version_id": string;
+  "reason": string | null;
+}>())
+    .returns(json<PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  regenerateProgramScopeSnapshotManifest: get("/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/manifest-regeneration")
+    .params<RegenerateProgramScopeSnapshotManifestPath>({ "snapshot_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  verifyProgramScopeSnapshot: get("/api/v1/tenants/{tenant_id}/scope-snapshots/{snapshot_id}/verification")
+    .params<VerifyProgramScopeSnapshotPath>({ "snapshot_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(json<Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  recordSeparationOfDutiesWaiver: post("/api/v1/tenants/{tenant_id}/separation-of-duties-waivers")
+    .params<RecordSeparationOfDutiesWaiverPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "scope": Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117;
+  "beneficiary_user_id": string;
+  "rationale": string | null;
+  "expires_at": string;
+}>())
+    .returns(json<Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getSeparationOfDutiesWaiver: get("/api/v1/tenants/{tenant_id}/separation-of-duties-waivers/{waiver_id}")
+    .params<GetSeparationOfDutiesWaiverPath>({ "tenant_id": { style: "simple", explode: false }, "waiver_id": { style: "simple", explode: false } })
+    .returns(json<Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  approveSeparationOfDutiesWaiver: post("/api/v1/tenants/{tenant_id}/separation-of-duties-waivers/{waiver_id}/approvals")
+    .params<ApproveSeparationOfDutiesWaiverPath>({ "tenant_id": { style: "simple", explode: false }, "waiver_id": { style: "simple", explode: false } })
+    .returns(json<Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  changeTenantSlug: post("/api/v1/tenants/{tenant_id}/slug-changes")
+    .params<ChangeTenantSlugPath>({ "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "slug": string | null;
+}>())
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -651,8 +6528,114 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  listTeams: get("/api/v1/tenants/{tenantId}/teams")
-    .params<ListTeamsPath>({ "tenantId": { style: "simple", explode: false } })
+  suspendTenant: post("/api/v1/tenants/{tenant_id}/suspensions")
+    .params<SuspendTenantPath>({ "tenant_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reactivateTenant: del("/api/v1/tenants/{tenant_id}/suspensions")
+    .params<ReactivateTenantPath>({ "tenant_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listTeams: get("/api/v1/tenants/{tenant_id}/teams")
+    .params<ListTeamsPath>({ "tenant_id": { style: "simple", explode: false } })
     .query<ListTeamsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "search": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
     .returns(json<PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54>())
     .errors({ "400": json<{
@@ -705,8 +6688,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  getTeam: get("/api/v1/tenants/{tenantId}/teams/{teamId}")
-    .params<GetTeamPath>({ "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  getTeam: get("/api/v1/tenants/{tenant_id}/teams/{team_id}")
+    .params<GetTeamPath>({ "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(json<Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD>())
     .errors({ "400": json<{
   "type": string;
@@ -758,8 +6741,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  defineTeam: post("/api/v1/tenants/{tenantId}/teams/{teamId}")
-    .params<DefineTeamPath>({ "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  defineTeam: post("/api/v1/tenants/{tenant_id}/teams/{team_id}")
+    .params<DefineTeamPath>({ "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .body(json<{
   "name": string | null;
 }>())
@@ -814,8 +6797,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  deleteTeam: del("/api/v1/tenants/{tenantId}/teams/{teamId}")
-    .params<DeleteTeamPath>({ "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  deleteTeam: del("/api/v1/tenants/{tenant_id}/teams/{team_id}")
+    .params<DeleteTeamPath>({ "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -867,8 +6850,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  listTeamMembers: get("/api/v1/tenants/{tenantId}/teams/{teamId}/members")
-    .params<ListTeamMembersPath>({ "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  listTeamMembers: get("/api/v1/tenants/{tenant_id}/teams/{team_id}/members")
+    .params<ListTeamMembersPath>({ "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .query<ListTeamMembersQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true }, "search": { style: "form", explode: true }, "sort": { style: "form", explode: true } })
     .returns(json<Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A>())
     .errors({ "400": json<{
@@ -921,8 +6904,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  assignTeamMember: post("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
-    .params<AssignTeamMemberPath>({ "memberId": { style: "simple", explode: false }, "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  assignTeamMember: post("/api/v1/tenants/{tenant_id}/teams/{team_id}/members/{member_id}")
+    .params<AssignTeamMemberPath>({ "member_id": { style: "simple", explode: false }, "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -974,8 +6957,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  removeTeamMember: del("/api/v1/tenants/{tenantId}/teams/{teamId}/members/{memberId}")
-    .params<RemoveTeamMemberPath>({ "memberId": { style: "simple", explode: false }, "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  removeTeamMember: del("/api/v1/tenants/{tenant_id}/teams/{team_id}/members/{member_id}")
+    .params<RemoveTeamMemberPath>({ "member_id": { style: "simple", explode: false }, "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -1027,8 +7010,8 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  assignTeamRole: post("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
-    .params<AssignTeamRolePath>({ "roleId": { style: "simple", explode: false }, "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  assignTeamRole: post("/api/v1/tenants/{tenant_id}/teams/{team_id}/roles/{role_id}")
+    .params<AssignTeamRolePath>({ "role_id": { style: "simple", explode: false }, "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
@@ -1080,8 +7063,330 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
-  removeTeamRole: del("/api/v1/tenants/{tenantId}/teams/{teamId}/roles/{roleId}")
-    .params<RemoveTeamRolePath>({ "roleId": { style: "simple", explode: false }, "teamId": { style: "simple", explode: false }, "tenantId": { style: "simple", explode: false } })
+  removeTeamRole: del("/api/v1/tenants/{tenant_id}/teams/{team_id}/roles/{role_id}")
+    .params<RemoveTeamRolePath>({ "role_id": { style: "simple", explode: false }, "team_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  listEmailAddresses: get("/api/v1/users/{user_id}/email-addresses")
+    .params<ListEmailAddressesPath>({ "user_id": { style: "simple", explode: false } })
+    .query<ListEmailAddressesQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
+    .returns(json<PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getEmailAddress: get("/api/v1/users/{user_id}/email-addresses/{email_address}")
+    .params<GetEmailAddressPath>({ "email_address": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(json<Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  reserveEmail: post("/api/v1/users/{user_id}/email-addresses/{email_address}")
+    .params<ReserveEmailPath>({ "email_address": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  issueEmailChallenge: post("/api/v1/users/{user_id}/email-addresses/{email_address}/challenges")
+    .params<IssueEmailChallengePath>({ "email_address": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(204, empty())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  getEmailChallengeStatus: get("/api/v1/users/{user_id}/email-addresses/{email_address}/challenges/status")
+    .params<GetEmailChallengeStatusPath>({ "email_address": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .returns(json<Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C>())
+    .errors({ "400": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "401": empty(), "403": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "404": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "409": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "413": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "415": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>(), "500": json<{
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+}>() }),
+  completeEmailChallenge: post("/api/v1/users/{user_id}/email-addresses/{email_address}/verifications")
+    .params<CompleteEmailChallengePath>({ "email_address": { style: "simple", explode: false }, "user_id": { style: "simple", explode: false } })
+    .body(json<{
+  "token": string | null;
+}>())
     .returns(204, empty())
     .errors({ "400": json<{
   "type": string;
