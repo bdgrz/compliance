@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Bdgrz.Compliance.Features.Boundaries;
+using Cntryl.Fitz;
+using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -107,6 +110,19 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
                 ["expected_revision"] = 1,
                 ["content"] = revisedContent,
             };
+
+            // Hold the exact boundary stream so this MCP edit loses a real broker
+            // session race. Once released, the same edit must append exactly once.
+            await using var blockingClient = await CreateFitzClientAsync(broker.WebSocketEndpoint);
+            await using var blocker = await blockingClient.Stream.BeginAsync(
+                new EventStreamAddress(tenantId, "boundaries", boundaryId).ToString());
+            var contended = await mcp.When("bdgrz.boundary.draft.revise", reviseInput);
+            var conflict = Assert.IsType<JsonElement>(contended.Error);
+            Assert.True(contended.IsError);
+            Assert.Equal("Conflict", conflict.GetProperty("kind").GetString());
+            Assert.True(conflict.GetProperty("isTransient").GetBoolean());
+            await blocker.RollbackAsync();
+
             _ = await mcp.When("bdgrz.boundary.draft.revise", reviseInput).ExpectSuccess();
             await WaitForRevisionAsync(owner, boundaryPath, 2);
             getInput["minimum_revision"] = 2;
@@ -124,6 +140,9 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
             var finalRead = await mcp.When("bdgrz.boundary.get", getInput).ExpectSuccess();
             Assert.Equal(2, Assert.IsType<JsonElement>(finalRead.StructuredJson)
                 .GetProperty("result").GetProperty("draft").GetProperty("revision").GetInt64());
+            await AssertExactBoundaryHistoryAsync(factory.Services.GetRequiredService<IEventStore>(),
+                tenantId, boundaryId, revisedContentStatement:
+                "The customer service and provider are in scope.");
         }
         finally
         {
@@ -191,6 +210,42 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException($"{path} did not project revision {revision}: {lastResponse}");
+    }
+
+    static async Task<Client> CreateFitzClientAsync(string endpoint)
+    {
+        var client = new Client(new ClientConfig(new Uri(endpoint, UriKind.Absolute),
+            Timeout: TimeSpan.FromSeconds(10)));
+        try
+        {
+            await client.ConnectWhenReadyAsync(new ConnectWhenReadyOptions(TimeSpan.FromSeconds(15)));
+            return client;
+        }
+        catch
+        {
+            await client.DisposeAsync();
+            throw;
+        }
+    }
+
+    static async Task AssertExactBoundaryHistoryAsync(IEventStore store, string tenantId,
+        string boundaryId, string revisedContentStatement)
+    {
+        var events = new List<DomainEvent>();
+        await foreach (var record in store.ReadAsync(
+                           EventStreamPattern.ForPattern(tenantId, "boundaries", boundaryId),
+                           EventCursor.Start, CancellationToken.None))
+        {
+            events.Add(record.Event);
+        }
+        Assert.Collection(events,
+            created => Assert.IsType<BoundaryDraftCreated>(created),
+            revision =>
+            {
+                var revised = Assert.IsType<BoundaryDraftRevised>(revision);
+                Assert.Equal(2, revised.Revision);
+                Assert.Equal(revisedContentStatement, revised.Content.Statement);
+            });
     }
 
     static object Content(string statement, string entryId) => new
