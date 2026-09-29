@@ -54,6 +54,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<AssignTeamRole>(tool => tool.Idempotent())
         .AddMcpTool<RemoveTeamRole>(tool => tool.Destructive())
         .AddMcpTool<ListRoleTeams>(tool => tool.ReadOnly())
+        .AddMcpTool<GrantAccess>(tool => tool.Idempotent())
+        .AddMcpTool<RevokeAccessGrant>(tool => tool.Destructive())
+        .AddMcpTool<ListAccessGrants>(tool => tool.ReadOnly())
         .AddMcpTool<ListMyTenants>(tool => tool.ReadOnly())
         .AddMcpTool<RegisterTenant>()
         .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
@@ -759,6 +762,15 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<ListRoleTeams, Page<RoleTeamView>>("/api/v1/tenants/{tenant_id}/roles/{role_id}/teams")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Roles");
+    app.MapPortiaPost<GrantAccess>("/api/v1/tenants/{tenant_id}/access-grants/{grant_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access grants");
+    app.MapPortiaDelete<RevokeAccessGrant>("/api/v1/tenants/{tenant_id}/access-grants/{grant_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access grants");
+    app.MapPortiaGet<ListAccessGrants, AccessGrantSetView>("/api/v1/tenants/{tenant_id}/access-grants")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access grants");
     app.MapMethods(
         "/api/{**path}",
         ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],

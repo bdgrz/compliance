@@ -9,7 +9,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     query-side reads open their own read-only transaction on the resource it writes for the
 ///     given tenant.
 /// </summary>
-sealed class FitzTeamMemberDirectoryReader(IKvClient client)
+sealed class FitzTeamMemberDirectoryReader(IKvClient client, IDomainEventReader events)
     : FitzKvProjectionStore(client, TeamMemberDirectoryKeys.Route, "TeamMemberDirectory"),
       ITeamMemberDirectoryProjection,
       ITeamMemberDirectoryReader
@@ -63,6 +63,32 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client)
         }
 
         return await SearchAsync(tx, teamId, limit, cursor, search, descending, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<bool> HasPendingRemovalAsync(Uuid tenantId, Uuid teamId,
+        Uuid memberId, CancellationToken ct = default)
+    {
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var checkpoint = await base.LoadCheckpointAsync(new CheckpointIdentity(
+                "TeamMemberDirectory", pattern), ct)
+            .ConfigureAwait(false);
+        var isMember = true;
+        await foreach (var record in events.ReadAsync(pattern, checkpoint.Cursor, ct)
+                           .ConfigureAwait(false))
+        {
+            switch (record.Event)
+            {
+                case TeamMemberRemoved removed when removed.TenantId == tenantId &&
+                    removed.TeamId == teamId && removed.MemberId == memberId:
+                    isMember = false;
+                    break;
+                case TeamMemberAssigned assigned when assigned.TenantId == tenantId &&
+                    assigned.TeamId == teamId && assigned.MemberId == memberId:
+                    isMember = true;
+                    break;
+            }
+        }
+        return !isMember;
     }
 
     // Same reasoning as FitzTeamDirectoryReader.SearchAsync: the by_team index prefix only bounds

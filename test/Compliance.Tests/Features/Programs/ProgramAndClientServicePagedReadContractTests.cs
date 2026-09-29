@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -16,9 +17,9 @@ public sealed class ProgramAndClientServicePagedReadContractTests
         var scenario = CreateScenario();
         var programHistory = new ProgramHistoryReadConsistency(scenario.Programs, scenario.Reader);
         var serviceHistory = new ClientServiceHistoryReadConsistency(scenario.Services, scenario.Reader);
-        var programs = new ListProgramsHandler(scenario.Programs);
+        var programs = new ListProgramsHandler(scenario.Programs, Visibility(true));
         var programRevisions = new ListProgramRevisionsHandler(scenario.Programs, programHistory);
-        var services = new ListClientServicesHandler(scenario.Services);
+        var services = new ListClientServicesHandler(scenario.Services, Visibility(true));
         var programServices = new ListProgramClientServicesHandler(scenario.Services, scenario.Reader);
         var serviceRevisions = new ListClientServiceRevisionsHandler(scenario.Services, serviceHistory);
 
@@ -52,9 +53,9 @@ public sealed class ProgramAndClientServicePagedReadContractTests
         var scenario = CreateScenario(rejectCursor: true);
         var programHistory = new ProgramHistoryReadConsistency(scenario.Programs, scenario.Reader);
         var serviceHistory = new ClientServiceHistoryReadConsistency(scenario.Services, scenario.Reader);
-        var programs = new ListProgramsHandler(scenario.Programs);
+        var programs = new ListProgramsHandler(scenario.Programs, Visibility(true));
         var programRevisions = new ListProgramRevisionsHandler(scenario.Programs, programHistory);
-        var services = new ListClientServicesHandler(scenario.Services);
+        var services = new ListClientServicesHandler(scenario.Services, Visibility(true));
         var programServices = new ListProgramClientServicesHandler(scenario.Services, scenario.Reader);
         var serviceRevisions = new ListClientServiceRevisionsHandler(scenario.Services, serviceHistory);
 
@@ -118,11 +119,11 @@ public sealed class ProgramAndClientServicePagedReadContractTests
         var serviceHistory = new ClientServiceHistoryReadConsistency(services, reader);
 
         // Act
-        var programResult = await new ListProgramsHandler(programs).HandleAsync(Context(
+        var programResult = await new ListProgramsHandler(programs, Visibility(true)).HandleAsync(Context(
             new ListPrograms(tenantId)), CancellationToken.None);
         var programRevisionResult = await new ListProgramRevisionsHandler(programs, programHistory)
             .HandleAsync(Context(new ListProgramRevisions(tenantId, programId)), CancellationToken.None);
-        var serviceResult = await new ListClientServicesHandler(services).HandleAsync(Context(
+        var serviceResult = await new ListClientServicesHandler(services, Visibility(true)).HandleAsync(Context(
             new ListClientServices(tenantId)), CancellationToken.None);
         var programServiceResult = await new ListProgramClientServicesHandler(services, reader)
             .HandleAsync(Context(new ListProgramClientServices(tenantId, programId)),
@@ -139,6 +140,67 @@ public sealed class ProgramAndClientServicePagedReadContractTests
         AssertError(serviceRevisionResult.Error, RequestErrorKind.Conflict);
     }
 
+    [Fact]
+    public async Task ShouldFilterProgramListAndContinueOpaqueCursorGivenProgramScopedGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var hidden = Program(tenantId, Uuid.CreateVersion4());
+        var visible = Program(tenantId, Uuid.CreateVersion4());
+        var directory = new ProgramDirectory
+        {
+            ProgramPages = new Dictionary<string, Page<ProgramView>>
+            {
+                [string.Empty] = new Page<ProgramView>([hidden], "after-hidden"),
+                ["after-hidden"] = new Page<ProgramView>([visible], "after-visible"),
+            },
+        };
+        var handler = new ListProgramsHandler(directory,
+            Visibility(false, new HashSet<Uuid> { visible.ProgramId }));
+
+        // Act
+        var result = await handler.HandleAsync(Context(new ListPrograms(tenantId, Limit: 1)),
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal([visible.ProgramId], result.Value.Items.Select(item => item.ProgramId));
+        Assert.Equal("after-visible", result.Value.NextCursor);
+        Assert.Equal([1, 1], directory.RequestedLimits);
+        Assert.Equal<string?>([null, "after-hidden"], directory.RequestedCursors);
+    }
+
+    [Fact]
+    public async Task ShouldFilterClientServiceListGivenProgramScopedGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var hidden = Service(tenantId, Uuid.CreateVersion4(), Uuid.CreateVersion4());
+        var visibleProgramId = Uuid.CreateVersion4();
+        var visible = Service(tenantId, Uuid.CreateVersion4(), visibleProgramId);
+        var directory = new ClientServiceDirectory
+        {
+            ServicePages = new Dictionary<string, Page<ClientServiceView>>
+            {
+                [string.Empty] = new Page<ClientServiceView>([hidden], "after-hidden"),
+                ["after-hidden"] = new Page<ClientServiceView>([visible], null),
+            },
+        };
+        var handler = new ListClientServicesHandler(directory,
+            Visibility(false, new HashSet<Uuid> { visibleProgramId }));
+
+        // Act
+        var result = await handler.HandleAsync(Context(new ListClientServices(tenantId, Limit: 1)),
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal([visible.ServiceId], result.Value.Items.Select(item => item.ServiceId));
+        Assert.Null(result.Value.NextCursor);
+        Assert.Equal([1, 1], directory.RequestedLimits);
+        Assert.Equal<string?>([null, "after-hidden"], directory.RequestedCursors);
+    }
+
     static Scenario CreateScenario(bool rejectCursor = false)
     {
         var tenantId = Uuid.CreateVersion4();
@@ -151,7 +213,12 @@ public sealed class ProgramAndClientServicePagedReadContractTests
     }
 
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
-        new(request, new ClaimsPrincipal());
+        new(request, new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "test")));
+
+    static FixedProgramVisibilityAuthorizer Visibility(bool organizationWide,
+        IReadOnlySet<Uuid>? programIds = null) => new(
+        new ProgramAccessVisibility(organizationWide, programIds ?? new HashSet<Uuid>()));
 
     static ProgramPlan Plan() => new(null, null, null, null, null, null);
 
@@ -180,19 +247,41 @@ public sealed class ProgramAndClientServicePagedReadContractTests
     sealed record Scenario(Uuid TenantId, Uuid ProgramId, Uuid ServiceId,
         ProgramDirectory Programs, ClientServiceDirectory Services, AggregateReader Reader);
 
+    sealed class FixedProgramVisibilityAuthorizer(ProgramAccessVisibility visibility)
+        : IAccessGrantPermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            Uuid programId, string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(visibility.OrganizationWide || visibility.ProgramIds.Contains(programId));
+
+        public ValueTask<ProgramAccessVisibility> GetProgramVisibilityAsync(Uuid tenantId,
+            Uuid userId, Uuid memberId, string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(visibility);
+    }
+
     sealed class ProgramDirectory : IProgramDirectoryReader
     {
         public bool RejectCursor { get; init; }
         public Page<ProgramView> ProgramPage { get; init; } = new([], null);
+        public Dictionary<string, Page<ProgramView>>? ProgramPages { get; init; }
+        public List<int> RequestedLimits { get; } = [];
+        public List<string?> RequestedCursors { get; } = [];
         public Page<ProgramRevisionView>? RevisionPage { get; init; } = new([], null);
 
         public ValueTask<ProgramView?> GetAsync(Uuid tenantId, Uuid programId,
             CancellationToken ct = default) => ValueTask.FromResult<ProgramView?>(null);
 
         public ValueTask<Page<ProgramView>> ListAsync(Uuid tenantId, int limit,
-            string? cursor, CancellationToken ct = default) => RejectCursor
-            ? ValueTask.FromException<Page<ProgramView>>(new KvDirectoryQueryException())
-            : ValueTask.FromResult(ProgramPage);
+            string? cursor, CancellationToken ct = default)
+        {
+            RequestedLimits.Add(limit);
+            RequestedCursors.Add(cursor);
+            if (RejectCursor)
+                return ValueTask.FromException<Page<ProgramView>>(new KvDirectoryQueryException());
+            return ValueTask.FromResult(ProgramPages is null
+                ? ProgramPage
+                : ProgramPages[cursor ?? string.Empty]);
+        }
 
         public ValueTask<Page<ProgramRevisionView>?> ListRevisionsAsync(Uuid tenantId,
             Uuid programId, int limit, string? cursor, CancellationToken ct = default) => RejectCursor
@@ -211,6 +300,9 @@ public sealed class ProgramAndClientServicePagedReadContractTests
     {
         public bool RejectCursor { get; init; }
         public Page<ClientServiceView> ServicePage { get; init; } = new([], null);
+        public Dictionary<string, Page<ClientServiceView>>? ServicePages { get; init; }
+        public List<int> RequestedLimits { get; } = [];
+        public List<string?> RequestedCursors { get; } = [];
         public Page<ClientServiceView> ProgramServicePage { get; init; } = new([], null);
         public Page<ClientServiceRevisionView>? RevisionPage { get; init; } = new([], null);
 
@@ -218,9 +310,16 @@ public sealed class ProgramAndClientServicePagedReadContractTests
             CancellationToken ct = default) => ValueTask.FromResult<ClientServiceView?>(null);
 
         public ValueTask<Page<ClientServiceView>> ListAsync(Uuid tenantId, int limit,
-            string? cursor, CancellationToken ct = default) => RejectCursor
-            ? ValueTask.FromException<Page<ClientServiceView>>(new KvDirectoryQueryException())
-            : ValueTask.FromResult(ServicePage);
+            string? cursor, CancellationToken ct = default)
+        {
+            RequestedLimits.Add(limit);
+            RequestedCursors.Add(cursor);
+            if (RejectCursor)
+                return ValueTask.FromException<Page<ClientServiceView>>(new KvDirectoryQueryException());
+            return ValueTask.FromResult(ServicePages is null
+                ? ServicePage
+                : ServicePages[cursor ?? string.Empty]);
+        }
 
         public ValueTask<Page<ClientServiceView>> ListProgramAsync(Uuid tenantId,
             Uuid programId, int limit, string? cursor, CancellationToken ct = default) => RejectCursor

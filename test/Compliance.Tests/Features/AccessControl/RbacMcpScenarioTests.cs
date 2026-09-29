@@ -134,6 +134,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.rbac.team-role.assign",
             "bdgrz.rbac.team-role.remove",
             "bdgrz.rbac.role-team.list",
+            "bdgrz.access-grant.issue",
+            "bdgrz.access-grant.revoke",
+            "bdgrz.access-grant.list",
             "bdgrz.responsibilities.conflicts.preview",
             "bdgrz.responsibilities.list",
             "bdgrz.tenant-membership.list-mine",
@@ -177,6 +180,11 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application_import.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.responsibilities.conflicts.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.access-grant.issue").Idempotent);
+        var revokeGrant = Assert.Single(tools, tool => tool.Name == "bdgrz.access-grant.revoke");
+        Assert.True(revokeGrant.Destructive);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.access-grant.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.responsibilities.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>

@@ -247,6 +247,7 @@ public sealed class CriteriaCatalogE2ETests(BrokerStackFixture broker)
 
     static async Task<string> CreateProgramAsync(HttpClient owner, string path)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {

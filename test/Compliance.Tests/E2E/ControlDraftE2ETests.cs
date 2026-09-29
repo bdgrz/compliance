@@ -810,6 +810,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
 
     static async Task<Guid> CreateProgramForTenantAsync(HttpClient owner, Guid tenantId)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

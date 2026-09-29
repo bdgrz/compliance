@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -22,7 +23,8 @@ public sealed class TenantPagedReadContractTests
         // Act
         var platform = await new ListTenantsHandler(tenants).HandleAsync(
             Context(new ListTenants(limit), actor), CancellationToken.None);
-        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants).HandleAsync(
+        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants,
+            new ActiveMemberReader()).HandleAsync(
             Context(new ListMyTenants(limit), actor), CancellationToken.None);
         var members = await new ListTenantMembersHandler(memberships).HandleAsync(
             Context(new ListTenantMembers(tenantId, limit), actor), CancellationToken.None);
@@ -79,7 +81,8 @@ public sealed class TenantPagedReadContractTests
         // Act
         var platform = await new ListTenantsHandler(tenants).HandleAsync(
             Context(new ListTenants(Cursor: "invalid"), actor), CancellationToken.None);
-        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants).HandleAsync(
+        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants,
+            new ActiveMemberReader()).HandleAsync(
             Context(new ListMyTenants(Cursor: "invalid"), actor), CancellationToken.None);
         var members = await new ListTenantMembersHandler(memberships).HandleAsync(
             Context(new ListTenantMembers(tenantId, Cursor: "invalid"), actor), CancellationToken.None);
@@ -125,7 +128,8 @@ public sealed class TenantPagedReadContractTests
         tenants.ById[tenantIds[1]] = new TenantView(tenantIds[1], "Second", "second");
         var activeTenants = new ActiveTenantDirectory(tenantIds);
         var memberships = new MembershipDirectory { IsMember = true };
-        var handler = new ListMyTenantsHandler(activeTenants, memberships, tenants);
+        var handler = new ListMyTenantsHandler(activeTenants, memberships, tenants,
+            new ActiveMemberReader());
 
         // Act
         var result = await handler.HandleAsync(Context(new ListMyTenants(Limit: 1,
@@ -161,7 +165,8 @@ public sealed class TenantPagedReadContractTests
         var actor = Actor();
 
         // Act
-        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants).HandleAsync(
+        var mine = await new ListMyTenantsHandler(activeTenants, memberships, tenants,
+            new ActiveMemberReader()).HandleAsync(
             Context(new ListMyTenants(), actor), CancellationToken.None);
         var members = await new ListTenantMembersHandler(memberships).HandleAsync(
             Context(new ListTenantMembers(tenantId), actor), CancellationToken.None);
@@ -182,6 +187,17 @@ public sealed class TenantPagedReadContractTests
     static TenantInvitationDirectoryEntry Invitation(Uuid tenantId) => new(tenantId,
         "invitee@example.com", "client_personnel", false, null, DateTimeOffset.UtcNow.AddDays(1),
         Uuid.CreateVersion4(), null);
+
+    sealed class ActiveMemberReader : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            if (aggregate is Member member)
+                Assert.True(member.Register().IsSuccess);
+            return ValueTask.FromResult(aggregate);
+        }
+    }
 
     static ClaimsPrincipal Actor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())],

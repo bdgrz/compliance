@@ -8,6 +8,8 @@ public sealed class Role : Aggregate
     bool _isDefined;
     bool _isDeleted;
 
+    public bool IsActive => _isDefined && !_isDeleted;
+
     public Role(Uuid tenantId, Uuid roleId)
         : base(roleId, new EventStreamAddress(tenantId.ToString(), "rbac-roles", roleId.ToString()))
     {

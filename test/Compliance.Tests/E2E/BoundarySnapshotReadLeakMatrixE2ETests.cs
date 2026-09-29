@@ -384,6 +384,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         using var assigned = await owner.PostAsync(tenantPath + "/teams/" +
             BuiltInRbac.PowerUsersTeamId(tenantId) + "/members/" + memberId, null);
         Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+        await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenantId);
     }
 
     static async Task<string> ReviewAsync(HttpClient owner, HttpClient reviewer,
@@ -391,6 +392,8 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
     {
         var draftPath = boundaryPath + "/drafts/" + versionId;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var reviewedCommand = false;
+        string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await reviewer.PostAsJsonAsync(draftPath + "/reviews", new
@@ -400,11 +403,18 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
                 rationale = "A separate tenant member reviewed this boundary.",
             });
             if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                reviewedCommand = true;
                 break;
+            }
+            lastResponse = $"{(int)response.StatusCode} " +
+                await response.Content.ReadAsStringAsync();
             Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
-                await response.Content.ReadAsStringAsync());
+                lastResponse);
             await Task.Delay(250);
         }
+        Assert.True(reviewedCommand,
+            $"Review command for {draftPath} did not succeed; last response: {lastResponse}");
         var reviewed = await WaitForAsync(owner, boundaryPath, result =>
             result.GetProperty("latest_decision").ValueKind == JsonValueKind.Object &&
             result.GetProperty("latest_decision").GetProperty("outcome").GetString() == "accept");
@@ -425,6 +435,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
 
     static async Task<string> CreateProgramAsync(HttpClient owner, Uuid tenantId, string name)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = TenantPath(tenantId) + "/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

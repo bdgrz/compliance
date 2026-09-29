@@ -168,6 +168,8 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     $"{BuiltInRbac.PowerUsersTeamId(parsedTenantId)}/members/{reviewerMemberId}",
                     null);
                 Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+                await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner,
+                    parsedTenantId);
 
                 await PostUntilNoContentAsync(reviewer, $"{draftPath}/reviews", new
                 {
@@ -471,6 +473,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
 
     static async Task<string> CreateProgramAsync(HttpClient owner, string path, object plan)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -491,16 +494,20 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
     static async Task PostUntilNoContentAsync(HttpClient client, string path, object body)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(path, body);
             if (response.StatusCode == HttpStatusCode.NoContent)
                 return;
+            lastResponse = $"{(int)response.StatusCode} " +
+                await response.Content.ReadAsStringAsync();
             Assert.True(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound,
-                await response.Content.ReadAsStringAsync());
+                lastResponse);
             await Task.Delay(250);
         }
-        throw new InvalidOperationException("The command did not succeed before the deadline.");
+        throw new TimeoutException($"The command for {path} did not succeed; last response: " +
+            lastResponse);
     }
 
     static async Task<JsonElement> WaitForAsync(HttpClient client, string path,

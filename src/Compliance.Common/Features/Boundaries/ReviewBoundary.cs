@@ -5,4 +5,4 @@ namespace Bdgrz.Compliance.Features.Boundaries;
 [Discriminator("bdgrz.boundary.review", 1)]
 public sealed record ReviewBoundary(Uuid TenantId, Uuid BoundaryId, Uuid DraftVersionId,
     long ExpectedRevision, string Outcome, string Rationale, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest, IBoundaryAuthoringRequest, ICallable;
+    : IRequest, IBoundaryAuthoringRequest, IBoundaryProgramResourceRequest, ICallable;

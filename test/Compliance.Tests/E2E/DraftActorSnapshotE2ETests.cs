@@ -189,6 +189,7 @@ public sealed class DraftActorSnapshotE2ETests(BrokerStackFixture broker)
         var tenantId = (await ReadJsonAsync(tenantResponse)).GetProperty("tenant_id")
             .GetString()!;
         var path = $"/api/v1/tenants/{tenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {

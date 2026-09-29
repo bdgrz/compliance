@@ -63,7 +63,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         var userId = Uuid.CreateVersion4();
         var permissions = new RecordingPermissionAuthorizer(false);
         var authorizer = new ProgramManagementAuthorizer(new FixedMembershipDirectory(true), new ActiveTenant(),
-            permissions);
+            new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes());
         var context = new RequestContext<IProgramManagementRequest>(
             new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
             BdgrzActor(userId));
@@ -73,8 +74,28 @@ public sealed class ApplicationInventoryAuthorizerTests
 
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
-        Assert.Equal(RbacPermissions.ProgramManage, Assert.Single(permissions.Permissions));
-        Assert.Equal(RbacIds.Member(tenantId, userId), Assert.Single(permissions.MemberIds));
+        Assert.Equal(["tenant.access"], permissions.Permissions);
+    }
+
+    [Fact]
+    public async Task ShouldHideMissingApplicationGivenPreviewWithoutOrganizationGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var authorizer = new ProgramManagementAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes(applicationExists: false));
+        var context = new RequestContext<IProgramManagementRequest>(
+            new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
     }
 
     [Fact]
@@ -120,7 +141,9 @@ public sealed class ApplicationInventoryAuthorizerTests
         // Arrange
         var permissions = new RecordingPermissionAuthorizer(true);
         var authorizer = new ProgramManagementAuthorizer(
-            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(), permissions);
+            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(),
+            new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes());
         var context = new RequestContext<IProgramManagementRequest>(
             new PreviewApplicationChange(Uuid.CreateVersion4(), Uuid.CreateVersion4(), 1, "retire"),
             BdgrzActor(Uuid.CreateVersion4()));

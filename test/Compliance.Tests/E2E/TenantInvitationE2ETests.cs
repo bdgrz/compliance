@@ -63,6 +63,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var memberTeamPath = $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}";
         await WaitForMemberAccessReadyAsync(factory, memberClient, tenantId,
             memberUserId, standardUsersTeamId, RbacPermissions.TenantAccess, memberTeamPath);
+        await AssertTenantDiscoveryAsync(memberClient, tenantId, registration.Slug, true);
         await using var memberMcp = await McpScenario.ConnectAsync(memberClient,
             new Uri(memberClient.BaseAddress!, "/mcp"));
         var teamArguments = new Dictionary<string, object?>
@@ -118,6 +119,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var membership = await WaitForMemberLifecycleReadyAsync(factory, administratorClient,
             memberClient, tenantId, memberUserId, memberTeamPath, true,
             "Access review is overdue.");
+        await AssertTenantDiscoveryAsync(memberClient, tenantId, registration.Slug, false);
         Assert.Equal("Access review is overdue.", membership.SuspensionReason);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
             membership.SuspendedByMemberId);
@@ -143,6 +145,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.Equal(HttpStatusCode.NoContent, reinstated.StatusCode);
         var reinstatedMembership = await WaitForMemberLifecycleReadyAsync(factory,
             administratorClient, memberClient, tenantId, memberUserId, memberTeamPath, false);
+        await AssertTenantDiscoveryAsync(memberClient, tenantId, registration.Slug, true);
         _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
         Assert.NotNull(reinstatedMembership.ReinstatedAt);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
@@ -441,6 +444,29 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             $"sourceEventRecorded={sourceEventRecorded}; " +
             $"directoryWorkerAdvanced={directoryWorkerAdvanced}; " +
             $"deliveryStatus={deliveryStatus}; tokenPresent={token is not null}.");
+    }
+
+    static async Task AssertTenantDiscoveryAsync(HttpClient memberClient, Uuid tenantId,
+        string slug, bool shouldBeVisible)
+    {
+        using var list = await memberClient.GetAsync("/api/v1/tenants/mine");
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var page = await list.Content.ReadFromJsonAsync<JsonElement>();
+        var tenantIds = page.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("tenant_id").GetString()).ToArray();
+        if (shouldBeVisible)
+            Assert.Contains(tenantId.ToString(), tenantIds);
+        else
+            Assert.DoesNotContain(tenantId.ToString(), tenantIds);
+
+        using var resolved = await memberClient.GetAsync($"/api/v1/tenant-slugs/{slug}/mine");
+        Assert.Equal(shouldBeVisible ? HttpStatusCode.OK : HttpStatusCode.NotFound,
+            resolved.StatusCode);
+        if (shouldBeVisible)
+        {
+            var tenant = await resolved.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(tenantId.ToString(), tenant.GetProperty("tenant_id").GetString());
+        }
     }
 
     static async Task<MemberLifecycleDocument> WaitForMemberLifecycleReadyAsync(

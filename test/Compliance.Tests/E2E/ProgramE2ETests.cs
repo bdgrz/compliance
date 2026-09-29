@@ -65,6 +65,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
                 Assert.NotNull(tenant);
                 var path = $"/api/v1/tenants/{tenant.TenantId}/programs";
+                await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
                 var plan = new
                 {
                     target_readiness_date = "2027-01-31",
@@ -471,6 +472,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
                 Assert.NotNull(tenant);
                 var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
+                await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
                 var plan = new
                 {
                     target_readiness_date = "2027-01-31",
@@ -617,6 +619,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
         Assert.NotNull(tenant);
         var tenantId = Uuid.Parse(tenant.TenantId, CultureInfo.InvariantCulture);
         var path = $"/api/v1/tenants/{tenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var create = new
         {
             name = "SOC 2 program",
@@ -872,6 +875,8 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
             .ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(secondTenant);
         var secondPath = $"/api/v1/tenants/{secondTenant.TenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner,
+            secondTenant.TenantId);
         ProgramRegistrationDocument? secondRegistration = null;
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

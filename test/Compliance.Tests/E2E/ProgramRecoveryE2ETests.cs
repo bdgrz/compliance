@@ -187,6 +187,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     static async Task<(string ProgramId, string Path)> CreateProgramAsync(HttpClient client,
         string tenantId)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

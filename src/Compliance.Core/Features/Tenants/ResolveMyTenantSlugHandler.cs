@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
@@ -20,6 +21,12 @@ public sealed class ResolveMyTenantSlugHandler(IAggregateReader reader,
 
         var tenant = await reader.HydrateAsync(new Tenant(tenantId), ct).ConfigureAwait(false);
         if (!tenant.IsActive || tenant.CurrentSlug is not { } currentSlug)
+            return NotFound();
+        // Read member source state after tenant metadata so a suspension that commits during
+        // resolution still blocks disclosure of the current slug or redirect relationship.
+        var member = await reader.HydrateAsync(new Member(tenantId, actorId), ct)
+            .ConfigureAwait(false);
+        if (!member.IsRegistered || member.IsSuspended)
             return NotFound();
         return Result<TenantSlugResolution>.Success(
             new TenantSlugResolution(tenantId, currentSlug, currentSlug != slug));

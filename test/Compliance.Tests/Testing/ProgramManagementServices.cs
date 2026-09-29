@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -19,6 +20,9 @@ static class ProgramManagementServices
         var collection = new ServiceCollection();
         collection.AddSingleton<IEventStore>(new InMemoryEventStore());
         collection.AddSingleton(permissions);
+        collection.AddSingleton<IAccessGrantPermissionAuthorizer>(
+            new PermissionBackedAccessGrantPermissionAuthorizer(permissions));
+        collection.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
         collection.AddSingleton<ITenantActivity, ActiveTenant>();
         collection.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
         collection.AddSingleton(TimeProvider.System);
@@ -30,6 +34,10 @@ static class ProgramManagementServices
     public static ClaimsPrincipal Actor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString()),
             new Claim("email", "author@example.com")], "BdgrzSession"));
+
+    public static IProgramResourceScopeResolver ResourceScopes(Uuid? programId = null,
+        bool applicationExists = true) =>
+        new TestProgramResourceScopeResolver(programId, applicationExists);
 
     public static async Task SeedAsync<TAggregate>(IServiceProvider provider, TAggregate aggregate,
         Func<TAggregate, Result> operation) where TAggregate : Aggregate
@@ -58,4 +66,17 @@ static class ProgramManagementServices
         return await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
             .HydrateAsync(aggregate, CancellationToken.None);
     }
+}
+
+sealed class TestProgramResourceScopeResolver(Uuid? programId = null, bool applicationExists = true)
+    : IProgramResourceScopeResolver
+{
+    public ValueTask<bool> IsTenantProgramAsync(Uuid tenantId, Uuid requestedProgramId,
+        CancellationToken ct = default) => ValueTask.FromResult(true);
+
+    public ValueTask<Uuid?> ResolveProgramIdAsync(Uuid tenantId, IProgramResourceRequest request,
+        CancellationToken ct = default) => ValueTask.FromResult(programId);
+
+    public ValueTask<bool> IsTenantApplicationAsync(Uuid tenantId, Uuid applicationId,
+        CancellationToken ct = default) => ValueTask.FromResult(applicationExists);
 }
