@@ -44,6 +44,8 @@ public sealed class Tenant : Aggregate
     public bool IsRegistered => _slug is not null && _slugState != TenantSlugState.Rejected;
     public bool IsRegistrationRejected => _slugState == TenantSlugState.Rejected;
     public string? CurrentSlug => _slug;
+    public Uuid OwnerUserId => _ownerUserId;
+    public bool NeedsCreatorActivation => _creatorIsAdministrator && _requiresActivation && !_activated;
     public Uuid OperatorUserId => _operatorUserId;
     public bool IsSuspended => _suspended;
 
