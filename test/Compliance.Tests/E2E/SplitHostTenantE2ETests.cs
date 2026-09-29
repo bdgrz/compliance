@@ -862,12 +862,23 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage);
                 var programManage = await permissions.IsAllowedAsync(tenantId, parsedAdministratorId,
                     memberId, Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
+                var accessEdges = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
+                    .ReadAsync(tenantId, memberId);
+                var administratorRoleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+                var rolePermissionPage = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IRolePermissionDirectoryReader>()
+                    .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
                 var checkpointAfterRecovery = await services.GetRequiredService<IProjectionCheckpointStore>()
                     .LoadAsync(invitationReactorCheckpoint);
                 Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
                     $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
                     $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
                     $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"accessEdges={string.Join(";", accessEdges.Select(edge =>
+                        $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
+                    $"administratorRolePermissions={string.Join(",", rolePermissionPage.Items
+                        .Select(item => item.Permission))}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
             }
