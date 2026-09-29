@@ -177,6 +177,27 @@ public sealed class AccessGrantPermissionAuthorizerTests
         Assert.True(teamMembers.ListCount >= 2);
     }
 
+    [Fact]
+    public async Task ShouldDenyTeamGrantGivenRemovalProjectsDuringGrantScan()
+    {
+        // Arrange
+        var teamId = Uuid.CreateVersion4();
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId));
+        var teamMembers = new TeamMemberDirectory(MemberId);
+        var grants = new GrantDirectory(grant) { OnPendingScan = teamMembers.ProjectRemoval };
+        var authorizer = new AccessGrantPermissionAuthorizer(grants,
+            new MembershipDirectory("client_personnel"), teamMembers,
+            new RolePermissions([RbacPermissions.ProgramManage]), new FixedTimeProvider(Now));
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
     static AccessGrantPermissionAuthorizer Authorizer(GrantDirectory grants, string affiliation,
         IReadOnlyList<string> permissions) => new(grants,
         new MembershipDirectory(affiliation), new TeamMemberDirectory(MemberId),
@@ -194,6 +215,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         readonly Uuid? _pendingRevocationId;
         public IReadOnlySet<Uuid> CheckedGrantIds { get; private set; } = new HashSet<Uuid>();
         public bool ProjectRevocationOnPendingScan { get; init; }
+        public Action? OnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _revocationProjected;
 
@@ -227,6 +249,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
             CancellationToken ct = default)
         {
             CheckedGrantIds = grantIds;
+            OnPendingScan?.Invoke();
             if (ProjectRevocationOnPendingScan)
                 _revocationProjected = true;
             HashSet<Uuid> pending = _pendingRevocationId is { } id && grantIds.Contains(id)
@@ -255,6 +278,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
         public bool ProjectRemovalOnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _removalProjected;
+
+        public void ProjectRemoval() => _removalProjected = true;
 
         public ValueTask<Page<TeamMemberView>> ListAsync(Uuid tenantId, Uuid teamId, int? limit,
             string? cursor, string? search, bool descending, CancellationToken ct = default)

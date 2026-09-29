@@ -61,7 +61,67 @@ public sealed class AccessGrantProposalValidatorTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldRejectMismatchedRoleRecordGivenGrantProposal()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
+            new RoleDirectory(roleId, Uuid.CreateVersion4()), new ProgramDirectory(tenantId));
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId))));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldRejectMismatchedTeamRecordGivenGrantProposal()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var teamId = Uuid.CreateVersion4();
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(Uuid.CreateVersion4(), tenantId, "client_personnel"),
+            new TeamDirectory(Uuid.CreateVersion4()), new RoleDirectory(roleId),
+            new ProgramDirectory(tenantId));
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId)));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldRejectForeignMembershipRowGivenGrantProposal()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel", Uuid.CreateVersion4()),
+            new TeamDirectory(), new RoleDirectory(roleId), new ProgramDirectory(tenantId));
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId))));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
     }
 
     [Theory]
@@ -97,7 +157,8 @@ public sealed class AccessGrantProposalValidatorTests
         scope ?? new AccessGrantScope(AccessGrantScopeKind.Organization, tenantId),
         new AccessGrantSource("manual", "request-1"), DateTimeOffset.UnixEpoch, null);
 
-    sealed class MembershipReader(Uuid memberUserId, Uuid membershipTenantId, string affiliation)
+    sealed class MembershipReader(Uuid memberUserId, Uuid membershipTenantId, string affiliation,
+        Uuid? returnedTenantId = null)
         : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
@@ -110,25 +171,28 @@ public sealed class AccessGrantProposalValidatorTests
             string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<TenantMembershipView>(
                 tenantId == membershipTenantId
-                    ? [new TenantMembershipView(memberUserId, tenantId, affiliation)]
+                    ? [new TenantMembershipView(memberUserId, returnedTenantId ?? tenantId,
+                        affiliation)]
                     : [], null));
     }
 
-    sealed class RoleDirectory(Uuid roleId) : IRoleDirectoryReader
+    sealed class RoleDirectory(Uuid roleId, Uuid? returnedRoleId = null) : IRoleDirectoryReader
     {
         public ValueTask<RoleView?> GetAsync(Uuid tenantId, Uuid requestedRoleId,
             CancellationToken ct = default) => ValueTask.FromResult<RoleView?>(
-            roleId == requestedRoleId ? new RoleView(roleId, "Compliance Lead") : null);
+            roleId == requestedRoleId
+                ? new RoleView(returnedRoleId ?? roleId, "Compliance Lead")
+                : null);
 
         public ValueTask<Page<RoleView>> ListAsync(Uuid tenantId, int? limit, string? cursor,
             string? search, bool descending, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<RoleView>([], null));
     }
 
-    sealed class TeamDirectory : ITeamDirectoryReader
+    sealed class TeamDirectory(Uuid? returnedTeamId = null) : ITeamDirectoryReader
     {
         public ValueTask<TeamView?> GetAsync(Uuid tenantId, Uuid teamId, CancellationToken ct = default) =>
-            ValueTask.FromResult<TeamView?>(new TeamView(teamId, "Reviewers"));
+            ValueTask.FromResult<TeamView?>(new TeamView(returnedTeamId ?? teamId, "Reviewers"));
 
         public ValueTask<Page<TeamView>> ListAsync(Uuid tenantId, int? limit, string? cursor,
             string? search, bool descending, CancellationToken ct = default) =>

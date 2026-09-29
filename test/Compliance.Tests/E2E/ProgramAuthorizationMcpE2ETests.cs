@@ -97,6 +97,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 }
                 var deniedDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 var standingDenied = false;
+                string? lastStandingResponse = null;
                 while (DateTimeOffset.UtcNow < deniedDeadline)
                 {
                     using var response = await member.GetAsync(firstPath);
@@ -105,10 +106,13 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                         standingDenied = true;
                         break;
                     }
+                    lastStandingResponse = $"{(int)response.StatusCode} " +
+                        await response.Content.ReadAsStringAsync();
                     Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
                     await Task.Delay(250);
                 }
-                Assert.True(standingDenied, "The member did not reach active ungranted state.");
+                Assert.True(standingDenied,
+                    $"The member did not reach active ungranted state; last GET: {lastStandingResponse}");
 
                 var roleId = Uuid.CreateVersion4();
                 var rolePath = $"/api/v1/tenants/{tenantId}/roles/{roleId}";
@@ -131,6 +135,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 };
                 var issueDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
                 var issuedGrant = false;
+                string? lastIssueResponse = null;
                 while (DateTimeOffset.UtcNow < issueDeadline)
                 {
                     using var issued = await administrator.PostAsJsonAsync(grantPath,
@@ -140,10 +145,13 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                         issuedGrant = true;
                         break;
                     }
+                    lastIssueResponse = $"{(int)issued.StatusCode} " +
+                        await issued.Content.ReadAsStringAsync();
                     Assert.Equal(HttpStatusCode.NotFound, issued.StatusCode);
                     await Task.Delay(250);
                 }
-                Assert.True(issuedGrant, "The Reader grant could not be issued.");
+                Assert.True(issuedGrant,
+                    $"Reader grant {grantId} could not be issued; last POST: {lastIssueResponse}");
                 await WaitForGrantAsync(administrator, tenantId, grantId);
 
                 // Act
@@ -672,6 +680,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
         var path = $"/api/v1/tenants/{tenantId}/members/{userId}/access" +
                    $"?expected_built_in_role={role}";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await administrator.GetAsync(path);
@@ -680,15 +689,21 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 var access = await response.Content.ReadFromJsonAsync<MemberAccessDocument>();
                 if (access?.EffectivePermissions.Contains(requiredPermission) == true)
                     return access.EffectivePermissions;
+                lastObservation = $"200 OK; effective permissions: " +
+                    string.Join(", ", access?.EffectivePermissions ?? []);
             }
+            else
+                lastObservation = $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}";
             await Task.Delay(250);
         }
-        throw new TimeoutException($"The member did not acquire {requiredPermission}.");
+        throw new TimeoutException($"Member {userId} in tenant {tenantId} did not acquire " +
+            $"{requiredPermission}; last access response: {lastObservation}");
     }
 
     static async Task WaitForProgramAsync(HttpClient client, string path, long revision)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{path}?minimum_revision={revision}");
@@ -697,10 +712,14 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 var program = await response.Content.ReadFromJsonAsync<ProgramDocument>();
                 if (program?.Revision == revision)
                     return;
+                lastObservation = $"200 OK; revision {program?.Revision}";
             }
+            else
+                lastObservation = $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}";
             await Task.Delay(250);
         }
-        throw new TimeoutException($"The program projection did not reach revision {revision}.");
+        throw new TimeoutException($"Program {path} did not reach revision {revision}; " +
+            $"last GET: {lastObservation}");
     }
 
     static async Task WaitForInvitationDeliveryAsync(HttpClient administrator, Uuid tenantId,
@@ -729,24 +748,31 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
     {
         var path = $"/api/v1/tenants/{tenantId}/access-grants";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await administrator.GetAsync(path);
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                if (document.RootElement.GetProperty("grants").EnumerateArray().Any(grant =>
+                var grants = document.RootElement.GetProperty("grants").EnumerateArray();
+                if (grants.Any(grant =>
                         grant.GetProperty("grant_id").GetString() == grantId.ToString()))
                     return;
+                lastObservation = $"200 OK; {grants.Count()} grant(s) projected";
             }
+            else
+                lastObservation = $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}";
             await Task.Delay(250);
         }
-        throw new TimeoutException("The participant access grant did not project.");
+        throw new TimeoutException($"Access grant {grantId} in tenant {tenantId} did not " +
+            $"project; last GET: {lastObservation}");
     }
 
     static async Task WaitForRevocationAsync(HttpClient administrator, Uuid tenantId, Uuid grantId)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await administrator.GetAsync(
@@ -754,14 +780,22 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-                if (document.RootElement.GetProperty("grants").EnumerateArray().Any(grant =>
-                        grant.GetProperty("grant_id").GetString() == grantId.ToString() &&
-                        grant.GetProperty("revoked_at").ValueKind == JsonValueKind.String))
+                var grant = document.RootElement.GetProperty("grants").EnumerateArray()
+                    .FirstOrDefault(item => item.GetProperty("grant_id").GetString() ==
+                        grantId.ToString());
+                if (grant.ValueKind != JsonValueKind.Undefined &&
+                    grant.GetProperty("revoked_at").ValueKind == JsonValueKind.String)
                     return;
+                lastObservation = grant.ValueKind == JsonValueKind.Undefined
+                    ? "200 OK; grant absent"
+                    : $"200 OK; revoked_at is {grant.GetProperty("revoked_at").ValueKind}";
             }
+            else
+                lastObservation = $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}";
             await Task.Delay(250);
         }
-        throw new TimeoutException("The access grant revocation did not reach the projection.");
+        throw new TimeoutException($"Access grant {grantId} in tenant {tenantId} did not " +
+            $"project its revocation; last GET: {lastObservation}");
     }
 
     IHost BuildWorker(string applicationName)

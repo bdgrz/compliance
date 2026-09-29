@@ -15,7 +15,8 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
             proposal.Scope is null || proposal.Source is null || !Enum.IsDefined(proposal.Scope.Kind))
             return Invalid("The access grant proposal is incomplete.");
 
-        if (await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false) is null)
+        var role = await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false);
+        if (role is null || role.RoleId != proposal.RoleId)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The access grant role was not found in this organization."));
 
@@ -47,7 +48,8 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
 
         if (principal.Kind == AccessGrantPrincipalKind.Team)
         {
-            return await teams.GetAsync(tenantId, principal.Id, ct).ConfigureAwait(false) is not null
+            var team = await teams.GetAsync(tenantId, principal.Id, ct).ConfigureAwait(false);
+            return team is not null && team.TeamId == principal.Id
                 ? Result.Success
                 : Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The access grant team was not found in this organization."));
@@ -59,7 +61,8 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
             var page = await memberships.ListAsync(tenantId, 100, cursor, ct).ConfigureAwait(false);
             foreach (var membership in page.Items)
             {
-                if (RbacIds.Member(tenantId, membership.UserId) != principal.Id)
+                if (membership.TenantId != tenantId ||
+                    RbacIds.Member(tenantId, membership.UserId) != principal.Id)
                     continue;
                 return membership.Affiliation == "client_personnel"
                     ? Result.Success

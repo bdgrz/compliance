@@ -81,22 +81,29 @@ static class AccessGrantE2ESupport
         }
 
         Assert.True(succeeded,
-            $"The founder could not issue an organization grant: {lastResponse}");
+            $"The founder could not issue organization grant {grantId} in tenant {tenantId}: " +
+            lastResponse);
 
         var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        string? lastProjection = null;
         while (DateTimeOffset.UtcNow < projectionDeadline)
         {
             using var listed = await client.GetAsync(listPath);
             if (listed.StatusCode == HttpStatusCode.OK)
             {
                 using var grants = JsonDocument.Parse(await listed.Content.ReadAsStringAsync());
-                if (grants.RootElement.GetProperty("grants").EnumerateArray().Any(grant =>
+                var items = grants.RootElement.GetProperty("grants").EnumerateArray();
+                if (items.Any(grant =>
                         grant.GetProperty("grant_id").GetString() == grantId.ToString()))
                     return grantId;
+                lastProjection = $"200 OK; {items.Count()} grant(s) projected";
             }
+            else
+                lastProjection = $"{(int)listed.StatusCode} {await listed.Content.ReadAsStringAsync()}";
             await Task.Delay(250);
         }
 
-        throw new TimeoutException("The founder's organization grant did not reach the projection.");
+        throw new TimeoutException($"Founder organization grant {grantId} in tenant {tenantId} " +
+            $"did not reach the projection; last GET: {lastProjection}");
     }
 }

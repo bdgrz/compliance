@@ -68,6 +68,13 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
         if (currentGrantSet.TenantId != request.TenantId)
             return Result<MemberAccessView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The access grant projection is still catching up."));
+        // Team removal may project while the grant event tail is scanned. Use this final
+        // membership state to decide which team paths still belong to the member.
+        var currentMemberTeams = await FindCurrentTeamsAsync(request.TenantId, memberId,
+            teamGrantIds, ct).ConfigureAwait(false);
+        memberGrants = memberGrants.Where(grant =>
+            grant.Terms.Principal.Kind != AccessGrantPrincipalKind.Team ||
+            currentMemberTeams.Contains(grant.Terms.Principal.Id)).ToArray();
         var now = clock.GetUtcNow();
         var grantPaths = new List<MemberAccessGrantPath>(memberGrants.Length);
         var organizationGrantPermissions = new List<string>();

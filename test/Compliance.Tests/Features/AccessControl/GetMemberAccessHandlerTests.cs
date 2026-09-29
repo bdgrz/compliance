@@ -145,6 +145,36 @@ public sealed class GetMemberAccessHandlerTests
         Assert.True(members.ListCount >= 2);
     }
 
+    [Fact]
+    public async Task ShouldHideTeamGrantGivenRemovalProjectsDuringGrantScan()
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var teamGrant = grant with
+        {
+            Terms = grant.Terms with
+            {
+                Principal = new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, TeamId),
+            },
+        };
+        var members = new TeamMemberDirectory(MemberId, TeamId);
+        var grants = new GrantDirectory(teamGrant) { OnPendingScan = members.ProjectRemoval };
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(), grants,
+            members, new RolePermissionDirectory(), new FixedTimeProvider(Now));
+        var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
+            RequestActor.System);
+
+        // Act
+        var result = await handler.HandleAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value.GrantPaths);
+        Assert.DoesNotContain(RbacPermissions.ProgramManage, result.Value.EffectivePermissions);
+    }
+
     static GetMemberAccessHandler Handler(string affiliation, params AccessGrantView[] grants) =>
         new(new MembershipDirectory(affiliation), new EmptyAccessReader(), new TeamDirectory(),
             new RoleDirectory(), new GrantDirectory(grants), new TeamMemberDirectory(),
@@ -205,6 +235,7 @@ public sealed class GetMemberAccessHandlerTests
     sealed class GrantDirectory(params AccessGrantView[] grants) : IAccessGrantDirectory
     {
         public bool ProjectRevocationOnPendingScan { get; init; }
+        public Action? OnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _revocationProjected;
 
@@ -228,6 +259,7 @@ public sealed class GetMemberAccessHandlerTests
         public ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId,
             IReadOnlySet<Uuid> grantIds, CancellationToken ct = default)
         {
+            OnPendingScan?.Invoke();
             if (ProjectRevocationOnPendingScan)
                 _revocationProjected = true;
             return ValueTask.FromResult<IReadOnlySet<Uuid>>(new HashSet<Uuid>());
@@ -240,6 +272,8 @@ public sealed class GetMemberAccessHandlerTests
         public bool ProjectRemovalOnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _removalProjected;
+
+        public void ProjectRemoval() => _removalProjected = true;
 
         public ValueTask<Page<TeamMemberView>> ListAsync(Uuid tenantId, Uuid teamId, int? limit,
             string? cursor, string? search, bool descending, CancellationToken ct = default)

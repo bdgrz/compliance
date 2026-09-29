@@ -48,7 +48,8 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
             return new ProgramAccessVisibility(false, new HashSet<Uuid>());
 
         var now = clock.GetUtcNow();
-        var eligibleGrants = new Dictionary<Uuid, AccessGrantScope>();
+        var eligibleGrants = new Dictionary<Uuid,
+            (AccessGrantScope Scope, AccessGrantPrincipal Principal)>();
         var principalMatches = new Dictionary<AccessGrantPrincipal, bool>();
         var rolePermissions = new Dictionary<Uuid, bool>();
         foreach (var grant in access.Grants)
@@ -76,7 +77,7 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 rolePermissions[grant.Terms.RoleId] = hasPermission;
             }
             if (hasPermission)
-                eligibleGrants[grant.GrantId] = scope;
+                eligibleGrants[grant.GrantId] = (scope, grant.Terms.Principal);
         }
 
         if (eligibleGrants.Count == 0)
@@ -94,10 +95,16 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
             .Select(grant => grant.GrantId).ToHashSet();
         var organizationWide = false;
         var programIds = new HashSet<Uuid>();
-        foreach (var (grantId, scope) in eligibleGrants)
+        foreach (var (grantId, candidate) in eligibleGrants)
         {
             if (pendingRevocations.Contains(grantId) || !currentGrantIds.Contains(grantId))
                 continue;
+            // The team projector may also catch up while the grant tail is scanned.
+            if (candidate.Principal.Kind == AccessGrantPrincipalKind.Team &&
+                !await IncludesPrincipalAsync(tenantId, memberId, candidate.Principal, ct)
+                    .ConfigureAwait(false))
+                continue;
+            var scope = candidate.Scope;
             if (scope.Kind == AccessGrantScopeKind.Organization)
                 organizationWide = true;
             else if (scope.Kind == AccessGrantScopeKind.Program)
