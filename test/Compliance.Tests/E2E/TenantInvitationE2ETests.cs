@@ -63,6 +63,8 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var memberTeamPath = $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}";
         await WaitForMemberAccessReadyAsync(factory, memberClient, tenantId,
             memberUserId, standardUsersTeamId, RbacPermissions.TenantAccess, memberTeamPath);
+        var acceptedInvitationPath = await WaitForAcceptedInvitationReadyAsync(factory,
+            administratorClient, tenantId, memberEmail, memberUserId);
         await AssertTenantDiscoveryAsync(memberClient, tenantId, registration.Slug, true);
         await using var memberMcp = await McpScenario.ConnectAsync(memberClient,
             new Uri(memberClient.BaseAddress!, "/mcp"));
@@ -119,6 +121,13 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var membership = await WaitForMemberLifecycleReadyAsync(factory, administratorClient,
             memberClient, tenantId, memberUserId, memberTeamPath, true,
             "Access review is overdue.");
+        using (var invitationStatus = await administratorClient.GetAsync(acceptedInvitationPath))
+        {
+            Assert.Equal(HttpStatusCode.OK, invitationStatus.StatusCode);
+            var page = await invitationStatus.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("active", Assert.Single(page.GetProperty("items").EnumerateArray())
+                .GetProperty("status").GetString());
+        }
         await AssertTenantDiscoveryAsync(memberClient, tenantId, registration.Slug, false);
         Assert.Equal("Access review is overdue.", membership.SuspensionReason);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
@@ -409,6 +418,57 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         using var reuse = await operatorClient.PostAsJsonAsync("/api/v1/tenants",
             new { name = "Reuse", slug = registration.Slug });
         Assert.Equal(HttpStatusCode.Conflict, reuse.StatusCode);
+    }
+
+    static async Task<string> WaitForAcceptedInvitationReadyAsync(
+        WebApplicationFactory<Program> factory, HttpClient administrator, Uuid tenantId,
+        string emailAddress, string memberUserId)
+    {
+        var userId = Uuid.Parse(memberUserId, CultureInfo.InvariantCulture);
+        var path = $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
+                   Uri.EscapeDataString(emailAddress);
+        var checkpoint = new CheckpointIdentity("TenantInvitationDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var sourceAccepted = false;
+        var projectedAccepted = false;
+        var workerCheckpointAdvanced = false;
+        var lastHttpStatus = HttpStatusCode.NotFound;
+        string? invitationStatus = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var services = scope.ServiceProvider;
+                var source = await services.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new TenantInvitation(tenantId, emailAddress));
+                sourceAccepted = source.IsAccepted;
+                projectedAccepted = (await services
+                    .GetRequiredService<ITenantInvitationDirectoryReader>()
+                    .GetAsync(tenantId, emailAddress))?.AcceptedUserId == userId;
+                workerCheckpointAdvanced = await services
+                    .GetRequiredService<ITenantInvitationDirectoryProjection>()
+                    .LoadCheckpointAsync(checkpoint) != ProjectionCheckpoint.Start;
+            }
+            using var response = await administrator.GetAsync(path);
+            lastHttpStatus = response.StatusCode;
+            invitationStatus = null;
+            if (lastHttpStatus == HttpStatusCode.OK)
+            {
+                var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var items = page.GetProperty("items").EnumerateArray().ToArray();
+                if (items.Length == 1)
+                    invitationStatus = items[0].GetProperty("status").GetString();
+            }
+            if (sourceAccepted && projectedAccepted && workerCheckpointAdvanced &&
+                invitationStatus == "active")
+                return path;
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("Accepted member invitation did not become active. " +
+            $"sourceAccepted={sourceAccepted}; projectedAccepted={projectedAccepted}; " +
+            $"workerCheckpointAdvanced={workerCheckpointAdvanced}; " +
+            $"lastHttpStatus={lastHttpStatus}; invitationStatus={invitationStatus}.");
     }
 
     static async Task<string> WaitForInvitationDeliveryReadyAsync(
