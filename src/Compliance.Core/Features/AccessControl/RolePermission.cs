@@ -12,6 +12,8 @@ public sealed class RolePermission : Aggregate
     readonly string _permission;
     bool _isAssigned;
 
+    public bool IsAssigned => _isAssigned;
+
     public RolePermission(Uuid tenantId, Uuid roleId, string permission)
         : base(
             RbacIds.RolePermission(tenantId, roleId, Permissions.Normalize(permission)),

@@ -200,6 +200,14 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzResponsibilitySetDirectory>());
         services.AddScoped<IResponsibilitySetProjection>(provider =>
             provider.GetRequiredService<FitzResponsibilitySetDirectory>());
+        services.AddScoped<FitzAccessGrantDirectory>();
+        services.AddScoped<IAccessGrantProposalValidator, AccessGrantProposalValidator>();
+        services.AddScoped<IAccessGrantDirectory>(provider =>
+            provider.GetRequiredService<FitzAccessGrantDirectory>());
+        services.AddScoped<IAccessGrantProjection>(provider =>
+            provider.GetRequiredService<FitzAccessGrantDirectory>());
+        services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
+        services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
         services.AddScoped<IResponsibilityScopeValidator, BoundaryResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
@@ -252,6 +260,9 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RemoveTeamRoleHandler>()
             .AddRequestHandler<AssignRolePermissionHandler>()
             .AddRequestHandler<RemoveRolePermissionHandler>()
+            .AddRequestHandler<GrantAccessHandler>()
+            .AddRequestHandler<RevokeAccessGrantHandler>()
+            .AddRequestHandler<ListAccessGrantsHandler>()
             .AddRequestAuthorizer<RbacManagementAuthorizer>()
             .AddRequestHandler<GetTeamHandler>()
             .AddRequestHandler<ListTeamsHandler>()
@@ -441,6 +452,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
+            .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),

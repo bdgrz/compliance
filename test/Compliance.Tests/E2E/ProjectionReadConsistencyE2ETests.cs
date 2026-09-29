@@ -64,6 +64,7 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 var applicationsB = $"/api/v1/tenants/{tenantB}/applications";
                 var applicationId = await PostUntilOkAsync(owner, applicationsA,
                     new { name = "Payroll", purpose = "Run payroll" }, "application_id");
+                await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantA);
                 var programId = await PostUntilOkAsync(owner,
                     $"/api/v1/tenants/{tenantA}/programs", new
                     {

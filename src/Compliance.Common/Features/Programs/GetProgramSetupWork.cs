@@ -8,4 +8,4 @@ public sealed record GetProgramSetupWork(Uuid TenantId, Uuid ProgramId,
     int? BoundaryLimit = null, string? BoundaryCursor = null,
     long? MinimumProgramRevision = null, Uuid? BoundaryId = null,
     long? MinimumBoundaryRevision = null)
-    : IRequest<ProgramSetupWorkView>, ITenantAccessRequest, ICallable;
+    : IRequest<ProgramSetupWorkView>, IProgramReadRequest, ICallable;

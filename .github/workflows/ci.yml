@@ -7,6 +7,11 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      broker_test_filter:
+        description: Optional additional .NET filter for focused broker diagnosis
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -23,7 +28,7 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     steps:
       - name: Check out repository
@@ -64,7 +69,14 @@ jobs:
       # (test/Compliance.Tests/E2E/compose.yml), separate from the root compose.yml -- no manual
       # start/stop step needed here.
       - name: Test with real broker
-        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
+        env:
+          BROKER_TEST_FILTER: ${{ inputs.broker_test_filter }}
+        run: |
+          if [ -n "$BROKER_TEST_FILTER" ]; then
+            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration&$BROKER_TEST_FILTER"
+          else
+            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
+          fi
 
   promotion-source:
     name: Promotion source

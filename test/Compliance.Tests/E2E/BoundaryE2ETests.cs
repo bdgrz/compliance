@@ -65,6 +65,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
         var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         ProgramDocument? program = null;
         string? lastBootstrapResponse = null;
@@ -327,6 +328,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{tenant.TenantId}/teams/" +
             $"{BuiltInRbac.AdministratorsTeamId(tenantId)}/members/{reviewerMemberId}", null);
         Assert.Equal(HttpStatusCode.NoContent, assignedAdmin.StatusCode);
+        await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenantId);
 
         deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         var waiverPath = $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers";

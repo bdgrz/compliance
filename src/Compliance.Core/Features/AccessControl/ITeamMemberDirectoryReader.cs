@@ -15,4 +15,8 @@ public interface ITeamMemberDirectoryReader
         string? search,
         bool descending,
         CancellationToken ct = default);
+
+    /// <summary>Checks event history after this directory's checkpoint for a removal not yet projected.</summary>
+    ValueTask<bool> HasPendingRemovalAsync(Uuid tenantId, Uuid teamId, Uuid memberId,
+        CancellationToken ct = default) => ValueTask.FromResult(false);
 }

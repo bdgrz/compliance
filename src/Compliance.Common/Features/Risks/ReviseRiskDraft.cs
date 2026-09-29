@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record ReviseRiskDraft(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long ExpectedRevision, string Title, string Scenario, string PotentialEffect,
     string? SourceNote = null) : IRequest,
-    IProgramManagementRequest, ICallable;
+    IProgramScopedRequest, ICallable;
