@@ -11,6 +11,7 @@ using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -700,10 +701,19 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
         var activationLag = new TransientTenantAccessPermissionLag();
         var activationProbe = new ActivationReactionProbe();
+        using var workerLogs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
+        string WorkerFaults() => string.Join(";", workerLogs.Records
+            .Where(record => record.Level >= LogLevel.Error &&
+                             (record.Category.Contains("PortiaWorkloadService", StringComparison.Ordinal) ||
+                              record.Category.Contains("FleetPartitionRunner", StringComparison.Ordinal) ||
+                              record.Category.Contains("MultiTenantRunner", StringComparison.Ordinal)))
+            .TakeLast(40)
+            .Select(record => $"{record.Category}:{record.Message}:{record.ExceptionText}"));
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
         });
+        builder.Logging.AddProvider(workerLogs);
         builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
@@ -748,6 +758,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var registration = await registered.Content.ReadFromJsonAsync<Registration>();
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            activationProbe.TargetTenant(tenantId);
             var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
 
             await using (var restrictedFactory = E2EAppFactory.Create(broker, applicationName)
@@ -825,10 +836,91 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
             await using var checkpointScope = worker.Services.CreateAsyncScope();
             var checkpointStore = checkpointScope.ServiceProvider.GetRequiredService<IProjectionCheckpointStore>();
+            var checkpointAtFirstFailure = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
+            var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
+            var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(90);
+            var projectionStarted = Stopwatch.GetTimestamp();
+            var permissionProjectionIdentity = new CheckpointIdentity("PermissionProjection",
+                EventStreamPattern.ForPattern(tenantId.ToString()));
+            var permissionProgress = new List<string>();
+            string? lastPermissionCursor = null;
+            var nextProgressSampleMs = 0.0;
+            var membershipProjected = false;
+            IReadOnlyList<Bdgrz.Compliance.Features.AccessControl.MemberAccessEdge> projectedAccessEdges = [];
+            while (DateTimeOffset.UtcNow < projectionDeadline)
+            {
+                await using var projectionScope = worker.Services.CreateAsyncScope();
+                var services = projectionScope.ServiceProvider;
+                membershipProjected = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.Tenants.ITenantMembershipDirectoryReader>()
+                    .IsMemberAsync(tenantId.ToString(), parsedAdministratorId);
+                projectedAccessEdges = await services.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IMemberAccessReader>()
+                    .ReadAsync(tenantId, memberId);
+                var projectedPermissions = projectedAccessEdges.SelectMany(edge => edge.Permissions)
+                    .ToHashSet(StringComparer.Ordinal);
+                var permissionCheckpoint = await services.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
+                    .LoadCheckpointAsync(permissionProjectionIdentity);
+                var cursor = permissionCheckpoint.Cursor.ToString();
+                var elapsedMs = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
+                if (permissionProgress.Count == 0 || cursor != lastPermissionCursor ||
+                    elapsedMs >= nextProgressSampleMs)
+                {
+                    permissionProgress.Add($"{elapsedMs:F0}ms:cursor={cursor}:grants=" +
+                        string.Join(",", projectedPermissions));
+                    lastPermissionCursor = cursor;
+                    nextProgressSampleMs = elapsedMs + 5000;
+                }
+                if (membershipProjected && activationProbe.FailedAttempts >= 5 &&
+                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantAccess) &&
+                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.TenantRbacManage) &&
+                    projectedPermissions.Contains(Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage))
+                    break;
+                await Task.Delay(250);
+            }
+            if (DateTimeOffset.UtcNow >= projectionDeadline)
+            {
+                await using var lagScope = worker.Services.CreateAsyncScope();
+                var services = lagScope.ServiceProvider;
+                var checkpoint = await services.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
+                    .LoadCheckpointAsync(permissionProjectionIdentity);
+                var pendingEvents = new List<string>();
+                await using var pending = services.GetRequiredService<IDomainEventReader>()
+                    .ReadAsync(permissionProjectionIdentity.Pattern, checkpoint.Cursor, CancellationToken.None)
+                    .GetAsyncEnumerator();
+                while (pendingEvents.Count < 100 && await pending.MoveNextAsync())
+                {
+                    var record = pending.Current;
+                    pendingEvents.Add($"{record.ResourceOffset}:{record.Event.GetType().Name}:" +
+                        $"{record.Event.Metadata.OccurredOn:O}:{record.Stream}");
+                }
+                Assert.Fail($"Administrator projection did not become ready while activation was held. " +
+                    $"membershipProjected={membershipProjected}; " +
+                    $"accessEdges={string.Join(";", projectedAccessEdges.Select(edge =>
+                        $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
+                    $"permissionProgress={string.Join(";", permissionProgress)}; " +
+                    $"pendingPermissionEvents={string.Join(";", pendingEvents)}; " +
+                    $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                    $"workerFaults={WorkerFaults()}.");
+            }
+
+            // Release just after another failed activation. This isolates reactor retry
+            // latency from the time needed to build the underlying permission projection.
+            var failedAttemptsAtReadiness = activationProbe.FailedAttempts;
+            while (DateTimeOffset.UtcNow < projectionDeadline &&
+                   activationProbe.FailedAttempts == failedAttemptsAtReadiness)
+                await Task.Delay(50);
+            Assert.True(activationProbe.FailedAttempts > failedAttemptsAtReadiness,
+                $"Activation did not retry after projection readiness: {string.Join(";", activationProbe.Attempts)}; " +
+                $"permissionProgress={string.Join(";", permissionProgress)}; workerFaults={WorkerFaults()}");
             var checkpointBeforeRecovery = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            Assert.Equal(checkpointAtFirstFailure, checkpointBeforeRecovery);
             activationLag.Release();
 
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(10);
             var access = HttpStatusCode.Forbidden;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -841,8 +933,6 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             }
             if (access != HttpStatusCode.OK)
             {
-                var parsedAdministratorId = Uuid.Parse(administratorId, CultureInfo.InvariantCulture);
-                var memberId = RbacIds.Member(tenantId, parsedAdministratorId);
                 await using var diagnostics = worker.Services.CreateAsyncScope();
                 var services = diagnostics.ServiceProvider;
                 var reader = services.GetRequiredService<IAggregateReader>();
@@ -902,10 +992,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                         .Select(item => item.Permission))}; " +
                     $"permissionProjectionCursor={permissionCheckpoint.Cursor}; " +
                     $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
+                    $"permissionProgress={string.Join(";", permissionProgress)}; " +
                     $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
-                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
+                    $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}; " +
+                    $"workerFaults={WorkerFaults()}.");
             }
+            var checkpointAfterSuccess = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            Assert.NotEqual(checkpointBeforeRecovery.Cursor, checkpointAfterSuccess.Cursor);
+            Assert.True(activationProbe.FailedAttempts >= 1);
+            Assert.True(activationProbe.SuccessfulAttempts >= 1);
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
             Assert.Equal(HttpStatusCode.OK, administratorTenant.StatusCode);
 

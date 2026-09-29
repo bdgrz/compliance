@@ -11,8 +11,16 @@ sealed class ActivationReactionProbe
 {
     readonly ConcurrentQueue<string> _attempts = new();
     readonly long _started = Stopwatch.GetTimestamp();
+    int _failedAttempts;
+    int _successfulAttempts;
+    string? _targetTenantId;
 
     internal IReadOnlyList<string> Attempts => _attempts.ToArray();
+    internal int FailedAttempts => Volatile.Read(ref _failedAttempts);
+    internal int SuccessfulAttempts => Volatile.Read(ref _successfulAttempts);
+
+    internal void TargetTenant(Uuid tenantId) =>
+        Interlocked.Exchange(ref _targetTenantId, tenantId.ToString());
 
     internal static void Install(IServiceCollection services, ActivationReactionProbe probe)
     {
@@ -28,6 +36,10 @@ sealed class ActivationReactionProbe
 
     void Record(Result result)
     {
+        if (result.IsSuccess)
+            _ = Interlocked.Increment(ref _successfulAttempts);
+        else
+            _ = Interlocked.Increment(ref _failedAttempts);
         var outcome = result.IsSuccess
             ? "success"
             : $"{result.Error.Kind}:transient={result.Error.IsTransient}:{result.Error.Message}";
@@ -48,7 +60,9 @@ sealed class ActivationReactionProbe
         public async ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context,
             CancellationToken ct = default)
         {
-            if (request is not ActivateTenant)
+            if (request is not ActivateTenant activation ||
+                !string.Equals(activation.TenantId.ToString(), Volatile.Read(ref probe._targetTenantId),
+                    StringComparison.Ordinal))
                 return await inner.DispatchAsync(request, context, ct);
 
             try
