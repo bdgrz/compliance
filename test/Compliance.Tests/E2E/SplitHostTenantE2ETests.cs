@@ -869,16 +869,36 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 var rolePermissionPage = await services.GetRequiredService<
                     Bdgrz.Compliance.Features.AccessControl.IRolePermissionDirectoryReader>()
                     .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
+                var administratorRoleTeams = await services.GetRequiredService<
+                    Bdgrz.Compliance.Features.AccessControl.IRoleTeamDirectoryReader>()
+                    .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
+                var permissionCheckpoint = await services.GetRequiredService<IProjectionCheckpointStore>()
+                    .LoadAsync(new CheckpointIdentity("PermissionProjection",
+                        EventStreamPattern.ForPattern(tenantId.ToString())));
+                var pendingPermissionEventTypes = new List<string>();
+                await using (var pendingPermissionEvents = services.GetRequiredService<IDomainEventReader>()
+                                 .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
+                                     permissionCheckpoint.Cursor, CancellationToken.None).GetAsyncEnumerator())
+                {
+                    while (pendingPermissionEventTypes.Count < 100 &&
+                           await pendingPermissionEvents.MoveNextAsync())
+                        pendingPermissionEventTypes.Add(pendingPermissionEvents.Current.Event.GetType().Name);
+                }
                 var checkpointAfterRecovery = await services.GetRequiredService<IProjectionCheckpointStore>()
                     .LoadAsync(invitationReactorCheckpoint);
                 Assert.Fail($"Administrator activation did not recover. tenantActive={tenant.IsActive}; " +
                     $"memberRegistered={member.IsRegistered}; affiliation={member.Affiliation}; " +
                     $"administratorAssigned={assignment.IsAssigned}; membershipProjected={isMember}; " +
                     $"tenantAccess={tenantAccess}; rbacManage={rbacManage}; programManage={programManage}; " +
+                    $"tenantId={tenantId}; userId={parsedAdministratorId}; memberId={memberId}; " +
+                    $"administratorTeamId={administratorsTeamId}; administratorRoleId={administratorRoleId}; " +
+                    $"administratorRoleTeams={string.Join(",", administratorRoleTeams.Items.Select(item => item.TeamId))}; " +
                     $"accessEdges={string.Join(";", accessEdges.Select(edge =>
                         $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
                     $"administratorRolePermissions={string.Join(",", rolePermissionPage.Items
                         .Select(item => item.Permission))}; " +
+                    $"permissionProjectionCursor={permissionCheckpoint.Cursor}; " +
+                    $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
             }

@@ -401,13 +401,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RejectTenantSlugSurrenderHandler>()
             .AddRequestAuthorizer<TenantLifecycleReactionAuthorizer>()
             .AddReactor<TenantRegistrationReactor>("TenantRegistration", WorkloadScope.Global)
-            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant, options =>
-            {
-                // Projection catch-up is expected after invitation acceptance; keep retrying
-                // frequently enough that transient activation conflicts do not stall recovery.
-                options.FailureAttemptLimit = 120;
-                options.MaximumFailureDelay = TimeSpan.FromSeconds(2);
-            })
+            .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant)
             .AddReactor<TenantInvitationDeliveryReactor>("TenantInvitationDeliveryV1",
                 WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
