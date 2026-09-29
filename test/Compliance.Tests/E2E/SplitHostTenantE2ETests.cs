@@ -699,6 +699,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         // Arrange
         var applicationName = $"compliance-split-invite-{Guid.NewGuid():N}";
         var activationLag = new TransientTenantAccessPermissionLag();
+        var activationProbe = new ActivationReactionProbe();
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
@@ -708,6 +709,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true).AddWorkers();
         TransientTenantAccessPermissionTestRegistration.Install(builder.Services, activationLag);
+        ActivationReactionProbe.Install(builder.Services, activationProbe);
         using var worker = builder.Build();
 
         // Act
@@ -872,8 +874,9 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 var administratorRoleTeams = await services.GetRequiredService<
                     Bdgrz.Compliance.Features.AccessControl.IRoleTeamDirectoryReader>()
                     .ListAsync(tenantId, administratorRoleId, 200, null, null, descending: false);
-                var permissionCheckpoint = await services.GetRequiredService<IProjectionCheckpointStore>()
-                    .LoadAsync(new CheckpointIdentity("PermissionProjection",
+                var permissionCheckpoint = await services.GetRequiredService<
+                        Bdgrz.Compliance.Features.AccessControl.IPermissionProjection>()
+                    .LoadCheckpointAsync(new CheckpointIdentity("PermissionProjection",
                         EventStreamPattern.ForPattern(tenantId.ToString())));
                 var pendingPermissionEventTypes = new List<string>();
                 await using (var pendingPermissionEvents = services.GetRequiredService<IDomainEventReader>()
@@ -899,6 +902,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                         .Select(item => item.Permission))}; " +
                     $"permissionProjectionCursor={permissionCheckpoint.Cursor}; " +
                     $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
+                    $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}.");
             }
