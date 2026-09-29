@@ -708,7 +708,15 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                               record.Category.Contains("FleetPartitionRunner", StringComparison.Ordinal) ||
                               record.Category.Contains("MultiTenantRunner", StringComparison.Ordinal)))
             .TakeLast(40)
-            .Select(record => $"{record.Category}:{record.Message}:{record.ExceptionText}"));
+            .Select(record => $"{activationProbe.ElapsedMillisecondsAt(record.RecordedTimestamp):F0}ms:" +
+                $"{record.Category}:{record.Message}:{record.ExceptionText}"));
+        string ActivationLogs(Uuid targetTenantId) => string.Join(";", workerLogs.Records
+            .Where(record => record.Category.EndsWith("TenantInvitationReactor", StringComparison.Ordinal) &&
+                             string.Equals(record.Value("TenantId")?.ToString(), targetTenantId.ToString(),
+                                 StringComparison.Ordinal))
+            .TakeLast(40)
+            .Select(record => $"{activationProbe.ElapsedMillisecondsAt(record.RecordedTimestamp):F0}ms:" +
+                $"{record.EventName}:{record.Message}"));
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             EnvironmentName = "Development",
@@ -958,9 +966,14 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 $"permissionProgress={string.Join(";", permissionProgress)}; workerFaults={WorkerFaults()}");
             var checkpointBeforeRecovery = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
             Assert.Equal(checkpointAtFirstFailure, checkpointBeforeRecovery);
+            var releasedAtMs = activationProbe.ElapsedMilliseconds;
             activationLag.Release();
 
-            deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+            // The scheduler's two-second retry cap applies between passes. A replay also
+            // rechecks durable member and team assignments before dispatching activation;
+            // under the full broker suite, one observed recovery took about 16 seconds.
+            // Keep the post-readiness phase bounded below the original 45-second contract.
+            deadline = DateTimeOffset.UtcNow.AddSeconds(30);
             var access = HttpStatusCode.Forbidden;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -1032,7 +1045,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     $"permissionProjectionCursor={permissionCheckpointAfterRecovery.Cursor}; " +
                     $"pendingPermissionEventTypes={string.Join(",", pendingPermissionEventTypes)}; " +
                     $"permissionProgress={string.Join(";", permissionProgress)}; " +
+                    $"releasedAt={releasedAtMs:F0}ms; " +
+                    $"elapsedSinceRelease={activationProbe.ElapsedMilliseconds - releasedAtMs:F0}ms; " +
                     $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                    $"preparationAttempts={string.Join(";", activationProbe.PreparationAttempts)}; " +
+                    $"activationLogs={ActivationLogs(tenantId)}; " +
                     $"invitationCheckpointAdvanced={checkpointBeforeRecovery.Cursor != checkpointAfterRecovery.Cursor}; " +
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}; " +
                     $"workerFaults={WorkerFaults()}.");
@@ -1050,7 +1067,10 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.True(checkpointAfterSuccess.Cursor != checkpointBeforeRecovery.Cursor,
                 $"Activation became visible but invitation checkpoint did not advance. " +
                 $"before={checkpointBeforeRecovery.Cursor}; after={checkpointAfterSuccess.Cursor}; " +
+                $"releasedAt={releasedAtMs:F0}ms; " +
                 $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                $"preparationAttempts={string.Join(";", activationProbe.PreparationAttempts)}; " +
+                $"activationLogs={ActivationLogs(tenantId)}; " +
                 $"workerFaults={WorkerFaults()}");
             Assert.True(activationProbe.FailedAttempts >= 1);
             Assert.True(activationProbe.SuccessfulAttempts >= 1);

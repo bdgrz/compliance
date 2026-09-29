@@ -10,14 +10,19 @@ namespace Bdgrz.Compliance.Tests.E2E;
 sealed class ActivationReactionProbe
 {
     readonly ConcurrentQueue<string> _attempts = new();
+    readonly ConcurrentQueue<string> _preparationAttempts = new();
     readonly long _started = Stopwatch.GetTimestamp();
     int _failedAttempts;
     int _successfulAttempts;
     string? _targetTenantId;
 
     internal IReadOnlyList<string> Attempts => _attempts.ToArray();
+    internal IReadOnlyList<string> PreparationAttempts => _preparationAttempts.ToArray();
     internal int FailedAttempts => Volatile.Read(ref _failedAttempts);
     internal int SuccessfulAttempts => Volatile.Read(ref _successfulAttempts);
+    internal double ElapsedMilliseconds => Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
+    internal double ElapsedMillisecondsAt(long timestamp) =>
+        Stopwatch.GetElapsedTime(_started, timestamp).TotalMilliseconds;
 
     internal void TargetTenant(Uuid tenantId) =>
         Interlocked.Exchange(ref _targetTenantId, tenantId.ToString());
@@ -34,7 +39,7 @@ sealed class ActivationReactionProbe
             (IRequestBus)ActivatorUtilities.CreateInstance(provider, implementationType), probe));
     }
 
-    void Record(Result result)
+    void Record(Result result, long started)
     {
         if (result.IsSuccess)
             _ = Interlocked.Increment(ref _successfulAttempts);
@@ -43,11 +48,25 @@ sealed class ActivationReactionProbe
         var outcome = result.IsSuccess
             ? "success"
             : $"{result.Error.Kind}:transient={result.Error.IsTransient}:{result.Error.Message}";
-        _attempts.Enqueue($"{Stopwatch.GetElapsedTime(_started).TotalMilliseconds:F0}ms={outcome}");
+        var ended = Stopwatch.GetTimestamp();
+        _attempts.Enqueue($"{ElapsedMillisecondsAt(started):F0}->{ElapsedMillisecondsAt(ended):F0}ms" +
+            $"({Stopwatch.GetElapsedTime(started, ended).TotalMilliseconds:F0}ms)={outcome}");
     }
 
-    void Record(Exception exception) =>
-        _attempts.Enqueue($"{Stopwatch.GetElapsedTime(_started).TotalMilliseconds:F0}ms={exception.GetType().Name}");
+    void Record(Exception exception, long started)
+    {
+        var ended = Stopwatch.GetTimestamp();
+        _attempts.Enqueue($"{ElapsedMillisecondsAt(started):F0}->{ElapsedMillisecondsAt(ended):F0}ms" +
+            $"({Stopwatch.GetElapsedTime(started, ended).TotalMilliseconds:F0}ms)={exception.GetType().Name}");
+    }
+
+    void RecordPreparation(IRequest command, long started, string outcome)
+    {
+        var ended = Stopwatch.GetTimestamp();
+        _preparationAttempts.Enqueue($"{command.GetType().Name}:" +
+            $"{ElapsedMillisecondsAt(started):F0}->{ElapsedMillisecondsAt(ended):F0}ms" +
+            $"({Stopwatch.GetElapsedTime(started, ended).TotalMilliseconds:F0}ms)={outcome}");
+    }
 
     sealed class RecordingBus(IRequestBus inner, ActivationReactionProbe probe) : IRequestBus
     {
@@ -60,20 +79,37 @@ sealed class ActivationReactionProbe
         public async ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context,
             CancellationToken ct = default)
         {
-            if (request is not ActivateTenant activation ||
-                !string.Equals(activation.TenantId.ToString(), Volatile.Read(ref probe._targetTenantId),
-                    StringComparison.Ordinal))
+            var targetTenantId = Volatile.Read(ref probe._targetTenantId);
+            var targetActivation = request is ActivateTenant activation &&
+                string.Equals(activation.TenantId.ToString(), targetTenantId, StringComparison.Ordinal);
+            var targetPreparation = request switch
+            {
+                RegisterMember member => string.Equals(member.TenantId.ToString(), targetTenantId,
+                    StringComparison.Ordinal),
+                AssignTeamMember assignment => string.Equals(assignment.TenantId.ToString(), targetTenantId,
+                    StringComparison.Ordinal),
+                _ => false,
+            };
+            if (!targetActivation && !targetPreparation)
                 return await inner.DispatchAsync(request, context, ct);
 
+            var started = Stopwatch.GetTimestamp();
             try
             {
                 var result = await inner.DispatchAsync(request, context, ct);
-                probe.Record(result);
+                if (targetActivation)
+                    probe.Record(result, started);
+                else
+                    probe.RecordPreparation(request, started,
+                        result.IsSuccess ? "success" : result.Error.Kind.ToString());
                 return result;
             }
             catch (Exception exception)
             {
-                probe.Record(exception);
+                if (targetActivation)
+                    probe.Record(exception, started);
+                else
+                    probe.RecordPreparation(request, started, exception.GetType().Name);
                 throw;
             }
         }
