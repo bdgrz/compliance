@@ -192,6 +192,7 @@ public sealed class ClientServiceActorE2ETests(BrokerStackFixture broker) : ICla
 
     static async Task<string> CreateProgramAsync(HttpClient owner, string tenantId)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

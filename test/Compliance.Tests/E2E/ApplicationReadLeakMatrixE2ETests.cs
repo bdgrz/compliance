@@ -339,6 +339,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         _ = await WaitForOkAsync(() => owner.GetAsync(
             applicationPath + "/system-instances?minimum_application_revision=3"));
 
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var programId = Guid.Parse((await PostUntilAuthorizedAsync(owner,
             $"/api/v1/tenants/{tenantId}/programs", new
             {

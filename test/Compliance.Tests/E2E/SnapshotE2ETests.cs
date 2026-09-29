@@ -471,6 +471,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
 
     static async Task<string> CreateProgramAsync(HttpClient owner, string path, object plan)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {

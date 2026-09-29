@@ -33,6 +33,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
         var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
         ProgramRegistrationDocument? program = null;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

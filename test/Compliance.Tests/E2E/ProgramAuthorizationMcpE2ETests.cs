@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -20,6 +21,251 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ShouldIssueAndRevokeScopedReaderGrantGivenHttpAndMcpHosts(bool splitHosts)
+    {
+        // Arrange
+        var applicationName = $"compliance-grant-lifecycle-{Guid.NewGuid():N}";
+        var worker = splitHosts ? BuildWorker(applicationName) : null;
+        if (worker is not null)
+            await worker.StartAsync();
+
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName);
+            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            HttpClient administrator;
+            HttpClient member;
+            try
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
+                    splitHosts ? "api" : "standalone");
+                administrator = factory.CreateClient();
+                member = factory.CreateClient();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            }
+
+            using (administrator)
+            using (member)
+            {
+                var administratorUserId = await TenantInvitationE2ETests.LoginAsync(administrator,
+                    $"grant-admin-{Guid.NewGuid():N}@example.com");
+                var memberUserId = await TenantInvitationE2ETests.LoginAsync(member,
+                    $"grant-member-{Guid.NewGuid():N}@example.com");
+                using var registered = await administrator.PostAsJsonAsync("/api/v1/tenants", new
+                {
+                    name = "Access grant lifecycle",
+                    slug = $"grant-{Guid.NewGuid():N}"[..24],
+                });
+                Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+                using var tenantDocument = JsonDocument.Parse(
+                    await registered.Content.ReadAsStringAsync());
+                var tenantId = Uuid.Parse(tenantDocument.RootElement.GetProperty("tenant_id")
+                    .GetString()!, CultureInfo.InvariantCulture);
+                await WaitForPermissionsAsync(administrator, tenantId, administratorUserId,
+                    BuiltInRbac.TenantAdministrationRole, RbacPermissions.TenantRbacManage);
+                await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(administrator,
+                    tenantId);
+                var programsPath = $"/api/v1/tenants/{tenantId}/programs";
+                var plan = Plan("Grant lifecycle");
+                using var firstCreated = await administrator.PostAsJsonAsync(programsPath,
+                    new { name = "P1", plan });
+                using var secondCreated = await administrator.PostAsJsonAsync(programsPath,
+                    new { name = "P2", plan });
+                Assert.Equal(HttpStatusCode.OK, firstCreated.StatusCode);
+                Assert.Equal(HttpStatusCode.OK, secondCreated.StatusCode);
+                using var firstDocument = JsonDocument.Parse(
+                    await firstCreated.Content.ReadAsStringAsync());
+                using var secondDocument = JsonDocument.Parse(
+                    await secondCreated.Content.ReadAsStringAsync());
+                var firstProgramId = firstDocument.RootElement.GetProperty("program_id").GetString()!;
+                var secondProgramId = secondDocument.RootElement.GetProperty("program_id").GetString()!;
+                var firstPath = $"{programsPath}/{firstProgramId}";
+                var secondPath = $"{programsPath}/{secondProgramId}";
+                await WaitForProgramAsync(administrator, firstPath, 1);
+                await WaitForProgramAsync(administrator, secondPath, 1);
+
+                var memberId = Uuid.Parse(memberUserId, CultureInfo.InvariantCulture);
+                await using (var scope = (worker?.Services ?? factory.Services).CreateAsyncScope())
+                {
+                    var registeredMember = await scope.ServiceProvider.GetRequiredService<IRequestBus>()
+                        .DispatchAsync(new RegisterMember(tenantId, memberId),
+                            new RequestDispatchContext(RequestActor.System));
+                    Assert.True(registeredMember.IsSuccess);
+                }
+                var deniedDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var standingDenied = false;
+                while (DateTimeOffset.UtcNow < deniedDeadline)
+                {
+                    using var response = await member.GetAsync(firstPath);
+                    if (response.StatusCode == HttpStatusCode.Forbidden)
+                    {
+                        standingDenied = true;
+                        break;
+                    }
+                    Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+                    await Task.Delay(250);
+                }
+                Assert.True(standingDenied, "The member did not reach active ungranted state.");
+
+                var roleId = Uuid.CreateVersion4();
+                var rolePath = $"/api/v1/tenants/{tenantId}/roles/{roleId}";
+                using (var defined = await administrator.PostAsJsonAsync(rolePath,
+                           new { name = "Reader" }))
+                    Assert.Equal(HttpStatusCode.NoContent, defined.StatusCode);
+                using (var assigned = await administrator.PostAsync(
+                           $"{rolePath}/permissions/{RbacPermissions.TenantAccess}", null))
+                    Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+                var grantId = Uuid.CreateVersion4();
+                var grantPath = $"/api/v1/tenants/{tenantId}/access-grants/{grantId}";
+                var proposal = new
+                {
+                    principal = new { kind = "member", id = RbacIds.Member(tenantId, memberId).ToString() },
+                    role_id = roleId.ToString(),
+                    scope = new { kind = "program", id = firstProgramId },
+                    source = new { kind = "manual", id = "http-reader-test" },
+                    effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                    effective_until = (DateTimeOffset?)null,
+                };
+                var issueDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var issuedGrant = false;
+                while (DateTimeOffset.UtcNow < issueDeadline)
+                {
+                    using var issued = await administrator.PostAsJsonAsync(grantPath,
+                        new { proposal });
+                    if (issued.StatusCode == HttpStatusCode.NoContent)
+                    {
+                        issuedGrant = true;
+                        break;
+                    }
+                    Assert.Equal(HttpStatusCode.NotFound, issued.StatusCode);
+                    await Task.Delay(250);
+                }
+                Assert.True(issuedGrant, "The Reader grant could not be issued.");
+                await WaitForGrantAsync(administrator, tenantId, grantId);
+
+                // Act
+                await WaitForProgramAsync(member, firstPath, 1);
+                using (var allowed = await member.GetAsync(firstPath))
+                    Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+                using (var denied = await member.GetAsync(secondPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+                await using var memberMcp = await McpScenario.ConnectAsync(member,
+                    new Uri(member.BaseAddress!, "/mcp"));
+                _ = await memberMcp.When("bdgrz.program.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId.ToString(),
+                    ["program_id"] = firstProgramId,
+                }).ExpectSuccess();
+                _ = await memberMcp.When("bdgrz.program.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId.ToString(),
+                    ["program_id"] = secondProgramId,
+                }).ExpectFailure("Forbidden");
+                using (var access = await administrator.GetAsync(
+                           $"/api/v1/tenants/{tenantId}/members/{memberUserId}/access"))
+                {
+                    Assert.Equal(HttpStatusCode.OK, access.StatusCode);
+                    using var document = JsonDocument.Parse(await access.Content.ReadAsStringAsync());
+                    var path = Assert.Single(document.RootElement.GetProperty("grant_paths")
+                        .EnumerateArray());
+                    Assert.True(path.GetProperty("is_effective").GetBoolean());
+                    Assert.Equal(firstProgramId, path.GetProperty("grant").GetProperty("terms")
+                        .GetProperty("scope").GetProperty("id").GetString());
+                    Assert.Contains(RbacPermissions.TenantAccess,
+                        path.GetProperty("permissions")
+                            .EnumerateArray().Select(permission => permission.GetString()));
+                    Assert.Empty(document.RootElement.GetProperty("effective_permissions")
+                        .EnumerateArray());
+                }
+
+                var checkpointIdentity = new CheckpointIdentity("AccessGrantsV1",
+                    EventStreamPattern.ForPattern(tenantId.ToString()));
+                await using var checkpointScope = factory.Services.CreateAsyncScope();
+                var checkpoints = checkpointScope.ServiceProvider
+                    .GetRequiredService<IProjectionCheckpointStore>();
+                var beforeRevocation = await checkpoints.LoadAsync(checkpointIdentity);
+                if (splitHosts)
+                {
+                    await worker!.StopAsync();
+                    worker.Dispose();
+                    worker = null;
+                }
+                using (var revoked = await administrator.DeleteAsync(grantPath))
+                    Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+                if (splitHosts)
+                {
+                    var duringLag = await checkpoints.LoadAsync(checkpointIdentity);
+                    Assert.Equal(beforeRevocation.Cursor, duringLag.Cursor);
+                    var pending = false;
+                    await foreach (var record in checkpointScope.ServiceProvider
+                                       .GetRequiredService<IEventStore>()
+                                       .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
+                                           duringLag.Cursor, CancellationToken.None))
+                        pending |= record.Event is AccessGrantRevoked revokedFact &&
+                            revokedFact.GrantId == grantId;
+                    Assert.True(pending);
+                }
+                using (var denied = await member.GetAsync(firstPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+                _ = await memberMcp.When("bdgrz.program.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantId.ToString(),
+                    ["program_id"] = firstProgramId,
+                }).ExpectFailure("Forbidden");
+                using (var access = await administrator.GetAsync(
+                           $"/api/v1/tenants/{tenantId}/members/{memberUserId}/access"))
+                {
+                    Assert.Equal(HttpStatusCode.OK, access.StatusCode);
+                    using var document = JsonDocument.Parse(await access.Content.ReadAsStringAsync());
+                    Assert.False(Assert.Single(document.RootElement.GetProperty("grant_paths")
+                        .EnumerateArray()).GetProperty("is_effective").GetBoolean());
+                    Assert.DoesNotContain(RbacPermissions.TenantAccess,
+                        document.RootElement.GetProperty("effective_permissions")
+                            .EnumerateArray().Select(permission => permission.GetString()));
+                }
+                if (splitHosts)
+                {
+                    worker = BuildWorker(applicationName);
+                    await worker.StartAsync();
+                }
+                await WaitForRevocationAsync(administrator, tenantId, grantId);
+                using (var history = await administrator.GetAsync(
+                           $"/api/v1/tenants/{tenantId}/access-grants"))
+                {
+                    // Assert
+                    Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+                    using var document = JsonDocument.Parse(await history.Content.ReadAsStringAsync());
+                    var grant = Assert.Single(document.RootElement.GetProperty("grants")
+                        .EnumerateArray(), item =>
+                        item.GetProperty("grant_id").GetString() == grantId.ToString());
+                    Assert.Equal("http-reader-test", grant.GetProperty("terms").GetProperty("source")
+                        .GetProperty("id").GetString());
+                    var expectedActorId = RbacIds.Member(tenantId,
+                        Uuid.Parse(administratorUserId, CultureInfo.InvariantCulture)).ToString();
+                    Assert.Equal(expectedActorId, grant.GetProperty("terms")
+                        .GetProperty("granted_by").GetProperty("id").GetString());
+                    Assert.Equal(expectedActorId, grant.GetProperty("revoked_by")
+                        .GetProperty("id").GetString());
+                    Assert.Equal(JsonValueKind.String, grant.GetProperty("revoked_at").ValueKind);
+                }
+            }
+        }
+        finally
+        {
+            if (worker is not null)
+            {
+                await worker.StopAsync();
+                worker.Dispose();
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ShouldAllowProgramMcpFlowAndDenyManagementGivenSameTenantParticipant(
         bool splitHosts)
     {
@@ -28,16 +274,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
         IHost? worker = null;
         if (splitHosts)
         {
-            var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
-            {
-                EnvironmentName = "Development",
-            });
-            builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
-            builder.Configuration["Fitz:ApplicationName"] = applicationName;
-            builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
-            builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
-                .AddWorkers();
-            worker = builder.Build();
+            worker = BuildWorker(applicationName);
             await worker.StartAsync();
         }
 
@@ -78,6 +315,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 var tenantId = Uuid.Parse(tenant.TenantId, CultureInfo.InvariantCulture);
                 await WaitForPermissionsAsync(administrator, tenantId, administratorId,
                     BuiltInRbac.TenantAdministrationRole, RbacPermissions.ProgramManage);
+                await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(administrator, tenantId);
 
                 var programsPath = $"/api/v1/tenants/{tenantId}/programs";
                 var plan = Plan("Administrator");
@@ -146,6 +384,26 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     tenantId, participantId, BuiltInRbac.ComplianceParticipationRole,
                     RbacPermissions.TenantAccess);
                 Assert.DoesNotContain(RbacPermissions.ProgramManage, effectivePermissions);
+                using (var standingPermissionDenied = await participant.GetAsync(programPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, standingPermissionDenied.StatusCode);
+                var participantMemberId = RbacIds.Member(tenantId,
+                    Uuid.Parse(participantId, CultureInfo.InvariantCulture));
+                var grantId = Uuid.CreateVersion4();
+                var grantPath = $"/api/v1/tenants/{tenantId}/access-grants/{grantId}";
+                using (var issued = await administrator.PostAsJsonAsync(grantPath, new
+                {
+                    proposal = new
+                    {
+                        principal = new { kind = "member", id = participantMemberId.ToString() },
+                        role_id = BuiltInRbac.ComplianceParticipationRoleId(tenantId).ToString(),
+                        scope = new { kind = "program", id = programId },
+                        source = new { kind = "manual", id = "program-auth-mcp-e2e" },
+                        effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                        effective_until = (DateTimeOffset?)null,
+                    },
+                }))
+                    Assert.Equal(HttpStatusCode.NoContent, issued.StatusCode);
+                await WaitForGrantAsync(administrator, tenantId, grantId);
 
                 using var participantRead = await participant.GetAsync(programPath);
                 using var participantList = await participant.GetAsync(programsPath);
@@ -279,6 +537,123 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                 var onlyProgram = Assert.Single(listed.GetProperty("items").EnumerateArray());
                 Assert.Equal(programId, onlyProgram.GetProperty("program_id").GetString());
                 Assert.Equal(2, onlyProgram.GetProperty("revision").GetInt64());
+
+                using var secondCreated = await administrator.PostAsJsonAsync(programsPath,
+                    new { name = "Second program", plan });
+                Assert.Equal(HttpStatusCode.OK, secondCreated.StatusCode);
+                using var secondDocument = JsonDocument.Parse(
+                    await secondCreated.Content.ReadAsStringAsync());
+                var secondProgramId = secondDocument.RootElement.GetProperty("program_id").GetString()!;
+                var secondProgramPath = $"{programsPath}/{secondProgramId}";
+                await WaitForProgramAsync(administrator, secondProgramPath, 1);
+                using (var differentProgram = await participant.GetAsync(secondProgramPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, differentProgram.StatusCode);
+                _ = await participantMcp.When("bdgrz.program.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenant.TenantId,
+                    ["program_id"] = secondProgramId,
+                }).ExpectFailure("Forbidden");
+                using (var missingProgram = await participant.GetAsync(
+                           $"{programsPath}/{Uuid.CreateVersion4()}"))
+                    Assert.Equal(HttpStatusCode.NotFound, missingProgram.StatusCode);
+
+                var checkpointIdentity = new CheckpointIdentity("AccessGrantsV1",
+                    EventStreamPattern.ForPattern(tenantId.ToString()));
+                await using var checkpointScope = factory.Services.CreateAsyncScope();
+                var checkpoints = checkpointScope.ServiceProvider
+                    .GetRequiredService<IProjectionCheckpointStore>();
+                var checkpointBeforeRevoke = await checkpoints.LoadAsync(checkpointIdentity);
+                if (splitHosts)
+                {
+                    await worker!.StopAsync();
+                    worker.Dispose();
+                    worker = null;
+                }
+
+                using (var revoked = await administrator.DeleteAsync(grantPath))
+                    Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+                if (splitHosts)
+                {
+                    var checkpointDuringLag = await checkpoints.LoadAsync(checkpointIdentity);
+                    Assert.Equal(checkpointBeforeRevoke.Cursor, checkpointDuringLag.Cursor);
+                    var pendingRevoke = false;
+                    await foreach (var record in checkpointScope.ServiceProvider
+                                       .GetRequiredService<IEventStore>()
+                                       .ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
+                                           checkpointDuringLag.Cursor, CancellationToken.None))
+                        pendingRevoke |= record.Event is AccessGrantRevoked revokedFact &&
+                            revokedFact.GrantId == grantId;
+                    Assert.True(pendingRevoke);
+                }
+                using (var revokedRead = await participant.GetAsync(programPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, revokedRead.StatusCode);
+                _ = await participantMcp.When("bdgrz.program.get", readInput)
+                    .ExpectFailure("Forbidden");
+                using (var accessResponse = await administrator.GetAsync(
+                           $"/api/v1/tenants/{tenantId}/members/{participantId}/access"))
+                {
+                    Assert.Equal(HttpStatusCode.OK, accessResponse.StatusCode);
+                    using var accessDocument = JsonDocument.Parse(
+                        await accessResponse.Content.ReadAsStringAsync());
+                    var path = Assert.Single(accessDocument.RootElement.GetProperty("grant_paths")
+                        .EnumerateArray());
+                    Assert.False(path.GetProperty("is_effective").GetBoolean());
+                }
+
+                if (splitHosts)
+                {
+                    worker = BuildWorker(applicationName);
+                    await worker.StartAsync();
+                }
+                await WaitForRevocationAsync(administrator, tenantId, grantId);
+                var mcpGrantId = Uuid.CreateVersion4();
+                _ = await administratorMcp.When("bdgrz.access-grant.issue",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["grant_id"] = mcpGrantId.ToString(),
+                        ["proposal"] = new Dictionary<string, object?>
+                        {
+                            ["principal"] = new Dictionary<string, object?>
+                            {
+                                ["kind"] = "member",
+                                ["id"] = participantMemberId.ToString(),
+                            },
+                            ["role_id"] = BuiltInRbac.ComplianceParticipationRoleId(tenantId).ToString(),
+                            ["scope"] = new Dictionary<string, object?>
+                            {
+                                ["kind"] = "program",
+                                ["id"] = programId,
+                            },
+                            ["source"] = new Dictionary<string, object?>
+                            {
+                                ["kind"] = "manual",
+                                ["id"] = "program-auth-mcp-e2e",
+                            },
+                            ["effective_from"] = DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O"),
+                        },
+                    }).ExpectSuccess();
+                await WaitForGrantAsync(administrator, tenantId, mcpGrantId);
+                using (var restoredRead = await participant.GetAsync(programPath))
+                    Assert.Equal(HttpStatusCode.OK, restoredRead.StatusCode);
+                _ = await administratorMcp.When("bdgrz.access-grant.revoke",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenant.TenantId,
+                        ["grant_id"] = mcpGrantId.ToString(),
+                    }).ExpectSuccess();
+                using (var deniedAgain = await participant.GetAsync(programPath))
+                    Assert.Equal(HttpStatusCode.Forbidden, deniedAgain.StatusCode);
+                await WaitForRevocationAsync(administrator, tenantId, mcpGrantId);
+                var grantList = await administratorMcp.When("bdgrz.access-grant.list",
+                    new Dictionary<string, object?> { ["tenant_id"] = tenant.TenantId })
+                    .ExpectSuccess();
+                var grantHistory = Assert.IsType<JsonElement>(grantList.StructuredJson)
+                    .GetProperty("result").GetProperty("grants");
+                Assert.Contains(grantHistory.EnumerateArray(), item =>
+                    item.GetProperty("grant_id").GetString() == grantId.ToString());
+                Assert.Contains(grantHistory.EnumerateArray(), item =>
+                    item.GetProperty("grant_id").GetString() == mcpGrantId.ToString());
             }
         }
         finally
@@ -348,6 +723,59 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The invitation delivery outcome did not project.");
+    }
+
+    static async Task WaitForGrantAsync(HttpClient administrator, Uuid tenantId, Uuid grantId)
+    {
+        var path = $"/api/v1/tenants/{tenantId}/access-grants";
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administrator.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                if (document.RootElement.GetProperty("grants").EnumerateArray().Any(grant =>
+                        grant.GetProperty("grant_id").GetString() == grantId.ToString()))
+                    return;
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The participant access grant did not project.");
+    }
+
+    static async Task WaitForRevocationAsync(HttpClient administrator, Uuid tenantId, Uuid grantId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administrator.GetAsync(
+                $"/api/v1/tenants/{tenantId}/access-grants");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                if (document.RootElement.GetProperty("grants").EnumerateArray().Any(grant =>
+                        grant.GetProperty("grant_id").GetString() == grantId.ToString() &&
+                        grant.GetProperty("revoked_at").ValueKind == JsonValueKind.String))
+                    return;
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The access grant revocation did not reach the projection.");
+    }
+
+    IHost BuildWorker(string applicationName)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            EnvironmentName = "Development",
+        });
+        builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
+        builder.Configuration["Fitz:ApplicationName"] = applicationName;
+        builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
+            .AddWorkers();
+        return builder.Build();
     }
 
     static object Plan(string advisor) => new

@@ -25,6 +25,31 @@ public sealed class RbacManagementAuthorizerTests
         Assert.True(result.IsSuccess);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRejectSystemActorGivenAccessGrantMutation(bool revoke)
+    {
+        // Arrange
+        var authorizer = new RbacManagementAuthorizer(new RecordingPermissionAuthorizer(true),
+            new ActiveTenant(), new FixedMembershipDirectory(true));
+        IRbacManagementRequest request = revoke
+            ? new RevokeAccessGrant(TenantId, Uuid.CreateVersion4())
+            : new GrantAccess(TenantId, Uuid.CreateVersion4(), new AccessGrantProposal(
+                new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                    RbacIds.Member(TenantId, UserId)),
+                BuiltInRbac.TenantAdministrationRoleId(TenantId),
+                new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+                new AccessGrantSource("manual", "test"), DateTimeOffset.UtcNow, null));
+        var context = new RequestContext<IRbacManagementRequest>(request, RequestActor.System);
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
     [Fact]
     public async Task ShouldRejectActorGivenMissingBdgrzIdentity()
     {

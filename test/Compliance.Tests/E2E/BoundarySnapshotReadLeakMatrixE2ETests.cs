@@ -425,6 +425,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
 
     static async Task<string> CreateProgramAsync(HttpClient owner, Uuid tenantId, string name)
     {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = TenantPath(tenantId) + "/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)

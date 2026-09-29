@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.Commitments;
 [Discriminator("bdgrz.commitment.draft.list", 1)]
 public sealed record ListCommitmentDrafts(Uuid TenantId, Uuid ProgramId,
     int? Limit = null, string? Cursor = null)
-    : IRequest<Page<CommitmentDraftView>>, IProgramManagementRequest, ICallable;
+    : IRequest<Page<CommitmentDraftView>>, IProgramScopedRequest, ICallable;

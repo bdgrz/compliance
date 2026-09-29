@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.Boundaries;
 public sealed record ApproveBoundary(Uuid TenantId, Uuid BoundaryId, Uuid DraftVersionId,
     long ExpectedRevision, Uuid AcceptedReviewDecisionId, DateOnly EffectiveFrom,
     string Rationale, string ImpactDigest, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest, IBoundaryAuthoringRequest, ICallable;
+    : IRequest, IBoundaryAuthoringRequest, IBoundaryProgramResourceRequest, ICallable;

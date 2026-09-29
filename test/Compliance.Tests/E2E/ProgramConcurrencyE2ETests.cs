@@ -212,6 +212,7 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(tenant);
         var programs = $"/api/v1/tenants/{tenant.TenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenant.TenantId);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
         while (DateTimeOffset.UtcNow < deadline)
         {

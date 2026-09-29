@@ -15,7 +15,10 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenant
         CancellationToken ct)
     {
         if (RequestActor.IsSystem(context.Actor))
-            return Result.Success;
+            return context.Request is GrantAccess or RevokeAccessGrant
+                ? Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                    "Access grant changes require an authenticated member."))
+                : Result.Success;
 
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
             return Result.Failure(new RequestError(

@@ -95,6 +95,7 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
         var tenant = await registered.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(tenant);
         var path = $"/api/v1/tenants/{tenant.TenantId}/programs";
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
 
         // Wait until the owner's membership is projected so the outsider's denial is not a
         // projection-lag artifact.
