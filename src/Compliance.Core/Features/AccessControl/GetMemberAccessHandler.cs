@@ -6,7 +6,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memberships,
     IMemberAccessReader access, ITeamDirectoryReader teams, IRoleDirectoryReader roles,
     IAccessGrantDirectory grants, ITeamMemberDirectoryReader teamMembers,
-    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock)
+    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock,
+    IMemberAccessEligibility sourceMember)
     : IRequestHandler<GetMemberAccess, MemberAccessView>
 {
     const int PageSize = 200;
@@ -25,6 +26,10 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             membership.UserId != request.UserId)
             return Result<MemberAccessView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The member was not found."));
+        var memberIsActive = !membership.IsSuspended &&
+            membership.Affiliation == "client_personnel" &&
+            await sourceMember.IsEligibleAsync(request.TenantId, request.UserId, ct)
+                .ConfigureAwait(false);
 
         var memberId = RbacIds.Member(request.TenantId, request.UserId);
         var edges = await access.ReadAsync(request.TenantId, memberId, ct).ConfigureAwait(false);
@@ -106,7 +111,7 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 AccessGrantScopeKind.Program => scope.Id != Uuid.Empty,
                 _ => false,
             };
-            var isEffective = membership.Affiliation == "client_personnel" &&
+            var isEffective = memberIsActive &&
                 currentGrant is not null && currentGrant.Terms == originalGrant.Terms &&
                 grant.RevokedAt is null && !pendingRevocations.Contains(grant.GrantId) &&
                 grant.Terms.EffectiveFrom <= now &&
@@ -121,11 +126,18 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
 
         // Paths retain the projected assignment history for review. Compute effective standing
         // permissions from source relationships so removals outrun their projection safely.
-        var standingPermissions = membership.Affiliation == "client_personnel"
+        var standingPermissions = memberIsActive
             ? await ReadCurrentStandingPermissionsAsync(request.TenantId, memberId, edges, ct)
                 .ConfigureAwait(false)
             : [];
-        var permissions = membership.Affiliation == "client_personnel"
+        // A suspension can commit while source relationships are read. Keep the historical
+        // explanation but clear every effective path at the final source decision point.
+        var currentlyActive = memberIsActive &&
+            await sourceMember.IsEligibleAsync(request.TenantId, request.UserId, ct)
+                .ConfigureAwait(false);
+        if (!currentlyActive)
+            grantPaths = grantPaths.Select(path => path with { IsEffective = false }).ToList();
+        var permissions = currentlyActive
             ? standingPermissions.Concat(organizationGrantPermissions)
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()
             : [];

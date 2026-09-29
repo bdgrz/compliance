@@ -1,6 +1,7 @@
 using System.Globalization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
@@ -56,7 +57,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("firm_staff"), new TeamMemberDirectory(MemberId),
             new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -77,7 +78,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("client_personnel"), teamMembers,
             new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -85,6 +86,67 @@ public sealed class AccessGrantPermissionAuthorizerTests
 
         // Assert
         Assert.False(allowed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldDenyDirectAndTeamGrantsGivenSuspensionHasNotReachedMembershipProjection(
+        bool teamGrant)
+    {
+        // Arrange
+        var teamId = Uuid.CreateVersion4();
+        var principal = teamGrant
+            ? new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId)
+            : new AccessGrantPrincipal(AccessGrantPrincipalKind.Member, MemberId);
+        var grants = new GrantDirectory(Grant(
+            new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId), principal));
+        var authorizer = new AccessGrantPermissionAuthorizer(grants,
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(false));
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+        var visibility = await authorizer.GetProgramVisibilityAsync(TenantId, UserId, MemberId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+        Assert.False(visibility.HasAnyAccess);
+        Assert.Equal(0, grants.ListCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldDenyDirectAndTeamGrantsGivenSuspensionCommitsDuringGrantScan(
+        bool teamGrant)
+    {
+        // Arrange
+        var teamId = Uuid.CreateVersion4();
+        var principal = teamGrant
+            ? new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId)
+            : new AccessGrantPrincipal(AccessGrantPrincipalKind.Member, MemberId);
+        var eligibility = new MutableMemberAccessEligibility();
+        var grants = new GrantDirectory(Grant(
+            new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId), principal))
+        {
+            OnPendingScan = () => eligibility.IsEligible = false,
+        };
+        var authorizer = new AccessGrantPermissionAuthorizer(grants,
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now), eligibility);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+        Assert.Equal(2, eligibility.ReadCount);
     }
 
     [Fact]
@@ -169,7 +231,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("client_personnel"), teamMembers,
             new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -192,7 +254,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(grants,
             new MembershipDirectory("client_personnel"), teamMembers,
             new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -247,7 +309,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
             new RolePermissions([RbacPermissions.ProgramManage]), source,
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -290,7 +352,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var authorizer = new AccessGrantPermissionAuthorizer(directory,
             new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
             new RolePermissions([RbacPermissions.ProgramManage]), source,
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -304,7 +366,20 @@ public sealed class AccessGrantPermissionAuthorizerTests
         IReadOnlyList<string> permissions, RbacSourceReader? source = null) => new(grants,
         new MembershipDirectory(affiliation), new TeamMemberDirectory(MemberId),
         new RolePermissions(permissions), source ?? new RbacSourceReader(),
-        new FixedTimeProvider(Now));
+        new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
+
+    sealed class MutableMemberAccessEligibility : IMemberAccessEligibility
+    {
+        public bool IsEligible { get; set; } = true;
+        public int ReadCount { get; private set; }
+
+        public ValueTask<bool> IsEligibleAsync(Uuid tenantId, Uuid userId,
+            CancellationToken ct = default)
+        {
+            ReadCount++;
+            return ValueTask.FromResult(IsEligible);
+        }
+    }
 
     static AccessGrantView Grant(AccessGrantScope scope, AccessGrantPrincipal? principal = null) =>
         new(TenantId, Uuid.CreateVersion4(), new AccessGrantTerms(

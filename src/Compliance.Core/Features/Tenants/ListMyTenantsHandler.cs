@@ -1,4 +1,5 @@
 using System.Globalization;
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -7,7 +8,8 @@ namespace Bdgrz.Compliance.Features.Tenants;
 public sealed class ListMyTenantsHandler(
     ITenantDirectory activeTenants,
     ITenantMembershipDirectoryReader memberships,
-    ITenantDirectoryReader tenants) : IRequestHandler<ListMyTenants, Page<TenantMembershipSummary>>
+    ITenantDirectoryReader tenants,
+    IAggregateReader reader) : IRequestHandler<ListMyTenants, Page<TenantMembershipSummary>>
 {
     const int DefaultLimit = 50;
     const int MaxLimit = 200;
@@ -77,6 +79,12 @@ public sealed class ListMyTenantsHandler(
             if (tenant.TenantId != resolvedTenantId)
                 return Result<Page<TenantMembershipSummary>>.Failure(new RequestError(
                     RequestErrorKind.NotFound, "The tenant was not found."));
+            // A suspension can outrun the membership projection or commit while tenant metadata
+            // is read. Use the tenant-addressed member stream at the final disclosure point.
+            var member = await reader.HydrateAsync(new Member(resolvedTenantId, userId), ct)
+                .ConfigureAwait(false);
+            if (!member.IsRegistered || member.IsSuspended)
+                continue;
             items.Add(new TenantMembershipSummary(tenant.TenantId, tenant.Name, tenant.Slug,
                 tenant.Status));
         }

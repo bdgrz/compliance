@@ -74,6 +74,24 @@ public sealed class SeparationOfDutiesWaiverAuthorizerTests
         Assert.Equal(RequestErrorKind.Forbidden, result.Error.Kind);
     }
 
+    [Fact]
+    public async Task ShouldRejectSuspendedMemberGivenHistoricalTenantManageGrant()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new SeparationOfDutiesWaiverAuthorizer(
+            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(), permissions);
+        var context = new RequestContext<ISeparationOfDutiesWaiverAdminRequest>(
+            new GetSeparationOfDutiesWaiver(TenantId, Uuid.CreateVersion4()), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 }

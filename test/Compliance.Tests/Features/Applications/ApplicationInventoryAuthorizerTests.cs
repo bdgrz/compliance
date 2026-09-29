@@ -117,6 +117,45 @@ public sealed class ApplicationInventoryAuthorizerTests
         Assert.Empty(permissions.Permissions);
     }
 
+    [Fact]
+    public async Task ShouldDenySuspendedMemberGivenHistoricalInventoryGrant()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new ApplicationInventoryAuthorizer(
+            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(), permissions);
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new ListApplications(Uuid.CreateVersion4()), BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
+    [Fact]
+    public async Task ShouldDenySuspendedMemberGivenHistoricalProgramManagementGrant()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new ProgramManagementAuthorizer(
+            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(),
+            new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes());
+        var context = new RequestContext<IProgramManagementRequest>(
+            new PreviewApplicationChange(Uuid.CreateVersion4(), Uuid.CreateVersion4(), 1, "retire"),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
 }

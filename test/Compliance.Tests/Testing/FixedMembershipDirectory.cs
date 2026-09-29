@@ -4,17 +4,18 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Tests.Testing;
 
 /// <summary>Reports every actor as a member with one affiliation, or none as members.</summary>
-sealed class FixedMembershipDirectory(bool member, string affiliation = "client_personnel")
+sealed class FixedMembershipDirectory(bool member, string affiliation = "client_personnel",
+    bool isSuspended = false)
     : ITenantMembershipDirectoryReader
 {
     public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
         CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
         ? new TenantMembershipView(userId, Uuid.Parse(tenantId, CultureInfo.InvariantCulture),
-            affiliation)
+            affiliation, IsSuspended: isSuspended)
         : null);
 
     public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId,
-        CancellationToken ct = default) => ValueTask.FromResult(member);
+        CancellationToken ct = default) => ValueTask.FromResult(member && !isSuspended);
 
     public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit,
         string? cursor, CancellationToken ct = default) =>

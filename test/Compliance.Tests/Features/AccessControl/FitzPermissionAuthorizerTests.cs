@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz;
@@ -10,6 +11,191 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 public sealed class FitzPermissionAuthorizerTests
 {
+    [Fact]
+    public async Task ShouldDenyGivenRevocationProjectsBetweenExplanationAndPendingScan()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        FitzPermissionAuthorizer? permissions = null;
+        var events = new ProjectionInterleavingReader(async () =>
+        {
+            var identity = new CheckpointIdentity("PermissionProjection",
+                EventStreamPattern.ForPattern(tenantId.ToString()));
+            await using var batch = await permissions!.BeginAsync(new ProjectionBatchContext(
+                identity, ProjectionCheckpoint.Start));
+            await permissions.ApplyAsync(new TeamMemberRemoved(tenantId, teamId, memberId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        });
+        permissions = new FitzPermissionAuthorizer(client, new FixedMembershipDirectory(true), events,
+            new FixedMemberAccessEligibility(true));
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+
+        // Act: the read of explained access sees the old team grant, then the projector
+        // removes its key just before the pending-event iterator is read.
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(events.Interleaved);
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGivenSuspensionCommitsAfterPendingScanBeforeFinalGrantRead()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var sourceEvents = new InMemoryEventStore();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(sourceEvents);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        var member = new Member(tenantId, userId);
+        Assert.True(member.Register().IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        var projectedMembership = new FixedMembershipDirectory(true);
+        var events = new SuspensionAfterScanReader(sourceEvents, async () =>
+        {
+            var current = await reader.HydrateAsync(new Member(tenantId, userId));
+            Assert.True(current.Suspend(RbacIds.Member(tenantId, Uuid.CreateVersion4()),
+                "Administrator", DateTimeOffset.UtcNow, "Access review.").IsSuccess);
+            await writer.SaveAsync(current, new RequestDispatchContext(RequestActor.System));
+        });
+        var permissions = new FitzPermissionAuthorizer(client, projectedMembership, events,
+            new EventSourcedMemberAccessEligibility(reader));
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+
+        // Act: the scan has no suspension to return; it commits as that scan finishes,
+        // before the materialized grant key is re-read.
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(events.Interleaved);
+        Assert.True((await reader.HydrateAsync(new Member(tenantId, userId))).IsSuspended);
+        Assert.True(await projectedMembership.IsMemberAsync(tenantId.ToString(), userId));
+        Assert.NotEmpty(await permissions.ReadAsync(tenantId, memberId));
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGivenLegacyGrantKeyWithoutExplanationAndPendingSuspension()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var permissions = new FitzPermissionAuthorizer(client, new FixedMembershipDirectory(true), events,
+            new FixedMemberAccessEligibility(true));
+        var route = await new PermissionRouteReader(client).GetRouteAsync(tenantId);
+        await using (var tx = await client.BeginAsync(route, KvDurability.Sync, KvMode.ReadWrite))
+        {
+            await tx.PutAsync(PermissionProjectionKeys.Grant(memberId, RbacPermissions.TenantAccess),
+                "1"u8.ToArray());
+            await tx.CommitAsync();
+        }
+        Assert.Empty(await permissions.ReadAsync(tenantId, memberId));
+        Assert.False(await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess));
+        DomainEvent suspension = new MemberSuspended(tenantId, memberId, userId, Uuid.CreateVersion4(),
+            "Alex Admin", DateTimeOffset.UtcNow, "Employment ended.");
+        suspension.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-members",
+            memberId.ToString()), 0, [suspension]);
+
+        // Act
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGivenMemberSuspensionHasNotReachedPermissionProjection()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        var membership = new FixedMembershipDirectory(true);
+        using var services = CreateServices(client, membership, events);
+        var permissions = ActivatorUtilities.CreateInstance<FitzPermissionAuthorizer>(services);
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var identity = new CheckpointIdentity("PermissionProjection", pattern);
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+        Assert.True(await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess));
+        DomainEvent suspension = new MemberSuspended(tenantId, memberId, userId, Uuid.CreateVersion4(),
+            "Alex Admin", DateTimeOffset.UtcNow, "Employment ended.");
+        suspension.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 1,
+            DateTimeOffset.UtcNow));
+        var stream = new EventStreamAddress(tenantId.ToString(), "rbac-members", memberId.ToString());
+        await events.AppendAsync(stream, 0, [suspension]);
+
+        // Act
+        var allowedWhileProjectionLags = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await using var batch = await permissions.BeginAsync(new ProjectionBatchContext(
+                identity, new ProjectionCheckpoint(cursor)));
+            await permissions.ApplyAsync(record.Event);
+            cursor = record.NextCursor;
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+        var deniedAfterProjection = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+
+        DomainEvent reinstatement = new MemberReinstated(tenantId, memberId, userId,
+            "client_personnel",
+            Uuid.CreateVersion4(), "Alex Admin", DateTimeOffset.UtcNow);
+        reinstatement.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 2,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(stream, 1, [reinstatement]);
+        var deniedWhileReinstatementLags = await permissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+        var restartedPermissions = new FitzPermissionAuthorizer(client, membership, events,
+            new FixedMemberAccessEligibility(true));
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await using var batch = await restartedPermissions.BeginAsync(new ProjectionBatchContext(
+                identity, new ProjectionCheckpoint(cursor)));
+            await restartedPermissions.ApplyAsync(record.Event);
+            cursor = record.NextCursor;
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+        var allowedAfterRecovery = await restartedPermissions.IsAllowedAsync(tenantId, userId,
+            memberId, RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.False(allowedWhileProjectionLags);
+        Assert.False(deniedAfterProjection);
+        Assert.False(deniedWhileReinstatementLags);
+        Assert.True(allowedAfterRecovery);
+    }
+
     [Fact]
     public async Task ShouldDenyGivenTeamMemberRemovalHasNotReachedPermissionProjection()
     {
@@ -130,7 +316,8 @@ public sealed class FitzPermissionAuthorizerTests
         var teamId = Uuid.CreateVersion4();
         var roleId = Uuid.CreateVersion4();
         var memberships = new FitzTenantMembershipDirectoryReader(client);
-        var permissions = new FitzPermissionAuthorizer(client, memberships, new InMemoryEventStore());
+        var permissions = new FitzPermissionAuthorizer(client, memberships, new InMemoryEventStore(),
+            new FixedMemberAccessEligibility(true));
         var permissionIdentity = new CheckpointIdentity("PermissionProjection",
             EventStreamPattern.ForPattern(tenantId.ToString()));
         await using (var batch = await permissions.BeginAsync(new ProjectionBatchContext(
@@ -169,6 +356,7 @@ public sealed class FitzPermissionAuthorizerTests
             .AddSingleton(client)
             .AddSingleton(memberships)
             .AddSingleton(events)
+            .AddSingleton<IMemberAccessEligibility>(new FixedMemberAccessEligibility(true))
             .BuildServiceProvider();
 
     static async Task SeedActiveTeamGrantAsync(FitzPermissionAuthorizer permissions,
@@ -188,5 +376,58 @@ public sealed class FitzPermissionAuthorizerTests
         await permissions.ApplyAsync(new RolePermissionAssigned(tenantId, roleId,
             RbacPermissions.TenantAccess));
         await batch.CommitAsync(ProjectionCheckpoint.Start);
+    }
+
+    sealed class PermissionRouteReader(IKvClient client)
+        : FitzKvProjectionStore(client, FitzPermissionAuthorizer.Route, "PermissionProjection")
+    {
+        public async Task<string> GetRouteAsync(Uuid tenantId)
+        {
+            await using var tx = await BeginReadAsync(tenantId.ToString());
+            return tx.Route;
+        }
+    }
+
+    sealed class ProjectionInterleavingReader(Func<Task> projectRevocation) : IDomainEventReader
+    {
+        public bool Interleaved { get; private set; }
+
+        public IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamAddress stream,
+            ulong fromVersion, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public async IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamPattern pattern,
+            EventCursor after, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await projectRevocation();
+            Interleaved = true;
+            yield break;
+        }
+    }
+
+    sealed class SuspensionAfterScanReader(IDomainEventReader inner, Func<Task> suspend)
+        : IDomainEventReader
+    {
+        public bool Interleaved { get; private set; }
+
+        public IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamAddress stream,
+            ulong fromVersion, CancellationToken ct = default) =>
+            inner.ReadAsync(stream, fromVersion, ct);
+
+        public async IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamPattern pattern,
+            EventCursor after, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            try
+            {
+                await foreach (var record in inner.ReadAsync(pattern, after, ct)
+                                   .WithCancellation(ct))
+                    yield return record;
+            }
+            finally
+            {
+                await suspend();
+                Interleaved = true;
+            }
+        }
     }
 }

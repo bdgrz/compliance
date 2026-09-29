@@ -21,7 +21,7 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
             return scopeResult;
         var member = await memberships.GetAsync(request.TenantId.ToString(), request.MemberUserId, ct)
             .ConfigureAwait(false);
-        if (member is null || member.Affiliation == "firm_staff")
+        if (member is null || member.IsSuspended || member.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The responsibility assignee must be an active tenant member."));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var actorUserId))
@@ -33,6 +33,14 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
         foreach (var waiverId in request.SeparationOfDutiesWaiverIds ?? [])
             waivers.Add(await reader.HydrateAsync(new SeparationOfDutiesWaiver(
                 request.TenantId, waiverId), ct).ConfigureAwait(false));
+        // Membership is a projection. Read the source member after waiver hydration so a
+        // suspension committed during preparation stops this assignment before execution.
+        var currentMember = await reader.HydrateAsync(new Member(request.TenantId, request.MemberUserId), ct)
+            .ConfigureAwait(false);
+        if (!currentMember.IsRegistered || currentMember.IsSuspended ||
+            currentMember.Affiliation == "firm_staff")
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The responsibility assignee must be an active tenant member."));
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.Scope.RecordId), boundary =>
         {
             var failure = boundary.AssignResponsibility(request.Scope, context.RequestId,

@@ -5,6 +5,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 public sealed partial class PermissionProjector(IPermissionProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant(), "PermissionProjection"),
       IProjectorHandler<MemberRegistered>,
+      IProjectorHandler<MemberSuspended>,
+      IProjectorHandler<MemberReinstated>,
       IProjectorHandler<TeamDefined>,
       IProjectorHandler<TeamDeleted>,
       IProjectorHandler<TeamMemberAssigned>,
@@ -16,9 +18,13 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
       IProjectorHandler<TeamRoleAssigned>,
       IProjectorHandler<TeamRoleRemoved>
 {
-    public static bool RevokesAllMemberAccess(DomainEvent domainEvent, Uuid memberId) =>
-        domainEvent is MemberRegistered member && member.MemberId == memberId &&
-        !string.Equals(member.Affiliation, "client_personnel", StringComparison.Ordinal);
+    public static bool RevokesAllMemberAccess(DomainEvent domainEvent, Uuid memberId) => domainEvent switch
+    {
+        MemberRegistered registered => registered.MemberId == memberId &&
+            !string.Equals(registered.Affiliation, "client_personnel", StringComparison.Ordinal),
+        MemberSuspended suspended => suspended.MemberId == memberId,
+        _ => false,
+    };
 
     public static bool RevokesAccessPath(DomainEvent domainEvent, Uuid memberId,
         string permission, MemberAccessEdge currentAccess) => domainEvent switch
@@ -35,6 +41,12 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
         };
 
     public ValueTask HandleAsync(MemberRegistered ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(MemberSuspended ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(MemberReinstated ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(TeamDefined ev, IProjectorContext context, CancellationToken ct) =>

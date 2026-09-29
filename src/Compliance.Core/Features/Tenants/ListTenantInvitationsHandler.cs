@@ -58,8 +58,12 @@ public sealed class ListTenantInvitationsHandler(ITenantInvitationDirectoryReade
         if (entry.AcceptedUserId is { } userId)
         {
             status = "accepted_pending_activation";
-            if (await memberships.IsMemberAsync(entry.TenantId.ToString(), userId, ct)
-                    .ConfigureAwait(false))
+            // Invitation activation is complete once registration projects. Suspension
+            // revokes access but does not undo that accepted registration.
+            var member = await memberships.GetAsync(entry.TenantId.ToString(), userId, ct)
+                .ConfigureAwait(false);
+            if (member is not null && member.TenantId == entry.TenantId &&
+                member.UserId == userId)
                 status = "active";
         }
         return new TenantInvitationView(entry.TenantId, entry.EmailAddress,

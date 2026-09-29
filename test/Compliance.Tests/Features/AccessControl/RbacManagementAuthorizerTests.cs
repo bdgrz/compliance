@@ -122,6 +122,25 @@ public sealed class RbacManagementAuthorizerTests
         Assert.Empty(permissions.Permissions);
     }
 
+    [Fact]
+    public async Task ShouldDenySuspendedActorGivenHistoricalRbacManageGrant()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new RbacManagementAuthorizer(permissions, new ActiveTenant(),
+            new FixedMembershipDirectory(true, isSuspended: true));
+        var context = new RequestContext<IRbacManagementRequest>(
+            new DefineTeam(TenantId, Uuid.CreateVersion4(), "Reviewers"), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, result.Error.Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -46,6 +47,7 @@ public sealed class ListMyTenantsRequestScenarioTests
         tenants.ById[TenantId] = new TenantView(TenantId, "Acme", "acme");
         tenants.ById[OtherTenantId] = new TenantView(OtherTenantId, "Other", "other");
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
+        await SeedMemberAsync(provider, TenantId, CallerUserId);
 
         // Act
         var scenario = await RequestScenario.For(provider)
@@ -79,6 +81,8 @@ public sealed class ListMyTenantsRequestScenarioTests
         }
 
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
+        foreach (var tenantId in tenantIds)
+            await SeedMemberAsync(provider, tenantId, CallerUserId);
         var seen = new List<Uuid>();
         string? cursor = null;
 
@@ -106,6 +110,7 @@ public sealed class ListMyTenantsRequestScenarioTests
         memberships.Members[TenantId] = [CallerUserId];
         var tenants = new FakeTenantDirectoryReader();
         await using var provider = BuildProvider(activeTenants, memberships, tenants);
+        await SeedMemberAsync(provider, TenantId, CallerUserId);
 
         // Act
         var scenario = await RequestScenario.For(provider)
@@ -133,6 +138,15 @@ public sealed class ListMyTenantsRequestScenarioTests
             .AddRequestHandler<ListMyTenantsHandler>()
             .AddRequestAuthorizer<ListMyTenantsAuthorizer>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    static async Task SeedMemberAsync(ServiceProvider provider, Uuid tenantId, Uuid userId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var member = new Member(tenantId, userId);
+        Assert.True(member.Register().IsSuccess);
+        await scope.ServiceProvider.GetRequiredService<IAggregateWriter>()
+            .SaveAsync(member, new RequestDispatchContext(RequestActor.System));
     }
 
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(

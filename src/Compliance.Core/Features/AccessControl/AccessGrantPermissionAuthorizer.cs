@@ -16,7 +16,8 @@ public interface IAccessGrantPermissionAuthorizer
 /// <summary>Evaluates one program operation against current membership and active scoped grants.</summary>
 sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
     ITenantMembershipDirectoryReader memberships, ITeamMemberDirectoryReader teamMembers,
-    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock)
+    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock,
+    IMemberAccessEligibility sourceMember)
     : IAccessGrantPermissionAuthorizer
 {
     const int PageSize = 200;
@@ -40,8 +41,10 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
 
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct)
             .ConfigureAwait(false);
-        if (membership is not { Affiliation: "client_personnel" } ||
+        if (membership is not { Affiliation: "client_personnel", IsSuspended: false } ||
             membership.TenantId != tenantId || membership.UserId != userId)
+            return new ProgramAccessVisibility(false, new HashSet<Uuid>());
+        if (!await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false))
             return new ProgramAccessVisibility(false, new HashSet<Uuid>());
 
         var access = await grants.ListAsync(tenantId, ct).ConfigureAwait(false);
@@ -125,6 +128,11 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
             else if (scope.Kind == AccessGrantScopeKind.Program)
                 programIds.Add(scope.Id);
         }
+        // A suspension can commit during the grant, team, or role reads. Hydrate the
+        // member again at the final positive decision point.
+        if ((organizationWide || programIds.Count != 0) &&
+            !await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false))
+            return new ProgramAccessVisibility(false, new HashSet<Uuid>());
         return new ProgramAccessVisibility(organizationWide, programIds);
     }
 

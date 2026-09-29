@@ -5,7 +5,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Responsibilities;
 
 public sealed class PreviewResponsibilityConflictsHandler(IResponsibilitySetDirectory directory,
-    ITenantMembershipDirectoryReader memberships, IResponsibilityScopeValidator scopeValidator)
+    ITenantMembershipDirectoryReader memberships, IResponsibilityScopeValidator scopeValidator,
+    IAggregateReader reader)
     : IRequestHandler<PreviewResponsibilityConflicts, ResponsibilityConflictPreview>
 {
     public async ValueTask<Result<ResponsibilityConflictPreview>> HandleAsync(
@@ -18,7 +19,13 @@ public sealed class PreviewResponsibilityConflictsHandler(IResponsibilitySetDire
             return Result<ResponsibilityConflictPreview>.Failure(validation.Error);
         var member = await memberships.GetAsync(request.TenantId.ToString(), request.MemberUserId, ct)
             .ConfigureAwait(false);
-        if (member is null || member.Affiliation == "firm_staff")
+        if (member is null || member.IsSuspended || member.Affiliation == "firm_staff")
+            return Result<ResponsibilityConflictPreview>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The responsibility assignee must be an active tenant member."));
+        var currentMember = await reader.HydrateAsync(new Member(request.TenantId, request.MemberUserId), ct)
+            .ConfigureAwait(false);
+        if (!currentMember.IsRegistered || currentMember.IsSuspended ||
+            currentMember.Affiliation == "firm_staff")
             return Result<ResponsibilityConflictPreview>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The responsibility assignee must be an active tenant member."));
         if (request.EffectiveUntil is { } until && until <= request.EffectiveFrom)

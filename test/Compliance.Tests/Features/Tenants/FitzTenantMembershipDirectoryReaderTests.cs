@@ -38,6 +38,40 @@ public sealed class FitzTenantMembershipDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldRetainSuspensionHistoryButNotCountSuspendedMemberGivenSuspension()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var reader = new FitzTenantMembershipDirectoryReader(client);
+        var memberId = Uuid.CreateVersion4();
+        var actorMemberId = Uuid.CreateVersion4();
+        var suspendedAt = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("TenantMembership",
+            EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using (var batch = await reader.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await reader.ApplyAsync(new MemberRegistered(TenantId, memberId, UserId));
+            await reader.ApplyAsync(new MemberSuspended(TenantId, memberId, UserId, actorMemberId,
+                "Alex Admin", suspendedAt, "Employment ended."));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Act
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId);
+        var membership = await reader.GetAsync(TenantId.ToString(), UserId);
+
+        // Assert
+        Assert.False(isMember);
+        Assert.NotNull(membership);
+        Assert.True(membership.IsSuspended);
+        Assert.Equal(suspendedAt, membership.SuspendedAt);
+        Assert.Equal(actorMemberId, membership.SuspendedByMemberId);
+        Assert.Equal("Alex Admin", membership.SuspendedByDisplay);
+        Assert.Equal("Employment ended.", membership.SuspensionReason);
+    }
+
+    [Fact]
     public async Task ShouldHideMembershipGivenDifferentTenant()
     {
         // Arrange

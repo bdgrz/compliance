@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
@@ -57,6 +58,69 @@ public sealed class GetMemberAccessHandlerTests
         Assert.Empty(result.Value.EffectivePermissions);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRetainGrantHistoryWithoutEffectivePermissionsGivenPendingSuspension(
+        bool teamGrant)
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        if (teamGrant)
+            grant = grant with
+            {
+                Terms = grant.Terms with
+                {
+                    Principal = new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, TeamId),
+                },
+            };
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new StandingAccessReader(new MemberAccessEdge(TeamId, RoleId,
+                [RbacPermissions.ProgramManage])), new TeamDirectory(TeamId), new RoleDirectory(),
+            new GrantDirectory(grant), new TeamMemberDirectory(MemberId, TeamId),
+            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now),
+            new FixedMemberAccessEligibility(false));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Value.Paths);
+        var grantPath = Assert.Single(result.Value.GrantPaths);
+        Assert.Equal(grant.GrantId, grantPath.Grant.GrantId);
+        Assert.False(grantPath.IsEffective);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task ShouldClearGrantAndStandingPermissionsGivenSuspensionDuringReadback()
+    {
+        // Arrange
+        var eligibility = new MutableMemberAccessEligibility();
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var grants = new GrantDirectory(grant) { OnPendingScan = () => eligibility.IsEligible = false };
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new StandingAccessReader(new MemberAccessEdge(TeamId, RoleId,
+                [RbacPermissions.ProgramManage])), new TeamDirectory(TeamId), new RoleDirectory(),
+            grants, new TeamMemberDirectory(MemberId, TeamId), new RolePermissionDirectory(),
+            new RbacSourceReader(), new FixedTimeProvider(Now), eligibility);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Value.Paths);
+        Assert.False(Assert.Single(result.Value.GrantPaths).IsEffective);
+        Assert.Empty(result.Value.EffectivePermissions);
+        Assert.Equal(2, eligibility.ReadCount);
+    }
+
     [Fact]
     public async Task ShouldExplainTeamGrantGivenCurrentTeamMember()
     {
@@ -73,7 +137,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory([teamGrant]), new TeamMemberDirectory(MemberId, TeamId),
-            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -98,7 +162,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(), new RoleDirectory(), directory,
             new TeamMemberDirectory(), new RolePermissionDirectory(), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -132,7 +196,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory(teamGrant), members, new RolePermissionDirectory(),
-            new RbacSourceReader(), new FixedTimeProvider(Now));
+            new RbacSourceReader(), new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -164,7 +228,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(), grants,
             members, new RolePermissionDirectory(), new RbacSourceReader(),
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -239,7 +303,7 @@ public sealed class GetMemberAccessHandlerTests
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory(teamGrant), new TeamMemberDirectory(MemberId, TeamId),
             new RolePermissionDirectory(), new RbacSourceReader { TeamDeleted = true },
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
@@ -274,7 +338,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new StandingAccessReader(edge), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory(), new TeamMemberDirectory(MemberId, TeamId),
-            new RolePermissionDirectory(), source, new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), source, new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
@@ -294,7 +358,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new StandingAccessReader(edge), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory(), new TeamMemberDirectory(MemberId, TeamId),
-            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
@@ -312,7 +376,7 @@ public sealed class GetMemberAccessHandlerTests
         params AccessGrantView[] grants) =>
         new(new MembershipDirectory(affiliation), new EmptyAccessReader(), new TeamDirectory(),
             new RoleDirectory(), new GrantDirectory(grants), new TeamMemberDirectory(),
-            new RolePermissionDirectory(), source, new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), source, new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
 
     static AccessGrantView Grant(AccessGrantScope scope, DateTimeOffset effectiveFrom,
         DateTimeOffset? effectiveUntil) => new(TenantId, Uuid.CreateVersion4(),
@@ -348,6 +412,19 @@ public sealed class GetMemberAccessHandlerTests
         public ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId, Uuid memberId,
             CancellationToken ct = default) =>
             ValueTask.FromResult<IReadOnlyList<MemberAccessEdge>>(edges);
+    }
+
+    sealed class MutableMemberAccessEligibility : IMemberAccessEligibility
+    {
+        public bool IsEligible { get; set; } = true;
+        public int ReadCount { get; private set; }
+
+        public ValueTask<bool> IsEligibleAsync(Uuid tenantId, Uuid userId,
+            CancellationToken ct = default)
+        {
+            ReadCount++;
+            return ValueTask.FromResult(IsEligible);
+        }
     }
 
     sealed class TeamDirectory(params Uuid[] teamIds) : ITeamDirectoryReader

@@ -70,6 +70,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPermissionProjection>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IPermissionAuthorizer>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IMemberAccessReader>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
+        services.AddScoped<IMemberAccessEligibility, EventSourcedMemberAccessEligibility>();
         services.AddScoped<FitzTeamDirectoryReader>();
         services.AddScoped<ITeamDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
         services.AddScoped<ITeamDirectoryReader>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
@@ -196,6 +197,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<IBoundaryImpactContributor, ControlBoundaryImpactContributor>();
         services.AddScoped<FitzResponsibilitySetDirectory>();
+        services.AddScoped<FitzMemberResponsibilityIndex>();
+        services.AddScoped<IMemberResponsibilityIndex>(provider =>
+            provider.GetRequiredService<FitzMemberResponsibilityIndex>());
         services.AddScoped<IResponsibilitySetDirectory>(provider =>
             provider.GetRequiredService<FitzResponsibilitySetDirectory>());
         services.AddScoped<IResponsibilitySetProjection>(provider =>
@@ -250,6 +254,9 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListEmailAddressesHandler>()
             .AddRequestAuthorizer<EmailOwnershipAuthorizer>()
             .AddRequestHandler<RegisterMemberHandler>()
+            .AddRequestHandler<SuspendMemberHandler>()
+            .AddRequestHandler<ReinstateMemberHandler>()
+            .AddRequestHandler<GetTenantMemberHandler>()
             .AddRequestHandler<DefineTeamHandler>()
             .AddRequestHandler<DeleteTeamHandler>()
             .AddRequestHandler<DefineRoleHandler>()
@@ -353,6 +360,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AssignResponsibilityHandler>()
             .AddRequestHandler<RevokeResponsibilityHandler>()
             .AddRequestHandler<ListResponsibilitiesHandler>()
+            .AddRequestHandler<ListMemberResponsibilitiesHandler>()
             .AddRequestHandler<PreviewResponsibilityConflictsHandler>()
             .AddRequestHandler<ProposeBoundarySuccessorHandler>()
             .AddRequestHandler<FreezeProgramScopeSnapshotHandler>()
@@ -467,6 +475,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
+            .AddProjector<MemberResponsibilityProjector>("MemberResponsibilitiesV1", WorkloadScope.PerTenant)
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddFitz(

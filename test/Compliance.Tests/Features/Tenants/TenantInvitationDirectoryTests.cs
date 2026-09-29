@@ -85,6 +85,34 @@ public sealed class TenantInvitationDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldKeepAcceptedInvitationActiveGivenSuspendedRegisteredMember()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        var entry = new TenantInvitationDirectoryEntry(TenantId, "invitee@example.com",
+            "client_personnel", false, BuiltInRbac.ComplianceManagementRole,
+            Now.AddDays(7), InvitedBy, userId);
+        var membership = new FakeMembershipDirectory
+        {
+            IsMember = true,
+            IsSuspended = true,
+        };
+        var handler = new ListTenantInvitationsHandler(new FakeInvitationDirectory(entry),
+            membership, new FixedTimeProvider(Now));
+        var request = new ListTenantInvitations(TenantId, EmailAddress: entry.EmailAddress);
+        Assert.False(await membership.IsMemberAsync(TenantId.ToString(), userId));
+        Assert.True((await membership.GetAsync(TenantId.ToString(), userId))?.IsSuspended);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListTenantInvitations>(
+            request, Actor()), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("active", Assert.Single(result.Value.Items).Status);
+    }
+
+    [Fact]
     public async Task ShouldProjectDeliveryFailureAndRecoveryGivenReissue()
     {
         // Arrange
@@ -225,12 +253,16 @@ public sealed class TenantInvitationDirectoryTests
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
             CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(IsMember
             ? new TenantMembershipView(userId,
-                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture)) : null);
+                Uuid.Parse(tenantId, System.Globalization.CultureInfo.InvariantCulture))
+            {
+                IsSuspended = IsSuspended,
+            } : null);
 
         public bool IsMember { get; set; }
+        public bool IsSuspended { get; set; }
 
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId,
-            CancellationToken ct = default) => ValueTask.FromResult(IsMember);
+            CancellationToken ct = default) => ValueTask.FromResult(IsMember && !IsSuspended);
 
         public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit,
             string? cursor, CancellationToken ct = default) =>

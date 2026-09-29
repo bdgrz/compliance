@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Bdgrz.Compliance;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Portia;
@@ -58,8 +59,8 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                 splitHosts, owner, tenantA, scopeA.AdministratorsTeamId);
             var invitedMemberB = await InviteAndAssignTeamMemberAsync(factory, worker,
                 splitHosts, owner, tenantB, scopeB.AdministratorsTeamId);
-            var expectedMemberIdsA = new List<string> { scopeA.MemberId, invitedMemberA };
-            var expectedMemberIdsB = new List<string> { scopeB.MemberId, invitedMemberB };
+            var expectedMemberIdsA = new List<string> { scopeA.MemberId, invitedMemberA.MemberId };
+            var expectedMemberIdsB = new List<string> { scopeB.MemberId, invitedMemberB.MemberId };
             var memberPagesByTenant = new Dictionary<Uuid, IReadOnlyList<JsonElement>>();
 
             // Act and assert: names, cursors, and search results stay in their own realm.
@@ -283,6 +284,91 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     input[parentKey] = parentId;
                 _ = await outsiderMcp.When(tool, input).ExpectFailure("NotFound");
             }
+
+            // A suspended member's open work remains visible only to an administrator of
+            // the owning tenant, including when the API and worker run independently.
+            var boundaryId = Uuid.CreateVersion4();
+            var versionId = Uuid.CreateVersion4();
+            var boundary = new SystemBoundary(tenantA, boundaryId);
+            Assert.True(boundary.Create(Uuid.CreateVersion4(), versionId,
+                new BoundaryContent("Member work", "readiness", ["security"], []),
+                userId, "Administrator", DateTimeOffset.UtcNow).IsSuccess);
+            using (var scope = factory.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<IAggregateWriter>().SaveAsync(
+                    boundary, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+            using (var assigned = await owner.PostAsJsonAsync(TenantPath(tenantA) + "/responsibilities", new
+            {
+                member_user_id = invitedMemberA.UserId,
+                type = "control_owner",
+                record_type = "boundary",
+                record_id = boundaryId,
+                version_id = versionId,
+                scope_revision = 1,
+                effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
+                effective_until = (DateTimeOffset?)null,
+                separation_of_duties_waiver_ids = Array.Empty<string>(),
+            }))
+                Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
+
+            var responsibilitiesA = TenantPath(tenantA) + "/members/" +
+                                    invitedMemberA.UserId + "/responsibilities";
+            var responsibilitiesB = TenantPath(tenantB) + "/members/" +
+                                    invitedMemberA.UserId + "/responsibilities";
+            var openWork = await MemberResponsibilityReadiness.WaitForAsync(
+                worker?.Services ?? factory.Services, owner,
+                tenantA, boundaryId, versionId,
+                Uuid.Parse(invitedMemberA.MemberId, CultureInfo.InvariantCulture), responsibilitiesA);
+            Assert.Equal(tenantA.ToString(), openWork[0].GetProperty("tenant_id").GetString());
+            using (var foreignMember = await owner.GetAsync(TenantPath(tenantB) +
+                       "/members/" + invitedMemberA.UserId))
+                Assert.Equal(HttpStatusCode.NotFound, foreignMember.StatusCode);
+            using (var foreignWork = await owner.GetAsync(responsibilitiesB))
+            {
+                Assert.Equal(HttpStatusCode.OK, foreignWork.StatusCode);
+                Assert.Empty((await ReadJsonAsync(foreignWork)).EnumerateArray());
+            }
+
+            using (var suspended = await owner.PostAsJsonAsync(TenantPath(tenantA) +
+                       "/members/" + invitedMemberA.UserId + "/suspensions",
+                       new { reason = "Reassign open work." }))
+                Assert.Equal(HttpStatusCode.NoContent, suspended.StatusCode);
+            var suspendedMember = await WaitForJsonAsync(owner,
+                TenantPath(tenantA) + "/members/" + invitedMemberA.UserId,
+                result => result.GetProperty("is_suspended").GetBoolean());
+            Assert.True(suspendedMember.GetProperty("is_suspended").GetBoolean());
+            using (var orphaned = await owner.GetAsync(responsibilitiesA))
+            {
+                Assert.Equal(HttpStatusCode.OK, orphaned.StatusCode);
+                var work = await ReadJsonAsync(orphaned);
+                Assert.Equal(openWork[0].GetProperty("assignment_id").GetString(),
+                    Assert.Single(work.EnumerateArray()).GetProperty("assignment_id").GetString());
+            }
+            using (var outsiderRead = await outsider.GetAsync(responsibilitiesA))
+                Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
+            using (var outsiderMember = await outsider.GetAsync(TenantPath(tenantA) +
+                       "/members/" + invitedMemberA.UserId))
+                Assert.Equal(HttpStatusCode.NotFound, outsiderMember.StatusCode);
+            await using (var mcp = await McpScenario.ConnectAsync(owner,
+                             new Uri(owner.BaseAddress!, "/mcp")))
+            {
+                _ = await mcp.When("bdgrz.member.responsibilities.list",
+                    new Dictionary<string, object?>
+                    {
+                        ["tenant_id"] = tenantA.ToString(),
+                        ["user_id"] = invitedMemberA.UserId,
+                    }).ExpectSuccess();
+                _ = await mcp.When("bdgrz.tenant.member.get", new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantA.ToString(),
+                    ["user_id"] = invitedMemberA.UserId,
+                }).ExpectSuccess();
+            }
+            _ = await outsiderMcp.When("bdgrz.member.responsibilities.list",
+                new Dictionary<string, object?>
+                {
+                    ["tenant_id"] = tenantA.ToString(),
+                    ["user_id"] = invitedMemberA.UserId,
+                }).ExpectFailure("NotFound");
         });
 
     [Theory]
@@ -575,7 +661,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         throw new TimeoutException("RBAC management remained unauthorized after tenant bootstrap.");
     }
 
-    static async Task<string> InviteAndAssignTeamMemberAsync(
+    static async Task<(string MemberId, string UserId)> InviteAndAssignTeamMemberAsync(
         WebApplicationFactory<Program> factory, IHost? worker, bool splitHosts,
         HttpClient owner, Uuid tenantId, string teamId)
     {
@@ -614,7 +700,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         var memberId = RbacIds.Member(tenantId, userId).ToString();
         await PostUntilNoContentAsync(owner, TenantPath(tenantId) + "/teams/" + teamId +
             "/members/" + memberId, new { });
-        return memberId;
+        return (memberId, userId.ToString());
     }
 
     static HttpClient CreateClient(WebApplicationFactory<Program> factory, bool splitHosts)
