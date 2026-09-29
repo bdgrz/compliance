@@ -1037,8 +1037,21 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     $"injectedFailures={activationLag.FailureCount}; lastHttpStatus={access}; " +
                     $"workerFaults={WorkerFaults()}.");
             }
+            // The activation event is visible before the reactor commits its checkpoint.
+            // Await that separate durable phase instead of racing the successful HTTP read.
+            var checkpointDeadline = DateTimeOffset.UtcNow.AddSeconds(10);
             var checkpointAfterSuccess = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
-            Assert.NotEqual(checkpointBeforeRecovery.Cursor, checkpointAfterSuccess.Cursor);
+            while (checkpointAfterSuccess.Cursor == checkpointBeforeRecovery.Cursor &&
+                   DateTimeOffset.UtcNow < checkpointDeadline)
+            {
+                await Task.Delay(50);
+                checkpointAfterSuccess = await checkpointStore.LoadAsync(invitationReactorCheckpoint);
+            }
+            Assert.True(checkpointAfterSuccess.Cursor != checkpointBeforeRecovery.Cursor,
+                $"Activation became visible but invitation checkpoint did not advance. " +
+                $"before={checkpointBeforeRecovery.Cursor}; after={checkpointAfterSuccess.Cursor}; " +
+                $"activationAttempts={string.Join(";", activationProbe.Attempts)}; " +
+                $"workerFaults={WorkerFaults()}");
             Assert.True(activationProbe.FailedAttempts >= 1);
             Assert.True(activationProbe.SuccessfulAttempts >= 1);
             using var administratorTenant = await administratorClient.GetAsync($"/api/v1/tenants/{tenantId}");
