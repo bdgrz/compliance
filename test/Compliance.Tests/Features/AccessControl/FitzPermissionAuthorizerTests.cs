@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz;
@@ -10,6 +11,74 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 public sealed class FitzPermissionAuthorizerTests
 {
+    [Fact]
+    public async Task ShouldDenyGivenRevocationProjectsBetweenExplanationAndPendingScan()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
+        FitzPermissionAuthorizer? permissions = null;
+        var events = new ProjectionInterleavingReader(async () =>
+        {
+            var identity = new CheckpointIdentity("PermissionProjection",
+                EventStreamPattern.ForPattern(tenantId.ToString()));
+            await using var batch = await permissions!.BeginAsync(new ProjectionBatchContext(
+                identity, ProjectionCheckpoint.Start));
+            await permissions.ApplyAsync(new TeamMemberRemoved(tenantId, teamId, memberId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        });
+        permissions = new FitzPermissionAuthorizer(client, new FixedMembershipDirectory(true), events);
+        await SeedActiveTeamGrantAsync(permissions, tenantId, userId, teamId, roleId);
+
+        // Act: the read of explained access sees the old team grant, then the projector
+        // removes its key just before the pending-event iterator is read.
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.True(events.Interleaved);
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGivenLegacyGrantKeyWithoutExplanationAndPendingSuspension()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var permissions = new FitzPermissionAuthorizer(client, new FixedMembershipDirectory(true), events);
+        var route = await new PermissionRouteReader(client).GetRouteAsync(tenantId);
+        await using (var tx = await client.BeginAsync(route, KvDurability.Sync, KvMode.ReadWrite))
+        {
+            await tx.PutAsync(PermissionProjectionKeys.Grant(memberId, RbacPermissions.TenantAccess),
+                "1"u8.ToArray());
+            await tx.CommitAsync();
+        }
+        Assert.Empty(await permissions.ReadAsync(tenantId, memberId));
+        Assert.False(await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess));
+        DomainEvent suspension = new MemberSuspended(tenantId, memberId, userId, Uuid.CreateVersion4(),
+            "Alex Admin", DateTimeOffset.UtcNow, "Employment ended.");
+        suspension.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), memberId, 1,
+            DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "rbac-members",
+            memberId.ToString()), 0, [suspension]);
+
+        // Act
+        var allowed = await permissions.IsAllowedAsync(tenantId, userId, memberId,
+            RbacPermissions.TenantAccess);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
     [Fact]
     public async Task ShouldDenyGivenMemberSuspensionHasNotReachedPermissionProjection()
     {
@@ -256,5 +325,32 @@ public sealed class FitzPermissionAuthorizerTests
         await permissions.ApplyAsync(new RolePermissionAssigned(tenantId, roleId,
             RbacPermissions.TenantAccess));
         await batch.CommitAsync(ProjectionCheckpoint.Start);
+    }
+
+    sealed class PermissionRouteReader(IKvClient client)
+        : FitzKvProjectionStore(client, FitzPermissionAuthorizer.Route, "PermissionProjection")
+    {
+        public async Task<string> GetRouteAsync(Uuid tenantId)
+        {
+            await using var tx = await BeginReadAsync(tenantId.ToString());
+            return tx.Route;
+        }
+    }
+
+    sealed class ProjectionInterleavingReader(Func<Task> projectRevocation) : IDomainEventReader
+    {
+        public bool Interleaved { get; private set; }
+
+        public IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamAddress stream,
+            ulong fromVersion, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public async IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamPattern pattern,
+            EventCursor after, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await projectRevocation();
+            Interleaved = true;
+            yield break;
+        }
     }
 }

@@ -8,7 +8,7 @@ namespace Bdgrz.Compliance.Tests.Features.Responsibilities;
 public sealed class ListMemberResponsibilitiesHandlerTests
 {
     [Fact]
-    public async Task ShouldReturnCurrentOpenAssignmentsGivenPastFutureAndRevokedHistory()
+    public async Task ShouldReturnCurrentAndScheduledOpenAssignmentsGivenPastFutureAndRevokedHistory()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -32,8 +32,9 @@ public sealed class ListMemberResponsibilitiesHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        var current = Assert.Single(result.Value);
-        Assert.Equal(assignments[0].AssignmentId, current.AssignmentId);
+        Assert.Equal(2, result.Value.Count);
+        Assert.Contains(result.Value, item => item.AssignmentId == assignments[0].AssignmentId);
+        Assert.Contains(result.Value, item => item.AssignmentId == assignments[2].AssignmentId);
         Assert.Equal(tenantId, index.LastTenantId);
         Assert.Equal(memberId, index.LastMemberId);
     }

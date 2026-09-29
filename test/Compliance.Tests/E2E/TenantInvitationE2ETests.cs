@@ -38,31 +38,17 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var registration = await registrationResponse.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
         Assert.NotNull(registration);
         var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        var administratorAccess = HttpStatusCode.Forbidden;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await administratorClient.GetAsync(
-                $"/api/v1/tenants/{tenantId}/teams/{BuiltInRbac.AdministratorsTeamId(tenantId)}");
-            administratorAccess = response.StatusCode;
-            if (administratorAccess == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(HttpStatusCode.OK, administratorAccess);
+        await WaitForMemberAccessReadyAsync(factory, administratorClient, tenantId,
+            administratorId, BuiltInRbac.AdministratorsTeamId(tenantId),
+            RbacPermissions.TenantRbacManage,
+            $"/api/v1/tenants/{tenantId}/members/{administratorId}");
 
         var memberEmail = $"member-{Guid.NewGuid():N}@example.com";
         using var invitedMember = await administratorClient.PostAsJsonAsync(
-            $"/api/v1/tenants/{tenantId}/invitations",
-            new { email_address = memberEmail, affiliation = "client_personnel" });
+            $"/api/v1/tenants/{tenantId}/member-invitations",
+            new { email_address = memberEmail, built_in_role = BuiltInRbac.ComplianceParticipationRole });
         Assert.Equal(HttpStatusCode.NoContent, invitedMember.StatusCode);
-        var invitationDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
-        string? memberToken = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        while (DateTimeOffset.UtcNow < deadline &&
-               !invitationDelivery.TryGetLatest(tenantId, memberEmail, out memberToken))
-            await Task.Delay(250);
-        Assert.NotNull(memberToken);
+        var memberToken = await WaitForInvitationDeliveryReadyAsync(factory, tenantId, memberEmail);
 
         using var memberClient = factory.CreateClient();
         var memberUserId = await LoginAsync(memberClient, memberEmail);
@@ -73,22 +59,9 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.Equal(HttpStatusCode.NoContent, acceptedMember.StatusCode);
 
         var standardUsersTeamId = BuiltInRbac.StandardUsersTeamId(tenantId);
-        var memberId = RbacIds.Member(tenantId, Uuid.Parse(memberUserId, CultureInfo.InvariantCulture));
-        using var assignedMember = await administratorClient.PostAsJsonAsync(
-            $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}/members/{memberId}", new { });
-        Assert.Equal(HttpStatusCode.NoContent, assignedMember.StatusCode);
         var memberTeamPath = $"/api/v1/tenants/{tenantId}/teams/{standardUsersTeamId}";
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        var memberAccess = HttpStatusCode.Forbidden;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await memberClient.GetAsync(memberTeamPath);
-            memberAccess = response.StatusCode;
-            if (memberAccess == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(HttpStatusCode.OK, memberAccess);
+        await WaitForMemberAccessReadyAsync(factory, memberClient, tenantId,
+            memberUserId, standardUsersTeamId, RbacPermissions.TenantAccess, memberTeamPath);
         await using var memberMcp = await McpScenario.ConnectAsync(memberClient,
             new Uri(memberClient.BaseAddress!, "/mcp"));
         var teamArguments = new Dictionary<string, object?>
@@ -123,18 +96,10 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             });
         Assert.Equal(HttpStatusCode.NoContent, assignedResponsibility.StatusCode);
         var orphanedWorkPath = $"/api/v1/tenants/{tenantId}/members/{memberUserId}/responsibilities";
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        JsonElement openAssignments = default;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await administratorClient.GetAsync(orphanedWorkPath);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            openAssignments = await response.Content.ReadFromJsonAsync<JsonElement>();
-            if (openAssignments.ValueKind == JsonValueKind.Array && openAssignments.GetArrayLength() == 1)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(1, openAssignments.GetArrayLength());
+        var openAssignments = await MemberResponsibilityReadiness.WaitForAsync(
+            factory.Services, administratorClient, tenantId, boundaryId, boundaryVersionId,
+            RbacIds.Member(tenantId, Uuid.Parse(memberUserId, CultureInfo.InvariantCulture)),
+            orphanedWorkPath);
         var assignmentId = openAssignments[0].GetProperty("assignment_id").GetString();
         Assert.NotNull(assignmentId);
 
@@ -149,27 +114,12 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
 
         // Assert
         Assert.Equal(HttpStatusCode.NoContent, suspended.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        MemberLifecycleDocument? membership = null;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await administratorClient.GetAsync(
-                $"/api/v1/tenants/{tenantId}/members/{memberUserId}");
-            if (response.StatusCode == HttpStatusCode.OK)
-            {
-                membership = await response.Content.ReadFromJsonAsync<MemberLifecycleDocument>();
-                if (membership?.IsSuspended == true)
-                    break;
-            }
-            await Task.Delay(250);
-        }
-        Assert.NotNull(membership);
-        Assert.True(membership.IsSuspended);
+        var membership = await WaitForMemberLifecycleReadyAsync(factory, administratorClient,
+            memberClient, tenantId, memberUserId, memberTeamPath, true,
+            "Access review is overdue.");
         Assert.Equal("Access review is overdue.", membership.SuspensionReason);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
             membership.SuspendedByMemberId);
-        using var denied = await memberClient.GetAsync(memberTeamPath);
-        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
         _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectFailure();
         using var orphanedWork = await administratorClient.GetAsync(orphanedWorkPath);
         Assert.Equal(HttpStatusCode.OK, orphanedWork.StatusCode);
@@ -190,34 +140,9 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         using var reinstated = await administratorClient.DeleteAsync(
             $"/api/v1/tenants/{tenantId}/members/{memberUserId}/suspensions");
         Assert.Equal(HttpStatusCode.NoContent, reinstated.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        memberAccess = HttpStatusCode.Forbidden;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await memberClient.GetAsync(memberTeamPath);
-            memberAccess = response.StatusCode;
-            if (memberAccess == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(HttpStatusCode.OK, memberAccess);
+        var reinstatedMembership = await WaitForMemberLifecycleReadyAsync(factory,
+            administratorClient, memberClient, tenantId, memberUserId, memberTeamPath, false);
         _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
-        MemberLifecycleDocument? reinstatedMembership = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var readback = await administratorClient.GetAsync(
-                $"/api/v1/tenants/{tenantId}/members/{memberUserId}");
-            if (readback.StatusCode == HttpStatusCode.OK)
-            {
-                reinstatedMembership = await readback.Content.ReadFromJsonAsync<MemberLifecycleDocument>();
-                if (reinstatedMembership is { IsSuspended: false, ReinstatedAt: not null })
-                    break;
-            }
-            await Task.Delay(250);
-        }
-        Assert.NotNull(reinstatedMembership);
-        Assert.False(reinstatedMembership.IsSuspended);
         Assert.NotNull(reinstatedMembership.ReinstatedAt);
         Assert.Equal(RbacIds.Member(tenantId, Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
             reinstatedMembership.ReinstatedByMemberId);
@@ -236,36 +161,45 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             {
                 ["reason"] = "MCP access review is overdue.",
             }).ExpectSuccess();
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        MemberLifecycleDocument? mcpSuspendedMembership = null;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var readback = await administratorClient.GetAsync(
-                $"/api/v1/tenants/{tenantId}/members/{memberUserId}");
-            Assert.Equal(HttpStatusCode.OK, readback.StatusCode);
-            mcpSuspendedMembership = await readback.Content.ReadFromJsonAsync<MemberLifecycleDocument>();
-            if (mcpSuspendedMembership?.IsSuspended == true)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.True(mcpSuspendedMembership?.IsSuspended);
-        using (var deniedAfterMcp = await memberClient.GetAsync(memberTeamPath))
-            Assert.Equal(HttpStatusCode.NotFound, deniedAfterMcp.StatusCode);
+        _ = await WaitForMemberLifecycleReadyAsync(factory, administratorClient, memberClient,
+            tenantId, memberUserId, memberTeamPath, true, "MCP access review is overdue.");
         _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectFailure();
         _ = await administratorMcp.When("bdgrz.tenant.member.get", memberArguments).ExpectSuccess();
         _ = await administratorMcp.When("bdgrz.tenant.member.reinstate", memberArguments).ExpectSuccess();
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
-        memberAccess = HttpStatusCode.Forbidden;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            using var response = await memberClient.GetAsync(memberTeamPath);
-            memberAccess = response.StatusCode;
-            if (memberAccess == HttpStatusCode.OK)
-                break;
-            await Task.Delay(250);
-        }
-        Assert.Equal(HttpStatusCode.OK, memberAccess);
+        _ = await WaitForMemberLifecycleReadyAsync(factory, administratorClient, memberClient,
+            tenantId, memberUserId, memberTeamPath, false);
         _ = await memberMcp.When("bdgrz.rbac.team.get", teamArguments).ExpectSuccess();
+
+        // The current member view shows the latest transition; the event stream retains
+        // both attributed cycles for audit and replay.
+        var lifecycleEvents = new List<DomainEvent>();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var store = scope.ServiceProvider.GetRequiredService<IEventStore>();
+            await foreach (var record in store.ReadAsync(new Member(tenantId,
+                               Uuid.Parse(memberUserId, CultureInfo.InvariantCulture)).Stream, 0,
+                               CancellationToken.None))
+            {
+                if (record.Event is MemberSuspended or MemberReinstated)
+                    lifecycleEvents.Add(record.Event);
+            }
+        }
+        Assert.Collection(lifecycleEvents,
+            first =>
+            {
+                var transition = Assert.IsType<MemberSuspended>(first);
+                Assert.Equal("Access review is overdue.", transition.Reason);
+                Assert.Equal(RbacIds.Member(tenantId,
+                    Uuid.Parse(administratorId, CultureInfo.InvariantCulture)),
+                    transition.SuspendedByMemberId);
+            },
+            second => Assert.IsType<MemberReinstated>(second),
+            third =>
+            {
+                var transition = Assert.IsType<MemberSuspended>(third);
+                Assert.Equal("MCP access review is overdue.", transition.Reason);
+            },
+            fourth => Assert.IsType<MemberReinstated>(fourth));
     }
 
     [Fact]
@@ -471,6 +405,165 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         using var reuse = await operatorClient.PostAsJsonAsync("/api/v1/tenants",
             new { name = "Reuse", slug = registration.Slug });
         Assert.Equal(HttpStatusCode.Conflict, reuse.StatusCode);
+    }
+
+    static async Task<string> WaitForInvitationDeliveryReadyAsync(
+        WebApplicationFactory<Program> factory, Uuid tenantId, string emailAddress)
+    {
+        var checkpoint = new CheckpointIdentity("TenantInvitationDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
+        var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var sourceEventRecorded = false;
+        var directoryWorkerAdvanced = false;
+        var deliveryStatus = "unknown";
+        string? token = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var services = scope.ServiceProvider;
+                var invitation = await services.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new TenantInvitation(tenantId, emailAddress));
+                sourceEventRecorded = invitation.CurrentDeliveryAttemptId is not null;
+                deliveryStatus = invitation.DeliveryStatus;
+                directoryWorkerAdvanced = await services.GetRequiredService<IProjectionCheckpointStore>()
+                    .LoadAsync(checkpoint) != ProjectionCheckpoint.Start;
+            }
+            if (sourceEventRecorded && directoryWorkerAdvanced && deliveryStatus == "delivered" &&
+                delivery.TryGetLatest(tenantId, emailAddress, out token) && token is not null)
+                return token;
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("Member invitation delivery did not become ready. " +
+            $"sourceEventRecorded={sourceEventRecorded}; " +
+            $"directoryWorkerAdvanced={directoryWorkerAdvanced}; " +
+            $"deliveryStatus={deliveryStatus}; tokenPresent={token is not null}.");
+    }
+
+    static async Task<MemberLifecycleDocument> WaitForMemberLifecycleReadyAsync(
+        WebApplicationFactory<Program> factory, HttpClient administratorClient,
+        HttpClient memberClient, Uuid tenantId, string memberUserId, string businessRoute,
+        bool suspended, string? suspensionReason = null)
+    {
+        var userId = Uuid.Parse(memberUserId, CultureInfo.InvariantCulture);
+        var memberId = RbacIds.Member(tenantId, userId);
+        var membershipCheckpoint = new CheckpointIdentity("TenantMembership",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "rbac-members"));
+        var permissionCheckpoint = new CheckpointIdentity("PermissionProjection",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var sourceSuspended = !suspended;
+        var projectedSuspended = !suspended;
+        var membershipWorkerAdvanced = false;
+        var permissionWorkerAdvanced = false;
+        var permissionAllowed = suspended;
+        var adminStatus = HttpStatusCode.Forbidden;
+        var memberStatus = HttpStatusCode.Forbidden;
+        MemberLifecycleDocument? view = null;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var services = scope.ServiceProvider;
+                var source = await services.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new Member(tenantId, userId));
+                sourceSuspended = source.IsRegistered && source.IsSuspended;
+                var membership = await services.GetRequiredService<ITenantMembershipDirectoryReader>()
+                    .GetAsync(tenantId.ToString(), userId);
+                projectedSuspended = membership?.IsSuspended ?? !suspended;
+                var checkpoints = services.GetRequiredService<IProjectionCheckpointStore>();
+                membershipWorkerAdvanced = await checkpoints.LoadAsync(membershipCheckpoint) !=
+                    ProjectionCheckpoint.Start;
+                permissionWorkerAdvanced = await checkpoints.LoadAsync(permissionCheckpoint) !=
+                    ProjectionCheckpoint.Start;
+                permissionAllowed = await services.GetRequiredService<IPermissionAuthorizer>()
+                    .IsAllowedAsync(tenantId, userId, memberId, RbacPermissions.TenantAccess);
+            }
+            using (var response = await administratorClient.GetAsync(
+                       $"/api/v1/tenants/{tenantId}/members/{memberUserId}"))
+            {
+                adminStatus = response.StatusCode;
+                if (adminStatus == HttpStatusCode.OK)
+                    view = await response.Content.ReadFromJsonAsync<MemberLifecycleDocument>();
+            }
+            using (var response = await memberClient.GetAsync(businessRoute))
+                memberStatus = response.StatusCode;
+            if (sourceSuspended == suspended && projectedSuspended == suspended &&
+                membershipWorkerAdvanced && permissionWorkerAdvanced &&
+                permissionAllowed == !suspended && adminStatus == HttpStatusCode.OK &&
+                memberStatus == (suspended ? HttpStatusCode.NotFound : HttpStatusCode.OK) &&
+                view?.IsSuspended == suspended &&
+                (suspended ? view.SuspensionReason == suspensionReason : view.ReinstatedAt is not null))
+                return view;
+            await Task.Delay(250);
+        }
+        throw new TimeoutException($"Member lifecycle did not project. expectedSuspended={suspended}; " +
+            $"sourceSuspended={sourceSuspended}; projectedSuspended={projectedSuspended}; " +
+            $"membershipWorkerAdvanced={membershipWorkerAdvanced}; " +
+            $"permissionWorkerAdvanced={permissionWorkerAdvanced}; " +
+            $"permissionAllowed={permissionAllowed}; adminHttpStatus={adminStatus}; " +
+            $"memberHttpStatus={memberStatus}; viewSuspended={view?.IsSuspended}; " +
+            $"viewSuspensionReason={view?.SuspensionReason}.");
+    }
+
+    static async Task WaitForMemberAccessReadyAsync(WebApplicationFactory<Program> factory,
+        HttpClient client, Uuid tenantId, string userId, Uuid teamId, string permission,
+        string businessRoute)
+    {
+        var parsedUserId = Uuid.Parse(userId, CultureInfo.InvariantCulture);
+        var memberId = RbacIds.Member(tenantId, parsedUserId);
+        var membershipCheckpoint = new CheckpointIdentity("TenantMembership",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "rbac-members"));
+        var permissionCheckpoint = new CheckpointIdentity("PermissionProjection",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var tenantActive = false;
+        var memberRegistered = false;
+        var teamAssigned = false;
+        var membershipProjected = false;
+        var membershipWorkerAdvanced = false;
+        var permissionWorkerAdvanced = false;
+        var permissionAllowed = false;
+        var routeStatus = HttpStatusCode.Forbidden;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var services = scope.ServiceProvider;
+                var aggregates = services.GetRequiredService<IAggregateReader>();
+                tenantActive = (await aggregates.HydrateAsync(new Tenant(tenantId))).IsActive;
+                memberRegistered = (await aggregates.HydrateAsync(new Member(tenantId, parsedUserId)))
+                    .IsRegistered;
+                teamAssigned = (await aggregates.HydrateAsync(new TeamMember(tenantId, teamId,
+                    memberId))).IsAssigned;
+                var membership = await services.GetRequiredService<ITenantMembershipDirectoryReader>()
+                    .GetAsync(tenantId.ToString(), parsedUserId);
+                membershipProjected = membership is { IsSuspended: false };
+                var checkpoints = services.GetRequiredService<IProjectionCheckpointStore>();
+                membershipWorkerAdvanced = await checkpoints.LoadAsync(membershipCheckpoint) !=
+                    ProjectionCheckpoint.Start;
+                permissionWorkerAdvanced = await checkpoints.LoadAsync(permissionCheckpoint) !=
+                    ProjectionCheckpoint.Start;
+                permissionAllowed = await services.GetRequiredService<IPermissionAuthorizer>()
+                    .IsAllowedAsync(tenantId, parsedUserId, memberId, permission);
+            }
+            using var response = await client.GetAsync(businessRoute);
+            routeStatus = response.StatusCode;
+            if (tenantActive && memberRegistered && teamAssigned && membershipProjected &&
+                membershipWorkerAdvanced && permissionWorkerAdvanced && permissionAllowed &&
+                routeStatus == HttpStatusCode.OK)
+                return;
+            await Task.Delay(250);
+        }
+
+        Assert.Fail($"Member business access did not become ready. tenantActive={tenantActive}; " +
+            $"memberRegistered={memberRegistered}; teamAssigned={teamAssigned}; " +
+            $"membershipProjected={membershipProjected}; " +
+            $"membershipWorkerAdvanced={membershipWorkerAdvanced}; " +
+            $"permissionWorkerAdvanced={permissionWorkerAdvanced}; " +
+            $"permissionAllowed={permissionAllowed}; lastHttpStatus={routeStatus}; " +
+            $"permission={permission}.");
     }
 
     internal static async Task<string> LoginAsync(HttpClient client, string emailAddress)

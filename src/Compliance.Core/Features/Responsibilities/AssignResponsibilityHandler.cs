@@ -24,6 +24,14 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
         if (member is null || member.IsSuspended || member.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The responsibility assignee must be an active tenant member."));
+        // Membership is a projection. A suspension command must stop new assignments
+        // before its event reaches that projection.
+        var currentMember = await reader.HydrateAsync(new Member(request.TenantId, request.MemberUserId), ct)
+            .ConfigureAwait(false);
+        if (!currentMember.IsRegistered || currentMember.IsSuspended ||
+            currentMember.Affiliation == "firm_staff")
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "The responsibility assignee must be an active tenant member."));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var actorUserId))
             return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
                 "Responsibility management requires a Bdgrz user identity."));

@@ -314,8 +314,10 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                                     invitedMemberA.UserId + "/responsibilities";
             var responsibilitiesB = TenantPath(tenantB) + "/members/" +
                                     invitedMemberA.UserId + "/responsibilities";
-            var openWork = await WaitForJsonAsync(owner, responsibilitiesA,
-                result => result.ValueKind == JsonValueKind.Array && result.GetArrayLength() == 1);
+            var openWork = await MemberResponsibilityReadiness.WaitForAsync(
+                worker?.Services ?? factory.Services, owner,
+                tenantA, boundaryId, versionId,
+                Uuid.Parse(invitedMemberA.MemberId, CultureInfo.InvariantCulture), responsibilitiesA);
             Assert.Equal(tenantA.ToString(), openWork[0].GetProperty("tenant_id").GetString());
             using (var foreignMember = await owner.GetAsync(TenantPath(tenantB) +
                        "/members/" + invitedMemberA.UserId))

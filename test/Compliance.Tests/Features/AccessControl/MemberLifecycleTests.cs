@@ -1,6 +1,7 @@
 using System.Globalization;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
@@ -58,5 +59,98 @@ public sealed class MemberLifecycleTests
         Assert.Equal(ActorMemberId, reinstated.ReinstatedByMemberId);
         Assert.Equal("Alex Admin", reinstated.ReinstatedByDisplay);
         Assert.Equal(ActionAt.AddHours(1), reinstated.ReinstatedAt);
+    }
+
+    [Fact]
+    public async Task ShouldRetainEveryAttributedLifecycleEventGivenRepeatedSuspensionCycles()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var events = new InMemoryEventStore();
+        services.AddSingleton<IEventStore>(events);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var member = new Member(TenantId, UserId);
+        Assert.True(member.Register().IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+
+        // Act
+        member = await reader.HydrateAsync(new Member(TenantId, UserId));
+        Assert.True(member.Suspend(ActorMemberId, "Alex Admin", ActionAt,
+            "First access review.").IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        member = await reader.HydrateAsync(new Member(TenantId, UserId));
+        Assert.True(member.Reinstate(ActorMemberId, "Alex Admin", ActionAt.AddHours(1)).IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        member = await reader.HydrateAsync(new Member(TenantId, UserId));
+        Assert.True(member.Suspend(ActorMemberId, "Alex Admin", ActionAt.AddHours(2),
+            "Second access review.").IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        var history = new List<DomainEvent>();
+        await foreach (var record in events.ReadAsync(new Member(TenantId, UserId).Stream, 0))
+            history.Add(record.Event);
+
+        // Assert
+        Assert.Collection(history,
+            registration => Assert.IsType<MemberRegistered>(registration),
+            first =>
+            {
+                var suspension = Assert.IsType<MemberSuspended>(first);
+                Assert.Equal("First access review.", suspension.Reason);
+                Assert.Equal(ActorMemberId, suspension.SuspendedByMemberId);
+            },
+            reinstatement =>
+            {
+                var restored = Assert.IsType<MemberReinstated>(reinstatement);
+                Assert.Equal(ActorMemberId, restored.ReinstatedByMemberId);
+            },
+            second =>
+            {
+                var suspension = Assert.IsType<MemberSuspended>(second);
+                Assert.Equal("Second access review.", suspension.Reason);
+                Assert.Equal(ActionAt.AddHours(2), suspension.SuspendedAt);
+            });
+        Assert.True((await reader.HydrateAsync(new Member(TenantId, UserId))).IsSuspended);
+    }
+
+    [Fact]
+    public async Task ShouldPersistOneSuspensionGivenConcurrentMemberWriters()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var events = new InMemoryEventStore();
+        services.AddSingleton<IEventStore>(events);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var member = new Member(TenantId, UserId);
+        Assert.True(member.Register().IsSuccess);
+        await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
+        var first = await reader.HydrateAsync(new Member(TenantId, UserId));
+        var second = await reader.HydrateAsync(new Member(TenantId, UserId));
+        Assert.True(first.Suspend(ActorMemberId, "Alex Admin", ActionAt,
+            "First concurrent decision.").IsSuccess);
+        Assert.True(second.Suspend(ActorMemberId, "Alex Admin", ActionAt,
+            "Second concurrent decision.").IsSuccess);
+
+        // Act
+        await writer.SaveAsync(first, new RequestDispatchContext(RequestActor.System));
+        await Assert.ThrowsAsync<EventStreamConcurrencyException>(async () =>
+            await writer.SaveAsync(second, new RequestDispatchContext(RequestActor.System)));
+        var suspensionEvents = new List<MemberSuspended>();
+        await foreach (var record in events.ReadAsync(new Member(TenantId, UserId).Stream, 0))
+        {
+            if (record.Event is MemberSuspended suspended)
+                suspensionEvents.Add(suspended);
+        }
+
+        // Assert
+        Assert.Equal("First concurrent decision.", Assert.Single(suspensionEvents).Reason);
+        Assert.True((await reader.HydrateAsync(new Member(TenantId, UserId))).IsSuspended);
     }
 }
