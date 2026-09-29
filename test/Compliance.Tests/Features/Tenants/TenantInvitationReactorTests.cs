@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using Bdgrz.Compliance.Tests.E2E;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bdgrz.Compliance.Tests.Features.Tenants;
@@ -91,8 +93,10 @@ public sealed class TenantInvitationReactorTests
             .RespondTo<ActivateTenant>(Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The first administrator is still being provisioned.", isTransient: true)));
         var checkpoints = new InMemoryProjectionCheckpointStore();
+        using var logs = new AuthorizationDenialLogE2ETests.CapturingLoggerProvider();
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(logs));
         var reactor = new TenantInvitationReactor(checkpoints, scenario.Requests,
-            NullLogger<TenantInvitationReactor>.Instance);
+            loggerFactory.CreateLogger<TenantInvitationReactor>());
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
         // Act
@@ -112,6 +116,9 @@ public sealed class TenantInvitationReactorTests
         Assert.Equal(ProjectionCheckpoint.Start, checkpointBeforeReplay);
         Assert.NotEqual(ProjectionCheckpoint.Start, checkpointAfterReplay);
         Assert.True(scenario.SentRequests.Count(request => request is ActivateTenant) > 1);
+        Assert.Contains(logs.Records, record => record.EventName == "LogActivationDeferred" &&
+            string.Equals(record.Value("TenantId")?.ToString(), tenantId.ToString(),
+                StringComparison.Ordinal));
     }
 
     [Fact]

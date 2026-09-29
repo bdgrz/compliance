@@ -865,6 +865,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var underlyingRbacManage = false;
             var underlyingProgramManage = false;
             var requiredEventsCheckpointed = false;
+            var localRetryWindowExpired = false;
             var permissionCheckpoint = ProjectionCheckpoint.Start;
             IReadOnlyList<Bdgrz.Compliance.Features.AccessControl.MemberAccessEdge> projectedAccessEdges = [];
             while (DateTimeOffset.UtcNow < projectionDeadline)
@@ -898,6 +899,11 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     Bdgrz.Compliance.Features.AccessControl.RbacPermissions.ProgramManage);
                 var cursor = permissionCheckpoint.Cursor.ToString();
                 var elapsedMs = Stopwatch.GetElapsedTime(projectionStarted).TotalMilliseconds;
+                localRetryWindowExpired = workerLogs.Records.Any(record =>
+                    record.Category.EndsWith("TenantInvitationReactor", StringComparison.Ordinal) &&
+                    record.EventName == "LogActivationDeferred" &&
+                    string.Equals(record.Value("TenantId")?.ToString(), tenantId.ToString(),
+                        StringComparison.Ordinal));
                 if (permissionProgress.Count == 0 || cursor != lastPermissionCursor ||
                     requiredGrantEvents.Count != lastGrantEventCount || elapsedMs >= nextProgressSampleMs)
                 {
@@ -911,7 +917,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 if (requiredGrantEvents.Count == requiredPermissions.Count &&
                     requiredEventsCheckpointed && membershipProjected &&
                     underlyingTenantAccess && underlyingRbacManage && underlyingProgramManage &&
-                    activationProbe.FailedAttempts >= 5 && elapsedMs >= 12_000)
+                    activationProbe.FailedAttempts >= 5 && localRetryWindowExpired && elapsedMs >= 12_000)
                     break;
                 await Task.Delay(250);
             }
@@ -931,6 +937,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                     $"requiredGrantEvents={string.Join(";", requiredGrantEvents.Select(item =>
                         $"{item.Key}:{item.Value.ResourceOffset}:{item.Value.Event.Metadata.OccurredOn:O}"))}; " +
                     $"requiredEventsCheckpointed={requiredEventsCheckpointed}; " +
+                    $"localRetryWindowExpired={localRetryWindowExpired}; " +
                     $"underlyingPermissions={underlyingTenantAccess},{underlyingRbacManage},{underlyingProgramManage}; " +
                     $"accessEdges={string.Join(";", projectedAccessEdges.Select(edge =>
                         $"{edge.TeamId}/{edge.RoleId}[{string.Join(",", edge.Permissions)}]"))}; " +
