@@ -252,6 +252,59 @@ public sealed class GetMemberAccessHandlerTests
         Assert.Empty(result.Value.EffectivePermissions);
     }
 
+    [Theory]
+    [InlineData("role_permission")]
+    [InlineData("role")]
+    [InlineData("team")]
+    [InlineData("team_member")]
+    [InlineData("team_role")]
+    public async Task ShouldPreserveStandingPathWithoutPermissionGivenSourceRevocation(
+        string revokedSource)
+    {
+        // Arrange
+        var source = new RbacSourceReader
+        {
+            PermissionRemoved = revokedSource == "role_permission",
+            RoleDeleted = revokedSource == "role",
+            TeamDeleted = revokedSource == "team",
+            TeamMemberRemoved = revokedSource == "team_member",
+            TeamRoleRemoved = revokedSource == "team_role",
+        };
+        var edge = new MemberAccessEdge(TeamId, RoleId, [RbacPermissions.ProgramManage]);
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new StandingAccessReader(edge), new TeamDirectory(TeamId), new RoleDirectory(),
+            new GrantDirectory(), new TeamMemberDirectory(MemberId, TeamId),
+            new RolePermissionDirectory(), source, new FixedTimeProvider(Now));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Contains(RbacPermissions.ProgramManage, Assert.Single(result.Value.Paths).Permissions);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task ShouldIncludeStandingPermissionGivenActiveSourceRelationships()
+    {
+        // Arrange
+        var edge = new MemberAccessEdge(TeamId, RoleId, [RbacPermissions.ProgramManage]);
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new StandingAccessReader(edge), new TeamDirectory(TeamId), new RoleDirectory(),
+            new GrantDirectory(), new TeamMemberDirectory(MemberId, TeamId),
+            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Contains(RbacPermissions.ProgramManage, result.Value.EffectivePermissions);
+    }
+
     static GetMemberAccessHandler Handler(string affiliation, params AccessGrantView[] grants) =>
         Handler(affiliation, new RbacSourceReader(), grants);
 
@@ -288,6 +341,13 @@ public sealed class GetMemberAccessHandlerTests
     {
         public ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId, Uuid memberId,
             CancellationToken ct = default) => ValueTask.FromResult<IReadOnlyList<MemberAccessEdge>>([]);
+    }
+
+    sealed class StandingAccessReader(params MemberAccessEdge[] edges) : IMemberAccessReader
+    {
+        public ValueTask<IReadOnlyList<MemberAccessEdge>> ReadAsync(Uuid tenantId, Uuid memberId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult<IReadOnlyList<MemberAccessEdge>>(edges);
     }
 
     sealed class TeamDirectory(params Uuid[] teamIds) : ITeamDirectoryReader
@@ -388,6 +448,8 @@ public sealed class GetMemberAccessHandlerTests
         public bool RoleDeleted { get; init; }
         public bool TeamDeleted { get; init; }
         public bool PermissionRemoved { get; init; }
+        public bool TeamMemberRemoved { get; init; }
+        public bool TeamRoleRemoved { get; init; }
 
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate
@@ -408,6 +470,16 @@ public sealed class GetMemberAccessHandlerTests
                     Assert.True(permission.Assign().IsSuccess);
                     if (PermissionRemoved)
                         Assert.True(permission.Remove().IsSuccess);
+                    break;
+                case TeamMember member:
+                    Assert.True(member.Assign().IsSuccess);
+                    if (TeamMemberRemoved)
+                        Assert.True(member.Remove().IsSuccess);
+                    break;
+                case TeamRole teamRole:
+                    Assert.True(teamRole.Assign().IsSuccess);
+                    if (TeamRoleRemoved)
+                        Assert.True(teamRole.Remove().IsSuccess);
                     break;
             }
             return ValueTask.FromResult(aggregate);

@@ -119,13 +119,51 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 organizationGrantPermissions.AddRange(permissionSet);
         }
 
-        // Preserve historical assignments in Paths for review; they confer no standing access.
-        var permissions = membership.Affiliation == "firm_staff"
-            ? Array.Empty<string>()
-            : paths.SelectMany(path => path.Permissions).Concat(organizationGrantPermissions)
-                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        // Paths retain the projected assignment history for review. Compute effective standing
+        // permissions from source relationships so removals outrun their projection safely.
+        var standingPermissions = membership.Affiliation == "client_personnel"
+            ? await ReadCurrentStandingPermissionsAsync(request.TenantId, memberId, edges, ct)
+                .ConfigureAwait(false)
+            : [];
+        var permissions = membership.Affiliation == "client_personnel"
+            ? standingPermissions.Concat(organizationGrantPermissions)
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()
+            : [];
         return Result<MemberAccessView>.Success(new MemberAccessView(request.TenantId,
             request.UserId, memberId, paths, grantPaths, permissions));
+    }
+
+    async ValueTask<IReadOnlyList<string>> ReadCurrentStandingPermissionsAsync(Uuid tenantId,
+        Uuid memberId, IReadOnlyList<MemberAccessEdge> edges, CancellationToken ct)
+    {
+        var effective = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var edge in edges)
+        {
+            var team = await reader.HydrateAsync(new Team(tenantId, edge.TeamId), ct)
+                .ConfigureAwait(false);
+            if (!team.IsActive)
+                continue;
+            var member = await reader.HydrateAsync(new TeamMember(tenantId, edge.TeamId,
+                    memberId), ct).ConfigureAwait(false);
+            if (!member.IsAssigned)
+                continue;
+            var teamRole = await reader.HydrateAsync(new TeamRole(tenantId, edge.TeamId,
+                    edge.RoleId), ct).ConfigureAwait(false);
+            if (!teamRole.IsAssigned)
+                continue;
+            var role = await reader.HydrateAsync(new Role(tenantId, edge.RoleId), ct)
+                .ConfigureAwait(false);
+            if (!role.IsActive)
+                continue;
+            foreach (var permission in edge.Permissions)
+            {
+                var rolePermission = await reader.HydrateAsync(new RolePermission(tenantId,
+                        edge.RoleId, permission), ct).ConfigureAwait(false);
+                if (rolePermission.IsAssigned)
+                    effective.Add(permission);
+            }
+        }
+        return effective.ToArray();
     }
 
     async ValueTask<HashSet<Uuid>> FindCurrentTeamsAsync(Uuid tenantId, Uuid memberId,
