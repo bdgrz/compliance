@@ -50,6 +50,24 @@ public sealed class WorkforceAuthorizerTests
         Assert.Equal(RbacIds.Member(tenantId, userId), Assert.Single(permissions.MemberIds));
     }
 
+    [Fact]
+    public async Task ShouldDenySuspendedMemberGivenHistoricalWorkforceGrant()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new WorkforceAuthorizer(new FixedMembershipDirectory(true, isSuspended: true),
+            new ActiveTenant(), permissions);
+        var context = new RequestContext<IWorkforceRequest>(new ListPeople(Uuid.CreateVersion4()),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
 }

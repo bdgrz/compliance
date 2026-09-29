@@ -39,7 +39,7 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 edge.Permissions));
         }
         // Preserve historical assignments in Paths for review; they confer no standing access.
-        var permissions = membership.Affiliation == "firm_staff"
+        var permissions = membership.Affiliation == "firm_staff" || membership.IsSuspended
             ? Array.Empty<string>()
             : paths.SelectMany(path => path.Permissions)
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();

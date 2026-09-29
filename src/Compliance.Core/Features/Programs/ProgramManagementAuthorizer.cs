@@ -14,7 +14,7 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
                 "Program administration requires a Bdgrz user identity."));
         var tenantId = context.Request.TenantId;
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
-        if (membership is null)
+        if (membership is null || membership.IsSuspended)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));
         if (membership.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,

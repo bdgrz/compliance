@@ -18,7 +18,7 @@ public sealed class PreviewResponsibilityConflictsHandler(IResponsibilitySetDire
             return Result<ResponsibilityConflictPreview>.Failure(validation.Error);
         var member = await memberships.GetAsync(request.TenantId.ToString(), request.MemberUserId, ct)
             .ConfigureAwait(false);
-        if (member is null || member.Affiliation == "firm_staff")
+        if (member is null || member.IsSuspended || member.Affiliation == "firm_staff")
             return Result<ResponsibilityConflictPreview>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The responsibility assignee must be an active tenant member."));
         if (request.EffectiveUntil is { } until && until <= request.EffectiveFrom)

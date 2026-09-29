@@ -21,7 +21,7 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
             return scopeResult;
         var member = await memberships.GetAsync(request.TenantId.ToString(), request.MemberUserId, ct)
             .ConfigureAwait(false);
-        if (member is null || member.Affiliation == "firm_staff")
+        if (member is null || member.IsSuspended || member.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The responsibility assignee must be an active tenant member."));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var actorUserId))

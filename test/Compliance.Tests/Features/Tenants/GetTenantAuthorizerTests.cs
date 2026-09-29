@@ -9,16 +9,17 @@ public sealed class GetTenantAuthorizerTests
     static readonly Uuid UserId = Uuid.CreateVersion4();
 
     [Theory]
-    [InlineData(true, true, true, null)]
-    [InlineData(false, true, true, RequestErrorKind.NotFound)]
-    [InlineData(true, false, true, RequestErrorKind.Forbidden)]
-    [InlineData(true, true, false, RequestErrorKind.Forbidden)]
+    [InlineData(true, false, true, true, null)]
+    [InlineData(false, false, true, true, RequestErrorKind.NotFound)]
+    [InlineData(true, false, false, true, RequestErrorKind.Forbidden)]
+    [InlineData(true, false, true, false, RequestErrorKind.Forbidden)]
+    [InlineData(true, true, true, true, RequestErrorKind.NotFound)]
     public async Task ShouldRequireMembershipActivityAndPermissionGivenMemberAccess(
-        bool member, bool active, bool permitted, RequestErrorKind? expectedError)
+        bool member, bool suspended, bool active, bool permitted, RequestErrorKind? expectedError)
     {
         // Arrange
         var authorizer = new GetTenantAuthorizer(new FixedOperatorAccess(),
-            new Memberships(member), new TenantActivity(active), new Permissions(permitted));
+            new Memberships(member, suspended), new TenantActivity(active), new Permissions(permitted));
 
         // Act
         var result = await authorizer.AuthorizeAsync(
@@ -52,11 +53,11 @@ public sealed class GetTenantAuthorizerTests
     static ClaimsPrincipal Actor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 
-    sealed class Memberships(bool member) : ITenantMembershipDirectoryReader
+    sealed class Memberships(bool member, bool suspended = false) : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
             CancellationToken ct = default) => ValueTask.FromResult<TenantMembershipView?>(member
-            ? new TenantMembershipView(userId, TenantId) : null);
+            ? new TenantMembershipView(userId, TenantId, IsSuspended: suspended) : null);
 
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member);
