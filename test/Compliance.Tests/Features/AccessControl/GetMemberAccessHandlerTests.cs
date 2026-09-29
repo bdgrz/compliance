@@ -73,7 +73,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory([teamGrant]), new TeamMemberDirectory(MemberId, TeamId),
-            new RolePermissionDirectory(), new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), new RbacSourceReader(), new FixedTimeProvider(Now));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -97,7 +97,8 @@ public sealed class GetMemberAccessHandlerTests
         var directory = new GrantDirectory(grant) { ProjectRevocationOnPendingScan = true };
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(), new RoleDirectory(), directory,
-            new TeamMemberDirectory(), new RolePermissionDirectory(), new FixedTimeProvider(Now));
+            new TeamMemberDirectory(), new RolePermissionDirectory(), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -131,7 +132,7 @@ public sealed class GetMemberAccessHandlerTests
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
             new GrantDirectory(teamGrant), members, new RolePermissionDirectory(),
-            new FixedTimeProvider(Now));
+            new RbacSourceReader(), new FixedTimeProvider(Now));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -162,7 +163,8 @@ public sealed class GetMemberAccessHandlerTests
         var grants = new GrantDirectory(teamGrant) { OnPendingScan = members.ProjectRemoval };
         var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
             new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(), grants,
-            members, new RolePermissionDirectory(), new FixedTimeProvider(Now));
+            members, new RolePermissionDirectory(), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
         var context = new RequestContext<GetMemberAccess>(new GetMemberAccess(TenantId, UserId),
             RequestActor.System);
 
@@ -175,10 +177,89 @@ public sealed class GetMemberAccessHandlerTests
         Assert.DoesNotContain(RbacPermissions.ProgramManage, result.Value.EffectivePermissions);
     }
 
+    [Fact]
+    public async Task ShouldMarkGrantIneffectiveGivenRolePermissionRemovalNotProjected()
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var handler = Handler("client_personnel", new RbacSourceReader
+        {
+            PermissionRemoved = true,
+        }, grant);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var path = Assert.Single(result.Value.GrantPaths);
+        Assert.Equal(grant.GrantId, path.Grant.GrantId);
+        Assert.False(path.IsEffective);
+        Assert.Empty(path.Permissions);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task ShouldMarkGrantIneffectiveGivenRoleDeletedBeforeCleanup()
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var handler = Handler("client_personnel", new RbacSourceReader
+        {
+            RoleDeleted = true,
+        }, grant);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(Assert.Single(result.Value.GrantPaths).IsEffective);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task ShouldMarkTeamGrantIneffectiveGivenTeamDeletedBeforeCleanup()
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var teamGrant = grant with
+        {
+            Terms = grant.Terms with
+            {
+                Principal = new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, TeamId),
+            },
+        };
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new EmptyAccessReader(), new TeamDirectory(TeamId), new RoleDirectory(),
+            new GrantDirectory(teamGrant), new TeamMemberDirectory(MemberId, TeamId),
+            new RolePermissionDirectory(), new RbacSourceReader { TeamDeleted = true },
+            new FixedTimeProvider(Now));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(teamGrant.GrantId, Assert.Single(result.Value.GrantPaths).Grant.GrantId);
+        Assert.False(Assert.Single(result.Value.GrantPaths).IsEffective);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
     static GetMemberAccessHandler Handler(string affiliation, params AccessGrantView[] grants) =>
+        Handler(affiliation, new RbacSourceReader(), grants);
+
+    static GetMemberAccessHandler Handler(string affiliation, RbacSourceReader source,
+        params AccessGrantView[] grants) =>
         new(new MembershipDirectory(affiliation), new EmptyAccessReader(), new TeamDirectory(),
             new RoleDirectory(), new GrantDirectory(grants), new TeamMemberDirectory(),
-            new RolePermissionDirectory(), new FixedTimeProvider(Now));
+            new RolePermissionDirectory(), source, new FixedTimeProvider(Now));
 
     static AccessGrantView Grant(AccessGrantScope scope, DateTimeOffset effectiveFrom,
         DateTimeOffset? effectiveUntil) => new(TenantId, Uuid.CreateVersion4(),
@@ -300,6 +381,37 @@ public sealed class GetMemberAccessHandlerTests
             int? limit, string? cursor, string? search, bool descending, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<RolePermissionView>(
                 roleId == RoleId ? [new RolePermissionView(RoleId, RbacPermissions.ProgramManage)] : [], null));
+    }
+
+    sealed class RbacSourceReader : IAggregateReader
+    {
+        public bool RoleDeleted { get; init; }
+        public bool TeamDeleted { get; init; }
+        public bool PermissionRemoved { get; init; }
+
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            switch (aggregate)
+            {
+                case Role role:
+                    Assert.True(role.Define("Program Admin").IsSuccess);
+                    if (RoleDeleted)
+                        Assert.True(role.Delete().IsSuccess);
+                    break;
+                case Team team:
+                    Assert.True(team.Define("Reviewers").IsSuccess);
+                    if (TeamDeleted)
+                        Assert.True(team.Delete().IsSuccess);
+                    break;
+                case RolePermission permission:
+                    Assert.True(permission.Assign().IsSuccess);
+                    if (PermissionRemoved)
+                        Assert.True(permission.Remove().IsSuccess);
+                    break;
+            }
+            return ValueTask.FromResult(aggregate);
+        }
     }
 
     sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

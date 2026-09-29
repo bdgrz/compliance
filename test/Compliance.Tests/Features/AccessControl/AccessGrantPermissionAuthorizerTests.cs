@@ -55,7 +55,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
             new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId));
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("firm_staff"), new TeamMemberDirectory(MemberId),
-            new RolePermissions([RbacPermissions.ProgramManage]), new FixedTimeProvider(Now));
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -75,7 +76,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var teamMembers = new TeamMemberDirectory(MemberId) { PendingRemoval = true };
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("client_personnel"), teamMembers,
-            new RolePermissions([RbacPermissions.ProgramManage]), new FixedTimeProvider(Now));
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -166,7 +168,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var teamMembers = new TeamMemberDirectory(MemberId) { ProjectRemovalOnPendingScan = true };
         var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
             new MembershipDirectory("client_personnel"), teamMembers,
-            new RolePermissions([RbacPermissions.ProgramManage]), new FixedTimeProvider(Now));
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -188,7 +191,106 @@ public sealed class AccessGrantPermissionAuthorizerTests
         var grants = new GrantDirectory(grant) { OnPendingScan = teamMembers.ProjectRemoval };
         var authorizer = new AccessGrantPermissionAuthorizer(grants,
             new MembershipDirectory("client_personnel"), teamMembers,
-            new RolePermissions([RbacPermissions.ProgramManage]), new FixedTimeProvider(Now));
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now));
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGrantGivenRolePermissionRemovalNotProjected()
+    {
+        // Arrange
+        var source = new RbacSourceReader { PermissionRemoved = true };
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Program, ProgramId))), "client_personnel",
+            [RbacPermissions.ProgramManage], source);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGrantGivenRoleDeletionBeforePermissionCleanup()
+    {
+        // Arrange
+        var source = new RbacSourceReader { RoleDeleted = true };
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Program, ProgramId))), "client_personnel",
+            [RbacPermissions.ProgramManage], source);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyTeamGrantGivenTeamDeletionBeforeMemberCleanup()
+    {
+        // Arrange
+        var source = new RbacSourceReader { TeamDeleted = true };
+        var teamId = Uuid.CreateVersion4();
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId));
+        var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), source,
+            new FixedTimeProvider(Now));
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyGrantGivenRolePermissionRemovedDuringGrantScan()
+    {
+        // Arrange
+        var source = new RbacSourceReader();
+        var directory = new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Program, ProgramId)))
+        {
+            OnPendingScan = source.RemovePermission,
+        };
+        var authorizer = Authorizer(directory, "client_personnel",
+            [RbacPermissions.ProgramManage], source);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyTeamGrantGivenTeamDeletedDuringGrantScan()
+    {
+        // Arrange
+        var source = new RbacSourceReader();
+        var teamId = Uuid.CreateVersion4();
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId));
+        var directory = new GrantDirectory(grant) { OnPendingScan = source.DeleteTeam };
+        var authorizer = new AccessGrantPermissionAuthorizer(directory,
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), source,
+            new FixedTimeProvider(Now));
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -199,9 +301,10 @@ public sealed class AccessGrantPermissionAuthorizerTests
     }
 
     static AccessGrantPermissionAuthorizer Authorizer(GrantDirectory grants, string affiliation,
-        IReadOnlyList<string> permissions) => new(grants,
+        IReadOnlyList<string> permissions, RbacSourceReader? source = null) => new(grants,
         new MembershipDirectory(affiliation), new TeamMemberDirectory(MemberId),
-        new RolePermissions(permissions), new FixedTimeProvider(Now));
+        new RolePermissions(permissions), source ?? new RbacSourceReader(),
+        new FixedTimeProvider(Now));
 
     static AccessGrantView Grant(AccessGrantScope scope, AccessGrantPrincipal? principal = null) =>
         new(TenantId, Uuid.CreateVersion4(), new AccessGrantTerms(
@@ -305,6 +408,40 @@ public sealed class AccessGrantPermissionAuthorizerTests
             string? cursor, string? search, bool descending, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<RolePermissionView>(permissions.Select(permission =>
                 new RolePermissionView(roleId, permission)).ToArray(), null));
+    }
+
+    sealed class RbacSourceReader : IAggregateReader
+    {
+        public bool RoleDeleted { get; init; }
+        public bool TeamDeleted { get; set; }
+        public bool PermissionRemoved { get; set; }
+
+        public void DeleteTeam() => TeamDeleted = true;
+        public void RemovePermission() => PermissionRemoved = true;
+
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            switch (aggregate)
+            {
+                case Role role:
+                    Assert.True(role.Define("Program Admin").IsSuccess);
+                    if (RoleDeleted)
+                        Assert.True(role.Delete().IsSuccess);
+                    break;
+                case Team team:
+                    Assert.True(team.Define("Reviewers").IsSuccess);
+                    if (TeamDeleted)
+                        Assert.True(team.Delete().IsSuccess);
+                    break;
+                case RolePermission rolePermission:
+                    Assert.True(rolePermission.Assign().IsSuccess);
+                    if (PermissionRemoved)
+                        Assert.True(rolePermission.Remove().IsSuccess);
+                    break;
+            }
+            return ValueTask.FromResult(aggregate);
+        }
     }
 
     sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

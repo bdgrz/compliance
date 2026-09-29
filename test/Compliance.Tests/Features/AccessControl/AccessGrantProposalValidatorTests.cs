@@ -77,7 +77,8 @@ public sealed class AccessGrantProposalValidatorTests
             Uuid.CreateVersion4(), "Admin", DateTimeOffset.UtcNow));
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
-            new RoleDirectory(roleId), ResourceScopes(tenantId, program, false));
+            new RoleDirectory(roleId), ResourceScopes(tenantId, program, false),
+            new SourceReader());
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -90,6 +91,43 @@ public sealed class AccessGrantProposalValidatorTests
     }
 
     [Fact]
+    public async Task ShouldRejectDeletedRoleGivenStaleRoleDirectory()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var validator = Validator(tenantId, roleId, userId, "client_personnel",
+            roleDeleted: true);
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId))));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldRejectDeletedTeamGivenStaleTeamDirectory()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var teamId = Uuid.CreateVersion4();
+        var validator = Validator(tenantId, roleId, Uuid.CreateVersion4(),
+            "client_personnel", teamDeleted: true);
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId)));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
     public async Task ShouldRejectMismatchedRoleRecordGivenGrantProposal()
     {
         // Arrange
@@ -98,7 +136,8 @@ public sealed class AccessGrantProposalValidatorTests
         var roleId = Uuid.CreateVersion4();
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
-            new RoleDirectory(roleId, Uuid.CreateVersion4()), ResourceScopes(tenantId));
+            new RoleDirectory(roleId, Uuid.CreateVersion4()), ResourceScopes(tenantId),
+            new SourceReader());
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -119,7 +158,7 @@ public sealed class AccessGrantProposalValidatorTests
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(Uuid.CreateVersion4(), tenantId, "client_personnel"),
             new TeamDirectory(Uuid.CreateVersion4()), new RoleDirectory(roleId),
-            ResourceScopes(tenantId));
+            ResourceScopes(tenantId), new SourceReader());
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -138,7 +177,8 @@ public sealed class AccessGrantProposalValidatorTests
         var roleId = Uuid.CreateVersion4();
         var validator = new AccessGrantProposalValidator(
             new MembershipReader(userId, tenantId, "client_personnel", Uuid.CreateVersion4()),
-            new TeamDirectory(), new RoleDirectory(roleId), ResourceScopes(tenantId));
+            new TeamDirectory(), new RoleDirectory(roleId), ResourceScopes(tenantId),
+            new SourceReader());
 
         // Act
         var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
@@ -173,10 +213,12 @@ public sealed class AccessGrantProposalValidatorTests
     }
 
     static AccessGrantProposalValidator Validator(Uuid tenantId, Uuid roleId, Uuid userId,
-        string affiliation, Uuid? programTenantId = null) =>
+        string affiliation, Uuid? programTenantId = null, bool roleDeleted = false,
+        bool teamDeleted = false) =>
         new(new MembershipReader(userId, tenantId, affiliation),
             new TeamDirectory(), new RoleDirectory(roleId),
-            ResourceScopes(programTenantId ?? tenantId));
+            ResourceScopes(programTenantId ?? tenantId),
+            new SourceReader(roleDeleted: roleDeleted, teamDeleted: teamDeleted));
 
     static ProgramResourceScopeResolver ResourceScopes(Uuid programTenantId,
         ComplianceProgram? source = null, bool projected = true) =>
@@ -253,11 +295,29 @@ public sealed class AccessGrantProposalValidatorTests
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
     }
 
-    sealed class SourceReader(ComplianceProgram? source) : IAggregateReader
+    sealed class SourceReader(ComplianceProgram? source = null, bool roleDeleted = false,
+        bool teamDeleted = false) : IAggregateReader
     {
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
-            CancellationToken ct = default) where TAggregate : Aggregate =>
-            ValueTask.FromResult(source is not null && source.Stream == aggregate.Stream &&
-                aggregate is ComplianceProgram ? (TAggregate)(Aggregate)source : aggregate);
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            if (source is not null && source.Stream == aggregate.Stream &&
+                aggregate is ComplianceProgram)
+                return ValueTask.FromResult((TAggregate)(Aggregate)source);
+            switch (aggregate)
+            {
+                case Role role:
+                    Assert.True(role.Define("Program Admin").IsSuccess);
+                    if (roleDeleted)
+                        Assert.True(role.Delete().IsSuccess);
+                    break;
+                case Team team:
+                    Assert.True(team.Define("Reviewers").IsSuccess);
+                    if (teamDeleted)
+                        Assert.True(team.Delete().IsSuccess);
+                    break;
+            }
+            return ValueTask.FromResult(aggregate);
+        }
     }
 }

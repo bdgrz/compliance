@@ -1,12 +1,13 @@
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader memberships,
     ITeamDirectoryReader teams, IRoleDirectoryReader roles,
-    IProgramResourceScopeResolver resourceScopes)
+    IProgramResourceScopeResolver resourceScopes, IAggregateReader reader)
     : IAccessGrantProposalValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, AccessGrantProposal proposal,
@@ -18,6 +19,11 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
 
         var role = await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false);
         if (role is null || role.RoleId != proposal.RoleId)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The access grant role was not found in this organization."));
+        var sourceRole = await reader.HydrateAsync(new Role(tenantId, proposal.RoleId), ct)
+            .ConfigureAwait(false);
+        if (!sourceRole.IsActive)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The access grant role was not found in this organization."));
 
@@ -50,7 +56,11 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
         if (principal.Kind == AccessGrantPrincipalKind.Team)
         {
             var team = await teams.GetAsync(tenantId, principal.Id, ct).ConfigureAwait(false);
-            return team is not null && team.TeamId == principal.Id
+            var sourceTeam = team is not null && team.TeamId == principal.Id
+                ? await reader.HydrateAsync(new Team(tenantId, principal.Id), ct)
+                    .ConfigureAwait(false)
+                : null;
+            return sourceTeam is { IsActive: true }
                 ? Result.Success
                 : Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The access grant team was not found in this organization."));

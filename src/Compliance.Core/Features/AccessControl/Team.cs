@@ -8,6 +8,8 @@ public sealed class Team : Aggregate
     bool _isDefined;
     bool _isDeleted;
 
+    public bool IsActive => _isDefined && !_isDeleted;
+
     public Team(Uuid tenantId, Uuid teamId)
         : base(teamId, new EventStreamAddress(tenantId.ToString(), "rbac-teams", teamId.ToString()))
     {

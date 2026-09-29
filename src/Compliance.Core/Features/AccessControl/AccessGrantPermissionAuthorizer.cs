@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Tenants;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
@@ -15,7 +16,7 @@ public interface IAccessGrantPermissionAuthorizer
 /// <summary>Evaluates one program operation against current membership and active scoped grants.</summary>
 sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
     ITenantMembershipDirectoryReader memberships, ITeamMemberDirectoryReader teamMembers,
-    IRolePermissionDirectoryReader rolePermissions, TimeProvider clock)
+    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock)
     : IAccessGrantPermissionAuthorizer
 {
     const int PageSize = 200;
@@ -49,7 +50,7 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
 
         var now = clock.GetUtcNow();
         var eligibleGrants = new Dictionary<Uuid,
-            (AccessGrantScope Scope, AccessGrantPrincipal Principal)>();
+            (AccessGrantScope Scope, AccessGrantPrincipal Principal, Uuid RoleId)>();
         var principalMatches = new Dictionary<AccessGrantPrincipal, bool>();
         var rolePermissions = new Dictionary<Uuid, bool>();
         foreach (var grant in access.Grants)
@@ -77,7 +78,8 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 rolePermissions[grant.Terms.RoleId] = hasPermission;
             }
             if (hasPermission)
-                eligibleGrants[grant.GrantId] = (scope, grant.Terms.Principal);
+                eligibleGrants[grant.GrantId] = (scope, grant.Terms.Principal,
+                    grant.Terms.RoleId);
         }
 
         if (eligibleGrants.Count == 0)
@@ -104,6 +106,19 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 !await IncludesPrincipalAsync(tenantId, memberId, candidate.Principal, ct)
                     .ConfigureAwait(false))
                 continue;
+            // Role, permission, and team deletion facts can precede their directories and the
+            // asynchronous cleanup reactors. Recheck their tenant-addressed source streams at
+            // the deciding read, after the grant and team projection-lag checks above.
+            if (!await HasCurrentRolePermissionAsync(tenantId, candidate.RoleId, permission, ct)
+                    .ConfigureAwait(false))
+                continue;
+            if (candidate.Principal.Kind == AccessGrantPrincipalKind.Team)
+            {
+                var team = await reader.HydrateAsync(new Team(tenantId, candidate.Principal.Id), ct)
+                    .ConfigureAwait(false);
+                if (!team.IsActive)
+                    continue;
+            }
             var scope = candidate.Scope;
             if (scope.Kind == AccessGrantScopeKind.Organization)
                 organizationWide = true;
@@ -170,6 +185,18 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
         } while (cursor is not null);
 
         return false;
+    }
+
+    async ValueTask<bool> HasCurrentRolePermissionAsync(Uuid tenantId, Uuid roleId,
+        string permission, CancellationToken ct)
+    {
+        var rolePermission = await reader.HydrateAsync(new RolePermission(tenantId, roleId,
+                permission), ct).ConfigureAwait(false);
+        if (!rolePermission.IsAssigned)
+            return false;
+        var role = await reader.HydrateAsync(new Role(tenantId, roleId), ct)
+            .ConfigureAwait(false);
+        return role.IsActive;
     }
 
     static bool CoversAnyProgram(AccessGrantScope scope, Uuid tenantId) =>

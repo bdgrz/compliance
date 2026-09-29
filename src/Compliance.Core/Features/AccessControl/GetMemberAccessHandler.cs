@@ -1,3 +1,4 @@
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
@@ -5,7 +6,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memberships,
     IMemberAccessReader access, ITeamDirectoryReader teams, IRoleDirectoryReader roles,
     IAccessGrantDirectory grants, ITeamMemberDirectoryReader teamMembers,
-    IRolePermissionDirectoryReader rolePermissions, TimeProvider clock)
+    IRolePermissionDirectoryReader rolePermissions, IAggregateReader reader, TimeProvider clock)
     : IRequestHandler<GetMemberAccess, MemberAccessView>
 {
     const int PageSize = 200;
@@ -85,8 +86,19 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             var grant = currentGrant ?? originalGrant;
             var roleView = await roles.GetAsync(request.TenantId, grant.Terms.RoleId, ct)
                 .ConfigureAwait(false);
-            var permissionSet = await ReadRolePermissionsAsync(request.TenantId,
-                grant.Terms.RoleId, ct).ConfigureAwait(false);
+            var sourceRole = await reader.HydrateAsync(new Role(request.TenantId,
+                    grant.Terms.RoleId), ct).ConfigureAwait(false);
+            var permissionSet = sourceRole.IsActive
+                ? await ReadCurrentRolePermissionsAsync(request.TenantId,
+                    grant.Terms.RoleId, ct).ConfigureAwait(false)
+                : [];
+            var teamIsActive = true;
+            if (grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Team)
+            {
+                var sourceTeam = await reader.HydrateAsync(new Team(request.TenantId,
+                        grant.Terms.Principal.Id), ct).ConfigureAwait(false);
+                teamIsActive = sourceTeam.IsActive;
+            }
             var scope = grant.Terms.Scope;
             var scopeIsEffective = scope.Kind switch
             {
@@ -99,7 +111,7 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 grant.RevokedAt is null && !pendingRevocations.Contains(grant.GrantId) &&
                 grant.Terms.EffectiveFrom <= now &&
                 (grant.Terms.EffectiveUntil is null || grant.Terms.EffectiveUntil > now) &&
-                scopeIsEffective;
+                scopeIsEffective && sourceRole.IsActive && teamIsActive && permissionSet.Count > 0;
             grantPaths.Add(new MemberAccessGrantPath(grant,
                 roleView?.Name ?? grant.Terms.RoleId.ToString(), permissionSet, isEffective));
             if (isEffective && scope.Kind == AccessGrantScopeKind.Organization &&
@@ -149,7 +161,7 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
         return false;
     }
 
-    async ValueTask<IReadOnlyList<string>> ReadRolePermissionsAsync(Uuid tenantId, Uuid roleId,
+    async ValueTask<IReadOnlyList<string>> ReadCurrentRolePermissionsAsync(Uuid tenantId, Uuid roleId,
         CancellationToken ct)
     {
         var permissions = new HashSet<string>(StringComparer.Ordinal);
@@ -163,6 +175,14 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             cursor = page.NextCursor;
         } while (cursor is not null);
 
-        return permissions.Order(StringComparer.Ordinal).ToArray();
+        var assigned = new List<string>(permissions.Count);
+        foreach (var permission in permissions.Order(StringComparer.Ordinal))
+        {
+            var source = await reader.HydrateAsync(new RolePermission(tenantId, roleId,
+                    permission), ct).ConfigureAwait(false);
+            if (source.IsAssigned)
+                assigned.Add(permission);
+        }
+        return assigned;
     }
 }
