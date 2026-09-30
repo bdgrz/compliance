@@ -15,8 +15,7 @@ public sealed class GetEffectiveControlVersionHandler(ControlActivationSource so
         var control = await source.LoadAsync(request.TenantId, request.ProgramId,
             request.ControlId, ct).ConfigureAwait(false);
         return control.IsSuccess
-            ? ControlActivationSource.Version(control.Value,
-                version => version.EffectiveFrom <= request.EffectiveOn,
+            ? ControlActivationSource.Version(control.Value.EffectiveVersion(request.EffectiveOn),
                 "No approved control version is effective on that date.")
             : Result<ControlVersionView>.Failure(control.Error);
     }

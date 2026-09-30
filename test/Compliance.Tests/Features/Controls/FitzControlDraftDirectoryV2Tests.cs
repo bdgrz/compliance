@@ -175,6 +175,39 @@ public sealed class FitzControlDraftDirectoryV2Tests
         Assert.Empty((await directory.ListProgramAsync(tenantId, programId, 20, null)).Items);
     }
 
+    [Fact]
+    public async Task ShouldExposeSuccessorVersionIdGivenProjectedSuccessorProposal()
+    {
+        // Arrange
+        var directory = new FitzControlDraftDirectoryV2(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var now = new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero);
+        var created = Created(tenantId, programId, "AC-07", now);
+        var successorId = ControlVersionIds.Sequence(created.ControlId, 2);
+
+        // Act
+        await using (var batch = await directory.BeginAsync(
+                         new ProjectionBatchContext(Checkpoint(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(created);
+            await directory.ApplyAsync(new ControlSuccessorProposed(tenantId, programId,
+                created.ControlId, successorId, ControlVersionIds.Initial(created.ControlId), 2,
+                created.ActorMemberId, "Author", now.AddDays(1)));
+            await directory.ApplyAsync(new ControlDraftRevised(tenantId, programId,
+                created.ControlId, 2, Content() with { Title = "Successor" },
+                created.ActorMemberId, "Author", now.AddDays(1)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        var draft = Assert.IsType<ControlDraftView>(await directory.GetAsync(tenantId,
+            created.ControlId));
+        Assert.Equal(successorId, draft.DraftVersionId);
+        Assert.Equal(2, draft.Revision);
+        Assert.Equal("Successor", draft.Content.Title);
+    }
+
     static CheckpointIdentity Checkpoint(Uuid tenantId) => new(
         "ControlDraftDirectoryV2", EventStreamPattern.ForPattern(tenantId.ToString(), "controls"));
 

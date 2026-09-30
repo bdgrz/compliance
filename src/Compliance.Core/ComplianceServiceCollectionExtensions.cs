@@ -28,6 +28,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(ControlActivationReleaseGate.FromConfiguration(configuration));
+        services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
@@ -252,6 +253,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<BoundaryResponsibilityScopeValidator>();
         services.AddScoped<ControlResponsibilityScopeValidator>();
         services.AddScoped<ControlActivationSource>();
+        services.AddScoped<ControlImpactService>();
+        services.AddScoped<IControlImpactContributor, ApplicabilityControlImpactContributor>();
+        services.AddScoped<IControlImpactContributor, ResponsibilityControlImpactContributor>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
@@ -401,6 +405,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetControlCriterionMappingHandler>()
             .AddRequestHandler<ListControlCriterionMappingsHandler>()
             .AddRequestHandler<ListCriteriaCoverageHandler>()
+            .AddRequestHandler<ProposeControlSuccessorHandler>()
+            .AddRequestHandler<ProposeControlRetirementHandler>()
+            .AddRequestHandler<PreviewControlImpactHandler>()
+            .AddRequestHandler<RetireControlHandler>()
             .AddRequestHandler<CreateCommitmentDraftHandler>()
             .AddRequestHandler<ReviseCommitmentDraftHandler>()
             .AddRequestHandler<GetCommitmentDraftHandler>()

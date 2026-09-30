@@ -6,6 +6,10 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
 
+/// <summary>
+///     The Control record: its draft line, immutable approved versions with effective intervals,
+///     successor and retirement proposals, and every review and approval decision.
+/// </summary>
 public sealed class ControlDraft : Aggregate
 {
     // Fitz stream events use a u16 frame. Reserve room for the Portia envelope,
@@ -21,22 +25,52 @@ public sealed class ControlDraft : Aggregate
     bool _discarded;
     Uuid _draftAuthorMemberId;
     bool _everReviewed;
+    bool _responsibilityEverAssigned;
     Uuid _acceptedReviewDecisionId;
     Uuid? _latestReviewDecisionId;
-    ControlVersionView? _approvedVersion;
+    Uuid? _draftVersionId;
+    Uuid? _draftPredecessorVersionId;
+    PendingRetirement? _pendingRetirement;
+    bool _retired;
+    readonly List<ControlVersionView> _versions = [];
     readonly List<ControlDecisionView> _decisions = [];
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
 
     public bool IsCreated => _created;
-    public Uuid DraftVersionId => ControlVersionIds.Initial(Id);
-    public bool IsApproved => _approvedVersion is not null;
+    public Uuid TenantId => _tenantId;
+
+    /// <summary>
+    ///     The open draft's version line, or the latest approved version when no draft is open.
+    /// </summary>
+    public Uuid DraftVersionId => _draftVersionId ?? _versions.LastOrDefault()?.VersionId ??
+        ControlVersionIds.Initial(Id);
+
+    public bool HasOpenDraft => IsVisible && !_retired && _draftVersionId is not null;
+    public bool IsApproved => _versions.Count > 0;
+    public bool IsRetired => _retired;
+    public Uuid? PendingRetirementId => _pendingRetirement?.RetirementId;
+    public DateOnly? PendingRetirementEffectiveUntil => _pendingRetirement?.EffectiveUntil;
     public ControlDraftContent? CurrentContent => _currentContent;
-    public ControlVersionView? ApprovedVersion => _approvedVersion;
+
+    /// <summary>The latest approved version, including a superseding or retired one.</summary>
+    public ControlVersionView? ApprovedVersion => _versions.LastOrDefault();
+
+    public IReadOnlyList<ControlVersionView> ReadVersions() => _versions.ToArray();
     public IReadOnlyList<ControlDecisionView> ReadDecisions() => _decisions.ToArray();
     public bool IsVisible => _created && !_discarded;
     public long Revision => _revision;
     public Uuid ProgramId { get; private set; }
+
+    /// <summary>The pending decision target: an open draft version or a retirement proposal.</summary>
+    public Uuid? PendingTargetId => !IsVisible || _retired
+        ? null
+        : _draftVersionId ?? _pendingRetirement?.RetirementId;
+
+    /// <summary>The approved version whose half-open effective interval contains the date.</summary>
+    public ControlVersionView? EffectiveVersion(DateOnly date) => _versions.LastOrDefault(
+        version => new EffectiveInterval(version.EffectiveFrom, version.EffectiveUntil)
+            .Contains(date));
 
     public ControlDraft(Uuid tenantId, Uuid controlId)
         : base(controlId, new EventStreamAddress(tenantId.ToString(), "controls", controlId.ToString()))
@@ -52,6 +86,16 @@ public sealed class ControlDraft : Aggregate
             _initialContent = ev.Content;
             _currentContent = ev.Content;
             _draftAuthorMemberId = ev.ActorMemberId;
+            _draftVersionId = ControlVersionIds.Initial(Id);
+        });
+        On<ControlSuccessorProposed>(ev =>
+        {
+            _draftVersionId = ev.VersionId;
+            _draftPredecessorVersionId = ev.PredecessorVersionId;
+            _draftAuthorMemberId = ev.ActorMemberId;
+            _pendingRetirement = null;
+            _acceptedReviewDecisionId = Uuid.Empty;
+            _latestReviewDecisionId = null;
         });
         On<ControlDraftRevised>(ev =>
         {
@@ -81,14 +125,58 @@ public sealed class ControlDraft : Aggregate
                 ev.SeparationOfDutiesWaiverId));
             RecordResponsibilityDecision(Scope(ev.VersionId, ev.Revision), ev.ActorMemberId,
                 ResponsibilityType.PolicyApprover, ev.DecidedAt, ev.SeparationOfDutiesWaiverId);
-            _approvedVersion = new ControlVersionView(ev.TenantId, ev.ProgramId, ev.ControlId,
+            if (ev.PredecessorVersionId is { } predecessorId)
+            {
+                var index = _versions.FindIndex(version => version.VersionId == predecessorId);
+                if (index >= 0)
+                    _versions[index] = _versions[index] with
+                    {
+                        Status = "superseded",
+                        EffectiveUntil = ev.EffectiveFrom,
+                    };
+            }
+            _versions.Add(new ControlVersionView(ev.TenantId, ev.ProgramId, ev.ControlId,
                 _identifier!, ev.VersionId, ev.Revision, "approved", "organization_authored",
-                ev.Content, ev.EffectiveFrom, null, ev.OwnerAssignmentId, ev.OwnerMemberId,
-                "verified_member", ev.AcceptedReviewDecisionId, ev.ApprovalDecisionId,
-                ev.Actor, ev.Rationale, ev.DecidedAt, ev.SeparationOfDutiesWaiverId);
+                ev.Content, ev.EffectiveFrom, ev.PredecessorVersionId, ev.OwnerAssignmentId,
+                ev.OwnerMemberId, "verified_member", ev.AcceptedReviewDecisionId,
+                ev.ApprovalDecisionId, ev.Actor, ev.Rationale, ev.DecidedAt,
+                ev.SeparationOfDutiesWaiverId));
+            _acceptedReviewDecisionId = Uuid.Empty;
+            _draftVersionId = null;
+            _draftPredecessorVersionId = null;
+        });
+        On<ControlRetirementProposed>(ev =>
+        {
+            _pendingRetirement = new PendingRetirement(ev.RetirementId, ev.VersionId,
+                ev.EffectiveUntil);
+            _draftAuthorMemberId = ev.ActorMemberId;
+            _acceptedReviewDecisionId = Uuid.Empty;
+            _latestReviewDecisionId = null;
+        });
+        On<ControlRetired>(ev =>
+        {
+            _decisions.Add(new ControlDecisionView(ev.TenantId, ev.ProgramId, ev.ControlId,
+                ev.DecisionId, ev.RetirementId, ev.Revision, "retirement", "retire", ev.Actor,
+                ev.Rationale, ev.DecidedAt, null, ev.AcceptedReviewDecisionId,
+                ev.SeparationOfDutiesWaiverId));
+            RecordResponsibilityDecision(Scope(ev.RetirementId, ev.Revision), ev.ActorMemberId,
+                ResponsibilityType.PolicyApprover, ev.DecidedAt, ev.SeparationOfDutiesWaiverId);
+            var index = _versions.FindIndex(version => version.VersionId == ev.VersionId);
+            if (index >= 0)
+                _versions[index] = _versions[index] with
+                {
+                    Status = "retired",
+                    EffectiveUntil = ev.EffectiveUntil,
+                };
+            _retired = true;
+            _pendingRetirement = null;
             _acceptedReviewDecisionId = Uuid.Empty;
         });
-        On<ResponsibilityAssigned>(ev => GetResponsibilitySet(ev.Scope).Apply(ev));
+        On<ResponsibilityAssigned>(ev =>
+        {
+            _responsibilityEverAssigned = true;
+            GetResponsibilitySet(ev.Scope).Apply(ev);
+        });
         On<ResponsibilityRevoked>(ev => GetResponsibilitySet(ev.Scope).Apply(ev));
         On<ControlDraftDiscarded>(ev =>
         {
@@ -96,6 +184,8 @@ public sealed class ControlDraft : Aggregate
             _discarded = true;
         });
     }
+
+    sealed record PendingRetirement(Uuid RetirementId, Uuid VersionId, DateOnly EffectiveUntil);
 
     public static string NormalizeIdentifier(string? identifier) =>
         identifier?.Trim().ToUpperInvariant() ?? string.Empty;
@@ -147,15 +237,24 @@ public sealed class ControlDraft : Aggregate
     {
         if (!_created || _discarded || ProgramId != programId)
             return CommandFailure.MissingRecord("The control draft was not found.");
-        if (IsApproved)
+        if (_retired)
+            return CommandFailure.StateConflict("A retired control cannot be revised.");
+        if (!HasOpenDraft)
             return CommandFailure.StateConflict(
-                "The approved control version is immutable. Successor drafts are not yet supported.");
+                "The approved control version is immutable. Propose a successor draft.");
         if (expectedRevision != _revision)
             return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
                 _revision));
         var error = Validate(_identifier!, content);
         if (error is not null)
             return CommandFailure.InvalidContent(error.Message!);
+        return RaiseRevision(programId, content, actorMemberId, actorDisplay, changedAt);
+    }
+
+    CommandFailure? RaiseRevision(Uuid programId, ControlDraftContent content,
+        Uuid actorMemberId, string actorDisplay, DateTimeOffset changedAt,
+        ControlSuccessorProposed? proposal = null)
+    {
         ControlDraftRevised revised = new(_tenantId, programId, Id, _revision + 1,
             Clean(content), actorMemberId, actorDisplay, changedAt)
         {
@@ -165,7 +264,78 @@ public sealed class ControlDraft : Aggregate
                 ComplianceCoreJsonContext.Default.ControlDraftRevised).Length >
             MaximumDraftEventPayloadBytes)
             return CommandFailure.InvalidContent("The control draft exceeds the bounded event payload size.");
+        if (proposal is not null)
+            RaiseEvent(proposal);
         RaiseEvent(revised);
+        return null;
+    }
+
+    /// <summary>
+    ///     Opens a successor draft from the exact current approved version. The predecessor stays
+    ///     effective and immutable until the successor is independently reviewed and approved.
+    /// </summary>
+    public CommandFailure? ProposeSuccessor(Uuid programId, Uuid expectedApprovedVersionId,
+        ControlDraftContent content, Uuid actorMemberId, string actorDisplay,
+        DateTimeOffset changedAt)
+    {
+        if (!IsVisible || ProgramId != programId)
+            return CommandFailure.MissingRecord("The control was not found.");
+        if (_retired)
+            return CommandFailure.StateConflict("A retired control cannot have a successor.");
+        if (ApprovedVersion is not { } current)
+            return CommandFailure.StateConflict(
+                "The control has no approved version. Revise its initial draft instead.");
+        if (expectedApprovedVersionId != current.VersionId)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleApprovedVersion("control",
+                current.VersionId.ToGuid()));
+        if (HasOpenDraft)
+            return CommandFailure.StateConflict("The control already has an open successor draft.");
+        var error = Validate(_identifier!, content);
+        if (error is not null)
+            return CommandFailure.InvalidContent(error.Message!);
+        var proposal = new ControlSuccessorProposed(_tenantId, programId, Id,
+            ControlVersionIds.Sequence(Id, _versions.Count + 1), current.VersionId,
+            _revision + 1, actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        };
+        return RaiseRevision(programId, content, actorMemberId, actorDisplay, changedAt,
+            proposal);
+    }
+
+    /// <summary>Proposes ending future use of the exact current approved version.</summary>
+    public CommandFailure? ProposeRetirement(Uuid programId, Uuid expectedApprovedVersionId,
+        DateOnly effectiveUntil, string rationale, Uuid actorMemberId, string actorDisplay,
+        DateTimeOffset changedAt)
+    {
+        if (!IsVisible || ProgramId != programId)
+            return CommandFailure.MissingRecord("The control was not found.");
+        if (_retired)
+            return CommandFailure.StateConflict("The control is already retired.");
+        if (ApprovedVersion is not { } current)
+            return CommandFailure.StateConflict(
+                "Only an approved control can be retired. Discard an unused draft instead.");
+        if (expectedApprovedVersionId != current.VersionId)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleApprovedVersion("control",
+                current.VersionId.ToGuid()));
+        if (HasOpenDraft)
+            return CommandFailure.StateConflict(
+                "The control has an open successor draft. Approve it before proposing retirement.");
+        if (_pendingRetirement is not null)
+            return CommandFailure.StateConflict("The control already has a pending retirement.");
+        if (effectiveUntil == default || !EffectiveInterval.CanFollow(current.EffectiveFrom,
+                effectiveUntil))
+            return CommandFailure.InvalidContent(
+                "Retirement must take effect after the current version's effective start.");
+        if (string.IsNullOrWhiteSpace(rationale) || rationale.Length > 4000)
+            return CommandFailure.InvalidContent(
+                "Retirement requires a rationale of at most 4000 characters.");
+        RaiseEvent(new ControlRetirementProposed(_tenantId, programId, Id,
+            ControlVersionIds.Retirement(Id, current.VersionId), current.VersionId, _revision,
+            effectiveUntil, rationale.Trim(), actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
         return null;
     }
 
@@ -175,7 +345,8 @@ public sealed class ControlDraft : Aggregate
         if (!_created || _discarded || ProgramId != programId)
             return CommandFailure.MissingRecord("The control draft was not found.");
         if (IsApproved)
-            return CommandFailure.StateConflict("An approved control cannot be discarded.");
+            return CommandFailure.StateConflict(
+                "An approved, superseded, or retired control cannot be discarded. Propose retirement instead.");
         if (expectedRevision != _revision)
             return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
                 _revision));
@@ -184,6 +355,11 @@ public sealed class ControlDraft : Aggregate
         if (_currentContent?.Applicability is { Count: > 0 })
             return CommandFailure.StateConflict(
                 "Discarding a control draft requires no retained applicability relationships.");
+        // Responsibilities are retained relationships even after revocation; checking the
+        // authoritative stream means a caller's read access cannot make deletion appear safe.
+        if (_responsibilityEverAssigned)
+            return CommandFailure.StateConflict(
+                "Discarding a control draft requires that no responsibility was ever assigned to it.");
         if (string.IsNullOrWhiteSpace(rationale))
             return CommandFailure.InvalidContent("Discarding a control draft requires a rationale.");
         var discarded = new ControlDraftDiscarded(_tenantId, programId, Id, _revision,
@@ -218,18 +394,24 @@ public sealed class ControlDraft : Aggregate
         return set;
     }
 
-    /// <summary>Whether the scope is the exact current, unapproved draft revision.</summary>
+    /// <summary>Unrevoked responsibilities on an approved version's or pending target's scope.</summary>
+    public IReadOnlyList<ResponsibilityAssignmentView> RetainedResponsibilities(Uuid versionId,
+        long revision) => GetResponsibilitySet(Scope(versionId, revision)).ReadAssignments()
+        .Where(static assignment => assignment.RevokedAt is null)
+        .ToArray();
+
+    /// <summary>Whether the scope is the exact current pending draft or retirement revision.</summary>
     public bool IsCurrentResponsibilityScope(ResponsibilityScope scope) =>
         scope is not null &&
         StringComparer.Ordinal.Equals(scope.RecordType, SeparationOfDutiesRecordTypes.Control) &&
-        scope.RecordId == Id && IsVisible && !IsApproved && scope.VersionId == DraftVersionId &&
+        scope.RecordId == Id && PendingTargetId is { } target && scope.VersionId == target &&
         scope.Revision == _revision;
 
     /// <summary>Members holding a control_owner responsibility on the current exact revision.</summary>
     public IReadOnlyList<Uuid> CurrentOwnerMemberIds(DateTimeOffset at) =>
-        !IsVisible || IsApproved
+        !HasOpenDraft
             ? []
-            : ActiveOwners(Scope(DraftVersionId, _revision), at)
+            : ActiveOwners(Scope(_draftVersionId!.Value, _revision), at)
                 .Select(static assignment => assignment.MemberId).Distinct().ToArray();
 
     IEnumerable<ResponsibilityAssignmentView> ActiveOwners(ResponsibilityScope scope,
@@ -245,7 +427,7 @@ public sealed class ControlDraft : Aggregate
     {
         if (!IsCurrentResponsibilityScope(scope))
             return CommandFailure.StateConflict(
-                "Responsibilities must target the current exact control draft revision.");
+                "Responsibilities must target the current exact pending control revision.");
         var set = GetResponsibilitySet(scope);
         var proposed = new ResponsibilityAssignmentView(_tenantId, assignmentId, memberId,
             type, scope, assignedAt, assignedByMemberId, effectiveFrom, effectiveUntil,
@@ -262,7 +444,7 @@ public sealed class ControlDraft : Aggregate
     {
         if (!IsCurrentResponsibilityScope(scope))
             return CommandFailure.StateConflict(
-                "Responsibilities must target the current exact control draft revision.");
+                "Responsibilities must target the current exact pending control revision.");
         return GetResponsibilitySet(scope).Revoke(assignmentId, memberId, memberDisplay,
             revokedAt, reason, RaiseEvent);
     }
@@ -302,8 +484,11 @@ public sealed class ControlDraft : Aggregate
     {
         if (!IsVisible || ProgramId != programId)
             return CommandFailure.MissingRecord("The control draft was not found.");
-        if (IsApproved)
-            return CommandFailure.StateConflict("The control version is already approved.");
+        if (_retired)
+            return CommandFailure.StateConflict("The control is retired.");
+        if (PendingTargetId is null)
+            return CommandFailure.StateConflict(
+                "The control version is already approved and has no pending successor or retirement.");
         return expectedRevision != _revision
             ? CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
                 _revision))
@@ -327,7 +512,7 @@ public sealed class ControlDraft : Aggregate
                 "The separation-of-duties waiver is not active for this member and draft revision.");
         return isAuthor && waiver is null
             ? CommandFailure.ActorProhibited(
-                "A control draft author cannot " + action + " their own draft revision.")
+                "A control draft or retirement author cannot " + action + " their own proposal.")
             : null;
     }
 
@@ -337,7 +522,8 @@ public sealed class ControlDraft : Aggregate
     {
         if (CheckDecisionTarget(programId, expectedRevision) is { } target)
             return target;
-        var scope = Scope(DraftVersionId, expectedRevision);
+        var targetId = PendingTargetId!.Value;
+        var scope = Scope(targetId, expectedRevision);
         if (CheckSeparationOfDuties(scope, reviewerMemberId, ResponsibilityType.AssignedReviewer,
                 SeparationOfDutiesActions.Review, decidedAt, separationOfDutiesWaiver) is { } sod)
             return sod;
@@ -345,7 +531,7 @@ public sealed class ControlDraft : Aggregate
             string.IsNullOrWhiteSpace(rationale) || rationale.Length > 4000)
             return CommandFailure.InvalidContent(
                 "A control review requires an outcome of accept or request_changes and a rationale of at most 4000 characters.");
-        RaiseEvent(new ControlReviewed(_tenantId, ProgramId, Id, DraftVersionId,
+        RaiseEvent(new ControlReviewed(_tenantId, ProgramId, Id, targetId,
             expectedRevision, decisionId, outcome, reviewerMemberId, reviewerDisplay,
             rationale.Trim(), decidedAt, _latestReviewDecisionId, separationOfDutiesWaiver?.Id)
         {
@@ -357,16 +543,23 @@ public sealed class ControlDraft : Aggregate
     /// <param name="verifiedActiveOwnerMemberIds">
     ///     Members whose source membership was verified as active client personnel for this command.
     /// </param>
+    /// <param name="impactDigest">
+    ///     The acknowledged impact preview digest; required when approving a successor.
+    /// </param>
     public CommandFailure? Approve(Uuid programId, long expectedRevision, Uuid approvalDecisionId,
         Uuid acceptedReviewDecisionId, DateOnly effectiveFrom, string rationale,
         IReadOnlySet<Uuid> verifiedActiveOwnerMemberIds, Uuid approverMemberId,
         string approverDisplay, DateTimeOffset decidedAt,
-        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null)
+        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null, string? impactDigest = null)
     {
         ArgumentNullException.ThrowIfNull(verifiedActiveOwnerMemberIds);
         if (CheckDecisionTarget(programId, expectedRevision) is { } target)
             return target;
-        var scope = Scope(DraftVersionId, expectedRevision);
+        if (!HasOpenDraft)
+            return CommandFailure.StateConflict(
+                "Only an open control draft can be approved. Retirement uses its own decision.");
+        var draftVersionId = _draftVersionId!.Value;
+        var scope = Scope(draftVersionId, expectedRevision);
         if (CheckSeparationOfDuties(scope, approverMemberId, ResponsibilityType.PolicyApprover,
                 SeparationOfDutiesActions.Approve, decidedAt, separationOfDutiesWaiver) is { } sod)
             return sod;
@@ -378,6 +571,18 @@ public sealed class ControlDraft : Aggregate
             rationale.Length > 4000 || effectiveFrom == default)
             return CommandFailure.InvalidContent(
                 "Approval requires an effective start date and a rationale of at most 4000 characters.");
+        var predecessor = _draftPredecessorVersionId is { } predecessorId
+            ? _versions.Single(version => version.VersionId == predecessorId)
+            : null;
+        if (predecessor is not null)
+        {
+            if (string.IsNullOrWhiteSpace(impactDigest))
+                return CommandFailure.InvalidContent(
+                    "Successor approval requires the acknowledged impact preview digest.");
+            if (!EffectiveInterval.CanFollow(predecessor.EffectiveFrom, effectiveFrom))
+                return CommandFailure.InvalidContent(
+                    "A successor must become effective after its predecessor's effective start.");
+        }
         // Drafts recorded before a content rule existed must satisfy it before activation.
         if (ValidateContent(_currentContent) is { } invalid)
             return CommandFailure.InvalidContent(invalid.Message!);
@@ -389,10 +594,11 @@ public sealed class ControlDraft : Aggregate
         if (owner is null)
             return CommandFailure.StateConflict(
                 "Activation requires an active client-personnel member assigned control_owner on this exact draft revision.");
-        ControlApproved approved = new(_tenantId, ProgramId, Id, DraftVersionId, expectedRevision,
+        ControlApproved approved = new(_tenantId, ProgramId, Id, draftVersionId, expectedRevision,
             approvalDecisionId, acceptedReviewDecisionId, _currentContent!, owner.AssignmentId,
             owner.MemberId, approverMemberId, approverDisplay, rationale.Trim(), effectiveFrom,
-            decidedAt, separationOfDutiesWaiver?.Id)
+            decidedAt, separationOfDutiesWaiver?.Id, predecessor?.VersionId,
+            predecessor is null ? null : impactDigest)
         {
             StoredActor = ActorReference.ForMember(approverMemberId, approverDisplay),
         };
@@ -402,6 +608,44 @@ public sealed class ControlDraft : Aggregate
             return CommandFailure.InvalidContent(
                 "The control approval exceeds the bounded event payload size.");
         RaiseEvent(approved);
+        return null;
+    }
+
+    /// <summary>
+    ///     Approves the pending retirement of the exact current version after an independent
+    ///     accepted review. History and prior effective intervals are retained.
+    /// </summary>
+    public CommandFailure? Retire(Uuid programId, long expectedRevision, Uuid decisionId,
+        Uuid acceptedReviewDecisionId, string impactDigest, string rationale,
+        Uuid approverMemberId, string approverDisplay, DateTimeOffset decidedAt,
+        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null)
+    {
+        if (CheckDecisionTarget(programId, expectedRevision) is { } target)
+            return target;
+        if (_pendingRetirement is not { } pending)
+            return CommandFailure.StateConflict("The control has no pending retirement.");
+        var scope = Scope(pending.RetirementId, expectedRevision);
+        if (CheckSeparationOfDuties(scope, approverMemberId, ResponsibilityType.PolicyApprover,
+                SeparationOfDutiesActions.Approve, decidedAt, separationOfDutiesWaiver) is { } sod)
+            return sod;
+        if (acceptedReviewDecisionId == Uuid.Empty ||
+            acceptedReviewDecisionId != _acceptedReviewDecisionId)
+            return CommandFailure.StateConflict(
+                "Retirement requires the latest accepted review of this exact retirement proposal.");
+        if (decisionId == Uuid.Empty || string.IsNullOrWhiteSpace(rationale) ||
+            rationale.Length > 4000)
+            return CommandFailure.InvalidContent(
+                "Retirement approval requires a rationale of at most 4000 characters.");
+        if (string.IsNullOrWhiteSpace(impactDigest))
+            return CommandFailure.InvalidContent(
+                "Retirement approval requires the acknowledged impact preview digest.");
+        RaiseEvent(new ControlRetired(_tenantId, ProgramId, Id, pending.RetirementId,
+            pending.VersionId, expectedRevision, decisionId, acceptedReviewDecisionId,
+            pending.EffectiveUntil, impactDigest, approverMemberId, approverDisplay,
+            rationale.Trim(), decidedAt, separationOfDutiesWaiver?.Id)
+        {
+            StoredActor = ActorReference.ForMember(approverMemberId, approverDisplay),
+        });
         return null;
     }
 

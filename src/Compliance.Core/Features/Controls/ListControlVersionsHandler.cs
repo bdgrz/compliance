@@ -14,10 +14,7 @@ public sealed class ListControlVersionsHandler(ControlActivationSource source)
             request.ControlId, ct).ConfigureAwait(false);
         if (!control.IsSuccess)
             return Result<Page<ControlVersionView>>.Failure(control.Error);
-        ControlVersionView[] versions = control.Value.ApprovedVersion is { } version
-            ? [version]
-            : [];
-        return ControlActivationSource.Paginate(versions, request.Limit, request.Cursor,
+        return ControlActivationSource.Paginate(control.Value.ReadVersions(), request.Limit, request.Cursor,
             "control version");
     }
 }

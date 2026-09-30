@@ -96,6 +96,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetControlCriterionMapping>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlCriterionMappings>(tool => tool.ReadOnly())
         .AddMcpTool<ListCriteriaCoverage>(tool => tool.ReadOnly())
+        .AddMcpTool<ProposeControlSuccessor>()
+        .AddMcpTool<ProposeControlRetirement>()
+        .AddMcpTool<PreviewControlImpact>(tool => tool.ReadOnly())
         .AddMcpTool<CreateCommitmentDraft>()
         .AddMcpTool<ReviseCommitmentDraft>()
         .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
@@ -513,6 +516,23 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/criteria-coverage")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Control mappings");
+    app.MapPortiaPost<ProposeControlSuccessor, ControlSuccessorRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/successors")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPost<ProposeControlRetirement, ControlRetirementRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/retirement-proposals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<PreviewControlImpact, ControlImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/impact-preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    // Retirement approval is a human decision and stays HTTP-only.
+    app.MapPortiaPost<RetireControl>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
     app.MapPortiaPost<CreateCommitmentDraft, CommitmentDraftRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

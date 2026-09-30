@@ -24,9 +24,8 @@ public sealed class ControlActivationSource(IAggregateReader reader)
                 "The control was not found."));
     }
 
-    public static Result<ControlVersionView> Version(ControlDraft control,
-        Func<ControlVersionView, bool> predicate, string missing) =>
-        control.ApprovedVersion is { } version && predicate(version)
+    public static Result<ControlVersionView> Version(ControlVersionView? version, string missing) =>
+        version is not null
             ? Result<ControlVersionView>.Success(version)
             : Result<ControlVersionView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 missing));

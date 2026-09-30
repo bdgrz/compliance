@@ -13,4 +13,4 @@ public sealed record ControlVersionView(Uuid TenantId, Uuid ProgramId, Uuid Cont
     Uuid OwnerAssignmentId, Uuid OwnerMemberId, string OwnerResolution,
     Uuid AcceptedReviewDecisionId, Uuid ApprovalDecisionId, ActorReference ApprovedBy,
     string ApprovalRationale, DateTimeOffset ApprovedAt,
-    Uuid? SeparationOfDutiesWaiverId);
+    Uuid? SeparationOfDutiesWaiverId, DateOnly? EffectiveUntil = null);
