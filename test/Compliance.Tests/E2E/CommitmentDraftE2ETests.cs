@@ -449,6 +449,59 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         return builder.Build();
     }
 
+    [Fact]
+    public async Task ShouldPreviewImpactAndDenySelfReviewGivenAuthorOnlyTenant()
+    {
+        // Arrange
+        await using var factory = E2EAppFactory.Create(broker);
+        using var owner = factory.CreateClient();
+        using var outsider = factory.CreateClient();
+        await TenantInvitationE2ETests.LoginAsync(owner,
+            $"commitment-reviewer-{Guid.NewGuid():N}@example.com");
+        await TenantInvitationE2ETests.LoginAsync(outsider,
+            $"commitment-review-outsider-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId, serviceId) = await CreateServiceAsync(owner);
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment-drafts";
+        using var created = await owner.PostAsJsonAsync(path, new
+        {
+            service_id = serviceId,
+            kind = "user_entity_responsibility",
+            identifier = "CUEC-01",
+            statement = "Customers restrict administrator access",
+            context = "Carve-out",
+            source_reference = "MSA 4.1",
+        });
+        var draftPath = $"{path}/{(await ReadAsync(created)).GetProperty("draft_id").GetString()}";
+        _ = await WaitForRevisionAsync(owner, draftPath, 1);
+
+        // Act
+        using var preview = await owner.GetAsync($"{draftPath}/impact-preview?expected_revision=1");
+        var previewBody = await ReadAsync(preview);
+        using var selfReview = await owner.PostAsJsonAsync($"{draftPath}/reviews", new
+        {
+            expected_revision = 1,
+            outcome = "accept",
+            rationale = "Self-verified",
+            owner_reference = "Customer IT",
+            applicability = "applicable",
+            interpretation = "supported",
+            effective_from = "2027-01-01",
+            impact_digest = previewBody.GetProperty("digest").GetString(),
+        });
+        using var versions = await owner.GetAsync($"{draftPath}/versions");
+        using var effective = await owner.GetAsync($"{draftPath}/effective-version?effective_on=2027-06-01");
+        using var outsiderPreview = await outsider.GetAsync($"{draftPath}/impact-preview?expected_revision=1");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        Assert.True(previewBody.GetProperty("complete").GetBoolean());
+        Assert.Equal(HttpStatusCode.Forbidden, selfReview.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, versions.StatusCode);
+        Assert.Equal(0, (await ReadAsync(versions)).GetProperty("items").GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound, effective.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderPreview.StatusCode);
+    }
+
     static async Task<(Guid TenantId, Guid ProgramId, Guid ServiceId)> CreateServiceAsync(
         HttpClient owner)
     {

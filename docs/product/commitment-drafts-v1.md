@@ -49,7 +49,41 @@ different streams is not one atomic transaction; #229 still needs the
 cross-record consistency policy before an approved commitment can depend on
 that relationship.
 
-Every view says `status: draft`, `source_resolution: unverified`,
+A new or revised draft says `status: draft`, `source_resolution: unverified`,
 `owner_resolution: unresolved`, and `applicability_resolution: unresolved`.
-Review, approval, effective history, conflict reconciliation, linkage to
-other inventories, impact preview, and engagement snapshots remain in #229.
+
+## Review into effective versions (#450)
+
+- `POST .../commitment-drafts/{draft_id}/reviews` records one independent,
+  attributable decision on `expected_revision` with `outcome` `accept` or
+  `request_changes` and a `rationale`. Review is HTTP-only; no MCP tool can
+  record it. The reviewer must not have authored any revision since the last
+  effective version unless an approved separation-of-duties waiver names the
+  exact scope (`record_type: commitment`, record and version ID = draft ID,
+  revision, action `review`) and that reviewer.
+- Acceptance verifies `owner_reference`, `applicability`
+  (`applicable`/`not_applicable`), and `interpretation`
+  (`supported`/`unsupported`, with optional `interpretation_note`). An
+  unsupported interpretation can be accepted but stays visible on the
+  version. Acceptance also requires `effective_from`, later than the prior
+  version's, and the `impact_digest` of a complete current preview. It creates
+  an immutable version; accepting the same revision again conflicts.
+- `GET .../impact-preview?expected_revision=` compares the draft revision with
+  the latest effective version and lists boundaries whose draft or approved
+  scope entries reference the commitment. Controls, evidence, readiness, and
+  risks cannot reference commitments yet and are listed as
+  `unlinked_contexts`.
+- `GET .../versions`, `.../versions/{version}`,
+  `.../effective-version?effective_on=`, and `.../decisions` expose history and
+  as-of reads. Source/projection lag returns a transient conflict.
+- Every version carries `performed_by` (`service_organization`,
+  `user_entity`, or `subservice_organization`) and `internally_performed`.
+  CUECs and CSOCs are never internally performed.
+- Read-only MCP tools: `bdgrz.commitment.impact.preview`,
+  `bdgrz.commitment.version.get`, `bdgrz.commitment.version.effective.get`,
+  `bdgrz.commitment.version.list`, and `bdgrz.commitment.decision.list`.
+
+Still open: a separate approver role after review (the boundary pattern's
+review-then-approve), assigned-reviewer responsibilities for commitments,
+source provenance verification, dependents in contexts that cannot link to
+commitments yet, split-host broker coverage, and engagement snapshots.

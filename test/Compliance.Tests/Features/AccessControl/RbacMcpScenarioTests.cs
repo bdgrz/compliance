@@ -106,6 +106,11 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.commitment.draft.list",
             "bdgrz.commitment.draft.revision.get",
             "bdgrz.commitment.draft.revision.list",
+            "bdgrz.commitment.impact.preview",
+            "bdgrz.commitment.version.get",
+            "bdgrz.commitment.version.effective.get",
+            "bdgrz.commitment.version.list",
+            "bdgrz.commitment.decision.list",
             "bdgrz.risk.draft.create",
             "bdgrz.risk.draft.revise",
             "bdgrz.risk.draft.get",
@@ -233,8 +238,12 @@ public sealed class RbacMcpScenarioTests
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
                      "bdgrz.commitment.draft.revision.get", "bdgrz.commitment.draft.revision.list",
+                     "bdgrz.commitment.impact.preview", "bdgrz.commitment.version.get",
+                     "bdgrz.commitment.version.effective.get", "bdgrz.commitment.version.list",
+                     "bdgrz.commitment.decision.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name == "bdgrz.commitment.draft.review");
         Assert.NotEqual(true, Assert.Single(tools, tool =>
             tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
         Assert.NotEqual(true, Assert.Single(tools, tool =>

@@ -156,6 +156,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ICommitmentDraftHistoryDirectoryReader>(provider =>
             provider.GetRequiredService<FitzCommitmentDraftHistoryDirectoryV1>());
         services.AddScoped<CommitmentDraftHistoryReadConsistency>();
+        services.AddScoped<CommitmentVersionReadConsistency>();
+        services.AddScoped<CommitmentImpactService>();
         services.AddScoped<FitzPersonDirectory>();
         services.AddScoped<IPersonDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzPersonDirectory>());
@@ -362,6 +364,12 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListCommitmentDraftsHandler>()
             .AddRequestHandler<ListCommitmentDraftRevisionsHandler>()
             .AddRequestHandler<GetCommitmentDraftRevisionHandler>()
+            .AddRequestHandler<ReviewCommitmentDraftHandler>()
+            .AddRequestHandler<PreviewCommitmentImpactHandler>()
+            .AddRequestHandler<GetCommitmentVersionHandler>()
+            .AddRequestHandler<GetEffectiveCommitmentVersionHandler>()
+            .AddRequestHandler<ListCommitmentVersionsHandler>()
+            .AddRequestHandler<ListCommitmentDecisionsHandler>()
             .AddRequestHandler<CreateRiskDraftHandler>()
             .AddRequestHandler<ReviseRiskDraftHandler>()
             .AddRequestHandler<GetRiskDraftHandler>()

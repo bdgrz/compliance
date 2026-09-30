@@ -93,6 +93,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListCommitmentDrafts>(tool => tool.ReadOnly())
         .AddMcpTool<ListCommitmentDraftRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetCommitmentDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewCommitmentImpact>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCommitmentVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEffectiveCommitmentVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCommitmentVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCommitmentDecisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateRiskDraft>()
         .AddMcpTool<ReviseRiskDraft>(tool => tool.Idempotent())
         .AddMcpTool<GetRiskDraft>(tool => tool.ReadOnly())
@@ -448,6 +453,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Commitments");
     app.MapPortiaGet<GetCommitmentDraftRevision, CommitmentDraftRevisionView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<PreviewCommitmentImpact, CommitmentImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/impact-preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaPost<ReviewCommitmentDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<ListCommitmentDecisions, Page<CommitmentDecisionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<ListCommitmentVersions, Page<CommitmentVersionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<GetCommitmentVersion, CommitmentVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/versions/{version}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
+    app.MapPortiaGet<GetEffectiveCommitmentVersion, CommitmentVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/effective-version")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Commitments");
     app.MapPortiaPost<CreateRiskDraft, RiskRegistration>(

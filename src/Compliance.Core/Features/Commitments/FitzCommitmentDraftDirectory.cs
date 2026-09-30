@@ -57,6 +57,9 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         LastChangedByDisplay = revised.ActorDisplay,
                         LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
+                        Status = "draft",
+                        OwnerResolution = "unresolved",
+                        ApplicabilityResolution = "unresolved",
                     }, ct).ConfigureAwait(false);
                 await CommitmentDraftDirectorySchema.Revisions.InsertAsync(Transaction,
                     new CommitmentDraftRevisionView(revised.TenantId, revised.ProgramId,
@@ -68,7 +71,87 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         Actor = revised.Actor,
                     }, ct).ConfigureAwait(false);
                 break;
+            case CommitmentReviewed reviewed:
+                await ApplyReviewedAsync(reviewed, ct).ConfigureAwait(false);
+                break;
         }
+    }
+
+    async ValueTask ApplyReviewedAsync(CommitmentReviewed reviewed, CancellationToken ct)
+    {
+        var current = await CommitmentDraftDirectorySchema.Drafts.GetAsync(Transaction,
+            reviewed.DraftId, ct).ConfigureAwait(false);
+        if (current is null || current.TenantId != reviewed.TenantId ||
+            current.ProgramId != reviewed.ProgramId || current.Revision != reviewed.Revision)
+            throw new InvalidOperationException(
+                "A commitment review cannot project before its reviewed revision.");
+        var decision = new CommitmentDecisionView(reviewed.TenantId, reviewed.ProgramId,
+            reviewed.DraftId, reviewed.DecisionId, reviewed.Revision, reviewed.Outcome,
+            reviewed.OwnerReference, reviewed.Applicability, reviewed.Interpretation,
+            reviewed.InterpretationNote, reviewed.Rationale, reviewed.Version,
+            reviewed.EffectiveFrom, reviewed.ImpactDigest, reviewed.ActorMemberId,
+            reviewed.ActorDisplay, reviewed.DecidedAt, reviewed.SeparationOfDutiesWaiverId)
+        {
+            Actor = reviewed.Actor,
+        };
+        await CommitmentDraftDirectorySchema.Decisions.InsertAsync(Transaction, decision, ct)
+            .ConfigureAwait(false);
+        var accepted = reviewed.Version is { } version && reviewed.EffectiveFrom is { } from;
+        if (accepted)
+            await CommitmentDraftDirectorySchema.Versions.InsertAsync(Transaction,
+                new CommitmentVersionView(current.TenantId, current.ProgramId, current.DraftId,
+                    current.ServiceId, current.Kind, current.Identifier, reviewed.Version!.Value,
+                    current.Revision, current.Statement, current.Context,
+                    current.SourceReference, reviewed.OwnerReference!, reviewed.Applicability!,
+                    reviewed.Interpretation!, reviewed.InterpretationNote,
+                    CommitmentDraft.PerformedBy(current.Kind),
+                    CommitmentDraft.IsInternallyPerformed(current.Kind),
+                    reviewed.EffectiveFrom!.Value, decision), ct).ConfigureAwait(false);
+        await CommitmentDraftDirectorySchema.Drafts.ReplaceAsync(Transaction, current,
+            accepted
+                ? current with
+                {
+                    Status = "effective",
+                    OwnerResolution = "verified",
+                    ApplicabilityResolution = reviewed.Applicability!,
+                }
+                : current with { Status = "changes_requested" }, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<CommitmentVersionView?> GetVersionAsync(Uuid tenantId, Uuid draftId,
+        long version, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await CommitmentDraftDirectorySchema.Versions.GetAsync(tx,
+            CommitmentDraftDirectorySchema.RevisionKey(draftId, version), ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<CommitmentVersionView>> ListVersionsAsync(Uuid tenantId,
+        Uuid draftId, int limit, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await CommitmentDraftDirectorySchema.Versions.QueryAsync(tx,
+            CommitmentDraftDirectorySchema.ByDraftVersion.Query()
+                .WithPrefix(draftId.ToString()).Take(Math.Clamp(limit, 1, 200))
+                .After(cursor), ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<Page<CommitmentDecisionView>> ListDecisionsAsync(Uuid tenantId,
+        Uuid draftId, int limit, string? cursor, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await CommitmentDraftDirectorySchema.Decisions.QueryAsync(tx,
+            CommitmentDraftDirectorySchema.ByDraftDecision.Query()
+                .WithPrefix(draftId.ToString()).Take(Math.Clamp(limit, 1, 200))
+                .After(cursor), ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<CommitmentDecisionView?> GetDecisionAsync(Uuid tenantId,
+        Uuid decisionId, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        return await CommitmentDraftDirectorySchema.Decisions.GetAsync(tx, decisionId, ct)
+            .ConfigureAwait(false);
     }
 
     public async ValueTask<CommitmentDraftView?> GetAsync(Uuid tenantId, Uuid draftId,
