@@ -20,7 +20,16 @@ public sealed record ControlDraftView(Uuid TenantId, Uuid ProgramId, Uuid Contro
         init => _lastChangedBy = value;
     }
 
-    /// <summary>The exact version identity that responsibilities and decisions target.</summary>
+    readonly Uuid? _draftVersionId;
+
+    /// <summary>
+    ///     The exact version identity that responsibilities and decisions target. Rows projected
+    ///     before successor drafts existed fall back to the initial version line.
+    /// </summary>
     [JsonPropertyName("draft_version_id")]
-    public Uuid DraftVersionId => ControlVersionIds.Initial(ControlId);
+    public Uuid DraftVersionId
+    {
+        get => _draftVersionId ?? ControlVersionIds.Initial(ControlId);
+        init => _draftVersionId = value;
+    }
 }

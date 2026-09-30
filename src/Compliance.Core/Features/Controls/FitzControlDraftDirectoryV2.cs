@@ -65,6 +65,19 @@ sealed class FitzControlDraftDirectoryV2(IKvClient client)
                         Actor = revised.Actor,
                     }, ct).ConfigureAwait(false);
                 break;
+            case ControlSuccessorProposed proposed:
+                var proposing = await ControlDraftDirectoryV2Schema.Controls.GetAsync(Transaction,
+                    proposed.ControlId, ct).ConfigureAwait(false);
+                if (proposing is null || proposing.TenantId != proposed.TenantId ||
+                    proposing.ProgramId != proposed.ProgramId ||
+                    proposing.Revision + 1 != proposed.Revision)
+                    throw new InvalidOperationException(
+                        "A control successor cannot project before its predecessor revision.");
+                // The successor content arrives in the ControlDraftRevised of the same commit.
+                await ControlDraftDirectoryV2Schema.Controls.ReplaceAsync(Transaction, proposing,
+                    proposing with { DraftVersionId = proposed.VersionId }, ct)
+                    .ConfigureAwait(false);
+                break;
             case ControlDraftDiscarded discarded:
                 var discardCurrent = await ControlDraftDirectoryV2Schema.Controls.GetAsync(
                     Transaction, discarded.ControlId, ct).ConfigureAwait(false);

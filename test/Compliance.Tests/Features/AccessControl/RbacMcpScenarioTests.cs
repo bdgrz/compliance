@@ -109,6 +109,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control_mapping.get",
             "bdgrz.control_mappings.list",
             "bdgrz.control_mappings.coverage.list",
+            "bdgrz.control.successor.propose",
+            "bdgrz.control.retirement.propose",
+            "bdgrz.control.impact.preview",
             "bdgrz.commitment.draft.create",
             "bdgrz.commitment.draft.revise",
             "bdgrz.commitment.draft.get",
@@ -258,6 +261,7 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.control.decision.get", "bdgrz.control.decisions.list",
                      "bdgrz.control_mapping.get", "bdgrz.control_mappings.list",
                      "bdgrz.control_mappings.coverage.list",
+                     "bdgrz.control.impact.preview",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
@@ -269,7 +273,7 @@ public sealed class RbacMcpScenarioTests
         Assert.True(discardControlDraft.Destructive);
         Assert.NotEqual(true, discardControlDraft.ReadOnly);
         Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.control.review" or
-            "bdgrz.control.approve");
+            "bdgrz.control.approve" or "bdgrz.control.retire");
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",

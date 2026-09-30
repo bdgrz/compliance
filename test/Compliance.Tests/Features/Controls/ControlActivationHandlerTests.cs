@@ -108,6 +108,8 @@ public sealed class ControlActivationHandlerTests
                 services => services
                     .AddSingleton(new ControlActivationReleaseGate(activationEnabled))
                     .AddScoped<ControlActivationSource>()
+                    .AddSingleton(new ControlLifecycleReleaseGate(false))
+                    .AddScoped<ControlImpactService>()
                     .AddSingleton<IControlApplicabilityReferenceValidator, AcceptingValidator>());
             var fixture = new Fixture { Provider = provider };
             var now = DateTimeOffset.UtcNow;

@@ -12,7 +12,7 @@ public sealed class GetCurrentControlVersionHandler(ControlActivationSource sour
         var control = await source.LoadAsync(request.TenantId, request.ProgramId,
             request.ControlId, ct).ConfigureAwait(false);
         return control.IsSuccess
-            ? ControlActivationSource.Version(control.Value, static _ => true,
+            ? ControlActivationSource.Version(control.Value.ApprovedVersion,
                 "The control has no approved version.")
             : Result<ControlVersionView>.Failure(control.Error);
     }

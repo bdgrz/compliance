@@ -11,7 +11,8 @@ namespace Bdgrz.Compliance.Features.Controls;
 /// </summary>
 public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregateReader reader,
     IControlApplicabilityReferenceValidator applicability,
-    ControlActivationReleaseGate releaseGate, TimeProvider clock)
+    ControlActivationReleaseGate releaseGate, ControlLifecycleReleaseGate lifecycleGate,
+    ControlImpactService impact, TimeProvider clock)
     : IRequestHandler<ApproveControl>
 {
     public async ValueTask<Result> HandleAsync(IRequestContext<ApproveControl> context,
@@ -28,6 +29,17 @@ public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregat
         if (current.Revision != request.ExpectedRevision)
             return Result.Failure(VersionedRecordRules.StaleRevision("control draft",
                 current.Revision).ToRequestError());
+        if (current.IsApproved)
+        {
+            // A successor must be approved against the complete, unchanged impact preview.
+            if (!lifecycleGate.IsEnabled)
+                return Result.Failure(ControlLifecycleReleaseGate.Unavailable);
+            var confirmed = await impact.ConfirmAsync(new PreviewControlImpact(request.TenantId,
+                request.ProgramId, request.ControlId, request.ExpectedRevision),
+                request.ImpactDigest, ct).ConfigureAwait(false);
+            if (!confirmed.IsSuccess)
+                return confirmed;
+        }
         var validation = await applicability.ValidateAsync(request.TenantId,
             current.CurrentContent, ct).ConfigureAwait(false);
         if (!validation.IsSuccess)
@@ -61,7 +73,8 @@ public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregat
                     request.ExpectedRevision, context.RequestId, request.AcceptedReviewDecisionId,
                     request.EffectiveFrom, request.Rationale, verifiedOwners,
                     RbacIds.Member(request.TenantId, userId),
-                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), now, waiver));
+                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), now, waiver,
+                    request.ImpactDigest));
             },
             context, ct).ConfigureAwait(false);
     }
