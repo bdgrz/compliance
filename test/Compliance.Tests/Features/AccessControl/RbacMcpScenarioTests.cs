@@ -112,6 +112,10 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.risk.draft.list",
             "bdgrz.risk.draft.revision.get",
             "bdgrz.risk.draft.revisions.list",
+            "bdgrz.risk.method.get",
+            "bdgrz.risk.method.version.get",
+            "bdgrz.risk.evaluation.get",
+            "bdgrz.risk.evaluation.history.list",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -239,10 +243,18 @@ public sealed class RbacMcpScenarioTests
                  {
                      "bdgrz.risk.draft.get", "bdgrz.risk.draft.list",
                      "bdgrz.risk.draft.revision.get", "bdgrz.risk.draft.revisions.list",
+                     "bdgrz.risk.method.get", "bdgrz.risk.method.version.get",
+                     "bdgrz.risk.evaluation.get", "bdgrz.risk.evaluation.history.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.risk.draft.create").ReadOnly);
+        foreach (var personalOrWrite in new[]
+                 {
+                     "bdgrz.risk.method.publish", "bdgrz.risk.assessment.record",
+                     "bdgrz.risk.treatment.choose", "bdgrz.risk.accept",
+                 })
+            Assert.DoesNotContain(tools, tool => tool.Name == personalOrWrite);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.risk.draft.revise").Idempotent);
         Assert.True(Assert.Single(tools, tool =>

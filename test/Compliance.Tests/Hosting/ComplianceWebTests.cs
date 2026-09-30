@@ -281,6 +281,34 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldDescribeRiskEvaluationContractsGivenOpenApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        const string risk = "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}";
+        const string method = "/api/v1/tenants/{tenant_id}/programs/{program_id}/risk-method";
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json", CancellationToken.None);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(
+            CancellationToken.None));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var paths = document.RootElement.GetProperty("paths");
+        foreach (var (route, verb) in new[]
+                 {
+                     (method + "/versions", "post"), (method, "get"),
+                     (method + "/versions/{version}", "get"),
+                     (risk + "/assessments", "post"), (risk + "/treatment", "put"),
+                     (risk + "/acceptances", "post"), (risk + "/evaluation", "get"),
+                     (risk + "/evaluation/history", "get"),
+                 })
+            Assert.True(paths.GetProperty(route).TryGetProperty(verb, out _), route);
+    }
+
+    [Fact]
     public async Task ShouldDescribeServiceAndBoundaryContractsGivenOpenApi()
     {
         // Arrange
@@ -792,6 +820,7 @@ public sealed class ComplianceWebTests
         Assert.Equal("uuid", candidateApplicationIds.GetProperty("items").GetProperty("format")
             .GetString());
         Assert.DoesNotContain(paths.EnumerateObject(), path =>
+            path.Name.Contains("/application-imports/", StringComparison.Ordinal) &&
             path.Name.Contains("acceptances", StringComparison.Ordinal));
     }
 

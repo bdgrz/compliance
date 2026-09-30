@@ -194,6 +194,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IRiskDraftHistoryDirectoryReader>(provider =>
             provider.GetRequiredService<FitzRiskDraftHistoryDirectoryV1>());
         services.AddScoped<RiskDraftHistoryReadConsistency>();
+        services.AddScoped<FitzRiskEvaluationDirectory>();
+        services.AddScoped<IRiskEvaluationDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzRiskEvaluationDirectory>());
+        services.AddScoped<IRiskEvaluationDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzRiskEvaluationDirectory>());
+        services.AddScoped<RiskEvaluationReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
@@ -362,6 +368,14 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRiskDraftsHandler>()
             .AddRequestHandler<ListRiskDraftRevisionsHandler>()
             .AddRequestHandler<GetRiskDraftRevisionHandler>()
+            .AddRequestHandler<PublishRiskMethodVersionHandler>()
+            .AddRequestHandler<GetRiskMethodHandler>()
+            .AddRequestHandler<GetRiskMethodVersionHandler>()
+            .AddRequestHandler<RecordRiskAssessmentHandler>()
+            .AddRequestHandler<ChooseRiskTreatmentHandler>()
+            .AddRequestHandler<AcceptRiskHandler>()
+            .AddRequestHandler<GetRiskEvaluationHandler>()
+            .AddRequestHandler<ListRiskEvaluationHistoryHandler>()
             .AddRequestHandler<ReviseProgramHandler>()
             .AddRequestHandler<SelectProgramCriteriaEditionHandler>()
             .AddRequestHandler<GetProgramHandler>()
@@ -508,6 +522,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ServiceIdentityDirectoryProjector>("ServiceIdentityDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
+                WorkloadScope.PerTenant)
+            .AddProjector<RiskEvaluationDirectoryProjectorV1>("RiskEvaluationDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
