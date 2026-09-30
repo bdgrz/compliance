@@ -103,3 +103,30 @@ the nested `content` object now binds before authorization without an
 application binder or alternate write path. The integration test covers an
 authorized nested create, revision, and discard plus denied write calls. The
 aggregate continues to enforce expected revisions for stale edits.
+
+## Initial activation (R1-05a, #197)
+
+- Responsibilities for a control target `record_type=control`, the control ID, the
+  `draft_version_id` shown on the draft view (the deterministic initial version ID), and the
+  exact draft revision. They are stored on the `ControlDraft` stream, the same way boundary
+  responsibilities live on the `SystemBoundary` stream, so an assignment, a review, an approval,
+  and a draft revision share one optimistic concurrency boundary. A responsibility is never an
+  access grant.
+- `POST .../controls/{control_id}/draft/reviews` records an independent review
+  (`accept` or `request_changes`) of the exact revision; a later review supersedes the prior one.
+  `POST .../draft/approvals` activates the version from the latest accepted review of the
+  unchanged revision. Both are HTTP-only and deny unwaived self-review/self-approval (draft author
+  or a conflicting work responsibility such as `control_owner`) unless an approved exact-scope
+  separation-of-duties waiver (`record_type=control`) is supplied.
+- Activation revalidates governed applicability and requires an active client-personnel member
+  holding `control_owner` on the exact revision, verified against the member source stream. An
+  authored `owner_reference` stays unverified attribution.
+- The approved `ControlVersion` is immutable and carries its effective start, exact content,
+  verified owner, accepted review, and approver. Current, exact, effective-as-of, and paged
+  version/decision reads are available over HTTP and read-only MCP; they are served from the
+  control's own stream, so they never lag.
+- `ControlReviewed` and `ControlApproved` are new discriminators. Production starts with
+  `Compliance:Controls:ActivationEnabled=false`; enable it only after every reader understands
+  them, and keep such a reader build for rollback.
+- Successors, change impact, non-signing-in Person owners (#433), retirement, and complete
+  deletion guards (#434) remain out of scope.

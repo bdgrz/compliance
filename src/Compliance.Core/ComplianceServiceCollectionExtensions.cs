@@ -27,6 +27,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
         services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
+        services.AddSingleton(ControlActivationReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
@@ -239,7 +240,10 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzAccessGrantDirectory>());
         services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
-        services.AddScoped<IResponsibilityScopeValidator, BoundaryResponsibilityScopeValidator>();
+        services.AddScoped<BoundaryResponsibilityScopeValidator>();
+        services.AddScoped<ControlResponsibilityScopeValidator>();
+        services.AddScoped<ControlActivationSource>();
+        services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
             GovernedBoundaryReferenceValidator>();
@@ -358,6 +362,14 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListControlDraftsHandler>()
             .AddRequestHandler<ListControlDraftRevisionsHandler>()
             .AddRequestHandler<GetControlDraftRevisionHandler>()
+            .AddRequestHandler<ReviewControlHandler>()
+            .AddRequestHandler<ApproveControlHandler>()
+            .AddRequestHandler<GetControlVersionHandler>()
+            .AddRequestHandler<GetCurrentControlVersionHandler>()
+            .AddRequestHandler<GetEffectiveControlVersionHandler>()
+            .AddRequestHandler<ListControlVersionsHandler>()
+            .AddRequestHandler<GetControlDecisionHandler>()
+            .AddRequestHandler<ListControlDecisionsHandler>()
             .AddRequestHandler<CreateCommitmentDraftHandler>()
             .AddRequestHandler<ReviseCommitmentDraftHandler>()
             .AddRequestHandler<GetCommitmentDraftHandler>()

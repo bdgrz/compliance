@@ -15,9 +15,20 @@ public sealed class Member : Aggregate
     public bool IsSuspended => _isSuspended;
 
     public Member(Uuid tenantId, Uuid userId)
-        : base(
-            RbacIds.Member(tenantId, userId),
-            new EventStreamAddress(tenantId.ToString(), "rbac-members", RbacIds.Member(tenantId, userId).ToString()))
+        : this(tenantId, RbacIds.Member(tenantId, userId), userId)
+    {
+    }
+
+    /// <summary>
+    ///     Opens a member stream by member identity for read-only verification, such as checking
+    ///     that a responsibility holder is still active. Commands require the user constructor.
+    /// </summary>
+    public static Member ForVerification(Uuid tenantId, Uuid memberId) =>
+        new(tenantId, memberId, Uuid.Empty);
+
+    Member(Uuid tenantId, Uuid memberId, Uuid userId)
+        : base(memberId,
+            new EventStreamAddress(tenantId.ToString(), "rbac-members", memberId.ToString()))
     {
         _tenantId = tenantId;
         _userId = userId;
@@ -32,6 +43,7 @@ public sealed class Member : Aggregate
 
     public Result Register(string affiliation = "client_personnel")
     {
+        EnsureUserIdentity();
         if (affiliation is not ("client_personnel" or "firm_staff"))
             return Result.Failure(new RequestError(RequestErrorKind.Validation, "Invalid membership affiliation."));
         if (!_isRegistered)
@@ -45,6 +57,7 @@ public sealed class Member : Aggregate
     public Result Suspend(Uuid actorMemberId, string actorDisplay, DateTimeOffset suspendedAt,
         string reason)
     {
+        EnsureUserIdentity();
         if (!_isRegistered)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant member was not found."));
@@ -64,6 +77,7 @@ public sealed class Member : Aggregate
 
     public Result Reinstate(Uuid actorMemberId, string actorDisplay, DateTimeOffset reinstatedAt)
     {
+        EnsureUserIdentity();
         if (!_isRegistered)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant member was not found."));
@@ -76,5 +90,12 @@ public sealed class Member : Aggregate
         RaiseEvent(new MemberReinstated(_tenantId, Id, _userId, _affiliation!, actorMemberId,
             actorDisplay.Trim(), reinstatedAt));
         return Result.Success;
+    }
+
+    void EnsureUserIdentity()
+    {
+        if (_userId == Uuid.Empty)
+            throw new InvalidOperationException(
+                "A member opened for verification cannot record membership changes.");
     }
 }

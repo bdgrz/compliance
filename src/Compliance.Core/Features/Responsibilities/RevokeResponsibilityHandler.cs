@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -21,6 +22,13 @@ public sealed class RevokeResponsibilityHandler(IAggregateExecutor executor,
             return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
                 "Responsibility management requires a Bdgrz user identity."));
         var actorMemberId = RbacIds.Member(request.TenantId, actorUserId);
+        if (request.RecordType == SeparationOfDutiesRecordTypes.Control)
+            return await executor.ExecuteAsync(new ControlDraft(request.TenantId,
+                request.Scope.RecordId), control => CommandFailureRequestAdapter.ToOutcome(
+                control.RevokeResponsibility(request.Scope, request.AssignmentId, actorMemberId,
+                    UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId),
+                    clock.GetUtcNow(), request.Reason)),
+                context, ct).ConfigureAwait(false);
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.Scope.RecordId), boundary =>
         {
             var failure = boundary.RevokeResponsibility(request.Scope, request.AssignmentId,
