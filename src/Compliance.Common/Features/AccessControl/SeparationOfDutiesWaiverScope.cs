@@ -18,6 +18,8 @@ public static class SeparationOfDutiesRecordTypes
     public const string SystemInstanceAccessReviewScope = "system_instance_access_review_scope";
 
     public const string Commitment = "commitment";
+
+    public const string Control = "control";
 }
 
 public static class SeparationOfDutiesActions

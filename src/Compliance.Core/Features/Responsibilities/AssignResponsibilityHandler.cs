@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
@@ -41,11 +42,21 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
             currentMember.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The responsibility assignee must be an active tenant member."));
+        var memberId = RbacIds.Member(request.TenantId, request.MemberUserId);
+        var assignedAt = clock.GetUtcNow();
+        // Responsibilities live on the aggregate that owns the exact record version, so the
+        // assignment and the record's revision share one optimistic concurrency boundary.
+        if (request.RecordType == SeparationOfDutiesRecordTypes.Control)
+            return await executor.ExecuteAsync(new ControlDraft(request.TenantId,
+                request.Scope.RecordId), control => CommandFailureRequestAdapter.ToOutcome(
+                control.AssignResponsibility(request.Scope, context.RequestId, memberId,
+                    request.Type, actorMemberId, actorDisplay, assignedAt,
+                    request.EffectiveFrom, request.EffectiveUntil, waivers)),
+                context, ct).ConfigureAwait(false);
         return await executor.ExecuteAsync(new SystemBoundary(request.TenantId, request.Scope.RecordId), boundary =>
         {
             var failure = boundary.AssignResponsibility(request.Scope, context.RequestId,
-                RbacIds.Member(request.TenantId, request.MemberUserId), request.Type,
-                actorMemberId, actorDisplay, clock.GetUtcNow(),
+                memberId, request.Type, actorMemberId, actorDisplay, assignedAt,
                 request.EffectiveFrom, request.EffectiveUntil, waivers);
             return CommandFailureRequestAdapter.ToOutcome(failure);
         }, context, ct).ConfigureAwait(false);

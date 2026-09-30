@@ -100,6 +100,12 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control.draft.list",
             "bdgrz.control.draft.revision.get",
             "bdgrz.control.draft.revisions.list",
+            "bdgrz.control.version.get",
+            "bdgrz.control.version.current.get",
+            "bdgrz.control.version.effective.get",
+            "bdgrz.control.versions.list",
+            "bdgrz.control.decision.get",
+            "bdgrz.control.decisions.list",
             "bdgrz.commitment.draft.create",
             "bdgrz.commitment.draft.revise",
             "bdgrz.commitment.draft.get",
@@ -239,6 +245,9 @@ public sealed class RbacMcpScenarioTests
                  {
                      "bdgrz.control.draft.get", "bdgrz.control.draft.list",
                      "bdgrz.control.draft.revision.get", "bdgrz.control.draft.revisions.list",
+                     "bdgrz.control.version.get", "bdgrz.control.version.current.get",
+                     "bdgrz.control.version.effective.get", "bdgrz.control.versions.list",
+                     "bdgrz.control.decision.get", "bdgrz.control.decisions.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
@@ -249,6 +258,8 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.control.draft.discard");
         Assert.True(discardControlDraft.Destructive);
         Assert.NotEqual(true, discardControlDraft.ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.control.review" or
+            "bdgrz.control.approve");
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",

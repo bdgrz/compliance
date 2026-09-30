@@ -87,6 +87,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListControlDrafts>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlDraftRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetControlDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<GetControlVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCurrentControlVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEffectiveControlVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetControlDecision>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlDecisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateCommitmentDraft>()
         .AddMcpTool<ReviseCommitmentDraft>()
         .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
@@ -444,6 +450,39 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Controls");
     app.MapPortiaGet<GetControlDraftRevision, ControlDraftRevisionView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    // Review and approval are human decisions and stay HTTP-only; no MCP tools are registered.
+    app.MapPortiaPost<ReviewControl>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPost<ApproveControl>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetCurrentControlVersion, ControlVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/current-version")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetEffectiveControlVersion, ControlVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/effective-version")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<ListControlVersions, Page<ControlVersionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlVersion, ControlVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/versions/{version_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<ListControlDecisions, Page<ControlDecisionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaGet<GetControlDecision, ControlDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/decisions/{decision_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Controls");
     app.MapPortiaPost<CreateCommitmentDraft, CommitmentDraftRegistration>(
