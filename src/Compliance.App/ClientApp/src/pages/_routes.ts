@@ -82,6 +82,9 @@ const ProgramDetailPage = lazy(() =>
 const ProgramRisksPage = lazy(() =>
   import('../features/risks/pages/program-risks.js').then((module) => module.ProgramRisksPage)
 );
+const ProgramReadinessPage = lazy(() =>
+  import('../features/readiness/pages/program-readiness.js').then((module) => module.ProgramReadinessPage)
+);
 const InventoryPage = lazy(() =>
   import('../features/inventory/pages/inventory.js').then((module) => module.InventoryPage)
 );
@@ -166,6 +169,7 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/programs', ProgramsPage);
           route('/{slug}/programs/{programId}', ProgramDetailPage);
           route('/{slug}/programs/{programId}/risks', ProgramRisksPage);
+          route('/{slug}/programs/{programId}/readiness', ProgramReadinessPage);
           route('/{slug}/inventory', InventoryPage);
           route('/{slug}/applications', ApplicationsPage);
           route('/{slug}/applications/{applicationId}', ApplicationDetailPage);
