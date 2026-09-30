@@ -152,3 +152,18 @@ svg {
   gap: var(--ak-space-sm, 0.75rem);
 }
 
+.setup-work,
+.stage-plan {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.stage-plan li[aria-current='step'] {
+  font-weight: 600;
+}
+
+.setup-work-source {
+  color: var(--ak-color-text-muted, GrayText);
+}
