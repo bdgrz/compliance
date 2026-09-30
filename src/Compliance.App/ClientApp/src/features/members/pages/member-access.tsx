@@ -15,6 +15,7 @@ import {
 
 import { organizationPath } from '../../tenants/tenants.js';
 import { getMemberAccess, MemberRequestError, type MemberAccess } from '../members.js';
+import { MembershipPanel } from './membership-panel.js';
 
 function scopeLabel(scope: { kind: string; id: string }) {
   return scope.kind === 'organization' ? 'Whole organization' : `${scope.kind} ${scope.id.slice(0, 8)}`;
@@ -78,6 +79,7 @@ export function MemberAccessPage({ userId }: { userId: string }) {
       />
       <Stack gap="md">
         {back}
+        <MembershipPanel userId={userId} onChanged={() => access.refresh()} />
         <Card>
           <CardHeader>
             <CardTitle>Effective permissions</CardTitle>

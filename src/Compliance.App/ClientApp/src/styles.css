@@ -133,3 +133,7 @@ svg {
 .role-explanation {
   color: var(--ak-color-text-muted, GrayText);
 }
+
+.consequence {
+  margin: 0;
+}

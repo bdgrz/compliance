@@ -136,3 +136,74 @@ function failure(result: { ok: false; kind: string; status: number; error?: unkn
     result.kind === 'http' ? result.status : null
   );
 }
+
+export interface MembershipState {
+  userId: string;
+  affiliation: string;
+  suspended: boolean;
+  suspendedAt: string | null;
+  suspendedBy: string | null;
+  suspensionReason: string | null;
+}
+
+export interface OpenResponsibility {
+  assignmentId: string;
+  type: string;
+  recordType: string;
+  recordId: string;
+  revision: string;
+  assignedAt: string;
+}
+
+export async function getMembership(userId: string): Promise<MembershipState> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.getTenantMember({ params: { tenant_id: tenantId, user_id: userId } });
+  if (!result.ok) throw failure(result, 'load this member');
+  if (!result.data) throw new MemberRequestError('This member was not found.', 404);
+  return {
+    userId: result.data.user_id,
+    affiliation: result.data.affiliation ?? 'client_personnel',
+    suspended: result.data.is_suspended ?? false,
+    suspendedAt: result.data.suspended_at ?? null,
+    suspendedBy: result.data.suspended_by_display ?? null,
+    suspensionReason: result.data.suspension_reason ?? null,
+  };
+}
+
+// Responsibilities still assigned to the member and not revoked or ended. When the member is
+// suspended these are the orphaned work items that need a new owner.
+export async function listOpenResponsibilities(
+  userId: string,
+  now = Date.now()
+): Promise<OpenResponsibility[]> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.listMemberResponsibilities({ params: { tenant_id: tenantId, user_id: userId } });
+  if (!result.ok) throw failure(result, "load this member's responsibilities");
+  return (result.data ?? [])
+    .filter((item) => item !== null)
+    .filter(
+      (item) =>
+        item.revoked_at === null &&
+        (item.effective_until === null || Date.parse(item.effective_until) > now)
+    )
+    .map((item) => ({
+      assignmentId: item.assignment_id,
+      type: item.type,
+      recordType: item.scope.record_type,
+      recordId: item.scope.record_id,
+      revision: String(item.scope.revision),
+      assignedAt: item.assigned_at,
+    }));
+}
+
+export async function suspendMember(userId: string, reason: string): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.suspendMember({ params: { tenant_id: tenantId, user_id: userId }, body: { reason } });
+  if (!result.ok) throw failure(result, 'suspend this member');
+}
+
+export async function reinstateMember(userId: string): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.reinstateMember({ params: { tenant_id: tenantId, user_id: userId } });
+  if (!result.ok) throw failure(result, 'reinstate this member');
+}
