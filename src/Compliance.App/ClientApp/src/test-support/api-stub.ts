@@ -25,8 +25,11 @@ export function stubApi() {
     requested.push(url.pathname);
     const text = request ? await request.clone().text() : typeof init?.body === 'string' ? init.body : '';
     bodies.push({ method, path: url.pathname, body: text ? JSON.parse(text) : undefined });
+    const prefix = [...replies.entries()].find(
+      ([key]) => key.endsWith('*') && `${method} ${url.pathname}`.startsWith(key.slice(0, -1))
+    )?.[1];
     const match =
-      replies.get(`${method} ${url.pathname}`) ?? replies.get(url.pathname) ?? { status: 404 };
+      replies.get(`${method} ${url.pathname}`) ?? replies.get(url.pathname) ?? prefix ?? { status: 404 };
     return new Response(match.body === undefined ? null : JSON.stringify(match.body), {
       status: match.status,
       headers: {
@@ -38,7 +41,8 @@ export function stubApi() {
   return {
     requested,
     bodies,
-    // `path` may be prefixed with a method, e.g. 'POST /api/v1/...', to answer one method only.
+    // `path` may be prefixed with a method, e.g. 'POST /api/v1/...', to answer one method only, and
+    // a method-prefixed key ending in '*' answers every path that starts with it.
     reply(path: string, status: number, body?: unknown) {
       replies.set(path, { status, body });
     },
