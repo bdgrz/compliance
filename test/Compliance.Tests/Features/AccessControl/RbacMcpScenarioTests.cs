@@ -160,7 +160,12 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.workforce.person.record",
             "bdgrz.workforce.person.revise", "bdgrz.workforce.work-relationship.get", "bdgrz.workforce.work-relationship.list", "bdgrz.workforce.work-relationship.record", "bdgrz.workforce.work-relationship.revise",
             "bdgrz.workforce.person.get",
-            "bdgrz.workforce.person.list");
+            "bdgrz.workforce.person.list",
+            "bdgrz.workforce.observation.list",
+            "bdgrz.workforce.service-identity.record",
+            "bdgrz.workforce.service-identity.revise",
+            "bdgrz.workforce.service-identity.get",
+            "bdgrz.workforce.service-identity.list");
         var tools = await scenario.ListTools();
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.revision.get").ReadOnly);

@@ -129,6 +129,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseWorkRelationship>(tool => tool.Idempotent())
         .AddMcpTool<GetWorkRelationship>(tool => tool.ReadOnly())
         .AddMcpTool<ListWorkRelationships>(tool => tool.ReadOnly())
+        .AddMcpTool<ListWorkforceObservations>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordServiceIdentity>()
+        .AddMcpTool<ReviseServiceIdentity>(tool => tool.Idempotent())
+        .AddMcpTool<GetServiceIdentity>(tool => tool.ReadOnly())
+        .AddMcpTool<ListServiceIdentities>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -492,6 +497,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Workforce");
     app.MapPortiaGet<ListWorkRelationships, Page<WorkRelationshipView>>(
             "/api/v1/tenants/{tenant_id}/work-relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<ListWorkforceObservations, Page<WorkforceObservationView>>(
+            "/api/v1/tenants/{tenant_id}/workforce-observations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPost<RecordServiceIdentity, ServiceIdentityRegistration>(
+            "/api/v1/tenants/{tenant_id}/service-identities")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPut<ReviseServiceIdentity>(
+            "/api/v1/tenants/{tenant_id}/service-identities/{service_identity_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<GetServiceIdentity, ServiceIdentityView>(
+            "/api/v1/tenants/{tenant_id}/service-identities/{service_identity_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<ListServiceIdentities, Page<ServiceIdentityView>>(
+            "/api/v1/tenants/{tenant_id}/service-identities")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(

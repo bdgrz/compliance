@@ -74,5 +74,29 @@ Each relationship owns a `work-relationships/{relationship_id}` stream, and
 - The employment status reason and personal contact fields, and a separate
   restricted-field grant; today lists redact the manager and single reads
   require `workforce.manage`.
-- Joiner, mover, and leaver observations (#221), correlation to platform
-  membership, and HRIS import.
+- Missing, duplicate, conflicting, stale, and access-only roster observations,
+  resolving observations, correlation to platform membership, and HRIS import.
+
+## Joiner, mover, and leaver observations (#221, partial)
+
+`WorkforceObservationsV1` compares each accepted `work-relationships` version
+with the previous one. A new or rehired relationship is a `joiner`, a change to
+`ended` is a `leaver`, and a change of worker type, department, or sponsor is a
+`mover` (manager-only changes are restricted and produce none). Observations are
+open compliance work only; they never grant or revoke access.
+`GET .../workforce-observations` (optional `kind`, `limit`, `cursor`,
+lag-checked) and an MCP tool list them.
+
+## Non-human identities (#223, partial)
+
+`ServiceIdentity` (`service-identities/{id}` stream, `ServiceIdentityDirectoryV1`)
+records a display name, identity kind (`workload`, `service`, `automation`,
+`bot`, `integration`), approved purpose, optional environment, lifecycle
+(`active`, `disabled`, `retired`), exactly one owner (`owner_kind` `person` or
+`team`, validated against a recorded person or active team), and a `review_by`
+date in the future and at most one year out. HTTP and MCP record, revise, get,
+and list operations require `workforce.manage`. Reads evaluate `unowned` with
+`unowned_reasons` (`review_expired`, `owner_relationship_ended`,
+`owner_not_on_roster`, `owner_team_deleted`); `unowned_only` filters a list
+page. Not yet delivered: expiry date, non-manual sources, and account
+correlation.
