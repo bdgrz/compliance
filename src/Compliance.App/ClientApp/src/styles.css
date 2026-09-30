@@ -266,3 +266,49 @@ svg {
 .inventory-records + details textarea {
   min-block-size: 4rem;
 }
+
+.application-unresolved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ak-space-xs, 0.5rem);
+  margin: var(--ak-space-xs, 0.5rem) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.application-unresolved li,
+.application-tag {
+  padding-inline: var(--ak-space-xs, 0.5rem);
+  border: 1px solid var(--ak-color-border);
+  border-radius: 999px;
+  font-size: 0.875em;
+}
+
+.application-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ak-space-xs, 0.5rem) var(--ak-space-sm, 0.75rem);
+  margin: 0;
+}
+
+.application-facts dd {
+  margin: 0;
+}
+
+.change-preview {
+  padding: var(--ak-space-sm, 0.75rem);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md, 0.5rem);
+}
+
+.change-preview-incomplete,
+.application-retired {
+  font-weight: 600;
+}
+
+.scope-choice {
+  display: grid;
+  gap: var(--ak-space-xs, 0.5rem);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md, 0.5rem);
+}
