@@ -22,6 +22,9 @@ public static class SeparationOfDutiesRecordTypes
     public const string Control = "control";
 
     public const string ControlCriterionMapping = "control_criterion_mapping";
+
+    /// <summary>A management readiness decision; the version is the assessment ID.</summary>
+    public const string ReadinessAssessment = "readiness_assessment";
 }
 
 public static class SeparationOfDutiesActions

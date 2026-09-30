@@ -1,0 +1,317 @@
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.ControlMappings;
+using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Readiness;
+using Bdgrz.Compliance.Features.Responsibilities;
+using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Tests.Features.ControlMappings;
+using Bdgrz.Compliance.Tests.Testing;
+using Cntryl.Fitz.Extensions;
+using Cntryl.Portia;
+using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Bdgrz.Compliance.Tests.Features.Readiness;
+
+public sealed class ReadinessAssessmentHandlerTests
+{
+    static readonly Uuid Edition = Uuid.CreateVersion5(Uuid.Empty, "mapping-test-current");
+
+    [Fact]
+    public async Task ShouldRecordExplainableFindingsGivenMappedAndUnmappedCriteria()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.MapAsync("CC6.1", fixture.ReviewedAt);
+
+        // Act
+        var assessment = await fixture.RunAsync(0);
+
+        // Assert
+        Assert.Equal(ReadinessRules.Version, assessment.RuleVersion);
+        Assert.Equal(Edition, assessment.EditionId);
+        Assert.DoesNotContain(assessment.Findings, f => f.CriterionIdentifier.StartsWith("bdgrz:",
+            StringComparison.Ordinal));
+        var met = assessment.Findings.Where(f => f.CriterionIdentifier == "CC6.1").ToArray();
+        Assert.All(met, f => Assert.Equal("rule_met", f.Outcome));
+        Assert.Contains(met.SelectMany(f => f.Sources), s => s.Kind == "control_version" &&
+            s.Id == fixture.ControlVersionId);
+        var unmapped = Assert.Single(assessment.Findings, f => f.CriterionIdentifier == "CC6.2" &&
+            f.RuleId == ReadinessRules.CriterionMapped);
+        Assert.Equal("gap", unmapped.Outcome);
+        Assert.Contains(assessment.Gaps, g => g.GapId == unmapped.GapId);
+        Assert.Contains(assessment.Inputs, i => i.Family == "risks" && i.Status == "not_assessed");
+        Assert.Contains(assessment.Gaps, g => g.Kind == "input_not_assessed" &&
+            g.Subject == "risks");
+        Assert.Null(assessment.Decision);
+        Assert.Equal(64, assessment.InputFingerprint.Length);
+    }
+
+    [Fact]
+    public async Task ShouldExcludeLaterMappingGivenAssessmentAsOfBeforeReview()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.MapAsync("CC6.1", fixture.ReviewedAt);
+
+        // Act
+        var earlier = await fixture.RunAsync(0, fixture.ReviewedAt.AddMinutes(-5));
+        var later = await fixture.RunAsync(1, fixture.ReviewedAt.AddMinutes(5));
+
+        // Assert
+        Assert.Equal("gap", Assert.Single(earlier.Findings, f => f.CriterionIdentifier ==
+            "CC6.1" && f.RuleId == ReadinessRules.CriterionMapped).Outcome);
+        Assert.Equal("rule_met", Assert.Single(later.Findings, f => f.CriterionIdentifier ==
+            "CC6.1" && f.RuleId == ReadinessRules.CriterionMapped).Outcome);
+        Assert.NotEqual(earlier.InputFingerprint, later.InputFingerprint);
+        var gapIds = earlier.Gaps.Where(g => g.Subject == "CC6.2").Select(g => g.GapId);
+        Assert.Equal(gapIds, later.Gaps.Where(g => g.Subject == "CC6.2").Select(g => g.GapId));
+    }
+
+    [Fact]
+    public async Task ShouldRecordGapGivenMappedControlWithoutEffectiveVersion()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync(DateOnly.FromDateTime(DateTime.UtcNow)
+            .AddDays(30));
+        await fixture.MapAsync("CC6.1", fixture.ReviewedAt);
+
+        // Act
+        var assessment = await fixture.RunAsync(0);
+
+        // Assert
+        var finding = Assert.Single(assessment.Findings, f => f.CriterionIdentifier == "CC6.1" &&
+            f.RuleId == ReadinessRules.MappedControlEffective);
+        Assert.Equal("gap", finding.Outcome);
+        Assert.Contains(finding.Sources, s => s.Kind == "control_criterion_mapping");
+    }
+
+    [Fact]
+    public async Task ShouldRecordAcknowledgedInputGapGivenProgramWithoutCriteriaEdition()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync(selectEdition: false);
+
+        // Act
+        var assessment = await fixture.RunAsync(0);
+
+        // Assert
+        Assert.Null(assessment.EditionId);
+        Assert.Empty(assessment.Findings);
+        Assert.Contains(assessment.Gaps, g => g.Kind == "input_not_assessed" &&
+            g.Subject == "criteria_catalog");
+    }
+
+    [Fact]
+    public async Task ShouldRejectRunGivenFutureAsOfOrStaleRevision()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.RunAsync(0);
+
+        await fixture.Scenario(fixture.RunnerUserId)
+            // Act
+            .When(new RunReadinessAssessment(fixture.TenantId, fixture.ProgramId, 0))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.RunnerUserId)
+            .When(new RunReadinessAssessment(fixture.TenantId, fixture.ProgramId, 1,
+                DateTimeOffset.UtcNow.AddDays(1)))
+            .ExpectFailure(RequestErrorKind.Validation);
+    }
+
+    [Fact]
+    public async Task ShouldRejectDecisionGivenRunnerDecidesOwnAssessment()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+
+        await fixture.Scenario(fixture.RunnerUserId)
+            // Act
+            .When(new DecideReadiness(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "do_not_proceed", "Too many gaps."))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task ShouldRequireOwnedGapPlanGivenProceedDecision()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var decide = new DecideReadiness(fixture.TenantId, fixture.ProgramId,
+            assessment.AssessmentId, 1, "proceed", "Gaps have owners and dates.");
+        await fixture.Scenario(fixture.DeciderUserId).When(decide)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var revision = 1L;
+        foreach (var gap in assessment.Gaps)
+        {
+            await fixture.Scenario(fixture.RunnerUserId)
+                .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId, gap.GapId,
+                    revision, fixture.OwnerMemberId, new DateOnly(2027, 3, 31), "Close it."))
+                .ExpectSuccess();
+            revision++;
+        }
+
+        // Act
+        var decision = await fixture.Scenario(fixture.DeciderUserId)
+            .When(decide with { ExpectedRevision = revision }).ExpectSuccess();
+
+        // Assert
+        Assert.Equal("proceed", decision.Value.Outcome);
+        var read = await fixture.GetAsync(assessment.AssessmentId);
+        Assert.Equal("proceed", read.Decision!.Outcome);
+        Assert.All(read.Gaps, g => Assert.Equal(fixture.OwnerMemberId, g.Plan!.OwnerMemberId));
+        var unplanned = await fixture.QueryAsync<ListReadinessGaps, Page<ReadinessGapView>>(
+            new ListReadinessGaps(fixture.TenantId, fixture.ProgramId, assessment.AssessmentId,
+                "unplanned"));
+        Assert.Empty(unplanned.Items);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(decide with { ExpectedRevision = revision + 1, Outcome = "do_not_proceed" })
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var list = await fixture.QueryAsync<ListReadinessAssessments,
+            Page<ReadinessAssessmentSummaryView>>(new ListReadinessAssessments(fixture.TenantId,
+            fixture.ProgramId));
+        Assert.Equal("proceed", Assert.Single(list.Items).DecisionOutcome);
+    }
+
+    [Fact]
+    public async Task ShouldRejectGapPlanGivenUnknownGap()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.RunAsync(0);
+
+        await fixture.Scenario(fixture.RunnerUserId)
+            // Act
+            .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId,
+                Uuid.CreateVersion4(), 1, fixture.OwnerMemberId, new DateOnly(2027, 1, 1),
+                "Plan."))
+            // Assert
+            .ExpectFailure(RequestErrorKind.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldReturnNotFoundGivenAssessmentFromAnotherTenantOrProgram()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+
+        await fixture.Scenario(fixture.DeciderUserId)
+            // Act
+            .When(new GetReadinessAssessment(fixture.TenantId, Uuid.CreateVersion4(),
+                assessment.AssessmentId))
+            // Assert
+            .ExpectFailure(RequestErrorKind.NotFound);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new GetReadinessAssessment(Uuid.CreateVersion4(), fixture.ProgramId,
+                assessment.AssessmentId))
+            .ExpectFailure(RequestErrorKind.NotFound);
+    }
+
+    static Result Command(CommandFailure? failure) => failure is null
+        ? Result.Success
+        : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
+
+    sealed class Fixture
+    {
+        public required ServiceProvider Provider { get; init; }
+        public Uuid TenantId { get; } = Uuid.CreateVersion4();
+        public Uuid ProgramId { get; } = Uuid.CreateVersion4();
+        public Uuid RunnerUserId { get; } = Uuid.CreateVersion4();
+        public Uuid DeciderUserId { get; } = Uuid.CreateVersion4();
+        public Uuid OwnerMemberId { get; } = Uuid.CreateVersion4();
+        public DateTimeOffset ReviewedAt { get; } = DateTimeOffset.UtcNow.AddHours(-1);
+        public Uuid ControlId => ControlDraft.IdFor(TenantId, ProgramId, "AC-READY");
+        public Uuid ControlVersionId => ControlVersionIds.Initial(ControlId);
+
+        public static async Task<Fixture> CreateAsync(DateOnly? effectiveFrom = null,
+            bool selectEdition = true)
+        {
+            var provider = ProgramManagementServices.Build(
+                new RecordingPermissionAuthorizer(allowed: true),
+                portia => portia.AddRequestHandler<RunReadinessAssessmentHandler>()
+                    .AddRequestHandler<GetReadinessAssessmentHandler>()
+                    .AddRequestHandler<ListReadinessAssessmentsHandler>()
+                    .AddRequestHandler<ListReadinessGapsHandler>()
+                    .AddRequestHandler<PlanReadinessGapHandler>()
+                    .AddRequestHandler<DecideReadinessHandler>(),
+                services => services.AddSingleton<ICriteriaCatalog>(
+                    ControlCriterionMappingHandlerTests.TestCatalog()));
+            var fixture = new Fixture { Provider = provider };
+            var now = DateTimeOffset.UtcNow.AddDays(-1);
+            var admin = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(provider,
+                new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
+                    Command(program.Create("SOC 2", new ProgramPlan(null, null, null, null, null,
+                        null), admin, "Admin", now)));
+            if (selectEdition)
+                await ProgramManagementServices.SeedAsync(provider,
+                    new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
+                        Command(program.SelectCriteriaEdition(1, Edition, admin, "Admin", now)));
+            var owner = Uuid.CreateVersion4();
+            var reviewId = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(provider,
+                new ControlDraft(fixture.TenantId, fixture.ControlId), control =>
+                {
+                    var created = control.Create(fixture.ProgramId, Uuid.CreateVersion4(),
+                        "AC-READY", new ControlDraftContent("Access review", "Review access",
+                            "Management reviews access", "Quarterly review.", ["Record"]),
+                        admin, "Admin", now);
+                    Assert.True(created.IsSuccess);
+                    Assert.Null(control.AssignResponsibility(new ResponsibilityScope("control",
+                            fixture.ControlId, fixture.ControlVersionId, 1), Uuid.CreateVersion4(),
+                        owner, ResponsibilityType.ControlOwner, admin, "Admin", now,
+                        now.AddMinutes(-1), null, []));
+                    Assert.Null(control.Review(fixture.ProgramId, 1, reviewId, "accept", "Ok",
+                        Uuid.CreateVersion4(), "Reviewer", now));
+                    return Command(control.Approve(fixture.ProgramId, 1, Uuid.CreateVersion4(),
+                        reviewId, effectiveFrom ?? DateOnly.FromDateTime(now.UtcDateTime),
+                        "Ready", new HashSet<Uuid> { owner }, Uuid.CreateVersion4(), "Approver",
+                        now));
+                });
+            return fixture;
+        }
+
+        public Task MapAsync(string identifier, DateTimeOffset reviewedAt) =>
+            ProgramManagementServices.SeedAsync(Provider,
+                new ControlCriterionMappingLedger(TenantId, ProgramId), ledger =>
+                {
+                    var mappingId = ControlCriterionMappingLedger.MappingIdFor(ProgramId,
+                        ControlId, Edition, identifier);
+                    Assert.Null(ledger.Propose(ControlId, ControlVersionId, Edition, identifier,
+                        "criterion", 0, "Access reviews restrict access.", "All systems.",
+                        Uuid.CreateVersion4(), "Author", reviewedAt.AddMinutes(-10), out _));
+                    return Command(ledger.Review(mappingId, 1, Uuid.CreateVersion4(), "accept",
+                        "Matches.", Uuid.CreateVersion4(), "Reviewer", reviewedAt));
+                });
+
+        public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
+            .GivenActor(ProgramManagementServices.Actor(userId));
+
+        public async Task<ReadinessAssessmentView> RunAsync(long expectedRevision,
+            DateTimeOffset? asOf = null)
+        {
+            var result = await Scenario(RunnerUserId)
+                .When(new RunReadinessAssessment(TenantId, ProgramId, expectedRevision, asOf))
+                .ExpectSuccess();
+            return await GetAsync(result.Value.AssessmentId);
+        }
+
+        public Task<ReadinessAssessmentView> GetAsync(Uuid assessmentId) =>
+            QueryAsync<GetReadinessAssessment, ReadinessAssessmentView>(
+                new GetReadinessAssessment(TenantId, ProgramId, assessmentId));
+
+        public async Task<TOut> QueryAsync<TRequest, TOut>(TRequest request)
+            where TRequest : IRequest<TOut>
+        {
+            var result = await Scenario(DeciderUserId).When(request).ExpectSuccess();
+            return result.Value;
+        }
+    }
+}
