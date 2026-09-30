@@ -16,6 +16,8 @@ public static class SeparationOfDutiesRecordTypes
 
     /// <summary>An access-review scope decision; the version is the instance ID.</summary>
     public const string SystemInstanceAccessReviewScope = "system_instance_access_review_scope";
+
+    public const string Commitment = "commitment";
 }
 
 public static class SeparationOfDutiesActions
