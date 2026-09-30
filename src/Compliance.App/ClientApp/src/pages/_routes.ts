@@ -64,6 +64,12 @@ const TeamDetailPage = lazy(() =>
     (module) => module.TeamDetailPage
   )
 );
+const MembersPage = lazy(() =>
+  import('../features/members/pages/members-list.js').then((module) => module.MembersPage)
+);
+const MemberAccessPage = lazy(() =>
+  import('../features/members/pages/member-access.js').then((module) => module.MemberAccessPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -100,6 +106,8 @@ export const pageRegistry = createRouteRegistry(
               html: { lang: 'en', dir: 'ltr' },
             },
           });
+          route('/{slug}/members', MembersPage);
+          route('/{slug}/members/{userId}', MemberAccessPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);
