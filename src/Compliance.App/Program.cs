@@ -117,6 +117,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
+        .AddMcpTool<RetireApplication>(tool => tool.Idempotent())
+        .AddMcpTool<RetireSystemInstance>(tool => tool.Idempotent())
+        .AddMcpTool<GetAccessReviewScope>(tool => tool.ReadOnly())
         .AddMcpTool<StageApplicationImport>(tool => tool.Idempotent())
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
@@ -547,6 +550,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("Preview the known impact of a proposed application change")
         .WithTags("Applications");
+    app.MapPortiaPost<RetireApplication>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Retire an application from an effective date, optionally merged into a successor")
+        .WithTags("Applications");
+    app.MapPortiaPost<RetireSystemInstance>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Retire a system instance from an effective date")
+        .WithTags("System instances");
+    app.MapPortiaPost<DecideAccessReviewScope, AccessReviewScopeDecisionView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/access-review-scope-decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Approve an effective-dated access-review scope decision")
+        .WithTags("System instances");
+    app.MapPortiaGet<GetAccessReviewScope, AccessReviewScopeView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/access-review-scope")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Read the effective access-review scope decision and its history")
+        .WithTags("System instances");
     app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
             "/api/v1/tenants/{tenant_id}/application-imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

@@ -59,6 +59,23 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
                     "Application impact preview requires organization-wide program access."));
         }
 
+        if (context.Request is DecideAccessReviewScope decision)
+        {
+            // M0-D05: the Compliance Lead approves scope. Until a dedicated role exists this is an
+            // organization-wide program-management grant, not a grant to one Program.
+            if (!await resourceScopes.IsTenantApplicationAsync(tenantId, decision.ApplicationId, ct)
+                    .ConfigureAwait(false))
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The application was not found."));
+            var visibility = await scopedPermissions.GetProgramVisibilityAsync(tenantId, userId,
+                    memberId, IProgramScopedRequest.ManagementPermission, ct)
+                .ConfigureAwait(false);
+            return visibility.OrganizationWide
+                ? Result.Success
+                : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                    "Access-review scope approval requires organization-wide program management."));
+        }
+
         if (context.Request is ListPrograms or ListClientServices)
         {
             var visibility = await scopedPermissions.GetProgramVisibilityAsync(tenantId, userId,

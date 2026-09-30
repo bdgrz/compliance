@@ -13,6 +13,9 @@ public sealed record SeparationOfDutiesWaiverScope(
 public static class SeparationOfDutiesRecordTypes
 {
     public const string Boundary = "boundary";
+
+    /// <summary>An access-review scope decision; the version is the instance ID.</summary>
+    public const string SystemInstanceAccessReviewScope = "system_instance_access_review_scope";
 }
 
 public static class SeparationOfDutiesActions

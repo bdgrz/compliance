@@ -23,4 +23,9 @@ public sealed record SystemInstanceView(Uuid TenantId, Uuid ApplicationId,
 
     public long Revision { get; init; }
     public long? LegacyApplicationRevision { get; init; }
+
+    /// <summary><c>active</c> or <c>retired</c>; retirement never removes history.</summary>
+    public string Lifecycle { get; init; } = "active";
+
+    public RetirementView? Retirement { get; init; }
 }

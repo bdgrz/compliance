@@ -29,6 +29,9 @@ public sealed class PreviewApplicationChangeHandler(
         if (!source.IsCreated)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
+        if (source.IsRetired)
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "The application is retired."));
         if (source.Revision != request.ExpectedApplicationRevision)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
@@ -76,6 +79,14 @@ public sealed class PreviewApplicationChangeHandler(
                 "The application control draft reference projection is inconsistent.",
                 isTransient: true));
 
+        var instancePage = await applications.ListInstancesAsync(request.TenantId,
+            request.ApplicationId, 200, null, ct).ConfigureAwait(false);
+        if (instancePage.Items.Any(item => item.TenantId != request.TenantId ||
+                                           item.ApplicationId != request.ApplicationId))
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "The system instance projection is inconsistent.",
+                isTransient: true));
+
         var boundaryCaughtUpAfterRead = await boundaryConsistency.EnsureCaughtUpAsync(
             request.TenantId, ct).ConfigureAwait(false);
         if (!boundaryCaughtUpAfterRead.IsSuccess)
@@ -98,19 +109,20 @@ public sealed class PreviewApplicationChangeHandler(
                 RequestErrorKind.Conflict, "The application changed during preview.",
                 isTransient: true));
 
-        IReadOnlyList<string> pending = (page.NextCursor, controlPage.NextCursor) switch
-        {
-            (null, null) => MissingContexts,
-            (not null, null) => ["boundary_references_over_limit", .. MissingContexts],
-            (null, not null) => ["control_draft_references_over_limit", .. MissingContexts],
-            _ => ["boundary_references_over_limit", "control_draft_references_over_limit",
-                .. MissingContexts],
-        };
+        List<string> pending = [];
+        if (page.NextCursor is not null)
+            pending.Add("boundary_references_over_limit");
+        if (controlPage.NextCursor is not null)
+            pending.Add("control_draft_references_over_limit");
+        if (instancePage.NextCursor is not null)
+            pending.Add("system_instance_references_over_limit");
+        pending.AddRange(MissingContexts);
         return Result<ApplicationChangePreview>.Success(new ApplicationChangePreview(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
             Changes(current, request), page.Items, pending, false)
         {
             ControlDraftReferences = controlPage.Items,
+            SystemInstanceReferences = instancePage.Items,
         });
     }
 
