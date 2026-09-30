@@ -206,6 +206,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetWorkforceRosterSnapshot>(tool => tool.ReadOnly())
         .AddMcpTool<GetWorkforceRosterSnapshotAsOf>(tool => tool.ReadOnly())
         .AddMcpTool<ListWorkforceRosterSnapshots>(tool => tool.ReadOnly())
+        .AddMcpTool<GetReadinessAssessment>(tool => tool.ReadOnly())
+        .AddMcpTool<ListReadinessAssessments>(tool => tool.ReadOnly())
+        .AddMcpTool<ListReadinessGaps>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -642,6 +645,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/evaluation/history")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
+    app.MapPortiaPost<RunReadinessAssessment, ReadinessAssessmentRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaGet<ListReadinessAssessments, Page<ReadinessAssessmentSummaryView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaGet<GetReadinessAssessment, ReadinessAssessmentView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaGet<ListReadinessGaps, Page<ReadinessGapView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/gaps")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaPost<DecideReadiness, ReadinessDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/decision")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaPut<PlanReadinessGap, ReadinessGapPlanView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/gaps/{gap_id}/plan")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
     app.MapPortiaPost<RecordPerson, PersonRegistration>(
             "/api/v1/tenants/{tenant_id}/people")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
