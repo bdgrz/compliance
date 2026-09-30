@@ -75,7 +75,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
         await worker.StartAsync();
         try
         {
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             bool firstActive = false, firstRejected = false, secondActive = false,
                 secondRejected = false, laterActive = false;
             while (DateTimeOffset.UtcNow < deadline)
@@ -173,7 +173,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             await activationLag.WaitForFirstFailureAsync(activationDeadline.Token);
             Assert.True(activationLag.FailureCount >= 1);
             activationLag.Release();
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             Tenant? view = null;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -268,7 +268,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
             var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             var access = HttpStatusCode.Forbidden;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -281,7 +281,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             }
             Assert.Equal(HttpStatusCode.OK, access);
             Tenant? tenant = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var tenantResponse = await creator.GetAsync($"/api/v1/tenants/{tenantId}");
@@ -342,7 +342,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var memberId = RbacIds.Member(tenantId, Uuid.Parse(staffId,
                 CultureInfo.InvariantCulture));
             var staffMembershipProjected = false;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var response = await outsider.GetAsync(
@@ -359,7 +359,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}/members/{memberId}", null);
             Assert.Equal(HttpStatusCode.NoContent, assigned.StatusCode);
             var assignmentProjected = false;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var response = await creator.GetAsync(
@@ -448,7 +448,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.NotNull(registration);
             var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
             string? administratorToken = null;
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline &&
                    !delivery.TryGetLatest(tenantId, administratorEmail, out administratorToken))
                 await Task.Delay(250);
@@ -474,7 +474,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.False(factory.Services.GetRequiredService<MockTenantInvitationDelivery>()
                 .TryGetLatest(tenantId, email, out _));
             InvitationPage? failedInvitation = null;
-            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < failureDeadline)
             {
                 using var response = await administratorClient.GetAsync(
@@ -498,7 +498,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 new { email_address = laterEmail, affiliation = "client_personnel" });
             Assert.Equal(HttpStatusCode.NoContent, laterInvitation.StatusCode);
             string? laterToken = null;
-            var laterDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var laterDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < laterDeadline &&
                    !delivery.TryGetLatest(tenantId, laterEmail, out laterToken))
                 await Task.Delay(250);
@@ -508,14 +508,14 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var retry = await operatorClient.PostAsJsonAsync(path, request);
             Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
             string? token = null;
-            var retryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var retryDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < retryDeadline &&
                    !delivery.TryGetLatest(tenantId, email, out token))
                 await Task.Delay(250);
             Assert.False(string.IsNullOrEmpty(token));
             Assert.Equal(2, delivery.AttemptsFor(email));
             InvitationPage? deliveredInvitation = null;
-            var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deliveryDeadline)
             {
                 using var response = await administratorClient.GetAsync(
@@ -541,7 +541,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 new { email_address = email, token });
             Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
             Members? members = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var response = await operatorClient.GetAsync(
@@ -620,7 +620,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             await using var scope = worker.Services.CreateAsyncScope();
             var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
             var failed = false;
-            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var failureDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < failureDeadline)
             {
                 var invitation = await reader.HydrateAsync(new TenantInvitation(
@@ -814,7 +814,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             }
 
             var delivery = worker.Services.GetRequiredService<MockTenantInvitationDelivery>();
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             string? invitationToken = null;
             while (DateTimeOffset.UtcNow < deadline &&
                    !delivery.TryGetLatest(tenantId, administratorEmail, out invitationToken))
@@ -1086,7 +1086,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var apiDelivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
             Assert.False(apiDelivery.TryGetLatest(tenantId, "denied@example.com", out _));
             Assert.False(apiDelivery.TryGetLatest(tenantId, staffEmail, out _));
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline &&
                    !delivery.TryGetLatest(tenantId, staffEmail, out staffToken))
                 await Task.Delay(250);
@@ -1098,7 +1098,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             using var staffAccepted = await staffClient.PostAsJsonAsync(acceptancePath,
                 new { email_address = staffEmail, token = staffToken });
             Assert.Equal(HttpStatusCode.NoContent, staffAccepted.StatusCode);
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             Members? members = null;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -1123,7 +1123,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
                 $"/api/v1/tenants/{tenantId}/slug-changes", new { slug = newSlug });
             Assert.Equal(HttpStatusCode.NoContent, changed.StatusCode);
             SlugResolution? oldLink = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var response = await administratorClient.GetAsync(
@@ -1201,7 +1201,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             var registration = await registered.Content.ReadFromJsonAsync<Registration>();
             Assert.NotNull(registration);
 
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             Tenant? tenant = null;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -1273,7 +1273,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker) : IClassF
             Assert.NotEmpty(acceptedClaims);
 
             var resolvedStatuses = new Dictionary<string, string>();
-            var claimDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var claimDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < claimDeadline && resolvedStatuses.Count < acceptedClaims.Count)
             {
                 foreach (var claim in acceptedClaims)

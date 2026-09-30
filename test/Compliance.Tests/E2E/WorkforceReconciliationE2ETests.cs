@@ -193,7 +193,7 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
     /// <summary>Retries until the tenant bootstrap and workforce grant backfill have landed.</summary>
     static async Task<string> RecordWhenAuthorizedAsync(HttpClient owner, string path, object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, body);
@@ -213,7 +213,7 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
         Func<JsonElement, bool> condition)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

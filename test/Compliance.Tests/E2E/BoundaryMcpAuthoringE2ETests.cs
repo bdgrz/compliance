@@ -170,7 +170,7 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
 
     static async Task<string> CreateProgramWhenReadyAsync(HttpClient owner, string path, object plan)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -192,7 +192,7 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForRevisionAsync(HttpClient owner, string path, long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {

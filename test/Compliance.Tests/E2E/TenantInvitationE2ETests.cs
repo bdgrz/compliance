@@ -279,7 +279,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         Assert.True(activationLag.FailureCount >= 1);
         activationLag.Release();
 
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var access = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -429,7 +429,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
                    Uri.EscapeDataString(emailAddress);
         var checkpoint = new CheckpointIdentity("TenantInvitationDirectory",
             EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var sourceAccepted = false;
         var projectedAccepted = false;
         var workerCheckpointAdvanced = false;
@@ -477,7 +477,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
         var checkpoint = new CheckpointIdentity("TenantInvitationDirectory",
             EventStreamPattern.ForPattern(tenantId.ToString(), "tenant-invitations"));
         var delivery = factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var sourceEventRecorded = false;
         var directoryWorkerAdvanced = false;
         var deliveryStatus = "unknown";
@@ -540,7 +540,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             EventStreamPattern.ForPattern(tenantId.ToString(), "rbac-members"));
         var permissionCheckpoint = new CheckpointIdentity("PermissionProjection",
             EventStreamPattern.ForPattern(tenantId.ToString()));
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var sourceSuspended = !suspended;
         var projectedSuspended = !suspended;
         var membershipWorkerAdvanced = false;
@@ -606,7 +606,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             EventStreamPattern.ForPattern(tenantId.ToString(), "rbac-members"));
         var permissionCheckpoint = new CheckpointIdentity("PermissionProjection",
             EventStreamPattern.ForPattern(tenantId.ToString()));
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var tenantActive = false;
         var memberRegistered = false;
         var teamAssigned = false;

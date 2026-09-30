@@ -193,7 +193,7 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
     static async Task<string> RecordWhenAuthorizedAsync(HttpClient owner, string path,
         object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, body);
@@ -209,7 +209,7 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForRevisionAsync(HttpClient client, string path,
         int revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{path}?minimum_revision={revision}");

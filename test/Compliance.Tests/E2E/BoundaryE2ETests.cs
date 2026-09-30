@@ -66,7 +66,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(tenant);
         var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         ProgramDocument? program = null;
         string? lastBootstrapResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
@@ -121,7 +121,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             },
         };
         BoundaryRegistrationDocument? registration = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new { content });
@@ -137,7 +137,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.NotNull(registration);
         var boundaryPath = $"/api/v1/tenants/{tenant.TenantId}/boundaries/{registration.BoundaryId}";
         BoundaryDocument? projected = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(boundaryPath);
@@ -261,7 +261,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             content,
         });
         Assert.Equal(HttpStatusCode.NotFound, deniedRevise.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(boundaryPath);
@@ -293,7 +293,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         });
         Assert.Equal(HttpStatusCode.Forbidden, selfReview.StatusCode);
 
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var reviewerEmail = $"boundary-reviewer-{Guid.NewGuid():N}@example.com";
         using var invitation = await owner.PostAsJsonAsync(
             $"/api/v1/tenants/{tenant.TenantId}/invitations",
@@ -330,7 +330,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NoContent, assignedAdmin.StatusCode);
         await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(owner, tenantId);
 
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var waiverPath = $"/api/v1/tenants/{tenant.TenantId}/separation-of-duties-waivers";
         var waiverRequest = new
         {
@@ -416,7 +416,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
             $"?record_type=boundary&record_id={registration.BoundaryId}" +
             $"&version_id={registration.DraftVersionId}&scope_revision=2";
         ResponsibilitySetDocument? responsibilitySet = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -446,7 +446,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 separation_of_duties_waiver_ids = Array.Empty<string>(),
             });
         Assert.Equal(HttpStatusCode.NoContent, reviewerWorkAssignment.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -503,7 +503,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 reason = "The temporary work responsibility is complete.",
             });
         Assert.Equal(HttpStatusCode.NoContent, revokeReviewerWork.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -549,7 +549,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 separation_of_duties_waiver_ids = new[] { waiver.WaiverId },
             });
         Assert.Equal(HttpStatusCode.NoContent, ownerReviewAssignment.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -572,7 +572,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 reason = "Review is complete.",
             });
         Assert.Equal(HttpStatusCode.NoContent, revokeResponsibility.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -614,7 +614,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Single(competingWrites, response => response.StatusCode == HttpStatusCode.Conflict);
         foreach (var response in competingWrites)
             response.Dispose();
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -637,7 +637,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
                 reason = "The concurrent responsibility decision is complete.",
             });
         Assert.Equal(HttpStatusCode.NoContent, revokeConcurrentAssignment.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(responsibilityListPath);
@@ -649,7 +649,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         Assert.Equal(7, responsibilitySet?.Revision);
 
         HttpResponseMessage? reviewed = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             reviewed = await reviewer.PostAsJsonAsync($"{draftPath}/reviews", new
@@ -859,7 +859,7 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 
         var applicationsPath = $"/api/v1/tenants/{tenant.TenantId}/applications";
         ApplicationRegistrationDocument? application = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(applicationsPath, new

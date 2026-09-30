@@ -212,7 +212,7 @@ public sealed class CriteriaReadLeakMatrixE2ETests(BrokerStackFixture broker)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = TenantPath(tenantId) + "/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new

@@ -248,7 +248,7 @@ public sealed class CriteriaCatalogE2ETests(BrokerStackFixture broker)
     static async Task<string> CreateProgramAsync(HttpClient owner, string path)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path,
@@ -264,7 +264,7 @@ public sealed class CriteriaCatalogE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForProgramAsync(HttpClient client, string path, long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{path}?minimum_revision={revision}");

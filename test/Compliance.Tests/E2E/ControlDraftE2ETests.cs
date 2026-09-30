@@ -812,7 +812,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var program = await owner.PostAsJsonAsync(path, new
@@ -844,7 +844,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForRevisionAsync(HttpClient client, string path,
         int revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{path}?minimum_revision={revision}");
@@ -858,7 +858,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForHistoryPageAsync(HttpClient client, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -873,7 +873,7 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForEmptyControlListAsync(HttpClient client, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

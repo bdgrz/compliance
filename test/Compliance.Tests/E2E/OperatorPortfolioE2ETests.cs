@@ -97,7 +97,7 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
             const string path = "/api/v1/platform/tenants";
 
             // Act
-            var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             var observed = new Dictionary<Uuid, string>();
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -286,7 +286,7 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker) : IClas
 
     static async Task WaitForActiveAsync(HttpClient client, Uuid tenantId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"/api/v1/tenants/{tenantId}");

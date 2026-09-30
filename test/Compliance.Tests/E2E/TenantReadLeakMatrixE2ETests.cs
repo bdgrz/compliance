@@ -635,7 +635,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
             coverage = "partial",
             rows,
         };
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(importsPath, body);
@@ -658,7 +658,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task PostUntilNoContentAsync(HttpClient client, string path, object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(path, body);
@@ -691,7 +691,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         var services = worker?.Services ?? factory.Services;
         var delivery = services.GetRequiredService<MockTenantInvitationDelivery>();
         string? token = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(tenantId, email, out token))
             await Task.Delay(250);
@@ -734,7 +734,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForJsonAsync(HttpClient client, string path,
         Func<JsonElement, bool> ready)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

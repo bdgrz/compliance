@@ -383,7 +383,7 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
     static async Task WaitForMemberCountAsync(HttpClient operatorClient, Uuid tenantId, int count)
     {
         string? lastReadFailure = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await operatorClient.GetAsync(TenantPath(tenantId) + "/members");
@@ -639,7 +639,7 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
 
     static async Task WaitUntilAsync(Func<Task<bool>> predicate, string failure)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (await predicate())

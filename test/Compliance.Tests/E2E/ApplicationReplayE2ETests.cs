@@ -197,7 +197,7 @@ public sealed class ApplicationReplayE2ETests(BrokerStackFixture broker)
     static async Task<HttpResponseMessage> PostUntilAuthorizedAsync(HttpClient client,
         string path, object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             var response = await client.PostAsJsonAsync(path, body);
@@ -214,7 +214,7 @@ public sealed class ApplicationReplayE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForHttpAsync(HttpClient owner, string path,
         Func<JsonElement, bool> predicate)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(path);

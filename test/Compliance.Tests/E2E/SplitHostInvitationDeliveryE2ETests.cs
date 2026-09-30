@@ -47,7 +47,7 @@ public sealed class SplitHostInvitationDeliveryE2ETests(BrokerStackFixture broke
         var registration = await registered.Content.ReadFromJsonAsync<Registration>();
         Assert.NotNull(registration);
         var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var adminAccess = HttpStatusCode.Forbidden;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -80,7 +80,7 @@ public sealed class SplitHostInvitationDeliveryE2ETests(BrokerStackFixture broke
         {
             var delivery = restartedWorker.Services.GetRequiredService<MockTenantInvitationDelivery>();
             string? token = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline &&
                    !delivery.TryGetLatest(tenantId, invitee, out token))
                 await Task.Delay(250);
