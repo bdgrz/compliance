@@ -58,9 +58,10 @@ stable source worker ID:
 - `PUT .../work-relationships/{relationship_id}` requires `expected_revision`
   and replaces the terms; the person and worker ID never change. Recording a
   leaver is a revision to `ended` with an end date.
-- `GET` of one relationship returns the restricted `manager_person_id`. The list
-  (ordered by worker ID, lag-checked like people) returns it as null with
-  `restricted_fields_redacted: true`.
+- `GET` of one relationship returns the restricted `manager_person_id` only to
+  an actor with the `workforce.manager_chain` field grant (Tenant Administration
+  by default); otherwise it is null with `restricted_fields_redacted: true`. The
+  list (ordered by worker ID, lag-checked like people) always redacts it.
 - MCP tools mirror all four operations. Every operation requires
   `workforce.manage` (Org Admin and Compliance Lead by default).
 
@@ -74,8 +75,7 @@ Each relationship owns a `work-relationships/{relationship_id}` stream, and
 - The employment status reason and personal contact fields, and a separate
   restricted-field grant; today lists redact the manager and single reads
   require `workforce.manage`.
-- Missing, duplicate, conflicting, stale, and access-only roster observations,
-  resolving observations, correlation to platform membership, and HRIS import.
+- HRIS import (waits on [#347](https://github.com/bdgrz/compliance/issues/347)).
 
 ## Joiner, mover, and leaver observations (#221, partial)
 
@@ -100,3 +100,52 @@ and list operations require `workforce.manage`. Reads evaluate `unowned` with
 `owner_not_on_roster`, `owner_team_deleted`); `unowned_only` filters a list
 page. Not yet delivered: expiry date, non-manual sources, and account
 correlation.
+
+## Membership correlation, reconciliation, and resolution (#461, #219)
+
+`PUT .../people/{person_id}/membership-correlation` (`expected_revision`,
+optional `user_id`) attributably links a roster person to one tenant client
+member, or clears the link. It advances the person revision
+(`PersonMembershipCorrelated`) and is returned as `correlated_user_id`. It never
+grants, revokes, or changes access, and firm staff cannot be correlated.
+
+`GET .../workforce-reconciliation-observations` (optional `kind`, `status`,
+`limit`, `cursor`) evaluates the caught-up roster against memberships:
+
+- `missing` / `no_work_relationship`: a person without a work relationship.
+- `duplicate` / `member_correlated_to_several_people` or `shared_work_email`.
+  Email is a duplicate signal, never an identifier.
+- `conflicting` / `ended_worker_retains_access`: every relationship ended but the
+  correlated member is not suspended.
+- `stale` / `end_date_passed`, `start_date_passed`, or
+  `correlated_member_missing`.
+- `access_only` / `member_not_on_roster`: an active client member correlated with
+  no person.
+
+Observation IDs derive from the underlying facts (including relationship
+revisions), so a closure stays attached until those facts change.
+`PUT .../workforce-observations/{observation_id}/resolution` (`resolution`
+`resolved` or `dismissed`, `note`) closes either a reconciliation observation or a
+joiner/mover/leaver observation. Each closure is a
+`workforce-observation-resolutions/{id}` stream projected by
+`WorkforceObservationResolutionsV1`; lists overlay `status` and the attributed
+`resolution`, and are transiently conflicted while that projection lags.
+
+Source precedence: every roster record carries `source_kind`. M0-D06 ranks an
+HRIS export above the manual roster, with conflicts shown for a decision. Only
+`manual` exists until HRIS import ([#347](https://github.com/bdgrz/compliance/issues/347)),
+so precedence between sources is not yet exercised.
+
+## Roster freeze fence (#479)
+
+A roster freeze captures both roster projection checkpoints after its catch-up
+check and re-reads them after paging. If either projection advanced during the
+read, the freeze fails as a transient conflict without writing, so a snapshot
+never mixes versions or includes a change made after the check.
+
+## Service identity expiry (#462, partial)
+
+Service identities take an optional `expires_on`. An active identity cannot
+already be expired, and reads report `expired` for a non-retired identity on or
+after that date. Non-manual sources and account correlation are not yet
+delivered.

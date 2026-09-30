@@ -187,6 +187,13 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IWorkforceObservationDirectoryReader>(provider =>
             provider.GetRequiredService<FitzWorkforceObservationDirectory>());
         services.AddScoped<WorkforceObservationReadConsistency>();
+        services.AddScoped<FitzWorkforceObservationResolutionDirectory>();
+        services.AddScoped<IWorkforceObservationResolutionProjection>(provider =>
+            provider.GetRequiredService<FitzWorkforceObservationResolutionDirectory>());
+        services.AddScoped<IWorkforceObservationResolutionReader>(provider =>
+            provider.GetRequiredService<FitzWorkforceObservationResolutionDirectory>());
+        services.AddScoped<WorkforceObservationResolutions>();
+        services.AddScoped<WorkforceRosterReconciler>();
         services.AddScoped<FitzServiceIdentityDirectory>();
         services.AddScoped<IServiceIdentityDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzServiceIdentityDirectory>());
@@ -358,6 +365,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()
+            .AddRequestHandler<CorrelatePersonMembershipHandler>()
             .AddRequestHandler<GetPersonHandler>()
             .AddRequestHandler<ListPeopleHandler>()
             .AddRequestHandler<RecordWorkRelationshipHandler>()
@@ -365,6 +373,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetWorkRelationshipHandler>()
             .AddRequestHandler<ListWorkRelationshipsHandler>()
             .AddRequestHandler<ListWorkforceObservationsHandler>()
+            .AddRequestHandler<ListWorkforceReconciliationObservationsHandler>()
+            .AddRequestHandler<ResolveWorkforceObservationHandler>()
             .AddRequestHandler<RecordServiceIdentityHandler>()
             .AddRequestHandler<ReviseServiceIdentityHandler>()
             .AddRequestHandler<GetServiceIdentityHandler>()
@@ -600,6 +610,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<WorkforceObservationProjector>("WorkforceObservationsV1",
                 WorkloadScope.PerTenant)
+            .AddProjector<WorkforceObservationResolutionProjector>(
+                "WorkforceObservationResolutionsV1", WorkloadScope.PerTenant)
             .AddProjector<ServiceIdentityDirectoryProjector>("ServiceIdentityDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",

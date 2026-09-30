@@ -91,6 +91,9 @@ public sealed class ServiceIdentity : Aggregate
             return Invalid("The review date must be at most one year out.");
         if (terms.LifecycleStatus != "retired" && terms.ReviewBy <= today)
             return Invalid("The review date must be in the future.");
+        if (terms.LifecycleStatus == "active" && terms.ExpiresOn is { } expiresOn &&
+            expiresOn <= today)
+            return Invalid("An active service identity cannot already be expired.");
         return null;
     }
 

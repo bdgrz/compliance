@@ -70,6 +70,36 @@ public sealed class FitzPersonDirectoryTests
         Assert.Null(alien);
     }
 
+    [Fact]
+    public async Task ShouldProjectMembershipCorrelationAndKeepItAcrossRevisionGivenRecordedPerson()
+    {
+        // Arrange
+        var directory = new FitzPersonDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var recorded = Recorded(tenantId, "Ada Lovelace");
+        var editor = ActorReference.ForMember(Uuid.CreateVersion4(), "Editor");
+        var userId = Uuid.CreateVersion4();
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(recorded);
+            await directory.ApplyAsync(new PersonMembershipCorrelated(tenantId, recorded.PersonId, 2,
+                userId, editor, Now.AddMinutes(1)));
+            await directory.ApplyAsync(new PersonRevised(tenantId, recorded.PersonId, 3, "Ada King",
+                null, editor, Now.AddMinutes(2)));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var current = await directory.GetAsync(tenantId, recorded.PersonId);
+
+        // Assert
+        Assert.NotNull(current);
+        Assert.Equal(3, current.Revision);
+        Assert.Equal(userId, current.CorrelatedUserId);
+        Assert.Equal(editor, current.LastChangedBy);
+    }
+
     static PersonRecorded Recorded(Uuid tenantId, string name) => new(tenantId,
         Uuid.CreateVersion4(), name, null,
         ActorReference.ForMember(Uuid.CreateVersion4(), "Author"), Now);

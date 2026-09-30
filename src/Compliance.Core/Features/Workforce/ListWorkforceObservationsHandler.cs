@@ -4,7 +4,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Workforce;
 
 public sealed class ListWorkforceObservationsHandler(IWorkforceObservationDirectoryReader directory,
-    WorkforceObservationReadConsistency consistency)
+    WorkforceObservationReadConsistency consistency, WorkforceObservationResolutions resolutions)
     : IRequestHandler<ListWorkforceObservations, Page<WorkforceObservationView>>
 {
     static readonly string[] Kinds = ["joiner", "mover", "leaver"];
@@ -31,10 +31,19 @@ public sealed class ListWorkforceObservationsHandler(IWorkforceObservationDirect
         {
             return Invalid("The workforce observation cursor is invalid.");
         }
-        return page.Items.Any(item => item.TenantId != request.TenantId)
-            ? Result<Page<WorkforceObservationView>>.Failure(new RequestError(
-                RequestErrorKind.NotFound, "The workforce observations were not found."))
-            : Result<Page<WorkforceObservationView>>.Success(page);
+        if (page.Items.Any(item => item.TenantId != request.TenantId))
+            return Result<Page<WorkforceObservationView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The workforce observations were not found."));
+        var closures = await resolutions.LoadAsync(request.TenantId,
+            [.. page.Items.Select(static item => item.ObservationId)], ct).ConfigureAwait(false);
+        if (!closures.IsSuccess)
+            return Result<Page<WorkforceObservationView>>.Failure(closures.Error);
+        return Result<Page<WorkforceObservationView>>.Success(new Page<WorkforceObservationView>(
+            [.. page.Items.Select(item =>
+            {
+                var closure = closures.Value.GetValueOrDefault(item.ObservationId);
+                return item with { Status = WorkforceObservationStatus.Of(closure), Resolution = closure };
+            })], page.NextCursor));
     }
 
     static Result<Page<WorkforceObservationView>> Invalid(string message) =>

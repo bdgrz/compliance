@@ -91,4 +91,48 @@ public sealed class PersonTests
         // Assert
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
     }
+
+    [Fact]
+    public void ShouldCorrelateAndClearMembershipGivenCurrentRevision()
+    {
+        // Arrange
+        var person = new Person(TenantId, Uuid.CreateVersion4());
+        Assert.True(person.Record("Ada Lovelace", null, Author, Now).IsSuccess);
+        var userId = Uuid.CreateVersion4();
+
+        // Act
+        var linked = person.CorrelateMembership(1, userId, Author, Now);
+        var unchanged = person.CorrelateMembership(2, userId, Author, Now);
+        var cleared = person.CorrelateMembership(2, null, Author, Now);
+
+        // Assert
+        Assert.Null(linked);
+        Assert.Null(unchanged);
+        Assert.Null(cleared);
+        Assert.Equal(3, person.Revision);
+        Assert.Null(person.CorrelatedUserId);
+        var events = new AggregateScenario<Person>(person).PendingEvents
+            .OfType<PersonMembershipCorrelated>().ToList();
+        Assert.Equal([userId, (Uuid?)null], events.Select(ev => ev.UserId));
+        Assert.Equal([2L, 3L], events.Select(ev => ev.Revision));
+        Assert.All(events, ev => Assert.Equal(Author, ev.Actor));
+    }
+
+    [Fact]
+    public void ShouldRejectCorrelationGivenStaleRevisionOrMissingPerson()
+    {
+        // Arrange
+        var person = new Person(TenantId, Uuid.CreateVersion4());
+        Assert.True(person.Record("Ada Lovelace", null, Author, Now).IsSuccess);
+        var absent = new Person(TenantId, Uuid.CreateVersion4());
+
+        // Act
+        var stale = person.CorrelateMembership(5, Uuid.CreateVersion4(), Author, Now);
+        var missing = absent.CorrelateMembership(1, Uuid.CreateVersion4(), Author, Now);
+
+        // Assert
+        Assert.Equal(CommandFailureCode.VersionConflict, Assert.IsType<CommandFailure>(stale).Code);
+        Assert.Equal(CommandFailureCode.MissingRecord, Assert.IsType<CommandFailure>(missing).Code);
+        Assert.Equal(1, person.Revision);
+    }
 }

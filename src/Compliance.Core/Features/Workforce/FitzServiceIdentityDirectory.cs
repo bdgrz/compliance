@@ -30,7 +30,7 @@ sealed class FitzServiceIdentityDirectory(IKvClient client)
                     new ServiceIdentityView(recorded.TenantId, recorded.ServiceIdentityId, 1,
                         terms.DisplayName, terms.IdentityKind, terms.Purpose, terms.Environment,
                         terms.LifecycleStatus, terms.OwnerKind, terms.OwnerId, terms.ReviewBy,
-                        ManualSource, false, [], recorded.Actor, recorded.ChangedAt), ct)
+                        ManualSource, false, [], recorded.Actor, recorded.ChangedAt, terms.ExpiresOn), ct)
                     .ConfigureAwait(false);
                 break;
             case ServiceIdentityRevised revised:
@@ -52,6 +52,7 @@ sealed class FitzServiceIdentityDirectory(IKvClient client)
                         OwnerKind = revised.Terms.OwnerKind,
                         OwnerId = revised.Terms.OwnerId,
                         ReviewBy = revised.Terms.ReviewBy,
+                        ExpiresOn = revised.Terms.ExpiresOn,
                         LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);

@@ -24,4 +24,8 @@ public static class ServiceIdentityAccountability
             reasons.Add("review_expired");
         return reasons;
     }
+
+    /// <summary>A non-retired identity is expired from its expiry date onward.</summary>
+    public static bool IsExpired(string lifecycleStatus, DateOnly? expiresOn, DateOnly today) =>
+        lifecycleStatus != "retired" && expiresOn is { } expiry && expiry <= today;
 }

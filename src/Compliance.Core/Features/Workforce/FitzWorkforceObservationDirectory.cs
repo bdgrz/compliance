@@ -74,6 +74,15 @@ sealed class FitzWorkforceObservationDirectory(IKvClient client)
                     .After(cursor), ct).ConfigureAwait(false);
     }
 
+    public async ValueTask<WorkforceObservationView?> GetAsync(Uuid tenantId, Uuid observationId,
+        CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        var view = await WorkforceObservationSchema.Observations.GetAsync(tx, observationId, ct)
+            .ConfigureAwait(false);
+        return view?.TenantId == tenantId ? view : null;
+    }
+
     public async ValueTask<IReadOnlyList<string>> ListRelationshipStatusesAsync(Uuid tenantId,
         Uuid personId, CancellationToken ct = default)
     {

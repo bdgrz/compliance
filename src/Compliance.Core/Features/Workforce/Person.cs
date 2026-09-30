@@ -12,9 +12,11 @@ public sealed class Person : Aggregate
     long _revision;
     string? _initialDisplayName;
     string? _initialWorkEmail;
+    Uuid? _correlatedUserId;
 
     public bool IsCreated => _created;
     public long Revision => _revision;
+    public Uuid? CorrelatedUserId => _correlatedUserId;
 
     public Person(Uuid tenantId, Uuid personId)
         : base(personId, new EventStreamAddress(tenantId.ToString(), "people",
@@ -29,6 +31,11 @@ public sealed class Person : Aggregate
             _initialWorkEmail = ev.WorkEmail;
         });
         On<PersonRevised>(ev => _revision = ev.Revision);
+        On<PersonMembershipCorrelated>(ev =>
+        {
+            _revision = ev.Revision;
+            _correlatedUserId = ev.UserId;
+        });
     }
 
     public Result<PersonRegistration> Record(string displayName, string? workEmail,
@@ -60,6 +67,26 @@ public sealed class Person : Aggregate
             return CommandFailure.InvalidContent(validation.Message!);
         RaiseEvent(new PersonRevised(_tenantId, Id, _revision + 1, displayName.Trim(),
             NormalizeOptional(workEmail), actor, changedAt));
+        return null;
+    }
+
+    /// <summary>
+    ///     Links this person to one platform member, or clears the link. Re-stating the current link
+    ///     succeeds without a new revision. The link never grants or revokes platform access.
+    /// </summary>
+    public CommandFailure? CorrelateMembership(long expectedRevision, Uuid? userId,
+        ActorReference actor, DateTimeOffset changedAt)
+    {
+        if (!_created)
+            return CommandFailure.MissingRecord("The person was not found.");
+        if (userId == Uuid.Empty)
+            return CommandFailure.InvalidContent("A correlated platform member ID cannot be empty.");
+        if (expectedRevision != _revision)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("person", _revision));
+        if (userId == _correlatedUserId)
+            return null;
+        RaiseEvent(new PersonMembershipCorrelated(_tenantId, Id, _revision + 1, userId, actor,
+            changedAt));
         return null;
     }
 

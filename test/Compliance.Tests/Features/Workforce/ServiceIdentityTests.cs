@@ -130,4 +130,57 @@ public sealed class ServiceIdentityTests
         // Assert
         Assert.Equal(expected, reasons);
     }
+
+    [Fact]
+    public void ShouldRecordExpiryGivenFutureExpiryDate()
+    {
+        // Arrange
+        var identity = New();
+        var expiresOn = Today.AddDays(90);
+
+        // Act
+        var result = identity.Record(Terms() with { ExpiresOn = expiresOn }, Today, Author, Now);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var recorded = Assert.IsType<ServiceIdentityRecorded>(
+            Assert.Single(new AggregateScenario<ServiceIdentity>(identity).PendingEvents));
+        Assert.Equal(expiresOn, recorded.Terms.ExpiresOn);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ShouldRejectRecordGivenActiveIdentityAlreadyExpired(int days)
+    {
+        // Arrange
+        var identity = New();
+
+        // Act
+        var result = identity.Record(Terms() with { ExpiresOn = Today.AddDays(days) }, Today,
+            Author, Now);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Theory]
+    [InlineData("active", 1, false)]
+    [InlineData("active", 0, true)]
+    [InlineData("disabled", -5, true)]
+    [InlineData("retired", -5, false)]
+    public void ShouldReportExpiredGivenExpiryDateReached(string lifecycle, int expiresInDays,
+        bool expected)
+    {
+        // Arrange
+        var expiresOn = Today.AddDays(expiresInDays);
+
+        // Act
+        var expired = ServiceIdentityAccountability.IsExpired(lifecycle, expiresOn, Today);
+        var neverExpires = ServiceIdentityAccountability.IsExpired(lifecycle, null, Today);
+
+        // Assert
+        Assert.Equal(expected, expired);
+        Assert.False(neverExpires);
+    }
 }

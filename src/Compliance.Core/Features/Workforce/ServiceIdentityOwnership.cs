@@ -31,7 +31,13 @@ public sealed class ServiceIdentityOwnership(IWorkforceObservationDirectoryReade
             }
             var reasons = ServiceIdentityAccountability.Evaluate(identity.LifecycleStatus,
                 identity.ReviewBy, today, identity.OwnerKind, statuses, teamActive);
-            evaluated.Add(identity with { Unowned = reasons.Count > 0, UnownedReasons = reasons });
+            evaluated.Add(identity with
+            {
+                Unowned = reasons.Count > 0,
+                UnownedReasons = reasons,
+                Expired = ServiceIdentityAccountability.IsExpired(identity.LifecycleStatus,
+                    identity.ExpiresOn, today),
+            });
         }
         return Result<IReadOnlyList<ServiceIdentityView>>.Success(evaluated);
     }

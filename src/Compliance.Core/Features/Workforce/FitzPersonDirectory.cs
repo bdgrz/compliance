@@ -43,6 +43,22 @@ sealed class FitzPersonDirectory(IKvClient client)
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);
                 break;
+            case PersonMembershipCorrelated correlated:
+                var linked = await PersonDirectorySchema.People.GetAsync(Transaction,
+                    correlated.PersonId, ct).ConfigureAwait(false);
+                if (linked is null || linked.TenantId != correlated.TenantId ||
+                    linked.Revision + 1 != correlated.Revision)
+                    throw new InvalidOperationException(
+                        "A person correlation cannot project before its predecessor.");
+                await PersonDirectorySchema.People.ReplaceAsync(Transaction, linked,
+                    linked with
+                    {
+                        Revision = correlated.Revision,
+                        CorrelatedUserId = correlated.UserId,
+                        LastChangedBy = correlated.Actor,
+                        LastChangedAt = correlated.ChangedAt,
+                    }, ct).ConfigureAwait(false);
+                break;
         }
     }
 
