@@ -103,3 +103,33 @@ svg {
     min-height: 0;
   }
 }
+
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.role-choice {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.role-option {
+  display: flex;
+  gap: var(--ak-space-sm, 0.75rem);
+  align-items: flex-start;
+}
+
+.role-option > span {
+  display: grid;
+}
+
+.role-explanation {
+  color: var(--ak-color-text-muted, GrayText);
+}

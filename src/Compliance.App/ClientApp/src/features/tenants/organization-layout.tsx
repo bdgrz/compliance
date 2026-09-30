@@ -1,7 +1,7 @@
 import { state } from '@askrjs/askr';
 import { Link, currentRoute } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
-import { ArrowLeftRightIcon, HomeIcon, ShieldIcon, UsersIcon } from '@askrjs/lucide';
+import { ArrowLeftRightIcon, HomeIcon, ShieldIcon, UserPlusIcon, UsersIcon } from '@askrjs/lucide';
 import {
   Block,
   Button,
@@ -30,6 +30,7 @@ import {
 
 const organizationNavLinks = [
   { title: 'Overview', path: '', icon: HomeIcon, exact: true },
+  { title: 'Members', path: '/members', icon: UserPlusIcon, exact: false },
   { title: 'Teams', path: '/teams', icon: UsersIcon, exact: false },
   { title: 'Roles', path: '/roles', icon: ShieldIcon, exact: false },
 ];
