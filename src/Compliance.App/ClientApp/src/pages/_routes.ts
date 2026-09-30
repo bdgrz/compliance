@@ -109,6 +109,12 @@ const ServiceIdentitiesPage = lazy(() =>
 const ServiceIdentityDetailPage = lazy(() =>
   import('../features/workforce/pages/service-identity-detail.js').then((module) => module.ServiceIdentityDetailPage)
 );
+const ControlsPage = lazy(() =>
+  import('../features/controls/pages/controls-list.js').then((module) => module.ControlsPage)
+);
+const ControlDetailPage = lazy(() =>
+  import('../features/controls/pages/control-detail.js').then((module) => module.ControlDetailPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -160,6 +166,8 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/workforce/observations', WorkforceObservationsPage);
           route('/{slug}/workforce/service-identities', ServiceIdentitiesPage);
           route('/{slug}/workforce/service-identities/{serviceIdentityId}', ServiceIdentityDetailPage);
+          route('/{slug}/programs/{programId}/controls', ControlsPage);
+          route('/{slug}/programs/{programId}/controls/{controlId}', ControlDetailPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);

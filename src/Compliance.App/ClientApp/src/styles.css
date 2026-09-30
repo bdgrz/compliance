@@ -385,3 +385,38 @@ svg {
 .workforce-terms dd {
   margin: 0;
 }
+
+/* Criteria catalog and control drafts (R1-03 #210, R1-05 #204) */
+.criteria-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.criteria-entries,
+.criteria-gaps,
+.criteria-categories,
+.control-list,
+.control-applicability,
+.control-history {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.criteria-entries p {
+  margin: 0.25rem 0 0;
+}
+
+.criteria-point {
+  padding-inline-start: 1.25rem;
+}
+
+.criteria-meta,
+.control-meta {
+  color: var(--ak-color-text-muted, GrayText);
+}
+
+.registration-field textarea {
+  font: inherit;
+  width: 100%;
+}

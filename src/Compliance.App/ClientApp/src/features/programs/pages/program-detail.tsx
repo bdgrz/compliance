@@ -14,6 +14,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
+import { CriteriaCard } from '../../criteria/criteria-card.js';
 import { organizationPath } from '../../tenants/tenants.js';
 import {
   getProgram,
@@ -159,6 +160,7 @@ export function ProgramDetailPage({ programId }: { programId: string }) {
       <Stack gap="md">
         {back}
         <a href={organizationPath(`/programs/${programId}/risks`)}>Risks for this program</a>
+        <a href={organizationPath(`/programs/${programId}/controls`)}>Controls for this program</a>
         <Card>
           <CardHeader>
             <CardTitle>Setup work before readiness assessment</CardTitle>
@@ -192,6 +194,7 @@ export function ProgramDetailPage({ programId }: { programId: string }) {
             )}
           </CardContent>
         </Card>
+        <CriteriaCard program={current} onChanged={() => setVersion(version() + 1)} />
         <Card>
           <CardHeader>
             <CardTitle>Path to Type II</CardTitle>
