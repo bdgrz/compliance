@@ -167,3 +167,44 @@ svg {
 .setup-work-source {
   color: var(--ak-color-text-muted, GrayText);
 }
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-table th,
+.inventory-table td {
+  padding: var(--ak-space-xs, 0.5rem);
+  border-block-end: 1px solid var(--ak-color-border);
+  text-align: start;
+}
+
+.inventory-legal {
+  color: var(--ak-color-text-muted, GrayText);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 47.999rem) {
+  .inventory-table thead {
+    display: none;
+  }
+
+  .inventory-table tr {
+    display: grid;
+    padding-block: var(--ak-space-xs, 0.5rem);
+    border-block-end: 1px solid var(--ak-color-border);
+  }
+
+  .inventory-table td {
+    border: 0;
+  }
+}

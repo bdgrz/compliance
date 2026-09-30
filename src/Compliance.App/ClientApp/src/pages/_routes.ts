@@ -54,6 +54,9 @@ const SelectTenantPage = lazy(() =>
     (module) => module.SelectTenantPage
   )
 );
+const TenantInventoryPage = lazy(() =>
+  import('../features/operator/pages/tenant-inventory.js').then((module) => module.TenantInventoryPage)
+);
 const TeamsListPage = lazy(() =>
   import('../features/teams/pages/teams-list.js').then(
     (module) => module.TeamsListPage
@@ -98,6 +101,7 @@ export const pageRegistry = createRouteRegistry(
         route('/', OrganizationEntryPage);
         route('/organizations', SelectTenantPage);
         route('/organizations/new', CreateTenantPage);
+        route('/admin/tenants', TenantInventoryPage);
         // Links from before organization slugs existed open the same page in the user's organization.
         route('/teams', TeamsEntryPage);
         route('/roles', RolesEntryPage);
