@@ -137,6 +137,21 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseServiceIdentity>(tool => tool.Idempotent())
         .AddMcpTool<GetServiceIdentity>(tool => tool.ReadOnly())
         .AddMcpTool<ListServiceIdentities>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordTechnologyComponent>()
+        .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
+        .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTechnologyComponents>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTechnologyComponentRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordInformationAsset>()
+        .AddMcpTool<ReviseInformationAsset>(tool => tool.Idempotent())
+        .AddMcpTool<GetInformationAsset>(tool => tool.ReadOnly())
+        .AddMcpTool<ListInformationAssets>(tool => tool.ReadOnly())
+        .AddMcpTool<ListInformationAssetRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordDataFlow>()
+        .AddMcpTool<ReviseDataFlow>(tool => tool.Idempotent())
+        .AddMcpTool<GetDataFlow>(tool => tool.ReadOnly())
+        .AddMcpTool<ListDataFlows>(tool => tool.ReadOnly())
+        .AddMcpTool<ListDataFlowRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -522,6 +537,66 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/service-identities")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
+    app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(
+            "/api/v1/tenants/{tenant_id}/technology-components")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPut<ReviseTechnologyComponent>(
+            "/api/v1/tenants/{tenant_id}/technology-components/{component_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<GetTechnologyComponent, TechnologyComponentView>(
+            "/api/v1/tenants/{tenant_id}/technology-components/{component_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListTechnologyComponents, Page<TechnologyComponentView>>(
+            "/api/v1/tenants/{tenant_id}/technology-components")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListTechnologyComponentRevisions, Page<TechnologyComponentView>>(
+            "/api/v1/tenants/{tenant_id}/technology-components/{component_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPost<RecordInformationAsset, InformationAssetRegistration>(
+            "/api/v1/tenants/{tenant_id}/information-assets")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPut<ReviseInformationAsset>(
+            "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<GetInformationAsset, InformationAssetView>(
+            "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListInformationAssets, Page<InformationAssetView>>(
+            "/api/v1/tenants/{tenant_id}/information-assets")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListInformationAssetRevisions, Page<InformationAssetView>>(
+            "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPost<RecordDataFlow, DataFlowRegistration>(
+            "/api/v1/tenants/{tenant_id}/data-flows")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPut<ReviseDataFlow>(
+            "/api/v1/tenants/{tenant_id}/data-flows/{data_flow_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<GetDataFlow, DataFlowView>(
+            "/api/v1/tenants/{tenant_id}/data-flows/{data_flow_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListDataFlows, Page<DataFlowView>>(
+            "/api/v1/tenants/{tenant_id}/data-flows")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListDataFlowRevisions, Page<DataFlowView>>(
+            "/api/v1/tenants/{tenant_id}/data-flows/{data_flow_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

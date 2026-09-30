@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Boundaries;
 
 public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity services,
-    IApplicationInventoryActivity applications)
+    IApplicationInventoryActivity applications, ITechnologyInventoryActivity? inventory = null)
     : IBoundaryReferenceValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, Uuid programId, BoundaryContent content,
@@ -40,6 +40,12 @@ public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity se
                     if (state != SystemInstanceReferenceState.Declared)
                         return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                             "The governed system instance reference is unavailable in this tenant. Retry after projection or correct the record ID."));
+                    break;
+                case "component" or "information" or "data_flow" when inventory is not null:
+                    if (!await inventory.IsActiveAsync(tenantId, entry.SubjectType, id, ct)
+                            .ConfigureAwait(false))
+                        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                            "The governed technology inventory reference is not active in this tenant."));
                     break;
                 default:
                     return Result.Failure(new RequestError(RequestErrorKind.Validation,
