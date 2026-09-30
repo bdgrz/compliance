@@ -158,6 +158,7 @@ export function ProgramDetailPage({ programId }: { programId: string }) {
       />
       <Stack gap="md">
         {back}
+        <a href={organizationPath(`/programs/${programId}/risks`)}>Risks for this program</a>
         <Card>
           <CardHeader>
             <CardTitle>Setup work before readiness assessment</CardTitle>

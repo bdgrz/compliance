@@ -1,4 +1,4 @@
-import type { Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C, Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF, Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F, Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D, Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA, Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51, Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5, Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF, Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D, Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82, Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11, Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A, Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F, Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5, Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552, Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA, Portia3115C5308C1E17753EFACC8F1ED1916351FD777796131BD3E35D75C5D4E1E415, Portia317D1FB1FCD29A7DD0797791039C62768591F13C9FDBA864BA12B4FD00EC056C, Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5, Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64, Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4, Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82, Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia4D2B2E7846C05C249F068D80B37B37F2C75C5ADD864571B26E4DF5A345F9CD19, Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE, Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C, Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3, Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453, Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137, Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4, Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317, Portia5DAD64FAA90520CAB8D26EA34171BA23DCFCC7C27E8F9E4C62DB581CD28EEC56, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A, Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1, Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D, Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902, Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64, Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C, Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1, Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010, Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48, Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C, Portia8E394EAF88AA2A7C8FFD2FC3F0EF138F753B34F45673B6225474AFED0CB59A46, Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7, Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782, Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66, Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F, PortiaA061B71D56F46AF68311A2B1F0B839D542E35F3F14FA3469112AC9DBB2C8EF35, PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341, PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64, PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508, PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C, PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3, PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219, PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05, PortiaB4F7BAA8B99F52AE6970F7ACF0928494556285076363E5938D8AA4FF64C9EC95, PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886, PortiaBDB3727E11513755EF2C20FC36CA203734F5F1EAB005F72399870A161757C2FE, PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979, PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3, PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520, PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE, PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781, PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC, PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8, PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8, PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD, PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582, PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C, PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873, PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F, PortiaDEDCF320D66371B8A514AC43F05EF3AFD0C2C09B2E6784A1FAA3AB8ADC9C402D, PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738, PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B, PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626, PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7, PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3, PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979, PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319, PortiaFDA3055E83DE2E638D548DE1150B986A21043869BFD9C65F10F6CFFBBDE7AA25, PortiaFE118EE4B74A4501C2BC3C6DDF29D5D7C5248C8FE0F51D9F3D797DE0F5856377 } from "./schemas";
+import type { Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C, Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF, Portia097249E53E54CC03E10877C906EFC2594FFE7AAC91C87D347D57D7145C1CC24C, Portia0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664, Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F, Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D, Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA, Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51, Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5, Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF, Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D, Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82, Portia192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625, Portia1A72141BBDF886D72A311BA94564A77E3CFA5B0DBA1A3FD78CF78C689F1F779D, Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11, Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4, Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A, Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F, Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia25BA9252E26F1A6477363C748DA5CF9B49437180A4663073C9E1647578DC0100, Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5, Portia2AED3AF47093A366AD687BFFDD638FD60E8E83EBFD47EB5EB710621485B5041F, Portia2C17E7023EE4294E36F1860F97F42B06DFE03B828D3FCC19679435D2C263FACB, Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552, Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA, Portia33A914476F5916BA05D9CCA32D0BA6790B75A8EBFC139D7F65E58BAF1716FF4D, Portia36D1608FA46982FB7C0145375EB90B733846AA018C6B495E9A88F5B790185F37, Portia3A795A94620F3B58B5F1452221FC679AB9B2B1CA5FD22BC2E89D277F4D764F4B, Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5, Portia3BD7B3C292671FD9C7BC3514F31B918E92F82B060108984374D5D9FD3FAF7737, Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64, Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4, Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82, Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia41B8ADFE95447D60E9DF0AEDA30008085B43FC2FAED3D48AD08C2B4111A952E8, Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia457C97B613519BA562DCCC1FEED89FFEB93E61782B4983D5F35F6D82C5CEEB44, Portia45F55D96B4D015448EC3803E9C00616C8AA2610641128A2A4A9CCB81303CEE9D, Portia463D989E08D87242FE062F7ABA25B4A4852CDED11C651DDB003CB1493628FBA2, Portia474D872CD82992E0F6DAA877E95A738CD0E651D58C89FD20650936F7E9442787, Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE, Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C, Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3, Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453, Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137, Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4, Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia62956F4A683DC319B656217BE0435DDEFCBD2D7693779600E658DB1239EFF46E, Portia63D54EA89C5C07D310D2BCA13AD5F7B74227B5C1A92D8305F29836A899A420D7, Portia64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237, Portia671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7, Portia67FF42154696CE62730A90222AB6C1618C3883A7B83A530679D7947EF82A7536, Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A, Portia6D456EA5A910F2BECBEC72F07A1EDDD7ACA1FD6D3C14C5F2B93DE61C863E48FD, Portia6E87F3E4BE9D729B36C701C34B83DA3B513977C84714C03C6C50E46E2437A4A8, Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1, Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94DC6, Portia74A5A31DE9F3A44C25116AA828DDAC667A065C414D865FF4FF6A5FC4C4C5A47A, Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D, Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902, Portia7A8595D2FC8E586A820EE122D8C373E01E418CA296483244AB95A35A0943E149, Portia7B1AEE3985B856552CEAEAB86F86A8B046D256BB2EA8D4AB06B5F839FFA36B9F, Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64, Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C, Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1, Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010, Portia8469557500842356B9CB65A4E1727B68DB6F1C4BD330F30784C8DD0A93CEDE77, Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48, Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C, Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7, Portia97032B105C2A6D6A1B226A232D4A8D42B4A96F297375BA0A5D48F0938F15A14C, Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782, Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66, Portia9B0607CA8CEF3829E2071107C5E2DC5C50730AFFBF2290344613FA16D3D34583, Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F, PortiaA277510249DA33D1E77EA806415366BBFB478D775605D021833F8109CE070FCA, PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341, PortiaA5E01F0DEB4FB6B8D77D19E040EC8B616C620CF9A147CE52DA9ACDE76BDE349A, PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64, PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508, PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C, PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3, PortiaAD20397E4469C88F974BC9D5A386CD8E3C4A25CB034E5C0233899BA467B9C283, PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219, PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05, PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886, PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979, PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3, PortiaC166B2A6A50AB323EBE10D693B981A72966248C62D0DBCA17A9D1F8C2A0493E1, PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520, PortiaC39C98E2DBB3BF252193560530969F5DF01D0CB33395E2B40E2B8496665ED57A, PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE, PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781, PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556, PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC, PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8, PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8, PortiaCDEB60612E2CCB73291DF472ACC26D72C213DF36B15FC7D666DCAD87F850A4F9, PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD, PortiaCE317BDB9F287F13D0C5620C1C17559DBCA77AC9779C300BC881F44035E4A26D, PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582, PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C, PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873, PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F, PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738, PortiaE056B52B06213FCC543902C08F961FB0AC9C4CF3C96070D2E7394EE553854F2A, PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00, PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEBEBAE40CDBFE8B4726C2E5FDB6EE27438942900064BA238E5F7452B92135107, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B, PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626, PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7, PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3, PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979, PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319, PortiaF91217E35959EE564AF2004EA1727032FC5084CF5CF0155ED5D422DB017C5B3F, PortiaFA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26 } from "./schemas";
 
 export type ContinueWithDeveloperIdentityBody = {
   "email_address": string | null;
@@ -1258,7 +1258,7 @@ export type ListApplicationsQuery = {
   "limit"?: number | string;
 };
 
-export type ListApplicationsResponse200 = Portia5DAD64FAA90520CAB8D26EA34171BA23DCFCC7C27E8F9E4C62DB581CD28EEC56;
+export type ListApplicationsResponse200 = Portia3A795A94620F3B58B5F1452221FC679AB9B2B1CA5FD22BC2E89D277F4D764F4B;
 
 export type ListApplicationsError_400 = {
   "type": string;
@@ -1414,7 +1414,7 @@ export type GetApplicationQuery = {
   "minimum_revision"?: number | string;
 };
 
-export type GetApplicationResponse200 = Portia317D1FB1FCD29A7DD0797791039C62768591F13C9FDBA864BA12B4FD00EC056C;
+export type GetApplicationResponse200 = PortiaCE317BDB9F287F13D0C5620C1C17559DBCA77AC9779C300BC881F44035E4A26D;
 
 export type GetApplicationError_400 = {
   "type": string;
@@ -1654,7 +1654,7 @@ export type PreviewApplicationChangeBody = {
   "classification"?: string | null;
 };
 
-export type PreviewApplicationChangeResponse200 = PortiaFDA3055E83DE2E638D548DE1150B986A21043869BFD9C65F10F6CFFBBDE7AA25;
+export type PreviewApplicationChangeResponse200 = PortiaC166B2A6A50AB323EBE10D693B981A72966248C62D0DBCA17A9D1F8C2A0493E1;
 
 export type PreviewApplicationChangeError_400 = {
   "type": string;
@@ -1721,6 +1721,85 @@ export type PreviewApplicationChangeError_500 = {
   "transient"?: boolean;
 };
 
+export type RetireApplicationPath = {
+  "application_id": string;
+  "tenant_id": string;
+};
+
+export type RetireApplicationBody = {
+  "expected_revision": number | string;
+  "effective_at": string;
+  "reason": string | null;
+  "merged_into_application_id"?: string;
+};
+
+export type RetireApplicationResponse204 = undefined;
+
+export type RetireApplicationError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_401 = undefined;
+
+export type RetireApplicationError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireApplicationError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListApplicationRevisionsPath = {
   "application_id": string;
   "tenant_id": string;
@@ -1732,7 +1811,7 @@ export type ListApplicationRevisionsQuery = {
   "minimum_application_revision"?: number | string;
 };
 
-export type ListApplicationRevisionsResponse200 = PortiaA061B71D56F46AF68311A2B1F0B839D542E35F3F14FA3469112AC9DBB2C8EF35;
+export type ListApplicationRevisionsResponse200 = Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94DC6;
 
 export type ListApplicationRevisionsError_400 = {
   "type": string;
@@ -1805,7 +1884,7 @@ export type GetApplicationRevisionPath = {
   "tenant_id": string;
 };
 
-export type GetApplicationRevisionResponse200 = PortiaB4F7BAA8B99F52AE6970F7ACF0928494556285076363E5938D8AA4FF64C9EC95;
+export type GetApplicationRevisionResponse200 = Portia6D456EA5A910F2BECBEC72F07A1EDDD7ACA1FD6D3C14C5F2B93DE61C863E48FD;
 
 export type GetApplicationRevisionError_400 = {
   "type": string;
@@ -1883,7 +1962,7 @@ export type ListSystemInstancesQuery = {
   "minimum_application_revision"?: number | string;
 };
 
-export type ListSystemInstancesResponse200 = PortiaDEDCF320D66371B8A514AC43F05EF3AFD0C2C09B2E6784A1FAA3AB8ADC9C402D;
+export type ListSystemInstancesResponse200 = Portia33A914476F5916BA05D9CCA32D0BA6790B75A8EBFC139D7F65E58BAF1716FF4D;
 
 export type ListSystemInstancesError_400 = {
   "type": string;
@@ -2041,7 +2120,7 @@ export type GetSystemInstanceQuery = {
   "minimum_instance_revision"?: number | string;
 };
 
-export type GetSystemInstanceResponse200 = PortiaFE118EE4B74A4501C2BC3C6DDF29D5D7C5248C8FE0F51D9F3D797DE0F5856377;
+export type GetSystemInstanceResponse200 = PortiaCDEB60612E2CCB73291DF472ACC26D72C213DF36B15FC7D666DCAD87F850A4F9;
 
 export type GetSystemInstanceError_400 = {
   "type": string;
@@ -2100,6 +2179,166 @@ export type GetSystemInstanceError_415 = {
 };
 
 export type GetSystemInstanceError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopePath = {
+  "application_id": string;
+  "system_instance_id": string;
+  "tenant_id": string;
+};
+
+export type GetAccessReviewScopeQuery = {
+  "as_of"?: string;
+};
+
+export type GetAccessReviewScopeResponse200 = Portia7A8595D2FC8E586A820EE122D8C373E01E418CA296483244AB95A35A0943E149;
+
+export type GetAccessReviewScopeError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_401 = undefined;
+
+export type GetAccessReviewScopeError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetAccessReviewScopeError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopePath = {
+  "application_id": string;
+  "system_instance_id": string;
+  "tenant_id": string;
+};
+
+export type DecideAccessReviewScopeBody = {
+  "expected_system_instance_revision": number | string;
+  "expected_decision_count": number | string;
+  "decision": string | null;
+  "reason": string | null;
+  "effective_from": string;
+  "review_by"?: string;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type DecideAccessReviewScopeResponse200 = Portia1A72141BBDF886D72A311BA94564A77E3CFA5B0DBA1A3FD78CF78C689F1F779D;
+
+export type DecideAccessReviewScopeError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_401 = undefined;
+
+export type DecideAccessReviewScopeError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type DecideAccessReviewScopeError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -2178,6 +2417,85 @@ export type ListSystemInstanceBoundaryReferencesError_415 = {
 };
 
 export type ListSystemInstanceBoundaryReferencesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstancePath = {
+  "application_id": string;
+  "system_instance_id": string;
+  "tenant_id": string;
+};
+
+export type RetireSystemInstanceBody = {
+  "expected_revision": number | string;
+  "effective_at": string;
+  "reason": string | null;
+};
+
+export type RetireSystemInstanceResponse204 = undefined;
+
+export type RetireSystemInstanceError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_401 = undefined;
+
+export type RetireSystemInstanceError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireSystemInstanceError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -3871,6 +4189,802 @@ export type GetCriteriaCatalogEntryError_500 = {
   "transient"?: boolean;
 };
 
+export type ListDataFlowsPath = {
+  "tenant_id": string;
+};
+
+export type ListDataFlowsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListDataFlowsResponse200 = Portia74A5A31DE9F3A44C25116AA828DDAC667A065C414D865FF4FF6A5FC4C4C5A47A;
+
+export type ListDataFlowsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_401 = undefined;
+
+export type ListDataFlowsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowPath = {
+  "tenant_id": string;
+};
+
+export type RecordDataFlowBody = {
+  "source_type": string | null;
+  "source_id": string;
+  "destination_type": string | null;
+  "information_asset_ids": Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D;
+  "purpose": string | null;
+  "encrypted_in_transit": boolean;
+  "encrypted_at_rest": boolean;
+  "effective_from": string;
+  "owner_person_id": string;
+  "destination_id"?: string;
+  "destination_party"?: string | null;
+  "exception_reference"?: string | null;
+};
+
+export type RecordDataFlowResponse200 = Portia97032B105C2A6D6A1B226A232D4A8D42B4A96F297375BA0A5D48F0938F15A14C;
+
+export type RecordDataFlowError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_401 = undefined;
+
+export type RecordDataFlowError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordDataFlowError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowPath = {
+  "data_flow_id": string;
+  "tenant_id": string;
+};
+
+export type GetDataFlowQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetDataFlowResponse200 = Portia3BD7B3C292671FD9C7BC3514F31B918E92F82B060108984374D5D9FD3FAF7737;
+
+export type GetDataFlowError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_401 = undefined;
+
+export type GetDataFlowError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetDataFlowError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowPath = {
+  "data_flow_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseDataFlowBody = {
+  "expected_revision": number | string;
+  "source_type": string | null;
+  "source_id": string;
+  "destination_type": string | null;
+  "information_asset_ids": Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D;
+  "purpose": string | null;
+  "encrypted_in_transit": boolean;
+  "encrypted_at_rest": boolean;
+  "effective_from": string;
+  "owner_person_id": string;
+  "lifecycle": string | null;
+  "destination_id"?: string;
+  "destination_party"?: string | null;
+  "exception_reference"?: string | null;
+};
+
+export type ReviseDataFlowResponse204 = undefined;
+
+export type ReviseDataFlowError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_401 = undefined;
+
+export type ReviseDataFlowError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseDataFlowError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsPath = {
+  "data_flow_id": string;
+  "tenant_id": string;
+};
+
+export type ListDataFlowRevisionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "minimum_revision"?: number | string;
+};
+
+export type ListDataFlowRevisionsResponse200 = Portia74A5A31DE9F3A44C25116AA828DDAC667A065C414D865FF4FF6A5FC4C4C5A47A;
+
+export type ListDataFlowRevisionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_401 = undefined;
+
+export type ListDataFlowRevisionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListDataFlowRevisionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsPath = {
+  "tenant_id": string;
+};
+
+export type ListInformationAssetsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListInformationAssetsResponse200 = PortiaA277510249DA33D1E77EA806415366BBFB478D775605D021833F8109CE070FCA;
+
+export type ListInformationAssetsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_401 = undefined;
+
+export type ListInformationAssetsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetPath = {
+  "tenant_id": string;
+};
+
+export type RecordInformationAssetBody = {
+  "name": string | null;
+  "classification": string | null;
+  "retention_reference": string | null;
+  "owner_person_id": string;
+  "description"?: string | null;
+};
+
+export type RecordInformationAssetResponse200 = Portia45F55D96B4D015448EC3803E9C00616C8AA2610641128A2A4A9CCB81303CEE9D;
+
+export type RecordInformationAssetError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_401 = undefined;
+
+export type RecordInformationAssetError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordInformationAssetError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetPath = {
+  "information_asset_id": string;
+  "tenant_id": string;
+};
+
+export type GetInformationAssetQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetInformationAssetResponse200 = Portia463D989E08D87242FE062F7ABA25B4A4852CDED11C651DDB003CB1493628FBA2;
+
+export type GetInformationAssetError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_401 = undefined;
+
+export type GetInformationAssetError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetInformationAssetError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetPath = {
+  "information_asset_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseInformationAssetBody = {
+  "expected_revision": number | string;
+  "name": string | null;
+  "classification": string | null;
+  "retention_reference": string | null;
+  "owner_person_id": string;
+  "lifecycle": string | null;
+  "description"?: string | null;
+};
+
+export type ReviseInformationAssetResponse204 = undefined;
+
+export type ReviseInformationAssetError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_401 = undefined;
+
+export type ReviseInformationAssetError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseInformationAssetError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsPath = {
+  "information_asset_id": string;
+  "tenant_id": string;
+};
+
+export type ListInformationAssetRevisionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "minimum_revision"?: number | string;
+};
+
+export type ListInformationAssetRevisionsResponse200 = PortiaA277510249DA33D1E77EA806415366BBFB478D775605D021833F8109CE070FCA;
+
+export type ListInformationAssetRevisionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_401 = undefined;
+
+export type ListInformationAssetRevisionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetRevisionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type InviteTenantMemberPath = {
   "tenant_id": string;
 };
@@ -4186,7 +5300,7 @@ export type ListTenantMembersQuery = {
   "limit"?: number | string;
 };
 
-export type ListTenantMembersResponse200 = PortiaBDB3727E11513755EF2C20FC36CA203734F5F1EAB005F72399870A161757C2FE;
+export type ListTenantMembersResponse200 = PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556;
 
 export type ListTenantMembersError_400 = {
   "type": string;
@@ -4258,7 +5372,7 @@ export type GetTenantMemberPath = {
   "user_id": string;
 };
 
-export type GetTenantMemberResponse200 = Portia3115C5308C1E17753EFACC8F1ED1916351FD777796131BD3E35D75C5D4E1E415;
+export type GetTenantMemberResponse200 = PortiaFA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26;
 
 export type GetTenantMemberError_400 = {
   "type": string;
@@ -5856,6 +6970,324 @@ export type ReviseCommitmentDraftError_500 = {
   "transient"?: boolean;
 };
 
+export type ListCommitmentDecisionsPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListCommitmentDecisionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListCommitmentDecisionsResponse200 = Portia0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664;
+
+export type ListCommitmentDecisionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_401 = undefined;
+
+export type ListCommitmentDecisionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentDecisionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetEffectiveCommitmentVersionQuery = {
+  "effective_on": string;
+};
+
+export type GetEffectiveCommitmentVersionResponse200 = Portia671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7;
+
+export type GetEffectiveCommitmentVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_401 = undefined;
+
+export type GetEffectiveCommitmentVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveCommitmentVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type PreviewCommitmentImpactQuery = {
+  "expected_revision": number | string;
+};
+
+export type PreviewCommitmentImpactResponse200 = Portia192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625;
+
+export type PreviewCommitmentImpactError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_401 = undefined;
+
+export type PreviewCommitmentImpactError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewCommitmentImpactError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ReviewCommitmentDraftBody = {
+  "expected_revision": number | string;
+  "outcome": string | null;
+  "rationale": string | null;
+  "owner_reference"?: string | null;
+  "applicability"?: string | null;
+  "interpretation"?: string | null;
+  "interpretation_note"?: string | null;
+  "effective_from"?: string;
+  "impact_digest"?: string | null;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type ReviewCommitmentDraftResponse204 = undefined;
+
+export type ReviewCommitmentDraftError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_401 = undefined;
+
+export type ReviewCommitmentDraftError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewCommitmentDraftError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListCommitmentDraftRevisionsPath = {
   "draft_id": string;
   "program_id": string;
@@ -6009,6 +7441,158 @@ export type GetCommitmentDraftRevisionError_500 = {
   "transient"?: boolean;
 };
 
+export type ListCommitmentVersionsPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListCommitmentVersionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListCommitmentVersionsResponse200 = Portia64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237;
+
+export type ListCommitmentVersionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_401 = undefined;
+
+export type ListCommitmentVersionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCommitmentVersionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionPath = {
+  "draft_id": string;
+  "program_id": string;
+  "tenant_id": string;
+  "version": number | string;
+};
+
+export type GetCommitmentVersionResponse200 = Portia671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7;
+
+export type GetCommitmentVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_401 = undefined;
+
+export type GetCommitmentVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCommitmentVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListControlDraftsPath = {
   "program_id": string;
   "tenant_id": string;
@@ -6019,7 +7603,7 @@ export type ListControlDraftsQuery = {
   "limit"?: number | string;
 };
 
-export type ListControlDraftsResponse200 = Portia4D2B2E7846C05C249F068D80B37B37F2C75C5ADD864571B26E4DF5A345F9CD19;
+export type ListControlDraftsResponse200 = PortiaA5E01F0DEB4FB6B8D77D19E040EC8B616C620CF9A147CE52DA9ACDE76BDE349A;
 
 export type ListControlDraftsError_400 = {
   "type": string;
@@ -6163,6 +7747,231 @@ export type CreateControlDraftError_500 = {
   "transient"?: boolean;
 };
 
+export type GetCurrentControlVersionPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetCurrentControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+
+export type GetCurrentControlVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_401 = undefined;
+
+export type GetCurrentControlVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetCurrentControlVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListControlDecisionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListControlDecisionsResponse200 = PortiaC39C98E2DBB3BF252193560530969F5DF01D0CB33395E2B40E2B8496665ED57A;
+
+export type ListControlDecisionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_401 = undefined;
+
+export type ListControlDecisionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlDecisionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionPath = {
+  "control_id": string;
+  "decision_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetControlDecisionResponse200 = Portia9B0607CA8CEF3829E2071107C5E2DC5C50730AFFBF2290344613FA16D3D34583;
+
+export type GetControlDecisionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_401 = undefined;
+
+export type GetControlDecisionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlDecisionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type GetControlDraftPath = {
   "control_id": string;
   "program_id": string;
@@ -6173,7 +7982,7 @@ export type GetControlDraftQuery = {
   "minimum_revision"?: number | string;
 };
 
-export type GetControlDraftResponse200 = Portia8E394EAF88AA2A7C8FFD2FC3F0EF138F753B34F45673B6225474AFED0CB59A46;
+export type GetControlDraftResponse200 = Portia41B8ADFE95447D60E9DF0AEDA30008085B43FC2FAED3D48AD08C2B4111A952E8;
 
 export type GetControlDraftError_400 = {
   "type": string;
@@ -6318,6 +8127,87 @@ export type ReviseControlDraftError_500 = {
   "transient"?: boolean;
 };
 
+export type ApproveControlPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ApproveControlBody = {
+  "expected_revision": number | string;
+  "accepted_review_decision_id": string;
+  "effective_from": string;
+  "rationale": string | null;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type ApproveControlResponse204 = undefined;
+
+export type ApproveControlError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_401 = undefined;
+
+export type ApproveControlError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ApproveControlError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type DiscardControlDraftPath = {
   "control_id": string;
   "program_id": string;
@@ -6388,6 +8278,86 @@ export type DiscardControlDraftError_415 = {
 };
 
 export type DiscardControlDraftError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ReviewControlBody = {
+  "expected_revision": number | string;
+  "outcome": string | null;
+  "rationale": string | null;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type ReviewControlResponse204 = undefined;
+
+export type ReviewControlError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_401 = undefined;
+
+export type ReviewControlError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -6541,6 +8511,235 @@ export type GetControlDraftRevisionError_415 = {
 };
 
 export type GetControlDraftRevisionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetEffectiveControlVersionQuery = {
+  "effective_on": string;
+};
+
+export type GetEffectiveControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+
+export type GetEffectiveControlVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_401 = undefined;
+
+export type GetEffectiveControlVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetEffectiveControlVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListControlVersionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListControlVersionsResponse200 = Portia8469557500842356B9CB65A4E1727B68DB6F1C4BD330F30784C8DD0A93CEDE77;
+
+export type ListControlVersionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_401 = undefined;
+
+export type ListControlVersionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlVersionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+  "version_id": string;
+};
+
+export type GetControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+
+export type GetControlVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_401 = undefined;
+
+export type GetControlVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlVersionError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -6777,6 +8976,230 @@ export type GetProgramRevisionError_500 = {
   "transient"?: boolean;
 };
 
+export type GetRiskMethodPath = {
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetRiskMethodResponse200 = Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4;
+
+export type GetRiskMethodError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_401 = undefined;
+
+export type GetRiskMethodError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionPath = {
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type PublishRiskMethodVersionBody = {
+  "expected_version": number | string;
+  "likelihood_scale": PortiaEBEBAE40CDBFE8B4726C2E5FDB6EE27438942900064BA238E5F7452B92135107;
+  "impact_scale": PortiaEBEBAE40CDBFE8B4726C2E5FDB6EE27438942900064BA238E5F7452B92135107;
+  "appetite_threshold"?: number | string;
+};
+
+export type PublishRiskMethodVersionResponse200 = Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4;
+
+export type PublishRiskMethodVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_401 = undefined;
+
+export type PublishRiskMethodVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PublishRiskMethodVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionPath = {
+  "program_id": string;
+  "tenant_id": string;
+  "version": number | string;
+};
+
+export type GetRiskMethodVersionResponse200 = Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4;
+
+export type GetRiskMethodVersionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_401 = undefined;
+
+export type GetRiskMethodVersionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskMethodVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListRiskDraftsPath = {
   "program_id": string;
   "tenant_id": string;
@@ -6926,6 +9349,169 @@ export type CreateRiskDraftError_415 = {
 };
 
 export type CreateRiskDraftError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskPath = {
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type AcceptRiskBody = {
+  "expected_revision": number | string;
+  "residual_assessment_id": string;
+  "approver_authority": string | null;
+  "expires_at": string;
+  "rationale": string | null;
+};
+
+export type AcceptRiskResponse200 = PortiaE056B52B06213FCC543902C08F961FB0AC9C4CF3C96070D2E7394EE553854F2A;
+
+export type AcceptRiskError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_401 = undefined;
+
+export type AcceptRiskError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AcceptRiskError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentPath = {
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type RecordRiskAssessmentBody = {
+  "expected_revision": number | string;
+  "method_version": number | string;
+  "phase": string | null;
+  "likelihood": number | string;
+  "impact": number | string;
+  "rationale": string | null;
+};
+
+export type RecordRiskAssessmentResponse200 = Portia097249E53E54CC03E10877C906EFC2594FFE7AAC91C87D347D57D7145C1CC24C;
+
+export type RecordRiskAssessmentError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_401 = undefined;
+
+export type RecordRiskAssessmentError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordRiskAssessmentError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -7237,6 +9823,241 @@ export type GetRiskDraftRevisionError_415 = {
 };
 
 export type GetRiskDraftRevisionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationPath = {
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type GetRiskEvaluationQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetRiskEvaluationResponse200 = Portia6E87F3E4BE9D729B36C701C34B83DA3B513977C84714C03C6C50E46E2437A4A8;
+
+export type GetRiskEvaluationError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_401 = undefined;
+
+export type GetRiskEvaluationError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetRiskEvaluationError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryPath = {
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type ListRiskEvaluationHistoryQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "minimum_revision"?: number | string;
+};
+
+export type ListRiskEvaluationHistoryResponse200 = Portia2C17E7023EE4294E36F1860F97F42B06DFE03B828D3FCC19679435D2C263FACB;
+
+export type ListRiskEvaluationHistoryError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_401 = undefined;
+
+export type ListRiskEvaluationHistoryError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListRiskEvaluationHistoryError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentPath = {
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type ChooseRiskTreatmentBody = {
+  "expected_revision": number | string;
+  "kind": string | null;
+  "rationale": string | null;
+};
+
+export type ChooseRiskTreatmentResponse204 = undefined;
+
+export type ChooseRiskTreatmentError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_401 = undefined;
+
+export type ChooseRiskTreatmentError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ChooseRiskTreatmentError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -8928,6 +11749,324 @@ export type ApproveSeparationOfDutiesWaiverError_500 = {
   "transient"?: boolean;
 };
 
+export type ListServiceIdentitiesPath = {
+  "tenant_id": string;
+};
+
+export type ListServiceIdentitiesQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "unowned_only"?: boolean;
+};
+
+export type ListServiceIdentitiesResponse200 = Portia457C97B613519BA562DCCC1FEED89FFEB93E61782B4983D5F35F6D82C5CEEB44;
+
+export type ListServiceIdentitiesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_401 = undefined;
+
+export type ListServiceIdentitiesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListServiceIdentitiesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityPath = {
+  "tenant_id": string;
+};
+
+export type RecordServiceIdentityBody = {
+  "display_name": string | null;
+  "identity_kind": string | null;
+  "purpose": string | null;
+  "owner_kind": string | null;
+  "owner_id": string;
+  "review_by": string;
+  "environment"?: string | null;
+};
+
+export type RecordServiceIdentityResponse200 = PortiaAD20397E4469C88F974BC9D5A386CD8E3C4A25CB034E5C0233899BA467B9C283;
+
+export type RecordServiceIdentityError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_401 = undefined;
+
+export type RecordServiceIdentityError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordServiceIdentityError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityPath = {
+  "service_identity_id": string;
+  "tenant_id": string;
+};
+
+export type GetServiceIdentityQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetServiceIdentityResponse200 = Portia62956F4A683DC319B656217BE0435DDEFCBD2D7693779600E658DB1239EFF46E;
+
+export type GetServiceIdentityError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_401 = undefined;
+
+export type GetServiceIdentityError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetServiceIdentityError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityPath = {
+  "service_identity_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseServiceIdentityBody = {
+  "expected_revision": number | string;
+  "display_name": string | null;
+  "identity_kind": string | null;
+  "purpose": string | null;
+  "owner_kind": string | null;
+  "owner_id": string;
+  "review_by": string;
+  "lifecycle_status": string | null;
+  "environment"?: string | null;
+};
+
+export type ReviseServiceIdentityResponse204 = undefined;
+
+export type ReviseServiceIdentityError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_401 = undefined;
+
+export type ReviseServiceIdentityError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseServiceIdentityError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ChangeTenantSlugPath = {
   "tenant_id": string;
 };
@@ -9668,6 +12807,85 @@ export type RemoveTeamMemberError_500 = {
   "transient"?: boolean;
 };
 
+export type ListTeamRolesPath = {
+  "team_id": string;
+  "tenant_id": string;
+};
+
+export type ListTeamRolesQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "search"?: string | null;
+  "sort"?: string | null;
+};
+
+export type ListTeamRolesResponse200 = Portia67FF42154696CE62730A90222AB6C1618C3883A7B83A530679D7947EF82A7536;
+
+export type ListTeamRolesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_401 = undefined;
+
+export type ListTeamRolesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTeamRolesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type AssignTeamRolePath = {
   "role_id": string;
   "team_id": string;
@@ -9806,6 +13024,796 @@ export type RemoveTeamRoleError_415 = {
 };
 
 export type RemoveTeamRoleError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsPath = {
+  "tenant_id": string;
+};
+
+export type ListTechnologyComponentsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListTechnologyComponentsResponse200 = PortiaF91217E35959EE564AF2004EA1727032FC5084CF5CF0155ED5D422DB017C5B3F;
+
+export type ListTechnologyComponentsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_401 = undefined;
+
+export type ListTechnologyComponentsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentPath = {
+  "tenant_id": string;
+};
+
+export type RecordTechnologyComponentBody = {
+  "category": string | null;
+  "name": string | null;
+  "owner_person_id": string;
+  "environment_reference"?: string | null;
+  "location_reference"?: string | null;
+  "system_instance_id"?: string;
+  "endpoint_count"?: number | string;
+  "management_source"?: string | null;
+};
+
+export type RecordTechnologyComponentResponse200 = Portia63D54EA89C5C07D310D2BCA13AD5F7B74227B5C1A92D8305F29836A899A420D7;
+
+export type RecordTechnologyComponentError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_401 = undefined;
+
+export type RecordTechnologyComponentError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordTechnologyComponentError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentPath = {
+  "component_id": string;
+  "tenant_id": string;
+};
+
+export type GetTechnologyComponentQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetTechnologyComponentResponse200 = Portia7B1AEE3985B856552CEAEAB86F86A8B046D256BB2EA8D4AB06B5F839FFA36B9F;
+
+export type GetTechnologyComponentError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_401 = undefined;
+
+export type GetTechnologyComponentError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetTechnologyComponentError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentPath = {
+  "component_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseTechnologyComponentBody = {
+  "expected_revision": number | string;
+  "name": string | null;
+  "owner_person_id": string;
+  "lifecycle": string | null;
+  "environment_reference"?: string | null;
+  "location_reference"?: string | null;
+  "endpoint_count"?: number | string;
+  "management_source"?: string | null;
+};
+
+export type ReviseTechnologyComponentResponse204 = undefined;
+
+export type ReviseTechnologyComponentError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_401 = undefined;
+
+export type ReviseTechnologyComponentError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseTechnologyComponentError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsPath = {
+  "component_id": string;
+  "tenant_id": string;
+};
+
+export type ListTechnologyComponentRevisionsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+  "minimum_revision"?: number | string;
+};
+
+export type ListTechnologyComponentRevisionsResponse200 = PortiaF91217E35959EE564AF2004EA1727032FC5084CF5CF0155ED5D422DB017C5B3F;
+
+export type ListTechnologyComponentRevisionsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_401 = undefined;
+
+export type ListTechnologyComponentRevisionsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentRevisionsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsPath = {
+  "tenant_id": string;
+};
+
+export type ListWorkRelationshipsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListWorkRelationshipsResponse200 = Portia474D872CD82992E0F6DAA877E95A738CD0E651D58C89FD20650936F7E9442787;
+
+export type ListWorkRelationshipsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_401 = undefined;
+
+export type ListWorkRelationshipsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkRelationshipsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipPath = {
+  "tenant_id": string;
+};
+
+export type RecordWorkRelationshipBody = {
+  "person_id": string;
+  "source_worker_id": string | null;
+  "worker_type": string | null;
+  "lifecycle_status": string | null;
+  "start_date": string;
+  "end_date"?: string;
+  "department"?: string | null;
+  "manager_person_id"?: string;
+  "sponsor_person_id"?: string;
+};
+
+export type RecordWorkRelationshipResponse200 = Portia36D1608FA46982FB7C0145375EB90B733846AA018C6B495E9A88F5B790185F37;
+
+export type RecordWorkRelationshipError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_401 = undefined;
+
+export type RecordWorkRelationshipError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RecordWorkRelationshipError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipPath = {
+  "relationship_id": string;
+  "tenant_id": string;
+};
+
+export type GetWorkRelationshipQuery = {
+  "minimum_revision"?: number | string;
+};
+
+export type GetWorkRelationshipResponse200 = Portia2AED3AF47093A366AD687BFFDD638FD60E8E83EBFD47EB5EB710621485B5041F;
+
+export type GetWorkRelationshipError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_401 = undefined;
+
+export type GetWorkRelationshipError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkRelationshipError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipPath = {
+  "relationship_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseWorkRelationshipBody = {
+  "expected_revision": number | string;
+  "worker_type": string | null;
+  "lifecycle_status": string | null;
+  "start_date": string;
+  "end_date"?: string;
+  "department"?: string | null;
+  "manager_person_id"?: string;
+  "sponsor_person_id"?: string;
+};
+
+export type ReviseWorkRelationshipResponse204 = undefined;
+
+export type ReviseWorkRelationshipError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_401 = undefined;
+
+export type ReviseWorkRelationshipError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseWorkRelationshipError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsPath = {
+  "tenant_id": string;
+};
+
+export type ListWorkforceObservationsQuery = {
+  "cursor"?: string | null;
+  "kind"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListWorkforceObservationsResponse200 = Portia25BA9252E26F1A6477363C748DA5CF9B49437180A4663073C9E1647578DC0100;
+
+export type ListWorkforceObservationsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_401 = undefined;
+
+export type ListWorkforceObservationsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceObservationsError_500 = {
   "type": string;
   "title": string;
   "status": number;

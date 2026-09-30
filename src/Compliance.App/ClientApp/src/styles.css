@@ -208,3 +208,61 @@ svg {
     border: 0;
   }
 }
+
+.risk-list,
+.inventory-records {
+  display: grid;
+  gap: var(--ak-space-md, 1rem);
+}
+
+.risk-card,
+.inventory-record {
+  padding-block-end: var(--ak-space-md, 1rem);
+  border-block-end: 1px solid var(--ak-color-border);
+}
+
+.risk-card h3 {
+  margin-block: 0 var(--ak-space-xs, 0.5rem);
+}
+
+.risk-scale {
+  display: grid;
+  gap: var(--ak-space-xs, 0.5rem);
+  border: 1px solid var(--ak-color-border);
+  padding: var(--ak-space-sm, 0.75rem);
+}
+
+.risk-scale-summary div {
+  display: flex;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.risk-scale-summary dd {
+  margin: 0;
+}
+
+.risk-rule,
+.risk-score-preview,
+.inventory-rule {
+  color: var(--ak-color-text-muted, GrayText);
+}
+
+.inventory-sections,
+.inventory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ak-space-xs, 0.5rem);
+}
+
+.inventory-assets {
+  display: grid;
+  gap: var(--ak-space-xs, 0.5rem);
+  border: 1px solid var(--ak-color-border);
+  padding: var(--ak-space-sm, 0.75rem);
+}
+
+.risk-card textarea,
+.inventory-record textarea,
+.inventory-records + details textarea {
+  min-block-size: 4rem;
+}
