@@ -20,6 +20,8 @@ public static class SeparationOfDutiesRecordTypes
     public const string Commitment = "commitment";
 
     public const string Control = "control";
+
+    public const string ControlCriterionMapping = "control_criterion_mapping";
 }
 
 public static class SeparationOfDutiesActions

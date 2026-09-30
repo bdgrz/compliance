@@ -93,6 +93,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListControlVersions>(tool => tool.ReadOnly())
         .AddMcpTool<GetControlDecision>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<GetControlCriterionMapping>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlCriterionMappings>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCriteriaCoverage>(tool => tool.ReadOnly())
         .AddMcpTool<CreateCommitmentDraft>()
         .AddMcpTool<ReviseCommitmentDraft>()
         .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
@@ -485,6 +488,31 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/decisions/{decision_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Controls");
+    // Mapping writes, including review, are human decisions and stay HTTP-only.
+    app.MapPortiaPost<ProposeControlCriterionMapping, ControlCriterionMappingRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/control-mappings")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaPost<ReviewControlCriterionMapping>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/control-mappings/{mapping_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaPost<RetireControlCriterionMapping>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/control-mappings/{mapping_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaGet<GetControlCriterionMapping, ControlCriterionMappingView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/control-mappings/{mapping_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaGet<ListControlCriterionMappings, Page<ControlCriterionMappingView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/control-mappings")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaGet<ListCriteriaCoverage, Page<CriterionCoverageView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criteria-coverage")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
     app.MapPortiaPost<CreateCommitmentDraft, CommitmentDraftRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
