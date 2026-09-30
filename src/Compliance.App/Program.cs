@@ -99,6 +99,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListRiskDrafts>(tool => tool.ReadOnly())
         .AddMcpTool<ListRiskDraftRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetRiskDraftRevision>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskMethod>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskMethodVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskEvaluation>(tool => tool.ReadOnly())
+        .AddMcpTool<ListRiskEvaluationHistory>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
@@ -460,6 +464,38 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Risks");
     app.MapPortiaGet<GetRiskDraftRevision, RiskDraftRevisionView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/draft/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<PublishRiskMethodVersion, RiskMethodVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risk-method/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskMethod, RiskMethodVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risk-method")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskMethodVersion, RiskMethodVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risk-method/versions/{version}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<RecordRiskAssessment, RiskAssessmentView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/assessments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPut<ChooseRiskTreatment>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<AcceptRisk, RiskAcceptanceView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/acceptances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskEvaluation, RiskEvaluationView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/evaluation")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<ListRiskEvaluationHistory, Page<RiskEvaluationHistoryEntryView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/evaluation/history")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
     app.MapPortiaPost<RecordPerson, PersonRegistration>(
