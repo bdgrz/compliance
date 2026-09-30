@@ -168,6 +168,15 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzWorkRelationshipDirectory>());
         services.AddScoped<IWorkRelationshipDirectoryReader>(provider =>
             provider.GetRequiredService<FitzWorkRelationshipDirectory>());
+        services.AddScoped<FitzTechnologyInventoryDirectory>();
+        services.AddScoped<ITechnologyInventoryProjection>(provider =>
+            provider.GetRequiredService<FitzTechnologyInventoryDirectory>());
+        services.AddScoped<ITechnologyInventoryReader>(provider =>
+            provider.GetRequiredService<FitzTechnologyInventoryDirectory>());
+        services.AddScoped<TechnologyInventoryReadConsistency>();
+        services.AddScoped<TechnologyInventoryReferences>();
+        services.AddScoped<ITechnologyInventoryActivity>(provider =>
+            provider.GetRequiredService<TechnologyInventoryReferences>());
         services.AddScoped<PersonReadConsistency>();
         services.AddScoped<WorkRelationshipReadConsistency>();
         services.AddScoped<FitzWorkforceObservationDirectory>();
@@ -346,6 +355,22 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetServiceIdentityHandler>()
             .AddRequestHandler<ListServiceIdentitiesHandler>()
             .AddRequestAuthorizer<WorkforceAuthorizer>()
+            .AddRequestHandler<RecordTechnologyComponentHandler>()
+            .AddRequestHandler<ReviseTechnologyComponentHandler>()
+            .AddRequestHandler<GetTechnologyComponentHandler>()
+            .AddRequestHandler<ListTechnologyComponentsHandler>()
+            .AddRequestHandler<ListTechnologyComponentRevisionsHandler>()
+            .AddRequestHandler<RecordInformationAssetHandler>()
+            .AddRequestHandler<ReviseInformationAssetHandler>()
+            .AddRequestHandler<GetInformationAssetHandler>()
+            .AddRequestHandler<ListInformationAssetsHandler>()
+            .AddRequestHandler<ListInformationAssetRevisionsHandler>()
+            .AddRequestHandler<RecordDataFlowHandler>()
+            .AddRequestHandler<ReviseDataFlowHandler>()
+            .AddRequestHandler<GetDataFlowHandler>()
+            .AddRequestHandler<ListDataFlowsHandler>()
+            .AddRequestHandler<ListDataFlowRevisionsHandler>()
+            .AddRequestAuthorizer<TechnologyInventoryAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
             .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
@@ -523,6 +548,8 @@ public static class ComplianceServiceCollectionExtensions
                 "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
             .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
+            .AddProjector<TechnologyInventoryDirectoryProjector>(
+                FitzTechnologyInventoryDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<WorkRelationshipDirectoryProjector>("WorkRelationshipDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<WorkforceObservationProjector>("WorkforceObservationsV1",

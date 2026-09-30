@@ -8,6 +8,7 @@ global using Bdgrz.Compliance.Features.Criteria;
 global using Bdgrz.Compliance.Features.Programs;
 global using Bdgrz.Compliance.Features.Risks;
 global using Bdgrz.Compliance.Features.Snapshots;
+global using Bdgrz.Compliance.Features.TechnologyInventory;
 global using Bdgrz.Compliance.Features.Tenants;
 global using Bdgrz.Compliance.Features.UserIdentities;
 global using Bdgrz.Compliance.Features.Workforce;

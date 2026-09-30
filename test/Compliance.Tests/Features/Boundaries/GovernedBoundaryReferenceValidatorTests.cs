@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.Boundaries;
@@ -72,6 +73,40 @@ public sealed class GovernedBoundaryReferenceValidatorTests
         Assert.Equal(RequestErrorKind.Conflict, lag.Error.Kind);
         Assert.True(lag.Error.IsTransient);
         Assert.False(foreignInstance.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldResolveActiveInventoryRecordsGivenTechnologyScopeReferences()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var assetId = Uuid.CreateVersion4();
+        var validator = new GovernedBoundaryReferenceValidator(
+            new ServiceActivity(tenantId, programId, Uuid.CreateVersion4()),
+            new ApplicationActivity(tenantId, Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            new InventoryActivity(tenantId, "information", assetId));
+
+        // Act
+        var active = await validator.ValidateAsync(tenantId, programId,
+            Content("information", assetId));
+        var foreign = await validator.ValidateAsync(Uuid.CreateVersion4(), programId,
+            Content("information", assetId));
+        var wrongType = await validator.ValidateAsync(tenantId, programId,
+            Content("data_flow", assetId));
+
+        // Assert
+        Assert.True(active.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, foreign.Error!.Kind);
+        Assert.Equal(RequestErrorKind.Conflict, wrongType.Error!.Kind);
+    }
+
+    sealed class InventoryActivity(Uuid tenantId, string subjectType, Uuid recordId)
+        : ITechnologyInventoryActivity
+    {
+        public ValueTask<bool> IsActiveAsync(Uuid tenant, string subject, Uuid id,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(tenant == tenantId && subject == subjectType && id == recordId);
     }
 
     static BoundaryContent Content(string subjectType, Uuid serviceId) =>
