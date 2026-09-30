@@ -18,6 +18,7 @@ import {
   removeTeamMember,
 } from '../teams.js';
 import { organizationPath } from '../../tenants/tenants.js';
+import { TeamRolesPanel } from './team-roles-panel.js';
 
 export function TeamDetailPage({ teamId }: { teamId: string }) {
   const [memberId, setMemberId] = state('');
@@ -66,6 +67,7 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
         title={team()?.name ?? 'Team'}
         description="Members are identified by member ID until a directory search exists."
       />
+      <TeamRolesPanel teamId={teamId} />
       <Card>
         <CardHeader>
           <CardTitle>Add a member</CardTitle>
@@ -95,7 +97,11 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
             <CardContent>
               <Block direction="row" gap="md" align="center" justify="between">
                 <span>{member.memberId}</span>
-                <Button variant="destructive" onPress={() => void remove(member.memberId)}>
+                <Button
+                  variant="destructive"
+                  aria-label={`Remove ${member.memberId} from this team`}
+                  onPress={() => void remove(member.memberId)}
+                >
                   Remove
                 </Button>
               </Block>

@@ -104,6 +104,13 @@ svg {
   }
 }
 
+.team-role {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
 .plain-list {
   margin: 0;
   padding: 0;
@@ -144,3 +151,4 @@ svg {
   align-items: center;
   gap: var(--ak-space-sm, 0.75rem);
 }
+

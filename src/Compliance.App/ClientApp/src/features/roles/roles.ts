@@ -143,8 +143,27 @@ export async function removeTeamRole(roleId: string, teamId: string): Promise<vo
   }
 }
 
-function describeFailure(result: { ok: false; kind: string; status?: number }): string {
+function describeFailure(result: { ok: false; kind: string; status?: number; error?: unknown }): string {
+  if (result.status === 403) {
+    return 'You do not have permission to change this.';
+  }
+  const detail =
+    result.kind === 'http' && typeof result.error === 'object' && result.error !== null
+      ? (result.error as { detail?: unknown }).detail
+      : undefined;
+  if (typeof detail === 'string' && detail.length > 0) {
+    return detail;
+  }
   return result.kind === 'http'
     ? `The request failed (${result.status ?? 'unknown status'}).`
     : 'The request could not be completed.';
+}
+
+// Roles granted to one team. The API indexes the relationship by role, so this checks each role.
+export async function listTeamRoles(teamId: string): Promise<RoleSummary[]> {
+  const roles = await listRoles();
+  const granted = await Promise.all(
+    roles.map(async (role) => ((await listRoleTeams(role.roleId)).some((t) => t.teamId === teamId) ? role : null))
+  );
+  return granted.filter((role): role is RoleSummary => role !== null);
 }

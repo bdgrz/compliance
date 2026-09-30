@@ -101,7 +101,17 @@ export async function removeTeamMember(teamId: string, memberId: string): Promis
   }
 }
 
-function describeFailure(result: { ok: false; kind: string; status?: number }): string {
+function describeFailure(result: { ok: false; kind: string; status?: number; error?: unknown }): string {
+  if (result.status === 403) {
+    return 'You do not have permission to change this.';
+  }
+  const detail =
+    result.kind === 'http' && typeof result.error === 'object' && result.error !== null
+      ? (result.error as { detail?: unknown }).detail
+      : undefined;
+  if (typeof detail === 'string' && detail.length > 0) {
+    return detail;
+  }
   return result.kind === 'http'
     ? `The request failed (${result.status ?? 'unknown status'}).`
     : 'The request could not be completed.';

@@ -10,6 +10,7 @@
 //   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs triage [--milestone R1] [--json out.json]
 //   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]
 //   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs preflight <issue> [<issue> ...] [--base origin/develop] [--json out.json]
+//   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs api-gap "<UI need> [:: current workaround]" ... [--json out.json]
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -524,6 +525,116 @@ async function preflight(numbers, base) {
     return { markdown: out.join('\n'), json };
 }
 
+// ---------- API gaps ----------
+
+const OPENAPI = 'src/Compliance.App/ClientApp/openapi/openapi.json';
+
+// Top-level (and collection item) property names of a 200 response, resolving local $refs.
+function responseFields(document, op) {
+    const resolve = (schema) => {
+        let current = schema;
+        for (let i = 0; current?.$ref && i < 10; i++) {
+            current = current.$ref.replace(/^#\//, '').split('/').reduce((node, key) => node?.[key], document);
+        }
+        return current?.oneOf?.find((s) => s.type !== 'null') ?? current?.anyOf?.find((s) => s.type !== 'null') ?? current;
+    };
+    const root = resolve(op.responses?.['200']?.content?.['application/json']?.schema);
+    if (!root) return [];
+    const items = resolve(root.properties?.items?.items ?? root.items);
+    return [...Object.keys(root.properties ?? {}), ...Object.keys(items?.properties ?? {}).map((k) => `items[].${k}`)];
+}
+
+function loadOperations() {
+    const document = JSON.parse(fs.readFileSync(OPENAPI, 'utf8'));
+    const operations = [];
+    for (const [path, methods] of Object.entries(document.paths)) {
+        for (const [method, op] of Object.entries(methods)) {
+            const query = (op.parameters ?? []).filter((p) => p.in === 'query').map((p) => p.name);
+            operations.push({
+                id: op.operationId ?? `${method} ${path}`,
+                label: `${method.toUpperCase()} ${path}${query.length ? `?${query.join('&')}` : ''}`,
+                fields: responseFields(document, op),
+            });
+        }
+    }
+    return operations;
+}
+
+const candidateQuestion = (operations) => ({
+    candidate: {
+        type: 'choice',
+        instructions:
+            'Which one existing operation is the natural home for `need`: the resource it reads or changes? Pick the closest owning resource even if it lacks some data.',
+        criteria: {
+            ...Object.fromEntries(operations.map((op, i) => [`o${i}`, op.label])),
+            none: 'No existing operation owns this resource or action.',
+        },
+    },
+});
+
+// Judged with the candidate's real response fields and the client's current workaround.
+const gapQuestions = {
+    served: {
+        type: 'noul',
+        instructions:
+            'Does `candidate` alone fully serve `need` in one call, given its `response_fields`? No if a needed field is missing, if the client must also call other operations (see `current_workaround`), or if `candidate` is null.',
+        criteria: { true: 'Fully served by the candidate.', false: 'Not fully served.' },
+    },
+    should_add: {
+        type: 'noul',
+        instructions:
+            'In an idiomatic, resource-oriented REST API for this product, should the server change to serve `need`? Yes when the client would otherwise issue one request per item, scan unrelated collections, show opaque identifiers where people expect names, or cannot do it at all, or when `need` is a distinct domain action. No when the need is presentation-only or already served.',
+        criteria: { true: 'The API should change.', false: 'The API should not change.' },
+    },
+    shape: {
+        type: 'choice',
+        instructions: 'If the API should change for `need`, which idiomatic REST shape fits best?',
+        criteria: {
+            subresource_collection: 'A GET collection under the owning resource, e.g. /teams/{team_id}/roles.',
+            query_filter: 'A query parameter that filters an existing collection, e.g. ?principal_id=.',
+            representation_field: 'A new field on an existing resource representation.',
+            command_operation: 'A new state-changing operation for a distinct domain action.',
+            no_change: 'No API change fits.',
+        },
+    },
+};
+
+async function apiGaps(needs) {
+    const operations = loadOperations().slice(0, 250);
+    const answers = await pool(needs, async (raw) => {
+        const [need, workaround] = raw.split('::').map((part) => part.trim());
+        const pick = (await jev({ need }, candidateQuestion(operations))).candidate;
+        const candidate = pick.choice === 'none' ? null : operations[Number(pick.choice.slice(1))];
+        const a = await jev(
+            {
+                need,
+                current_workaround: workaround ?? 'none recorded',
+                candidate: candidate?.label ?? null,
+                response_fields: candidate?.fields ?? [],
+            },
+            gapQuestions,
+        );
+        return { need, workaround: workaround ?? null, candidate, a };
+    });
+    const out = ['# API gaps', '', '| Need | Candidate | Served | Change API | Shape | Recommendation |', '| --- | --- | --- | --- | --- | --- |'];
+    for (const { need, candidate, a } of answers) {
+        const served = a.served.noul;
+        const add = a.should_add.noul;
+        const recommendation =
+            candidate && served >= 0.6
+                ? `use \`${candidate.id}\``
+                : add >= 0.6
+                  ? `add ${a.shape.choice.replace('_', ' ')}`
+                  : add >= 0.4
+                    ? 'review with a person'
+                    : 'compose on the client';
+        out.push(
+            `| ${need.replace(/\|/g, '\\|')} | ${candidate ? candidate.label : 'none'} | ${pct(served)} | ${pct(add)} | ${a.shape.choice} (${pct(a.shape.confidence)}) | ${recommendation} |`,
+        );
+    }
+    return { markdown: out.join('\n'), json: answers };
+}
+
 // ---------- CLI ----------
 
 async function main() {
@@ -536,12 +647,13 @@ async function main() {
     let result;
     if (command === 'triage') result = await triage(flag('--milestone') ?? 'R1');
     else if (command === 'criteria' && rest.length > 0) result = await criteria(rest.map(Number));
+    else if (command === 'api-gap' && rest.length > 0) result = await apiGaps(rest);
     else if (command === 'preflight' && rest.length > 0) {
         const base = flag('--base') ?? 'origin/develop';
         result = await preflight(rest.map(Number), base);
     }
     else {
-        console.error('usage: backlog-jev.mjs triage [--milestone R1] [--json out.json]\n       backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]\n       backlog-jev.mjs preflight <issue> [<issue> ...] [--base origin/develop] [--json out.json]');
+        console.error('usage: backlog-jev.mjs triage [--milestone R1] [--json out.json]\n       backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]\n       backlog-jev.mjs preflight <issue> [<issue> ...] [--base origin/develop] [--json out.json]\n       backlog-jev.mjs api-gap "<UI need>" ["<UI need>" ...] [--json out.json]');
         process.exit(2);
     }
     if (jsonPath) fs.writeFileSync(jsonPath, `${JSON.stringify(result.json, null, 2)}\n`);
