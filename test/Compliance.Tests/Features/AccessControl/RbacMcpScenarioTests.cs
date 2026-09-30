@@ -106,6 +106,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control.versions.list",
             "bdgrz.control.decision.get",
             "bdgrz.control.decisions.list",
+            "bdgrz.control_mapping.get",
+            "bdgrz.control_mappings.list",
+            "bdgrz.control_mappings.coverage.list",
             "bdgrz.commitment.draft.create",
             "bdgrz.commitment.draft.revise",
             "bdgrz.commitment.draft.get",
@@ -248,6 +251,8 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.control.version.get", "bdgrz.control.version.current.get",
                      "bdgrz.control.version.effective.get", "bdgrz.control.versions.list",
                      "bdgrz.control.decision.get", "bdgrz.control.decisions.list",
+                     "bdgrz.control_mapping.get", "bdgrz.control_mappings.list",
+                     "bdgrz.control_mappings.coverage.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
