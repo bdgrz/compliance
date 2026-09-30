@@ -19,7 +19,7 @@ public sealed class SystemInstanceAccessReviewScope : Aggregate
 
     public SystemInstanceAccessReviewScope(Uuid tenantId, Uuid systemInstanceId)
         : base(systemInstanceId, new EventStreamAddress(tenantId.ToString(),
-            "system-instance-access-review-scopes", systemInstanceId.ToString()))
+            AccessReviewScopeStreams.Area, systemInstanceId.ToString()))
     {
         _tenantId = tenantId;
         On<AccessReviewScopeDecided>(ev => _decisions.Add(new AccessReviewScopeDecisionView(
@@ -30,16 +30,33 @@ public sealed class SystemInstanceAccessReviewScope : Aggregate
 
     /// <summary>Returns the latest decision whose effective date is not after <paramref name="asOf"/>.</summary>
     public AccessReviewScopeDecisionView? EffectiveAt(DateTimeOffset asOf) =>
-        _decisions.LastOrDefault(decision => decision.EffectiveFrom <= asOf);
+        AccessReviewScopeStatus.EffectiveAt(_decisions, asOf);
 
     public AccessReviewScopeView ToView(Uuid applicationId, DateTimeOffset asOf)
     {
         var effective = EffectiveAt(asOf);
         return new AccessReviewScopeView(_tenantId, applicationId, Id, asOf,
-            effective?.Decision ?? "unresolved", effective, [.. _decisions]);
+            effective?.Decision ?? AccessReviewScopeStatus.Unresolved, effective, [.. _decisions]);
     }
 
     public Result<AccessReviewScopeDecisionView> Decide(DeclaredSystemInstance instance,
+        long expectedDecisionCount, Uuid decisionId, string decision, string reason,
+        DateTimeOffset effectiveFrom, DateTimeOffset? reviewBy, Uuid approverMemberId,
+        string approverDisplay, DateTimeOffset decidedAt, SeparationOfDutiesWaiver? waiver)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        if (!instance.IsCreated)
+            return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The system instance was not found."));
+        return Decide(ScopedSystemInstance.From(instance), expectedDecisionCount, decisionId,
+            decision, reason, effectiveFrom, reviewBy, approverMemberId, approverDisplay,
+            decidedAt, waiver);
+    }
+
+    /// <summary>
+    /// Decides scope for a registered or legacy application-stream instance at its exact revision.
+    /// </summary>
+    public Result<AccessReviewScopeDecisionView> Decide(ScopedSystemInstance instance,
         long expectedDecisionCount, Uuid decisionId, string decision, string reason,
         DateTimeOffset effectiveFrom, DateTimeOffset? reviewBy, Uuid approverMemberId,
         string approverDisplay, DateTimeOffset decidedAt, SeparationOfDutiesWaiver? waiver)
@@ -63,11 +80,11 @@ public sealed class SystemInstanceAccessReviewScope : Aggregate
         return Result<AccessReviewScopeDecisionView>.Success(_decisions[^1]);
     }
 
-    RequestError? Validate(DeclaredSystemInstance instance, long expectedDecisionCount,
+    RequestError? Validate(ScopedSystemInstance instance, long expectedDecisionCount,
         string decision, string reason, DateTimeOffset effectiveFrom, DateTimeOffset? reviewBy,
         Uuid approverMemberId, DateTimeOffset decidedAt, SeparationOfDutiesWaiver? waiver)
     {
-        if (!instance.IsCreated || instance.Id != Id)
+        if (instance.Id != Id)
             return new RequestError(RequestErrorKind.NotFound, "The system instance was not found.");
         if (instance.IsRetired)
             return new RequestError(RequestErrorKind.Conflict,
