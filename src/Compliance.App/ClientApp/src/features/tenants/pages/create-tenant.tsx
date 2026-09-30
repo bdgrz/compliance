@@ -11,7 +11,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { registerTenant, slugPattern, writeActiveTenant } from '../tenants.js';
+import { registerTenant, slugPattern } from '../tenants.js';
 
 export function CreateTenantPage() {
   const [name, setName] = state('');
@@ -33,11 +33,7 @@ export function CreateTenantPage() {
     setSubmitting(true);
     try {
       const tenant = await registerTenant(name(), slug());
-      if (tenant) {
-        writeActiveTenant({ tenantId: tenant.tenant_id, slug: tenant.slug });
-      }
-
-      window.location.assign('/');
+      window.location.assign(tenant ? `/${tenant.slug}` : '/');
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to create the organization.');
       setSubmitting(false);

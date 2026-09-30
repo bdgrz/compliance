@@ -5,6 +5,7 @@ import {
   normalizeReturnPath,
   resolveBrowserAuthentication,
 } from '../features/authentication/auth.js';
+import { OrganizationLayout } from '../features/tenants/organization-layout.js';
 import { PageLayout } from './_layout.js';
 
 const AuthenticationCallbackPage = lazy(() =>
@@ -31,6 +32,21 @@ const NotFoundPage = lazy(() =>
 const CreateTenantPage = lazy(() =>
   import('../features/tenants/pages/create-tenant.js').then(
     (module) => module.CreateTenantPage
+  )
+);
+const OrganizationEntryPage = lazy(() =>
+  import('../features/tenants/pages/organization-entry.js').then(
+    (module) => module.OrganizationEntryPage
+  )
+);
+const TeamsEntryPage = lazy(() =>
+  import('../features/tenants/pages/organization-entry.js').then(
+    (module) => module.TeamsEntryPage
+  )
+);
+const RolesEntryPage = lazy(() =>
+  import('../features/tenants/pages/organization-entry.js').then(
+    (module) => module.RolesEntryPage
   )
 );
 const SelectTenantPage = lazy(() =>
@@ -67,19 +83,28 @@ export const pageRegistry = createRouteRegistry(
       route('/auth/callback', AuthenticationCallbackPage);
 
       group({ auth: requireUser() }, () => {
-        route('/', HomePage, {
-          meta: {
-            title: 'Badgers - The Compliance Platform',
-            description: 'Badgers - The Compliance Platform',
-            html: { lang: 'en', dir: 'ltr' },
-          },
-        });
+        route('/', OrganizationEntryPage);
         route('/organizations', SelectTenantPage);
         route('/organizations/new', CreateTenantPage);
-        route('/teams', TeamsListPage);
-        route('/teams/{teamId}', TeamDetailPage);
-        route('/roles', RolesListPage);
-        route('/roles/{roleId}', RoleDetailPage);
+        // Links from before organization slugs existed open the same page in the user's organization.
+        route('/teams', TeamsEntryPage);
+        route('/roles', RolesEntryPage);
+
+        // Every organization page lives under its slug. The layout resolves the slug to the opaque
+        // tenant_id that API calls use, and handles unavailable, renamed, and switched organizations.
+        group({ layout: OrganizationLayout }, () => {
+          route('/{slug}', HomePage, {
+            meta: {
+              title: 'Badgers - The Compliance Platform',
+              description: 'Badgers - The Compliance Platform',
+              html: { lang: 'en', dir: 'ltr' },
+            },
+          });
+          route('/{slug}/teams', TeamsListPage);
+          route('/{slug}/teams/{teamId}', TeamDetailPage);
+          route('/{slug}/roles', RolesListPage);
+          route('/{slug}/roles/{roleId}', RoleDetailPage);
+        });
         route('/*', NotFoundPage);
       });
     });

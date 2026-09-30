@@ -9,6 +9,7 @@
 // Usage:
 //   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs triage [--milestone R1] [--json out.json]
 //   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]
+//   TYPESAFE_API_KEY=... node scripts/backlog-jev.mjs preflight <issue> [<issue> ...] [--base origin/develop] [--json out.json]
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -332,7 +333,12 @@ export function extractCriteria(body) {
         if (SKIP_SECTION.test(section)) continue;
         for (const raw of block.split('\n')) {
             const item = raw.match(/^\s*[-*]\s+\[( |x)\]\s+(.*)/i);
-            if (item) criteria.push({ section, text: item[2].trim(), checked: item[1].toLowerCase() === 'x' });
+            // One claim per criterion: a compound checklist item splits on semicolons.
+            if (item) {
+                for (const part of item[2].split(/;\s+/)) {
+                    criteria.push({ section, text: part.trim(), checked: item[1].toLowerCase() === 'x' });
+                }
+            }
         }
         const prose = block
             .split('\n')
@@ -396,6 +402,128 @@ async function criteria(numbers) {
     return { markdown: out.join('\n'), json };
 }
 
+// ---------- branch preflight ----------
+
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+
+// Generated or lock files are required by whatever produced them; they are not judged.
+const GENERATED = /(^|\/)(api-client\/|openapi\/openapi\.json$|package-lock\.json$|packages\.lock\.json$)/;
+const TEST_FILE = /(\.test\.[tj]sx?$|^test\/)/;
+
+const brokerQuestions = {
+    broker_impact: {
+        type: 'noul',
+        instructions:
+            'Does `hunk` change behavior that only a real message broker or split API/worker deployment can prove: event-sourced aggregate persistence or streams, Fitz projections or read models, reactors or background workers, projection lag or replay, or host composition for split API and worker processes? Pure request validation, authorization rules, DTOs, and HTTP mapping that unit tests cover do not count.',
+        criteria: { true: 'Needs BrokerIntegration tests.', false: 'Ordinary tests are enough.' },
+    },
+};
+
+// Coverage is a selection, not a verdict: Jev must name the one changed test that proves a
+// criterion, or none, so a person can check the match.
+const coverageQuestions = (issue, tests) => ({
+    is_requirement: criterionQuestions.is_requirement,
+    proving_test: {
+        type: 'choice',
+        instructions: `Which one test proves \`criterion\` for issue #${issue.number} "${issue.title}"? The test must exercise this issue's feature and this specific criterion; a test of a different feature, or one that only shares generic words such as loading, error, or retry, does not prove it.`,
+        criteria: {
+            ...Object.fromEntries(tests.map((t, i) => [`t${i}`, `${t.name} (${t.file})`])),
+            none: 'No listed test proves this criterion for this issue.',
+        },
+    },
+});
+
+const scopeQuestions = {
+    in_scope: {
+        type: 'choice',
+        instructions: 'How does the change to `file` relate to delivering `issue`? `excerpt` shows part of its diff.',
+        criteria: {
+            acceptance: 'It implements or tests acceptance of `issue`.',
+            required_maintenance: 'It is maintenance the acceptance work depends on, such as updating callers, regenerating contracts, or fixing a defect in code the issue touches.',
+            unrelated: 'It serves some other purpose and belongs in a different change.',
+        },
+    },
+};
+
+function changedTests(base) {
+    const tests = [];
+    for (const file of git('diff', '--name-only', `${base}...HEAD`).trim().split('\n').filter((f) => TEST_FILE.test(f) || f.endsWith('Tests.cs'))) {
+        for (const line of git('diff', `${base}...HEAD`, '-U0', '--', file).split('\n')) {
+            if (!line.startsWith('+') || line.startsWith('+++')) continue;
+            const ts = line.match(/\bit\(\s*['"`](.+?)['"`]/);
+            const cs = line.match(/\b(?:async\s+Task|void)\s+(Should\w+)\s*\(/);
+            const name = ts?.[1] ?? cs?.[1];
+            if (name) tests.push({ name, file });
+        }
+    }
+    return tests.slice(0, 250);
+}
+
+async function preflight(numbers, base) {
+    const files = git('diff', '--name-only', `${base}...HEAD`).trim().split('\n').filter(Boolean);
+    const judged = files.filter((f) => !GENERATED.test(f));
+    const hunk = (f, n) => trunc(git('diff', `${base}...HEAD`, '-U2', '--', f), n);
+
+    // Gates: path rules in code; Jev only decides broker impact for C# hunks.
+    const client = files.some((f) => f.startsWith('src/Compliance.App/ClientApp/'));
+    const dotnet = files.filter((f) => /\.(cs|csproj|props|slnx)$/.test(f));
+    const brokerAnswers = await pool(
+        dotnet.filter((f) => f.endsWith('.cs') && !TEST_FILE.test(f)),
+        async (f) => ({ f, p: (await jev({ file: f, hunk: hunk(f, 6000) }, brokerQuestions)).broker_impact.noul }),
+    );
+    const broker = brokerAnswers.filter((b) => b.p >= 0.5);
+
+    const out = [`# Preflight: ${files.length} changed files against ${base}`, '', '## Gates', ''];
+    if (client) out.push('- `npm run client:check`');
+    if (dotnet.length > 0) {
+        out.push('- `dotnet format Compliance.slnx --verify-no-changes --no-restore`', '- `dotnet build Compliance.slnx -c Release --no-restore`');
+        out.push("- `./scripts/check-backend.sh focused '<filter for the changed tests>'`");
+    }
+    out.push(
+        broker.length > 0
+            ? `- \`./scripts/check-backend.sh full\` (broker impact: ${broker.map((b) => `${b.f} ${pct(b.p)}`).join(', ')})`
+            : dotnet.length > 0
+              ? '- Broker tests not indicated for the C# changes'
+              : '- No .NET gates: no C# or project files changed',
+    );
+
+    const tests = changedTests(base);
+    const prs = loadMergedPrs();
+    const json = { files, broker: brokerAnswers, issues: [] };
+    for (const n of numbers) {
+        const issue = loadIssue(n, prs);
+        const questions = coverageQuestions(issue, tests);
+        const criteriaAnswers = await pool(extractCriteria(issue.body), async (c) => ({
+            ...c,
+            a: await jev({ issue: { number: n, title: issue.title }, criterion: c.text }, questions),
+        }));
+        const provedBy = (c) => {
+            const pick = c.a.proving_test;
+            return pick.choice === 'none' || pick.probabilities[pick.choice] < DELIVERED_MIN ? null : tests[Number(pick.choice.slice(1))];
+        };
+        const requirements = criteriaAnswers.filter((c) => c.a.is_requirement.noul >= REQUIREMENT_MIN);
+        const scope = await pool(judged, async (f) => ({
+            f,
+            a: (await jev({ issue: { number: n, title: issue.title, body: trunc(issue.body, 5000) }, file: f, excerpt: hunk(f, 2500) }, scopeQuestions)).in_scope,
+        }));
+        const gaps = requirements.filter((c) => provedBy(c) === null);
+        const unrelated = scope.filter((s) => s.a.choice === 'unrelated');
+
+        out.push('', `## #${n} ${issue.title}`, '', `${requirements.length - gaps.length} of ${requirements.length} requirements covered by a changed test.`, '');
+        out.push('| Proving test | P | Criterion |', '| --- | --- | --- |');
+        for (const c of requirements) {
+            const test = provedBy(c);
+            const p = c.a.proving_test.probabilities[c.a.proving_test.choice];
+            out.push(`| ${test ? test.name : '**none**'} | ${pct(p)} | ${trunc(c.text, 200).replace(/\|/g, '\\|')} |`);
+        }
+        out.push('', unrelated.length === 0 ? 'Scope: every judged file serves this issue.' : 'Scope: possibly unrelated files:', '');
+        for (const s of unrelated) out.push(`- ${s.f} (${pct(s.a.probabilities.unrelated)})`);
+        json.issues.push({ number: n, criteria: criteriaAnswers, scope });
+    }
+    out.push('', `Changed tests considered: ${tests.length}. Generated files skipped: ${files.length - judged.length}.`);
+    return { markdown: out.join('\n'), json };
+}
+
 // ---------- CLI ----------
 
 async function main() {
@@ -408,8 +536,12 @@ async function main() {
     let result;
     if (command === 'triage') result = await triage(flag('--milestone') ?? 'R1');
     else if (command === 'criteria' && rest.length > 0) result = await criteria(rest.map(Number));
+    else if (command === 'preflight' && rest.length > 0) {
+        const base = flag('--base') ?? 'origin/develop';
+        result = await preflight(rest.map(Number), base);
+    }
     else {
-        console.error('usage: backlog-jev.mjs triage [--milestone R1] [--json out.json]\n       backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]');
+        console.error('usage: backlog-jev.mjs triage [--milestone R1] [--json out.json]\n       backlog-jev.mjs criteria <issue> [<issue> ...] [--json out.json]\n       backlog-jev.mjs preflight <issue> [<issue> ...] [--base origin/develop] [--json out.json]');
         process.exit(2);
     }
     if (jsonPath) fs.writeFileSync(jsonPath, `${JSON.stringify(result.json, null, 2)}\n`);

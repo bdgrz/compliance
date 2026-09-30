@@ -1,5 +1,5 @@
 import { createApiClient } from '../../api-client/index.js';
-import { readActiveTenant } from '../tenants/tenants.js';
+import { requireActiveTenantId } from '../tenants/tenants.js';
 
 const client = createApiClient();
 
@@ -12,24 +12,12 @@ export interface TeamMemberSummary {
   memberId: string;
 }
 
-function requireTenantId(): string {
-  const tenant = readActiveTenant();
-  if (!tenant) {
-    // Shouldn't happen in normal flow -- every authenticated page routes through
-    // ensureActiveTenant() first. Send the user back to have that resolved again.
-    window.location.assign('/');
-    throw new Error('No active organization is selected.');
-  }
-
-  return tenant.tenantId;
-}
-
 export async function listTeams(): Promise<TeamSummary[]> {
-  const tenantId = requireTenantId();
+  const tenantId = requireActiveTenantId();
   const teams: TeamSummary[] = [];
   let cursor: string | undefined;
   do {
-    const result = await client.listTeams({ params: { tenantId }, query: { cursor } });
+    const result = await client.listTeams({ params: { tenant_id: tenantId }, query: { cursor } });
     if (!result.ok) {
       throw new Error(describeFailure(result));
     }
@@ -47,8 +35,8 @@ export async function listTeams(): Promise<TeamSummary[]> {
 }
 
 export async function getTeam(teamId: string): Promise<TeamSummary | null> {
-  const tenantId = requireTenantId();
-  const result = await client.getTeam({ params: { tenantId, teamId } });
+  const tenantId = requireActiveTenantId();
+  const result = await client.getTeam({ params: { tenant_id: tenantId, team_id: teamId } });
   if (!result.ok) {
     throw new Error(describeFailure(result));
   }
@@ -57,9 +45,9 @@ export async function getTeam(teamId: string): Promise<TeamSummary | null> {
 }
 
 export async function defineTeam(name: string): Promise<string> {
-  const tenantId = requireTenantId();
+  const tenantId = requireActiveTenantId();
   const teamId = crypto.randomUUID();
-  const result = await client.defineTeam({ params: { tenantId, teamId }, body: { name } });
+  const result = await client.defineTeam({ params: { tenant_id: tenantId, team_id: teamId }, body: { name } });
   if (!result.ok) {
     throw new Error(describeFailure(result));
   }
@@ -68,19 +56,19 @@ export async function defineTeam(name: string): Promise<string> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
-  const tenantId = requireTenantId();
-  const result = await client.deleteTeam({ params: { tenantId, teamId } });
+  const tenantId = requireActiveTenantId();
+  const result = await client.deleteTeam({ params: { tenant_id: tenantId, team_id: teamId } });
   if (!result.ok) {
     throw new Error(describeFailure(result));
   }
 }
 
 export async function listTeamMembers(teamId: string): Promise<TeamMemberSummary[]> {
-  const tenantId = requireTenantId();
+  const tenantId = requireActiveTenantId();
   const members: TeamMemberSummary[] = [];
   let cursor: string | undefined;
   do {
-    const result = await client.listTeamMembers({ params: { tenantId, teamId }, query: { cursor } });
+    const result = await client.listTeamMembers({ params: { tenant_id: tenantId, team_id: teamId }, query: { cursor } });
     if (!result.ok) {
       throw new Error(describeFailure(result));
     }
@@ -98,16 +86,16 @@ export async function listTeamMembers(teamId: string): Promise<TeamMemberSummary
 }
 
 export async function assignTeamMember(teamId: string, memberId: string): Promise<void> {
-  const tenantId = requireTenantId();
-  const result = await client.assignTeamMember({ params: { tenantId, teamId, memberId } });
+  const tenantId = requireActiveTenantId();
+  const result = await client.assignTeamMember({ params: { tenant_id: tenantId, team_id: teamId, member_id: memberId } });
   if (!result.ok) {
     throw new Error(describeFailure(result));
   }
 }
 
 export async function removeTeamMember(teamId: string, memberId: string): Promise<void> {
-  const tenantId = requireTenantId();
-  const result = await client.removeTeamMember({ params: { tenantId, teamId, memberId } });
+  const tenantId = requireActiveTenantId();
+  const result = await client.removeTeamMember({ params: { tenant_id: tenantId, team_id: teamId, member_id: memberId } });
   if (!result.ok) {
     throw new Error(describeFailure(result));
   }
