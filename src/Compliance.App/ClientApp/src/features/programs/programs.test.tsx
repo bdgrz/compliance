@@ -59,6 +59,7 @@ function programAnswers(revision = 2) {
     items: [{ code: 'boundary_missing', detail: 'Define the system boundary.', source_type: 'program', source_id: programId }],
     next_boundary_cursor: null,
   });
+  api.reply(`GET ${base}/criteria-editions`, 200, []);
   api.reply(`${program}/revisions`, 200, {
     items: [
       { program_id: programId, revision: 1, name: 'SOC 2 2026', plan: { ...plan, readiness_advisor: null }, actor_member_id: 'm', actor_display: 'Casey Lead', changed_at: '2026-09-10T00:00:00Z' },

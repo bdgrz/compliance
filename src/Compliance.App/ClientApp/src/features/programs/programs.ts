@@ -34,6 +34,7 @@ export interface Program extends ProgramSummary {
   stagePlan: { stage: string; advanceWhen: string }[];
   lastChangedBy: string;
   lastChangedAt: string;
+  criteriaEditionId: string | null;
 }
 
 export interface ProgramRevision {
@@ -80,7 +81,7 @@ export async function listPrograms(): Promise<ProgramSummary[]> {
   let cursor: string | undefined;
   do {
     const result = await client.listPrograms({ params: { tenant_id: tenantId }, query: { cursor } });
-    if (!result.ok) throw failure(result, 'load the programs');
+    if (!result.ok) throw programFailure(result, 'load the programs');
     for (const item of result.data?.items ?? []) {
       if (item) {
         programs.push({ programId: item.program_id, name: item.name, stage: item.stage, nextStage: item.next_stage });
@@ -94,7 +95,7 @@ export async function listPrograms(): Promise<ProgramSummary[]> {
 export async function getProgram(programId: string): Promise<Program> {
   const tenantId = requireActiveTenantId();
   const result = await client.getProgram({ params: { tenant_id: tenantId, program_id: programId } });
-  if (!result.ok) throw failure(result, 'load this program');
+  if (!result.ok) throw programFailure(result, 'load this program');
   const data = result.data;
   if (!data) throw new ProgramRequestError('This program was not found.', 404, false);
   return {
@@ -107,13 +108,14 @@ export async function getProgram(programId: string): Promise<Program> {
     stagePlan: data.stage_plan.filter((s) => s !== null).map((s) => ({ stage: s.stage, advanceWhen: s.advance_when })),
     lastChangedBy: data.last_changed_by?.display ?? data.last_changed_by_display,
     lastChangedAt: data.last_changed_at,
+    criteriaEditionId: data.criteria_edition_id ?? null,
   };
 }
 
 export async function createProgram(name: string, plan: ProgramPlan): Promise<string> {
   const tenantId = requireActiveTenantId();
   const result = await client.createProgram({ params: { tenant_id: tenantId }, body: { name, plan } });
-  if (!result.ok) throw failure(result, 'create the program');
+  if (!result.ok) throw programFailure(result, 'create the program');
   if (!result.data) throw new ProgramRequestError('The program was not created.', null, false);
   return result.data.program_id;
 }
@@ -129,7 +131,7 @@ export async function reviseProgram(
     params: { tenant_id: tenantId, program_id: programId },
     body: { expected_revision: expectedRevision, name, plan },
   });
-  if (!result.ok) throw failure(result, 'save the program');
+  if (!result.ok) throw programFailure(result, 'save the program');
 }
 
 export async function listProgramRevisions(programId: string): Promise<ProgramRevision[]> {
@@ -141,7 +143,7 @@ export async function listProgramRevisions(programId: string): Promise<ProgramRe
       params: { tenant_id: tenantId, program_id: programId },
       query: { cursor },
     });
-    if (!result.ok) throw failure(result, 'load the program history');
+    if (!result.ok) throw programFailure(result, 'load the program history');
     for (const item of result.data?.items ?? []) {
       if (item) {
         revisions.push({
@@ -161,13 +163,13 @@ export async function listProgramRevisions(programId: string): Promise<ProgramRe
 export async function getSetupWork(programId: string): Promise<SetupWorkItem[]> {
   const tenantId = requireActiveTenantId();
   const result = await client.getProgramSetupWork({ params: { tenant_id: tenantId, program_id: programId } });
-  if (!result.ok) throw failure(result, 'load the setup work');
+  if (!result.ok) throw programFailure(result, 'load the setup work');
   return (result.data?.items ?? [])
     .filter((item) => item !== null)
     .map((item) => ({ code: item.code, detail: item.detail, sourceType: item.source_type, sourceId: item.source_id }));
 }
 
-function failure(result: { ok: false; kind: string; status: number; error?: unknown }, action: string) {
+export function programFailure(result: { ok: false; kind: string; status: number; error?: unknown }, action: string) {
   const problem =
     result.kind === 'http' && typeof result.error === 'object' && result.error !== null
       ? (result.error as { detail?: unknown; transient?: unknown })
