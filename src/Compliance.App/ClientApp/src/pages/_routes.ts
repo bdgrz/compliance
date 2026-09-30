@@ -91,6 +91,24 @@ const ApplicationsPage = lazy(() =>
 const ApplicationDetailPage = lazy(() =>
   import('../features/applications/pages/application-detail.js').then((module) => module.ApplicationDetailPage)
 );
+const WorkforceRosterPage = lazy(() =>
+  import('../features/workforce/pages/workforce-roster.js').then((module) => module.WorkforceRosterPage)
+);
+const PersonDetailPage = lazy(() =>
+  import('../features/workforce/pages/person-detail.js').then((module) => module.PersonDetailPage)
+);
+const WorkRelationshipDetailPage = lazy(() =>
+  import('../features/workforce/pages/relationship-detail.js').then((module) => module.WorkRelationshipDetailPage)
+);
+const WorkforceObservationsPage = lazy(() =>
+  import('../features/workforce/pages/workforce-observations.js').then((module) => module.WorkforceObservationsPage)
+);
+const ServiceIdentitiesPage = lazy(() =>
+  import('../features/workforce/pages/service-identities.js').then((module) => module.ServiceIdentitiesPage)
+);
+const ServiceIdentityDetailPage = lazy(() =>
+  import('../features/workforce/pages/service-identity-detail.js').then((module) => module.ServiceIdentityDetailPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -136,6 +154,12 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/inventory', InventoryPage);
           route('/{slug}/applications', ApplicationsPage);
           route('/{slug}/applications/{applicationId}', ApplicationDetailPage);
+          route('/{slug}/workforce', WorkforceRosterPage);
+          route('/{slug}/workforce/people/{personId}', PersonDetailPage);
+          route('/{slug}/workforce/relationships/{relationshipId}', WorkRelationshipDetailPage);
+          route('/{slug}/workforce/observations', WorkforceObservationsPage);
+          route('/{slug}/workforce/service-identities', ServiceIdentitiesPage);
+          route('/{slug}/workforce/service-identities/{serviceIdentityId}', ServiceIdentityDetailPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);

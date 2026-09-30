@@ -272,6 +272,13 @@ svg {
   flex-wrap: wrap;
   gap: var(--ak-space-xs, 0.5rem);
   margin: var(--ak-space-xs, 0.5rem) 0 0;
+}
+
+.workforce-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ak-space-sm);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -311,4 +318,70 @@ svg {
   gap: var(--ak-space-xs, 0.5rem);
   border: 1px solid var(--ak-color-border);
   border-radius: var(--ak-radius-md, 0.5rem);
+}
+
+.workforce-sections a {
+  display: inline-block;
+  padding: var(--ak-space-xs) var(--ak-space-sm);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md);
+  text-decoration: none;
+}
+
+.workforce-sections a[aria-current='page'] {
+  font-weight: 600;
+  border-color: currentColor;
+}
+
+.registration-field select,
+.registration-field textarea {
+  min-height: 2.75rem;
+  padding: var(--ak-space-xs) var(--ak-space-sm);
+  color: var(--ak-color-fg);
+  background: var(--ak-color-bg);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md);
+  font: inherit;
+}
+
+.workforce-callout {
+  margin: 0;
+  padding: var(--ak-space-sm) var(--ak-space-md);
+  border-left: 4px solid var(--ak-color-border);
+  background: var(--ak-color-bg);
+  font-weight: 600;
+}
+
+.workforce-table {
+  overflow-x: auto;
+}
+
+.workforce-kind {
+  font-weight: 600;
+}
+
+.workforce-gaps {
+  margin: var(--ak-space-xs) 0 0;
+  color: var(--ak-color-danger-text);
+}
+
+.workforce-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-space-xs);
+}
+
+.workforce-terms {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ak-space-xs) var(--ak-space-md);
+  margin: 0;
+}
+
+.workforce-terms dt {
+  font-weight: 600;
+}
+
+.workforce-terms dd {
+  margin: 0;
 }
