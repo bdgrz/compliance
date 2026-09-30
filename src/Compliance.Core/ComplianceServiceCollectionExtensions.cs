@@ -168,6 +168,19 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzWorkRelationshipDirectory>());
         services.AddScoped<PersonReadConsistency>();
         services.AddScoped<WorkRelationshipReadConsistency>();
+        services.AddScoped<FitzWorkforceObservationDirectory>();
+        services.AddScoped<IWorkforceObservationProjection>(provider =>
+            provider.GetRequiredService<FitzWorkforceObservationDirectory>());
+        services.AddScoped<IWorkforceObservationDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzWorkforceObservationDirectory>());
+        services.AddScoped<WorkforceObservationReadConsistency>();
+        services.AddScoped<FitzServiceIdentityDirectory>();
+        services.AddScoped<IServiceIdentityDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzServiceIdentityDirectory>());
+        services.AddScoped<IServiceIdentityDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzServiceIdentityDirectory>());
+        services.AddScoped<ServiceIdentityReadConsistency>();
+        services.AddScoped<ServiceIdentityOwnership>();
         services.AddScoped<FitzRiskDraftDirectory>();
         services.AddScoped<IRiskDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzRiskDraftDirectory>());
@@ -319,6 +332,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviseWorkRelationshipHandler>()
             .AddRequestHandler<GetWorkRelationshipHandler>()
             .AddRequestHandler<ListWorkRelationshipsHandler>()
+            .AddRequestHandler<ListWorkforceObservationsHandler>()
+            .AddRequestHandler<RecordServiceIdentityHandler>()
+            .AddRequestHandler<ReviseServiceIdentityHandler>()
+            .AddRequestHandler<GetServiceIdentityHandler>()
+            .AddRequestHandler<ListServiceIdentitiesHandler>()
             .AddRequestAuthorizer<WorkforceAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
@@ -484,6 +502,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
             .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<WorkRelationshipDirectoryProjector>("WorkRelationshipDirectoryV1",
+                WorkloadScope.PerTenant)
+            .AddProjector<WorkforceObservationProjector>("WorkforceObservationsV1",
+                WorkloadScope.PerTenant)
+            .AddProjector<ServiceIdentityDirectoryProjector>("ServiceIdentityDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
                 WorkloadScope.PerTenant)
