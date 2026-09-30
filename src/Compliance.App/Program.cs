@@ -125,6 +125,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RevisePerson>(tool => tool.Idempotent())
         .AddMcpTool<GetPerson>(tool => tool.ReadOnly())
         .AddMcpTool<ListPeople>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordWorkRelationship>()
+        .AddMcpTool<ReviseWorkRelationship>(tool => tool.Idempotent())
+        .AddMcpTool<GetWorkRelationship>(tool => tool.ReadOnly())
+        .AddMcpTool<ListWorkRelationships>(tool => tool.ReadOnly())
         .AddMcpTool<CreateClientService>()
         .AddMcpTool<ReviseClientService>(tool => tool.Idempotent())
         .AddMcpTool<RetireClientService>(tool => tool.Destructive())
@@ -472,6 +476,22 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Workforce");
     app.MapPortiaGet<ListPeople, Page<PersonView>>(
             "/api/v1/tenants/{tenant_id}/people")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPost<RecordWorkRelationship, WorkRelationshipRegistration>(
+            "/api/v1/tenants/{tenant_id}/work-relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPut<ReviseWorkRelationship>(
+            "/api/v1/tenants/{tenant_id}/work-relationships/{relationship_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<GetWorkRelationship, WorkRelationshipView>(
+            "/api/v1/tenants/{tenant_id}/work-relationships/{relationship_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<ListWorkRelationships, Page<WorkRelationshipView>>(
+            "/api/v1/tenants/{tenant_id}/work-relationships")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
     app.MapPortiaPost<DeclareApplication, ApplicationRegistration>(

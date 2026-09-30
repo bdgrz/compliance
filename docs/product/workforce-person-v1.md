@@ -38,12 +38,41 @@ Each person owns a tenant-scoped `people/{person_id}` event stream
 (`PersonRecorded`, `PersonRevised`). `PersonDirectoryV1` projects the current
 row into Fitz, keyed by person, with a display-name index for listing.
 
+## Work relationships
+
+`WorkRelationship` records a person's M0-D06 minimum worker attributes under a
+stable source worker ID:
+
+- `POST /api/v1/tenants/{tenant_id}/work-relationships` takes `person_id`,
+  `source_worker_id`, `worker_type` (`employee`, `contractor`,
+  `external_collaborator`), `lifecycle_status` (`pending`, `active`,
+  `on_leave`, `ended`), `start_date`, and optional `end_date`, `department`,
+  `manager_person_id`, and `sponsor_person_id`. The relationship ID is derived
+  from the tenant and the normalized worker ID, so a worker ID identifies one
+  relationship: an identical retry succeeds, and the same worker ID for another
+  person or with other content conflicts. Email is never an identifier.
+- The person, manager, and sponsor must be recorded people of the tenant. An
+  `ended` relationship needs an end date on or after its start date, nobody
+  manages or sponsors themselves, and an external collaborator needs an
+  accountable internal sponsor.
+- `PUT .../work-relationships/{relationship_id}` requires `expected_revision`
+  and replaces the terms; the person and worker ID never change. Recording a
+  leaver is a revision to `ended` with an end date.
+- `GET` of one relationship returns the restricted `manager_person_id`. The list
+  (ordered by worker ID, lag-checked like people) returns it as null with
+  `restricted_fields_redacted: true`.
+- MCP tools mirror all four operations. Every operation requires
+  `workforce.manage` (Org Admin and Compliance Lead by default).
+
+Each relationship owns a `work-relationships/{relationship_id}` stream, and
+`WorkRelationshipDirectoryV1` projects it.
+
 ## Not yet delivered
 
-- `WorkRelationship` (worker type, lifecycle status, start and end dates,
-  manager, and department), stable source worker IDs and their uniqueness,
-  source precedence, and reconciliation.
-- Restricted workforce fields and field-level redaction. This slice stores no
-  restricted field.
-- Joiner, mover, and leaver observations, correlation to platform membership,
-  and HRIS import (waits on [#347](https://github.com/bdgrz/compliance/issues/347)).
+- Source precedence and reconciliation between sources, which needs a second
+  source (HRIS import waits on [#347](https://github.com/bdgrz/compliance/issues/347)).
+- The employment status reason and personal contact fields, and a separate
+  restricted-field grant; today lists redact the manager and single reads
+  require `workforce.manage`.
+- Joiner, mover, and leaver observations (#221), correlation to platform
+  membership, and HRIS import.
