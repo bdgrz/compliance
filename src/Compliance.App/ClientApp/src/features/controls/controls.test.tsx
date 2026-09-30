@@ -39,6 +39,28 @@ const content = {
   ],
 };
 
+const programBody = {
+  tenant_id: tenantId,
+  program_id: programId,
+  name: 'SOC 2 2026',
+  stage: 'readiness',
+  next_stage: 'type_i',
+  revision: 3,
+  plan: {
+    target_readiness_date: null,
+    target_type_i_as_of_date: null,
+    target_type_ii_start_date: null,
+    target_type_ii_end_date: null,
+    readiness_advisor: null,
+    audit_firm: null,
+  },
+  last_changed_by_member_id: 'm',
+  last_changed_by_display: 'Casey Lead',
+  last_changed_at: '2026-09-20T00:00:00Z',
+  stage_plan: [],
+  criteria_edition_id: null,
+};
+
 function draftBody(revision = 2) {
   return {
     tenant_id: tenantId,
@@ -58,6 +80,10 @@ function draftBody(revision = 2) {
 
 function detailAnswers(revision = 2) {
   api.reply(`GET ${draft}`, 200, draftBody(revision));
+  api.reply(`GET ${controls}/${controlId}/current-version`, 404, problem(404, 'The control has no approved version.'));
+  api.reply(`GET ${controls}/${controlId}/decisions`, 200, { items: [], next_cursor: null });
+  api.reply(`GET ${controls}/${controlId}/versions`, 200, { items: [], next_cursor: null });
+  api.reply(`GET ${base}/programs/${programId}`, 200, programBody);
   api.reply(`GET ${draft}/revisions`, 200, {
     items: [1, 2].map((r) => ({
       tenant_id: tenantId,
@@ -76,6 +102,12 @@ function detailAnswers(revision = 2) {
 
 function field(container: HTMLElement, label: string) {
   return [...container.querySelectorAll('label')].find((l) => l.textContent?.startsWith(label))!
+    .querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+}
+
+function exact(container: HTMLElement, label: string) {
+  return [...container.querySelectorAll('label')]
+    .find((l) => l.querySelector('span')?.textContent === label)!
     .querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
 }
 
@@ -239,5 +271,70 @@ describe('control drafts (R1-05 frontend #204)', () => {
 
     // Assert
     await vi.waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Control not found'));
+  });
+
+  it('ShouldAddAGovernedApplicabilityReferenceToTheDraft', async () => {
+    // Arrange
+    detailAnswers(2);
+    api.reply(`PUT ${draft}`, 204);
+    const container = mount(() => (
+      <ControlDetailPage programId={programId} controlId={controlId} />
+    ));
+    await vi.waitFor(() =>
+      expect(container.querySelector('form')).not.toBeNull()
+    );
+    const addButton = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Add applicability'
+    )!;
+    addButton.click();
+    await vi.waitFor(() =>
+      expect(
+        container.querySelector('[aria-label="Applicability 2"]')
+      ).not.toBeNull()
+    );
+    const entry = container.querySelector(
+      '[aria-label="Applicability 2"]'
+    ) as HTMLElement;
+    const select = entry.querySelector('select') as HTMLSelectElement;
+    select.value = 'application';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(field(entry, 'Inventory record ID')).toBeDefined()
+    );
+    type(exact(entry, 'Subject'), 'Billing API');
+    type(
+      field(entry, 'Inventory record ID'),
+      '0190a1b2-0000-7000-8000-0000000000a1'
+    );
+    type(field(entry, 'Why it applies'), 'Processes customer data.');
+
+    // Act
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(api.bodies.some((b) => b.method === 'PUT')).toBe(true)
+    );
+
+    // Assert
+    const sent = api.bodies.find((b) => b.method === 'PUT' && b.path === draft)
+      ?.body as {
+      content: {
+        applicability: {
+          subject_type: string;
+          subject: string;
+          governed_record_id: string | null;
+          unresolved: boolean;
+        }[];
+      };
+    };
+    expect(sent.content.applicability).toHaveLength(2);
+    expect(sent.content.applicability[1]).toMatchObject({
+      subject_type: 'application',
+      subject: 'Billing API',
+      governed_record_id: '0190a1b2-0000-7000-8000-0000000000a1',
+      unresolved: false,
+    });
+    expect(await accessibilityViolations(container)).toEqual([]);
   });
 });

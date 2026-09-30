@@ -14,6 +14,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
+import { CoverageCard } from '../../control-mappings/coverage-card.js';
 import { CriteriaCard } from '../../criteria/criteria-card.js';
 import { organizationPath } from '../../tenants/tenants.js';
 import {
@@ -196,6 +197,7 @@ export function ProgramDetailPage({ programId }: { programId: string }) {
           </CardContent>
         </Card>
         <CriteriaCard program={current} onChanged={() => setVersion(version() + 1)} />
+        <CoverageCard program={current} />
         <Card>
           <CardHeader>
             <CardTitle>Path to Type II</CardTitle>

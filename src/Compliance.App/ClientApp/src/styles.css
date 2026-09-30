@@ -483,3 +483,59 @@ svg {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Control lifecycle, criteria mappings, and coverage (R1-05 #480, R1-06 #205) */
+.control-applicability-editor {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+  border: 1px solid var(--ak-color-border, currentColor);
+  border-radius: var(--ak-radius-md, 0.5rem);
+  padding: var(--ak-space-sm, 0.75rem);
+  margin: 0;
+}
+
+.control-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ak-space-md, 1rem);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.control-applicability-entry {
+  display: grid;
+  gap: var(--ak-space-xs, 0.5rem);
+  padding-block-end: var(--ak-space-sm, 0.75rem);
+  border-block-end: 1px dashed var(--ak-color-border, currentColor);
+}
+
+.control-impact,
+.control-impact-changes,
+.control-impact-contexts,
+.control-versions,
+.control-decisions,
+.control-mappings,
+.control-mapping-history,
+.criteria-coverage {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.control-impact code {
+  overflow-wrap: anywhere;
+}
+
+.control-mapping p,
+.criteria-coverage p {
+  margin: 0.25rem 0;
+}
+
+.criteria-coverage-unmapped > strong {
+  color: var(--ak-color-danger-text, inherit);
+}
+
+.control-lifecycle-state {
+  font-weight: 600;
+  margin: 0;
+}
