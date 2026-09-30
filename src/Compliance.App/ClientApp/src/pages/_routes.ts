@@ -85,6 +85,12 @@ const ProgramRisksPage = lazy(() =>
 const InventoryPage = lazy(() =>
   import('../features/inventory/pages/inventory.js').then((module) => module.InventoryPage)
 );
+const ApplicationsPage = lazy(() =>
+  import('../features/applications/pages/applications-list.js').then((module) => module.ApplicationsPage)
+);
+const ApplicationDetailPage = lazy(() =>
+  import('../features/applications/pages/application-detail.js').then((module) => module.ApplicationDetailPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -128,6 +134,8 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/programs/{programId}', ProgramDetailPage);
           route('/{slug}/programs/{programId}/risks', ProgramRisksPage);
           route('/{slug}/inventory', InventoryPage);
+          route('/{slug}/applications', ApplicationsPage);
+          route('/{slug}/applications/{applicationId}', ApplicationDetailPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);

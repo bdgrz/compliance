@@ -201,6 +201,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<VerifyProgramScopeSnapshot>(tool => tool.ReadOnly())
         .AddMcpTool<RegenerateProgramScopeSnapshotManifest>(tool => tool.ReadOnly())
         .AddMcpTool<ListProgramSnapshots>(tool => tool.ReadOnly())
+        .AddMcpTool<FreezeWorkforceRosterSnapshot>()
+        .AddMcpTool<AmendWorkforceRosterSnapshot>()
+        .AddMcpTool<GetWorkforceRosterSnapshot>(tool => tool.ReadOnly())
+        .AddMcpTool<GetWorkforceRosterSnapshotAsOf>(tool => tool.ReadOnly())
+        .AddMcpTool<ListWorkforceRosterSnapshots>(tool => tool.ReadOnly())
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -958,6 +963,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Snapshots");
     app.MapPortiaGet<ListProgramSnapshots, Page<SnapshotView>>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/scope-snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaPost<FreezeWorkforceRosterSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaPost<AmendWorkforceRosterSnapshot, SnapshotRegistration>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots/{snapshot_id}/amendments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<GetWorkforceRosterSnapshot, WorkforceRosterSnapshotView>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots/{snapshot_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<ListWorkforceRosterSnapshots, Page<PopulationSnapshotSummary>>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<GetWorkforceRosterSnapshotAsOf, WorkforceRosterSnapshotView>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshot-as-of")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<PreviewBoundaryImpact, BoundaryImpactPreview>(
