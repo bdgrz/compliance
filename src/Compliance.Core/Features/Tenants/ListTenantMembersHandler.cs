@@ -1,9 +1,11 @@
+using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed class ListTenantMembersHandler(ITenantMembershipDirectoryReader directory)
+public sealed class ListTenantMembersHandler(ITenantMembershipDirectoryReader directory,
+    IEmailAddressDirectoryReader? emails = null)
     : IRequestHandler<ListTenantMembers, Page<TenantMembershipView>>
 {
     public async ValueTask<Result<Page<TenantMembershipView>>> HandleAsync(
@@ -27,6 +29,16 @@ public sealed class ListTenantMembersHandler(ITenantMembershipDirectoryReader di
         return page.Items.Any(member => member.TenantId != request.TenantId)
             ? Result<Page<TenantMembershipView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant members were not found."))
-            : Result<Page<TenantMembershipView>>.Success(page);
+            : Result<Page<TenantMembershipView>>.Success(new Page<TenantMembershipView>(
+                await EnrichAsync(page.Items, ct).ConfigureAwait(false), page.NextCursor));
+    }
+
+    async ValueTask<IReadOnlyList<TenantMembershipView>> EnrichAsync(
+        IReadOnlyList<TenantMembershipView> members, CancellationToken ct)
+    {
+        var enriched = new List<TenantMembershipView>(members.Count);
+        foreach (var member in members)
+            enriched.Add(await MemberEmailEnrichment.WithEmailAsync(emails, member, ct).ConfigureAwait(false));
+        return enriched;
     }
 }
