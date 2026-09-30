@@ -158,7 +158,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.tenant.change-slug",
             "bdgrz.tenant-slug.resolve-mine",
             "bdgrz.workforce.person.record",
-            "bdgrz.workforce.person.revise",
+            "bdgrz.workforce.person.revise", "bdgrz.workforce.work-relationship.get", "bdgrz.workforce.work-relationship.list", "bdgrz.workforce.work-relationship.record", "bdgrz.workforce.work-relationship.revise",
             "bdgrz.workforce.person.get",
             "bdgrz.workforce.person.list");
         var tools = await scenario.ListTools();

@@ -161,7 +161,13 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzPersonDirectory>());
         services.AddScoped<IPersonDirectoryReader>(provider =>
             provider.GetRequiredService<FitzPersonDirectory>());
+        services.AddScoped<FitzWorkRelationshipDirectory>();
+        services.AddScoped<IWorkRelationshipDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzWorkRelationshipDirectory>());
+        services.AddScoped<IWorkRelationshipDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzWorkRelationshipDirectory>());
         services.AddScoped<PersonReadConsistency>();
+        services.AddScoped<WorkRelationshipReadConsistency>();
         services.AddScoped<FitzRiskDraftDirectory>();
         services.AddScoped<IRiskDraftDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzRiskDraftDirectory>());
@@ -305,6 +311,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RevisePersonHandler>()
             .AddRequestHandler<GetPersonHandler>()
             .AddRequestHandler<ListPeopleHandler>()
+            .AddRequestHandler<RecordWorkRelationshipHandler>()
+            .AddRequestHandler<ReviseWorkRelationshipHandler>()
+            .AddRequestHandler<GetWorkRelationshipHandler>()
+            .AddRequestHandler<ListWorkRelationshipsHandler>()
             .AddRequestAuthorizer<WorkforceAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
@@ -469,6 +479,8 @@ public static class ComplianceServiceCollectionExtensions
                 "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
             .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
+            .AddProjector<WorkRelationshipDirectoryProjector>("WorkRelationshipDirectoryV1",
+                WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
