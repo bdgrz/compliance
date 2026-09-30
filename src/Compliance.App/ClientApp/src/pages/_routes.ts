@@ -70,6 +70,12 @@ const MembersPage = lazy(() =>
 const MemberAccessPage = lazy(() =>
   import('../features/members/pages/member-access.js').then((module) => module.MemberAccessPage)
 );
+const ProgramsPage = lazy(() =>
+  import('../features/programs/pages/programs-list.js').then((module) => module.ProgramsPage)
+);
+const ProgramDetailPage = lazy(() =>
+  import('../features/programs/pages/program-detail.js').then((module) => module.ProgramDetailPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -108,6 +114,8 @@ export const pageRegistry = createRouteRegistry(
           });
           route('/{slug}/members', MembersPage);
           route('/{slug}/members/{userId}', MemberAccessPage);
+          route('/{slug}/programs', ProgramsPage);
+          route('/{slug}/programs/{programId}', ProgramDetailPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);
