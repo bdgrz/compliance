@@ -125,6 +125,13 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                     roleId => Assert.Equal(scope.AdministrationRoleId, roleId));
                 Assert.Contains(scope.AdministratorsTeamId, Ids(await ReadHttpPageAsync(owner,
                     roleTeamsPath + "?search=" + scope.AdministratorsTeamId[..8]), "team_id"));
+
+                // The team-keyed view of the same assignments lists the team's roles in one read.
+                var teamRoles = await WaitForPageAsync(owner,
+                    TenantPath(scope.TenantId) + "/teams/" + scope.AdministratorsTeamId + "/roles",
+                    page => Ids(page, "role_id").Contains(scope.AdministrationRoleId));
+                Assert.All(Ids(teamRoles, "team_id"),
+                    teamId => Assert.Equal(scope.AdministratorsTeamId, teamId));
             }
 
             var memberCursorA = memberPagesByTenant[tenantA][0]
@@ -244,6 +251,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                              ("bdgrz.rbac.team-member.list", "team_id", scopeA.AdministratorsTeamId),
                              ("bdgrz.rbac.role-permission.list", "role_id", scopeA.AdministrationRoleId),
                              ("bdgrz.rbac.role-team.list", "role_id", scopeA.AdministrationRoleId),
+                             ("bdgrz.rbac.team-role.list", "team_id", scopeA.AdministratorsTeamId),
                          })
                 {
                     var foreign = await ReadMcpPageAsync(mcp, tool, new Dictionary<string, object?>
@@ -263,6 +271,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                          TenantPath(tenantA) + "/teams/" + scopeA.AdministratorsTeamId + "/members",
                          TenantPath(tenantA) + "/roles/" + scopeA.AdministrationRoleId + "/permissions",
                          TenantPath(tenantA) + "/roles/" + scopeA.AdministrationRoleId + "/teams",
+                         TenantPath(tenantA) + "/teams/" + scopeA.AdministratorsTeamId + "/roles",
                      })
             {
                 using var denied = await outsider.GetAsync(path);
@@ -277,6 +286,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
                          ("bdgrz.rbac.team-member.list", "team_id", scopeA.AdministratorsTeamId),
                          ("bdgrz.rbac.role-permission.list", "role_id", scopeA.AdministrationRoleId),
                          ("bdgrz.rbac.role-team.list", "role_id", scopeA.AdministrationRoleId),
+                         ("bdgrz.rbac.team-role.list", "team_id", scopeA.AdministratorsTeamId),
                      })
             {
                 var input = new Dictionary<string, object?> { ["tenant_id"] = tenantA.ToString() };

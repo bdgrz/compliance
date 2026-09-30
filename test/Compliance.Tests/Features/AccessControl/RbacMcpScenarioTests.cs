@@ -132,7 +132,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.rbac.role-permission.remove",
             "bdgrz.rbac.role-permission.list",
             "bdgrz.rbac.team-role.assign",
-            "bdgrz.rbac.team-role.remove",
+            "bdgrz.rbac.team-role.list", "bdgrz.rbac.team-role.remove",
             "bdgrz.rbac.role-team.list",
             "bdgrz.access-grant.issue",
             "bdgrz.access-grant.revoke",
