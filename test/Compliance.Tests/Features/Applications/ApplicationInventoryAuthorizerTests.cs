@@ -156,6 +156,51 @@ public sealed class ApplicationInventoryAuthorizerTests
         Assert.Empty(permissions.Permissions);
     }
 
+    [Theory]
+    [InlineData(false, RequestErrorKind.Forbidden)]
+    [InlineData(true, null)]
+    public async Task ShouldRequireOrganizationProgramManagementGivenAccessReviewScopeDecision(
+        bool permitted, RequestErrorKind? expected)
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(permitted);
+        var authorizer = new ProgramManagementAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes());
+        var context = new RequestContext<IProgramManagementRequest>(
+            new DecideAccessReviewScope(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                Uuid.CreateVersion4(), 1, 0, "included", "Production data",
+                DateTimeOffset.UtcNow), BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(expected, (result.Error as RequestError)?.Kind);
+        Assert.Contains("program.manage", permissions.Permissions);
+    }
+
+    [Fact]
+    public async Task ShouldHideMissingApplicationGivenAccessReviewScopeDecision()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(true);
+        var authorizer = new ProgramManagementAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), new PermissionBackedAccessGrantPermissionAuthorizer(permissions),
+            ProgramManagementServices.ResourceScopes(applicationExists: false));
+        var context = new RequestContext<IProgramManagementRequest>(
+            new DecideAccessReviewScope(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                Uuid.CreateVersion4(), 1, 0, "excluded", "Sandbox only",
+                DateTimeOffset.UtcNow), BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Permissions);
+    }
+
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
 }

@@ -17,7 +17,10 @@ public sealed class DeclaredApplication : Aggregate
     Uuid? _initialSystemOwner;
     Uuid? _initialAccessOwner;
 
+    bool _retired;
+
     public bool IsCreated => _created;
+    public bool IsRetired => _retired;
     public long Revision => _revision;
 
     public DeclaredApplication(Uuid tenantId, Uuid applicationId)
@@ -37,6 +40,11 @@ public sealed class DeclaredApplication : Aggregate
             _initialAccessOwner = ev.AccessOwnerPersonId;
         });
         On<ApplicationRevised>(ev => _revision = ev.Revision);
+        On<ApplicationRetired>(ev =>
+        {
+            _revision = ev.Revision;
+            _retired = true;
+        });
         // Historical application-stream declarations still own their old revision numbers.
         // Their instance state is projected separately and is not retained by this aggregate.
         On<SystemInstanceDeclared>(ev => _revision = ev.ApplicationRevision);
@@ -91,8 +99,31 @@ public sealed class DeclaredApplication : Aggregate
         return null;
     }
 
+    /// <summary>Retires the application from an effective date without deleting its history.</summary>
+    public CommandFailure? Retire(long expectedRevision, DateTimeOffset effectiveAt,
+        string reason, Uuid? mergedIntoApplicationId, Uuid actorMemberId, string actorDisplay,
+        DateTimeOffset changedAt)
+    {
+        var check = CheckChange(expectedRevision);
+        if (check is not null)
+            return check;
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
+            return CommandFailure.InvalidContent(
+                "A retirement requires a reason of at most 2000 characters.");
+        if (mergedIntoApplicationId == Id || mergedIntoApplicationId == Uuid.Empty)
+            return CommandFailure.InvalidContent(
+                "An application cannot be merged into itself or an empty identity.");
+        RaiseEvent(new ApplicationRetired(_tenantId, Id, _revision + 1, effectiveAt,
+            reason.Trim(), mergedIntoApplicationId, actorMemberId, actorDisplay, changedAt)
+        {
+            StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+        });
+        return null;
+    }
+
     CommandFailure? CheckChange(long expectedRevision) => !_created
         ? CommandFailure.MissingRecord("The application was not found.")
+        : _retired ? CommandFailure.StateConflict("The application is retired.")
         : expectedRevision == _revision ? null :
             CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("application", _revision));
 

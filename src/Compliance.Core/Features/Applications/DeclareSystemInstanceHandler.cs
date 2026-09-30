@@ -21,6 +21,9 @@ public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
         if (!application.IsCreated)
             return Result<SystemInstanceRegistration>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
+        if (application.IsRetired)
+            return Result<SystemInstanceRegistration>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "A retired application cannot receive a new system instance."));
         // V1 retains the field name. It is now a source freshness floor, not a lock on
         // unrelated application metadata edits.
         if (application.Revision < request.ExpectedApplicationRevision)

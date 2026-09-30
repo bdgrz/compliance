@@ -98,6 +98,38 @@ sealed class FitzApplicationDirectory(IKvClient client)
                             Unresolved = Gaps(parent, true),
                         }, ct).ConfigureAwait(false);
                 break;
+            case ApplicationRetired retired:
+                var active = await RequireApplicationAsync(retired.ApplicationId, ct)
+                    .ConfigureAwait(false);
+                var retiredView = active with
+                {
+                    Revision = retired.Revision,
+                    LastChangedByMemberId = retired.ActorMemberId,
+                    LastChangedByDisplay = retired.ActorDisplay,
+                    LastChangedAt = retired.ChangedAt,
+                    LastChangedBy = retired.Actor,
+                    Lifecycle = "retired",
+                    Retirement = new RetirementView(retired.EffectiveAt, retired.Reason,
+                        retired.MergedIntoApplicationId),
+                };
+                await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction, active,
+                    retiredView, ct).ConfigureAwait(false);
+                await InsertRevisionAsync(retiredView, "retired", null, ct).ConfigureAwait(false);
+                break;
+            case SystemInstanceRetired instanceRetired:
+                var existingInstance = await ApplicationDirectorySchema.Instances.GetAsync(
+                        Transaction, instanceRetired.SystemInstanceId, ct).ConfigureAwait(false) ??
+                    throw new InvalidOperationException(
+                        "A system instance retirement cannot project before its registration.");
+                await ApplicationDirectorySchema.Instances.ReplaceAsync(Transaction,
+                    existingInstance, existingInstance with
+                    {
+                        Revision = instanceRetired.Revision,
+                        Lifecycle = "retired",
+                        Retirement = new RetirementView(instanceRetired.EffectiveAt,
+                            instanceRetired.Reason, null),
+                    }, ct).ConfigureAwait(false);
+                break;
         }
     }
 
@@ -160,6 +192,8 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     SystemOwnerPersonId = view.SystemOwnerPersonId,
                     AccessOwnerPersonId = view.AccessOwnerPersonId,
                     Actor = view.LastChangedBy,
+                    Lifecycle = view.Lifecycle,
+                    Retirement = view.Retirement,
                 }, ct)
             .ConfigureAwait(false);
 

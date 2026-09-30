@@ -10,4 +10,7 @@ public sealed record ApplicationChangePreview(Uuid TenantId, Uuid ApplicationId,
     IReadOnlyList<string> PendingContexts, bool Complete)
 {
     public IReadOnlyList<ApplicationControlDraftReferenceView> ControlDraftReferences { get; init; } = [];
+
+    /// <summary>Up to 200 projected system instances that a change or retirement would affect.</summary>
+    public IReadOnlyList<SystemInstanceView> SystemInstanceReferences { get; init; } = [];
 }
