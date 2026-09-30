@@ -1,8 +1,11 @@
+using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class GetTenantMemberHandler(ITenantMembershipDirectoryReader memberships)
+public sealed class GetTenantMemberHandler(ITenantMembershipDirectoryReader memberships,
+    IEmailAddressDirectoryReader? emails = null)
     : IRequestHandler<GetTenantMember, TenantMembershipView>
 {
     public async ValueTask<Result<TenantMembershipView>> HandleAsync(
@@ -14,6 +17,7 @@ public sealed class GetTenantMemberHandler(ITenantMembershipDirectoryReader memb
         return membership is null || membership.TenantId != request.TenantId
             ? Result<TenantMembershipView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant member was not found."))
-            : Result<TenantMembershipView>.Success(membership);
+            : Result<TenantMembershipView>.Success(
+                await MemberEmailEnrichment.WithEmailAsync(emails, membership, ct).ConfigureAwait(false));
     }
 }
