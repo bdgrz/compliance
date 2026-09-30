@@ -207,3 +207,55 @@ export async function reinstateMember(userId: string): Promise<void> {
   const result = await client.reinstateMember({ params: { tenant_id: tenantId, user_id: userId } });
   if (!result.ok) throw failure(result, 'reinstate this member');
 }
+
+export interface ScopeOption {
+  kind: 'organization' | 'program';
+  id: string;
+  label: string;
+}
+
+// Scopes an administrator can grant on: the whole organization or one of its programs.
+export async function listGrantScopes(): Promise<ScopeOption[]> {
+  const tenantId = requireActiveTenantId();
+  const scopes: ScopeOption[] = [{ kind: 'organization', id: tenantId, label: 'Whole organization' }];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listPrograms({ params: { tenant_id: tenantId }, query: { cursor } });
+    if (!result.ok) throw failure(result, 'load the programs');
+    for (const item of result.data?.items ?? []) {
+      if (item) scopes.push({ kind: 'program', id: item.program_id, label: `Program: ${item.name}` });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return scopes;
+}
+
+export async function grantMemberAccess(
+  memberId: string,
+  roleId: string,
+  scope: ScopeOption,
+  effectiveUntil: string | null
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const grantId = crypto.randomUUID();
+  const result = await client.grantAccess({
+    params: { tenant_id: tenantId, grant_id: grantId },
+    body: {
+      proposal: {
+        principal: { kind: 'member', id: memberId },
+        role_id: roleId,
+        scope: { kind: scope.kind, id: scope.id },
+        source: { kind: 'manual', id: grantId },
+        effective_from: new Date().toISOString(),
+        effective_until: effectiveUntil,
+      },
+    },
+  });
+  if (!result.ok) throw failure(result, 'grant this access');
+}
+
+export async function revokeAccessGrant(grantId: string): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.revokeAccessGrant({ params: { tenant_id: tenantId, grant_id: grantId } });
+  if (!result.ok) throw failure(result, 'revoke this grant');
+}

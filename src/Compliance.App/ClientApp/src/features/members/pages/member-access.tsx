@@ -14,21 +14,11 @@ import {
 } from '@askrjs/themes/components';
 
 import { organizationPath } from '../../tenants/tenants.js';
-import { getMemberAccess, MemberRequestError, type MemberAccess } from '../members.js';
+import { getMemberAccess, MemberRequestError } from '../members.js';
+import { AccessGrantsCard } from './access-grants-card.js';
 import { MembershipPanel } from './membership-panel.js';
 
-function scopeLabel(scope: { kind: string; id: string }) {
-  return scope.kind === 'organization' ? 'Whole organization' : `${scope.kind} ${scope.id.slice(0, 8)}`;
-}
 
-function grantStatus(grant: MemberAccess['grant_paths'][number], now = Date.now()) {
-  if (!grant) return 'unknown';
-  if (grant.grant.revoked_at) return 'revoked';
-  const until = grant.grant.terms.effective_until;
-  if (until && Date.parse(until) <= now) return 'expired';
-  if (Date.parse(grant.grant.terms.effective_from) > now) return 'scheduled';
-  return grant.is_effective ? 'active' : 'inactive';
-}
 
 export function MemberAccessPage({ userId }: { userId: string }) {
   const access = resource(() => getMemberAccess(userId), [userId]);
@@ -69,7 +59,6 @@ export function MemberAccessPage({ userId }: { userId: string }) {
   const value = access.value!;
   const permissions = value.effective_permissions.filter((p): p is string => typeof p === 'string');
   const teamPaths = value.paths.filter((p) => p !== null);
-  const grantPaths = value.grant_paths.filter((p) => p !== null);
 
   return (
     <Page>
@@ -117,30 +106,7 @@ export function MemberAccessPage({ userId }: { userId: string }) {
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Through access grants</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {grantPaths.length === 0 ? (
-              <p>No access grants apply to this member.</p>
-            ) : (
-              <ul className="plain-list">
-                {grantPaths.map((path) => (
-                  <li>
-                    <strong>{path.role_name}</strong> on {scopeLabel(path.grant.terms.scope)} ·
-                    granted by {path.grant.terms.granted_by.display} · from{' '}
-                    {new Date(path.grant.terms.effective_from).toLocaleDateString()}
-                    {path.grant.terms.effective_until
-                      ? ` until ${new Date(path.grant.terms.effective_until).toLocaleDateString()}`
-                      : ''}{' '}
-                    · <span className="grant-status">{grantStatus(path)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <AccessGrantsCard access={value} onChanged={() => access.refresh()} />
       </Stack>
     </Page>
   );

@@ -137,3 +137,10 @@ svg {
 .consequence {
   margin: 0;
 }
+
+.grant-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--ak-space-sm, 0.75rem);
+}
