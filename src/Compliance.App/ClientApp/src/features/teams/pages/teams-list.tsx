@@ -1,4 +1,5 @@
 import { state } from '@askrjs/askr';
+import { resource } from '@askrjs/askr/resources';
 import {
   Block,
   Button,
@@ -10,23 +11,22 @@ import {
   PageHeader,
 } from '@askrjs/themes/components';
 
-import { defineTeam, deleteTeam, listTeams, type TeamSummary } from '../teams.js';
+import { defineTeam, deleteTeam, listTeams } from '../teams.js';
+import { organizationPath } from '../../tenants/tenants.js';
 
 export function TeamsListPage() {
-  const [teams, setTeams] = state<TeamSummary[] | null>(null);
   const [name, setName] = state('');
-  const [error, setError] = state<string | null>(null);
+  const [actionError, setError] = state<string | null>(null);
+  const [version, setVersion] = state(0);
   const [submitting, setSubmitting] = state(false);
 
-  function load() {
-    void listTeams()
-      .then(setTeams)
-      .catch((failure: unknown) =>
-        setError(failure instanceof Error ? failure.message : 'Unable to load teams.')
-      );
-  }
+  const teamsResource = resource(() => listTeams(), [version()]);
+  const teams = () => (teamsResource.pending ? null : teamsResource.value);
+  const error = () => actionError() ?? teamsResource.error?.message ?? null;
 
-  load();
+  function reload() {
+    setVersion(version() + 1);
+  }
 
   async function create(event?: { preventDefault?: () => void }) {
     event?.preventDefault?.();
@@ -35,7 +35,7 @@ export function TeamsListPage() {
     try {
       await defineTeam(name());
       setName('');
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to create the team.');
     } finally {
@@ -47,7 +47,7 @@ export function TeamsListPage() {
     setError(null);
     try {
       await deleteTeam(teamId);
-      load();
+      reload();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Unable to delete the team.');
     }
@@ -85,7 +85,7 @@ export function TeamsListPage() {
             <CardContent>
               <Block direction="row" gap="md" align="center" justify="between">
                 <Button asChild variant="ghost">
-                  <a href={`/teams/${team.teamId}`}>{team.name}</a>
+                  <a href={organizationPath(`/teams/${team.teamId}`)}>{team.name}</a>
                 </Button>
                 <Button variant="destructive" onPress={() => void remove(team.teamId)}>
                   Delete

@@ -43,16 +43,11 @@ Jev can classify issue shape, spot likely blockers, and challenge a proposed bun
 ```sh
 TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs triage --milestone R1
 TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs criteria 209 211
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs preflight 437
 ```
 
 - Run `triage` in step 5 after each merge. It reports Blocked issues whose recorded blockers are all closed, a Ready ranking by release value and downstream fanout, issues to split before starting, possibly satisfied issues, bundle candidates, parents whose children are all closed, and whether Discovery issues block the manual path.
 - Promote to Ready only when every recorded blocker is closed and the unrecorded-blocker probability is below 0.5. At 0.5 or above, read the cited text and either record the missing dependency or clear the flag.
 - Split an issue before starting it when Jev classifies it `split_needed` with confidence of at least 0.7. Each part must be independently closable.
 - Before closing an issue, or when it has absorbed partial PRs, run `criteria`. It extracts acceptance criteria from the issue body and judges each against merged PR descriptions and progress comments. Use its remaining list for the gap comment or the split; a `close candidate` verdict still requires reading the linked evidence.
-
-## Backlog hygiene
-
-- Do not require a full future engagement, connector, or artifact workflow to close a useful manual baseline. Put the later acceptance on its owning issue and keep incomplete contexts explicit and fail closed.
-- Do not leave a circular dependency between a shared primitive and its first consumer. Implement and prove them in one capability bundle when their acceptance is inseparable.
-- Keep issue bodies current when scope moves. Link the receiving issue and state what evidence remains. Close a superseded tracking issue as superseded, without claiming its test or product behavior has shipped.
-- Review the six queue counts and the number of open issues after each capability merge. A successful PR should retire an accepted backlog slice or name the exact unmet gate; PR count alone is not progress.
+- Before opening a PR, run `preflight <issue>` on the branch. Path rules pick the client and .NET gates, and Jev decides whether C# hunks need `Category=BrokerIntegration` tests (`check-backend.sh full`). For each acceptance criterion it names the one changed test that proves it, or `none`; read each match before relying on it. A `none` on a compound criterion that several tests prove together is expected; a `none` on a single claim is a coverage gap to close before pushing. It also flags changed files that may not serve the issue; confirm a flag before moving work out, because borderline files can change verdict between runs.
