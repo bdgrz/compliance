@@ -227,6 +227,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzRoleTeamDirectoryReader>();
         services.AddScoped<IRoleTeamDirectoryProjection>(provider => provider.GetRequiredService<FitzRoleTeamDirectoryReader>());
         services.AddScoped<IRoleTeamDirectoryReader>(provider => provider.GetRequiredService<FitzRoleTeamDirectoryReader>());
+        services.AddScoped<FitzTeamRoleDirectoryReader>();
+        services.AddScoped<ITeamRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
+        services.AddScoped<ITeamRoleDirectoryReader>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
         services.AddSingleton<ITenantDirectory>(provider =>
             new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
                 provider.GetRequiredService<IDomainEventReader>(),
@@ -278,6 +281,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListRolesHandler>()
             .AddRequestHandler<ListRolePermissionsHandler>()
             .AddRequestHandler<ListRoleTeamsHandler>()
+            .AddRequestHandler<ListTeamRolesHandler>()
             .AddRequestAuthorizer<TenantAccessAuthorizer>()
             .AddRequestHandler<DeclareApplicationHandler>()
             .AddRequestHandler<ReviseApplicationHandler>()
@@ -449,6 +453,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<RoleDirectoryProjector>("RoleDirectory", WorkloadScope.PerTenant)
             .AddProjector<RolePermissionDirectoryProjector>("RolePermissionDirectory", WorkloadScope.PerTenant)
             .AddProjector<RoleTeamDirectoryProjector>("RoleTeamDirectory", WorkloadScope.PerTenant)
+            .AddProjector<TeamRoleDirectoryProjector>("TeamRoleDirectory", WorkloadScope.PerTenant)
             .AddProjector<TenantDirectoryProjector>("TenantDirectory", WorkloadScope.Global)
             .AddProjector<TenantMembershipProjector>("TenantMembership", WorkloadScope.PerTenant)
             .AddProjector<TenantInvitationDirectoryProjector>("TenantInvitationDirectory",
