@@ -230,6 +230,13 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ISnapshotDirectoryReader>(
             provider => provider.GetRequiredService<FitzSnapshotDirectory>());
         services.AddScoped<ScopeSnapshotFreezer>();
+        services.AddScoped<FitzPopulationSnapshotDirectory>();
+        services.AddScoped<IPopulationSnapshotDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
+        services.AddScoped<IPopulationSnapshotDirectoryReader>(
+            provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
+        services.AddScoped<PopulationSnapshotFreezer>();
+        services.AddScoped<WorkforceRosterSnapshotter>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<IBoundaryImpactContributor, ControlBoundaryImpactContributor>();
@@ -464,6 +471,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<VerifyProgramScopeSnapshotHandler>()
             .AddRequestHandler<RegenerateProgramScopeSnapshotManifestHandler>()
             .AddRequestHandler<ListProgramSnapshotsHandler>()
+            .AddRequestHandler<FreezeWorkforceRosterSnapshotHandler>()
+            .AddRequestHandler<AmendWorkforceRosterSnapshotHandler>()
+            .AddRequestHandler<GetWorkforceRosterSnapshotHandler>()
+            .AddRequestHandler<GetWorkforceRosterSnapshotAsOfHandler>()
+            .AddRequestHandler<ListWorkforceRosterSnapshotsHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestAuthorizer<SeparationOfDutiesWaiverAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
@@ -535,6 +547,8 @@ public static class ComplianceServiceCollectionExtensions
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceGrantBackfillReactor>(
                 "WorkforceGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<WorkforceRestrictedFieldGrantBackfillReactor>(
+                "WorkforceRestrictedFieldGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
@@ -584,6 +598,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<MemberResponsibilityProjector>("MemberResponsibilitiesV1", WorkloadScope.PerTenant)
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
+            .AddProjector<PopulationSnapshotDirectoryProjector>("PopulationSnapshotDirectoryV1",
+                WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))
