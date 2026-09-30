@@ -1,4 +1,4 @@
-import type { Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C, Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF, Portia097249E53E54CC03E10877C906EFC2594FFE7AAC91C87D347D57D7145C1CC24C, Portia0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664, Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F, Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D, Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA, Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51, Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5, Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF, Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D, Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82, Portia192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625, Portia1A72141BBDF886D72A311BA94564A77E3CFA5B0DBA1A3FD78CF78C689F1F779D, Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11, Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4, Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A, Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F, Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia25BA9252E26F1A6477363C748DA5CF9B49437180A4663073C9E1647578DC0100, Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5, Portia2AED3AF47093A366AD687BFFDD638FD60E8E83EBFD47EB5EB710621485B5041F, Portia2C17E7023EE4294E36F1860F97F42B06DFE03B828D3FCC19679435D2C263FACB, Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552, Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA, Portia33A914476F5916BA05D9CCA32D0BA6790B75A8EBFC139D7F65E58BAF1716FF4D, Portia36D1608FA46982FB7C0145375EB90B733846AA018C6B495E9A88F5B790185F37, Portia3A795A94620F3B58B5F1452221FC679AB9B2B1CA5FD22BC2E89D277F4D764F4B, Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5, Portia3BD7B3C292671FD9C7BC3514F31B918E92F82B060108984374D5D9FD3FAF7737, Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64, Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4, Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82, Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia41B8ADFE95447D60E9DF0AEDA30008085B43FC2FAED3D48AD08C2B4111A952E8, Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia457C97B613519BA562DCCC1FEED89FFEB93E61782B4983D5F35F6D82C5CEEB44, Portia45F55D96B4D015448EC3803E9C00616C8AA2610641128A2A4A9CCB81303CEE9D, Portia463D989E08D87242FE062F7ABA25B4A4852CDED11C651DDB003CB1493628FBA2, Portia474D872CD82992E0F6DAA877E95A738CD0E651D58C89FD20650936F7E9442787, Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE, Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C, Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3, Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453, Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137, Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4, Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia62956F4A683DC319B656217BE0435DDEFCBD2D7693779600E658DB1239EFF46E, Portia63D54EA89C5C07D310D2BCA13AD5F7B74227B5C1A92D8305F29836A899A420D7, Portia64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237, Portia671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7, Portia67FF42154696CE62730A90222AB6C1618C3883A7B83A530679D7947EF82A7536, Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A, Portia6D456EA5A910F2BECBEC72F07A1EDDD7ACA1FD6D3C14C5F2B93DE61C863E48FD, Portia6E87F3E4BE9D729B36C701C34B83DA3B513977C84714C03C6C50E46E2437A4A8, Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1, Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94DC6, Portia74A5A31DE9F3A44C25116AA828DDAC667A065C414D865FF4FF6A5FC4C4C5A47A, Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D, Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902, Portia7A8595D2FC8E586A820EE122D8C373E01E418CA296483244AB95A35A0943E149, Portia7B1AEE3985B856552CEAEAB86F86A8B046D256BB2EA8D4AB06B5F839FFA36B9F, Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64, Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C, Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1, Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010, Portia8469557500842356B9CB65A4E1727B68DB6F1C4BD330F30784C8DD0A93CEDE77, Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48, Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C, Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7, Portia97032B105C2A6D6A1B226A232D4A8D42B4A96F297375BA0A5D48F0938F15A14C, Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782, Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66, Portia9B0607CA8CEF3829E2071107C5E2DC5C50730AFFBF2290344613FA16D3D34583, Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F, PortiaA277510249DA33D1E77EA806415366BBFB478D775605D021833F8109CE070FCA, PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341, PortiaA5E01F0DEB4FB6B8D77D19E040EC8B616C620CF9A147CE52DA9ACDE76BDE349A, PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64, PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508, PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C, PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3, PortiaAD20397E4469C88F974BC9D5A386CD8E3C4A25CB034E5C0233899BA467B9C283, PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219, PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05, PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886, PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979, PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3, PortiaC166B2A6A50AB323EBE10D693B981A72966248C62D0DBCA17A9D1F8C2A0493E1, PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520, PortiaC39C98E2DBB3BF252193560530969F5DF01D0CB33395E2B40E2B8496665ED57A, PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE, PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781, PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556, PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC, PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8, PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8, PortiaCDEB60612E2CCB73291DF472ACC26D72C213DF36B15FC7D666DCAD87F850A4F9, PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD, PortiaCE317BDB9F287F13D0C5620C1C17559DBCA77AC9779C300BC881F44035E4A26D, PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582, PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C, PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873, PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F, PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738, PortiaE056B52B06213FCC543902C08F961FB0AC9C4CF3C96070D2E7394EE553854F2A, PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00, PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEBEBAE40CDBFE8B4726C2E5FDB6EE27438942900064BA238E5F7452B92135107, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B, PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626, PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7, PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3, PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979, PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319, PortiaF91217E35959EE564AF2004EA1727032FC5084CF5CF0155ED5D422DB017C5B3F, PortiaFA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26 } from "./schemas";
+import type { Portia022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C, Portia03ACFAAE67D35BA82DFA61EDE278D3779AC79928770C69B153337B1F788534A3, Portia05DF79CF8D43AF3901EC737C6EC176C9A07E4185CEB04118426D4B24E8D91153, Portia069969C2489ADD7162ECE80D4C8B7385BA13F5931CCE303868141921126F6CBF, Portia097249E53E54CC03E10877C906EFC2594FFE7AAC91C87D347D57D7145C1CC24C, Portia0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664, Portia0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F, Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D, Portia0BBEEB50D9C1BAC9B12E86679F1B76D5365AB62E7358C3F3CBF8735D3BE93FDA, Portia0FBE6D4CEB2CC84764DF0FFF82C76BB333FB69E323061CA548534BC3DFB78B51, Portia1667971800402A6979C26E522A3DC756AAF0573767E53910C942723A6B2DC3D5, Portia166CE150C5FA11C2FF07F303878BE1D989853E482321CEFA07EC5F3D792CC0DF, Portia17403E183EEEE5417F57DA6B2D792B7A88B5E631D52B05919D48C9D69FFB6C0D, Portia17488FFB4D3C927EDA1FEEAABE0836C927B726E447755DAE04EE2C5CFE567A82, Portia192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625, Portia1A72141BBDF886D72A311BA94564A77E3CFA5B0DBA1A3FD78CF78C689F1F779D, Portia1D599653835771B5B38C77F6C963CA25D736248D35B45B1CD6CED58C58E70B11, Portia1DAABC0EE92F473717483C90B8CF7E689206159947287755819C2AE6D3D4ECF4, Portia1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A, Portia1E60B56A95A64AF1BB8BE85BC8B2174D1CD473A879DA9B1370C87F09E86C448F, Portia1EB0255AC1C1D800F4E43175A476BE2EEF9E1FBDC2D4430BCED070CC5D913FAD, Portia25BA9252E26F1A6477363C748DA5CF9B49437180A4663073C9E1647578DC0100, Portia274B659861C11787AC6AB4C8D76C648726966FA7DA2D30804A55E91A1C4D27B2, Portia28D5187F005E5A41920CA5A644AAA3FD5806E031D8B7A74C154FFEB4E97A5BB3, Portia293AC99442386DA2E4203C76C9DCACD9B0159C4FF4F351D4C5C91AF91E5AADA5, Portia2AED3AF47093A366AD687BFFDD638FD60E8E83EBFD47EB5EB710621485B5041F, Portia2C17E7023EE4294E36F1860F97F42B06DFE03B828D3FCC19679435D2C263FACB, Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552, Portia2D5CCE34626A84B45EE900195D49320E848D2908BBBBF8C24AF6A2EAF51BBCBA, Portia33A914476F5916BA05D9CCA32D0BA6790B75A8EBFC139D7F65E58BAF1716FF4D, Portia36D1608FA46982FB7C0145375EB90B733846AA018C6B495E9A88F5B790185F37, Portia3A795A94620F3B58B5F1452221FC679AB9B2B1CA5FD22BC2E89D277F4D764F4B, Portia3AA867E8899C6C43AB80B916C3F53DC57184409D52C29C8217ABCD226DD97BB5, Portia3BD7B3C292671FD9C7BC3514F31B918E92F82B060108984374D5D9FD3FAF7737, Portia3C2330B1E721B3907D876EAF59B8BADC89F6106BC2A83EBC53F96A325C8F9D64, Portia3C70E8DCFE6903F2FDCA0DF299E0A8C4BE8585E75798B4037723C1A3360251E4, Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82, Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D6F, Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4, Portia41B8ADFE95447D60E9DF0AEDA30008085B43FC2FAED3D48AD08C2B4111A952E8, Portia42415CD397320D0C15EC3283D7AB52C15BCC5C24CB26307A7BCA7CB15F1D7ABF, Portia444702261363EF785C20C78504EBD948CC2950CA076C0FEA93FBD650F83E4680, Portia445823D45DEBC21876B8F7D21A7706F96E8DB18D68A39E931F58C101C313F09E, Portia457C97B613519BA562DCCC1FEED89FFEB93E61782B4983D5F35F6D82C5CEEB44, Portia45F55D96B4D015448EC3803E9C00616C8AA2610641128A2A4A9CCB81303CEE9D, Portia463D989E08D87242FE062F7ABA25B4A4852CDED11C651DDB003CB1493628FBA2, Portia474D872CD82992E0F6DAA877E95A738CD0E651D58C89FD20650936F7E9442787, Portia4EFE49B1348AFC5BA81DF069FB9A0B89E1FBF2AD30994145DEF20BA105EBDEBE, Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C, Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726, Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A, Portia559C6B2CB453C53C337F5E8AA18127BB374E6308F310A0A099A30C3421B412A3, Portia5647C83C9923AF4B8A5A60D0E0D9CB27904F9C4571DEAE7F66B50E1FACD98453, Portia57F8BF807B6A24BB37FB6F863CFF0D6B83B16BAAC26E6D8EBEC4A8CC88C6A440, Portia583B4F63A28210D35E65C0C2C3B23C1B843FF040116C8ED76F096FDA3FCE3137, Portia5AF07B3208EB9275DF00078FDEF65642C66304D924A78125731567AACD08E2A4, Portia5C08B534C036029E349B3D0CE114F3E24CAD136A7E31207CE6E7D5B26A094755, Portia5C785825C5C3F7E845CCBEE2767058870CB823F13882AECF91DBC1CBDA9F87FC, Portia5D9B3D88A76CFA247FEA271A78CAAC133EF00DBEBE6B5C8AC9431402F338F317, Portia5DC40A4F1CB15D96F9110C5B5E53AA99EDE859D42D78207E7C39CA076C05FE94, Portia62956F4A683DC319B656217BE0435DDEFCBD2D7693779600E658DB1239EFF46E, Portia63D54EA89C5C07D310D2BCA13AD5F7B74227B5C1A92D8305F29836A899A420D7, Portia64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237, Portia671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7, Portia67FF42154696CE62730A90222AB6C1618C3883A7B83A530679D7947EF82A7536, Portia6AE7436CAF1D81D68D1CA26BCFADC44860AAA63B87A822CFB2212F1AE5375C3A, Portia6D456EA5A910F2BECBEC72F07A1EDDD7ACA1FD6D3C14C5F2B93DE61C863E48FD, Portia6E87F3E4BE9D729B36C701C34B83DA3B513977C84714C03C6C50E46E2437A4A8, Portia6EDDE774B86AAF1F68AF85D567C349F34299BBD542CD401970A9950506CB9FB1, Portia6EDEFDF3147D5333AAABFE7768FCC99D88F93C8F7C81708F0C551ABD6FD7A117, Portia70B24E90A73EA0794A4DD21F876262A340BEE644ACBC9B8FF2F0890A79B9D474, Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94DC6, Portia74A5A31DE9F3A44C25116AA828DDAC667A065C414D865FF4FF6A5FC4C4C5A47A, Portia757E16DD9071C1EA6CD19C09CEF1B1E1BC16F3C168A35CA627AC8EFC9996C48D, Portia75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902, Portia7A8595D2FC8E586A820EE122D8C373E01E418CA296483244AB95A35A0943E149, Portia7B1AEE3985B856552CEAEAB86F86A8B046D256BB2EA8D4AB06B5F839FFA36B9F, Portia7B406DA21A6EBDB3B0EC40C4DEED4FE06FB99131586B6D1C6E24E83E42204F64, Portia7B41C47C738A8DA20460C8A8BE569630949FEA19EAB61C34DCBC49E83CDD123C, Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1, Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010, Portia84715FA1F92BA1E2F3F5CB5B59532DE980DF31373358E5412185F988E9D5FE48, Portia893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C, Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7, Portia96BF44EECD956DB8397701FC811AF70DE0D6E1ECDB8AB95318C6F10318CD1EDD, Portia97032B105C2A6D6A1B226A232D4A8D42B4A96F297375BA0A5D48F0938F15A14C, Portia9890D4629429B264BE737520EC815DFE7400C9A6ECC4B4451A28AF5E22133782, Portia99A90254D5BFDBDC157B8B5C8D8360DE08AAA6B5160C5F1020B01CBABB085F66, Portia9B0607CA8CEF3829E2071107C5E2DC5C50730AFFBF2290344613FA16D3D34583, Portia9CA30FFC559321862CA47D0242119C614DCEC0E1E9443BE7873F142DB785415F, Portia9CDD6217C5E790499885C0A6CB01BFA6E45CF9175F1EF7BBEF46BFE9C3AE0C59, PortiaA277510249DA33D1E77EA806415366BBFB478D775605D021833F8109CE070FCA, PortiaA4299F97F2F2793A334427A6DBE3AB10187D44660E16D667981207CF14AD4341, PortiaA5E01F0DEB4FB6B8D77D19E040EC8B616C620CF9A147CE52DA9ACDE76BDE349A, PortiaA6B51F7C7F08B507C488A94D38D27F9FD35725E3CB368F3DB31BA25BF1CBAE64, PortiaAC26148312D1D19C14B10EE61B64A0F265378CB38284D4E50CE0C3D7153A7508, PortiaACB074BCE785D34D94E14D208E190145EA345C44039DCEA40D390A0B5B303A9C, PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3, PortiaAD20397E4469C88F974BC9D5A386CD8E3C4A25CB034E5C0233899BA467B9C283, PortiaAFAA47FF36B14A9CA4F142278676DAA600886F20FA43D1A1F114283D4EE01219, PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05, PortiaB5B4C6C1CCCDD997C7F390CEAD0680DD868403FA1B09E115245EBB04DFD8F886, PortiaBE1636B313652DA76C47508EB54DDB2BC0EB3E2F94DD70683296AF4B4AC9B979, PortiaBE625002347E2BBF2D03CC7136B2D484C2DA3FD77DB41B321C10C3D110B761D3, PortiaC166B2A6A50AB323EBE10D693B981A72966248C62D0DBCA17A9D1F8C2A0493E1, PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520, PortiaC39C98E2DBB3BF252193560530969F5DF01D0CB33395E2B40E2B8496665ED57A, PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EABE, PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C781, PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556, PortiaC7557948A66C1C9A063FD76DD42EB5D78FE6546680A69290B47D592328A411EC, PortiaCADDBB36C737CF14F2057C0A4E15C9E63FDD811D019E6BEFA5647B9E2BA9E2C8, PortiaCCB8911E2FB70686013446C9D524FAAFA073B59022AB0B13FB7788B463ACDDE8, PortiaCDEB60612E2CCB73291DF472ACC26D72C213DF36B15FC7D666DCAD87F850A4F9, PortiaCE291342413ACA5E55E75E29F7C92CAA822AC0B201F64DA7A38365474F0782CD, PortiaCE317BDB9F287F13D0C5620C1C17559DBCA77AC9779C300BC881F44035E4A26D, PortiaD493FB86F4D080CAC6A555893E11E63CE55AFFCBD6E771A8684B58B7C9536582, PortiaD56D35AC620E2A97A9B2A59A435078B6568941B2238932A20E4EABB153C1309C, PortiaD775A5D8BCBA1B953633C0582AECCE997439EE8D2C3F4CB8CF37FA9D5E33A873, PortiaDC527050B61B249601EF0A860E162A0EF79BEEECC8578F3452072A407BA6A93F, PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738, PortiaE056B52B06213FCC543902C08F961FB0AC9C4CF3C96070D2E7394EE553854F2A, PortiaE2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00, PortiaEA6D5265BAC64B7B7ECBB403179F0802AEF5CDBFF6D32E0FCDF3EF54CB637D54, PortiaEBEBAE40CDBFE8B4726C2E5FDB6EE27438942900064BA238E5F7452B92135107, PortiaEC8A68FE610BE733B5FB5E10D0C0A79743573CEEBB9114A5BBD9B4542987EC3B, PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626, PortiaED3F7B7FEBE1F20B8D98DAE3ABE7516820F289A5DFA781A7229620B1EC2C9BF7, PortiaEED978F2141A5821BB72161402A02FDBDB787544E177B8457CBD97CE06CEB5F3, PortiaEFE869FF2C47D1239F76963FA0AB021FCF0B3A5037DC8506F1AE7FF602338979, PortiaF3BACE104C01FC9709E1FE05FA74F9ED4D50EA2EACF73C77510A4B743F9B8CC6, PortiaF5D86DD63563039EDAF243CA29FEAE85382ED90210D8D752F40BC3E24D4ED319, PortiaF91217E35959EE564AF2004EA1727032FC5084CF5CF0155ED5D422DB017C5B3F, PortiaFA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26, PortiaFCF00D94A0472AF13CDF0CB77F1A463EF3413B0EDADF00C16BFD3C56766F97C2 } from "./schemas";
 
 export type ContinueWithDeveloperIdentityBody = {
   "email_address": string | null;
@@ -7593,6 +7593,399 @@ export type GetCommitmentVersionError_500 = {
   "transient"?: boolean;
 };
 
+export type ListControlCriterionMappingsPath = {
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListControlCriterionMappingsQuery = {
+  "control_id"?: string;
+  "cursor"?: string | null;
+  "edition_id"?: string;
+  "limit"?: number | string;
+  "status"?: string | null;
+};
+
+export type ListControlCriterionMappingsResponse200 = PortiaFCF00D94A0472AF13CDF0CB77F1A463EF3413B0EDADF00C16BFD3C56766F97C2;
+
+export type ListControlCriterionMappingsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_401 = undefined;
+
+export type ListControlCriterionMappingsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListControlCriterionMappingsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingPath = {
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ProposeControlCriterionMappingBody = {
+  "control_id": string;
+  "control_version_id": string;
+  "edition_id": string;
+  "criterion_identifier": string | null;
+  "expected_revision": number | string;
+  "rationale": string | null;
+  "applicability_explanation": string | null;
+};
+
+export type ProposeControlCriterionMappingResponse200 = Portia274B659861C11787AC6AB4C8D76C648726966FA7DA2D30804A55E91A1C4D27B2;
+
+export type ProposeControlCriterionMappingError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_401 = undefined;
+
+export type ProposeControlCriterionMappingError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlCriterionMappingError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingPath = {
+  "mapping_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type GetControlCriterionMappingResponse200 = Portia28D5187F005E5A41920CA5A644AAA3FD5806E031D8B7A74C154FFEB4E97A5BB3;
+
+export type GetControlCriterionMappingError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_401 = undefined;
+
+export type GetControlCriterionMappingError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetControlCriterionMappingError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingPath = {
+  "mapping_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type RetireControlCriterionMappingBody = {
+  "expected_revision": number | string;
+  "rationale": string | null;
+};
+
+export type RetireControlCriterionMappingResponse204 = undefined;
+
+export type RetireControlCriterionMappingError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_401 = undefined;
+
+export type RetireControlCriterionMappingError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlCriterionMappingError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingPath = {
+  "mapping_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ReviewControlCriterionMappingBody = {
+  "expected_revision": number | string;
+  "outcome": string | null;
+  "rationale": string | null;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type ReviewControlCriterionMappingResponse204 = undefined;
+
+export type ReviewControlCriterionMappingError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_401 = undefined;
+
+export type ReviewControlCriterionMappingError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviewControlCriterionMappingError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListControlDraftsPath = {
   "program_id": string;
   "tenant_id": string;
@@ -7753,7 +8146,7 @@ export type GetCurrentControlVersionPath = {
   "tenant_id": string;
 };
 
-export type GetCurrentControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+export type GetCurrentControlVersionResponse200 = Portia9CDD6217C5E790499885C0A6CB01BFA6E45CF9175F1EF7BBEF46BFE9C3AE0C59;
 
 export type GetCurrentControlVersionError_400 = {
   "type": string;
@@ -8139,6 +8532,7 @@ export type ApproveControlBody = {
   "effective_from": string;
   "rationale": string | null;
   "separation_of_duties_waiver_id"?: string;
+  "impact_digest"?: string | null;
 };
 
 export type ApproveControlResponse204 = undefined;
@@ -8529,7 +8923,7 @@ export type GetEffectiveControlVersionQuery = {
   "effective_on": string;
 };
 
-export type GetEffectiveControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+export type GetEffectiveControlVersionResponse200 = Portia9CDD6217C5E790499885C0A6CB01BFA6E45CF9175F1EF7BBEF46BFE9C3AE0C59;
 
 export type GetEffectiveControlVersionError_400 = {
   "type": string;
@@ -8596,6 +8990,321 @@ export type GetEffectiveControlVersionError_500 = {
   "transient"?: boolean;
 };
 
+export type PreviewControlImpactPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type PreviewControlImpactQuery = {
+  "expected_revision": number | string;
+};
+
+export type PreviewControlImpactResponse200 = Portia5C08B534C036029E349B3D0CE114F3E24CAD136A7E31207CE6E7D5B26A094755;
+
+export type PreviewControlImpactError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_401 = undefined;
+
+export type PreviewControlImpactError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type PreviewControlImpactError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ProposeControlRetirementBody = {
+  "expected_approved_version_id": string;
+  "effective_until": string;
+  "rationale": string | null;
+};
+
+export type ProposeControlRetirementResponse200 = PortiaF3BACE104C01FC9709E1FE05FA74F9ED4D50EA2EACF73C77510A4B743F9B8CC6;
+
+export type ProposeControlRetirementError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_401 = undefined;
+
+export type ProposeControlRetirementError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlRetirementError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type RetireControlBody = {
+  "expected_revision": number | string;
+  "accepted_review_decision_id": string;
+  "impact_digest": string | null;
+  "rationale": string | null;
+  "separation_of_duties_waiver_id"?: string;
+};
+
+export type RetireControlResponse204 = undefined;
+
+export type RetireControlError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_401 = undefined;
+
+export type RetireControlError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type RetireControlError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorPath = {
+  "control_id": string;
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ProposeControlSuccessorBody = {
+  "expected_approved_version_id": string;
+  "content": PortiaC28D3107D1A3216DD3490F3FFBA111479B8B479E23A4FAFFD1222C5EF6FF1520;
+};
+
+export type ProposeControlSuccessorResponse200 = Portia5C785825C5C3F7E845CCBEE2767058870CB823F13882AECF91DBC1CBDA9F87FC;
+
+export type ProposeControlSuccessorError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_401 = undefined;
+
+export type ProposeControlSuccessorError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ProposeControlSuccessorError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ListControlVersionsPath = {
   "control_id": string;
   "program_id": string;
@@ -8607,7 +9316,7 @@ export type ListControlVersionsQuery = {
   "limit"?: number | string;
 };
 
-export type ListControlVersionsResponse200 = Portia8469557500842356B9CB65A4E1727B68DB6F1C4BD330F30784C8DD0A93CEDE77;
+export type ListControlVersionsResponse200 = Portia05DF79CF8D43AF3901EC737C6EC176C9A07E4185CEB04118426D4B24E8D91153;
 
 export type ListControlVersionsError_400 = {
   "type": string;
@@ -8681,7 +9390,7 @@ export type GetControlVersionPath = {
   "version_id": string;
 };
 
-export type GetControlVersionResponse200 = PortiaE67C99B16042BF9CF25AAF4AA642F605E516653D69CBFF06D39DE3E4302ED4C7;
+export type GetControlVersionResponse200 = Portia9CDD6217C5E790499885C0A6CB01BFA6E45CF9175F1EF7BBEF46BFE9C3AE0C59;
 
 export type GetControlVersionError_400 = {
   "type": string;
@@ -8740,6 +9449,87 @@ export type GetControlVersionError_415 = {
 };
 
 export type GetControlVersionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoveragePath = {
+  "program_id": string;
+  "tenant_id": string;
+};
+
+export type ListCriteriaCoverageQuery = {
+  "category"?: string | null;
+  "coverage_state"?: string | null;
+  "cursor"?: string | null;
+  "edition_id"?: string;
+  "kind"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListCriteriaCoverageResponse200 = Portia57F8BF807B6A24BB37FB6F863CFF0D6B83B16BAAC26E6D8EBEC4A8CC88C6A440;
+
+export type ListCriteriaCoverageError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_401 = undefined;
+
+export type ListCriteriaCoverageError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListCriteriaCoverageError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -13814,6 +14604,376 @@ export type ListWorkforceObservationsError_415 = {
 };
 
 export type ListWorkforceObservationsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfPath = {
+  "tenant_id": string;
+};
+
+export type GetWorkforceRosterSnapshotAsOfQuery = {
+  "as_of": string;
+};
+
+export type GetWorkforceRosterSnapshotAsOfResponse200 = Portia03ACFAAE67D35BA82DFA61EDE278D3779AC79928770C69B153337B1F788534A3;
+
+export type GetWorkforceRosterSnapshotAsOfError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_401 = undefined;
+
+export type GetWorkforceRosterSnapshotAsOfError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotAsOfError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsPath = {
+  "tenant_id": string;
+};
+
+export type ListWorkforceRosterSnapshotsQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListWorkforceRosterSnapshotsResponse200 = Portia96BF44EECD956DB8397701FC811AF70DE0D6E1ECDB8AB95318C6F10318CD1EDD;
+
+export type ListWorkforceRosterSnapshotsError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_401 = undefined;
+
+export type ListWorkforceRosterSnapshotsError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListWorkforceRosterSnapshotsError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotPath = {
+  "tenant_id": string;
+};
+
+export type FreezeWorkforceRosterSnapshotResponse200 = PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3;
+
+export type FreezeWorkforceRosterSnapshotError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_401 = undefined;
+
+export type FreezeWorkforceRosterSnapshotError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type FreezeWorkforceRosterSnapshotError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotPath = {
+  "snapshot_id": string;
+  "tenant_id": string;
+};
+
+export type GetWorkforceRosterSnapshotResponse200 = Portia03ACFAAE67D35BA82DFA61EDE278D3779AC79928770C69B153337B1F788534A3;
+
+export type GetWorkforceRosterSnapshotError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_401 = undefined;
+
+export type GetWorkforceRosterSnapshotError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type GetWorkforceRosterSnapshotError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotPath = {
+  "snapshot_id": string;
+  "tenant_id": string;
+};
+
+export type AmendWorkforceRosterSnapshotBody = {
+  "reason": string | null;
+};
+
+export type AmendWorkforceRosterSnapshotResponse200 = PortiaAD1A36FB0E7DA3A7661197E93F9C3FAC072DFA215C0D19CDBA14BC399E425EC3;
+
+export type AmendWorkforceRosterSnapshotError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_401 = undefined;
+
+export type AmendWorkforceRosterSnapshotError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type AmendWorkforceRosterSnapshotError_500 = {
   "type": string;
   "title": string;
   "status": number;

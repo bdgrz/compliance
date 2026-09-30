@@ -161,6 +161,7 @@ export function ProgramDetailPage({ programId }: { programId: string }) {
         {back}
         <a href={organizationPath(`/programs/${programId}/risks`)}>Risks for this program</a>
         <a href={organizationPath(`/programs/${programId}/controls`)}>Controls for this program</a>
+        <a href={organizationPath(`/programs/${programId}/boundaries`)}>System boundaries for this program</a>
         <Card>
           <CardHeader>
             <CardTitle>Setup work before readiness assessment</CardTitle>

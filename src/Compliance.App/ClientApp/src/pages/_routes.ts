@@ -115,6 +115,15 @@ const ControlsPage = lazy(() =>
 const ControlDetailPage = lazy(() =>
   import('../features/controls/pages/control-detail.js').then((module) => module.ControlDetailPage)
 );
+const BoundariesPage = lazy(() =>
+  import('../features/boundaries/pages/boundaries-list.js').then((module) => module.BoundariesPage)
+);
+const BoundaryDetailPage = lazy(() =>
+  import('../features/boundaries/pages/boundary-detail.js').then((module) => module.BoundaryDetailPage)
+);
+const BoundaryExceptionsPage = lazy(() =>
+  import('../features/boundaries/pages/boundary-exceptions.js').then((module) => module.BoundaryExceptionsPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -168,6 +177,9 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/workforce/service-identities/{serviceIdentityId}', ServiceIdentityDetailPage);
           route('/{slug}/programs/{programId}/controls', ControlsPage);
           route('/{slug}/programs/{programId}/controls/{controlId}', ControlDetailPage);
+          route('/{slug}/programs/{programId}/boundaries', BoundariesPage);
+          route('/{slug}/programs/{programId}/boundaries/{boundaryId}', BoundaryDetailPage);
+          route('/{slug}/programs/{programId}/boundaries/{boundaryId}/exceptions', BoundaryExceptionsPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);
