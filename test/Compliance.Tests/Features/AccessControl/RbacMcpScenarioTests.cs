@@ -291,7 +291,8 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.commitment.decision.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
-        Assert.DoesNotContain(tools, tool => tool.Name == "bdgrz.commitment.draft.review");
+        Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.commitment.draft.review" or
+            "bdgrz.commitment.draft.approve");
         Assert.NotEqual(true, Assert.Single(tools, tool =>
             tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
         Assert.NotEqual(true, Assert.Single(tools, tool =>

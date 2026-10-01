@@ -13,6 +13,7 @@ public sealed class CommitmentReviewTests
     static readonly Uuid ServiceId = Uuid.CreateVersion4();
     static readonly Uuid AuthorId = Uuid.CreateVersion4();
     static readonly Uuid ReviewerId = Uuid.CreateVersion4();
+    static readonly Uuid ApproverId = Uuid.CreateVersion4();
     static readonly DateTimeOffset Now = new(2026, 9, 20, 12, 0, 0, TimeSpan.Zero);
     static readonly DateOnly January = new(2027, 1, 1);
 
@@ -27,10 +28,17 @@ public sealed class CommitmentReviewTests
 
     static CommandFailure? Accept(CommitmentDraft draft, long revision, Uuid reviewer,
         DateOnly effectiveFrom, SeparationOfDutiesWaiver? waiver = null,
-        string interpretation = "supported") =>
-        draft.Review(ProgramId, revision, Uuid.CreateVersion4(), "accept", "Security lead",
+        string interpretation = "supported")
+    {
+        var reviewId = Uuid.CreateVersion4();
+        var review = draft.Review(ProgramId, revision, reviewId, "accept", "Security lead",
             "applicable", interpretation, "Read against MSA 4.1", "Verified with owner",
-            effectiveFrom, "digest", reviewer, "Reviewer", Now.AddMinutes(5), waiver);
+            reviewer, "Reviewer", Now.AddMinutes(5), waiver,
+            draft.SourceReference, "Signed MSA v3, section 4.1");
+        return review ?? draft.Approve(ProgramId, revision, Uuid.CreateVersion4(), reviewId,
+            effectiveFrom, "Approved for the engagement", "digest", ApproverId, "Approver",
+            Now.AddMinutes(6));
+    }
 
     [Fact]
     public void ShouldCreateImmutableEffectiveVersionGivenIndependentAcceptedReview()
@@ -46,11 +54,14 @@ public sealed class CommitmentReviewTests
         Assert.Equal(1, draft.EffectiveVersionCount);
         Assert.Equal(1, draft.EffectiveVersionOn(January));
         Assert.Null(draft.EffectiveVersionOn(January.AddDays(-1)));
-        var reviewed = Assert.IsType<CommitmentReviewed>(
-            new AggregateScenario<CommitmentDraft>(draft).PendingEvents[^1]);
-        Assert.Equal(1, reviewed.Version);
+        var events = new AggregateScenario<CommitmentDraft>(draft).PendingEvents;
+        var reviewed = Assert.IsType<CommitmentReviewed>(events[^2]);
+        Assert.Null(reviewed.Version);
         Assert.Equal("Security lead", reviewed.OwnerReference);
         Assert.Equal(ReviewerId.ToString(), reviewed.Actor.Id);
+        var approved = Assert.IsType<CommitmentApproved>(events[^1]);
+        Assert.Equal(1, approved.Version);
+        Assert.Equal(reviewed.DecisionId, approved.AcceptedReviewDecisionId);
     }
 
     [Fact]
@@ -91,7 +102,7 @@ public sealed class CommitmentReviewTests
         Assert.Equal(CommandFailureCode.ActorProhibited, Assert.IsType<CommandFailure>(denied).Code);
         Assert.Null(allowed);
         Assert.Equal(valid.Id, Assert.IsType<CommitmentReviewed>(
-            new AggregateScenario<CommitmentDraft>(draft).PendingEvents[^1])
+            new AggregateScenario<CommitmentDraft>(draft).PendingEvents[^2])
             .SeparationOfDutiesWaiverId);
     }
 
@@ -107,8 +118,8 @@ public sealed class CommitmentReviewTests
 
         // Act
         var failure = draft.Review(ProgramId, 1, Uuid.CreateVersion4(), "accept", owner,
-            applicability, interpretation, null, "Rationale", January, "digest", ReviewerId,
-            "Reviewer", Now);
+            applicability, interpretation, null, "Rationale", ReviewerId, "Reviewer", Now,
+            sourceVerifiedReference: "Contract 4.1", sourceEvidence: "Signed MSA");
 
         // Assert
         Assert.Equal(CommandFailureCode.InvalidContent, Assert.IsType<CommandFailure>(failure).Code);
@@ -126,7 +137,7 @@ public sealed class CommitmentReviewTests
         // Assert
         Assert.Null(failure);
         Assert.Equal("unsupported", Assert.IsType<CommitmentReviewed>(
-            new AggregateScenario<CommitmentDraft>(draft).PendingEvents[^1]).Interpretation);
+            new AggregateScenario<CommitmentDraft>(draft).PendingEvents[^2]).Interpretation);
     }
 
     [Theory]
@@ -179,12 +190,11 @@ public sealed class CommitmentReviewTests
 
         // Act
         var missingRationale = draft.Review(ProgramId, 1, Uuid.CreateVersion4(),
-            "request_changes", null, null, null, null, " ", null, null, ReviewerId,
-            "Reviewer", Now);
+            "request_changes", null, null, null, null, " ", ReviewerId, "Reviewer", Now);
         var failure = draft.Review(ProgramId, 1, Uuid.CreateVersion4(), "request_changes",
-            null, null, null, null, "Owner unclear", null, null, ReviewerId, "Reviewer", Now);
+            null, null, null, null, "Owner unclear", ReviewerId, "Reviewer", Now);
         var stale = draft.Review(ProgramId, 3, Uuid.CreateVersion4(), "request_changes",
-            null, null, null, null, "Owner unclear", null, null, ReviewerId, "Reviewer", Now);
+            null, null, null, null, "Owner unclear", ReviewerId, "Reviewer", Now);
 
         // Assert
         Assert.Equal(CommandFailureCode.InvalidContent,

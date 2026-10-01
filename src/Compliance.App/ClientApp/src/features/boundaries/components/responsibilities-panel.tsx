@@ -43,12 +43,14 @@ export function ResponsibilitiesPanel({
   members,
   assignments,
   onChanged,
+  waiverPath: waiverPathOverride,
 }: {
   programId: string;
   scope: ResponsibilityScope;
   members: MemberOption[];
   assignments: AssignmentsState;
   onChanged: (revision: number) => void;
+  waiverPath?: string;
 }) {
   const [memberUserId, setMemberUserId] = state('');
   const [type, setType] = state<ResponsibilityType>('assigned_reviewer');
@@ -61,7 +63,8 @@ export function ResponsibilitiesPanel({
 
   const selectionKey = () => `${memberUserId()}|${type()}`;
   const previewed = () => preview()?.key === selectionKey();
-  const waiverPath = organizationPath(`/programs/${programId}/boundaries/${scope.recordId}/exceptions`);
+  const waiverPath =
+    waiverPathOverride ?? organizationPath(`/programs/${programId}/boundaries/${scope.recordId}/exceptions`);
 
   async function run(action: () => Promise<string | null>) {
     setActionError(null);
@@ -102,7 +105,7 @@ export function ResponsibilitiesPanel({
 
   function revoke(assignmentId: string) {
     void run(async () => {
-      await revokeResponsibility(scope, assignmentId, revokeReason() || 'Revoked from the boundary page.');
+      await revokeResponsibility(scope, assignmentId, revokeReason() || `Revoked from the ${label(scope.recordType)} page.`);
       onChanged((assignments.value?.revision ?? 0) + 1);
       return 'Responsibility revoked.';
     });

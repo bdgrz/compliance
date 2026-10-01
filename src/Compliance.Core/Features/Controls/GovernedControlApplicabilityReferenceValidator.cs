@@ -1,10 +1,11 @@
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Commitments;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
 
 public sealed class GovernedControlApplicabilityReferenceValidator(
-    IApplicationInventoryActivity applications)
+    IApplicationInventoryActivity applications, ICommitmentReferenceReader? commitments = null)
     : IControlApplicabilityReferenceValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, ControlDraftContent? content,
@@ -34,6 +35,12 @@ public sealed class GovernedControlApplicabilityReferenceValidator(
                     if (state != SystemInstanceReferenceState.Declared)
                         return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                             "The governed control system instance reference is unavailable in this tenant. Retry after projection or correct the record ID."));
+                    break;
+                case "commitment":
+                    if (commitments is null ||
+                        !await commitments.IsRecordedAsync(tenantId, recordId, ct).ConfigureAwait(false))
+                        return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                            "The governed control commitment reference is unavailable in this tenant."));
                     break;
                 default:
                     return Result.Failure(new RequestError(RequestErrorKind.Validation,

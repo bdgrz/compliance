@@ -578,6 +578,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/reviews")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Commitments");
+    // Approval is a separate human decision after review and stays HTTP-only.
+    app.MapPortiaPost<ApproveCommitmentDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Commitments");
     app.MapPortiaGet<ListCommitmentDecisions, Page<CommitmentDecisionView>>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/decisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

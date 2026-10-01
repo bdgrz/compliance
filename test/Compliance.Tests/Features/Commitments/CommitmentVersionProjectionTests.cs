@@ -50,6 +50,46 @@ public sealed class CommitmentVersionProjectionTests
         Assert.Equal("applicable", draft?.ApplicabilityResolution);
     }
 
+    [Fact]
+    public async Task ShouldProjectApprovedVersionWithVerifiedSourceGivenSeparateApproval()
+    {
+        // Arrange
+        var directory = new FitzCommitmentDraftDirectory(new InMemoryKvClient());
+        var reviewed = new CommitmentReviewed(TenantId, ProgramId, DraftId, 1,
+            Uuid.CreateVersion4(), "accept", "Customer IT", "applicable", "supported", null,
+            "Verified", null, null, null, ReviewerId, "Reviewer", Now.AddMinutes(2),
+            SourceVerification: "verified", SourceVerifiedReference: "MSA 4.1",
+            SourceEvidence: "Signed MSA v3");
+        var approverId = Uuid.CreateVersion4();
+        var approved = new CommitmentApproved(TenantId, ProgramId, DraftId, 1,
+            Uuid.CreateVersion4(), reviewed.DecisionId, 1, new DateOnly(2027, 1, 1), "digest",
+            "Approved", approverId, "Approver", Now.AddMinutes(3));
+        await ProjectAsync(directory,
+            new CommitmentDraftCreated(TenantId, ProgramId, DraftId, Uuid.CreateVersion4(),
+                Uuid.CreateVersion4(), "user_entity_responsibility", "CUEC-01", "First",
+                "Context", "MSA 4.1", AuthorId, "Author", Now),
+            reviewed);
+        var pending = await directory.GetAsync(TenantId, DraftId);
+        await ProjectAsync(directory, approved);
+
+        // Act
+        var version = await directory.GetVersionAsync(TenantId, DraftId, 1);
+        var decisions = await directory.ListDecisionsAsync(TenantId, DraftId, 50, null);
+        var draft = await directory.GetAsync(TenantId, DraftId);
+
+        // Assert
+        Assert.Equal("reviewed", pending?.Status);
+        Assert.Equal("verified", pending?.SourceResolution);
+        Assert.NotNull(version);
+        Assert.Equal("verified", version.SourceResolution);
+        Assert.Equal("Signed MSA v3", version.SourceEvidence);
+        Assert.Equal(reviewed.DecisionId, version.Decision.DecisionId);
+        Assert.Equal(approved.DecisionId, version.Approval?.DecisionId);
+        Assert.Equal("approval", version.Approval?.Stage);
+        Assert.Equal(2, decisions.Items.Count);
+        Assert.Equal("effective", draft?.Status);
+    }
+
     static CommitmentReviewed Reviewed(long revision, string outcome, long? version,
         DateOnly? effectiveFrom) =>
         new(TenantId, ProgramId, DraftId, revision, Uuid.CreateVersion4(), outcome,

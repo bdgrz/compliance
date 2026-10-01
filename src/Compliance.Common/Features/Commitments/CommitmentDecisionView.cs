@@ -9,11 +9,13 @@ public sealed record CommitmentDecisionView(Uuid TenantId, Uuid ProgramId, Uuid 
     string? Applicability, string? Interpretation, string? InterpretationNote,
     string Rationale, long? Version, DateOnly? EffectiveFrom, string? ImpactDigest,
     Uuid ActorMemberId, string ActorDisplay, DateTimeOffset DecidedAt,
-    Uuid? SeparationOfDutiesWaiverId)
+    Uuid? SeparationOfDutiesWaiverId, string Stage = "review",
+    Uuid? AcceptedReviewDecisionId = null, string? SourceVerification = null,
+    string? SourceVerifiedReference = null, string? SourceEvidence = null)
 {
     readonly ActorReference? _actor;
 
-    /// <summary>The recorded reviewer.</summary>
+    /// <summary>The recorded reviewer or approver.</summary>
     [JsonPropertyName("actor")]
     public ActorReference Actor
     {

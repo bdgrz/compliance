@@ -67,6 +67,37 @@ public sealed class ControlApplicabilityReferenceValidatorTests
         Assert.True(unresolvedRisk.IsSuccess);
     }
 
+    [Fact]
+    public async Task ShouldAcceptOnlyRecordedSameTenantCommitmentGivenGovernedCommitmentReference()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var commitmentId = Uuid.CreateVersion4();
+        var validator = new GovernedControlApplicabilityReferenceValidator(
+            new ApplicationActivity(tenantId, Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            new CommitmentActivity(tenantId, commitmentId));
+
+        // Act
+        var recorded = await validator.ValidateAsync(tenantId,
+            Content(new ControlApplicabilityReference(Uuid.CreateVersion4(), "commitment",
+                "SC-01", commitmentId, "The control fulfils this commitment.", false)));
+        var foreign = await validator.ValidateAsync(Uuid.CreateVersion4(),
+            Content(new ControlApplicabilityReference(Uuid.CreateVersion4(), "commitment",
+                "SC-01", commitmentId, "The control fulfils this commitment.", false)));
+
+        // Assert
+        Assert.True(recorded.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(foreign.Error).Kind);
+    }
+
+    sealed class CommitmentActivity(Uuid tenantId, Uuid commitmentId)
+        : Bdgrz.Compliance.Features.Commitments.ICommitmentReferenceReader
+    {
+        public ValueTask<bool> IsRecordedAsync(Uuid requestedTenantId, Uuid requestedId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(requestedTenantId == tenantId && requestedId == commitmentId);
+    }
+
     static ControlDraftContent Content(ControlApplicabilityReference reference) => new(
         "Access review", "Review access", "Management reviews access",
         "The owner reviews the access list quarterly.", ["Dated review record"],

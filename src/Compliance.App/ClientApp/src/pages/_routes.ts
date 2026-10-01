@@ -139,6 +139,15 @@ const BoundaryDetailPage = lazy(() =>
 const BoundaryExceptionsPage = lazy(() =>
   import('../features/boundaries/pages/boundary-exceptions.js').then((module) => module.BoundaryExceptionsPage)
 );
+const CommitmentsPage = lazy(() =>
+  import('../features/commitments/pages/commitments-list.js').then((module) => module.CommitmentsPage)
+);
+const CommitmentDetailPage = lazy(() =>
+  import('../features/commitments/pages/commitment-detail.js').then((module) => module.CommitmentDetailPage)
+);
+const CommitmentExceptionsPage = lazy(() =>
+  import('../features/commitments/pages/commitment-exceptions.js').then((module) => module.CommitmentExceptionsPage)
+);
 const RolesListPage = lazy(() =>
   import('../features/roles/pages/roles-list.js').then(
     (module) => module.RolesListPage
@@ -200,6 +209,9 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/programs/{programId}/boundaries', BoundariesPage);
           route('/{slug}/programs/{programId}/boundaries/{boundaryId}', BoundaryDetailPage);
           route('/{slug}/programs/{programId}/boundaries/{boundaryId}/exceptions', BoundaryExceptionsPage);
+          route('/{slug}/programs/{programId}/commitments', CommitmentsPage);
+          route('/{slug}/programs/{programId}/commitments/{draftId}', CommitmentDetailPage);
+          route('/{slug}/programs/{programId}/commitments/{draftId}/exceptions', CommitmentExceptionsPage);
           route('/{slug}/teams', TeamsListPage);
           route('/{slug}/teams/{teamId}', TeamDetailPage);
           route('/{slug}/roles', RolesListPage);

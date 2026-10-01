@@ -58,6 +58,7 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                         Status = "draft",
+                        SourceResolution = "unverified",
                         OwnerResolution = "unresolved",
                         ApplicabilityResolution = "unresolved",
                     }, ct).ConfigureAwait(false);
@@ -73,6 +74,9 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                 break;
             case CommitmentReviewed reviewed:
                 await ApplyReviewedAsync(reviewed, ct).ConfigureAwait(false);
+                break;
+            case CommitmentApproved approved:
+                await ApplyApprovedAsync(approved, ct).ConfigureAwait(false);
                 break;
         }
     }
@@ -90,14 +94,16 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
             reviewed.OwnerReference, reviewed.Applicability, reviewed.Interpretation,
             reviewed.InterpretationNote, reviewed.Rationale, reviewed.Version,
             reviewed.EffectiveFrom, reviewed.ImpactDigest, reviewed.ActorMemberId,
-            reviewed.ActorDisplay, reviewed.DecidedAt, reviewed.SeparationOfDutiesWaiverId)
+            reviewed.ActorDisplay, reviewed.DecidedAt, reviewed.SeparationOfDutiesWaiverId,
+            "review", null, reviewed.SourceVerification, reviewed.SourceVerifiedReference,
+            reviewed.SourceEvidence)
         {
             Actor = reviewed.Actor,
         };
         await CommitmentDraftDirectorySchema.Decisions.InsertAsync(Transaction, decision, ct)
             .ConfigureAwait(false);
-        var accepted = reviewed.Version is { } version && reviewed.EffectiveFrom is { } from;
-        if (accepted)
+        var legacyEffective = reviewed.Version is not null && reviewed.EffectiveFrom is not null;
+        if (legacyEffective)
             await CommitmentDraftDirectorySchema.Versions.InsertAsync(Transaction,
                 new CommitmentVersionView(current.TenantId, current.ProgramId, current.DraftId,
                     current.ServiceId, current.Kind, current.Identifier, reviewed.Version!.Value,
@@ -107,15 +113,53 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                     CommitmentDraft.PerformedBy(current.Kind),
                     CommitmentDraft.IsInternallyPerformed(current.Kind),
                     reviewed.EffectiveFrom!.Value, decision), ct).ConfigureAwait(false);
+        var accepted = StringComparer.Ordinal.Equals(reviewed.Outcome, "accept");
         await CommitmentDraftDirectorySchema.Drafts.ReplaceAsync(Transaction, current,
             accepted
                 ? current with
                 {
-                    Status = "effective",
+                    Status = legacyEffective ? "effective" : "reviewed",
+                    SourceResolution = reviewed.SourceVerification ?? current.SourceResolution,
                     OwnerResolution = "verified",
                     ApplicabilityResolution = reviewed.Applicability!,
                 }
                 : current with { Status = "changes_requested" }, ct).ConfigureAwait(false);
+    }
+
+    async ValueTask ApplyApprovedAsync(CommitmentApproved approved, CancellationToken ct)
+    {
+        var current = await CommitmentDraftDirectorySchema.Drafts.GetAsync(Transaction,
+            approved.DraftId, ct).ConfigureAwait(false);
+        var review = await CommitmentDraftDirectorySchema.Decisions.GetAsync(Transaction,
+            approved.AcceptedReviewDecisionId, ct).ConfigureAwait(false);
+        if (current is null || current.TenantId != approved.TenantId ||
+            current.ProgramId != approved.ProgramId || current.Revision != approved.Revision ||
+            review is null || review.DraftId != approved.DraftId ||
+            review.Revision != approved.Revision)
+            throw new InvalidOperationException(
+                "A commitment approval cannot project before its accepted review.");
+        var decision = new CommitmentDecisionView(approved.TenantId, approved.ProgramId,
+            approved.DraftId, approved.DecisionId, approved.Revision, "approve", null, null,
+            null, null, approved.Rationale, approved.Version, approved.EffectiveFrom,
+            approved.ImpactDigest, approved.ActorMemberId, approved.ActorDisplay,
+            approved.DecidedAt, approved.SeparationOfDutiesWaiverId, "approval",
+            approved.AcceptedReviewDecisionId)
+        {
+            Actor = approved.Actor,
+        };
+        await CommitmentDraftDirectorySchema.Decisions.InsertAsync(Transaction, decision, ct)
+            .ConfigureAwait(false);
+        await CommitmentDraftDirectorySchema.Versions.InsertAsync(Transaction,
+            new CommitmentVersionView(current.TenantId, current.ProgramId, current.DraftId,
+                current.ServiceId, current.Kind, current.Identifier, approved.Version,
+                current.Revision, current.Statement, current.Context, current.SourceReference,
+                review.OwnerReference!, review.Applicability!, review.Interpretation!,
+                review.InterpretationNote, CommitmentDraft.PerformedBy(current.Kind),
+                CommitmentDraft.IsInternallyPerformed(current.Kind), approved.EffectiveFrom,
+                review, review.SourceVerification ?? "unverified", review.SourceEvidence,
+                decision), ct).ConfigureAwait(false);
+        await CommitmentDraftDirectorySchema.Drafts.ReplaceAsync(Transaction, current,
+            current with { Status = "effective" }, ct).ConfigureAwait(false);
     }
 
     public async ValueTask<CommitmentVersionView?> GetVersionAsync(Uuid tenantId, Uuid draftId,

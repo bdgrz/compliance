@@ -165,6 +165,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<CommitmentDraftHistoryReadConsistency>();
         services.AddScoped<CommitmentVersionReadConsistency>();
         services.AddScoped<CommitmentImpactService>();
+        services.AddScoped<ICommitmentReferenceReader, EventSourcedCommitmentReferenceReader>();
         services.AddScoped<FitzPersonDirectory>();
         services.AddScoped<IPersonDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzPersonDirectory>());
@@ -271,6 +272,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
         services.AddScoped<BoundaryResponsibilityScopeValidator>();
         services.AddScoped<ControlResponsibilityScopeValidator>();
+        services.AddScoped<CommitmentResponsibilityScopeValidator>();
         services.AddScoped<ControlActivationSource>();
         services.AddScoped<ControlImpactService>();
         services.AddScoped<IControlImpactContributor, ApplicabilityControlImpactContributor>();
@@ -446,6 +448,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListCommitmentDraftRevisionsHandler>()
             .AddRequestHandler<GetCommitmentDraftRevisionHandler>()
             .AddRequestHandler<ReviewCommitmentDraftHandler>()
+            .AddRequestHandler<ApproveCommitmentDraftHandler>()
             .AddRequestHandler<PreviewCommitmentImpactHandler>()
             .AddRequestHandler<GetCommitmentVersionHandler>()
             .AddRequestHandler<GetEffectiveCommitmentVersionHandler>()
