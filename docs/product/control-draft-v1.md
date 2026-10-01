@@ -174,9 +174,10 @@ aggregate continues to enforce expected revisions for stale edits.
 - Impact confirmation re-reads independent source streams before the Control decision append.
   The owning Control revision is checked at append, but independent source revisions are not
   atomically fenced through that write. Concurrent source mutation between confirmation and
-  append remains the framework integration follow-up in
-  [#519](https://github.com/bdgrz/compliance/issues/519); sequential mutation tests do not prove
-  that interleaving safe. Issue #477 remains open for this acceptance decision.
+  append remains the stronger atomic linked-source contract in
+  [#519](https://github.com/bdgrz/compliance/issues/519), separate from these evidence/work
+  contributors. The contributors preserve the existing recomputed-digest contract; sequential
+  mutation tests prove that recheck and do not prove the later interleaving safe.
 - Person-owner designation and withdrawal emit new discriminators, so they share the
   `Compliance:Controls:LifecycleEnabled` readers-before-writers gate. Enabling it and
   `ActivationEnabled` in production remains a rollout decision.
