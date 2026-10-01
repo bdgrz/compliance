@@ -77,19 +77,8 @@ jobs:
       - name: Test without broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 
-      - name: Upload test build
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-build
-          # The app host under test serves the built SPA, so the shards need it next to the tests.
-          path: |
-            test/Compliance.Tests/bin/Release
-            src/Compliance.App/ClientApp/dist
-          retention-days: 1
-
   broker:
     name: Broker tests ${{ matrix.shard }}
-    needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     strategy:
@@ -106,11 +95,25 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
-      - name: Download test build
-        uses: actions/download-artifact@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v7 # v7.0.0
         with:
-          name: test-build
+          node-version: 24
+          cache: npm
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Restore locked packages
+        run: dotnet restore test/Compliance.Tests --locked-mode
+
+      # Each shard builds for itself: the app host under test needs its full build tree (static
+      # web assets, the built SPA), not just the test assembly.
+      - name: Build
+        run: dotnet build test/Compliance.Tests --configuration Release --no-restore
 
       # Broker tests own their compose lifecycle (test/Compliance.Tests/E2E/compose.yml).
       - name: Test with real broker
@@ -119,7 +122,7 @@ jobs:
         run: |
           filter=$(scripts/broker-test-filter.sh "${{ matrix.shard }}" "$BROKER_SHARDS")
           if [ -n "$BROKER_TEST_FILTER" ]; then filter="$filter&$BROKER_TEST_FILTER"; fi
-          dotnet test test/Compliance.Tests/bin/Release/net10.0/Bdgrz.Compliance.Tests.dll \
+          dotnet test test/Compliance.Tests --configuration Release --no-build --no-restore \
             --filter "$filter" --logger "console;verbosity=normal"
 
   validate:
