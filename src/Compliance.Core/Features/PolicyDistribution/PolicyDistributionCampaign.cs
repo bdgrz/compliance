@@ -29,6 +29,10 @@ public sealed class PolicyDistributionCampaign : Aggregate
     PolicyCampaignClosed? _closing;
 
     public bool IsLaunched => _launched;
+    public bool IsClosed => _closed;
+    public Uuid TenantId => _tenantId;
+    public Uuid OwnerMemberId => _launch?.ActorMemberId ?? Uuid.Empty;
+    public DateTimeOffset LaunchedAt => _launch?.LaunchedAt ?? DateTimeOffset.MinValue;
     public Uuid ProgramId => _launch?.ProgramId ?? Uuid.Empty;
     public CampaignSubject? Subject => _launch?.Subject;
     public Uuid LatestRosterSnapshotId { get; private set; }
