@@ -193,6 +193,7 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzTechnologyInventoryDirectory>());
         services.AddScoped<ITechnologyInventoryReader>(provider =>
             provider.GetRequiredService<FitzTechnologyInventoryDirectory>());
+        services.AddScoped<ProviderReferences>();
         services.AddScoped<TechnologyInventoryReadConsistency>();
         services.AddScoped<TechnologyInventoryReferences>();
         services.AddScoped<ITechnologyInventoryActivity>(provider =>
@@ -425,6 +426,9 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListApplicationImportRowsHandler>()
             .AddRequestHandler<PreviewApplicationImportHandler>()
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
+            .AddRequestHandler<RecordProviderHandler>()
+            .AddRequestHandler<ReviseProviderHandler>()
+            .AddRequestAuthorizer<ProviderAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()
             .AddRequestHandler<CorrelatePersonMembershipHandler>()
@@ -766,6 +770,8 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<ProviderInventoryGrantBackfillReactor>(
+                "ProviderInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceGrantBackfillReactor>(
                 "WorkforceGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<AccessReviewGrantBackfillReactor>(

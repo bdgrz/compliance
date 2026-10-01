@@ -257,6 +257,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.organization-member.invite",
             "bdgrz.tenant-invitation.list",
             "bdgrz.tenant.get",
+            "bdgrz.provider.record",
+            "bdgrz.provider.revise",
             "bdgrz.inventory.component.record",
             "bdgrz.inventory.component.revise",
             "bdgrz.inventory.asset.boundary_references.list",

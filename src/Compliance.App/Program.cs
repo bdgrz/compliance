@@ -198,6 +198,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseServiceIdentity>(tool => tool.Idempotent())
         .AddMcpTool<GetServiceIdentity>(tool => tool.ReadOnly())
         .AddMcpTool<ListServiceIdentities>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordProvider>()
+        .AddMcpTool<ReviseProvider>(tool => tool.Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
@@ -1318,6 +1320,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/service-identities")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
+    app.MapPortiaPost<RecordProvider, ProviderRegistration>("/api/v1/tenants/{tenant_id}/providers")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPut<ReviseProvider, ProviderRegistration>("/api/v1/tenants/{tenant_id}/providers/{provider_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
     app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(
             "/api/v1/tenants/{tenant_id}/technology-components")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
