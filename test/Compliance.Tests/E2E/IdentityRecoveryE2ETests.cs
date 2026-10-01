@@ -22,7 +22,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
+public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker)
 {
     const string SessionSecret = "bdgrz-recovery-e2e-session-signing-key-01";
     const string ProviderSecret = "bdgrz-recovery-e2e-provider-signing-key-01";

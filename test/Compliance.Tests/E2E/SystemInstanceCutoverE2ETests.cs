@@ -12,7 +12,7 @@ using Microsoft.Extensions.Hosting;
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>Proves old application-stream instance history against the new write path.</summary>
-[Collection(ApplicationInventoryBrokerCollectionDefinition.Name)]
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
 {

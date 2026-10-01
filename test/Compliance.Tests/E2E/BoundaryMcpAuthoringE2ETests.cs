@@ -13,7 +13,6 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
-    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]

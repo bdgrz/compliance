@@ -10,7 +10,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ArtifactContentHostModeE2ETests(BrokerStackFixture broker)
-    : IClassFixture<BrokerStackFixture>, IDisposable
+    : IDisposable
 {
     const string DeliveryKey = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
     readonly string _root = Path.Combine(Path.GetTempPath(), $"bdgrz-artifacts-e2e-{Guid.NewGuid():N}");

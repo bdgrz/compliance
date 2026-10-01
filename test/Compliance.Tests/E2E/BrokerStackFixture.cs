@@ -3,8 +3,8 @@ using Bdgrz.Compliance.Features.Programs;
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
-///     Shared across tests in one e2e class. Each class gets a fresh broker history while
-///     <see cref="BrokerCollectionDefinition" /> keeps the broker tests sequential.
+///     One broker stack shared by every test in
+///     <see cref="BrokerCollectionDefinition" />, which also keeps the broker tests sequential.
 /// </summary>
 public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
 {

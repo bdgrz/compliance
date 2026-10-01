@@ -11,7 +11,6 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class PolicyDistributionE2ETests(BrokerStackFixture broker)
-    : IClassFixture<BrokerStackFixture>
 {
     static readonly string Today = DateTime.UtcNow.ToString("yyyy-MM-dd",
         CultureInfo.InvariantCulture);

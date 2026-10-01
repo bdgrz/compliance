@@ -16,7 +16,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BoundaryBrokerCollectionDefinition.Name)]
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
 {

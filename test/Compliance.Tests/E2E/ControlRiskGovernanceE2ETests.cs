@@ -24,7 +24,6 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
-    : IClassFixture<BrokerStackFixture>
 {
     static readonly string[] Scale = ["Rare", "Unlikely", "Possible", "Likely", "Almost certain"];
 

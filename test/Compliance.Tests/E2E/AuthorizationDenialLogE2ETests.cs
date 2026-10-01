@@ -13,7 +13,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
+public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker)
 {
     [Fact]
     public async Task ShouldLogDeniedActionGivenOutsiderInStandaloneHost()

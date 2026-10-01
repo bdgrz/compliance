@@ -18,7 +18,6 @@ namespace Bdgrz.Compliance.Tests.E2E;
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
-    : IClassFixture<BrokerStackFixture>
 {
     const int People = 640;
 
