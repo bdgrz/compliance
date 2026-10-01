@@ -696,7 +696,7 @@ public sealed class ControlDraft : Aggregate
             return false;
         return reference.SubjectType switch
         {
-            "application" or "system_instance" => !reference.Unresolved &&
+            "application" or "system_instance" or "commitment" => !reference.Unresolved &&
                 reference.GovernedRecordId is { } recordId && recordId != Uuid.Empty,
             "risk" or "process" => reference.Unresolved && reference.GovernedRecordId is null,
             _ => false,

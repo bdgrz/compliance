@@ -485,7 +485,15 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             owner_reference = "Customer IT",
             applicability = "applicable",
             interpretation = "supported",
+            source_verified_reference = "MSA 4.1",
+            source_evidence = "Signed MSA v3, section 4.1",
+        });
+        using var unreviewedApproval = await owner.PostAsJsonAsync($"{draftPath}/approvals", new
+        {
+            expected_revision = 1,
+            accepted_review_decision_id = Guid.NewGuid(),
             effective_from = "2027-01-01",
+            rationale = "Approve without review",
             impact_digest = previewBody.GetProperty("digest").GetString(),
         });
         using var versions = await owner.GetAsync($"{draftPath}/versions");
@@ -496,6 +504,8 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
         Assert.True(previewBody.GetProperty("complete").GetBoolean());
         Assert.Equal(HttpStatusCode.Forbidden, selfReview.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, unreviewedApproval.StatusCode);
+        Assert.Equal(4, previewBody.GetProperty("unlinked_contexts").GetArrayLength());
         Assert.Equal(HttpStatusCode.OK, versions.StatusCode);
         Assert.Equal(0, (await ReadAsync(versions)).GetProperty("items").GetArrayLength());
         Assert.Equal(HttpStatusCode.NotFound, effective.StatusCode);

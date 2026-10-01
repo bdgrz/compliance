@@ -25567,7 +25567,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625"
+                  "$ref": "#/components/schemas/Portia_92D234454C20DC8E7698D3F4608F463CC45108FD7C6FCB35EBDEFD7131274C0D"
                 }
               }
             }
@@ -26003,9 +26003,442 @@
                       "string"
                     ]
                   },
+                  "source_verified_reference": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "source_evidence": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "separation_of_duties_waiver_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/approvals": {
+      "post": {
+        "tags": [
+          "Commitments"
+        ],
+        "operationId": "approveCommitmentDraft",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "accepted_review_decision_id",
+                  "effective_from",
+                  "rationale",
+                  "impact_digest"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "accepted_review_decision_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
                   "effective_from": {
                     "type": "string",
                     "format": "date"
+                  },
+                  "rationale": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
                   },
                   "impact_digest": {
                     "type": [
@@ -26431,7 +26864,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664"
+                  "$ref": "#/components/schemas/Portia_B5702939DCF5C30F95C9A73E21F8F0F14F920AEA657BCC2634DED63C18886EEF"
                 }
               }
             }
@@ -26840,7 +27273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237"
+                  "$ref": "#/components/schemas/Portia_013D7F6C3C0FEB6E8082C97A2D31504B222E662A6A84DD2B56600D5BF2D16139"
                 }
               }
             }
@@ -27240,7 +27673,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7"
+                  "$ref": "#/components/schemas/Portia_96B1731EB5D13928DBD0ED8D189660CF91F7740AD92E08EBFD63D3BF2BBC958F"
                 }
               }
             }
@@ -27637,7 +28070,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7"
+                  "$ref": "#/components/schemas/Portia_96B1731EB5D13928DBD0ED8D189660CF91F7740AD92E08EBFD63D3BF2BBC958F"
                 }
               }
             }
@@ -85266,6 +85699,492 @@
   },
   "components": {
     "schemas": {
+      "Portia_013D7F6C3C0FEB6E8082C97A2D31504B222E662A6A84DD2B56600D5BF2D16139": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "tenant_id",
+                "program_id",
+                "draft_id",
+                "service_id",
+                "kind",
+                "identifier",
+                "version",
+                "revision",
+                "statement",
+                "context",
+                "source_reference",
+                "owner_reference",
+                "applicability",
+                "interpretation",
+                "interpretation_note",
+                "performed_by",
+                "internally_performed",
+                "effective_from",
+                "decision"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "tenant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "program_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "draft_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "service_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "identifier": {
+                  "type": "string"
+                },
+                "version": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "statement": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "string"
+                },
+                "source_reference": {
+                  "type": "string"
+                },
+                "owner_reference": {
+                  "type": "string"
+                },
+                "applicability": {
+                  "type": "string"
+                },
+                "interpretation": {
+                  "type": "string"
+                },
+                "interpretation_note": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "performed_by": {
+                  "type": "string"
+                },
+                "internally_performed": {
+                  "type": "boolean"
+                },
+                "effective_from": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "decision": {
+                  "required": [
+                    "tenant_id",
+                    "program_id",
+                    "draft_id",
+                    "decision_id",
+                    "revision",
+                    "outcome",
+                    "owner_reference",
+                    "applicability",
+                    "interpretation",
+                    "interpretation_note",
+                    "rationale",
+                    "version",
+                    "effective_from",
+                    "impact_digest",
+                    "actor_member_id",
+                    "actor_display",
+                    "decided_at",
+                    "separation_of_duties_waiver_id"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "tenant_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "program_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "draft_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "decision_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "revision": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "outcome": {
+                      "type": "string"
+                    },
+                    "owner_reference": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "applicability": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "interpretation": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "interpretation_note": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "rationale": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "null",
+                        "integer",
+                        "string"
+                      ],
+                      "items": { }
+                    },
+                    "effective_from": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "impact_digest": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "actor_member_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "actor_display": {
+                      "type": "string"
+                    },
+                    "decided_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "separation_of_duties_waiver_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "format": "uuid"
+                    },
+                    "stage": {
+                      "type": "string",
+                      "default": "review"
+                    },
+                    "accepted_review_decision_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "format": "uuid",
+                      "default": null
+                    },
+                    "source_verification": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "source_verified_reference": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "source_evidence": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "actor": {
+                      "required": [
+                        "kind",
+                        "id",
+                        "display"
+                      ],
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "display": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "separation_of_duties_waived": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "source_resolution": {
+                  "type": "string",
+                  "default": "unverified"
+                },
+                "source_evidence": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "approval": {
+                  "required": [
+                    "tenant_id",
+                    "program_id",
+                    "draft_id",
+                    "decision_id",
+                    "revision",
+                    "outcome",
+                    "owner_reference",
+                    "applicability",
+                    "interpretation",
+                    "interpretation_note",
+                    "rationale",
+                    "version",
+                    "effective_from",
+                    "impact_digest",
+                    "actor_member_id",
+                    "actor_display",
+                    "decided_at",
+                    "separation_of_duties_waiver_id"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "tenant_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "program_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "draft_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "decision_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "revision": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
+                    "outcome": {
+                      "type": "string"
+                    },
+                    "owner_reference": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "applicability": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "interpretation": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "interpretation_note": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "rationale": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "null",
+                        "integer",
+                        "string"
+                      ],
+                      "items": { }
+                    },
+                    "effective_from": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "impact_digest": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "actor_member_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "actor_display": {
+                      "type": "string"
+                    },
+                    "decided_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "separation_of_duties_waiver_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "format": "uuid"
+                    },
+                    "stage": {
+                      "type": "string",
+                      "default": "review"
+                    },
+                    "accepted_review_decision_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "format": "uuid",
+                      "default": null
+                    },
+                    "source_verification": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "source_verified_reference": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "source_evidence": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null
+                    },
+                    "actor": {
+                      "$ref": "#/components/schemas/Portia_013D7F6C3C0FEB6E8082C97A2D31504B222E662A6A84DD2B56600D5BF2D16139_1"
+                    },
+                    "separation_of_duties_waived": {
+                      "type": "boolean"
+                    }
+                  },
+                  "default": null
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "Portia_013D7F6C3C0FEB6E8082C97A2D31504B222E662A6A84DD2B56600D5BF2D16139_1": {
+        "required": [
+          "kind",
+          "id",
+          "display"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          }
+        }
+      },
       "Portia_022A384CC13FCCBBBDACFD95B82E4D9EE161732C5FF61B3FF97C70AF11E4D94C": {
         "required": [
           "delivery_status",
@@ -85941,171 +86860,6 @@
           }
         }
       },
-      "Portia_0A9CDB70B104DD500F1650ECF17E2D71437EAAA3D83CD49AD8A315E22A081664": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "required": [
-                "tenant_id",
-                "program_id",
-                "draft_id",
-                "decision_id",
-                "revision",
-                "outcome",
-                "owner_reference",
-                "applicability",
-                "interpretation",
-                "interpretation_note",
-                "rationale",
-                "version",
-                "effective_from",
-                "impact_digest",
-                "actor_member_id",
-                "actor_display",
-                "decided_at",
-                "separation_of_duties_waiver_id"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "tenant_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "program_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "draft_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "decision_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "revision": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "outcome": {
-                  "type": "string"
-                },
-                "owner_reference": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "applicability": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "interpretation": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "interpretation_note": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "rationale": {
-                  "type": "string"
-                },
-                "version": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "null",
-                    "integer",
-                    "string"
-                  ],
-                  "items": { }
-                },
-                "effective_from": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "items": { },
-                  "format": "date"
-                },
-                "impact_digest": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "actor_member_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "actor_display": {
-                  "type": "string"
-                },
-                "decided_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "separation_of_duties_waiver_id": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "format": "uuid"
-                },
-                "actor": {
-                  "required": [
-                    "kind",
-                    "id",
-                    "display"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "display": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "separation_of_duties_waived": {
-                  "type": "boolean"
-                }
-              }
-            }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "Portia_0B6601B102C5751CB9E0454A861D244D753DE3A3F0BA4871D392E5D08B917A5F": {
         "required": [
           "program_id",
@@ -86752,130 +87506,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "Portia_192271E1EABBA6FC52BAF89F6B378FCACE65CA8E7A48D41243102EBBF5417625": {
-        "required": [
-          "tenant_id",
-          "program_id",
-          "draft_id",
-          "revision",
-          "effective_version",
-          "changes",
-          "dependents",
-          "unlinked_contexts",
-          "complete",
-          "digest"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "program_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "draft_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "revision": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "effective_version": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "items": { }
-          },
-          "changes": {
-            "type": "array",
-            "items": {
-              "required": [
-                "field",
-                "before",
-                "after"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "field": {
-                  "type": "string"
-                },
-                "before": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "after": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                }
-              }
-            }
-          },
-          "dependents": {
-            "type": "array",
-            "items": {
-              "required": [
-                "context",
-                "record_type",
-                "record_id",
-                "relationship"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "context": {
-                  "type": "string"
-                },
-                "record_type": {
-                  "type": "string"
-                },
-                "record_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "relationship": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "unlinked_contexts": {
-            "type": "array",
-            "items": {
-              "type": [
-                "null",
-                "string"
-              ]
-            }
-          },
-          "complete": {
-            "type": "boolean"
-          },
-          "digest": {
-            "type": "string"
           }
         }
       },
@@ -91520,507 +92150,6 @@
           }
         }
       },
-      "Portia_64BE94797D3B12DE7F671F3383F5650BDF178E0C4D09A41959A9EA71BAA14237": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "required": [
-                "tenant_id",
-                "program_id",
-                "draft_id",
-                "service_id",
-                "kind",
-                "identifier",
-                "version",
-                "revision",
-                "statement",
-                "context",
-                "source_reference",
-                "owner_reference",
-                "applicability",
-                "interpretation",
-                "interpretation_note",
-                "performed_by",
-                "internally_performed",
-                "effective_from",
-                "decision"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "tenant_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "program_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "draft_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "service_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "kind": {
-                  "type": "string"
-                },
-                "identifier": {
-                  "type": "string"
-                },
-                "version": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "revision": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "statement": {
-                  "type": "string"
-                },
-                "context": {
-                  "type": "string"
-                },
-                "source_reference": {
-                  "type": "string"
-                },
-                "owner_reference": {
-                  "type": "string"
-                },
-                "applicability": {
-                  "type": "string"
-                },
-                "interpretation": {
-                  "type": "string"
-                },
-                "interpretation_note": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "performed_by": {
-                  "type": "string"
-                },
-                "internally_performed": {
-                  "type": "boolean"
-                },
-                "effective_from": {
-                  "type": "string",
-                  "format": "date"
-                },
-                "decision": {
-                  "required": [
-                    "tenant_id",
-                    "program_id",
-                    "draft_id",
-                    "decision_id",
-                    "revision",
-                    "outcome",
-                    "owner_reference",
-                    "applicability",
-                    "interpretation",
-                    "interpretation_note",
-                    "rationale",
-                    "version",
-                    "effective_from",
-                    "impact_digest",
-                    "actor_member_id",
-                    "actor_display",
-                    "decided_at",
-                    "separation_of_duties_waiver_id"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "tenant_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "program_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "draft_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "decision_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "revision": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "integer",
-                        "string"
-                      ]
-                    },
-                    "outcome": {
-                      "type": "string"
-                    },
-                    "owner_reference": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "applicability": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "interpretation": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "interpretation_note": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "rationale": {
-                      "type": "string"
-                    },
-                    "version": {
-                      "pattern": "^-?(?:0|[1-9]\\d*)$",
-                      "type": [
-                        "null",
-                        "integer",
-                        "string"
-                      ],
-                      "items": { }
-                    },
-                    "effective_from": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "items": { },
-                      "format": "date"
-                    },
-                    "impact_digest": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "actor_member_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "actor_display": {
-                      "type": "string"
-                    },
-                    "decided_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "separation_of_duties_waiver_id": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "format": "uuid"
-                    },
-                    "actor": {
-                      "required": [
-                        "kind",
-                        "id",
-                        "display"
-                      ],
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "display": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "separation_of_duties_waived": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "Portia_671AC09DAB490DF2776880B0704E8B578BD2F034EE3EF6D6D28051D39931B2B7": {
-        "required": [
-          "tenant_id",
-          "program_id",
-          "draft_id",
-          "service_id",
-          "kind",
-          "identifier",
-          "version",
-          "revision",
-          "statement",
-          "context",
-          "source_reference",
-          "owner_reference",
-          "applicability",
-          "interpretation",
-          "interpretation_note",
-          "performed_by",
-          "internally_performed",
-          "effective_from",
-          "decision"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "program_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "draft_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "service_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "identifier": {
-            "type": "string"
-          },
-          "version": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "revision": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "statement": {
-            "type": "string"
-          },
-          "context": {
-            "type": "string"
-          },
-          "source_reference": {
-            "type": "string"
-          },
-          "owner_reference": {
-            "type": "string"
-          },
-          "applicability": {
-            "type": "string"
-          },
-          "interpretation": {
-            "type": "string"
-          },
-          "interpretation_note": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "performed_by": {
-            "type": "string"
-          },
-          "internally_performed": {
-            "type": "boolean"
-          },
-          "effective_from": {
-            "type": "string",
-            "format": "date"
-          },
-          "decision": {
-            "required": [
-              "tenant_id",
-              "program_id",
-              "draft_id",
-              "decision_id",
-              "revision",
-              "outcome",
-              "owner_reference",
-              "applicability",
-              "interpretation",
-              "interpretation_note",
-              "rationale",
-              "version",
-              "effective_from",
-              "impact_digest",
-              "actor_member_id",
-              "actor_display",
-              "decided_at",
-              "separation_of_duties_waiver_id"
-            ],
-            "type": "object",
-            "properties": {
-              "tenant_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "program_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "draft_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "decision_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "revision": {
-                "pattern": "^-?(?:0|[1-9]\\d*)$",
-                "type": [
-                  "integer",
-                  "string"
-                ]
-              },
-              "outcome": {
-                "type": "string"
-              },
-              "owner_reference": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "applicability": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "interpretation": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "interpretation_note": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "rationale": {
-                "type": "string"
-              },
-              "version": {
-                "pattern": "^-?(?:0|[1-9]\\d*)$",
-                "type": [
-                  "null",
-                  "integer",
-                  "string"
-                ],
-                "items": { }
-              },
-              "effective_from": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "items": { },
-                "format": "date"
-              },
-              "impact_digest": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "actor_member_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "actor_display": {
-                "type": "string"
-              },
-              "decided_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "separation_of_duties_waiver_id": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "format": "uuid"
-              },
-              "actor": {
-                "required": [
-                  "kind",
-                  "id",
-                  "display"
-                ],
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "type": "string"
-                  },
-                  "display": {
-                    "type": "string"
-                  }
-                }
-              },
-              "separation_of_duties_waived": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
-      },
       "Portia_67FF42154696CE62730A90222AB6C1618C3883A7B83A530679D7947EF82A7536": {
         "required": [
           "items",
@@ -95580,6 +95709,142 @@
           }
         }
       },
+      "Portia_92D234454C20DC8E7698D3F4608F463CC45108FD7C6FCB35EBDEFD7131274C0D": {
+        "required": [
+          "tenant_id",
+          "program_id",
+          "draft_id",
+          "revision",
+          "effective_version",
+          "changes",
+          "dependents",
+          "unlinked_contexts",
+          "complete",
+          "digest"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "program_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "effective_version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "items": { }
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "required": [
+                "field",
+                "before",
+                "after"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "before": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "after": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "dependents": {
+            "type": "array",
+            "items": {
+              "required": [
+                "context",
+                "record_type",
+                "record_id",
+                "relationship"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "context": {
+                  "type": "string"
+                },
+                "record_type": {
+                  "type": "string"
+                },
+                "record_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "relationship": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "unlinked_contexts": {
+            "type": "array",
+            "items": {
+              "required": [
+                "context",
+                "reason"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "context": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "digest": {
+            "type": "string"
+          }
+        }
+      },
       "Portia_96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7": {
         "type": [
           "null",
@@ -95713,6 +95978,471 @@
               ],
               "default": null
             }
+          }
+        }
+      },
+      "Portia_96B1731EB5D13928DBD0ED8D189660CF91F7740AD92E08EBFD63D3BF2BBC958F": {
+        "required": [
+          "tenant_id",
+          "program_id",
+          "draft_id",
+          "service_id",
+          "kind",
+          "identifier",
+          "version",
+          "revision",
+          "statement",
+          "context",
+          "source_reference",
+          "owner_reference",
+          "applicability",
+          "interpretation",
+          "interpretation_note",
+          "performed_by",
+          "internally_performed",
+          "effective_from",
+          "decision"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "program_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "service_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "source_reference": {
+            "type": "string"
+          },
+          "owner_reference": {
+            "type": "string"
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "interpretation": {
+            "type": "string"
+          },
+          "interpretation_note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "performed_by": {
+            "type": "string"
+          },
+          "internally_performed": {
+            "type": "boolean"
+          },
+          "effective_from": {
+            "type": "string",
+            "format": "date"
+          },
+          "decision": {
+            "required": [
+              "tenant_id",
+              "program_id",
+              "draft_id",
+              "decision_id",
+              "revision",
+              "outcome",
+              "owner_reference",
+              "applicability",
+              "interpretation",
+              "interpretation_note",
+              "rationale",
+              "version",
+              "effective_from",
+              "impact_digest",
+              "actor_member_id",
+              "actor_display",
+              "decided_at",
+              "separation_of_duties_waiver_id"
+            ],
+            "type": "object",
+            "properties": {
+              "tenant_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "program_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "draft_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decision_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "owner_reference": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "applicability": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "interpretation": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "interpretation_note": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "version": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "null",
+                  "integer",
+                  "string"
+                ],
+                "items": { }
+              },
+              "effective_from": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "impact_digest": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "actor_member_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "actor_display": {
+                "type": "string"
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "separation_of_duties_waiver_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "stage": {
+                "type": "string",
+                "default": "review"
+              },
+              "accepted_review_decision_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              },
+              "source_verification": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "source_verified_reference": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "source_evidence": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "actor": {
+                "required": [
+                  "kind",
+                  "id",
+                  "display"
+                ],
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "display": {
+                    "type": "string"
+                  }
+                }
+              },
+              "separation_of_duties_waived": {
+                "type": "boolean"
+              }
+            }
+          },
+          "source_resolution": {
+            "type": "string",
+            "default": "unverified"
+          },
+          "source_evidence": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          "approval": {
+            "required": [
+              "tenant_id",
+              "program_id",
+              "draft_id",
+              "decision_id",
+              "revision",
+              "outcome",
+              "owner_reference",
+              "applicability",
+              "interpretation",
+              "interpretation_note",
+              "rationale",
+              "version",
+              "effective_from",
+              "impact_digest",
+              "actor_member_id",
+              "actor_display",
+              "decided_at",
+              "separation_of_duties_waiver_id"
+            ],
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "tenant_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "program_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "draft_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decision_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "owner_reference": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "applicability": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "interpretation": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "interpretation_note": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "version": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "null",
+                  "integer",
+                  "string"
+                ],
+                "items": { }
+              },
+              "effective_from": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "impact_digest": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "actor_member_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "actor_display": {
+                "type": "string"
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "separation_of_duties_waiver_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "stage": {
+                "type": "string",
+                "default": "review"
+              },
+              "accepted_review_decision_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid",
+                "default": null
+              },
+              "source_verification": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "source_verified_reference": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "source_evidence": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              "actor": {
+                "$ref": "#/components/schemas/Portia_96B1731EB5D13928DBD0ED8D189660CF91F7740AD92E08EBFD63D3BF2BBC958F_1"
+              },
+              "separation_of_duties_waived": {
+                "type": "boolean"
+              }
+            },
+            "default": null
+          }
+        }
+      },
+      "Portia_96B1731EB5D13928DBD0ED8D189660CF91F7740AD92E08EBFD63D3BF2BBC958F_1": {
+        "required": [
+          "kind",
+          "id",
+          "display"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
           }
         }
       },
@@ -97365,6 +98095,204 @@
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
+              "string"
+            ]
+          }
+        }
+      },
+      "Portia_B5702939DCF5C30F95C9A73E21F8F0F14F920AEA657BCC2634DED63C18886EEF": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "tenant_id",
+                "program_id",
+                "draft_id",
+                "decision_id",
+                "revision",
+                "outcome",
+                "owner_reference",
+                "applicability",
+                "interpretation",
+                "interpretation_note",
+                "rationale",
+                "version",
+                "effective_from",
+                "impact_digest",
+                "actor_member_id",
+                "actor_display",
+                "decided_at",
+                "separation_of_duties_waiver_id"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "tenant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "program_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "draft_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "decision_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "owner_reference": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "applicability": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "interpretation": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "interpretation_note": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "rationale": {
+                  "type": "string"
+                },
+                "version": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "null",
+                    "integer",
+                    "string"
+                  ],
+                  "items": { }
+                },
+                "effective_from": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date"
+                },
+                "impact_digest": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "actor_member_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "actor_display": {
+                  "type": "string"
+                },
+                "decided_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "separation_of_duties_waiver_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "stage": {
+                  "type": "string",
+                  "default": "review"
+                },
+                "accepted_review_decision_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid",
+                  "default": null
+                },
+                "source_verification": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "source_verified_reference": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "source_evidence": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "actor": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "separation_of_duties_waived": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
               "string"
             ]
           }

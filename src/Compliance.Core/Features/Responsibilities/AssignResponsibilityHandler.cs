@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.Versioning;
@@ -46,6 +47,13 @@ public sealed class AssignResponsibilityHandler(IAggregateExecutor executor,
         var assignedAt = clock.GetUtcNow();
         // Responsibilities live on the aggregate that owns the exact record version, so the
         // assignment and the record's revision share one optimistic concurrency boundary.
+        if (request.RecordType == SeparationOfDutiesRecordTypes.Commitment)
+            return await executor.ExecuteAsync(new CommitmentDraft(request.TenantId,
+                request.Scope.RecordId), commitment => CommandFailureRequestAdapter.ToOutcome(
+                commitment.AssignResponsibility(request.Scope, context.RequestId, memberId,
+                    request.Type, actorMemberId, actorDisplay, assignedAt,
+                    request.EffectiveFrom, request.EffectiveUntil, waivers)),
+                context, ct).ConfigureAwait(false);
         if (request.RecordType == SeparationOfDutiesRecordTypes.Control)
             return await executor.ExecuteAsync(new ControlDraft(request.TenantId,
                 request.Scope.RecordId), control => CommandFailureRequestAdapter.ToOutcome(

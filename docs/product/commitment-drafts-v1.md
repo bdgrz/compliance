@@ -52,30 +52,50 @@ that relationship.
 A new or revised draft says `status: draft`, `source_resolution: unverified`,
 `owner_resolution: unresolved`, and `applicability_resolution: unresolved`.
 
-## Review into effective versions (#450)
+## Review, approval, and effective versions (#450, #466)
 
 - `POST .../commitment-drafts/{draft_id}/reviews` records one independent,
   attributable decision on `expected_revision` with `outcome` `accept` or
   `request_changes` and a `rationale`. Review is HTTP-only; no MCP tool can
-  record it. The reviewer must not have authored any revision since the last
-  effective version unless an approved separation-of-duties waiver names the
-  exact scope (`record_type: commitment`, record and version ID = draft ID,
-  revision, action `review`) and that reviewer.
-- Acceptance verifies `owner_reference`, `applicability`
-  (`applicable`/`not_applicable`), and `interpretation`
-  (`supported`/`unsupported`, with optional `interpretation_note`). An
-  unsupported interpretation can be accepted but stays visible on the
-  version. Acceptance also requires `effective_from`, later than the prior
-  version's, and the `impact_digest` of a complete current preview. It creates
-  an immutable version; accepting the same revision again conflicts.
+  record it. Acceptance verifies `owner_reference`, `applicability`
+  (`applicable`/`not_applicable`), `interpretation` (`supported`/`unsupported`,
+  with optional `interpretation_note`), and source provenance: the reviewer
+  restates the exact current `source_reference` as `source_verified_reference`
+  and records `source_evidence` describing what was checked. A mismatched or
+  missing verification is rejected. An unsupported interpretation can be
+  accepted but stays visible on the version. Accepting a revision that is
+  already effective conflicts. An accepted review moves the draft to
+  `status: reviewed` and `source_resolution: verified`; any later revision
+  resets it to `draft`/`unverified` and voids the accepted review.
+- `POST .../commitment-drafts/{draft_id}/approvals` is the separate approval.
+  It names `expected_revision`, `accepted_review_decision_id` (the latest
+  accepted review of that exact revision), `effective_from` (later than the
+  prior version's), a `rationale`, and the `impact_digest` of a complete,
+  current preview. It creates an immutable version and is HTTP-only.
+- Separation of duties: authors of any revision since the last effective
+  version cannot review or approve, and the accepted reviewer cannot approve
+  the same revision, unless an approved waiver names the exact scope
+  (`record_type: commitment`, record and version ID = draft ID, revision,
+  action `review` or `approve`) and that member. Responsibilities can be
+  assigned to the exact pending revision through the responsibility API with
+  `record_type: commitment` and `version_id` = draft ID. When a revision has
+  active `assigned_reviewer` or `policy_approver` assignments, only those
+  assignees may review or approve it, and conflicting responsibilities need
+  the same exact-scope waiver.
 - `GET .../impact-preview?expected_revision=` compares the draft revision with
-  the latest effective version and lists boundaries whose draft or approved
-  scope entries reference the commitment. Controls, evidence, readiness, and
-  risks cannot reference commitments yet and are listed as
-  `unlinked_contexts`.
+  the latest effective version and lists dependents: boundaries whose draft or
+  approved scope entries reference the commitment, and controls whose approved
+  or pending applicability names it (controls may now reference a recorded
+  commitment with `subject_type: commitment`). Contexts that cannot reference
+  commitments are listed in `unlinked_contexts` with a reason: control
+  criterion mappings (they link criteria to controls, which are listed),
+  evidence, readiness (commitments are an unassessed family), and risks.
 - `GET .../versions`, `.../versions/{version}`,
   `.../effective-version?effective_on=`, and `.../decisions` expose history and
-  as-of reads. Source/projection lag returns a transient conflict.
+  as-of reads. Decisions carry `stage` (`review` or `approval`). Versions carry
+  the accepted review as `decision`, the `approval`, `source_resolution`, and
+  `source_evidence`. Versions created before #466 have no approval and an
+  `unverified` source. Source/projection lag returns a transient conflict.
 - Every version carries `performed_by` (`service_organization`,
   `user_entity`, or `subservice_organization`) and `internally_performed`.
   CUECs and CSOCs are never internally performed.
@@ -83,7 +103,9 @@ A new or revised draft says `status: draft`, `source_resolution: unverified`,
   `bdgrz.commitment.version.get`, `bdgrz.commitment.version.effective.get`,
   `bdgrz.commitment.version.list`, and `bdgrz.commitment.decision.list`.
 
-Still open: a separate approver role after review (the boundary pattern's
-review-then-approve), assigned-reviewer responsibilities for commitments,
-source provenance verification, dependents in contexts that cannot link to
-commitments yet, split-host broker coverage, and engagement snapshots.
+The SPA route `/{slug}/programs/{program_id}/commitments` lists drafts by kind
+and supports create, revise, history, review, approval with impact preview,
+separation-of-duties explanations, and effective-version as-of reads (#230).
+
+Still open: engagement snapshots, and evidence, readiness, and risk links to
+commitments.

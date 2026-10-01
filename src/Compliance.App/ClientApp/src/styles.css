@@ -679,3 +679,46 @@ svg {
     grid-template-columns: 1fr;
   }
 }
+
+.commitment-list,
+.commitment-versions,
+.commitment-revisions,
+.commitment-decisions,
+.commitment-dependents,
+.commitment-unlinked,
+.commitment-changes {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.commitment-meta {
+  color: var(--ak-color-text-muted, GrayText);
+}
+
+.commitment-review fieldset,
+.commitment-approve fieldset {
+  border: 1px solid var(--ak-color-border, currentColor);
+  border-radius: var(--ak-radius-md, 0.5rem);
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+  margin: 0;
+  padding: var(--ak-space-md, 1rem);
+}
+
+.commitment-conflicts,
+.commitment-carve-out {
+  border-inline-start: 4px solid var(--ak-color-warning, currentColor);
+  padding-inline-start: var(--ak-space-sm, 0.75rem);
+}
+
+.commitment-version {
+  display: grid;
+  gap: 0.25rem var(--ak-space-md, 1rem);
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  margin: 0;
+}
+
+.commitment-version dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

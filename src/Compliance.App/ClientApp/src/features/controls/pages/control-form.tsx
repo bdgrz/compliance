@@ -7,11 +7,12 @@ import {
   type ControlContent,
 } from '../controls.js';
 
-// Applications and system instances must cite their governed inventory record; risks and
+// Applications, system instances, and commitments must cite their governed record; risks and
 // processes are recorded as named subjects until their registers are linked.
 const subjectTypes: { code: string; label: string; governed: boolean }[] = [
   { code: 'application', label: 'Application', governed: true },
   { code: 'system_instance', label: 'System instance', governed: true },
+  { code: 'commitment', label: 'Commitment or requirement', governed: true },
   { code: 'risk', label: 'Risk', governed: false },
   { code: 'process', label: 'Process', governed: false },
 ];
