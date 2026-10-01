@@ -126,6 +126,31 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.commitment.version.effective.get",
             "bdgrz.commitment.version.list",
             "bdgrz.commitment.decision.list",
+            "bdgrz.policy.draft.create",
+            "bdgrz.policy.draft.revise",
+            "bdgrz.policy.successor.propose",
+            "bdgrz.policy.draft.discard",
+            "bdgrz.policy.retirement.propose",
+            "bdgrz.policy.get",
+            "bdgrz.policies.list",
+            "bdgrz.policy.version.get",
+            "bdgrz.policy.version.effective.get",
+            "bdgrz.policy.versions.list",
+            "bdgrz.policy.decisions.list",
+            "bdgrz.policy.impact.preview",
+            "bdgrz.training_requirement.define",
+            "bdgrz.training_requirement.revise",
+            "bdgrz.training_requirement.get",
+            "bdgrz.training_requirements.list",
+            "bdgrz.policy_campaign.launch",
+            "bdgrz.training_campaign.launch",
+            "bdgrz.campaign.audience.reconcile",
+            "bdgrz.training_completion.record",
+            "bdgrz.campaign.close",
+            "bdgrz.campaign.get",
+            "bdgrz.campaigns.list",
+            "bdgrz.campaign.participants.list",
+            "bdgrz.campaign.amendments.list",
             "bdgrz.risk.draft.create",
             "bdgrz.risk.draft.revise",
             "bdgrz.risk.draft.get",
@@ -312,6 +337,33 @@ public sealed class RbacMcpScenarioTests
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.commitment.draft.review" or
             "bdgrz.commitment.draft.approve");
+        Assert.DoesNotContain(tools, tool => tool.Name == "bdgrz.commitment.draft.review");
+        foreach (var name in new[]
+                 {
+                     "bdgrz.policy.get",
+                     "bdgrz.policies.list",
+                     "bdgrz.policy.version.get",
+                     "bdgrz.policy.version.effective.get",
+                     "bdgrz.policy.versions.list",
+                     "bdgrz.policy.decisions.list",
+                     "bdgrz.policy.impact.preview",
+                     "bdgrz.training_requirement.get",
+                     "bdgrz.training_requirements.list",
+                     "bdgrz.campaign.get",
+                     "bdgrz.campaigns.list",
+                     "bdgrz.campaign.participants.list",
+                     "bdgrz.campaign.amendments.list",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.policy.draft.discard")
+            .Destructive);
+        foreach (var personal in new[]
+                 {
+                     "bdgrz.policy.review", "bdgrz.policy.approve",
+                     "bdgrz.policy.periodic_review.confirm", "bdgrz.policy.retire",
+                     "bdgrz.policy.acknowledge", "bdgrz.campaign.waiver.approve",
+                 })
+            Assert.DoesNotContain(tools, tool => tool.Name == personal);
         Assert.NotEqual(true, Assert.Single(tools, tool =>
             tool.Name == "bdgrz.commitment.draft.create").ReadOnly);
         Assert.NotEqual(true, Assert.Single(tools, tool =>

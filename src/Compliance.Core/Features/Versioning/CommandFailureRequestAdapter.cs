@@ -14,7 +14,7 @@ static class CommandFailureRequestAdapter
             ? AggregateOutcome.Commit(Result<T>.Success(value))
             : AggregateOutcome.Discard(Result<T>.Failure(ToRequestError(failure)));
 
-    static RequestError ToRequestError(CommandFailure failure) => failure.Code switch
+    internal static RequestError ToRequestError(this CommandFailure failure) => failure.Code switch
     {
         CommandFailureCode.MissingRecord => new(RequestErrorKind.NotFound, failure.Message!),
         CommandFailureCode.StateConflict => new(RequestErrorKind.Conflict, failure.Message!),

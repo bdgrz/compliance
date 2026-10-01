@@ -112,6 +112,31 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetEffectiveCommitmentVersion>(tool => tool.ReadOnly())
         .AddMcpTool<ListCommitmentVersions>(tool => tool.ReadOnly())
         .AddMcpTool<ListCommitmentDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<CreatePolicyDraft>()
+        .AddMcpTool<RevisePolicyDraft>()
+        .AddMcpTool<ProposePolicySuccessor>()
+        .AddMcpTool<DiscardPolicyDraft>(tool => tool.Destructive())
+        .AddMcpTool<ProposePolicyRetirement>()
+        .AddMcpTool<GetPolicy>(tool => tool.ReadOnly())
+        .AddMcpTool<ListPolicies>(tool => tool.ReadOnly())
+        .AddMcpTool<GetPolicyVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEffectivePolicyVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListPolicyVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<ListPolicyDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewPolicyImpact>(tool => tool.ReadOnly())
+        .AddMcpTool<DefineTrainingRequirement>()
+        .AddMcpTool<ReviseTrainingRequirement>()
+        .AddMcpTool<GetTrainingRequirement>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTrainingRequirements>(tool => tool.ReadOnly())
+        .AddMcpTool<LaunchPolicyCampaign>()
+        .AddMcpTool<LaunchTrainingCampaign>()
+        .AddMcpTool<ReconcileCampaignAudience>()
+        .AddMcpTool<RecordTrainingCompletion>()
+        .AddMcpTool<CloseCampaign>()
+        .AddMcpTool<GetCampaign>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCampaigns>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCampaignParticipants>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCampaignAmendments>(tool => tool.ReadOnly())
         .AddMcpTool<CreateRiskDraft>()
         .AddMcpTool<ReviseRiskDraft>(tool => tool.Idempotent())
         .AddMcpTool<GetRiskDraft>(tool => tool.ReadOnly())
@@ -643,6 +668,132 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts/{draft_id}/effective-version")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Commitments");
+    app.MapPortiaPost<CreatePolicyDraft, PolicyRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<ListPolicies, Page<PolicySummaryView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<GetPolicy, PolicyView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPut<RevisePolicyDraft, PolicyRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<DiscardPolicyDraft>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/draft/discards")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<ProposePolicySuccessor, PolicyRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/successors")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<PreviewPolicyImpact, PolicyImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/impact-preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    // Reviews, approvals, periodic reviews, and retirement approvals are personal decisions and stay HTTP-only.
+    app.MapPortiaPost<ReviewPolicyDraft, PolicyDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<ApprovePolicy, PolicyVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<ConfirmPolicyReview, PolicyDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/periodic-reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<ProposePolicyRetirement, PolicyRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/retirement-proposals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<ApprovePolicyRetirement, PolicyDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<ListPolicyVersions, Page<PolicyVersionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<GetPolicyVersion, PolicyVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/versions/{version}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<GetEffectivePolicyVersion, PolicyVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/effective-version")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaGet<ListPolicyDecisions, Page<PolicyDecisionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policies/{policy_id}/decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policies");
+    app.MapPortiaPost<DefineTrainingRequirement, TrainingRequirementRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/training-requirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<ListTrainingRequirements, Page<TrainingRequirementView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/training-requirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<GetTrainingRequirement, TrainingRequirementView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/training-requirements/{requirement_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPut<ReviseTrainingRequirement, TrainingRequirementRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/training-requirements/{requirement_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<LaunchPolicyCampaign, CampaignRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/policy-campaigns")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<LaunchTrainingCampaign, CampaignRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/training-campaigns")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<ListCampaigns, Page<CampaignSummaryView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<GetCampaign, CampaignView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<ListCampaignParticipants, Page<CampaignParticipantView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/participants")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaGet<ListCampaignAmendments, Page<CampaignAmendmentView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/amendments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<ReconcileCampaignAudience, CampaignReconciliationView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/reconciliations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<RecordTrainingCompletion, CampaignCompletionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/completions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<CloseCampaign, CampaignView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/closure")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    // Personal acknowledgements and exception approvals stay HTTP-only.
+    app.MapPortiaPost<AcknowledgePolicy, CampaignAcknowledgementView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/acknowledgements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
+    app.MapPortiaPost<ApproveCampaignWaiver, CampaignWaiverView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/campaigns/{campaign_id}/waivers")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Policy distribution");
     app.MapPortiaPost<CreateRiskDraft, RiskRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

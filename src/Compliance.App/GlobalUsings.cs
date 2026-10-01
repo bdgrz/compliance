@@ -7,6 +7,8 @@ global using Bdgrz.Compliance.Features.ControlMappings;
 global using Bdgrz.Compliance.Features.Controls;
 global using Bdgrz.Compliance.Features.Criteria;
 global using Bdgrz.Compliance.Features.Operations;
+global using Bdgrz.Compliance.Features.Policies;
+global using Bdgrz.Compliance.Features.PolicyDistribution;
 global using Bdgrz.Compliance.Features.Programs;
 global using Bdgrz.Compliance.Features.Readiness;
 global using Bdgrz.Compliance.Features.Remediation;
