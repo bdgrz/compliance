@@ -305,3 +305,199 @@ describe('risk assessment and treatment (R1-07 frontend #206)', () => {
     expect(container.querySelector('form')).toBeNull();
   });
 });
+
+describe('risk draft editing, history, and governance (R1-07 frontend b #482)', () => {
+  it('ShouldReviseTheDraftAgainstItsRevisionGivenEditedContent', async () => {
+    // Arrange
+    method();
+    drafts();
+    evaluation(0, 'unassessed', []);
+    api.reply(`PUT ${risk}/draft`, 204);
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect(container.querySelector('form[aria-label="Edit R-1"]')).not.toBeNull());
+    const form = container.querySelector('form[aria-label="Edit R-1"]')!;
+    fill(form, 'Title', 'Admin credential theft');
+    fill(form, 'Source note', 'Workshop 2026-09-01');
+
+    // Act
+    submit(container, 'Edit R-1');
+    await vi.waitFor(() => expect(api.bodies.some((b) => b.method === 'PUT' && b.path === `${risk}/draft`)).toBe(true));
+
+    // Assert
+    expect(api.bodies.find((b) => b.method === 'PUT' && b.path === `${risk}/draft`)?.body).toEqual({
+      expected_revision: 1,
+      title: 'Admin credential theft',
+      scenario: 'Phished admin',
+      potential_effect: 'Data loss',
+      source_note: 'Workshop 2026-09-01',
+    });
+  });
+
+  it('ShouldListDraftRevisionsGivenTheHistoryIsShown', async () => {
+    // Arrange
+    method();
+    drafts();
+    evaluation(0, 'unassessed', []);
+    api.reply(`${risk}/evaluation/history`, 200, { items: [], next_cursor: null });
+    api.reply(`${risk}/draft/revisions`, 200, {
+      items: [1, 2].map((revision) => ({
+        tenant_id: tenantId,
+        program_id: programId,
+        risk_id: riskId,
+        identifier: 'R-1',
+        revision,
+        content: { title: revision === 1 ? 'Credential theft' : 'Admin credential theft', scenario: 'Phished admin', potential_effect: 'Data loss', source_note: null },
+        changed_by_member_id: 'm',
+        changed_by_display: 'Casey Lead',
+        changed_at: '2026-09-02T00:00:00Z',
+      })),
+      next_cursor: null,
+    });
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect([...container.querySelectorAll('button')].some((b) => b.textContent === 'Show history')).toBe(true));
+
+    // Act
+    [...container.querySelectorAll('button')].find((b) => b.textContent === 'Show history')!.click();
+    await vi.waitFor(() => expect(container.querySelector('.risk-draft-history')).not.toBeNull());
+
+    // Assert
+    const items = [...container.querySelectorAll('.risk-draft-history li')].map((li) => li.textContent);
+    expect(items[0]).toContain('Draft revision 2 by Casey Lead');
+    expect(items[0]).toContain('Admin credential theft');
+    expect(items[1]).toContain('Draft revision 1');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  function people() {
+    api.reply(`/api/v1/tenants/${tenantId}/people`, 200, {
+      items: [
+        { person_id: 'p-1', revision: 1, display_name: 'Jordan Owner', work_email: null, source_kind: 'manual', last_changed_by: actor, last_changed_at: '2026-09-01T00:00:00Z' },
+        { person_id: 'p-2', revision: 1, display_name: 'Sam Successor', work_email: null, source_kind: 'manual', last_changed_by: actor, last_changed_at: '2026-09-01T00:00:00Z' },
+      ],
+      next_cursor: null,
+    });
+  }
+
+  function governance(treatmentStatus = 'proposed') {
+    api.reply(`GET ${risk}/governance`, 200, {
+      tenant_id: tenantId,
+      program_id: programId,
+      risk_id: riskId,
+      revision: 4,
+      owner: { person_id: 'p-1', correlated_member_id: null, rationale: 'Owns identity', assigned_by: actor, assigned_at: '2026-09-04T00:00:00Z' },
+      control_treatments: [
+        {
+          treatment_id: 't-1',
+          risk_id: riskId,
+          control_id: 'c-1',
+          control_version_id: 'cv-1',
+          status: treatmentStatus,
+          rationale: 'MFA control reduces likelihood',
+          proposed_by: { kind: 'member', id: 'x', display: 'Riley Assessor' },
+          proposed_at: '2026-09-05T00:00:00Z',
+          review_decision_id: null,
+          reviewed_by: null,
+          review_rationale: null,
+          reviewed_at: null,
+          separation_of_duties_waiver_id: null,
+          retired_by: null,
+          retirement_rationale: null,
+          retired_at: null,
+        },
+      ],
+      reassessment_triggers: [
+        { trigger_id: 'g-1', risk_id: riskId, trigger_kind: 'boundary_changed', source_reference: 'boundary v3', raised_at: '2026-09-06T00:00:00Z', status: 'open' },
+      ],
+    });
+  }
+
+  it('ShouldShowTheOwnerTriggersAndTreatmentsGivenGovernance', async () => {
+    // Arrange
+    method();
+    drafts();
+    people();
+    governance();
+    evaluation(0, 'unassessed', []);
+
+    // Act
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect(container.querySelector('.risk-governance')).not.toBeNull());
+
+    // Assert
+    const section = container.querySelector('.risk-governance')!;
+    expect(section.textContent).toContain('Owner: Jordan Owner');
+    expect(section.textContent).toContain('Boundary changed (boundary v3)');
+    expect(section.textContent).toContain('MFA control reduces likelihood');
+    expect(section.textContent).toContain('Proposed by Riley Assessor');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldAssignAnOwnerAgainstTheGovernanceRevision', async () => {
+    // Arrange
+    method();
+    drafts();
+    people();
+    governance();
+    evaluation(0, 'unassessed', []);
+    api.reply(`PUT ${risk}/owner`, 204);
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect(container.querySelector('form[aria-label="Assign owner for R-1"]')).not.toBeNull());
+    const form = container.querySelector('form[aria-label="Assign owner for R-1"]')!;
+    fill(form, 'Owner', 'p-2');
+    fill(form, 'Owner rationale', 'Took over identity');
+
+    // Act
+    submit(container, 'Assign owner for R-1');
+    await vi.waitFor(() => expect(api.bodies.some((b) => b.method === 'PUT' && b.path === `${risk}/owner`)).toBe(true));
+
+    // Assert
+    expect(api.bodies.find((b) => b.method === 'PUT' && b.path === `${risk}/owner`)?.body).toEqual({
+      expected_revision: 4,
+      person_id: 'p-2',
+      rationale: 'Took over identity',
+    });
+  });
+
+  it('ShouldReviewAProposedControlTreatmentAgainstTheGovernanceRevision', async () => {
+    // Arrange
+    method();
+    drafts();
+    people();
+    governance();
+    evaluation(0, 'unassessed', []);
+    api.reply(`POST ${risk}/control-treatments/t-1/reviews`, 204);
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect(container.querySelector('form[aria-label="Review treatment t-1"]')).not.toBeNull());
+    const form = container.querySelector('form[aria-label="Review treatment t-1"]')!;
+    fill(form, 'Review outcome', 'reject');
+    fill(form, 'Review rationale', 'Control does not cover admins');
+
+    // Act
+    submit(container, 'Review treatment t-1');
+    await vi.waitFor(() => expect(api.bodies.some((b) => b.method === 'POST' && b.path === `${risk}/control-treatments/t-1/reviews`)).toBe(true));
+
+    // Assert
+    expect(api.bodies.find((b) => b.path === `${risk}/control-treatments/t-1/reviews`)?.body).toEqual({
+      expected_revision: 4,
+      outcome: 'reject',
+      rationale: 'Control does not cover admins',
+    });
+  });
+
+  it('ShouldNotOfferReviewGivenTheTreatmentWasAlreadyReviewed', async () => {
+    // Arrange
+    method();
+    drafts();
+    people();
+    governance('accepted');
+    evaluation(0, 'unassessed', []);
+
+    // Act
+    const container = mount(() => <ProgramRisksPage programId={programId} />);
+    await vi.waitFor(() => expect(container.querySelector('.risk-governance')).not.toBeNull());
+
+    // Assert
+    expect(container.querySelector('form[aria-label="Review treatment t-1"]')).toBeNull();
+    expect(container.querySelector('.risk-governance')!.textContent).toContain('Accepted');
+  });
+});
