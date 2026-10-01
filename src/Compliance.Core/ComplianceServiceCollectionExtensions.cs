@@ -267,6 +267,17 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ISnapshotDirectoryReader>(
             provider => provider.GetRequiredService<FitzSnapshotDirectory>());
         services.AddScoped<ScopeSnapshotFreezer>();
+        services.AddScoped<FitzAccessPopulationDirectory>();
+        services.AddScoped<IAccessPopulationDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzAccessPopulationDirectory>());
+        services.AddScoped<IAccessPopulationDirectoryReader>(
+            provider => provider.GetRequiredService<FitzAccessPopulationDirectory>());
+        services.AddScoped<FitzAccessReviewCampaignDirectory>();
+        services.AddScoped<IAccessReviewCampaignDirectoryProjection>(
+            provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
+        services.AddScoped<IAccessReviewCampaignDirectoryReader>(
+            provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
+        services.AddScoped<IAccessReviewSources, GovernedAccessReviewSources>();
         services.AddScoped<FitzPopulationSnapshotDirectory>();
         services.AddScoped<IPopulationSnapshotDirectoryProjection>(
             provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
@@ -494,6 +505,32 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetFindingHandler>()
             .AddRequestHandler<ListFindingsHandler>()
             .AddRequestAuthorizer<OperationsReactionAuthorizer>()
+            .AddRequestHandler<AcceptAccessPopulationHandler>()
+            .AddRequestHandler<ApproveAccessExpectationHandler>()
+            .AddRequestHandler<ClassifyAccessPrincipalHandler>()
+            .AddRequestHandler<CompleteAccessReviewCampaignHandler>()
+            .AddRequestHandler<GetAccessPopulationHandler>()
+            .AddRequestHandler<GetAccessReviewCampaignHandler>()
+            .AddRequestHandler<GetAccessReviewCoverageHandler>()
+            .AddRequestHandler<GetAccessVarianceHandler>()
+            .AddRequestHandler<LaunchAccessReviewCampaignHandler>()
+            .AddRequestHandler<ListAccessExpectationsHandler>()
+            .AddRequestHandler<ListAccessPopulationsHandler>()
+            .AddRequestHandler<ListAccessPrincipalsHandler>()
+            .AddRequestHandler<ListAccessReviewCampaignsHandler>()
+            .AddRequestHandler<OpenAccessPopulationHandler>()
+            .AddRequestHandler<PreviewAccessPopulationHandler>()
+            .AddRequestHandler<PreviewBulkAccessDecisionHandler>()
+            .AddRequestHandler<ProposeAccessExpectationHandler>()
+            .AddRequestHandler<RecordAccessDecisionHandler>()
+            .AddRequestHandler<ExemptAccessExpectationHandler>()
+            .AddRequestHandler<ExemptMissingAccessPopulationHandler>()
+            .AddRequestHandler<RecordAccessPopulationFactsHandler>()
+            .AddRequestHandler<RecordAccessRemediationChangeHandler>()
+            .AddRequestHandler<ExemptAccessRemediationHandler>()
+            .AddRequestHandler<RecordBulkAccessDecisionHandler>()
+            .AddRequestHandler<VerifyAccessRemediationHandler>()
+            .AddRequestAuthorizer<AccessReviewAuthorizer>()
             .AddRequestHandler<ProposeControlSuccessorHandler>()
             .AddRequestHandler<ProposeControlRetirementHandler>()
             .AddRequestHandler<PreviewControlImpactHandler>()
@@ -686,6 +723,8 @@ public static class ComplianceServiceCollectionExtensions
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceGrantBackfillReactor>(
                 "WorkforceGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<AccessReviewGrantBackfillReactor>(
+                "AccessReviewGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceRestrictedFieldGrantBackfillReactor>(
                 "WorkforceRestrictedFieldGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
@@ -743,6 +782,10 @@ public static class ComplianceServiceCollectionExtensions
                 FitzCriterionApplicabilityDirectoryV1.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
+            .AddProjector<AccessPopulationDirectoryProjector>(
+                AccessReviewDirectorySchema.PopulationProjector, WorkloadScope.PerTenant)
+            .AddProjector<AccessReviewCampaignDirectoryProjector>(
+                AccessReviewDirectorySchema.CampaignProjector, WorkloadScope.PerTenant)
             .AddProjector<AccessReviewScopeDirectoryProjector>(
                 AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(

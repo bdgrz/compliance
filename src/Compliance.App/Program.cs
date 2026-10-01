@@ -256,6 +256,23 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RaiseFinding>()
         .AddMcpTool<GetFinding>(tool => tool.ReadOnly())
         .AddMcpTool<ListFindings>(tool => tool.ReadOnly())
+        .AddMcpTool<OpenAccessPopulation>()
+        .AddMcpTool<RecordAccessPopulationFacts>(tool => tool.Idempotent())
+        .AddMcpTool<PreviewAccessPopulation>(tool => tool.ReadOnly())
+        .AddMcpTool<GetAccessPopulation>(tool => tool.ReadOnly())
+        .AddMcpTool<ListAccessPopulations>(tool => tool.ReadOnly())
+        .AddMcpTool<GetAccessReviewCoverage>(tool => tool.ReadOnly())
+        .AddMcpTool<ClassifyAccessPrincipal>()
+        .AddMcpTool<ListAccessPrincipals>(tool => tool.ReadOnly())
+        .AddMcpTool<GetAccessVariance>(tool => tool.ReadOnly())
+        .AddMcpTool<ProposeAccessExpectation>()
+        .AddMcpTool<ListAccessExpectations>(tool => tool.ReadOnly())
+        .AddMcpTool<LaunchAccessReviewCampaign>()
+        .AddMcpTool<GetAccessReviewCampaign>(tool => tool.ReadOnly())
+        .AddMcpTool<ListAccessReviewCampaigns>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewBulkAccessDecision>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordAccessRemediationChange>()
+        .AddMcpTool<VerifyAccessRemediation>()
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -982,6 +999,106 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/findings/{finding_id}/reopenings")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Findings");
+    app.MapPortiaPost<OpenAccessPopulation, AccessPopulationRegistration>(
+            "/api/v1/tenants/{tenant_id}/access-populations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPut<RecordAccessPopulationFacts, AccessPopulationRegistration>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/facts")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<PreviewAccessPopulation, AccessPopulationPreview>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<AcceptAccessPopulation, AccessPopulationAcceptance>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/acceptance")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<GetAccessPopulation, AccessPopulationView>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<ListAccessPopulations, Page<AccessPopulationSummaryView>>(
+            "/api/v1/tenants/{tenant_id}/system-instances/{system_instance_id}/access-populations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ExemptMissingAccessPopulation, AccessPopulationExceptionView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/access-population-exceptions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<GetAccessReviewCoverage, AccessReviewCoverageView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/access-review-coverage")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ClassifyAccessPrincipal, AccessPrincipalClassificationView>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/classifications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<ListAccessPrincipals, Page<AccessPrincipalView>>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/principals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<GetAccessVariance, AccessVarianceView>(
+            "/api/v1/tenants/{tenant_id}/access-populations/{population_id}/variance")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ProposeAccessExpectation, AccessExpectationView>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances/{system_instance_id}/access-expectations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ApproveAccessExpectation, AccessExpectationView>(
+            "/api/v1/tenants/{tenant_id}/system-instances/{system_instance_id}/access-expectations/{expectation_id}/approval")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ExemptAccessExpectation, AccessExpectationExceptionView>(
+            "/api/v1/tenants/{tenant_id}/system-instances/{system_instance_id}/access-expectations/{expectation_id}/exceptions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<ListAccessExpectations, AccessExpectationsView>(
+            "/api/v1/tenants/{tenant_id}/system-instances/{system_instance_id}/access-expectations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<LaunchAccessReviewCampaign, AccessReviewCampaignRegistration>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<ListAccessReviewCampaigns, Page<AccessReviewCampaignSummaryView>>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaGet<GetAccessReviewCampaign, AccessReviewCampaignView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<RecordAccessDecision, AccessDecisionView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<PreviewBulkAccessDecision, BulkAccessDecisionPreview>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/bulk-decision-previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<RecordBulkAccessDecision, BulkAccessDecisionResult>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/bulk-decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<RecordAccessRemediationChange, AccessRemediationChangeView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/remediation-changes")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<VerifyAccessRemediation, AccessRemediationVerificationView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/remediation-verifications")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<ExemptAccessRemediation, AccessRemediationExceptionView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/remediation-exceptions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
+    app.MapPortiaPost<CompleteAccessReviewCampaign, AccessReviewCampaignCompletionView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/completion")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
     app.MapPortiaPost<RecordPerson, PersonRegistration>(
             "/api/v1/tenants/{tenant_id}/people")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

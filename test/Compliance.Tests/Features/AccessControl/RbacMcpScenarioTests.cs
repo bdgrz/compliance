@@ -187,6 +187,23 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.finding.raise",
             "bdgrz.finding.get",
             "bdgrz.findings.list",
+            "bdgrz.access_population.open",
+            "bdgrz.access_population.facts.record",
+            "bdgrz.access_population.preview",
+            "bdgrz.access_population.get",
+            "bdgrz.access_population.list",
+            "bdgrz.access_review.coverage.get",
+            "bdgrz.access_population.principal.classify",
+            "bdgrz.access_population.principals.list",
+            "bdgrz.access_population.variance.get",
+            "bdgrz.access_expectation.propose",
+            "bdgrz.access_expectation.list",
+            "bdgrz.access_review.campaign.launch",
+            "bdgrz.access_review.campaign.get",
+            "bdgrz.access_review.campaign.list",
+            "bdgrz.access_review.decision.bulk_preview",
+            "bdgrz.access_review.remediation.change.record",
+            "bdgrz.access_review.remediation.verify",
             "bdgrz.member.access.get",
             "bdgrz.member.responsibilities.list",
             "bdgrz.rbac.team.define",
@@ -404,6 +421,24 @@ public sealed class RbacMcpScenarioTests
         Assert.NotEqual(true, selectCriteria.ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.snapshot.program_scope.manifest_regenerate").ReadOnly);
+        foreach (var personal in new[]
+                 {
+                     "bdgrz.access_population.accept", "bdgrz.access_population.exception.record",
+                     "bdgrz.access_expectation.approve", "bdgrz.access_expectation.exception.record",
+                     "bdgrz.access_review.decision.record", "bdgrz.access_review.decision.bulk_record",
+                     "bdgrz.access_review.remediation.exception.record",
+                     "bdgrz.access_review.campaign.complete",
+                 })
+            Assert.DoesNotContain(tools, tool => tool.Name == personal);
+        foreach (var name in new[]
+                 {
+                     "bdgrz.access_population.preview", "bdgrz.access_population.get",
+                     "bdgrz.access_population.list", "bdgrz.access_review.coverage.get",
+                     "bdgrz.access_population.principals.list", "bdgrz.access_population.variance.get",
+                     "bdgrz.access_expectation.list", "bdgrz.access_review.campaign.get",
+                     "bdgrz.access_review.campaign.list", "bdgrz.access_review.decision.bulk_preview",
+                 })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
 
         var registration = new Dictionary<string, object?>
         {
