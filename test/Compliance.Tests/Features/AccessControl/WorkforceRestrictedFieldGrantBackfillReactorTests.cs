@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class WorkforceRestrictedFieldGrantBackfillReactorTests
 {
     [Fact]
-    public async Task ShouldGrantPersonalDetailsReadToTenantAndComplianceManagementGivenTenantRegistration()
+    public async Task ShouldLeavePersonalDetailsToIndependentBackfillGivenTenantRegistration()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -19,11 +19,7 @@ public sealed class WorkforceRestrictedFieldGrantBackfillReactorTests
 
         // Assert
         var grants = scenario.SentRequests.OfType<AssignRolePermission>().ToArray();
-        Assert.Contains(grants, grant => grant.TenantId == tenantId &&
-            grant.RoleId == BuiltInRbac.TenantAdministrationRoleId(tenantId) &&
-            grant.Permission == FieldClasses.WorkforcePersonalDetails.ReadPermission);
-        Assert.Contains(grants, grant => grant.TenantId == tenantId &&
-            grant.RoleId == BuiltInRbac.ComplianceManagementRoleId(tenantId) &&
+        Assert.DoesNotContain(grants, grant =>
             grant.Permission == FieldClasses.WorkforcePersonalDetails.ReadPermission);
     }
 
