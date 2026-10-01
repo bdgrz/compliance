@@ -6,7 +6,8 @@ namespace Bdgrz.Compliance.Features.Work;
 /// <summary>
 ///     One program's work accountability in one stream: who each source-derived work item is
 ///     assigned to and whether it was escalated. It never records completion; the source workflow
-///     owns that. Optimistic concurrency is per work item.
+///     owns that. Escalation persists across reassignment. Revisions are checked per work item;
+///     writes to different items in one program share a stream and so may conflict and retry.
 /// </summary>
 public sealed class WorkAssignmentLedger : Aggregate
 {
@@ -30,7 +31,6 @@ public sealed class WorkAssignmentLedger : Aggregate
             var entry = Get(ev.WorkItemId);
             entry.Revision = ev.Revision;
             entry.AssigneeMemberId = ev.AssigneeMemberId;
-            entry.Escalated = false;
             entry.History.Add(new WorkAssignmentEntryView(ev.Revision, ev.Action,
                 ev.AssigneeMemberId, ev.PreviousAssigneeMemberId, ev.Reason, ev.AssignedBy,
                 ev.AssignedAt));

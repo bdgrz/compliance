@@ -169,4 +169,59 @@ public sealed class WorkAssignmentTests
                 fixture.ProgramId, item.WorkItemId, 0, "Duplicate."))
             .ExpectFailure(RequestErrorKind.Conflict);
     }
+
+    [Fact]
+    public async Task ShouldNotDefaultReviewToRecorderGivenReviewerRecordedAttestation()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var proposed = await fixture.ProposeAsync(0,
+            owner: new OperatingHolder("person", fixture.PersonId),
+            reviewer: fixture.ApproverMemberId);
+        await fixture.AsAsync(fixture.ApproverUserId, new ApproveControlOperatingPlan(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, proposed.Revision,
+            proposed.PlanVersionId, "Independent approval."));
+        var missed = (await fixture.OccurrencesAsync("missed"))[0];
+        await fixture.AsAsync(fixture.ApproverUserId,
+            fixture.Attest(missed, personId: fixture.PersonId));
+
+        // Act
+        var all = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId, "all"));
+
+        // Assert
+        var review = Assert.Single(all.Items, item => item.Kind == "occurrence_review");
+        Assert.Null(review.AssigneeMemberId);
+        Assert.DoesNotContain((await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId))).Items,
+            item => item.WorkItemId == review.WorkItemId);
+        Assert.DoesNotContain(await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWorkReminders(fixture.TenantId, fixture.ProgramId)),
+            reminder => reminder.WorkItemId == review.WorkItemId && reminder.Kind != "escalated");
+        var digest = await fixture.AsAsync(fixture.ApproverUserId,
+            new GetWorkDigest(fixture.TenantId, fixture.ProgramId));
+        Assert.DoesNotContain(digest.Overdue.Concat(digest.DueSoon),
+            item => item.WorkItemId == review.WorkItemId);
+    }
+
+    [Fact]
+    public async Task ShouldKeepEscalationGivenReassignment()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.PlanAsync(backup: new OperatingHolder("member", fixture.BackupMemberId));
+        var item = (await fixture.AsAsync(fixture.OwnerUserId,
+                new ListWork(fixture.TenantId, fixture.ProgramId))).Items
+            .First(work => work.DueOn >= fixture.Today);
+        await fixture.AsAsync(fixture.OwnerUserId, new EscalateWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 0, "Blocked."));
+
+        // Act
+        var reassigned = await fixture.AsAsync(fixture.LeadUserId, new AssignWorkItem(
+            fixture.TenantId, fixture.ProgramId, item.WorkItemId, 1, fixture.BackupMemberId));
+
+        // Assert
+        Assert.True(reassigned.Item.Escalated);
+        Assert.Equal("member", reassigned.Item.EscalatedBy);
+    }
 }

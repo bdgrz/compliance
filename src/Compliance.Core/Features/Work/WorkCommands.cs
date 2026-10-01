@@ -3,9 +3,26 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
-/// <summary>Records one accountability change and returns the item as it now reads.</summary>
+/// <summary>Resolves the one work item a command targets and records its accountability change.</summary>
 static class WorkCommands
 {
+    /// <summary>Runs <paramref name="command" /> against the visible item, or returns not found.</summary>
+    public static async ValueTask<Result<WorkItemDetailView>> RunAsync<TRequest>(
+        WorkQueueReader queue, IRequestContext<TRequest> context, Uuid tenantId, Uuid programId,
+        Uuid workItemId,
+        Func<OperationsActor, WorkQueueSnapshot, WorkQueueEntry,
+            ValueTask<Result<WorkItemDetailView>>> command, CancellationToken ct)
+        where TRequest : IRequestBase
+    {
+        var actor = OperationsActor.From(context.Actor, tenantId);
+        var found = await queue.FindAsync(tenantId, programId, actor, workItemId, ct)
+            .ConfigureAwait(false);
+        if (!found.IsSuccess)
+            return Result<WorkItemDetailView>.Failure(found.Error!);
+        var (snapshot, entry) = found.Value;
+        return await command(actor, snapshot, entry).ConfigureAwait(false);
+    }
+
     public static async ValueTask<Result<WorkItemDetailView>> ExecuteAsync<TRequest>(
         IAggregateExecutor executor, IRequestContext<TRequest> context, Uuid tenantId,
         Uuid programId, WorkQueueEntry entry, DateOnly today,
@@ -15,13 +32,13 @@ static class WorkCommands
         {
             var failure = command(ledger);
             var state = ledger.Read(entry.Candidate.WorkItemId);
-            // A newly recorded assignee was validated as eligible; an unchanged one keeps the
-            // eligibility it had when the queue was read.
-            var recordedEligible = state.AssigneeMemberId is { } assignee &&
-                                   (assignee != entry.State.AssigneeMemberId ||
-                                    assignee == entry.Item.AssigneeMemberId);
+            // A newly recorded assignee was validated as eligible; otherwise accountability is
+            // unchanged from the read.
+            var assignee = state.AssigneeMemberId != entry.State.AssigneeMemberId
+                ? state.AssigneeMemberId
+                : entry.Item.AssigneeMemberId;
             return CommandFailureRequestAdapter.ToOutcome(failure, new WorkItemDetailView(
-                WorkQueueReader.Compose(entry.Candidate, state, recordedEligible, today),
+                WorkQueueReader.Compose(entry.Candidate, state, assignee, today),
                 state.History));
         }, context, ct).ConfigureAwait(false);
 

@@ -6,7 +6,8 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     Joins source-derived work with recorded accountability and answers, for one actor, which
 ///     items exist for them. Eligibility comes from the source workflow: the holder or backup of
 ///     the work, directly or through current team membership, as an active client member, and never
-///     a member the source's separation of duties excludes.
+///     a member the source's separation of duties excludes. Scoped per request, it memoizes holder,
+///     membership, and eligibility answers so each is hydrated at most once.
 /// </summary>
 public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority authority,
     TimeProvider clock)
@@ -14,13 +15,33 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
 
-    internal async ValueTask<WorkQueueSnapshot> ReadAsync(Uuid tenantId, Uuid programId,
-        OperationsActor actor, int horizonDays, CancellationToken ct)
+    readonly Dictionary<(OperatingHolder Holder, Uuid MemberId), bool> _holds = [];
+    readonly Dictionary<Uuid, bool> _active = [];
+    readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
+
+    internal ValueTask<WorkQueueSnapshot> ReadAsync(Uuid tenantId, Uuid programId,
+        OperationsActor actor, int horizonDays, CancellationToken ct) =>
+        ReadAsync(tenantId, programId, actor, horizonDays, null, ct);
+
+    /// <summary>Resolves one work item the actor may see, loading only that item's eligibility.</summary>
+    internal async ValueTask<Result<(WorkQueueSnapshot Snapshot, WorkQueueEntry Entry)>> FindAsync(
+        Uuid tenantId, Uuid programId, OperationsActor actor, Uuid workItemId,
+        CancellationToken ct)
+    {
+        var snapshot = await ReadAsync(tenantId, programId, actor,
+            ControlCadenceSchedule.MaximumDueWithinDays, workItemId, ct).ConfigureAwait(false);
+        return snapshot.Entries.Count == 1
+            ? Result<(WorkQueueSnapshot, WorkQueueEntry)>.Success((snapshot, snapshot.Entries[0]))
+            : Result<(WorkQueueSnapshot, WorkQueueEntry)>.Failure(WorkQueueSnapshot.NotFound());
+    }
+
+    async ValueTask<WorkQueueSnapshot> ReadAsync(Uuid tenantId, Uuid programId,
+        OperationsActor actor, int horizonDays, Uuid? workItemId, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var candidates = await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, ct).ConfigureAwait(false);
+            today.AddDays(horizonDays), now, workItemId, ct).ConfigureAwait(false);
         var ledger = await reader.HydrateAsync(new WorkAssignmentLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         var manages = await authority.ManagesProgramAsync(tenantId, actor, programId, ct)
@@ -29,17 +50,14 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         foreach (var candidate in candidates)
         {
             var state = ledger.Read(candidate.WorkItemId);
-            var recorded = state.AssigneeMemberId is { } assignee &&
-                           await IsEligibleAsync(tenantId, candidate, assignee, ct)
-                               .ConfigureAwait(false);
-            var item = Compose(candidate, state, recorded, today);
+            var assignee = await AssigneeAsync(tenantId, candidate, state, ct).ConfigureAwait(false);
+            var item = Compose(candidate, state, assignee, today);
             var eligible = await IsEligibleAsync(tenantId, candidate, actor.MemberId, ct)
                 .ConfigureAwait(false);
             var inTeam = candidate.Responsible.Kind == OperatingAuthority.TeamHolder &&
-                         await authority.HoldsAsync(tenantId, candidate.Responsible,
-                             actor.MemberId, ct).ConfigureAwait(false);
-            var visible = manages || eligible || item.AssigneeMemberId == actor.MemberId;
-            if (visible)
+                         await HoldsAsync(tenantId, candidate.Responsible, actor.MemberId, ct)
+                             .ConfigureAwait(false);
+            if (manages || eligible || assignee == actor.MemberId)
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
         var ordered = entries
@@ -51,36 +69,66 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         return new WorkQueueSnapshot(today, manages, ordered);
     }
 
+    /// <summary>
+    ///     A recorded assignee who is still eligible, otherwise the direct member holder when
+    ///     eligible, otherwise unassigned.
+    /// </summary>
+    async ValueTask<Uuid?> AssigneeAsync(Uuid tenantId, WorkCandidate candidate,
+        WorkAssignmentState state, CancellationToken ct)
+    {
+        if (state.AssigneeMemberId is { } recorded &&
+            await IsEligibleAsync(tenantId, candidate, recorded, ct).ConfigureAwait(false))
+            return recorded;
+        if (candidate.Responsible.Kind == OperatingAuthority.MemberHolder &&
+            await IsEligibleAsync(tenantId, candidate, candidate.Responsible.Id, ct)
+                .ConfigureAwait(false))
+            return candidate.Responsible.Id;
+        return null;
+    }
+
     /// <summary>Whether the source workflow would accept this member performing the work.</summary>
     public async ValueTask<bool> IsEligibleAsync(Uuid tenantId, WorkCandidate candidate,
         Uuid memberId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidate);
-        if (candidate.Excluded.Contains(memberId))
-            return false;
-        if (!await authority.HoldsAsync(tenantId, candidate.Responsible, memberId, ct)
-                .ConfigureAwait(false) &&
-            !await authority.HoldsAsync(tenantId, candidate.Backup, memberId, ct)
-                .ConfigureAwait(false))
-            return false;
-        return await authority.IsActiveAsync(tenantId,
-            new OperatingHolder(OperatingAuthority.MemberHolder, memberId), ct).ConfigureAwait(false);
+        var key = (candidate.WorkItemId, memberId);
+        if (_eligible.TryGetValue(key, out var known))
+            return known;
+        var eligible = !candidate.Excluded.Contains(memberId) &&
+                       (await HoldsAsync(tenantId, candidate.Responsible, memberId, ct)
+                            .ConfigureAwait(false) ||
+                        candidate.Backup is { } backup &&
+                        await HoldsAsync(tenantId, backup, memberId, ct).ConfigureAwait(false)) &&
+                       await IsActiveMemberAsync(tenantId, memberId, ct).ConfigureAwait(false);
+        _eligible[key] = eligible;
+        return eligible;
     }
 
-    /// <summary>
-    ///     The item as read: a recorded assignee who is still eligible, otherwise the direct member
-    ///     holder, otherwise unassigned team work. Seven days overdue escalates by system rule.
-    /// </summary>
+    async ValueTask<bool> HoldsAsync(Uuid tenantId, OperatingHolder holder, Uuid memberId,
+        CancellationToken ct)
+    {
+        var key = (holder, memberId);
+        if (!_holds.TryGetValue(key, out var holds))
+            _holds[key] = holds = await authority.HoldsAsync(tenantId, holder, memberId, ct)
+                .ConfigureAwait(false);
+        return holds;
+    }
+
+    async ValueTask<bool> IsActiveMemberAsync(Uuid tenantId, Uuid memberId, CancellationToken ct)
+    {
+        if (!_active.TryGetValue(memberId, out var active))
+            _active[memberId] = active = await authority.IsActiveAsync(tenantId,
+                new OperatingHolder(OperatingAuthority.MemberHolder, memberId), ct)
+                .ConfigureAwait(false);
+        return active;
+    }
+
+    /// <summary>The item as read. Seven days overdue escalates by system rule.</summary>
     public static WorkQueueItemView Compose(WorkCandidate candidate, WorkAssignmentState state,
-        bool recordedAssigneeEligible, DateOnly today)
+        Uuid? assignee, DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(candidate);
         ArgumentNullException.ThrowIfNull(state);
-        var assignee = recordedAssigneeEligible
-            ? state.AssigneeMemberId
-            : candidate.Responsible.Kind == OperatingAuthority.MemberHolder
-                ? candidate.Responsible.Id
-                : (Uuid?)null;
         var escalatedBy = state.Escalated
             ? "member"
             : candidate.DueOn is { } due && due.AddDays(SystemEscalationDays) <= today
