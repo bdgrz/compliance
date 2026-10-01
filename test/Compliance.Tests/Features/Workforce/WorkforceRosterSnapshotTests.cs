@@ -223,7 +223,7 @@ public sealed class WorkforceRosterSnapshotTests
             snapshots.Add(snapshot);
         }
         await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
-                         new CheckpointIdentity("PopulationSnapshotDirectoryV1",
+                         new CheckpointIdentity("PopulationSnapshotDirectoryV2",
                              EventStreamPattern.ForPattern(tenantId.ToString(), "population-snapshots")),
                          ProjectionCheckpoint.Start)))
         {

@@ -107,7 +107,7 @@ public sealed class AccessReviewInfrastructureTests
     static async Task ProjectAsync(FitzAccessPopulationDirectory directory, Uuid tenantId,
         params DomainEvent[] events)
     {
-        var identity = new CheckpointIdentity("AccessPopulationDirectoryV1",
+        var identity = new CheckpointIdentity("AccessPopulationDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString(), "access-populations"));
         await using var batch = await directory.BeginAsync(new ProjectionBatchContext(identity,
             ProjectionCheckpoint.Start));

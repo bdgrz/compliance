@@ -5,8 +5,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Snapshots;
 
 sealed class FitzPopulationSnapshotDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/population-snapshot-directory-v1/projection",
-            "PopulationSnapshotDirectoryV1"),
+    : FitzKvProjectionStore(client, "kv://bdgrz/population-snapshot-directory-v2/projection",
+            "PopulationSnapshotDirectoryV2"),
         IPopulationSnapshotDirectoryReader, IPopulationSnapshotDirectoryProjection
 {
     public ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
@@ -25,7 +25,7 @@ sealed class FitzPopulationSnapshotDirectory(IKvClient client)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         return await PopulationSnapshotDirectorySchema.Directory.QueryAsync(tx,
-            PopulationSnapshotDirectorySchema.ByKindFrozenAt.Query().WithPrefix(kind).Descending()
+            PopulationSnapshotDirectorySchema.ByKindNewestFirst.Query().WithPrefix(kind)
                 .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
     }
 }

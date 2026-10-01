@@ -798,7 +798,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<MemberResponsibilityProjector>("MemberResponsibilitiesV1", WorkloadScope.PerTenant)
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
-            .AddProjector<PopulationSnapshotDirectoryProjector>("PopulationSnapshotDirectoryV1",
+            .AddProjector<PopulationSnapshotDirectoryProjector>("PopulationSnapshotDirectoryV2",
                 WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),

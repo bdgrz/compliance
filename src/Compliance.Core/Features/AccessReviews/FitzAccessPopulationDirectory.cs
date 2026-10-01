@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Projects population identities and status per system instance; replays are idempotent.</summary>
 sealed class FitzAccessPopulationDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/access-population-directory-v1/projection",
+    : FitzKvProjectionStore(client, "kv://bdgrz/access-population-directory-v2/projection",
             AccessReviewDirectorySchema.PopulationProjector),
         IAccessPopulationDirectoryReader, IAccessPopulationDirectoryProjection
 {
@@ -58,7 +58,7 @@ sealed class FitzAccessPopulationDirectory(IKvClient client)
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         return await AccessReviewDirectorySchema.Populations.QueryAsync(tx,
             AccessReviewDirectorySchema.PopulationsByInstance.Query()
-                .WithPrefix(systemInstanceId.ToString()).Descending()
+                .WithPrefix(systemInstanceId.ToString())
                 .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
     }
 
