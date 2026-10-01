@@ -198,6 +198,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseServiceIdentity>(tool => tool.Idempotent())
         .AddMcpTool<GetServiceIdentity>(tool => tool.ReadOnly())
         .AddMcpTool<ListServiceIdentities>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordProvider>()
+        .AddMcpTool<ReviseProvider>(tool => tool.Idempotent())
+        .AddMcpTool<GetProvider>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<ListProviders>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<GetProviderRevision>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<ListProviderRevisions>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
@@ -1318,6 +1324,24 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/service-identities")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
+    app.MapPortiaPost<RecordProvider, ProviderRegistration>("/api/v1/tenants/{tenant_id}/providers")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPut<ReviseProvider, ProviderRegistration>("/api/v1/tenants/{tenant_id}/providers/{provider_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<GetProvider, ProviderView>("/api/v1/tenants/{tenant_id}/providers/{provider_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<ListProviders, Page<ProviderView>>("/api/v1/tenants/{tenant_id}/providers")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<GetProviderRevision, ProviderView>("/api/v1/tenants/{tenant_id}/providers/{provider_id}/revisions/{revision}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<ListProviderRevisions, Page<ProviderView>>("/api/v1/tenants/{tenant_id}/providers/{provider_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
     app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(
             "/api/v1/tenants/{tenant_id}/technology-components")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
