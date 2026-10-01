@@ -70,6 +70,24 @@ export interface DataFlow extends Audit, FlowContent {
   classification: string;
 }
 
+export interface AffectedFlow {
+  dataFlowId: string;
+  recordedClassification: string;
+  recomputedClassification: string;
+  classificationChanged: boolean;
+  encryptionViolation: boolean;
+  carriesRetiredAssetOnly: boolean;
+}
+
+export interface AssetChangeImpact {
+  currentClassification: string;
+  proposedClassification: string;
+  currentLifecycle: string;
+  proposedLifecycle: string;
+  affectedFlows: AffectedFlow[];
+  flowsOverLimit: boolean;
+}
+
 export interface Person {
   personId: string;
   displayName: string;
@@ -332,6 +350,37 @@ export async function reviseAsset(assetId: string, expectedRevision: number, con
     body: { expected_revision: expectedRevision, lifecycle: content.lifecycle, ...assetBody(content) },
   });
   if (!result.ok) throw failure(result, 'save the information asset');
+}
+
+export async function previewAssetChange(
+  assetId: string,
+  expectedRevision: number,
+  change: { classification: string; lifecycle: string }
+): Promise<AssetChangeImpact> {
+  const result = await client.previewInformationAssetChange({
+    params: { tenant_id: requireActiveTenantId(), information_asset_id: assetId },
+    body: { expected_revision: expectedRevision, classification: change.classification, lifecycle: change.lifecycle },
+  });
+  if (!result.ok) throw failure(result, 'preview the impact of this change');
+  const data = result.data;
+  if (!data) throw new InventoryRequestError('This information asset was not found.', 404, false);
+  return {
+    currentClassification: data.current_classification,
+    proposedClassification: data.proposed_classification,
+    currentLifecycle: data.current_lifecycle,
+    proposedLifecycle: data.proposed_lifecycle,
+    affectedFlows: data.affected_flows
+      .filter((f) => f !== null)
+      .map((f) => ({
+        dataFlowId: f.data_flow_id,
+        recordedClassification: f.recorded_classification,
+        recomputedClassification: f.recomputed_classification,
+        classificationChanged: f.classification_changed,
+        encryptionViolation: f.encryption_violation,
+        carriesRetiredAssetOnly: f.carries_retired_asset_only,
+      })),
+    flowsOverLimit: data.flows_over_limit,
+  };
 }
 
 export function listFlows(): Promise<DataFlow[]> {
