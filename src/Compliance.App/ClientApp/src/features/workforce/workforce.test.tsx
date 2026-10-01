@@ -157,7 +157,9 @@ describe('workforce roster (R1-11a frontend #220)', () => {
     expect(container.querySelector('h1')?.textContent).toBe('Workforce');
     expect(container.querySelector(`a[href="/acme/workforce/people/${alexId}"]`)?.textContent).toBe('Alex Rivera');
     expect(container.querySelector(`a[href="/acme/workforce/relationships/${relationshipId}"]`)).not.toBeNull();
-    expect(container.textContent).toContain('Manual roster (authoritative source)');
+    expect(container.textContent).toContain('Manual entry');
+    expect(container.textContent).toContain('accepted source provenance');
+    expect(container.textContent).not.toContain('until an HRIS import exists');
     expect(container.textContent).toContain('Managers are restricted');
     expect(container.querySelector('table')?.textContent).not.toContain('Manager');
     expect(await accessibilityViolations(container)).toEqual([]);

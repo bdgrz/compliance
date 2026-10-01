@@ -91,6 +91,13 @@ export function RelationshipFields({
           </select>
         </label>
       ) : null}
+      {showManager ? (
+        <label className="registration-field">
+          <span>Employment status reason (restricted)</span>
+          <textarea value={terms.employmentStatusReason ?? ''} maxLength={1000}
+            onInput={(event: Event) => onChange({ ...terms, employmentStatusReason: inputValue(event) || null })} />
+        </label>
+      ) : null}
       <label className="registration-field">
         <span>{external ? 'Internal sponsor (required for external collaborators)' : 'Sponsor'}</span>
         <select

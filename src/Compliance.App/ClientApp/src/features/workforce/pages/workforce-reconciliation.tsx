@@ -94,8 +94,8 @@ export function WorkforceReconciliationPage() {
           <CardHeader>
             <CardTitle>Source precedence</CardTitle>
             <CardDescription>
-              Which source wins when roster sources disagree, highest first. Conflicts between sources are not raised
-              until a second source is connected.
+              HRIS is authoritative; identity providers and providers corroborate facts. Source evidence requires
+              explicit canonical correction before matching acceptance. Each decision is attributed; sources never overwrite records automatically.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -108,6 +108,7 @@ export function WorkforceReconciliationPage() {
                 </li>
               ))}
             </ol>
+            <a href={organizationPath('/workforce/sources')}>Accepted source provenance and conflict previews</a>
           </CardContent>
         </Card>
         <Card>

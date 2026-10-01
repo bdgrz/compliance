@@ -22,6 +22,7 @@ export interface WorkRelationshipTerms {
   department: string | null;
   managerPersonId: string | null;
   sponsorPersonId: string | null;
+  employmentStatusReason?: string | null;
 }
 
 export interface WorkRelationship extends WorkRelationshipTerms {
@@ -182,26 +183,30 @@ const unownedReasonLabels: Record<string, string> = {
 };
 
 const sourceKindLabels: Record<string, string> = {
-  manual: 'Manual roster (authoritative source)',
+  manual: 'Manual entry',
 };
 
-// M0-D06 source precedence, highest first. Only the manual roster is recorded today; an HRIS
-// export would outrank it once an import exists (#347), and the identity provider only corroborates.
+// M0-D06 authority guides explicit reconciliation; it does not choose an automatic winner.
 export const sourcePrecedence = [
   {
     kind: 'hris',
     label: 'HRIS roster export',
-    role: 'Authoritative when the organization has an HRIS. No HRIS import is connected yet.',
+    role: 'Authoritative workforce evidence, entered manually as immutable source observations. Imports remain a follow-up.',
   },
   {
     kind: 'manual',
     label: 'Manual roster',
-    role: 'Authoritative when no HRIS exists. Every roster record today comes from this source.',
+    role: 'Canonical records are entered and corrected explicitly. Entry origin is separate from accepted source provenance.',
   },
   {
-    kind: 'identity_provider',
+    kind: 'idp',
     label: 'Identity-provider directory',
     role: 'Corroborates the roster only; it never overrides an authoritative source.',
+  },
+  {
+    kind: 'provider',
+    label: 'Provider identity evidence',
+    role: 'Corroborates service identity facts and credential expiry. Accountable owner and purpose remain governed by the organization.',
   },
 ];
 
@@ -294,6 +299,7 @@ function toRelationship(data: {
   department: string | null;
   manager_person_id: string | null;
   sponsor_person_id: string | null;
+  employment_status_reason?: string | null;
   restricted_fields_redacted: boolean;
   source_kind: string;
   last_changed_by: Actor;
@@ -311,6 +317,7 @@ function toRelationship(data: {
     department: data.department,
     managerPersonId: data.manager_person_id,
     sponsorPersonId: data.sponsor_person_id,
+    employmentStatusReason: data.employment_status_reason,
     restrictedFieldsRedacted: data.restricted_fields_redacted,
     sourceKind: data.source_kind,
     lastChangedBy: data.last_changed_by.display,
@@ -444,6 +451,7 @@ function termsBody(terms: WorkRelationshipTerms) {
     department: optional(terms.department) ?? null,
     manager_person_id: optional(terms.managerPersonId),
     sponsor_person_id: optional(terms.sponsorPersonId),
+    ...(terms.employmentStatusReason !== undefined ? { employment_status_reason: terms.employmentStatusReason } : {}),
   };
 }
 
@@ -762,7 +770,7 @@ export async function amendRosterSnapshot(snapshotId: string, reason: string): P
   return result.data.snapshot_id;
 }
 
-function failure(result: { ok: false; kind: string; status: number; error?: unknown }, action: string) {
+export function failure(result: { ok: false; kind: string; status: number; error?: unknown }, action: string) {
   const problem =
     result.kind === 'http' && typeof result.error === 'object' && result.error !== null
       ? (result.error as { detail?: unknown; transient?: unknown })

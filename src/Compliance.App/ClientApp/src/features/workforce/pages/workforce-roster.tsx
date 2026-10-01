@@ -152,7 +152,7 @@ export function WorkforceRosterPage() {
     <Page>
       <PageHeader
         title="Workforce"
-        description="The manually maintained roster is the authoritative workforce source until an HRIS import exists."
+        description="Canonical workforce records are entered and corrected explicitly, with accepted source provenance recorded separately."
       />
       <Stack gap="md">
         <WorkforceSections current="/workforce" />
@@ -160,7 +160,7 @@ export function WorkforceRosterPage() {
           <CardHeader>
             <CardTitle>People</CardTitle>
             <CardDescription>
-              Source precedence: manual roster entries are authoritative. A person need not be a platform member.
+              A person need not be a platform member. Open a record to review source observations and accepted provenance.
             </CardDescription>
           </CardHeader>
           <CardContent>

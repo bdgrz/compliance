@@ -193,6 +193,10 @@ describe('roster reconciliation (R1-11 frontend b #484)', () => {
     expect(container.querySelector(`a[href="/acme/workforce/people/${alexId}"]`)?.textContent).toBe('Alex Rivera');
     expect(container.querySelector(`a[href="/acme/members/${userId}"]`)?.textContent).toBe('alex@acme.test');
     expect(container.textContent).toContain('Manual roster (in use)');
+    expect(container.textContent).toContain('Accepted source provenance');
+    expect(container.textContent).toContain('explicit canonical correction');
+    expect(container.textContent).not.toContain('Which source wins');
+    expect(container.querySelector('a[href="/acme/workforce/sources"]')).not.toBeNull();
     expect(container.textContent).toContain('never grants, changes, or revokes');
     expect(await accessibilityViolations(container)).toEqual([]);
   });
