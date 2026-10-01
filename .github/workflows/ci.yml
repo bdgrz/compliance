@@ -25,21 +25,16 @@ env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  validate:
-    name: Validate
+  # Every job has a five-minute budget. The broker suite is split across parallel shards because
+  # each broker test class starts its own compose stack; scripts/broker-test-filter.sh assigns
+  # classes to shards. Raise BROKER_SHARDS (and the matrix) instead of raising a timeout.
+  client:
+    name: Client
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-
+    timeout-minutes: 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v6
-        with:
-          global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
 
       - name: Set up Node.js
         uses: actions/setup-node@v7 # v7.0.0
@@ -53,11 +48,28 @@ jobs:
       - name: Check client
         run: npm run client:check
 
+  check:
+    name: Build and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
       - name: Restore locked packages
         run: dotnet restore Compliance.slnx --locked-mode
 
-      - name: Check formatting
-        run: dotnet format Compliance.slnx --verify-no-changes --no-restore
+      # Style and analyzer rules are enforced by the build (EnforceCodeStyleInBuild with warnings
+      # as errors); whitespace is the only formatting not covered there.
+      - name: Check whitespace
+        run: dotnet format whitespace Compliance.slnx --verify-no-changes
 
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
@@ -65,18 +77,63 @@ jobs:
       - name: Test without broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 
-      # BrokerIntegration tests own their own docker compose lifecycle
-      # (test/Compliance.Tests/E2E/compose.yml), separate from the root compose.yml -- no manual
-      # start/stop step needed here.
+      - name: Upload test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-build
+          path: test/Compliance.Tests/bin/Release
+          retention-days: 1
+
+  broker:
+    name: Broker tests ${{ matrix.shard }}
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    env:
+      BROKER_SHARDS: 16
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download test build
+        uses: actions/download-artifact@v4
+        with:
+          name: test-build
+          path: test/Compliance.Tests/bin/Release
+
+      # Broker tests own their compose lifecycle (test/Compliance.Tests/E2E/compose.yml).
       - name: Test with real broker
         env:
           BROKER_TEST_FILTER: ${{ inputs.broker_test_filter }}
         run: |
-          if [ -n "$BROKER_TEST_FILTER" ]; then
-            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration&$BROKER_TEST_FILTER"
-          else
-            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
-          fi
+          filter=$(scripts/broker-test-filter.sh "${{ matrix.shard }}" "$BROKER_SHARDS")
+          if [ -n "$BROKER_TEST_FILTER" ]; then filter="$filter&$BROKER_TEST_FILTER"; fi
+          dotnet test test/Compliance.Tests/bin/Release/net10.0/Bdgrz.Compliance.Tests.dll \
+            --filter "$filter" --logger "console;verbosity=normal"
+
+  validate:
+    name: Validate
+    if: always()
+    needs: [client, check, broker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every gate
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            test "$result" = "success" || { echo "A required job finished as $result."; exit 1; }
+          done
 
   promotion-source:
     name: Promotion source
