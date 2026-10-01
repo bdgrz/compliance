@@ -73480,6 +73480,3978 @@
         }
       }
     },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work": {
+      "get": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "listWork",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "horizon_days",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_895E347267064464C7EEA3101D9897828DE9ACE40AE8D3EB6B31BD0E2E552E59"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/reminders": {
+      "get": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "listWorkReminders",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_E743D385FF26935D87C27AF6254C90A88FE79C15319CDD62451780019AF8EDBD"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/digest": {
+      "get": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "getWorkDigest",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_452F41728C6AFA9916F07B977123DCCF98284CE3451ABA0C4C76C709D48F8747"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}": {
+      "get": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "getWorkItem",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "work_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/claims": {
+      "post": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "claimWorkItem",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "work_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/assignments": {
+      "post": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "assignWorkItem",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "work_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "assignee_member_id"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "assignee_member_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/delegations": {
+      "post": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "delegateWorkItem",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "work_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "assignee_member_id",
+                  "reason"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "assignee_member_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/escalations": {
+      "post": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "escalateWorkItem",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "work_item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "reason"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "reason": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/work-digest-preference": {
+      "get": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "getWorkDigestPreference",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_1E516B7E59F08223EE49BB74695B06EE1AE7FE8D6BF8E50F76EE68386F7A72DA"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Work"
+        ],
+        "operationId": "setWorkDigestPreference",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "email_digest_enabled"
+                ],
+                "type": "object",
+                "properties": {
+                  "email_digest_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_1E516B7E59F08223EE49BB74695B06EE1AE7FE8D6BF8E50F76EE68386F7A72DA"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenant_id}/people": {
       "post": {
         "tags": [
@@ -125381,6 +129353,29 @@
           }
         }
       },
+      "Portia_1E516B7E59F08223EE49BB74695B06EE1AE7FE8D6BF8E50F76EE68386F7A72DA": {
+        "required": [
+          "email_digest_enabled",
+          "changed_at"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "email_digest_enabled": {
+            "type": "boolean"
+          },
+          "changed_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "items": { },
+            "format": "date-time"
+          }
+        }
+      },
       "Portia_1E5BBCD6BE4B1F969208CC6975472A2A383EBE2A1300801E1AE359E9E687516A": {
         "required": [
           "tenant_id",
@@ -127481,6 +131476,213 @@
           }
         }
       },
+      "Portia_380ED2C37CEF989571B9646AABA84F263F4332B0073F69A22C6E3A516CEB2197": {
+        "required": [
+          "item",
+          "history"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "item": {
+            "required": [
+              "work_item_id",
+              "kind",
+              "source_id",
+              "control_id",
+              "finding_id",
+              "summary",
+              "reason",
+              "due_on",
+              "overdue",
+              "materiality",
+              "next_action",
+              "action_path",
+              "responsible",
+              "assignee_member_id",
+              "assignment_revision",
+              "escalated",
+              "escalated_by",
+              "created_at"
+            ],
+            "type": "object",
+            "properties": {
+              "work_item_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "source_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "control_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "finding_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "due_on": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "overdue": {
+                "type": "boolean"
+              },
+              "materiality": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "next_action": {
+                "type": "string"
+              },
+              "action_path": {
+                "type": "string"
+              },
+              "responsible": {
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "assignee_member_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "assignment_revision": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "escalated": {
+                "type": "boolean"
+              },
+              "escalated_by": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "required": [
+                "revision",
+                "action",
+                "assignee_member_id",
+                "previous_assignee_member_id",
+                "reason",
+                "by",
+                "at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "action": {
+                  "type": "string"
+                },
+                "assignee_member_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "previous_assignee_member_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "reason": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
       "Portia_38AC222880FC3D76BC0113586E6EADD6FC945BF8A6AE17809DC976132058D642": {
         "required": [
           "items",
@@ -128950,6 +133152,291 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "Portia_452F41728C6AFA9916F07B977123DCCF98284CE3451ABA0C4C76C709D48F8747": {
+        "required": [
+          "digest_id",
+          "week_of",
+          "email_digest_enabled",
+          "overdue",
+          "due_soon"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "digest_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "week_of": {
+            "type": "string",
+            "format": "date"
+          },
+          "email_digest_enabled": {
+            "type": "boolean"
+          },
+          "overdue": {
+            "type": "array",
+            "items": {
+              "required": [
+                "work_item_id",
+                "kind",
+                "source_id",
+                "control_id",
+                "finding_id",
+                "summary",
+                "reason",
+                "due_on",
+                "overdue",
+                "materiality",
+                "next_action",
+                "action_path",
+                "responsible",
+                "assignee_member_id",
+                "assignment_revision",
+                "escalated",
+                "escalated_by",
+                "created_at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "work_item_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "source_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "control_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "finding_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "due_on": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date"
+                },
+                "overdue": {
+                  "type": "boolean"
+                },
+                "materiality": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "next_action": {
+                  "type": "string"
+                },
+                "action_path": {
+                  "type": "string"
+                },
+                "responsible": {
+                  "required": [
+                    "kind",
+                    "id"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "assignee_member_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "assignment_revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "escalated": {
+                  "type": "boolean"
+                },
+                "escalated_by": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "due_soon": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Portia_452F41728C6AFA9916F07B977123DCCF98284CE3451ABA0C4C76C709D48F8747_1"
+            }
+          }
+        }
+      },
+      "Portia_452F41728C6AFA9916F07B977123DCCF98284CE3451ABA0C4C76C709D48F8747_1": {
+        "required": [
+          "work_item_id",
+          "kind",
+          "source_id",
+          "control_id",
+          "finding_id",
+          "summary",
+          "reason",
+          "due_on",
+          "overdue",
+          "materiality",
+          "next_action",
+          "action_path",
+          "responsible",
+          "assignee_member_id",
+          "assignment_revision",
+          "escalated",
+          "escalated_by",
+          "created_at"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "work_item_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "control_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "finding_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "due_on": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "items": { },
+            "format": "date"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "materiality": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "next_action": {
+            "type": "string"
+          },
+          "action_path": {
+            "type": "string"
+          },
+          "responsible": {
+            "required": [
+              "kind",
+              "id"
+            ],
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "assignee_member_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "assignment_revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "escalated": {
+            "type": "boolean"
+          },
+          "escalated_by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -137564,6 +142051,194 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "Portia_895E347267064464C7EEA3101D9897828DE9ACE40AE8D3EB6B31BD0E2E552E59": {
+        "required": [
+          "scope",
+          "as_of",
+          "counts",
+          "items"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date"
+          },
+          "counts": {
+            "required": [
+              "total",
+              "overdue",
+              "due_today",
+              "escalated"
+            ],
+            "type": "object",
+            "properties": {
+              "total": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "overdue": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "due_today": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "escalated": {
+                "pattern": "^-?(?:0|[1-9]\\d*)$",
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "work_item_id",
+                "kind",
+                "source_id",
+                "control_id",
+                "finding_id",
+                "summary",
+                "reason",
+                "due_on",
+                "overdue",
+                "materiality",
+                "next_action",
+                "action_path",
+                "responsible",
+                "assignee_member_id",
+                "assignment_revision",
+                "escalated",
+                "escalated_by",
+                "created_at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "work_item_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "source_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "control_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "finding_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "due_on": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date"
+                },
+                "overdue": {
+                  "type": "boolean"
+                },
+                "materiality": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "next_action": {
+                  "type": "string"
+                },
+                "action_path": {
+                  "type": "string"
+                },
+                "responsible": {
+                  "required": [
+                    "kind",
+                    "id"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "assignee_member_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "assignment_revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "escalated": {
+                  "type": "boolean"
+                },
+                "escalated_by": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
           }
         }
       },
@@ -148519,6 +153194,61 @@
           }
         }
       },
+      "Portia_E743D385FF26935D87C27AF6254C90A88FE79C15319CDD62451780019AF8EDBD": {
+        "type": [
+          "null",
+          "array"
+        ],
+        "items": {
+          "required": [
+            "reminder_id",
+            "kind",
+            "work_item_id",
+            "summary",
+            "due_on",
+            "days_overdue",
+            "action_path"
+          ],
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "reminder_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "work_item_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "due_on": {
+              "type": [
+                "null",
+                "string"
+              ],
+              "items": { },
+              "format": "date"
+            },
+            "days_overdue": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            },
+            "action_path": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "Portia_E7F9DFDF55BC2B0ECD9A9FF37523ADE10CA787A7D4B97D66CCE5EAF13D29AFA4": {
         "required": [
           "completion_id",
@@ -151582,6 +156312,9 @@
     },
     {
       "name": "AccessReviews"
+    },
+    {
+      "name": "Work"
     },
     {
       "name": "Workforce"

@@ -28,14 +28,10 @@ public sealed class ListMyControlWorkHandler(IAggregateReader reader,
             request.ProgramId), ct).ConfigureAwait(false);
         var responsibilities = new List<ControlResponsibilityView>();
         var items = new List<(WorkItemView Item, DateTimeOffset CreatedAt)>();
-        foreach (var controlId in ledger.PlannedControlIds.ToArray())
+        foreach (var (controlId, plan, identifier, occurrences) in await ControlOperationsSource
+                     .ReadPlannedAsync(reader, ledger, request.TenantId, request.ProgramId, today,
+                         horizon, ct).ConfigureAwait(false))
         {
-            if (ledger.CurrentPlan(controlId) is not { } plan)
-                continue;
-            var control = await ControlOperationsSource.LoadControlAsync(reader, request.TenantId,
-                request.ProgramId, controlId, ct).ConfigureAwait(false);
-            if (control is null)
-                continue;
             var owns = await authority.HoldsAsync(request.TenantId, plan.Owner, actor.MemberId, ct)
                 .ConfigureAwait(false);
             var backs = await authority.HoldsAsync(request.TenantId, plan.BackupOwner,
@@ -52,9 +48,7 @@ public sealed class ListMyControlWorkHandler(IAggregateReader reader,
                 Add("reviewer", new OperatingHolder(OperatingAuthority.MemberHolder, actor.MemberId));
             if (!owns && !backs && !reviews)
                 continue;
-            var identifier = control.ApprovedVersion?.Identifier ?? controlId.ToString();
-            foreach (var occurrence in ledger.ReadOccurrences(controlId,
-                         OperatingAuthority.VersionWindows(control), today, horizon))
+            foreach (var occurrence in occurrences)
             {
                 var opened = occurrence.Reviews.Count > 0 || occurrence.Attestations.Count > 0
                     ? occurrence.Attestations[^1].RecordedAt

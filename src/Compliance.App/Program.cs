@@ -273,6 +273,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<PreviewBulkAccessDecision>(tool => tool.ReadOnly())
         .AddMcpTool<RecordAccessRemediationChange>()
         .AddMcpTool<VerifyAccessRemediation>()
+        .AddMcpTool<ListWork>(tool => tool.ReadOnly())
+        .AddMcpTool<GetWorkItem>(tool => tool.ReadOnly())
+        .AddMcpTool<ClaimWorkItem>()
+        .AddMcpTool<AssignWorkItem>()
+        .AddMcpTool<DelegateWorkItem>()
+        .AddMcpTool<EscalateWorkItem>()
+        .AddMcpTool<ListWorkReminders>(tool => tool.ReadOnly())
+        .AddMcpTool<GetWorkDigest>(tool => tool.ReadOnly())
+        .AddMcpTool<GetWorkDigestPreference>(tool => tool.ReadOnly())
+        .AddMcpTool<SetWorkDigestPreference>()
         .AddMcpHttp();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
@@ -1099,6 +1109,46 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/completion")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("AccessReviews");
+    app.MapPortiaGet<ListWork, WorkQueueView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaGet<ListWorkReminders, IReadOnlyList<WorkReminderView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/reminders")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaGet<GetWorkDigest, WorkDigestView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/digest")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaGet<GetWorkItem, WorkItemDetailView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaPost<ClaimWorkItem, WorkItemDetailView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/claims")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaPost<AssignWorkItem, WorkItemDetailView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/assignments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaPost<DelegateWorkItem, WorkItemDetailView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/delegations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaPost<EscalateWorkItem, WorkItemDetailView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}/escalations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaGet<GetWorkDigestPreference, WorkDigestPreferenceView>(
+            "/api/v1/tenants/{tenant_id}/work-digest-preference")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
+    app.MapPortiaPut<SetWorkDigestPreference, WorkDigestPreferenceView>(
+            "/api/v1/tenants/{tenant_id}/work-digest-preference")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Work");
     app.MapPortiaPost<RecordPerson, PersonRegistration>(
             "/api/v1/tenants/{tenant_id}/people")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

@@ -5,6 +5,7 @@ using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
@@ -73,10 +74,22 @@ sealed class OperationsFixture
                 .AddRequestHandler<ReopenFindingHandler>()
                 .AddRequestHandler<GetFindingHandler>()
                 .AddRequestHandler<ListFindingsHandler>()
+                .AddRequestHandler<ListWorkHandler>()
+                .AddRequestHandler<GetWorkItemHandler>()
+                .AddRequestHandler<ClaimWorkItemHandler>()
+                .AddRequestHandler<AssignWorkItemHandler>()
+                .AddRequestHandler<DelegateWorkItemHandler>()
+                .AddRequestHandler<EscalateWorkItemHandler>()
+                .AddRequestHandler<ListWorkRemindersHandler>()
+                .AddRequestHandler<GetWorkDigestHandler>()
+                .AddRequestHandler<SetWorkDigestPreferenceHandler>()
+                .AddRequestHandler<GetWorkDigestPreferenceHandler>()
+                .AddRequestAuthorizer<TenantAccessAuthorizer>()
                 .AddRequestAuthorizer<OperationsReactionAuthorizer>(),
             services =>
             {
                 services.AddScoped<OperatingAuthority>();
+                services.AddScoped<WorkQueueReader>();
                 services.AddSingleton<IControlDraftDirectoryReader, ProgramControls>();
             });
         var fixture = new OperationsFixture { Provider = provider, Permissions = permissions };

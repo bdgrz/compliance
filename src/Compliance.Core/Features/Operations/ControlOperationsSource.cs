@@ -13,6 +13,32 @@ static class ControlOperationsSource
         return control.IsVisible && control.ProgramId == programId ? control : null;
     }
 
+    /// <summary>
+    ///     Each visible planned control's current plan and its recorded and expected occurrences
+    ///     starting on or before the horizon.
+    /// </summary>
+    public static async ValueTask<IReadOnlyList<PlannedControlOccurrences>> ReadPlannedAsync(
+        IAggregateReader reader, ControlOperationsLedger ledger, Uuid tenantId, Uuid programId,
+        DateOnly today, DateOnly horizon, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(ledger);
+        var planned = new List<PlannedControlOccurrences>();
+        foreach (var controlId in ledger.PlannedControlIds.ToArray())
+        {
+            if (ledger.CurrentPlan(controlId) is not { } plan)
+                continue;
+            var control = await LoadControlAsync(reader, tenantId, programId, controlId, ct)
+                .ConfigureAwait(false);
+            if (control is null)
+                continue;
+            planned.Add(new PlannedControlOccurrences(controlId, plan,
+                control.ApprovedVersion?.Identifier ?? controlId.ToString(),
+                ledger.ReadOccurrences(controlId, OperatingAuthority.VersionWindows(control),
+                    today, horizon)));
+        }
+        return planned;
+    }
+
     public static RequestError ControlNotFound() =>
         new(RequestErrorKind.NotFound, "The control was not found.");
 
