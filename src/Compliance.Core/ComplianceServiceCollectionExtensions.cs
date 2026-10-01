@@ -107,6 +107,11 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IApplicationImportDirectoryReader>(provider =>
             provider.GetRequiredService<FitzApplicationImportDirectory>());
         services.AddScoped<ApplicationImportReadConsistency>();
+        services.AddScoped<FitzAccessReviewScopeDirectory>();
+        services.AddScoped<IAccessReviewScopeDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzAccessReviewScopeDirectory>());
+        services.AddScoped<IAccessReviewScopeDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzAccessReviewScopeDirectory>());
         services.AddScoped<IApplicationInventoryActivity,
             EventSourcedApplicationInventoryActivity>();
         services.AddScoped<IControlApplicabilityReferenceValidator,
@@ -357,6 +362,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RetireSystemInstanceHandler>()
             .AddRequestHandler<DecideAccessReviewScopeHandler>()
             .AddRequestHandler<GetAccessReviewScopeHandler>()
+            .AddRequestHandler<ListAccessReviewScopesHandler>()
+            .AddRequestHandler<PreviewInformationAssetChangeHandler>()
             .AddRequestHandler<StageApplicationImportHandler>()
             .AddRequestHandler<CancelApplicationImportHandler>()
             .AddRequestHandler<GetApplicationImportHandler>()
@@ -620,6 +627,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
+            .AddProjector<AccessReviewScopeDirectoryProjector>(
+                AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
                 "ApplicationBoundaryReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationControlDraftReferenceProjector>(

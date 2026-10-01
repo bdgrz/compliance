@@ -5,7 +5,7 @@ namespace Bdgrz.Compliance.Features.Applications;
 
 /// <summary>Records a Compliance Lead's effective-dated access-review scope decision.</summary>
 public sealed class DecideAccessReviewScopeHandler(IAggregateExecutor executor,
-    IAggregateReader reader, TimeProvider clock)
+    IAggregateReader reader, IDomainEventReader events, TimeProvider clock)
     : IRequestHandler<DecideAccessReviewScope, AccessReviewScopeDecisionView>
 {
     public async ValueTask<Result<AccessReviewScopeDecisionView>> HandleAsync(
@@ -17,9 +17,10 @@ public sealed class DecideAccessReviewScopeHandler(IAggregateExecutor executor,
             return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(
                 RequestErrorKind.Validation,
                 "The expected instance revision must be positive and the decision count non-negative."));
-        var instance = await reader.HydrateAsync(new DeclaredSystemInstance(request.TenantId,
-            request.SystemInstanceId), ct).ConfigureAwait(false);
-        if (!instance.IsCreated || instance.ApplicationId != request.ApplicationId)
+        var instance = await ScopedSystemInstanceSource.FindAsync(reader, events,
+            request.TenantId, request.ApplicationId, request.SystemInstanceId, ct)
+            .ConfigureAwait(false);
+        if (instance is null)
             return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The system instance was not found."));
         if (instance.Revision != request.ExpectedSystemInstanceRevision)

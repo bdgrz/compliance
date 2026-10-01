@@ -84,7 +84,28 @@ without an active exact-scope `system_instance_access_review_scope` waiver.
 decision in effect at an optional `as_of` time (`unresolved` when none applies) and the full
 history, read from the source stream.
 
-Still open: the access-owner SoD rule (this needs a member-to-person link), a Fitz scope
-projection and readiness visibility, scope for legacy application-stream instances, general
+Scope decisions and reads also accept legacy instances declared in the application stream
+(revision 1). The write path reads that declaration from its source stream, and the
+registrant rule applies to its declaring member.
+
+`GET .../applications/{application_id}/access-review-scopes`
+(`bdgrz.application.access_review_scopes.list`, read-only) pages the application's instances
+and, for each, returns `status` (`included`, `excluded`, or `unresolved`) at an optional
+`as_of`, `review_overdue`, `decision_count`, the `effective` decision, and the `upcoming` one.
+It reads the new `AccessReviewScopeDirectoryV1` Fitz projection. The endpoint returns a
+retryable 409 until both that projection and the instance directory reach their sources.
+
+Still open: the access-owner SoD rule (this needs a member-to-person link), general
 application-to-application relationships, a governed successor or approval gate, and complete
 downstream impact.
+
+## Information asset change preview (#465)
+
+`POST /api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/change-previews`
+(`bdgrz.inventory.information_asset.change.preview`, read-only) takes
+`expected_revision` and an optional proposed `classification` and `lifecycle`. It returns
+every active data flow that carries the asset. For each flow it gives the flow's
+classification recomputed as the highest carried classification, `encryption_violation`
+under M0-D08, and `carries_retired_asset_only`. The scan stops at 1000 flows and sets
+`flows_over_limit` when it stops early. The preview records nothing and does not revise any
+flow.

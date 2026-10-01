@@ -141,6 +141,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RetireApplication>(tool => tool.Idempotent())
         .AddMcpTool<RetireSystemInstance>(tool => tool.Idempotent())
         .AddMcpTool<GetAccessReviewScope>(tool => tool.ReadOnly())
+        .AddMcpTool<ListAccessReviewScopes>(tool => tool.ReadOnly())
         .AddMcpTool<StageApplicationImport>(tool => tool.Idempotent())
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
@@ -171,6 +172,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetInformationAsset>(tool => tool.ReadOnly())
         .AddMcpTool<ListInformationAssets>(tool => tool.ReadOnly())
         .AddMcpTool<ListInformationAssetRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewInformationAssetChange>(tool => tool.ReadOnly())
         .AddMcpTool<RecordDataFlow>()
         .AddMcpTool<ReviseDataFlow>(tool => tool.Idempotent())
         .AddMcpTool<GetDataFlow>(tool => tool.ReadOnly())
@@ -777,6 +779,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("TechnologyInventory");
+    app.MapPortiaPost<PreviewInformationAssetChange, InformationAssetChangePreview>(
+            "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/change-previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview the data-flow impact of reclassifying or retiring an information asset")
+        .WithTags("TechnologyInventory");
     app.MapPortiaPost<RecordDataFlow, DataFlowRegistration>(
             "/api/v1/tenants/{tenant_id}/data-flows")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -870,6 +877,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("Read the effective access-review scope decision and its history")
         .WithTags("System instances");
+    app.MapPortiaGet<ListAccessReviewScopes, Page<AccessReviewScopeStatusView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/access-review-scopes")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List the projected access-review scope status of an application's system instances")
+        .WithTags("Applications");
     app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
             "/api/v1/tenants/{tenant_id}/application-imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
