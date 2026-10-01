@@ -79,7 +79,7 @@ Compliance Lead approval. It requires `application_inventory.manage` plus organi
 `effective_from`, and an optional `review_by`, bound to the exact instance revision and the
 expected decision count. A new decision supersedes the previous one. It cannot be backdated
 before the previous decision. The member who registered the instance and the application's
-current access owner cannot approve its scope without an active exact-scope
+access owner resolved for this request cannot approve its scope without an active exact-scope
 `system_instance_access_review_scope` waiver. The handler reads the governed Application and
 its owner Person from their tenant's event streams, using the person's current member
 correlation. Reassigning ownership, relinking membership, or clearing the link affects later
@@ -100,10 +100,15 @@ and, for each, returns `status` (`included`, `excluded`, or `unresolved`) at an 
 It reads the new `AccessReviewScopeDirectoryV1` Fitz projection. The endpoint returns a
 retryable 409 until both that projection and the instance directory reach their sources.
 
-Application and Person state are observed while preparing the decision. The destination
-stream's optimistic check does not atomically fence those source streams against a concurrent
-owner or correlation change; #519 tracks the Fitz conditional write and Portia support.
-Broker and split-host verification also remain pending while Docker is unavailable (#463).
+The owner predicate uses authoritative Application and Person observations under the existing
+per-request authorization boundary. As specified in
+[ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md),
+the destination stream's optimistic check does not make unrelated source writes atomic:
+an owner or correlation change may interleave between these reads and the decision append.
+[#519](https://github.com/bdgrz/compliance/issues/519) owns the stronger current-at-commit
+source preconditions as a separate follow-up, using Fitz conditional writes and Portia support.
+It is separate from #463's canonical owner predicate acceptance. Broker and split-host
+verification remain required for #463 and pending while Docker is unavailable.
 
 Still open: general application-to-application relationships, a governed successor or
 approval gate, and complete downstream impact.
