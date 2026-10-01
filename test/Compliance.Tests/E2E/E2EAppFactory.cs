@@ -24,5 +24,7 @@ static class E2EAppFactory
             builder.UseSetting("Fitz:Endpoint", webSocketEndpoint);
             builder.UseSetting("Fitz:ApplicationName", applicationName ?? $"compliance-e2e-{Guid.NewGuid():N}");
             builder.UseSetting("Fitz:StartupTimeoutSeconds", "30");
+            if (TestHostMode.Current is { } mode)
+                builder.UseSetting("COMPLIANCE_HOST_MODE", mode);
         });
 }

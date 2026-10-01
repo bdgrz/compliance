@@ -16,9 +16,10 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BoundaryBrokerCollectionDefinition.Name)]
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class BoundaryE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]
@@ -31,19 +32,18 @@ public sealed class BoundaryE2ETests(BrokerStackFixture broker)
         if (worker is not null)
             await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorHostMode = TestHostMode.Current;
         HttpClient ownerClient;
         HttpClient outsiderClient;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             ownerClient = factory.CreateClient();
             outsiderClient = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+            TestHostMode.Set(priorHostMode);
         }
         using var owner = ownerClient;
         using var outsider = outsiderClient;

@@ -41,21 +41,20 @@ public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
         await using var baseFactory = E2EAppFactory.Create(broker, applicationName);
         await using var factory = baseFactory.WithWebHostBuilder(builder =>
             builder.UseSetting("Compliance:Controls:LifecycleEnabled", "true"));
-        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorHostMode = TestHostMode.Current;
         HttpClient ownerClient;
         HttpClient reviewerClient;
         HttpClient outsiderClient;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             ownerClient = factory.CreateClient();
             reviewerClient = factory.CreateClient();
             outsiderClient = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+            TestHostMode.Set(priorHostMode);
         }
         using var owner = ownerClient;
         using var reviewer = reviewerClient;

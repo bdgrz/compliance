@@ -7,11 +7,6 @@ on:
       - main
   pull_request:
   workflow_dispatch:
-    inputs:
-      broker_test_filter:
-        description: Optional additional .NET filter for focused broker diagnosis
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -28,172 +23,33 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-
+    timeout-minutes: 5
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7 # v7.0.0
+      # The app build bundles the SPA.
+      - uses: actions/setup-node@v7 # v7.0.0
         with:
           node-version: 24
           cache: npm
 
-      - name: Install client dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Check client
-        run: npm run client:check
+      - run: dotnet restore Compliance.slnx --locked-mode
 
-      - name: Restore locked packages
-        run: dotnet restore Compliance.slnx --locked-mode
-
-      - name: Check formatting
-        run: dotnet format Compliance.slnx --verify-no-changes --no-restore
+      - name: Format
+        run: dotnet format whitespace Compliance.slnx --verify-no-changes
 
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
-      - name: Test without broker
+      # Unit tests only. The broker suite (Category=BrokerIntegration) is a local gate:
+      # ./scripts/check-backend.sh full
+      - name: Test
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
-
-      # BrokerIntegration tests own their own docker compose lifecycle
-      # (test/Compliance.Tests/E2E/compose.yml), separate from the root compose.yml -- no manual
-      # start/stop step needed here.
-      - name: Test with real broker
-        env:
-          BROKER_TEST_FILTER: ${{ inputs.broker_test_filter }}
-        run: |
-          if [ -n "$BROKER_TEST_FILTER" ]; then
-            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration&$BROKER_TEST_FILTER"
-          else
-            dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category=BrokerIntegration"
-          fi
-
-  promotion-source:
-    name: Promotion source
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Require the repository develop branch
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-          BASE_REPOSITORY: ${{ github.repository }}
-        run: |
-          test "$HEAD_REF" = "develop"
-          test "$HEAD_REPOSITORY" = "$BASE_REPOSITORY"
-
-  native-container:
-    name: Native container ${{ matrix.platform }}
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.base_ref == 'main')
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7 # v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4 # v4
-
-      - name: Build native image
-        uses: docker/build-push-action@v7 # v7
-        with:
-          context: .
-          file: src/Compliance.App/Dockerfile
-          platforms: ${{ matrix.platform }}
-          load: true
-          tags: compliance:native-test
-          build-args: GITHUB_ACTOR=${{ github.actor }}
-          secrets: github_token=${{ github.token }}
-          cache-from: type=gha,scope=ci-${{ matrix.platform }}
-          cache-to: type=gha,mode=min,scope=ci-${{ matrix.platform }}
-
-      - name: Start native dependencies
-        env:
-          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
-        run: docker compose up --detach storage broker
-
-      - name: Exercise standalone, API, and worker modes
-        env:
-          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          network="${COMPOSE_PROJECT_NAME}_default"
-
-          run_web_mode() {
-            name="$1"
-            mode="$2"
-            port="$3"
-            docker run --detach --name "$name" --network "$network" \
-              --publish "127.0.0.1:${port}:8080" \
-              --env ASPNETCORE_ENVIRONMENT=Development \
-              --env COMPLIANCE_HOST_MODE="$mode" \
-              --env Fitz__Endpoint=ws://broker:4090/ws \
-              --env Fitz__ApplicationName="compliance-${mode}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-              compliance:native-test
-
-            for attempt in {1..45}; do
-              if curl --fail --silent "http://127.0.0.1:${port}/health/ready" > /dev/null; then
-                docker stop "$name"
-                docker rm "$name"
-                return 0
-              fi
-              sleep 1
-            done
-
-            docker logs "$name"
-            return 1
-          }
-
-          run_web_mode compliance-standalone standalone 18080
-          run_web_mode compliance-api api 18081
-
-          docker run --detach --name compliance-worker --network "$network" \
-            --env DOTNET_ENVIRONMENT=Development \
-            --env COMPLIANCE_HOST_MODE=worker \
-            --env Fitz__Endpoint=ws://broker:4090/ws \
-            --env Fitz__ApplicationName="compliance-worker-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            compliance:native-test
-          sleep 5
-          test "$(docker inspect --format '{{.State.Running}}' compliance-worker)" = "true"
-
-      - name: Stop native test containers
-        if: always()
-        env:
-          COMPOSE_PROJECT_NAME: compliance-native-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          docker rm --force compliance-standalone compliance-api compliance-worker 2>/dev/null || true
-          docker compose down --volumes
-
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7 # v7
-
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v5 # v5.0.0

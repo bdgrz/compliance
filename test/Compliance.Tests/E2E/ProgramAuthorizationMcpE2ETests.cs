@@ -32,19 +32,18 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             HttpClient administrator;
             HttpClient member;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 administrator = factory.CreateClient();
                 member = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
 
             using (administrator)
@@ -289,19 +288,18 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             HttpClient administrator;
             HttpClient participant;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 administrator = factory.CreateClient();
                 participant = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
             using (administrator)
             using (participant)

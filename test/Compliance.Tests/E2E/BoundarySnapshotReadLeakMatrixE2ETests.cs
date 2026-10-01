@@ -247,21 +247,20 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient owner;
             HttpClient reviewer;
             HttpClient outsider;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 owner = factory.CreateClient();
                 reviewer = factory.CreateClient();
                 outsider = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using (owner)
             using (reviewer)

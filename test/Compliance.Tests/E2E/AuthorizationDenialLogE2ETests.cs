@@ -13,7 +13,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
+public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldLogDeniedActionGivenOutsiderInStandaloneHost()
@@ -53,10 +54,10 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
         {
             var logs = new CapturingLoggerProvider();
             await using var factory = WithLogs(E2EAppFactory.Create(broker, applicationName), logs);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 // Act
                 var denial = await DenyOutsiderAsync(factory, logs, "split");
 
@@ -65,7 +66,7 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
         }
         finally

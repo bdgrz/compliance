@@ -11,7 +11,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 [Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
-public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixture<BrokerStackFixture>
+public sealed class MemberAccessE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]
@@ -38,19 +39,19 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             HttpClient administrator;
             HttpClient invitee;
             try
             {
                 if (splitHosts)
-                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                    TestHostMode.Set("api");
                 administrator = factory.CreateClient();
                 invitee = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
             using (administrator)
             using (invitee)

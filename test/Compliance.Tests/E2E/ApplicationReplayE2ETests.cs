@@ -24,16 +24,16 @@ public sealed class ApplicationReplayE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient owner;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 owner = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
 
             using (owner)

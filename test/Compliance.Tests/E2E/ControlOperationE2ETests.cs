@@ -142,16 +142,15 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
     static (HttpClient Owner, HttpClient Outsider) CreateClients(
         WebApplicationFactory<Program> factory, bool splitHosts)
     {
-        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorHostMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             return (factory.CreateClient(), factory.CreateClient());
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+            TestHostMode.Set(priorHostMode);
         }
     }
 

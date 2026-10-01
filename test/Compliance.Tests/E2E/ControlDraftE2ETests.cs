@@ -559,16 +559,16 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         using var worker = BuildWorker(applicationName);
         await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
         using var owner = client;
         await TenantInvitationE2ETests.LoginAsync(owner,
@@ -666,16 +666,16 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         using var worker = BuildWorker(applicationName);
         await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
         using var owner = client;
         await TenantInvitationE2ETests.LoginAsync(owner,

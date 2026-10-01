@@ -554,19 +554,18 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient owner;
             HttpClient outsider;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 owner = factory.CreateClient();
                 outsider = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using (owner)
             using (outsider)
@@ -715,16 +714,15 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static HttpClient CreateClient(WebApplicationFactory<Program> factory, bool splitHosts)
     {
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
     }
 

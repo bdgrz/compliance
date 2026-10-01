@@ -12,9 +12,10 @@ using Microsoft.Extensions.Hosting;
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>Proves old application-stream instance history against the new write path.</summary>
-[Collection(ApplicationInventoryBrokerCollectionDefinition.Name)]
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     static readonly DateTimeOffset LegacyDeclaredAt =
         new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
@@ -193,15 +194,15 @@ public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
     {
         if (!apiOnly)
             return factory.CreateClient();
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
     }
 

@@ -42,17 +42,16 @@ public sealed class CriteriaCatalogE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             HttpClient owner;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 owner = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
             using (owner)
             {

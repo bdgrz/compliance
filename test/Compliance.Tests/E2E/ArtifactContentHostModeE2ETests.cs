@@ -68,16 +68,16 @@ public sealed class ArtifactContentHostModeE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = Configure(E2EAppFactory.Create(broker, applicationName));
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient http;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 http = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
 
             using var client = http;

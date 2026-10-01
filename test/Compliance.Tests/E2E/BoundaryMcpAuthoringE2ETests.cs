@@ -29,17 +29,16 @@ public sealed class BoundaryMcpAuthoringE2ETests(BrokerStackFixture broker)
             if (worker is not null)
                 await worker.StartAsync();
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var priorMode = TestHostMode.Current;
             HttpClient ownerClient;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                    splitHosts ? "api" : "standalone");
+                TestHostMode.Set(splitHosts ? "api" : "standalone");
                 ownerClient = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                TestHostMode.Set(priorMode);
             }
 
             using var owner = ownerClient;

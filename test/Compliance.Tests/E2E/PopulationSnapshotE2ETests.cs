@@ -106,15 +106,15 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
 
     static HttpClient ApiClient(WebApplicationFactory<Program> factory)
     {
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
     }
 

@@ -19,6 +19,9 @@ else
 static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 {
     var builder = WebApplication.CreateBuilder(args);
+    // Configuration includes environment variables; reading it here also lets a test host set
+    // its mode without mutating the process environment.
+    hostMode = ComplianceHostModeParser.Parse(builder.Configuration["COMPLIANCE_HOST_MODE"]);
     builder.Services.AddProblemDetails(options =>
     {
         options.CustomizeProblemDetails = context =>
