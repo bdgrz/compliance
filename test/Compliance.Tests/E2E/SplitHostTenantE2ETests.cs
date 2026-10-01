@@ -15,9 +15,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldBootstrapLaterTenantGivenRejectedConcurrentSlugClaim()
@@ -27,16 +27,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         await using var factory = E2EAppFactory.Create(broker, applicationName)
             .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
                 services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
         using var creator = client;
         var email = $"creator-{Guid.NewGuid():N}@example.com";
@@ -115,16 +115,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         await using var factory = E2EAppFactory.Create(broker, applicationName)
             .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
                 services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
         using var creator = client;
         var email = $"creator-{Guid.NewGuid():N}@example.com";
@@ -222,16 +222,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             await using var factory = E2EAppFactory.Create(broker, applicationName)
                 .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
                     services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient client;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 client = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using var creator = client;
             using var outsider = factory.CreateClient();
@@ -421,16 +421,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient client;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 client = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using var operatorClient = client;
             await TenantInvitationE2ETests.LoginAsync(operatorClient,
@@ -588,16 +588,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient operatorClient;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 operatorClient = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using var operatorClientToDispose = operatorClient;
             using var administratorClient = factory.CreateClient();
@@ -737,16 +737,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = E2EAppFactory.Create(broker, applicationName);
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient operatorClient;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 operatorClient = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using var operatorClientToDispose = operatorClient;
             using var administratorClient = factory.CreateClient();
@@ -774,16 +774,16 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
                              .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
                                  services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()])))))
             {
-                var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+                var priorMode = TestHostMode.Current;
                 HttpClient nonOperator;
                 try
                 {
-                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                    TestHostMode.Set("api");
                     nonOperator = restrictedFactory.CreateClient();
                 }
                 finally
                 {
-                    Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+                    TestHostMode.Set(priorMode);
                 }
                 using (nonOperator)
                 {
@@ -1166,7 +1166,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     {
         // Arrange
         var applicationName = $"compliance-split-e2e-{Guid.NewGuid():N}";
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
 
         // Act
         using var worker = StartWorker(applicationName);
@@ -1178,12 +1178,12 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             HttpClient client;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 client = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
             using var clientToDispose = client;
             using var login = await client.PostAsJsonAsync("/api/v1/developer-user-sessions",
@@ -1297,7 +1297,7 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
             if (!worker.HasExited)
             {
                 worker.Kill(entireProcessTree: true);

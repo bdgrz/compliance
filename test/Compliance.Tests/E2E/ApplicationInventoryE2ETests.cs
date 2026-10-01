@@ -14,9 +14,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldProjectDeclarationsGivenSplitApiAndRestartedWorker()
@@ -27,16 +27,16 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         using var worker = BuildWorker(applicationName, workerLogs);
         await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
         using var owner = client;
         await TenantInvitationE2ETests.LoginAsync(owner,

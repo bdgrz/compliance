@@ -17,9 +17,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     controls (self-suspension, a suspended actor, reinstatement, uncontrolled concurrency)
 ///     keep the tenant manageable.
 /// </summary>
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class TenantManagerInvariantE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldKeepOneActiveAdministratorGivenConcurrentMutualSuspensionOnBroker()

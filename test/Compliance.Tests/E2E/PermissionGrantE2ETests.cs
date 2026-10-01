@@ -17,9 +17,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     every tenant-scoped request was forbidden forever. See <see cref="PermissionProjectionState" />
 ///     for that history; this test is what should have caught it before a human had to.
 /// </summary>
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class PermissionGrantE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldGrantCreatorTenantAccessGivenMaterializedRolePermission()

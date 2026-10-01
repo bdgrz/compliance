@@ -11,9 +11,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]
@@ -258,16 +258,16 @@ public sealed class OperatorPortfolioE2ETests(BrokerStackFixture broker)
     static HttpClient CreateClient(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory,
         bool splitHosts)
     {
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         try
         {
             if (splitHosts)
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
     }
 

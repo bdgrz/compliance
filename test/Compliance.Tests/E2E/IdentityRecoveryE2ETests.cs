@@ -20,9 +20,9 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     const string SessionSecret = "bdgrz-recovery-e2e-session-signing-key-01";
     const string ProviderSecret = "bdgrz-recovery-e2e-provider-signing-key-01";
@@ -37,16 +37,16 @@ public sealed class IdentityRecoveryE2ETests(BrokerStackFixture broker)
         var delivery = new RecordingDelivery();
         using var worker = CreateWorker(applicationName, key, delivery);
         await using var factory = CreateExternalFactory(applicationName, key);
-        var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var previousMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+            TestHostMode.Set(previousMode);
         }
 
         using var owner = client;

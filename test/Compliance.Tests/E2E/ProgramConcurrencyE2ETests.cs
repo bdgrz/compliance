@@ -13,9 +13,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]
@@ -187,15 +187,15 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
     {
         if (!splitHosts)
             return factory.CreateClient();
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
     }
 

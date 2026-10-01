@@ -8,9 +8,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldCorrelateReconcileResolveAndFreezeGivenStandaloneHost()
@@ -123,16 +123,16 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
         using var worker = BuildWorker(applicationName);
         await worker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
         using var owner = client;
         await TenantInvitationE2ETests.LoginAsync(owner,

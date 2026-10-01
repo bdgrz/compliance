@@ -17,9 +17,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     limit neither stops the split worker host nor delays another tenant, and it recovers after
 ///     the prerequisite is released and after a worker restart.
 /// </summary>
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class TenantActivationIsolationE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     const int FormerFailedPassLimit = 20;
 
@@ -115,15 +115,15 @@ public sealed class TenantActivationIsolationE2ETests(BrokerStackFixture broker)
 
     static HttpClient ApiClient(WebApplicationFactory<Program> factory)
     {
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             return factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
     }
 

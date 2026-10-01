@@ -5,9 +5,9 @@ using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ClientServiceE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldPreserveServiceHistoryAndDenyOutsiderGivenBrokerHost()

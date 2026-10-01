@@ -11,9 +11,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class SplitHostInvitationDeliveryE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Fact]
     public async Task ShouldDeliverCommittedInvitationGivenWorkerRestart()
@@ -23,16 +23,16 @@ public sealed class SplitHostInvitationDeliveryE2ETests(BrokerStackFixture broke
         using var firstWorker = CreateWorker(applicationName);
         await firstWorker.StartAsync();
         await using var factory = E2EAppFactory.Create(broker, applicationName);
-        var priorMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorMode = TestHostMode.Current;
         HttpClient client;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+            TestHostMode.Set("api");
             client = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorMode);
+            TestHostMode.Set(priorMode);
         }
         using var administrator = client;
         await TenantInvitationE2ETests.LoginAsync(administrator,

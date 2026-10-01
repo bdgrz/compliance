@@ -21,9 +21,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     reassessment reactor, the full control impact preview, and proposal withdrawal against the
 ///     real broker on a standalone host and on split API and worker hosts.
 /// </summary>
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     static readonly string[] Scale = ["Rare", "Unlikely", "Possible", "Likely", "Almost certain"];
 
@@ -40,21 +40,20 @@ public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
         await using var baseFactory = E2EAppFactory.Create(broker, applicationName);
         await using var factory = baseFactory.WithWebHostBuilder(builder =>
             builder.UseSetting("Compliance:Controls:LifecycleEnabled", "true"));
-        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorHostMode = TestHostMode.Current;
         HttpClient ownerClient;
         HttpClient reviewerClient;
         HttpClient outsiderClient;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             ownerClient = factory.CreateClient();
             reviewerClient = factory.CreateClient();
             outsiderClient = factory.CreateClient();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+            TestHostMode.Set(priorHostMode);
         }
         using var owner = ownerClient;
         using var reviewer = reviewerClient;

@@ -1,20 +1,28 @@
-using Bdgrz.Compliance.Features.Programs;
-
 namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
-///     One broker stack shared by every test in
-///     <see cref="BrokerCollectionDefinition" />, which also keeps the broker tests sequential.
+///     The one broker stack every broker test class shares. It starts on first use and stops when
+///     the test process exits; tests isolate themselves with unique tenants and application names,
+///     so classes run in parallel against it.
 /// </summary>
-public sealed class BrokerStackFixture : IAsyncLifetime, IAsyncDisposable
+public sealed class BrokerStackFixture : IAsyncLifetime
 {
-    readonly BrokerStack _stack = new();
+    static readonly Lazy<Task<BrokerStack>> Shared = new(StartSharedAsync);
 
-    public string WebSocketEndpoint => _stack.WebSocketEndpoint;
+    BrokerStack? _stack;
 
-    public Task InitializeAsync() => _stack.StartAsync();
+    public string WebSocketEndpoint =>
+        (_stack ?? throw new InvalidOperationException("The broker has not started.")).WebSocketEndpoint;
 
-    public Task DisposeAsync() => _stack.DisposeAsync().AsTask();
+    public async Task InitializeAsync() => _stack = await Shared.Value;
 
-    ValueTask IAsyncDisposable.DisposeAsync() => _stack.DisposeAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    static async Task<BrokerStack> StartSharedAsync()
+    {
+        var stack = new BrokerStack();
+        await stack.StartAsync();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => stack.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        return stack;
+    }
 }

@@ -7,10 +7,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ArtifactContentHostModeE2ETests(BrokerStackFixture broker)
-    : IDisposable
+    : IClassFixture<BrokerStackFixture>, IDisposable
 {
     const string DeliveryKey = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
     readonly string _root = Path.Combine(Path.GetTempPath(), $"bdgrz-artifacts-e2e-{Guid.NewGuid():N}");
@@ -68,16 +67,16 @@ public sealed class ArtifactContentHostModeE2ETests(BrokerStackFixture broker)
         try
         {
             await using var factory = Configure(E2EAppFactory.Create(broker, applicationName));
-            var previousMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+            var previousMode = TestHostMode.Current;
             HttpClient http;
             try
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", "api");
+                TestHostMode.Set("api");
                 http = factory.CreateClient();
             }
             finally
             {
-                Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", previousMode);
+                TestHostMode.Set(previousMode);
             }
 
             using var client = http;

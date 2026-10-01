@@ -19,9 +19,9 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     independent approval, a failed attestation, and the reactor that converts it into a
 ///     finding, in both standalone and split API/worker hosts.
 /// </summary>
-[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
+    : IClassFixture<BrokerStackFixture>
 {
     [Theory]
     [InlineData(false)]
@@ -141,16 +141,15 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
     static (HttpClient Owner, HttpClient Outsider) CreateClients(
         WebApplicationFactory<Program> factory, bool splitHosts)
     {
-        var priorHostMode = Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE");
+        var priorHostMode = TestHostMode.Current;
         try
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE",
-                splitHosts ? "api" : "standalone");
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
             return (factory.CreateClient(), factory.CreateClient());
         }
         finally
         {
-            Environment.SetEnvironmentVariable("COMPLIANCE_HOST_MODE", priorHostMode);
+            TestHostMode.Set(priorHostMode);
         }
     }
 
