@@ -7,6 +7,7 @@ using Cntryl.Portia.Testing;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -56,9 +57,18 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         var first = await WaitForOkAsync(owner, $"{snapshotPath}/manifest-regeneration");
         // The directory must project the chunked freeze before the worker stops; this separates a
         // projection fault from a restart fault.
-        _ = await WaitForAsync(owner, $"{root}/workforce-roster-snapshots",
-            body => body.GetProperty("items").EnumerateArray().Any(item =>
-                item.GetProperty("snapshot_id").GetString() == snapshotId));
+        try
+        {
+            _ = await WaitForAsync(owner, $"{root}/workforce-roster-snapshots",
+                body => body.GetProperty("items").EnumerateArray().Any(item =>
+                    item.GetProperty("snapshot_id").GetString() == snapshotId));
+        }
+        catch (TimeoutException timeout)
+        {
+            throw new TimeoutException(
+                $"{timeout.Message}{Environment.NewLine}Worker log:{Environment.NewLine}{WorkerLog.Dump()}",
+                timeout);
+        }
         await worker.StopAsync();
         var duringLag = await WaitForOkAsync(owner, snapshotPath);
         var regeneratedDuringLag = await WaitForOkAsync(owner, $"{snapshotPath}/manifest-regeneration");
@@ -209,9 +219,40 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         builder.Configuration["Fitz:Endpoint"] = broker.WebSocketEndpoint;
         builder.Configuration["Fitz:ApplicationName"] = applicationName;
         builder.Configuration["Fitz:StartupTimeoutSeconds"] = "30";
+        builder.Logging.AddProvider(WorkerLog);
         builder.Services.AddCompliance(builder.Configuration, developerAuthentication: true)
             .AddWorkers();
         return builder.Build();
+    }
+
+    static readonly CollectingLoggerProvider WorkerLog = new();
+
+    sealed class CollectingLoggerProvider : ILoggerProvider
+    {
+        readonly System.Collections.Concurrent.ConcurrentQueue<string> _entries = new();
+
+        public ILogger CreateLogger(string categoryName) => new Collector(this, categoryName);
+
+        public string Dump() => string.Join(Environment.NewLine, _entries.TakeLast(60));
+
+        public void Dispose()
+        {
+        }
+
+        sealed class Collector(CollectingLoggerProvider owner, string category) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                if (IsEnabled(logLevel))
+                    owner._entries.Enqueue(
+                        $"{logLevel} {category}: {formatter(state, exception)} {exception?.GetType().Name} {exception?.Message}");
+            }
+        }
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
