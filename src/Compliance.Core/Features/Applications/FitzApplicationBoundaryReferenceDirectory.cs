@@ -5,8 +5,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 
 sealed class FitzApplicationBoundaryReferenceDirectory(IKvClient client)
     : FitzKvProjectionStore(client,
-            "kv://bdgrz/application-boundary-references-v1/projection",
-            "ApplicationBoundaryReferencesV1"),
+            "kv://bdgrz/application-boundary-references-v2/projection",
+            "ApplicationBoundaryReferencesV2"),
         IApplicationBoundaryReferenceDirectory, IApplicationBoundaryReferenceProjection
 {
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
@@ -102,9 +102,11 @@ sealed class FitzApplicationBoundaryReferenceDirectory(IKvClient client)
     static Uuid[] ReferenceIds(BoundaryContent content) =>
         [.. content.Entries.Where(IsIndexed).Select(static entry => entry.EntryId)];
 
+    // V2 also indexes technology components and information assets so inventory reads can show
+    // which boundaries include them.
     static bool IsIndexed(BoundaryScopeEntry entry) =>
         !entry.Unresolved && entry.GovernedRecordId is not null &&
-        entry.SubjectType is "application" or "system_instance";
+        entry.SubjectType is "application" or "system_instance" or "component" or "information";
 
     async ValueTask<BoundaryReferenceState> RequireStateAsync(Uuid boundaryId,
         CancellationToken ct) =>
@@ -163,6 +165,6 @@ sealed class FitzApplicationBoundaryReferenceDirectory(IKvClient client)
 
     public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
         CancellationToken ct = default) =>
-        base.LoadCheckpointAsync(new CheckpointIdentity("ApplicationBoundaryReferencesV1",
+        base.LoadCheckpointAsync(new CheckpointIdentity("ApplicationBoundaryReferencesV2",
             EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries")), ct);
 }

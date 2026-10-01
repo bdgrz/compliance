@@ -190,6 +190,29 @@ public sealed class ApplicationBoundaryReferenceDirectoryTests
             Uuid.CreateVersion4(), 20, null)).Items);
     }
 
+    [Fact]
+    public async Task ShouldIndexInventoryReferencesGivenComponentAndInformationEntries()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var componentId = Uuid.CreateVersion4();
+        var assetId = Uuid.CreateVersion4();
+        var directory = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
+
+        // Act
+        await ApplyAsync(directory, Identity(tenantId), new BoundaryDraftCreated(tenantId,
+            Uuid.CreateVersion4(), Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+            Content(Entry("component", componentId), Entry("information", assetId),
+                Entry("process", Uuid.CreateVersion4())),
+            Uuid.CreateVersion4(), "Author", DateTimeOffset.UtcNow));
+        var components = await directory.ListAsync(tenantId, "component", componentId, 20, null);
+        var assets = await directory.ListAsync(tenantId, "information", assetId, 20, null);
+
+        // Assert
+        Assert.Equal("draft", Assert.Single(components.Items).Status);
+        Assert.Equal(assetId, Assert.Single(assets.Items).GovernedRecordId);
+    }
+
     static BoundaryScopeEntry Entry(string type, Uuid recordId) =>
         new(Uuid.CreateVersion4(), "inclusion", type, "Governed subject", recordId,
             "owner", "In scope", false);
@@ -198,7 +221,7 @@ public sealed class ApplicationBoundaryReferenceDirectoryTests
         new("Scoped system", "readiness", ["security"], entries);
 
     static CheckpointIdentity Identity(Uuid tenantId) =>
-        new("ApplicationBoundaryReferencesV1",
+        new("ApplicationBoundaryReferencesV2",
             EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries"));
 
     static async Task ApplyAsync(FitzApplicationBoundaryReferenceDirectory directory,
