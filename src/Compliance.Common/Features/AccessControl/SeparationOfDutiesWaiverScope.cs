@@ -45,6 +45,8 @@ public static class SeparationOfDutiesRecordTypes
 
     /// <summary>A finding closure; the version is the finding ID and revision the finding revision.</summary>
     public const string Finding = "finding";
+    /// <summary>A policy draft or retirement decision; the version is the policy ID.</summary>
+    public const string Policy = "policy";
 }
 
 public static class SeparationOfDutiesActions

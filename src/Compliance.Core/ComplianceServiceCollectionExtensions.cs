@@ -167,6 +167,17 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<CommitmentVersionReadConsistency>();
         services.AddScoped<CommitmentImpactService>();
         services.AddScoped<ICommitmentReferenceReader, EventSourcedCommitmentReferenceReader>();
+        services.AddScoped<FitzPolicyDirectory>();
+        services.AddScoped<IPolicyDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzPolicyDirectory>());
+        services.AddScoped<IPolicyDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzPolicyDirectory>());
+        services.AddScoped<PolicyImpactService>();
+        services.AddScoped<FitzCampaignDirectory>();
+        services.AddScoped<ICampaignDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzCampaignDirectory>());
+        services.AddScoped<ICampaignDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzCampaignDirectory>());
         services.AddScoped<FitzPersonDirectory>();
         services.AddScoped<IPersonDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzPersonDirectory>());
@@ -502,6 +513,37 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetEffectiveCommitmentVersionHandler>()
             .AddRequestHandler<ListCommitmentVersionsHandler>()
             .AddRequestHandler<ListCommitmentDecisionsHandler>()
+            .AddRequestHandler<CreatePolicyDraftHandler>()
+            .AddRequestHandler<RevisePolicyDraftHandler>()
+            .AddRequestHandler<ProposePolicySuccessorHandler>()
+            .AddRequestHandler<DiscardPolicyDraftHandler>()
+            .AddRequestHandler<ReviewPolicyDraftHandler>()
+            .AddRequestHandler<ApprovePolicyHandler>()
+            .AddRequestHandler<ConfirmPolicyReviewHandler>()
+            .AddRequestHandler<ProposePolicyRetirementHandler>()
+            .AddRequestHandler<ApprovePolicyRetirementHandler>()
+            .AddRequestHandler<GetPolicyHandler>()
+            .AddRequestHandler<ListPoliciesHandler>()
+            .AddRequestHandler<GetPolicyVersionHandler>()
+            .AddRequestHandler<GetEffectivePolicyVersionHandler>()
+            .AddRequestHandler<ListPolicyVersionsHandler>()
+            .AddRequestHandler<ListPolicyDecisionsHandler>()
+            .AddRequestHandler<PreviewPolicyImpactHandler>()
+            .AddRequestHandler<DefineTrainingRequirementHandler>()
+            .AddRequestHandler<ReviseTrainingRequirementHandler>()
+            .AddRequestHandler<GetTrainingRequirementHandler>()
+            .AddRequestHandler<ListTrainingRequirementsHandler>()
+            .AddRequestHandler<LaunchPolicyCampaignHandler>()
+            .AddRequestHandler<LaunchTrainingCampaignHandler>()
+            .AddRequestHandler<ReconcileCampaignAudienceHandler>()
+            .AddRequestHandler<AcknowledgePolicyHandler>()
+            .AddRequestHandler<RecordTrainingCompletionHandler>()
+            .AddRequestHandler<ApproveCampaignWaiverHandler>()
+            .AddRequestHandler<CloseCampaignHandler>()
+            .AddRequestHandler<GetCampaignHandler>()
+            .AddRequestHandler<ListCampaignsHandler>()
+            .AddRequestHandler<ListCampaignParticipantsHandler>()
+            .AddRequestHandler<ListCampaignAmendmentsHandler>()
             .AddRequestHandler<CreateRiskDraftHandler>()
             .AddRequestHandler<ReviseRiskDraftHandler>()
             .AddRequestHandler<GetRiskDraftHandler>()
@@ -672,6 +714,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ControlDraftHistoryDirectoryV1Projector>(
                 "ControlDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<CommitmentDraftDirectoryProjector>("CommitmentDraftDirectory",
+                WorkloadScope.PerTenant)
+            .AddProjector<PolicyDirectoryProjector>(FitzPolicyDirectory.ProjectorName,
+                WorkloadScope.PerTenant)
+            .AddProjector<CampaignDirectoryProjector>(FitzCampaignDirectory.ProjectorName,
                 WorkloadScope.PerTenant)
             .AddProjector<CommitmentDraftHistoryDirectoryProjectorV1>(
                 "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
