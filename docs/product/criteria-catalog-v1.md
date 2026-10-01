@@ -75,3 +75,21 @@ All routes are tenant scoped and require tenant access. Names are snake_case.
 - No control mapping, overlay, export, or usage-flag enforcement yet.
 - Only one platform edition exists, so edition remapping is proven with test
   catalogs rather than a second shipped edition.
+
+## Criterion applicability and coverage reads (#476)
+
+- `POST .../programs/{program_id}/criterion-applicability` proposes that one
+  criterion (not a point of focus) of the program's selected edition does not
+  apply. `.../{decision_id}/reviews` accepts or rejects it; the proposer may
+  review only under a waiver scoped to `criterion_applicability`.
+  `.../{decision_id}/withdrawals` restores the criterion to coverage. Writes are
+  HTTP-only; get and list are read-only MCP tools.
+- Coverage reports `not_applicable` (with `not_applicable_decision_id`) for an
+  accepted decision, then `mapped` or `unmapped`. A mapped control whose mapped
+  version is no longer its current approved version reports
+  `remap_required: true`; mappings are never moved silently.
+- Coverage, mapping lists, and applicability lists read the
+  `ControlMappingDirectoryV1` and `CriterionApplicabilityDirectoryV1` Fitz
+  projections. A read before both reach every tenant source event returns a
+  transient `409`.
+- Licensed overlay text (#351, #448) is still out of scope.

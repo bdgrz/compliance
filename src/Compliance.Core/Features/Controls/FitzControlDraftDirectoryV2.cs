@@ -78,6 +78,19 @@ sealed class FitzControlDraftDirectoryV2(IKvClient client)
                     proposing with { DraftVersionId = proposed.VersionId }, ct)
                     .ConfigureAwait(false);
                 break;
+            case ControlProposalWithdrawn withdrawn:
+                var withdrawing = await ControlDraftDirectoryV2Schema.Controls.GetAsync(
+                    Transaction, withdrawn.ControlId, ct).ConfigureAwait(false);
+                if (withdrawing is null || withdrawing.TenantId != withdrawn.TenantId ||
+                    withdrawing.ProgramId != withdrawn.ProgramId ||
+                    withdrawing.Revision != withdrawn.Revision)
+                    throw new InvalidOperationException(
+                        "A control proposal withdrawal cannot project before its exact revision.");
+                // The restored content arrives in the ControlDraftRevised of the same commit.
+                await ControlDraftDirectoryV2Schema.Controls.ReplaceAsync(Transaction,
+                    withdrawing, withdrawing with { DraftVersionId = withdrawn.CurrentVersionId },
+                    ct).ConfigureAwait(false);
+                break;
             case ControlDraftDiscarded discarded:
                 var discardCurrent = await ControlDraftDirectoryV2Schema.Controls.GetAsync(
                     Transaction, discarded.ControlId, ct).ConfigureAwait(false);

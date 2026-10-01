@@ -36,6 +36,7 @@ public sealed class ControlDraft : Aggregate
     readonly List<ControlDecisionView> _decisions = [];
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
+    readonly Dictionary<ResponsibilityScope, ControlPersonOwner> _personOwners = [];
 
     public bool IsCreated => _created;
     public Uuid TenantId => _tenantId;
@@ -136,11 +137,15 @@ public sealed class ControlDraft : Aggregate
                     };
             }
             _versions.Add(new ControlVersionView(ev.TenantId, ev.ProgramId, ev.ControlId,
-                _identifier!, ev.VersionId, ev.Revision, "approved", "organization_authored",
+                _identifier!, ev.VersionId, ev.Revision, "approved",
+                ev.Content.Provenance?.Origin ?? OrganizationAuthored,
                 ev.Content, ev.EffectiveFrom, ev.PredecessorVersionId, ev.OwnerAssignmentId,
-                ev.OwnerMemberId, "verified_member", ev.AcceptedReviewDecisionId,
-                ev.ApprovalDecisionId, ev.Actor, ev.Rationale, ev.DecidedAt,
-                ev.SeparationOfDutiesWaiverId));
+                ev.OwnerMemberId, ev.OwnerPersonId is null ? "verified_member" : "verified_person",
+                ev.AcceptedReviewDecisionId, ev.ApprovalDecisionId, ev.Actor, ev.Rationale,
+                ev.DecidedAt, ev.SeparationOfDutiesWaiverId)
+            {
+                OwnerPersonId = ev.OwnerPersonId,
+            });
             _acceptedReviewDecisionId = Uuid.Empty;
             _draftVersionId = null;
             _draftPredecessorVersionId = null;
@@ -172,6 +177,26 @@ public sealed class ControlDraft : Aggregate
             _pendingRetirement = null;
             _acceptedReviewDecisionId = Uuid.Empty;
         });
+        On<ControlOwnerPersonDesignated>(ev =>
+        {
+            var scope = Scope(ev.VersionId, ev.Revision);
+            if (ev.PersonId is { } personId)
+                _personOwners[scope] = new ControlPersonOwner(personId, ev.CorrelatedMemberId,
+                    ev.DesignationId);
+            else
+                _personOwners.Remove(scope);
+        });
+        On<ControlProposalWithdrawn>(ev =>
+        {
+            _decisions.Add(new ControlDecisionView(ev.TenantId, ev.ProgramId, ev.ControlId,
+                ev.DecisionId, ev.TargetId, ev.Revision, "withdrawal", "withdraw", ev.Actor,
+                ev.Rationale, ev.WithdrawnAt, _latestReviewDecisionId, null, null));
+            _draftVersionId = null;
+            _draftPredecessorVersionId = null;
+            _pendingRetirement = null;
+            _acceptedReviewDecisionId = Uuid.Empty;
+            _latestReviewDecisionId = null;
+        });
         On<ResponsibilityAssigned>(ev =>
         {
             _responsibilityEverAssigned = true;
@@ -186,6 +211,76 @@ public sealed class ControlDraft : Aggregate
     }
 
     sealed record PendingRetirement(Uuid RetirementId, Uuid VersionId, DateOnly EffectiveUntil);
+
+    public const string OrganizationAuthored = "organization_authored";
+    static readonly string[] ProvenanceOrigins = [OrganizationAuthored, "template", "supplied"];
+
+    /// <summary>The person designated as owner of the exact current pending draft revision.</summary>
+    public ControlPersonOwner? CurrentPersonOwner =>
+        HasOpenDraft && _personOwners.TryGetValue(Scope(_draftVersionId!.Value, _revision),
+            out var owner)
+            ? owner
+            : null;
+
+    /// <summary>
+    ///     Designates, or clears, the workforce person who owns the exact pending draft revision.
+    ///     A later content revision needs its own designation.
+    /// </summary>
+    public CommandFailure? DesignatePersonOwner(Uuid programId, long expectedRevision,
+        Uuid designationId, Uuid? personId, Uuid? correlatedMemberId, string rationale,
+        Uuid actorMemberId, ActorReference actor, DateTimeOffset designatedAt)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        if (!IsVisible || ProgramId != programId)
+            return CommandFailure.MissingRecord("The control draft was not found.");
+        if (!HasOpenDraft)
+            return CommandFailure.StateConflict(
+                "A person owner can be designated only on an open control draft revision.");
+        if (expectedRevision != _revision)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
+                _revision));
+        if (personId == Uuid.Empty || designationId == Uuid.Empty ||
+            string.IsNullOrWhiteSpace(rationale) || rationale.Trim().Length > 4000)
+            return CommandFailure.InvalidContent(
+                "A person owner designation requires a workforce person or null and a rationale of at most 4000 characters.");
+        var current = CurrentPersonOwner;
+        if (current?.PersonId == personId && current?.CorrelatedMemberId == correlatedMemberId)
+            return null;
+        RaiseEvent(new ControlOwnerPersonDesignated(_tenantId, programId, Id,
+            _draftVersionId!.Value, _revision, designationId, personId,
+            personId is null ? null : correlatedMemberId, rationale.Trim(), actorMemberId,
+            actor, designatedAt));
+        return null;
+    }
+
+    /// <summary>
+    ///     Withdraws the pending successor draft or retirement proposal. The approved version
+    ///     stays current and its content is restored on a new revision.
+    /// </summary>
+    public CommandFailure? Withdraw(Uuid programId, long expectedRevision, Uuid decisionId,
+        string rationale, Uuid actorMemberId, ActorReference actor, DateTimeOffset withdrawnAt)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        if (!IsVisible || ProgramId != programId)
+            return CommandFailure.MissingRecord("The control was not found.");
+        if (_retired)
+            return CommandFailure.StateConflict("The control is retired.");
+        if (ApprovedVersion is not { } current || PendingTargetId is not { } target)
+            return CommandFailure.StateConflict(
+                "Only a pending successor or retirement of an approved control can be withdrawn. Discard an unused initial draft instead.");
+        if (expectedRevision != _revision)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("control draft",
+                _revision));
+        if (decisionId == Uuid.Empty || string.IsNullOrWhiteSpace(rationale) ||
+            rationale.Trim().Length > 4000)
+            return CommandFailure.InvalidContent(
+                "Withdrawing a proposal requires a rationale of at most 4000 characters.");
+        RaiseEvent(new ControlProposalWithdrawn(_tenantId, programId, Id, decisionId,
+            HasOpenDraft ? "successor" : "retirement", target, current.VersionId, _revision,
+            rationale.Trim(), actorMemberId, actor, withdrawnAt));
+        return RaiseRevision(programId, current.Content, actorMemberId, actor.Display,
+            withdrawnAt);
+    }
 
     public static string NormalizeIdentifier(string? identifier) =>
         identifier?.Trim().ToUpperInvariant() ?? string.Empty;
@@ -497,13 +592,18 @@ public sealed class ControlDraft : Aggregate
 
     CommandFailure? CheckSeparationOfDuties(ResponsibilityScope scope, Uuid memberId,
         ResponsibilityType decisionType, string action, DateTimeOffset at,
-        SeparationOfDutiesWaiver? waiver)
+        SeparationOfDutiesWaiver? waiver, Uuid? currentOwnerMemberId = null)
     {
         var isAuthor = memberId == _draftAuthorMemberId;
         var failure = ResponsibilityDecisionGuard.Validate(GetResponsibilitySet(scope), scope,
             memberId, decisionType, at, isAuthor, waiver);
         if (failure is not null)
             return failure;
+        if (waiver is null && (_personOwners.TryGetValue(scope, out var personOwner) &&
+                               personOwner.CorrelatedMemberId == memberId ||
+                               currentOwnerMemberId == memberId))
+            return CommandFailure.ActorProhibited(
+                "The control owner cannot " + action + " their own control revision without a separation-of-duties waiver.");
         var waiverScope = new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.Control,
             Id, scope.VersionId, scope.Revision, action);
         if (waiver is not null &&
@@ -550,7 +650,8 @@ public sealed class ControlDraft : Aggregate
         Uuid acceptedReviewDecisionId, DateOnly effectiveFrom, string rationale,
         IReadOnlySet<Uuid> verifiedActiveOwnerMemberIds, Uuid approverMemberId,
         string approverDisplay, DateTimeOffset decidedAt,
-        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null, string? impactDigest = null)
+        SeparationOfDutiesWaiver? separationOfDutiesWaiver = null, string? impactDigest = null,
+        ControlPersonOwner? verifiedPersonOwner = null)
     {
         ArgumentNullException.ThrowIfNull(verifiedActiveOwnerMemberIds);
         if (CheckDecisionTarget(programId, expectedRevision) is { } target)
@@ -560,8 +661,14 @@ public sealed class ControlDraft : Aggregate
                 "Only an open control draft can be approved. Retirement uses its own decision.");
         var draftVersionId = _draftVersionId!.Value;
         var scope = Scope(draftVersionId, expectedRevision);
+        var designatedPerson = _personOwners.GetValueOrDefault(scope);
+        var personOwner = designatedPerson is not null &&
+                          verifiedPersonOwner?.PersonId == designatedPerson.PersonId
+            ? verifiedPersonOwner
+            : null;
         if (CheckSeparationOfDuties(scope, approverMemberId, ResponsibilityType.PolicyApprover,
-                SeparationOfDutiesActions.Approve, decidedAt, separationOfDutiesWaiver) is { } sod)
+                SeparationOfDutiesActions.Approve, decidedAt, separationOfDutiesWaiver,
+                personOwner?.CorrelatedMemberId) is { } sod)
             return sod;
         if (acceptedReviewDecisionId == Uuid.Empty ||
             acceptedReviewDecisionId != _acceptedReviewDecisionId)
@@ -591,14 +698,16 @@ public sealed class ControlDraft : Aggregate
             .OrderBy(static assignment => assignment.AssignedAt)
             .ThenBy(static assignment => assignment.AssignmentId.ToString(), StringComparer.Ordinal)
             .FirstOrDefault();
-        if (owner is null)
+        if (owner is null && personOwner is null)
             return CommandFailure.StateConflict(
-                "Activation requires an active client-personnel member assigned control_owner on this exact draft revision.");
+                "Activation requires an active client-personnel member assigned control_owner, or a verified workforce person designated as owner, on this exact draft revision.");
         ControlApproved approved = new(_tenantId, ProgramId, Id, draftVersionId, expectedRevision,
-            approvalDecisionId, acceptedReviewDecisionId, _currentContent!, owner.AssignmentId,
-            owner.MemberId, approverMemberId, approverDisplay, rationale.Trim(), effectiveFrom,
-            decidedAt, separationOfDutiesWaiver?.Id, predecessor?.VersionId,
-            predecessor is null ? null : impactDigest)
+            approvalDecisionId, acceptedReviewDecisionId, _currentContent!,
+            owner?.AssignmentId ?? designatedPerson!.DesignationId,
+            owner?.MemberId ?? personOwner!.CorrelatedMemberId ?? Uuid.Empty, approverMemberId,
+            approverDisplay, rationale.Trim(), effectiveFrom, decidedAt,
+            separationOfDutiesWaiver?.Id, predecessor?.VersionId,
+            predecessor is null ? null : impactDigest, owner is null ? personOwner!.PersonId : null)
         {
             StoredActor = ActorReference.ForMember(approverMemberId, approverDisplay),
         };
@@ -678,6 +787,9 @@ public sealed class ControlDraft : Aggregate
         if (content.OwnerReference is { Length: > 500 })
             return new RequestError(RequestErrorKind.Validation,
                 "A control owner reference must be at most 500 characters.");
+        if (content.Provenance is { } provenance && !IsValidProvenance(provenance))
+            return new RequestError(RequestErrorKind.Validation,
+                "Control content provenance requires an origin of organization_authored, template, or supplied; a template or supplied origin names its source; source fields are at most 500 characters.");
         var applicability = content.Applicability ?? [];
         if (applicability.Count > 100 || applicability.Any(static reference =>
                 !IsValidApplicabilityReference(reference)) ||
@@ -687,6 +799,22 @@ public sealed class ControlDraft : Aggregate
             "Every control applicability reference requires a unique ID, typed subject, rationale, and a consistent governed reference state.");
         return null;
     }
+
+    static bool IsValidProvenance(ControlContentProvenance provenance) =>
+        ProvenanceOrigins.Contains(provenance.Origin) &&
+        (provenance.Origin == OrganizationAuthored ||
+         !string.IsNullOrWhiteSpace(provenance.SourceName)) &&
+        new[] { provenance.SourceName, provenance.SourceReference, provenance.SourceVersion }
+            .All(static value => value is null || value.Trim().Length <= 500);
+
+    static ControlContentProvenance? CleanProvenance(ControlContentProvenance? provenance) =>
+        provenance is null
+            ? null
+            : new ControlContentProvenance(provenance.Origin, Optional(provenance.SourceName),
+                Optional(provenance.SourceReference), Optional(provenance.SourceVersion));
+
+    static string? Optional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     static bool IsValidApplicabilityReference(ControlApplicabilityReference? reference)
     {
@@ -710,7 +838,8 @@ public sealed class ControlDraft : Aggregate
         string.IsNullOrWhiteSpace(content.OwnerReference) ? null : content.OwnerReference.Trim(),
         (content.Applicability ?? []).Select(static reference => new ControlApplicabilityReference(
             reference.EntryId, reference.SubjectType, reference.Subject.Trim(),
-            reference.GovernedRecordId, reference.Rationale.Trim(), reference.Unresolved)).ToArray());
+            reference.GovernedRecordId, reference.Rationale.Trim(), reference.Unresolved)).ToArray(),
+        CleanProvenance(content.Provenance));
 
     static bool Equal(ControlDraftContent left, ControlDraftContent right) =>
         StringComparer.Ordinal.Equals(left.Title, right.Title) &&
@@ -720,5 +849,6 @@ public sealed class ControlDraft : Aggregate
         left.ExpectedEvidenceDescriptions.SequenceEqual(right.ExpectedEvidenceDescriptions,
             StringComparer.Ordinal) &&
         StringComparer.Ordinal.Equals(left.OwnerReference, right.OwnerReference) &&
-        (left.Applicability ?? []).SequenceEqual(right.Applicability ?? []);
+        (left.Applicability ?? []).SequenceEqual(right.Applicability ?? []) &&
+        Equals(left.Provenance, right.Provenance);
 }

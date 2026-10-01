@@ -99,6 +99,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ProposeControlSuccessor>()
         .AddMcpTool<ProposeControlRetirement>()
         .AddMcpTool<PreviewControlImpact>(tool => tool.ReadOnly())
+        .AddMcpTool<GetCriterionApplicability>(tool => tool.ReadOnly())
+        .AddMcpTool<ListCriterionApplicability>(tool => tool.ReadOnly())
         .AddMcpTool<CreateCommitmentDraft>()
         .AddMcpTool<ReviseCommitmentDraft>()
         .AddMcpTool<GetCommitmentDraft>(tool => tool.ReadOnly())
@@ -120,6 +122,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetRiskMethodVersion>(tool => tool.ReadOnly())
         .AddMcpTool<GetRiskEvaluation>(tool => tool.ReadOnly())
         .AddMcpTool<ListRiskEvaluationHistory>(tool => tool.ReadOnly())
+        .AddMcpTool<GetRiskGovernance>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseProgram>(tool => tool.Idempotent())
         .AddMcpTool<GetProgram>(tool => tool.ReadOnly())
         .AddMcpTool<ListPrograms>(tool => tool.ReadOnly())
@@ -546,6 +549,36 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/retirements")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Controls");
+    // Withdrawal and person-owner designation are human decisions and stay HTTP-only.
+    app.MapPortiaPost<WithdrawControlProposal>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/proposal-withdrawals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    app.MapPortiaPut<DesignateControlOwnerPerson>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/owner-person")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
+    // Criterion applicability decisions are human decisions; writes stay HTTP-only.
+    app.MapPortiaPost<ProposeCriterionNotApplicable, CriterionApplicabilityRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaPost<ReviewCriterionApplicability>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability/{decision_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaPost<WithdrawCriterionNotApplicable>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability/{decision_id}/withdrawals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaGet<GetCriterionApplicability, CriterionApplicabilityView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability/{decision_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
+    app.MapPortiaGet<ListCriterionApplicability, Page<CriterionApplicabilityView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control mappings");
     app.MapPortiaPost<CreateCommitmentDraft, CommitmentDraftRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/commitment-drafts")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -653,6 +686,27 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Risks");
     app.MapPortiaGet<ListRiskEvaluationHistory, Page<RiskEvaluationHistoryEntryView>>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/evaluation/history")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    // Risk owner and control treatment writes are human decisions and stay HTTP-only.
+    app.MapPortiaPut<AssignRiskOwner>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/owner")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<ProposeRiskControlTreatment, RiskControlTreatmentRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/control-treatments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<ReviewRiskControlTreatment>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/control-treatments/{treatment_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<RetireRiskControlTreatment>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/control-treatments/{treatment_id}/retirements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaGet<GetRiskGovernance, RiskGovernanceView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/governance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
     app.MapPortiaPost<RunReadinessAssessment, ReadinessAssessmentRegistration>(

@@ -130,3 +130,30 @@ aggregate continues to enforce expected revisions for stale edits.
   them, and keep such a reader build for rollback.
 - Successors, change impact, non-signing-in Person owners (#433), retirement, and complete
   deletion guards (#434) remain out of scope.
+
+## Ownership, provenance, withdrawal, and full impact (#468, #477)
+
+- Draft content may carry `provenance` with `origin` `organization_authored` (the default when
+  absent), `template`, or `supplied`. A template or supplied origin names its `source_name` and
+  may add `source_reference` and `source_version`. The approved version reports the origin as
+  `content_origin`; provenance never attributes content to a platform actor who did not act.
+- `PUT .../controls/{control_id}/draft/owner-person` designates (or, with a null `person_id`,
+  clears) a recorded workforce person as owner of the exact pending draft revision. The person
+  need not sign in; the signed-in recording actor stays separate. Activation re-reads the person
+  from the workforce roster and, when no verified member `control_owner` exists, records
+  `owner_resolution=verified_person` with `owner_person_id`. The person's correlated member, at
+  designation and at approval, may not review or approve the revision without an exact-scope
+  waiver.
+- `POST .../controls/{control_id}/proposal-withdrawals` withdraws a pending successor draft or
+  retirement proposal at its exact revision. The approved version stays current, its content is
+  restored on a new revision so stale reviews and digests cannot apply, and a `withdrawal`
+  decision is kept in the decision history.
+- The impact preview now has authoritative contributors for `mappings` (active and pending
+  criterion mappings naming the control), `risk_treatments` (proposed and accepted control
+  treatment assertions), and `readiness` (whether the latest readiness assessment relied on a
+  version of the control). `engagements`, `evidence`, and `work` stay `unlinked` because no
+  record in those contexts can reference a control in this build. A context naming more than
+  200 records reports `pending`, which blocks the decision.
+- Person-owner designation and withdrawal emit new discriminators, so they share the
+  `Compliance:Controls:LifecycleEnabled` readers-before-writers gate. Enabling it and
+  `ActivationEnabled` in production remains a rollout decision.

@@ -34,13 +34,30 @@ public sealed class AcceptRiskHandler(IAggregateExecutor executor, IAggregateRea
         var permission = RbacPermissions.RiskAcceptanceFor(request.ApproverAuthority);
         var held = permission is not null && await permissions.IsAllowedAsync(request.TenantId,
             actor.UserId, actor.MemberId, request.ProgramId, permission, ct).ConfigureAwait(false);
+        // The owner's correlated member at assignment and now are both bound by owner SoD.
+        var governance = await reader.HydrateAsync(new RiskGovernanceLedger(request.TenantId,
+            request.ProgramId), ct).ConfigureAwait(false);
+        Uuid? ownerMemberId = null;
+        if (governance.OwnerOf(request.RiskId) is { } owner)
+        {
+            var (_, currentMemberId) = await RiskOwnerResolution.ResolveAsync(reader,
+                request.TenantId, owner.PersonId, ct).ConfigureAwait(false);
+            ownerMemberId = owner.CorrelatedMemberId == actor.MemberId ||
+                            currentMemberId == actor.MemberId
+                ? actor.MemberId
+                : currentMemberId ?? owner.CorrelatedMemberId;
+        }
+        SeparationOfDutiesWaiver? waiver = null;
+        if (request.SeparationOfDutiesWaiverId is { } waiverId)
+            waiver = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId,
+                waiverId), ct).ConfigureAwait(false);
         return await executor.ExecuteAsync(new RiskEvaluation(request.TenantId, request.RiskId),
             evaluation =>
             {
                 var failure = evaluation.Accept(request.ProgramId, request.ExpectedRevision,
                     context.RequestId, request.ResidualAssessmentId, method,
                     request.ApproverAuthority, held, request.ExpiresAt, request.Rationale,
-                    actor.MemberId, actor.Display, clock.GetUtcNow());
+                    actor.MemberId, actor.Display, clock.GetUtcNow(), ownerMemberId, waiver);
                 return CommandFailureRequestAdapter.ToOutcome(failure,
                     evaluation.FindAcceptance(context.RequestId)!);
             }, context, ct).ConfigureAwait(false);

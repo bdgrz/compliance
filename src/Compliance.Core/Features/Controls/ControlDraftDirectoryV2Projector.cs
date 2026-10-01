@@ -6,7 +6,8 @@ public sealed partial class ControlDraftDirectoryV2Projector(IControlDraftDirect
     : Projector(projection, EventStreamPattern.ForTenant("controls"),
             "ControlDraftDirectoryV2"),
       IProjectorHandler<ControlDraftCreated>, IProjectorHandler<ControlDraftRevised>,
-      IProjectorHandler<ControlDraftDiscarded>, IProjectorHandler<ControlSuccessorProposed>
+      IProjectorHandler<ControlDraftDiscarded>, IProjectorHandler<ControlSuccessorProposed>,
+      IProjectorHandler<ControlProposalWithdrawn>
 {
     public ValueTask HandleAsync(ControlDraftCreated ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
@@ -18,5 +19,8 @@ public sealed partial class ControlDraftDirectoryV2Projector(IControlDraftDirect
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(ControlSuccessorProposed ev, IProjectorContext context,
+        CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(ControlProposalWithdrawn ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 }

@@ -34,6 +34,9 @@ public sealed class SystemBoundary : Aggregate
     public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
     public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
 
+    /// <summary>The initial approved version; any later approval changes the boundary.</summary>
+    public Uuid FirstApprovedVersionId { get; private set; }
+
     public SystemBoundary(Uuid tenantId, Uuid boundaryId)
         : base(boundaryId, new EventStreamAddress(tenantId.ToString(), "boundaries", boundaryId.ToString()))
     {
@@ -83,6 +86,8 @@ public sealed class SystemBoundary : Aggregate
                     ev.DraftVersionId, ev.Revision), ev.ActorMemberId,
                 ResponsibilityType.PolicyApprover, ev.DecidedAt,
                 ev.SeparationOfDutiesWaiverId);
+            if (_approvedVersionIds.Count == 0)
+                FirstApprovedVersionId = ev.DraftVersionId;
             _approvedVersionIds.Add(ev.DraftVersionId);
             _latestApprovedVersionId = ev.DraftVersionId;
             _latestApprovedEffectiveFrom = ev.EffectiveFrom;

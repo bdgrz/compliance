@@ -63,7 +63,7 @@ public sealed class RiskEvaluation : Aggregate
     public CommandFailure? RecordAssessment(Uuid programId, long expectedRevision,
         Uuid assessmentId, RiskMethodVersionView method, string phase, int likelihood,
         int impact, string rationale, Uuid assessorMemberId, string assessorDisplay,
-        DateTimeOffset assessedAt)
+        DateTimeOffset assessedAt, bool hasAcceptedControlTreatment = false)
     {
         ArgumentNullException.ThrowIfNull(method);
         if (FindAssessment(assessmentId) is { } existing)
@@ -90,9 +90,12 @@ public sealed class RiskEvaluation : Aggregate
                 return CommandFailure.StateConflict(
                     "The method changed since the inherent assessment. Reassess the inherent risk first.");
         }
-        if (phase == Residual && Treatment is not { Kind: not "mitigate" })
+        if (phase == Residual && Treatment is null)
             return CommandFailure.StateConflict(
-                "A residual assessment requires a control treatment or a non-mitigate treatment.");
+                "A residual assessment requires a chosen treatment.");
+        if (phase == Residual && Treatment is { Kind: "mitigate" } && !hasAcceptedControlTreatment)
+            return CommandFailure.StateConflict(
+                "A residual assessment under mitigate requires an independently accepted control treatment.");
         RaiseEvent(new RiskAssessmentRecorded(_tenantId, programId, Id, Revision + 1,
             new RiskAssessmentView(assessmentId, phase, method.MethodVersionId, method.Version,
                 likelihood, impact, likelihood * impact, rationale.Trim(),
@@ -121,7 +124,8 @@ public sealed class RiskEvaluation : Aggregate
     public CommandFailure? Accept(Uuid programId, long expectedRevision, Uuid acceptanceId,
         Uuid residualAssessmentId, RiskMethodVersionView method, string authority,
         bool approverHoldsAuthority, DateTimeOffset expiresAt, string rationale,
-        Uuid approverMemberId, string approverDisplay, DateTimeOffset acceptedAt)
+        Uuid approverMemberId, string approverDisplay, DateTimeOffset acceptedAt,
+        Uuid? ownerMemberId = null, SeparationOfDutiesWaiver? waiver = null)
     {
         ArgumentNullException.ThrowIfNull(method);
         if (FindAcceptance(acceptanceId) is { } existing)
@@ -153,11 +157,23 @@ public sealed class RiskEvaluation : Aggregate
         if (residual.Assessor.Kind == "member" &&
             residual.Assessor.Id == approverMemberId.ToString())
             return CommandFailure.ActorProhibited("The residual assessor cannot accept the same risk.");
+        if (waiver is not null && (waiver.TenantId != _tenantId || !waiver.Allows(
+                new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.Risk, Id,
+                    residualAssessmentId, expectedRevision, SeparationOfDutiesActions.Approve),
+                approverMemberId, acceptedAt)))
+            return CommandFailure.ActorProhibited(
+                "The separation-of-duties waiver is not active for this member and risk revision.");
+        if (ownerMemberId == approverMemberId && waiver is null)
+            return CommandFailure.ActorProhibited(
+                "The risk owner cannot accept their own risk without a separation-of-duties waiver.");
         RaiseEvent(new RiskAccepted(_tenantId, programId, Id, Revision + 1,
             new RiskAcceptanceView(acceptanceId, residualAssessmentId, residual.Score,
                 method.AppetiteThreshold, approverMemberId,
                 ActorReference.ForMember(approverMemberId, approverDisplay), authority,
-                rationale.Trim(), acceptedAt, expiresAt)));
+                rationale.Trim(), acceptedAt, expiresAt)
+            {
+                SeparationOfDutiesWaiverId = waiver?.Id,
+            }));
         return null;
     }
 

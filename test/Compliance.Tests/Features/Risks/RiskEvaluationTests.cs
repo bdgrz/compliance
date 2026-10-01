@@ -95,6 +95,82 @@ public sealed class RiskEvaluationTests
     }
 
     [Fact]
+    public void ShouldRecordResidualUnderMitigateGivenAcceptedControlTreatment()
+    {
+        // Arrange
+        var method = Method(12);
+        var evaluation = New();
+        Assert.Null(Inherent(evaluation, method));
+        Assert.Null(evaluation.ChooseTreatment(ProgramId, 1, "mitigate", "Add failover",
+            AssessorId, "Assessor", Now));
+
+        // Act
+        var residual = evaluation.RecordAssessment(ProgramId, 2, Uuid.CreateVersion4(),
+            method, "residual", 2, 2, "After failover", AssessorId, "Assessor", Now,
+            hasAcceptedControlTreatment: true);
+
+        // Assert
+        Assert.Null(residual);
+        Assert.Equal(4, evaluation.Latest("residual")!.Score);
+    }
+
+    [Fact]
+    public void ShouldDenyOwnerAcceptanceGivenNoWaiverThenAllowGivenExactWaiver()
+    {
+        // Arrange
+        var method = Method(12);
+        var (evaluation, residualId) = ReadyForAcceptance(method, 1, 1);
+        var waiver = new SeparationOfDutiesWaiver(TenantId, Uuid.CreateVersion4());
+        Assert.Null(waiver.Record(new SeparationOfDutiesWaiverScope("risk", evaluation.Id,
+                residualId, 3, "approve"), ApproverId, Uuid.CreateVersion4(), "Admin",
+            "Sole executive owns the risk.", Now.AddMinutes(-10), Now.AddDays(1)));
+        Assert.Null(waiver.Approve(Uuid.CreateVersion4(), "Other admin", Now.AddMinutes(-5)));
+        var otherScope = new SeparationOfDutiesWaiver(TenantId, Uuid.CreateVersion4());
+        Assert.Null(otherScope.Record(new SeparationOfDutiesWaiverScope("risk", evaluation.Id,
+                Uuid.CreateVersion4(), 3, "approve"), ApproverId, Uuid.CreateVersion4(),
+            "Admin", "Wrong assessment.", Now.AddMinutes(-10), Now.AddDays(1)));
+        Assert.Null(otherScope.Approve(Uuid.CreateVersion4(), "Other admin", Now.AddMinutes(-5)));
+
+        // Act
+        var unwaived = evaluation.Accept(ProgramId, 3, Uuid.CreateVersion4(), residualId, method,
+            "executive", true, Now.AddMonths(3), "Owner accepts", ApproverId, "CEO", Now,
+            ApproverId);
+        var mismatched = evaluation.Accept(ProgramId, 3, Uuid.CreateVersion4(), residualId,
+            method, "executive", true, Now.AddMonths(3), "Owner accepts", ApproverId, "CEO",
+            Now, ApproverId, otherScope);
+        var waived = evaluation.Accept(ProgramId, 3, Uuid.CreateVersion4(), residualId, method,
+            "executive", true, Now.AddMonths(3), "Owner accepts", ApproverId, "CEO", Now,
+            ApproverId, waiver);
+
+        // Assert
+        Assert.Equal(CommandFailureCode.ActorProhibited, unwaived!.Code);
+        Assert.Equal(CommandFailureCode.ActorProhibited, mismatched!.Code);
+        Assert.Null(waived);
+        Assert.Equal(waiver.Id, Assert.Single(evaluation.ToView().Acceptances)
+            .SeparationOfDutiesWaiverId);
+    }
+
+    [Fact]
+    public void ShouldReportReassessmentDueGivenOpenTrigger()
+    {
+        // Arrange
+        var method = Method(12);
+        var evaluation = New();
+        Assert.Null(Inherent(evaluation, method));
+        var trigger = new RiskReassessmentTriggerView(Uuid.CreateVersion4(), evaluation.Id,
+            "boundary_changed", Uuid.CreateVersion4().ToString(), Now.AddMinutes(1));
+
+        // Act
+        var view = RiskEvaluationStatus.AsOf(evaluation.ToView() with
+        {
+            OpenReassessmentTriggers = [trigger],
+        }, Now.AddMinutes(2));
+
+        // Assert
+        Assert.Equal("reassessment_due", view.Status);
+    }
+
+    [Fact]
     public void ShouldAcceptWithinAppetiteGivenComplianceLeadAndTwelveMonthExpiry()
     {
         // Arrange

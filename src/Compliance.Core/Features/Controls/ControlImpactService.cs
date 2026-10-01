@@ -120,6 +120,7 @@ public sealed class ControlImpactService(IAggregateReader reader,
         Field(changes, "implementation_narrative", previous.ImplementationNarrative,
             proposed.ImplementationNarrative);
         Field(changes, "owner_reference", previous.OwnerReference, proposed.OwnerReference);
+        Field(changes, "provenance", Describe(previous.Provenance), Describe(proposed.Provenance));
         Field(changes, "expected_evidence", string.Join('\n',
             previous.ExpectedEvidenceDescriptions), string.Join('\n',
             proposed.ExpectedEvidenceDescriptions));
@@ -145,6 +146,11 @@ public sealed class ControlImpactService(IAggregateReader reader,
         if (!StringComparer.Ordinal.Equals(previous, proposed))
             changes.Add(new ControlChange(field, "revised", null, previous, proposed));
     }
+
+    static string Describe(ControlContentProvenance? provenance) => provenance is null
+        ? ControlDraft.OrganizationAuthored
+        : string.Join('|', provenance.Origin, provenance.SourceName, provenance.SourceReference,
+            provenance.SourceVersion);
 
     static string? Describe(ControlApplicabilityReference? reference) => reference is null
         ? null
