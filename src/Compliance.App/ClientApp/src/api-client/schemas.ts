@@ -1812,6 +1812,39 @@ export type Portia5C785825C5C3F7E845CCBEE2767058870CB823F13882AECF91DBC1CBDA9F87
   "revision": number | string;
 } | null;
 
+export type Portia5CFD66CF1D49C4A10D85468725779E1C68E93F8CA3F985919F35F777F014F0DC = {
+  "tenant_id": string;
+  "program_id": string;
+  "evidence_request_id": string;
+  "revision": number | string;
+  "title": string;
+  "instructions": string;
+  "owner_member_id": string;
+  "due_on": string;
+  "control_id": string | null;
+  "status": string;
+  "requested_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "opened_at": string;
+  "artifact_id": string | null;
+  "fulfilled_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "fulfilled_at": string | null;
+  "cancellation_rationale": string | null;
+  "cancelled_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "cancelled_at": string | null;
+} | null;
+
 export type Portia5D4504657CF0F248BBB0D39DEB82554EBDBEFE27BFFEFBB869B53903B87F98DC = {
   "tenant_id": string;
   "service_identity_id": string;
@@ -5267,6 +5300,42 @@ export type PortiaCE317BDB9F287F13D0C5620C1C17559DBCA77AC9779C300BC881F44035E4A2
   "reason": string;
   "merged_into_application_id": string | null;
 } | null;
+} | null;
+
+export type PortiaCE724EEA7094B0ED28C81B3FC706FFC1EEC1A128F89779B3568F797D6FDD6351 = {
+  "items": Array<{
+  "tenant_id": string;
+  "program_id": string;
+  "evidence_request_id": string;
+  "revision": number | string;
+  "title": string;
+  "instructions": string;
+  "owner_member_id": string;
+  "due_on": string;
+  "control_id": string | null;
+  "status": string;
+  "requested_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "opened_at": string;
+  "artifact_id": string | null;
+  "fulfilled_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "fulfilled_at": string | null;
+  "cancellation_rationale": string | null;
+  "cancelled_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "cancelled_at": string | null;
+} | null>;
+  "next_cursor": string | null;
 } | null;
 
 export type PortiaD1911225671F0102A93760A010419412AB90210CE93B2AFC1084DF988DE0A198 = {

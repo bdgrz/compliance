@@ -8,6 +8,7 @@ global using Bdgrz.Compliance.Features.ControlMappings;
 global using Bdgrz.Compliance.Features.Controls;
 global using Bdgrz.Compliance.Features.Criteria;
 global using Bdgrz.Compliance.Features.Evaluations;
+global using Bdgrz.Compliance.Features.Evidence;
 global using Bdgrz.Compliance.Features.Operations;
 global using Bdgrz.Compliance.Features.Policies;
 global using Bdgrz.Compliance.Features.PolicyDistribution;
