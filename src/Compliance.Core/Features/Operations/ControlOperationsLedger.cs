@@ -130,6 +130,12 @@ public sealed class ControlOperationsLedger : Aggregate
             CurrentPlan(controlId), PendingPlan(controlId), line?.Plans.ToArray() ?? []);
     }
 
+    /// <summary>Every recorded occurrence in source state, without a queue horizon or derived overdue status.</summary>
+    public IReadOnlyList<ControlOccurrenceView> ReadRecordedOccurrences(Uuid controlId) =>
+        _occurrences.Values.Where(occurrence => occurrence.Opened.ControlId == controlId)
+            .OrderBy(static occurrence => occurrence.Opened.OccurrenceId.ToString(), StringComparer.Ordinal)
+            .Select(occurrence => ToView(occurrence, null)).ToArray();
+
     /// <summary>Materialized occurrences whose open work would move to a new owner.</summary>
     public IReadOnlyList<OccurrenceReassignmentView> OpenWorkToReassign(Uuid controlId,
         OperatingHolder newOwner, Uuid planVersionId) => _occurrences.Values
@@ -488,10 +494,11 @@ public sealed class ControlOperationsLedger : Aggregate
         return null;
     }
 
-    ControlOccurrenceView ToView(OccurrenceState occurrence, DateOnly today)
+    ControlOccurrenceView ToView(OccurrenceState occurrence, DateOnly? today)
     {
         var opened = occurrence.Opened;
-        var state = occurrence.State == Open && opened.DueOn is { } due && due < today
+        var state = occurrence.State == Open && opened.DueOn is { } due &&
+                    today is { } asOf && due < asOf
             ? Missed
             : occurrence.State;
         return new ControlOccurrenceView(_tenantId, Id, opened.ControlId, opened.OccurrenceId,

@@ -95,6 +95,7 @@ public sealed class RemediationLedger : Aggregate
             var finding = _findings[ev.FindingId];
             finding.Revision = ev.Revision;
             finding.Closure = ev.Closure;
+            finding.Closures.Add(ev.Closure);
             finding.History.Add(new FindingHistoryEntryView(ev.Revision, "closed",
                 $"Decision {ev.Closure.DecisionId}: {ev.Closure.Rationale}", ev.Closure.ClosedBy,
                 ev.Closure.ClosedAt));
@@ -289,6 +290,10 @@ public sealed class RemediationLedger : Aggregate
     public FindingView? Read(Uuid findingId, DateTimeOffset now) =>
         _findings.TryGetValue(findingId, out var finding) ? ToView(finding, now) : null;
 
+    /// <summary>Every closure decision and its retained support, including decisions later reopened.</summary>
+    public IReadOnlyList<FindingClosureView> ReadClosures(Uuid findingId) =>
+        _findings.TryGetValue(findingId, out var finding) ? finding.Closures.ToArray() : [];
+
     public IReadOnlyList<FindingView> ReadAll(DateTimeOffset now) => _findings.Values
         .OrderBy(static finding => finding.Raised.RaisedAt)
         .ThenBy(static finding => finding.Raised.FindingId.ToString(), StringComparer.Ordinal)
@@ -370,6 +375,7 @@ public sealed class RemediationLedger : Aggregate
         public string AffectedScope { get; set; } = raised.AffectedScope;
         public string? RootCause { get; set; }
         public FindingClosureView? Closure { get; set; }
+        public List<FindingClosureView> Closures { get; } = [];
         public List<CorrectiveActionView> Actions { get; } = [];
         public List<FindingAcceptanceView> Acceptances { get; } = [];
         public List<FindingHistoryEntryView> History { get; } =
