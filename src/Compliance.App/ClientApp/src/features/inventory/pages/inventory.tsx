@@ -14,6 +14,7 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
+import { listApplications, listSystemInstances } from '../../applications/applications.js';
 import {
   classifications,
   componentCategories,
@@ -26,6 +27,7 @@ import {
   listFlowRevisions,
   listFlows,
   listPeople,
+  previewAssetChange,
   recordAsset,
   recordComponent,
   recordFlow,
@@ -33,6 +35,7 @@ import {
   reviseComponent,
   reviseFlow,
   vocabularyLabel,
+  type AssetChangeImpact,
   type AssetContent,
   type ComponentContent,
   type DataFlow,
@@ -162,6 +165,40 @@ function Submit({ pending, label }: { pending: boolean; label: string }) {
 
 const vocabulary = (values: readonly string[]) => values.map((value) => ({ value, label: vocabularyLabel(value) }));
 
+type InstanceOption = { value: string; label: string };
+
+// Every active system instance across applications, labelled "Application — Instance", so a cloud
+// account can be tied to the reviewed system it hosts.
+async function loadInstanceOptions(): Promise<InstanceOption[]> {
+  const applications = (await listApplications()).filter((a) => a.hasSystemInstances && a.lifecycle === 'active');
+  const groups = await Promise.all(
+    applications.map(async (a) =>
+      (await listSystemInstances(a.applicationId))
+        .filter((i) => i.lifecycle === 'active')
+        .map((i) => ({ value: i.systemInstanceId, label: `${a.name} — ${i.name}` }))
+    )
+  );
+  return groups.flat().sort((x, y) => x.label.localeCompare(y.label));
+}
+
+function SystemInstancePicker({ value, onChange }: { value: string | null; onChange: (value: string) => void }) {
+  const options = resource(() => loadInstanceOptions(), []);
+  if (options.pending && !options.value) return <Spinner label="Loading system instances" />;
+  if (options.error) {
+    return (
+      <Stack gap="sm">
+        <p role="alert">{options.error.message}</p>
+        <Button variant="secondary" onPress={() => options.refresh()}>
+          Try again
+        </Button>
+      </Stack>
+    );
+  }
+  const list = options.value ?? [];
+  if (list.length === 0) return <p>No system instances are declared yet. Declare one on an application first.</p>;
+  return <Choice label="System instance" value={value ?? ''} options={list} onChange={onChange} />;
+}
+
 function ComponentForm({
   existing,
   people,
@@ -219,7 +256,7 @@ function ComponentForm({
         <Text label="Environment reference (optional)" value={c.environmentReference} onInput={(environmentReference) => set({ environmentReference })} />
         <Text label="Location reference (optional)" value={c.locationReference} onInput={(locationReference) => set({ locationReference })} />
         {!existing && c.category === 'cloud_account' ? (
-          <Text label="System instance ID" value={c.systemInstanceId} required onInput={(systemInstanceId) => set({ systemInstanceId })} />
+          <SystemInstancePicker value={c.systemInstanceId} onChange={(systemInstanceId) => set({ systemInstanceId })} />
         ) : null}
         {c.category === 'endpoint_class' ? (
           <>
@@ -244,7 +281,50 @@ function ComponentForm({
   );
 }
 
-function AssetForm({ existing, people, onSaved }: { existing: InformationAsset | null; people: Person[]; onSaved: () => void }) {
+// Lists the data flows a classification or lifecycle change would reclassify or break, so the
+// owner sees the downstream effect before saving.
+function AssetImpact({ impact, flows }: { impact: AssetChangeImpact; flows: DataFlow[] }) {
+  const purpose = (id: string) => flows.find((f) => f.dataFlowId === id)?.purpose ?? 'Unknown data flow';
+  return (
+    <section className="inventory-impact" aria-label="Impact of this change">
+      <p>
+        Classification: {vocabularyLabel(impact.currentClassification)} → {vocabularyLabel(impact.proposedClassification)}. Lifecycle:{' '}
+        {vocabularyLabel(impact.currentLifecycle)} → {vocabularyLabel(impact.proposedLifecycle)}.
+      </p>
+      {impact.affectedFlows.length === 0 ? (
+        <p>No data flows are affected.</p>
+      ) : (
+        <ul className="plain-list">
+          {impact.affectedFlows.map((f) => (
+            <li>
+              <strong>{purpose(f.dataFlowId)}</strong>
+              {f.classificationChanged
+                ? `: reclassified ${vocabularyLabel(f.recordedClassification)} → ${vocabularyLabel(f.recomputedClassification)}`
+                : `: stays ${vocabularyLabel(f.recordedClassification)}`}
+              {f.encryptionViolation ? '; needs encryption or an exception' : ''}
+              {f.carriesRetiredAssetOnly ? '; would carry only retired assets' : ''}
+            </li>
+          ))}
+        </ul>
+      )}
+      {impact.flowsOverLimit ? <p>More flows are affected than this preview lists.</p> : null}
+    </section>
+  );
+}
+
+function AssetForm({
+  existing,
+  people,
+  flows = [],
+  onSaved,
+}: {
+  existing: InformationAsset | null;
+  people: Person[];
+  flows?: DataFlow[];
+  onSaved: () => void;
+}) {
+  const [impact, setImpact] = state<AssetChangeImpact | null>(null);
+  const [impactError, setImpactError] = state<Error | null>(null);
   const [content, setContent] = state<AssetContent>(
     existing ?? { name: '', classification: '', retentionReference: '', ownerPersonId: '', description: null, lifecycle: 'active' }
   );
@@ -276,6 +356,23 @@ function AssetForm({ existing, people, onSaved }: { existing: InformationAsset |
         </Field>
         {existing ? (
           <Choice label="Lifecycle" value={c.lifecycle} options={vocabulary(lifecycles)} onChange={(lifecycle) => set({ lifecycle })} />
+        ) : null}
+        {existing ? (
+          <>
+            <Button
+              variant="secondary"
+              onPress={() => {
+                setImpactError(null);
+                previewAssetChange(existing.informationAssetId, existing.revision, { classification: c.classification, lifecycle: c.lifecycle })
+                  .then(setImpact)
+                  .catch((failure: unknown) => setImpactError(failure instanceof Error ? failure : new Error('The preview failed.')));
+              }}
+            >
+              Preview impact
+            </Button>
+            <ActionError error={impactError()} record="information asset" />
+            {impact() ? <AssetImpact impact={impact()!} flows={flows} /> : null}
+          </>
         ) : null}
         <ActionError error={action.error()} record="information asset" />
         {action.notice() ? <p role="status">{action.notice()}</p> : null}
@@ -650,7 +747,7 @@ export function InventoryPage() {
                       <RecordRow
                         name={item.name}
                         summary={assetSummary(item, owner)}
-                        editor={() => <AssetForm existing={item} people={peopleList} onSaved={reload} />}
+                        editor={() => <AssetForm existing={item} people={peopleList} flows={flows.value ?? []} onSaved={reload} />}
                         history={() => (
                           <History
                             load={() => listAssetRevisions(item.informationAssetId)}

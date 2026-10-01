@@ -324,4 +324,129 @@ describe('technology and information inventory (R1-12 frontend #228)', () => {
     expect(container.querySelector('form')).toBeNull();
     expect(await accessibilityViolations(container)).toEqual([]);
   });
+
+  it('ShouldPreviewAffectedFlowsBeforeChangingAnAssetClassification', async () => {
+    // Arrange
+    inventoryAnswers();
+    api.reply(`POST ${base}/information-assets/${assetId}/change-previews`, 200, {
+      tenant_id: tenantId,
+      information_asset_id: assetId,
+      revision: 1,
+      current_classification: 'confidential',
+      proposed_classification: 'restricted',
+      current_lifecycle: 'active',
+      proposed_lifecycle: 'active',
+      affected_flows: [
+        {
+          data_flow_id: flowId,
+          revision: 2,
+          recorded_classification: 'confidential',
+          recomputed_classification: 'restricted',
+          classification_changed: true,
+          encrypted_in_transit: true,
+          encrypted_at_rest: false,
+          exception_reference: null,
+          encryption_violation: true,
+          carries_retired_asset_only: false,
+        },
+      ],
+      flows_over_limit: false,
+    });
+    api.reply(`PUT ${base}/information-assets/${assetId}`, 204);
+    const container = mount(InventoryPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('Orders DB'));
+    press(container, 'Information assets');
+    await vi.waitFor(() => expect(container.textContent).toContain('Customer records'));
+    press(container, 'Revise Customer records');
+    const form = container.querySelector('form[aria-label="Revise Customer records"]')!;
+    fill(form, 'Classification', 'restricted');
+
+    // Act
+    press(container, 'Preview impact');
+    await vi.waitFor(() => expect(form.querySelector('.inventory-impact')).not.toBeNull());
+
+    // Assert
+    expect(api.bodies.find((b) => b.path.endsWith('/change-previews'))?.body).toEqual({
+      expected_revision: 1,
+      classification: 'restricted',
+      lifecycle: 'active',
+    });
+    const impact = form.querySelector('.inventory-impact')!.textContent;
+    expect(impact).toContain('Confidential → Restricted');
+    expect(impact).toContain('Persist orders');
+    expect(impact).toContain('needs encryption or an exception');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldPickASystemInstanceGivenACloudAccount', async () => {
+    // Arrange
+    inventoryAnswers();
+    const applicationId = '0190a1b2-0000-7000-8000-0000000000a1';
+    const instanceId = '0190a1b2-0000-7000-8000-0000000000a2';
+    api.reply(`${base}/applications`, 200, {
+      items: [
+        {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          revision: 1,
+          name: 'Payroll',
+          purpose: 'Runs payroll',
+          owner_reference: null,
+          source_kind: 'manual',
+          source_identifier: 'manual',
+          has_system_instances: true,
+          unresolved: [],
+          last_changed_by_member_id: 'm',
+          last_changed_by_display: 'Casey Lead',
+          last_changed_at: '2026-09-20T00:00:00Z',
+          classification: null,
+          lifecycle: 'active',
+          retirement: null,
+        },
+      ],
+      next_cursor: null,
+    });
+    api.reply(`${base}/applications/${applicationId}/system-instances`, 200, {
+      items: [
+        {
+          tenant_id: tenantId,
+          application_id: applicationId,
+          system_instance_id: instanceId,
+          name: 'Payroll production',
+          kind: 'production tenant',
+          access_boundary_reference: null,
+          source_kind: 'manual',
+          source_identifier: null,
+          unresolved: [],
+          declared_by_member_id: 'm',
+          declared_by_display: 'Casey Lead',
+          declared_at: '2026-09-21T00:00:00Z',
+          revision: 1,
+          lifecycle: 'active',
+          retirement: null,
+        },
+      ],
+      next_cursor: null,
+    });
+    api.reply(`POST ${base}/technology-components`, 200, { component_id: storeId });
+    const container = mount(InventoryPage);
+    await vi.waitFor(() => expect(container.querySelector('form[aria-label="Record a technology component"]')).not.toBeNull());
+    const form = container.querySelector('form[aria-label="Record a technology component"]')!;
+    fill(form, 'Category', 'cloud_account');
+    fill(form, 'Name', 'AWS payroll');
+    fill(form, 'Owner', personId);
+    await vi.waitFor(() => expect(form.textContent).toContain('Payroll — Payroll production'));
+    fill(form, 'System instance', instanceId);
+
+    // Act
+    submit(form);
+    await vi.waitFor(() => expect(form.querySelector('[role="status"]')).not.toBeNull());
+
+    // Assert
+    expect(api.bodies.find((b) => b.method === 'POST' && b.path === `${base}/technology-components`)?.body).toMatchObject({
+      category: 'cloud_account',
+      system_instance_id: instanceId,
+    });
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
 });
