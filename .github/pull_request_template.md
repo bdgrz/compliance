@@ -7,7 +7,7 @@
 - [ ] Format check
 - [ ] Release build
 - [ ] Focused and full relevant tests
-- [ ] Broker or Native AOT validation when affected
+- [ ] Broker suite run locally when persistence, projections, reactors, or split hosts change
 
 ## Contracts and operations
 

@@ -64,7 +64,7 @@ domain policy.
    ./scripts/check-backend.sh full
    ```
 
-5. Push the reviewed bundle and run hosted CI on its final head. Native AOT builds on both architectures remain required before merge, but start alongside Validate so they do not extend the critical path by their full duration. Repeat the local focused test for a correction; rerun the full gate and exact-head CI only after the final correction.
+5. Push the reviewed bundle and require green CI on its final head. CI is one five-minute job: format, build, and unit tests. Run the broker suite locally (`./scripts/check-backend.sh full`) when persistence, projections, reactors, or split hosts change. Native AOT images are built by `containers.yml`, not CI.
 6. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
 7. After merge, read back each covered issue against its own acceptance evidence. Close satisfied children, leave explicit gaps on partial children, update the parent only when the integrated outcome is proven, and refresh project queue and Run order before selecting another capability.
 
