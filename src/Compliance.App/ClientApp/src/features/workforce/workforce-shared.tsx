@@ -7,6 +7,7 @@ const sections = [
   { path: '/workforce', label: 'Roster' },
   { path: '/workforce/observations', label: 'Joiners, movers, and leavers' },
   { path: '/workforce/reconciliation', label: 'Reconciliation' },
+  { path: '/workforce/sources', label: 'Sources' },
   { path: '/workforce/service-identities', label: 'Service identities' },
   { path: '/workforce/snapshots', label: 'Snapshots' },
 ];

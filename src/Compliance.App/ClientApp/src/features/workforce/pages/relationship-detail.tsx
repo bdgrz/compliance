@@ -29,6 +29,7 @@ import {
   type WorkRelationshipTerms,
 } from '../workforce.js';
 import { ActionError, RecordFailure } from '../workforce-shared.js';
+import { SourceObservationsPanel } from '../source-record.js';
 
 function RelationshipEditor({
   relationship,
@@ -47,6 +48,7 @@ function RelationshipEditor({
     department: relationship.department,
     managerPersonId: relationship.managerPersonId,
     sponsorPersonId: relationship.sponsorPersonId,
+    employmentStatusReason: relationship.employmentStatusReason,
   });
   const [pending, setPending] = state(false);
   const [error, setError] = state<Error | null>(null);
@@ -143,6 +145,8 @@ export function WorkRelationshipDetailPage({ relationshipId }: { relationshipId:
               <dd>{current.restrictedFieldsRedacted ? 'Restricted' : nameOf(current.managerPersonId)}</dd>
               <dt>Sponsor</dt>
               <dd>{nameOf(current.sponsorPersonId)}</dd>
+              <dt>Employment status reason (restricted)</dt>
+              <dd>{current.employmentStatusReason ?? (current.restrictedFieldsRedacted ? 'No value disclosed' : 'Not set')}</dd>
             </dl>
           </CardContent>
         </Card>
@@ -152,7 +156,9 @@ export function WorkRelationshipDetailPage({ relationshipId }: { relationshipId:
             <CardDescription>To record a leaver, set the status to Ended and give the end date.</CardDescription>
           </CardHeader>
           <CardContent>
-            {people.pending && !people.value ? (
+            {current.restrictedFieldsRedacted ? (
+              <p>Restricted details must be available before editing all terms, so hidden manager and employment status reason values are preserved. Ask for both workforce field read grants.</p>
+            ) : people.pending && !people.value ? (
               <Spinner label="Loading people" />
             ) : (
               <RelationshipEditor
@@ -163,6 +169,11 @@ export function WorkRelationshipDetailPage({ relationshipId }: { relationshipId:
             )}
           </CardContent>
         </Card>
+        <SourceObservationsPanel restrictedFieldsRedacted={current.restrictedFieldsRedacted} target={{ kind: 'work_relationship', id: current.relationshipId, revision: current.revision, facts: { work_relationship: {
+          worker_type: current.workerType, lifecycle_status: current.lifecycleStatus, start_date: current.startDate,
+          end_date: current.endDate, department: current.department, manager_person_id: current.managerPersonId,
+          sponsor_person_id: current.sponsorPersonId, employment_status_reason: current.employmentStatusReason ?? null,
+        } } }} />
       </Stack>
     </Page>
   );

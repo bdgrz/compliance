@@ -31,6 +31,7 @@ import {
   type ServiceIdentityTerms,
 } from '../workforce.js';
 import { ActionError, inputValue, RecordFailure } from '../workforce-shared.js';
+import { SourceObservationsPanel } from '../source-record.js';
 
 function IdentityEditor({
   identity,
@@ -173,11 +174,15 @@ export function ServiceIdentityDetailPage({ serviceIdentityId }: { serviceIdenti
                 identity={current}
                 people={people.value ?? []}
                 teams={teams.value ?? []}
-                onSaved={() => setVersion(version() + 1)}
+              onSaved={() => setVersion(version() + 1)}
               />
             )}
           </CardContent>
         </Card>
+        <SourceObservationsPanel target={{ kind: 'service_identity', id: current.serviceIdentityId, revision: current.revision, facts: { service_identity: {
+          display_name: current.displayName, identity_kind: current.identityKind, environment: current.environment,
+          lifecycle_status: current.lifecycleStatus, expires_on: current.expiresOn,
+        } } }} />
       </Stack>
     </Page>
   );

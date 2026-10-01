@@ -17,6 +17,7 @@ import { listMembers, memberLabel } from '../../members/members.js';
 import { organizationPath } from '../../tenants/tenants.js';
 import { correlatePersonMembership, getPerson, revisePerson, sourceKindLabel, type Person } from '../workforce.js';
 import { ActionError, inputValue, LoadFailure, RecordFailure } from '../workforce-shared.js';
+import { SourceObservationsPanel } from '../source-record.js';
 
 function PersonEditor({ person, onSaved }: { person: Person; onSaved: () => void }) {
   const [name, setName] = state(person.displayName);
@@ -182,6 +183,7 @@ export function PersonDetailPage({ personId }: { personId: string }) {
             <MembershipCorrelation person={current} onSaved={() => setVersion(version() + 1)} />
           </CardContent>
         </Card>
+        <SourceObservationsPanel target={{ kind: 'person', id: current.personId, revision: current.revision, facts: { person: { display_name: current.displayName, work_email: current.workEmail } } }} />
       </Stack>
     </Page>
   );

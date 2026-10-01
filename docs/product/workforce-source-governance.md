@@ -102,3 +102,34 @@ the decision in `workforce-sources-v1`. Existing event types and canonical
 projections are unchanged. Deployment adds the projector; existing tenants start
 with no source observations and require no backfill. Broker and split-host
 acceptance remains a separate verification gate when Docker is available.
+
+## Frontend source review (#484)
+
+The workforce Sources section lists immutable source identity and each decision's
+checked canonical revision. Lists do not claim that an earlier acceptance applies
+to the current canonical record. Each person, work relationship, and service
+identity detail offers source recording with an explicit target and revision.
+Source facts are editable before recording and immutable afterward. Provider
+facts include credential expiry and exclude governed owner, purpose, and review
+date. Recording retains the chosen observation time across explicit retries.
+
+A source detail displays only facts disclosed by its API read, then previews the
+current canonical revision and public conflict names. Accept is available only
+for matching facts and requires a decision note. Conflicts link to explicit
+canonical correction; dismiss retains canonical facts with an attributed reason.
+A stale decision blocks both actions until the comparison is refreshed. Projection
+lag offers a retry. Current versus historical accepted provenance and the original
+decision actor remain visible without offering edits to a decided observation.
+
+Source detail displays independently disclosed restricted facts. A redacted canonical detail
+does not offer the full canonical replacement editor or a source form seeded from
+unknown private values. Full relationship edits require all terms to be available
+so a public edit cannot silently replace an unread manager or status reason with
+null. This UI safeguard does not change backend write permissions.
+
+This is the manual source-observation slice of #484. Existing roster finding
+resolution and NHI expiry views remain available. HRIS parsing/import and source
+shape decisions remain #347; provider account classification/correlation UI
+belongs to #115/#273; integrated browser acceptance remains #453. No automatic
+inter-source arbitration, import connector, account query, or access mutation is
+added by this slice, so #484 remains open for those outstanding criteria.
