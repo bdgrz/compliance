@@ -1,6 +1,6 @@
+using System.Text.Json;
 using Cntryl.Fitz;
 using Cntryl.Portia;
-using System.Text.Json;
 
 namespace Bdgrz.Compliance.Features.Providers;
 
