@@ -2,19 +2,27 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class ReinstateMemberHandler(IAggregateExecutor executor, TimeProvider clock)
+/// <summary>Reinstates a member, restoring them in the tenant manager guard first (#432).</summary>
+public sealed class ReinstateMemberHandler(IAggregateExecutor executor, TimeProvider clock,
+    TenantManagerInvariant managers)
     : IRequestHandler<ReinstateMember>
 {
-    public ValueTask<Result> HandleAsync(IRequestContext<ReinstateMember> context, CancellationToken ct)
+    public async ValueTask<Result> HandleAsync(IRequestContext<ReinstateMember> context, CancellationToken ct)
     {
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var actorUserId))
-            return ValueTask.FromResult(Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
-                "Member reinstatement requires a Bdgrz user identity.")));
+            return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
+                "Member reinstatement requires a Bdgrz user identity."));
 
-        var actorMemberId = RbacIds.Member(context.Request.TenantId, actorUserId);
-        return executor.ExecuteAsync(new Member(context.Request.TenantId, context.Request.UserId), member =>
+        var request = context.Request;
+        var actorMemberId = RbacIds.Member(request.TenantId, actorUserId);
+        var restored = await managers.RestoreAsync(context, request.TenantId,
+            RbacIds.Member(request.TenantId, request.UserId), TenantManagerInvariant.Suspended, ct)
+            .ConfigureAwait(false);
+        if (!restored.IsSuccess)
+            return restored;
+        return await executor.ExecuteAsync(new Member(request.TenantId, request.UserId), member =>
                 AggregateOutcome.CommitOnSuccess(member.Reinstate(actorMemberId,
                     UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId), clock.GetUtcNow())),
-            context, ct);
+            context, ct).ConfigureAwait(false);
     }
 }

@@ -15,6 +15,10 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
         // tenant activation reactor checkpoint instead of retrying a rejected registration.
         if (tenant.IsRegistrationRejected)
             return Result.Success;
+        // A later administrator invitation, such as operator recovery of a tenant without an
+        // active administrator, needs no activation and must not exhaust the reactor's budget.
+        if (tenant.HasCompletedActivation)
+            return Result.Success;
 
         var memberId = RbacIds.Member(tenantId, userId);
         var member = await reader.HydrateAsync(new Member(tenantId, userId), ct).ConfigureAwait(false);

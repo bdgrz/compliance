@@ -52,11 +52,11 @@ static class WorkforceRosterSnapshotContent
     }
 
     public static WorkforceRosterSnapshotView ToView(Uuid tenantId, PopulationSnapshot snapshot,
-        FieldRedactor managerChain)
+        IReadOnlyList<PopulationRow> rows, FieldRedactor managerChain)
     {
         var people = new List<FrozenPerson>();
         var relationships = new List<FrozenWorkRelationship>();
-        foreach (var row in snapshot.Rows)
+        foreach (var row in rows)
         {
             var content = row.Content;
             if (row.Key.StartsWith(PersonPrefix, StringComparison.Ordinal))

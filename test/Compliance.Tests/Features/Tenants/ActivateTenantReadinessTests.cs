@@ -48,6 +48,40 @@ public sealed class ActivateTenantReadinessTests
     }
 
     [Fact]
+    public async Task ShouldCheckpointLaterAdministratorActivationGivenAlreadyActiveTenant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var creatorId = Uuid.CreateVersion4();
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships());
+        services.AddSingleton<IPermissionAuthorizer>(new Permissions());
+        services.AddPortia()
+            .AddRequestHandler<ActivateTenantHandler>()
+            .AddRequestAuthorizer<ActivateTenantAuthorizer>();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var tenant = new Tenant(tenantId);
+        Assert.True(tenant.Register(creatorId, "Active", "active-tenant",
+            creatorIsAdministrator: true).IsSuccess);
+        Assert.True(tenant.ConfirmSlug("active-tenant").IsSuccess);
+        Assert.True(tenant.Activate(creatorId, null).IsSuccess);
+        await writer.SaveAsync(tenant, new RequestDispatchContext(RequestActor.System));
+
+        // Act
+        var recovery = await scope.ServiceProvider.GetRequiredService<IRequestBus>()
+            .SendAsync(new ActivateTenant(tenantId, Uuid.CreateVersion4(), "recovery@example.com"),
+                RequestActor.System);
+
+        // Assert
+        Assert.True(recovery.IsSuccess);
+        Assert.True((await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new Tenant(tenantId))).IsActive);
+    }
+
+    [Fact]
     public async Task ShouldCheckpointActivationGivenRejectedSlugWithoutAdministratorProjection()
     {
         // Arrange

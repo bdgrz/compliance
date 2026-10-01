@@ -471,7 +471,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             $"lastHttpStatus={lastHttpStatus}; invitationStatus={invitationStatus}.");
     }
 
-    static async Task<string> WaitForInvitationDeliveryReadyAsync(
+    internal static async Task<string> WaitForInvitationDeliveryReadyAsync(
         WebApplicationFactory<Program> factory, Uuid tenantId, string emailAddress)
     {
         var checkpoint = new CheckpointIdentity("TenantInvitationDirectory",
@@ -596,7 +596,7 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker) : IClass
             $"viewSuspensionReason={view?.SuspensionReason}.");
     }
 
-    static async Task WaitForMemberAccessReadyAsync(WebApplicationFactory<Program> factory,
+    internal static async Task WaitForMemberAccessReadyAsync(WebApplicationFactory<Program> factory,
         HttpClient client, Uuid tenantId, string userId, Uuid teamId, string permission,
         string businessRoute)
     {

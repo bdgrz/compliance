@@ -43,6 +43,10 @@ public sealed class Tenant : Aggregate
                             (!_requiresActivation || _activated);
     public bool IsRegistered => _slug is not null && _slugState != TenantSlugState.Rejected;
     public bool IsRegistrationRejected => _slugState == TenantSlugState.Rejected;
+
+    /// <summary>True once a confirmed tenant needs no further activation.</summary>
+    public bool HasCompletedActivation => _slugState == TenantSlugState.Confirmed &&
+                                          (!_requiresActivation || _activated);
     public string? CurrentSlug => _slug;
     public Uuid OwnerUserId => _ownerUserId;
     public bool NeedsCreatorActivation => _creatorIsAdministrator && _requiresActivation && !_activated;

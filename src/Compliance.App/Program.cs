@@ -214,6 +214,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetWorkforceRosterSnapshot>(tool => tool.ReadOnly())
         .AddMcpTool<GetWorkforceRosterSnapshotAsOf>(tool => tool.ReadOnly())
         .AddMcpTool<ListWorkforceRosterSnapshots>(tool => tool.ReadOnly())
+        .AddMcpTool<RegenerateWorkforceRosterSnapshotManifest>(tool => tool.ReadOnly())
         .AddMcpTool<GetReadinessAssessment>(tool => tool.ReadOnly())
         .AddMcpTool<ListReadinessAssessments>(tool => tool.ReadOnly())
         .AddMcpTool<ListReadinessGaps>(tool => tool.ReadOnly())
@@ -1093,6 +1094,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Snapshots");
     app.MapPortiaGet<ListWorkforceRosterSnapshots, Page<PopulationSnapshotSummary>>(
             "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Snapshots");
+    app.MapPortiaGet<RegenerateWorkforceRosterSnapshotManifest, PopulationSnapshotManifestRegeneration>(
+            "/api/v1/tenants/{tenant_id}/workforce-roster-snapshots/{snapshot_id}/manifest-regeneration")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Snapshots");
     app.MapPortiaGet<GetWorkforceRosterSnapshotAsOf, WorkforceRosterSnapshotView>(

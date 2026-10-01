@@ -119,6 +119,38 @@ hashing. This bound is conservative for the first small-team access reviews and
 is revised with measured evidence when M0-D07 supplies real population sizes.
 Raising it keeps the same fail-closed behavior for older snapshots.
 
+### Chunked population storage (EN-03b, #478)
+
+A Fitz operation payload has a 16-bit length, so a population snapshot cannot
+keep a large population in one event. A population that fits one storage chunk
+(at most 500 rows and 32 KiB of encoded rows) is still frozen inline in
+`bdgrz.snapshot.population.frozen`. A larger population is first written as
+ordered `bdgrz.snapshot.population.chunk_stored` events, one per tenant
+`population-snapshot-chunks` stream. Each chunk holds at most 1,024 rows and
+32 KiB of encoded rows, and carries the population digest of its own rows; a
+row larger than the budget fails validation by position. The frozen event then
+commits as the manifest: no inline rows, the storage chunk count, and a
+storage manifest SHA-256 over `bdgrz.snapshot.population.storage.v1\0`, the
+kind, row and chunk counts, and each chunk's row count and digest in order.
+The content identity above is unchanged. Only the manifest commit makes a
+snapshot visible; a retry of the same request replays identical chunks and
+completes an interrupted freeze. Reads hydrate every chunk and fail closed on a
+missing, misplaced, or altered chunk or any digest mismatch. At most 8,192
+chunks are stored. Planning and digesting 250,000 small rows takes about 0.6
+seconds in a Release test run.
+
+**Deterministic package regeneration.** `GET
+/api/v1/tenants/{tenant_id}/workforce-roster-snapshots/{snapshot_id}/manifest-regeneration`
+and the read-only MCP tool `bdgrz.snapshot.workforce_roster.manifest_regenerate`
+recompute a canonical v1 population manifest from the verified retained rows
+and lineage (eight-link bound), never from a projection. Its properties, in
+order, are `format_version`, `kind`, `tenant_id`, `snapshot_id`,
+`root_snapshot_id`, `amends_snapshot_id`, `row_count`, `chunk_count`, and
+`content_sha256`; the digest is SHA-256 over
+`bdgrz.snapshot.manifest.population.v1\0` and those bytes. Regenerating the
+same snapshot yields identical bytes, and an amendment with unchanged rows
+shares its `content_sha256`.
+
 ## Options considered
 
 1. **Materialized copies of every source in the snapshot event.** Simple to

@@ -6,7 +6,10 @@ namespace Bdgrz.Compliance.Features.Snapshots;
 /// <summary>
 ///     Freezes caller-assembled population rows as an immutable snapshot keyed by the request ID,
 ///     so a retried request replays instead of freezing twice. Consumers own source capture and
-///     authorization; this primitive owns identity, lineage, and the single commit.
+///     authorization; this primitive owns identity, lineage, chunked storage, and the manifest
+///     commit. A population larger than one storage chunk stores each chunk in its own stream
+///     first; the snapshot becomes visible only when its manifest commits, and a retry resumes
+///     an interrupted freeze because identical chunks replay.
 /// </summary>
 public sealed class PopulationSnapshotFreezer(IAggregateReader reader,
     IAggregateExecutor executor, TimeProvider clock)
@@ -22,12 +25,12 @@ public sealed class PopulationSnapshotFreezer(IAggregateReader reader,
              (string.IsNullOrWhiteSpace(amendmentReason) || amendmentReason.Length > 4000)))
             return Failure(RequestErrorKind.Validation,
                 "An amendment requires its predecessor and a reason of at most 4000 characters.");
-        if (rows.Count > PopulationSnapshot.MaximumInlineRows)
-            return Failure(RequestErrorKind.Validation,
-                $"A population snapshot currently supports at most {PopulationSnapshot.MaximumInlineRows} rows.");
         var digest = PopulationContentIdentity.Compute(kind, rows);
         if (!digest.IsSuccess)
             return Result<SnapshotRegistration>.Failure(digest.Error);
+        var plan = PopulationSnapshotStorage.Plan(kind, rows);
+        if (!plan.IsSuccess)
+            return Result<SnapshotRegistration>.Failure(plan.Error);
 
         var snapshotId = context.RequestId;
         var rootSnapshotId = snapshotId;
@@ -40,36 +43,37 @@ public sealed class PopulationSnapshotFreezer(IAggregateReader reader,
                 .ConfigureAwait(false);
             if (!prior.IsFrozen || prior.Kind != kind)
                 return Failure(RequestErrorKind.NotFound, "The prior snapshot was not found.");
-            if (!await HasBoundedLineageAsync(tenantId, prior, ct).ConfigureAwait(false))
+            // Creation leaves room for this amendment within the supported lineage depth.
+            if (!await PopulationSnapshotLineage.IsBoundedAsync(reader, tenantId, prior,
+                    SnapshotAmendmentLineage.MaximumAmendmentLinks - 1, ct).ConfigureAwait(false))
                 return Failure(RequestErrorKind.Conflict,
                     "The prior snapshot lineage is invalid or has reached the supported amendment limit.");
             rootSnapshotId = prior.RootSnapshotId;
         }
 
-        return await executor.ExecuteAsync(new PopulationSnapshot(tenantId, snapshotId),
-            snapshot => AggregateOutcome.CommitOnSuccess(snapshot.Freeze(rootSnapshotId,
-                amendsSnapshotId, kind, rows, digest.Value.Sha256, amendmentReason, frozenBy,
-                clock.GetUtcNow())), context, ct).ConfigureAwait(false);
-    }
+        var chunks = plan.Value;
+        var frozenAt = clock.GetUtcNow();
+        if (chunks.Count <= 1 && rows.Count <= PopulationSnapshot.MaximumInlineRows)
+            return await executor.ExecuteAsync(new PopulationSnapshot(tenantId, snapshotId),
+                snapshot => AggregateOutcome.CommitOnSuccess(snapshot.Freeze(rootSnapshotId,
+                    amendsSnapshotId, kind, rows, digest.Value.Sha256, amendmentReason, frozenBy,
+                    frozenAt)), context, ct).ConfigureAwait(false);
 
-    async ValueTask<bool> HasBoundedLineageAsync(Uuid tenantId, PopulationSnapshot leaf,
-        CancellationToken ct)
-    {
-        var seen = new HashSet<Uuid> { leaf.Id };
-        var current = leaf;
-        for (var links = 0; current.AmendsSnapshotId is { } predecessorId; links++)
+        foreach (var chunk in chunks)
         {
-            if (links + 1 >= SnapshotAmendmentLineage.MaximumAmendmentLinks ||
-                !seen.Add(predecessorId))
-                return false;
-            var predecessor = await reader.HydrateAsync(
-                new PopulationSnapshot(tenantId, predecessorId), ct).ConfigureAwait(false);
-            if (!predecessor.IsFrozen || predecessor.Kind != leaf.Kind ||
-                predecessor.RootSnapshotId != leaf.RootSnapshotId)
-                return false;
-            current = predecessor;
+            IReadOnlyList<PopulationRow> chunkRows =
+                [.. PopulationSnapshotStorage.Slice(rows, chunk.Start, chunk.Count)];
+            var stored = await executor.ExecuteAsync(
+                new PopulationSnapshotChunk(tenantId, snapshotId, chunk.Index),
+                storage => AggregateOutcome.CommitOnSuccess(storage.Store(kind, chunkRows,
+                    chunk.Sha256)), context, ct).ConfigureAwait(false);
+            if (!stored.IsSuccess)
+                return Result<SnapshotRegistration>.Failure(stored.Error);
         }
-        return current.Id == leaf.RootSnapshotId;
+        return await executor.ExecuteAsync(new PopulationSnapshot(tenantId, snapshotId),
+            snapshot => AggregateOutcome.CommitOnSuccess(snapshot.FreezeChunked(rootSnapshotId,
+                amendsSnapshotId, kind, digest.Value, chunks, amendmentReason, frozenBy, frozenAt)),
+            context, ct).ConfigureAwait(false);
     }
 
     static Result<SnapshotRegistration> Failure(RequestErrorKind kind, string message) =>

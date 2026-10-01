@@ -148,6 +148,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.snapshot.workforce_roster.get",
             "bdgrz.snapshot.workforce_roster.as_of",
             "bdgrz.snapshot.workforce_roster.list",
+            "bdgrz.snapshot.workforce_roster.manifest_regenerate",
             "bdgrz.readiness.assessment.get",
             "bdgrz.readiness.assessments.list",
             "bdgrz.readiness.gaps.list",

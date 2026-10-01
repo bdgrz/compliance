@@ -4,11 +4,18 @@ using Microsoft.Extensions.Logging;
 namespace Bdgrz.Compliance.Features.Tenants;
 
 public sealed partial class TenantSelfServiceActivationReactor(IProjectionCheckpointStore checkpoints,
-    IAggregateReader reader, IRequestBus bus, ILogger<TenantSelfServiceActivationReactor> logger)
+    IAggregateReader reader, IRequestBus bus, ILogger<TenantSelfServiceActivationReactor> logger,
+    TenantActivationPolicy? policy = null)
     : Reactor(checkpoints, EventStreamPattern.ForTenant("rbac-team-members")),
       IReactorHandler<TeamMemberAssigned>
 {
-    public async ValueTask HandleAsync(IReactorContext<TeamMemberAssigned> context, CancellationToken ct)
+    readonly TenantActivationPolicy _policy = policy ?? TenantActivationPolicy.Default;
+
+    public ValueTask HandleAsync(IReactorContext<TeamMemberAssigned> context, CancellationToken ct) =>
+        _policy.ReactAsync(nameof(TenantSelfServiceActivationReactor), context.Trigger.TenantId,
+            context.Trigger, logger, token => ReactAsync(context, token), ct);
+
+    async ValueTask ReactAsync(IReactorContext<TeamMemberAssigned> context, CancellationToken ct)
     {
         var assignment = context.Trigger;
         if (assignment.TeamId != BuiltInRbac.AdministratorsTeamId(assignment.TenantId))
@@ -19,7 +26,7 @@ public sealed partial class TenantSelfServiceActivationReactor(IProjectionCheckp
             assignment.MemberId != RbacIds.Member(assignment.TenantId, tenant.OwnerUserId))
             return;
 
-        await TenantActivationRetry.SendAsync(bus,
+        await _policy.SendActivationAsync(bus,
             new ActivateTenant(assignment.TenantId, tenant.OwnerUserId), context, logger, ct);
     }
 }

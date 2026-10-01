@@ -3,6 +3,7 @@ using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bdgrz.Compliance;
 
@@ -261,6 +262,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPopulationSnapshotDirectoryReader>(
             provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
         services.AddScoped<PopulationSnapshotFreezer>();
+        services.TryAddSingleton(TenantActivationPolicy.Default);
+        services.AddScoped<TenantManagerInvariant>();
         services.AddScoped<WorkforceRosterSnapshotter>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
@@ -544,6 +547,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetWorkforceRosterSnapshotHandler>()
             .AddRequestHandler<GetWorkforceRosterSnapshotAsOfHandler>()
             .AddRequestHandler<ListWorkforceRosterSnapshotsHandler>()
+            .AddRequestHandler<RegenerateWorkforceRosterSnapshotManifestHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestAuthorizer<SeparationOfDutiesWaiverAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
@@ -587,10 +591,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<TenantInvitationReactor>("TenantInvitation", WorkloadScope.PerTenant, options =>
             {
                 // Activation can wait for membership and permission projectors on another host.
-                // Keep replay gaps short after the local transient retry window expires while
-                // retaining a finite failure limit for permanently invalid invitations.
+                // Keep replay gaps short after the local transient retry window expires. A long
+                // outage for one tenant must never fault the worker host (#430); permanent
+                // failures are bounded by TenantActivationPolicy instead.
                 options.MaximumFailureDelay = TimeSpan.FromSeconds(2);
-                options.FailureAttemptLimit = 20;
+                options.FailureAttemptLimit = TenantActivationPolicy.WorkloadFailureAttemptLimit;
             })
             .AddReactor<TenantInvitationDeliveryReactor>("TenantInvitationDeliveryV1",
                 WorkloadScope.PerTenant)
@@ -607,7 +612,7 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant, options =>
                 {
                     options.MaximumFailureDelay = TimeSpan.FromSeconds(2);
-                    options.FailureAttemptLimit = 20;
+                    options.FailureAttemptLimit = TenantActivationPolicy.WorkloadFailureAttemptLimit;
                 })
             // This narrow backfill has its own checkpoint so it can safely replay historical
             // registrations without restoring intentionally removed memberships or grants.
