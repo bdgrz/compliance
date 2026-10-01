@@ -139,7 +139,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, otherProgram.StatusCode);
     }
 
-    static (HttpClient Owner, HttpClient Outsider) CreateClients(
+    internal static (HttpClient Owner, HttpClient Outsider) CreateClients(
         WebApplicationFactory<Program> factory, bool splitHosts)
     {
         var priorHostMode = TestHostMode.Current;
@@ -154,7 +154,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         }
     }
 
-    static async Task SeedApprovedControlAsync(WebApplicationFactory<Program> factory,
+    internal static async Task SeedApprovedControlAsync(WebApplicationFactory<Program> factory,
         Uuid tenantId, Uuid programId, Uuid controlId, Uuid ownerMemberId, DateOnly effectiveFrom)
     {
         var author = Uuid.CreateVersion4();
@@ -179,7 +179,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         });
     }
 
-    static async Task SeedAsync<TAggregate>(WebApplicationFactory<Program> factory,
+    internal static async Task SeedAsync<TAggregate>(WebApplicationFactory<Program> factory,
         TAggregate aggregate, Func<TAggregate, Result> operation) where TAggregate : Aggregate
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -193,7 +193,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
 
-    static async Task<(Guid TenantId, Guid ProgramId)> CreateProgramAsync(HttpClient owner)
+    internal static async Task<(Guid TenantId, Guid ProgramId)> CreateProgramAsync(HttpClient owner)
     {
         using var tenant = await owner.PostAsJsonAsync("/api/v1/tenants", new
         {
@@ -230,7 +230,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         throw new TimeoutException("Program creation never became authorized after tenant bootstrap.");
     }
 
-    static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
+    internal static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
         Func<JsonElement, bool> ready)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
@@ -262,7 +262,7 @@ public sealed class ControlOperationE2ETests(BrokerStackFixture broker)
         return builder.Build();
     }
 
-    static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
+    internal static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
         (await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync()))
         .RootElement.Clone();
 }

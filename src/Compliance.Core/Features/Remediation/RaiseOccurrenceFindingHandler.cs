@@ -13,8 +13,8 @@ public sealed class RaiseOccurrenceFindingHandler(IAggregateExecutor executor,
     IAggregateReader reader, TimeProvider clock)
     : IRequestHandler<RaiseOccurrenceFinding>
 {
-    public const int DefaultDueDays = 30;
-    public const string DefaultSeverity = "medium";
+    public const int DefaultDueDays = RoutedFinding.DefaultDueDays;
+    public const string DefaultSeverity = RoutedFinding.DefaultSeverity;
     public const string ProcessId = "reactor:" + ControlOccurrenceFindingReactor.WorkloadName;
 
     public async ValueTask<Result> HandleAsync(
@@ -35,30 +35,17 @@ public sealed class RaiseOccurrenceFindingHandler(IAggregateExecutor executor,
             : occurrence.Reviews.Count > 0
                 ? occurrence.Reviews[^1].ReviewerMemberId
                 : occurrence.Attestations[^1].RecorderMemberId;
-        var dueOn = today.AddDays(DefaultDueDays);
         var actor = ActorReference.ForSystemProcess(ProcessId,
             ControlOccurrenceFindingReactor.WorkloadName);
         var isRequestedAction = request.SourceKind == "occurrence_review";
-        return await executor.ExecuteAsync(new RemediationLedger(request.TenantId,
-                request.ProgramId),
-            ledger =>
-            {
-                if (ledger.Contains(request.FindingId))
-                    return CommandFailureRequestAdapter.ToOutcome(null);
-                var failure = ledger.Raise(request.FindingId,
-                    new FindingSource(request.SourceKind, request.OccurrenceId,
-                        request.SourceVersion, request.SourceText),
-                    isRequestedAction ? "Requested action from control review" : "Control occurrence exception",
-                    request.SourceText, DefaultSeverity,
-                    $"Control {request.ControlId}, occurrence {request.OccurrenceId}", owner, dueOn,
-                    [new FindingLink("control", request.ControlId.ToString()),
-                        new FindingLink("control_occurrence", request.OccurrenceId.ToString())],
-                    actor, now);
-                if (failure is null && isRequestedAction)
-                    failure = ledger.AddAction(request.FindingId, 1,
-                        Uuid.CreateVersion5(request.FindingId, "corrective-action"),
-                        request.SourceText, owner, dueOn, actor, now);
-                return CommandFailureRequestAdapter.ToOutcome(failure);
-            }, context, ct).ConfigureAwait(false);
+        return await RoutedFinding.RaiseAsync(executor, context, request.TenantId,
+            request.ProgramId, request.FindingId,
+            new FindingSource(request.SourceKind, request.OccurrenceId, request.SourceVersion,
+                request.SourceText),
+            isRequestedAction ? "Requested action from control review" : "Control occurrence exception",
+            $"Control {request.ControlId}, occurrence {request.OccurrenceId}", owner,
+            [new FindingLink("control", request.ControlId.ToString()),
+                new FindingLink("control_occurrence", request.OccurrenceId.ToString())],
+            isRequestedAction ? request.SourceText : null, actor, now, ct).ConfigureAwait(false);
     }
 }

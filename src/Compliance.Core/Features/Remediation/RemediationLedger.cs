@@ -28,7 +28,7 @@ public sealed class RemediationLedger : Aggregate
         "examination_item"];
 
     static readonly string[] LinkKinds = ["control", "criterion", "evidence", "access_decision",
-        "risk", "vendor", "readiness_gap", "control_occurrence"];
+        "risk", "vendor", "readiness_gap", "control_occurrence", "control_evaluation"];
 
     static readonly string[] Severities = ["low", "medium", "high", "critical"];
 

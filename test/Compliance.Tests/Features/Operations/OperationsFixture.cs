@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Remediation;
@@ -85,6 +86,14 @@ sealed class OperationsFixture
                 .AddRequestHandler<SetWorkDigestPreferenceHandler>()
                 .AddRequestHandler<GetWorkDigestPreferenceHandler>()
                 .AddRequestAuthorizer<TenantAccessAuthorizer>()
+                .AddRequestHandler<StartControlEvaluationHandler>()
+                .AddRequestHandler<RecordControlEvaluationStepHandler>()
+                .AddRequestHandler<DisposeControlEvaluationDeviationHandler>()
+                .AddRequestHandler<SubmitControlEvaluationHandler>()
+                .AddRequestHandler<ReviewControlEvaluationHandler>()
+                .AddRequestHandler<GetControlEvaluationHandler>()
+                .AddRequestHandler<ListControlEvaluationsHandler>()
+                .AddRequestHandler<RaiseEvaluationDeviationFindingHandler>()
                 .AddRequestAuthorizer<OperationsReactionAuthorizer>(),
             services =>
             {
