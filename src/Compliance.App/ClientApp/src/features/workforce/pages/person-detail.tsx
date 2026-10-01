@@ -13,9 +13,10 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
+import { listMembers, memberLabel } from '../../members/members.js';
 import { organizationPath } from '../../tenants/tenants.js';
-import { getPerson, revisePerson, sourceKindLabel, type Person } from '../workforce.js';
-import { ActionError, inputValue, RecordFailure } from '../workforce-shared.js';
+import { correlatePersonMembership, getPerson, revisePerson, sourceKindLabel, type Person } from '../workforce.js';
+import { ActionError, inputValue, LoadFailure, RecordFailure } from '../workforce-shared.js';
 
 function PersonEditor({ person, onSaved }: { person: Person; onSaved: () => void }) {
   const [name, setName] = state(person.displayName);
@@ -61,6 +62,74 @@ function PersonEditor({ person, onSaved }: { person: Person; onSaved: () => void
   );
 }
 
+// Links this roster person to the organization member who is the same human, so reconciliation can
+// compare the roster with access. Firm staff are not tenant workforce and are never offered.
+function MembershipCorrelation({ person, onSaved }: { person: Person; onSaved: () => void }) {
+  const members = resource(() => listMembers(), []);
+  const [userId, setUserId] = state(person.correlatedUserId ?? '');
+  const [pending, setPending] = state(false);
+  const [error, setError] = state<Error | null>(null);
+  const [notice, setNotice] = state<string | null>(null);
+
+  async function save(event: Event) {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    setPending(true);
+    try {
+      await correlatePersonMembership(person.personId, person.revision, userId() || null);
+      setNotice(userId() ? 'Member correlation saved.' : 'Member correlation cleared.');
+      onSaved();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure : new Error('Unable to save the correlation.'));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (members.pending && !members.value) return <Spinner label="Loading members" />;
+  if (members.error) return <LoadFailure error={members.error} onRetry={() => members.refresh()} />;
+  const workforce = (members.value ?? []).filter((member) => member.affiliation !== 'firm_staff');
+  const current = (members.value ?? []).find((member) => member.userId === person.correlatedUserId);
+
+  return (
+    <form onSubmit={(event: Event) => void save(event)} aria-label="Correlate with a member">
+      <Stack gap="sm">
+        <p>
+          {person.correlatedUserId ? (
+            <>
+              Correlated with{' '}
+              <a href={organizationPath(`/members/${person.correlatedUserId}`)}>
+                {memberLabel(current, person.correlatedUserId)}
+              </a>
+              .
+            </>
+          ) : (
+            'Not correlated with any organization member.'
+          )}
+        </p>
+        <label className="registration-field">
+          <span>Organization member</span>
+          <select value={userId()} onChange={(event: Event) => setUserId(inputValue(event))}>
+            <option value="">No member (clear correlation)</option>
+            {workforce.map((member) => (
+              <option value={member.userId}>
+                {memberLabel(member, member.userId)}
+                {member.suspended ? ' (suspended)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <ActionError error={error()} noun="person" />
+        {notice() ? <p role="status">{notice()}</p> : null}
+        <Button variant="secondary" type="submit" disabled={pending()}>
+          {pending() ? 'Saving…' : 'Save correlation'}
+        </Button>
+      </Stack>
+    </form>
+  );
+}
+
 export function PersonDetailPage({ personId }: { personId: string }) {
   const [version, setVersion] = state(0);
   const person = resource(() => getPerson(personId), [personId, version()]);
@@ -100,6 +169,17 @@ export function PersonDetailPage({ personId }: { personId: string }) {
           </CardHeader>
           <CardContent>
             <PersonEditor person={current} onSaved={() => setVersion(version() + 1)} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization member</CardTitle>
+            <CardDescription>
+              Correlation only links records for reconciliation. It never grants or revokes access.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MembershipCorrelation person={current} onSaved={() => setVersion(version() + 1)} />
           </CardContent>
         </Card>
       </Stack>

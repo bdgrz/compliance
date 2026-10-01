@@ -1,3 +1,4 @@
+import { currentAuth } from '@askrjs/askr/router';
 import { resource } from '@askrjs/askr/resources';
 import {
   Block,
@@ -13,14 +14,27 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { listMyTenants } from '../tenants.js';
+import { listMyTenants, readEmailVerification, type EmailVerification } from '../tenants.js';
 
-export function SelectTenantPage() {
+const accessGuidance: Record<EmailVerification, string> = {
+  verified:
+    'Ask an administrator of your organization to invite you, or create a new organization. Your email address is verified, so you can create one now and become its first Org Admin.',
+  unverified:
+    'Ask an administrator of your organization to invite you. Creating an organization requires a verified email address: verify an email address you own, then return here.',
+  unknown:
+    'Ask an administrator of your organization to invite you, or create a new organization. Creating an organization requires a verified email address.',
+};
+
+export function SelectTenantPage({ userId }: { userId?: string | null } = {}) {
+  const viewer = userId === undefined ? (currentAuth().principal?.id ?? null) : userId;
   const tenants = resource(() => listMyTenants(), []);
+  const verification = resource(() => readEmailVerification(viewer), [viewer]);
 
   const memberships = tenants.pending ? null : tenants.value;
   const error = tenants.error?.message ?? null;
-  const noAccess = memberships !== null && memberships.length === 0;
+  const noAccess = memberships !== null && memberships !== undefined && memberships.length === 0;
+  const verified: EmailVerification = verification.value ?? 'unknown';
+  const canCreate = !noAccess || verified !== 'unverified';
 
   return (
     <Page background="muted" center>
@@ -37,12 +51,7 @@ export function SelectTenantPage() {
           <Card variant="raised">
             <CardHeader>
               <CardTitle>{noAccess ? 'Get access' : 'Your organizations'}</CardTitle>
-              {noAccess ? (
-                <CardDescription>
-                  Ask an administrator of your organization to invite you, or create a new
-                  organization. Creating an organization requires a verified email address.
-                </CardDescription>
-              ) : null}
+              {noAccess ? <CardDescription>{accessGuidance[verified]}</CardDescription> : null}
             </CardHeader>
             <CardContent>
               <Stack gap="md">
@@ -60,9 +69,11 @@ export function SelectTenantPage() {
                     <a href={`/${tenant.slug}`}>{tenant.name}</a>
                   </Button>
                 ))}
-                <Button asChild variant={noAccess ? 'primary' : 'ghost'} width="full">
-                  <a href="/organizations/new">Create a new organization</a>
-                </Button>
+                {canCreate ? (
+                  <Button asChild variant={noAccess ? 'primary' : 'ghost'} width="full">
+                    <a href="/organizations/new">Create a new organization</a>
+                  </Button>
+                ) : null}
               </Stack>
             </CardContent>
           </Card>

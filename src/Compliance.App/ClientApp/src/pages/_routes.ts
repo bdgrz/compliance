@@ -112,6 +112,18 @@ const ServiceIdentitiesPage = lazy(() =>
 const ServiceIdentityDetailPage = lazy(() =>
   import('../features/workforce/pages/service-identity-detail.js').then((module) => module.ServiceIdentityDetailPage)
 );
+const WorkforceReconciliationPage = lazy(() =>
+  import('../features/workforce/pages/workforce-reconciliation.js').then((module) => module.WorkforceReconciliationPage)
+);
+const RosterSnapshotsPage = lazy(() =>
+  import('../features/workforce/pages/roster-snapshots.js').then((module) => module.RosterSnapshotsPage)
+);
+const RosterSnapshotDetailPage = lazy(() =>
+  import('../features/workforce/pages/roster-snapshot-detail.js').then((module) => module.RosterSnapshotDetailPage)
+);
+const AccessGrantsPage = lazy(() =>
+  import('../features/members/pages/access-grants.js').then((module) => module.AccessGrantsPage)
+);
 const ControlsPage = lazy(() =>
   import('../features/controls/pages/controls-list.js').then((module) => module.ControlsPage)
 );
@@ -179,6 +191,10 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/workforce/observations', WorkforceObservationsPage);
           route('/{slug}/workforce/service-identities', ServiceIdentitiesPage);
           route('/{slug}/workforce/service-identities/{serviceIdentityId}', ServiceIdentityDetailPage);
+          route('/{slug}/workforce/reconciliation', WorkforceReconciliationPage);
+          route('/{slug}/workforce/snapshots', RosterSnapshotsPage);
+          route('/{slug}/workforce/snapshots/{snapshotId}', RosterSnapshotDetailPage);
+          route('/{slug}/access-grants', AccessGrantsPage);
           route('/{slug}/programs/{programId}/controls', ControlsPage);
           route('/{slug}/programs/{programId}/controls/{controlId}', ControlDetailPage);
           route('/{slug}/programs/{programId}/boundaries', BoundariesPage);

@@ -21,14 +21,27 @@ import {
   declareSystemInstance,
   getApplication,
   listApplicationRevisions,
+  listApplications,
   listSystemInstances,
   previewApplicationChange,
   retireApplication,
   reviseApplication,
   type Application,
   type ApplicationContent,
+  type ApplicationSummary,
   type ChangePreview,
 } from '../applications.js';
+import { listPeople, type Person } from '../../workforce/workforce.js';
+
+function OwnerName({ personId, names }: { personId: string | null; names: Map<string, string> }) {
+  if (!personId) return <>Not set</>;
+  const name = names.get(personId);
+  return name ? (
+    <a href={organizationPath(`/workforce/people/${personId}`)}>{name}</a>
+  ) : (
+    <>Person not on the roster</>
+  );
+}
 import { AccessReviewScopePanel } from '../components/access-review-scope-panel.js';
 import { ApplicationFields, cleanContent } from '../components/application-fields.js';
 import { ChangePreviewView } from '../components/change-preview.js';
@@ -119,6 +132,8 @@ function ReviseCard({ application, onSaved }: { application: Application; onSave
 
 function RetireCard({ application, onRetired }: { application: Application; onRetired: () => void }) {
   const [reason, setReason] = state('');
+  const [mergedInto, setMergedInto] = state('');
+  const candidates = resource(() => listApplications(), []);
   const [effectiveAt, setEffectiveAt] = state(today());
   const [preview, setPreview] = state<ChangePreview | null>(null);
   const [pending, setPending] = state(false);
@@ -141,7 +156,13 @@ function RetireCard({ application, onRetired }: { application: Application; onRe
     setActionError(null);
     setPending(true);
     try {
-      await retireApplication(application.applicationId, application.revision, startOfDay(effectiveAt()), reason().trim());
+      await retireApplication(
+        application.applicationId,
+        application.revision,
+        startOfDay(effectiveAt()),
+        reason().trim(),
+        mergedInto() || null
+      );
       onRetired();
     } catch (failure) {
       setActionError(failure instanceof Error ? failure : new Error('Unable to retire the application.'));
@@ -174,6 +195,22 @@ function RetireCard({ application, onRetired }: { application: Application; onRe
                 onInput={(event: Event) => setEffectiveAt((event.target as HTMLInputElement).value)}
                 required
               />
+            </label>
+            <label className="registration-field">
+              <span>Merged into (optional)</span>
+              <select value={mergedInto()} onChange={(event: Event) => setMergedInto((event.target as HTMLSelectElement).value)}>
+                <option value="">Not merged; retired outright</option>
+                {(candidates.value ?? [])
+                  .filter((other) => other.applicationId !== application.applicationId && other.lifecycle !== 'retired')
+                  .map((other) => (
+                    <option value={other.applicationId}>{other.name}</option>
+                  ))}
+              </select>
+              <small>
+                {candidates.error
+                  ? 'Other applications could not be loaded, so a merge target cannot be chosen.'
+                  : 'Choose the active application that replaces this one when they were consolidated.'}
+              </small>
             </label>
             {error ? <p role="alert">{messageFor(error, 'this application')}</p> : null}
             <Button variant="secondary" type="submit" disabled={pending()}>
@@ -255,6 +292,8 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
   const application = resource(() => getApplication(applicationId, minimumRevision()), [applicationId, minimumRevision(), version()]);
   const instances = resource(() => listSystemInstances(applicationId), [applicationId, version()]);
   const history = resource(() => listApplicationRevisions(applicationId), [applicationId, version()]);
+  const people = resource(() => listPeople().catch(() => [] as Person[]), []);
+  const others = resource(() => listApplications().catch(() => [] as ApplicationSummary[]), [version()]);
   const back = <a href={organizationPath('/applications')}>Back to applications</a>;
   const reload = (revision?: number) => {
     if (revision !== undefined) setMinimumRevision(revision);
@@ -302,6 +341,11 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
   const retired = current.lifecycle === 'retired';
   const systems = instances.value ?? [];
   const chosen = systems.find((instance) => instance.systemInstanceId === selected());
+  const ownerNames = new Map((people.value ?? []).map((person) => [person.personId, person.displayName]));
+  const mergeTargetId = current.retirement?.mergedIntoApplicationId ?? null;
+  const mergeTargetName = mergeTargetId
+    ? (others.value ?? []).find((other) => other.applicationId === mergeTargetId)?.name
+    : undefined;
 
   return (
     <Page>
@@ -323,9 +367,13 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
               <dt>Classification</dt>
               <dd>{current.classification ?? 'Unresolved'}</dd>
               <dt>System owner</dt>
-              <dd>{current.systemOwnerPersonId ?? 'Not set'}</dd>
+              <dd>
+                <OwnerName personId={current.systemOwnerPersonId} names={ownerNames} />
+              </dd>
               <dt>Access owner</dt>
-              <dd>{current.accessOwnerPersonId ?? 'Not set'}</dd>
+              <dd>
+                <OwnerName personId={current.accessOwnerPersonId} names={ownerNames} />
+              </dd>
             </dl>
             {current.unresolved.length > 0 ? (
               <ul className="application-unresolved" aria-label="Unresolved">
@@ -337,6 +385,16 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
             {retired && current.retirement ? (
               <p role="note" className="application-retired">
                 Retired effective {new Date(current.retirement.effectiveAt).toLocaleDateString()}: {current.retirement.reason}
+                {current.retirement.mergedIntoApplicationId ? (
+                  <>
+                    {' '}
+                    Merged into{' '}
+                    <a href={organizationPath(`/applications/${current.retirement.mergedIntoApplicationId}`)}>
+                      {mergeTargetName ?? 'its successor application'}
+                    </a>
+                    .
+                  </>
+                ) : null}
               </p>
             ) : null}
           </CardContent>

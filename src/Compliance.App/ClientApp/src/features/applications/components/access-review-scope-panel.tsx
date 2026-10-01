@@ -6,9 +6,12 @@ import {
   ApplicationRequestError,
   decideAccessReviewScope,
   getAccessReviewScope,
+  listInstanceBoundaryReferences,
   retireSystemInstance,
+  type InstanceBoundaryReference,
   type SystemInstance,
 } from '../applications.js';
+import { organizationPath } from '../../tenants/tenants.js';
 import { messageFor, startOfDay, today } from './messages.js';
 
 const statusLabels: Record<string, string> = {
@@ -43,6 +46,8 @@ export function AccessReviewScopePanel({
   const [retireReason, setRetireReason] = state('');
   const [retireAt, setRetireAt] = state(today());
   const [retireError, setRetireError] = state<Error | null>(null);
+  const [retirePending, setRetirePending] = state(false);
+  const [impact, setImpact] = state<InstanceBoundaryReference[] | null>(null);
   const retired = instance.lifecycle === 'retired';
 
   async function decide(event: Event) {
@@ -72,14 +77,31 @@ export function AccessReviewScopePanel({
     }
   }
 
+  // Step one: show which boundary entries still name this instance before anything changes.
   async function retire(event: Event) {
     event.preventDefault();
     setRetireError(null);
+    setImpact(null);
+    setRetirePending(true);
+    try {
+      setImpact(await listInstanceBoundaryReferences(applicationId, instance.systemInstanceId));
+    } catch (failure) {
+      setRetireError(failure instanceof Error ? failure : new Error('Unable to preview the retirement.'));
+    } finally {
+      setRetirePending(false);
+    }
+  }
+
+  async function confirmRetire() {
+    setRetireError(null);
+    setRetirePending(true);
     try {
       await retireSystemInstance(applicationId, instance, startOfDay(retireAt()), retireReason().trim());
       onChanged();
     } catch (failure) {
       setRetireError(failure instanceof Error ? failure : new Error('Unable to retire the system instance.'));
+    } finally {
+      setRetirePending(false);
     }
   }
 
@@ -221,12 +243,41 @@ export function AccessReviewScopePanel({
                   />
                 </label>
                 {retireError() ? <p role="alert">{messageFor(retireError()!, 'this system instance')}</p> : null}
-                <Button variant="secondary" type="submit">
-                  Retire system instance
+                <Button variant="secondary" type="submit" disabled={retirePending()}>
+                  {retirePending() && !impact() ? 'Previewing…' : 'Preview retirement'}
                 </Button>
               </Stack>
             </form>
           )}
+          {!retired && impact() ? (
+            <Stack gap="sm">
+              <h4>Retirement impact</h4>
+              {impact()!.length === 0 ? (
+                <p role="status">No boundary entries reference this system instance.</p>
+              ) : (
+                <>
+                  <p role="status">
+                    {impact()!.length} boundary {impact()!.length === 1 ? 'entry still names' : 'entries still name'} this
+                    system instance. They stay as recorded; review them after retiring.
+                  </p>
+                  <ul className="plain-list application-impact">
+                    {impact()!.map((reference) => (
+                      <li>
+                        <a href={organizationPath(`/programs/${reference.programId}/boundaries/${reference.boundaryId}`)}>
+                          {reference.subject}
+                        </a>{' '}
+                        · {reference.kind.replaceAll('_', ' ')} · {reference.status.replaceAll('_', ' ')}
+                        {reference.rationale ? ` · ${reference.rationale}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <Button variant="destructive" onPress={() => void confirmRetire()} disabled={retirePending()}>
+                {retirePending() ? 'Retiring…' : 'Retire system instance'}
+              </Button>
+            </Stack>
+          ) : null}
         </Stack>
       </CardContent>
     </Card>

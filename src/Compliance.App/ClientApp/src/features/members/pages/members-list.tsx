@@ -21,6 +21,7 @@ import {
   inviteMember,
   listInvitations,
   listMembers,
+  memberLabel,
   MemberRequestError,
   roleLabel,
 } from '../members.js';
@@ -180,7 +181,7 @@ export function MembersPage() {
                 <li>
                   <Block direction="row" gap="sm" align="center" wrap>
                     <a href={organizationPath(`/members/${member.userId}`)}>
-                      Member {member.userId.slice(0, 8)}
+                      {memberLabel(member, member.userId)}
                     </a>
                     <span>{member.affiliation === 'firm_staff' ? 'Firm staff' : 'Client personnel'}</span>
                     <span>{member.suspended ? 'Suspended' : 'Active'}</span>
