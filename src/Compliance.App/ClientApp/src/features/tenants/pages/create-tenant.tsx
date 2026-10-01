@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Page,
@@ -11,10 +12,11 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { registerTenant, slugPattern } from '../tenants.js';
+import { registerTenant, slugPattern, TenantRequestError } from '../tenants.js';
 
 export function CreateTenantPage() {
   const [name, setName] = state('');
+  const [legalName, setLegalName] = state('');
   const [slug, setSlug] = state('');
   const [error, setError] = state<string | null>(null);
   const [submitting, setSubmitting] = state(false);
@@ -32,10 +34,16 @@ export function CreateTenantPage() {
 
     setSubmitting(true);
     try {
-      const tenant = await registerTenant(name(), slug());
+      const tenant = await registerTenant(name(), slug(), legalName());
       window.location.assign(tenant ? `/${tenant.slug}` : '/');
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Unable to create the organization.');
+      setError(
+        failure instanceof TenantRequestError && failure.status === 403
+          ? `${failure.message} Creating an organization requires a verified email address you own.`
+          : failure instanceof Error
+            ? failure.message
+            : 'Unable to create the organization.'
+      );
       setSubmitting(false);
     }
   }
@@ -51,6 +59,10 @@ export function CreateTenantPage() {
           <Card variant="raised">
             <CardHeader>
               <CardTitle>Organization details</CardTitle>
+              <CardDescription>
+                You become the organization's first Org Admin as soon as it is created, and can invite more
+                administrators from its Members page.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={(event) => void submit(event)}>
@@ -65,6 +77,15 @@ export function CreateTenantPage() {
                     />
                   </label>
                   <label className="registration-field">
+                    <span>Legal name</span>
+                    <input
+                      type="text"
+                      value={legalName()}
+                      onInput={(event: Event) => setLegalName((event.target as HTMLInputElement).value)}
+                      required
+                    />
+                  </label>
+                  <label className="registration-field">
                     <span>Slug</span>
                     <input
                       type="text"
@@ -72,6 +93,7 @@ export function CreateTenantPage() {
                       onInput={(event: Event) => setSlug((event.target as HTMLInputElement).value)}
                       required
                     />
+                    <small>Used in your organization's web address.</small>
                   </label>
                   {error() ? <p role="alert">{error()}</p> : null}
                   <Button variant="primary" width="full" type="submit" disabled={submitting()}>

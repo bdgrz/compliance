@@ -15,8 +15,9 @@ import {
 
 import { listTeams, type TeamSummary } from '../../teams/teams.js';
 import { organizationPath } from '../../tenants/tenants.js';
-import { IdentityFields, reviewDateProblem } from '../identity-fields.js';
+import { expiryLabel, IdentityFields, reviewDateProblem } from '../identity-fields.js';
 import {
+  formatDate,
   getServiceIdentity,
   identityKinds,
   identityLifecycles,
@@ -50,6 +51,7 @@ function IdentityEditor({
     ownerKind: identity.ownerKind,
     ownerId: identity.ownerId,
     reviewBy: identity.reviewBy.slice(0, 10),
+    expiresOn: identity.expiresOn ? identity.expiresOn.slice(0, 10) : null,
   });
   const [lifecycle, setLifecycle] = state(identity.lifecycleStatus);
   const [pending, setPending] = state(false);
@@ -130,10 +132,16 @@ export function ServiceIdentityDetailPage({ serviceIdentityId }: { serviceIdenti
     <Page>
       <PageHeader
         title={current.displayName}
-        description={`${optionLabel(identityKinds, current.identityKind)} · ${optionLabel(identityLifecycles, current.lifecycleStatus)} · revision ${current.revision}`}
+        description={`${optionLabel(identityKinds, current.identityKind)} · ${optionLabel(identityLifecycles, current.lifecycleStatus)} · ${expiryLabel(current)} · revision ${current.revision}`}
       />
       <Stack gap="md">
         <a href={organizationPath('/workforce/service-identities')}>Back to service identities</a>
+        {current.expired ? (
+          <p className="workforce-callout workforce-expired" role="note">
+            This identity expired on {formatDate(current.expiresOn)}. Disable or retire it, or record a new expiry
+            date if its credential was renewed.
+          </p>
+        ) : null}
         {current.unowned ? (
           <Card>
             <CardHeader>

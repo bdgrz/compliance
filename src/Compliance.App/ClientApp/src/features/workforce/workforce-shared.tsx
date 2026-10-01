@@ -6,7 +6,9 @@ import { isStaleConflict, WorkforceRequestError } from './workforce.js';
 const sections = [
   { path: '/workforce', label: 'Roster' },
   { path: '/workforce/observations', label: 'Joiners, movers, and leavers' },
+  { path: '/workforce/reconciliation', label: 'Reconciliation' },
   { path: '/workforce/service-identities', label: 'Service identities' },
+  { path: '/workforce/snapshots', label: 'Snapshots' },
 ];
 
 export function WorkforceSections({ current }: { current: string }) {

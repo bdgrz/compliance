@@ -22,6 +22,7 @@ function tenant(id: string, name: string, overrides: Record<string, unknown> = {
 
 beforeEach(() => {
   api = stubApi();
+  api.reply('/api/v1/platform/operators', 200, { user_ids: [] });
 });
 
 afterEach(() => {

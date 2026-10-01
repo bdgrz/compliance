@@ -267,10 +267,10 @@ describe('workforce roster (R1-11a frontend #220)', () => {
 
     // Act
     submit(container.querySelector('form')!);
-    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+    await vi.waitFor(() => expect(container.querySelector('form [role="alert"]')).not.toBeNull());
 
     // Assert
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Someone else changed this person');
+    expect(container.querySelector('form [role="alert"]')?.textContent).toContain('Someone else changed this person');
   });
 
   it('ShouldShowNotFoundGivenAnUnknownPerson', async () => {

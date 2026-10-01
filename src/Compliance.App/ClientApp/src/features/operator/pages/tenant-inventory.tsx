@@ -23,6 +23,7 @@ import {
   suspendTenant,
   type TenantInventoryItem,
 } from '../operator.js';
+import { PlatformOperatorsCard } from './platform-operators-card.js';
 
 export function TenantInventoryPage() {
   const [cursors, setCursors] = state<(string | null)[]>([null]);
@@ -170,6 +171,7 @@ export function TenantInventoryPage() {
           </Stack>
         </CardContent>
       </Card>
+      <PlatformOperatorsCard />
     </Page>
   );
 }

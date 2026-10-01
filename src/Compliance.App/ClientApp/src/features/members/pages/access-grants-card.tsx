@@ -97,7 +97,11 @@ export function AccessGrantsCard({ access, onChanged }: { access: MemberAccess; 
                   <li className="grant-row">
                     <span>
                       <strong>{path.role_name}</strong> on{' '}
-                      {scopeLabel(path.grant.terms.scope, scopes.value ?? [])} · granted by{' '}
+                      {scopeLabel(path.grant.terms.scope, scopes.value ?? [])} ·{' '}
+                      {path.grant.terms.source.kind === 'manual'
+                        ? 'granted directly'
+                        : `from ${path.grant.terms.source.kind.replaceAll('_', ' ')}`}{' '}
+                      · granted by{' '}
                       {path.grant.terms.granted_by.display} · from{' '}
                       {new Date(path.grant.terms.effective_from).toLocaleDateString()}
                       {path.grant.terms.effective_until

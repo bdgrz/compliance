@@ -1,5 +1,5 @@
 import { createApiClient } from '../../api-client/index.js';
-import type { GetMemberAccessResponse200 } from '../../api-client/operations.js';
+import type { GetMemberAccessResponse200, ListAccessGrantsResponse200 } from '../../api-client/operations.js';
 import { requireActiveTenantId } from '../tenants/tenants.js';
 
 const client = createApiClient();
@@ -38,6 +38,12 @@ export interface MemberSummary {
   userId: string;
   affiliation: string;
   suspended: boolean;
+  emailAddress?: string | null;
+}
+
+// A member's readable name: their verified email when the server returned one.
+export function memberLabel(member: MemberSummary | undefined, userId: string): string {
+  return member?.emailAddress ?? `Member ${userId.slice(0, 8)}`;
 }
 
 export interface InvitationSummary {
@@ -74,6 +80,7 @@ export async function listMembers(): Promise<MemberSummary[]> {
           userId: item.user_id,
           affiliation: item.affiliation ?? 'client_personnel',
           suspended: item.is_suspended ?? false,
+          emailAddress: item.verified_email_address ?? null,
         });
       }
     }
@@ -252,6 +259,16 @@ export async function grantMemberAccess(
     },
   });
   if (!result.ok) throw failure(result, 'grant this access');
+}
+
+export type AccessGrantRecord = NonNullable<NonNullable<ListAccessGrantsResponse200>['grants'][number]>;
+
+// Every access grant in the organization, current and historical, as the server records them.
+export async function listAccessGrants(): Promise<AccessGrantRecord[]> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.listAccessGrants({ params: { tenant_id: tenantId } });
+  if (!result.ok) throw failure(result, 'load the access grants');
+  return (result.data?.grants ?? []).filter((grant): grant is AccessGrantRecord => grant !== null);
 }
 
 export async function revokeAccessGrant(grantId: string): Promise<void> {

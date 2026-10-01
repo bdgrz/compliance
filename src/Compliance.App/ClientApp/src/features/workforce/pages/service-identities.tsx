@@ -15,7 +15,7 @@ import {
 
 import { listTeams, type TeamSummary } from '../../teams/teams.js';
 import { organizationPath } from '../../tenants/tenants.js';
-import { emptyIdentity, IdentityFields, reviewDateProblem } from '../identity-fields.js';
+import { emptyIdentity, expiryLabel, IdentityFields, reviewDateProblem } from '../identity-fields.js';
 import {
   formatDate,
   identityKinds,
@@ -137,7 +137,12 @@ export function ServiceIdentitiesPage() {
                       · {optionLabel(identityKinds, identity.identityKind)} ·{' '}
                       {optionLabel(identityLifecycles, identity.lifecycleStatus)} · owner{' '}
                       {owners.get(identity.ownerId) ?? `unknown ${identity.ownerKind}`} · review by{' '}
-                      {formatDate(identity.reviewBy)}
+                      {formatDate(identity.reviewBy)} ·{' '}
+                      {identity.expired ? (
+                        <strong className="workforce-expired-tag">{expiryLabel(identity)}</strong>
+                      ) : (
+                        expiryLabel(identity)
+                      )}
                       {identity.unowned ? (
                         <ul className="workforce-gaps" aria-label={`Why ${identity.displayName} is unowned`}>
                           {identity.unownedReasons.map((reason) => (

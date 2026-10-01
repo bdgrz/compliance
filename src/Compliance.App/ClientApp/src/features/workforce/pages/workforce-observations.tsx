@@ -21,11 +21,14 @@ import {
   optionLabel,
   WorkforceRequestError,
 } from '../workforce.js';
+import { ResolutionSummary, ResolveObservationForm } from '../observation-resolution.js';
 import { inputValue, LoadFailure, WorkforceForbidden, WorkforceSections } from '../workforce-shared.js';
 
 export function WorkforceObservationsPage() {
   const [kind, setKind] = state('');
-  const observations = resource(() => listWorkforceObservations(kind() || null), [kind()]);
+  const [version, setVersion] = state(0);
+  const [notice, setNotice] = state<string | null>(null);
+  const observations = resource(() => listWorkforceObservations(kind() || null), [kind(), version()]);
   const people = resource(() => listPeople().catch(() => []), []);
 
   if (observations.error instanceof WorkforceRequestError && observations.error.status === 403) {
@@ -56,6 +59,7 @@ export function WorkforceObservationsPage() {
           </CardHeader>
           <CardContent>
             <Stack gap="sm">
+              {notice() ? <p role="status">{notice()}</p> : null}
               <label className="registration-field">
                 <span>Show</span>
                 <select value={kind()} onChange={(event: Event) => setKind(inputValue(event))}>
@@ -109,7 +113,25 @@ export function WorkforceObservationsPage() {
                             ? item.changedFields.map((field) => field.replaceAll('_', ' ')).join(', ')
                             : '—'}
                         </td>
-                        <td>{item.status.replaceAll('_', ' ')}</td>
+                        <td>
+                          {item.resolution ? (
+                            <ResolutionSummary resolution={item.resolution} />
+                          ) : item.status === 'open' ? (
+                            <details className="workforce-close">
+                              <summary>Open · close…</summary>
+                              <ResolveObservationForm
+                                observationId={item.observationId}
+                                label={`${optionLabel(observationKinds, item.kind).toLowerCase()} ${item.sourceWorkerId}`}
+                                onClosed={(message) => {
+                                  setNotice(message);
+                                  setVersion(version() + 1);
+                                }}
+                              />
+                            </details>
+                          ) : (
+                            item.status.replaceAll('_', ' ')
+                          )}
+                        </td>
                         <td>
                           {new Date(item.observedAt).toLocaleString()} from {item.observedFrom}
                         </td>

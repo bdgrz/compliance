@@ -56,6 +56,25 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
   if (!result.ok) throw failure(result, 'reactivate this organization');
 }
 
+// Platform operators by user id. Operator status covers organization metadata and lifecycle only.
+export async function listPlatformOperators(): Promise<string[]> {
+  const result = await client.listPlatformOperators();
+  if (!result.ok) throw failure(result, 'load the platform operators');
+  return result.data?.user_ids ?? [];
+}
+
+export async function grantPlatformOperator(userId: string, reason: string): Promise<void> {
+  const result = await client.grantPlatformOperator({ body: { user_id: userId.trim(), reason: reason.trim() } });
+  if (!result.ok) throw failure(result, 'grant operator status');
+}
+
+export async function revokePlatformOperator(userId: string, reason: string): Promise<void> {
+  const result = await client.revokePlatformOperator({ body: { user_id: userId, reason: reason.trim() } });
+  if (!result.ok) throw failure(result, 'revoke operator status');
+}
+
+export const userIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function provisioningLabel(item: TenantInventoryItem): string | null {
   if (item.requiresInvitation) return 'First administrator not invited';
   if (item.requiresActivation) return 'Awaiting first administrator activation';

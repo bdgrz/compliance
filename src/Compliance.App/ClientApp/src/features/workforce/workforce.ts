@@ -11,6 +11,7 @@ export interface Person {
   sourceKind: string;
   lastChangedBy: string;
   lastChangedAt: string;
+  correlatedUserId: string | null;
 }
 
 export interface WorkRelationshipTerms {
@@ -45,6 +46,64 @@ export interface WorkforceObservation {
   changedFields: string[];
   observedFrom: string;
   observedAt: string;
+  resolution: ObservationResolution | null;
+}
+
+export interface ObservationResolution {
+  resolution: string;
+  note: string;
+  resolvedBy: string;
+  resolvedAt: string;
+}
+
+export interface ReconciliationObservation {
+  observationId: string;
+  kind: string;
+  reason: string;
+  status: string;
+  personIds: string[];
+  relationshipIds: string[];
+  userIds: string[];
+  resolution: ObservationResolution | null;
+}
+
+export interface RosterSnapshotSummary {
+  snapshotId: string;
+  rootSnapshotId: string;
+  amendsSnapshotId: string | null;
+  kind: string;
+  rowCount: number;
+  contentSha256: string;
+  amendmentReason: string | null;
+  frozenBy: string;
+  frozenAt: string;
+}
+
+export interface RosterSnapshotPerson {
+  personId: string;
+  revision: number;
+  displayName: string;
+  workEmail: string | null;
+}
+
+export interface RosterSnapshotRelationship {
+  relationshipId: string;
+  revision: number;
+  personId: string;
+  sourceWorkerId: string;
+  workerType: string;
+  lifecycleStatus: string;
+  startDate: string;
+  endDate: string | null;
+  department: string | null;
+  managerPersonId: string | null;
+  sponsorPersonId: string | null;
+}
+
+export interface RosterSnapshot extends Omit<RosterSnapshotSummary, 'kind'> {
+  people: RosterSnapshotPerson[];
+  relationships: RosterSnapshotRelationship[];
+  restrictedFieldsRedacted: boolean;
 }
 
 export interface ServiceIdentityTerms {
@@ -55,6 +114,7 @@ export interface ServiceIdentityTerms {
   ownerKind: string;
   ownerId: string;
   reviewBy: string;
+  expiresOn: string | null;
 }
 
 export interface ServiceIdentity extends ServiceIdentityTerms {
@@ -64,6 +124,7 @@ export interface ServiceIdentity extends ServiceIdentityTerms {
   sourceKind: string;
   unowned: boolean;
   unownedReasons: string[];
+  expired: boolean;
   lastChangedBy: string;
   lastChangedAt: string;
 }
@@ -124,6 +185,55 @@ const sourceKindLabels: Record<string, string> = {
   manual: 'Manual roster (authoritative source)',
 };
 
+// M0-D06 source precedence, highest first. Only the manual roster is recorded today; an HRIS
+// export would outrank it once an import exists (#347), and the identity provider only corroborates.
+export const sourcePrecedence = [
+  {
+    kind: 'hris',
+    label: 'HRIS roster export',
+    role: 'Authoritative when the organization has an HRIS. No HRIS import is connected yet.',
+  },
+  {
+    kind: 'manual',
+    label: 'Manual roster',
+    role: 'Authoritative when no HRIS exists. Every roster record today comes from this source.',
+  },
+  {
+    kind: 'identity_provider',
+    label: 'Identity-provider directory',
+    role: 'Corroborates the roster only; it never overrides an authoritative source.',
+  },
+];
+
+export const reconciliationKinds = [
+  { value: 'missing', label: 'Missing' },
+  { value: 'duplicate', label: 'Duplicate' },
+  { value: 'conflicting', label: 'Conflicting' },
+  { value: 'stale', label: 'Stale' },
+  { value: 'access_only', label: 'Access only' },
+];
+
+export const observationStatuses = [
+  { value: 'open', label: 'Open' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'dismissed', label: 'Dismissed' },
+];
+
+const reconciliationReasonLabels: Record<string, string> = {
+  no_work_relationship: 'On the roster with no work relationship',
+  correlated_member_missing: 'The correlated member is no longer in the organization',
+  ended_worker_retains_access: 'Every work relationship has ended but the member still has access',
+  member_correlated_to_several_people: 'One member is correlated to several people',
+  shared_work_email: 'Several people share a work email',
+  end_date_passed: 'The end date has passed but the relationship is not ended',
+  start_date_passed: 'The start date has passed but the relationship is still pending',
+  member_not_on_roster: 'The member has access but is not on the roster',
+};
+
+export function reconciliationReasonLabel(reason: string): string {
+  return reconciliationReasonLabels[reason] ?? reason.replaceAll('_', ' ');
+}
+
 export function optionLabel(options: { value: string; label: string }[], value: string | null | undefined): string {
   if (!value) return 'Not set';
   return options.find((option) => option.value === value)?.label ?? value.replaceAll('_', ' ');
@@ -158,6 +268,7 @@ function toPerson(data: {
   source_kind: string;
   last_changed_by: Actor;
   last_changed_at: string;
+  correlated_user_id?: string | null;
 }): Person {
   return {
     personId: data.person_id,
@@ -167,6 +278,7 @@ function toPerson(data: {
     sourceKind: data.source_kind,
     lastChangedBy: data.last_changed_by.display,
     lastChangedAt: data.last_changed_at,
+    correlatedUserId: data.correlated_user_id ?? null,
   };
 }
 
@@ -222,6 +334,8 @@ function toServiceIdentity(data: {
   unowned_reasons: (string | null)[];
   last_changed_by: Actor;
   last_changed_at: string;
+  expires_on?: string | null;
+  expired?: boolean;
 }): ServiceIdentity {
   return {
     serviceIdentityId: data.service_identity_id,
@@ -237,6 +351,8 @@ function toServiceIdentity(data: {
     sourceKind: data.source_kind,
     unowned: data.unowned,
     unownedReasons: data.unowned_reasons.filter((reason): reason is string => reason !== null),
+    expiresOn: data.expires_on ?? null,
+    expired: data.expired ?? false,
     lastChangedBy: data.last_changed_by.display,
     lastChangedAt: data.last_changed_at,
   };
@@ -382,6 +498,7 @@ export async function listWorkforceObservations(kind: string | null): Promise<Wo
           changedFields: item.changed_fields.filter((field): field is string => field !== null),
           observedFrom: item.observed_from.display,
           observedAt: item.observed_at,
+          resolution: resolutionOf(item.resolution),
         });
       }
     }
@@ -427,6 +544,7 @@ function identityBody(terms: ServiceIdentityTerms) {
     owner_id: terms.ownerId,
     review_by: terms.reviewBy,
     environment: optional(terms.environment) ?? null,
+    expires_on: optional(terms.expiresOn),
   };
 }
 
@@ -450,6 +568,198 @@ export async function reviseServiceIdentity(
     body: { expected_revision: expectedRevision, lifecycle_status: lifecycleStatus, ...identityBody(terms) },
   });
   if (!result.ok) throw failure(result, 'save this service identity');
+}
+
+type RawResolution = { resolution: string; note: string; resolved_by: Actor; resolved_at: string } | null | undefined;
+
+function resolutionOf(raw: RawResolution): ObservationResolution | null {
+  return raw
+    ? { resolution: raw.resolution, note: raw.note, resolvedBy: raw.resolved_by.display, resolvedAt: raw.resolved_at }
+    : null;
+}
+
+// Closes a joiner/mover/leaver or reconciliation observation with an attributed note. Closing never
+// grants, changes, or revokes anyone's access.
+export async function resolveWorkforceObservation(
+  observationId: string,
+  resolution: 'resolved' | 'dismissed',
+  note: string
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.resolveWorkforceObservation({
+    params: { tenant_id: tenantId, observation_id: observationId },
+    body: { resolution, note: note.trim() },
+  });
+  if (!result.ok) throw failure(result, 'close this observation');
+}
+
+export async function listReconciliationObservations(
+  kind: string | null,
+  status: string | null
+): Promise<ReconciliationObservation[]> {
+  const tenantId = requireActiveTenantId();
+  const observations: ReconciliationObservation[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listWorkforceReconciliationObservations({
+      params: { tenant_id: tenantId },
+      query: { cursor, kind: kind ?? undefined, status: status ?? undefined },
+    });
+    if (!result.ok) throw failure(result, 'load the roster reconciliation');
+    for (const item of result.data?.items ?? []) {
+      if (item) {
+        observations.push({
+          observationId: item.observation_id,
+          kind: item.kind,
+          reason: item.reason,
+          status: item.status,
+          personIds: item.person_ids,
+          relationshipIds: item.relationship_ids,
+          userIds: item.user_ids,
+          resolution: resolutionOf(item.resolution),
+        });
+      }
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return observations;
+}
+
+// Links a roster person to the platform member who is that person; no user clears the link.
+export async function correlatePersonMembership(
+  personId: string,
+  expectedRevision: number,
+  userId: string | null
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.correlatePersonMembership({
+    params: { tenant_id: tenantId, person_id: personId },
+    body: { expected_revision: expectedRevision, ...(userId ? { user_id: userId } : {}) },
+  });
+  if (!result.ok) throw failure(result, 'correlate this person with a member');
+}
+
+type RawSnapshot = {
+  snapshot_id: string;
+  root_snapshot_id: string;
+  amends_snapshot_id: string | null;
+  content_sha256: string;
+  row_count: number | string;
+  amendment_reason: string | null;
+  frozen_by: Actor;
+  frozen_at: string;
+};
+
+function snapshotSummaryOf(raw: RawSnapshot) {
+  return {
+    snapshotId: raw.snapshot_id,
+    rootSnapshotId: raw.root_snapshot_id,
+    amendsSnapshotId: raw.amends_snapshot_id,
+    rowCount: Number(raw.row_count),
+    contentSha256: raw.content_sha256,
+    amendmentReason: raw.amendment_reason,
+    frozenBy: raw.frozen_by.display,
+    frozenAt: raw.frozen_at,
+  };
+}
+
+type RawSnapshotDetail = RawSnapshot & {
+  people: ({ person_id: string; revision: number | string; display_name: string; work_email: string | null } | null)[];
+  work_relationships: ({
+    relationship_id: string;
+    revision: number | string;
+    person_id: string;
+    source_worker_id: string;
+    worker_type: string;
+    lifecycle_status: string;
+    start_date: string;
+    end_date: string | null;
+    department: string | null;
+    manager_person_id: string | null;
+    sponsor_person_id: string | null;
+  } | null)[];
+  restricted_fields_redacted: boolean;
+};
+
+function snapshotOf(raw: RawSnapshotDetail): RosterSnapshot {
+  return {
+    ...snapshotSummaryOf(raw),
+    people: raw.people
+      .filter((item) => item !== null)
+      .map((item) => ({
+        personId: item.person_id,
+        revision: Number(item.revision),
+        displayName: item.display_name,
+        workEmail: item.work_email,
+      })),
+    relationships: raw.work_relationships
+      .filter((item) => item !== null)
+      .map((item) => ({
+        relationshipId: item.relationship_id,
+        revision: Number(item.revision),
+        personId: item.person_id,
+        sourceWorkerId: item.source_worker_id,
+        workerType: item.worker_type,
+        lifecycleStatus: item.lifecycle_status,
+        startDate: item.start_date,
+        endDate: item.end_date,
+        department: item.department,
+        managerPersonId: item.manager_person_id,
+        sponsorPersonId: item.sponsor_person_id,
+      })),
+    restrictedFieldsRedacted: raw.restricted_fields_redacted,
+  };
+}
+
+export async function listRosterSnapshots(): Promise<RosterSnapshotSummary[]> {
+  const tenantId = requireActiveTenantId();
+  const snapshots: RosterSnapshotSummary[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listWorkforceRosterSnapshots({ params: { tenant_id: tenantId }, query: { cursor } });
+    if (!result.ok) throw failure(result, 'load the roster snapshots');
+    for (const item of result.data?.items ?? []) {
+      if (item) snapshots.push({ ...snapshotSummaryOf(item), kind: item.kind });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return snapshots;
+}
+
+export async function getRosterSnapshot(snapshotId: string): Promise<RosterSnapshot> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.getWorkforceRosterSnapshot({ params: { tenant_id: tenantId, snapshot_id: snapshotId } });
+  if (!result.ok) throw failure(result, 'load this roster snapshot');
+  if (!result.data) throw new WorkforceRequestError('This roster snapshot was not found.', 404, false);
+  return snapshotOf(result.data);
+}
+
+// The snapshot in force at a moment: the latest amendment frozen at or before it.
+export async function getRosterSnapshotAsOf(asOf: string): Promise<RosterSnapshot> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.getWorkforceRosterSnapshotAsOf({ params: { tenant_id: tenantId }, query: { as_of: asOf } });
+  if (!result.ok) throw failure(result, 'load the roster snapshot for that time');
+  if (!result.data) throw new WorkforceRequestError('No roster snapshot existed at that time.', 404, false);
+  return snapshotOf(result.data);
+}
+
+export async function freezeRosterSnapshot(): Promise<string> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.freezeWorkforceRosterSnapshot({ params: { tenant_id: tenantId } });
+  if (!result.ok) throw failure(result, 'freeze the roster');
+  if (!result.data) throw new WorkforceRequestError('The roster was not frozen.', null, false);
+  return result.data.snapshot_id;
+}
+
+export async function amendRosterSnapshot(snapshotId: string, reason: string): Promise<string> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.amendWorkforceRosterSnapshot({
+    params: { tenant_id: tenantId, snapshot_id: snapshotId },
+    body: { reason: reason.trim() },
+  });
+  if (!result.ok) throw failure(result, 'amend this roster snapshot');
+  if (!result.data) throw new WorkforceRequestError('The amendment was not recorded.', null, false);
+  return result.data.snapshot_id;
 }
 
 function failure(result: { ok: false; kind: string; status: number; error?: unknown }, action: string) {

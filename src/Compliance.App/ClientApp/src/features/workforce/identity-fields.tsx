@@ -10,6 +10,7 @@ export const emptyIdentity: ServiceIdentityTerms = {
   ownerKind: 'person',
   ownerId: '',
   reviewBy: '',
+  expiresOn: null,
 };
 
 // The editable terms of a non-human identity: exactly one accountable owner (a person or a team)
@@ -101,8 +102,24 @@ export function IdentityFields({
           required
         />
       </label>
+      <label className="registration-field">
+        <span>Credential expires on (optional)</span>
+        <input
+          type="date"
+          value={terms.expiresOn ?? ''}
+          onInput={(event: Event) => onChange({ ...terms, expiresOn: inputValue(event) || null })}
+        />
+        <small>When the identity's credential or access stops working. An active identity cannot already be expired.</small>
+      </label>
     </>
   );
+}
+
+// Expiry is a fact the server reports; the client only words it.
+export function expiryLabel(identity: { expiresOn: string | null; expired: boolean }): string {
+  if (!identity.expiresOn) return 'No expiry';
+  const date = new Date(`${identity.expiresOn.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' });
+  return identity.expired ? `Expired ${date}` : `Expires ${date}`;
 }
 
 // Client-side guard matching the server rule; the server stays authoritative.

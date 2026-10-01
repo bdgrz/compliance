@@ -139,16 +139,61 @@ export function chooseOrganizationEntry(
   return target ? { kind: 'enter', href: `/${target.slug}${suffix}` } : { kind: 'choose' };
 }
 
+// Keeps the HTTP status so creation can explain the verified-email requirement (403) apart from
+// validation problems such as a taken slug.
+export class TenantRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null
+  ) {
+    super(message);
+  }
+}
+
+// Self-service creation: the creator becomes the organization's first Org Admin immediately.
 export async function registerTenant(
   name: string,
-  slug: string
+  slug: string,
+  legalName: string | null = null
 ): Promise<RegisterTenantResponse200> {
-  const result = await client.registerTenant({ body: { name, slug } });
-  if (!result.ok) {
-    throw new Error(describeFailure(result));
-  }
+  const trimmedLegalName = legalName?.trim() ?? '';
+  const result = await client.registerTenant({
+    body: { name, slug, ...(trimmedLegalName ? { legal_name: trimmedLegalName } : {}) },
+  });
+  if (!result.ok) throw registrationFailure(result);
 
   return result.data;
+}
+
+function registrationFailure(result: { ok: false; kind: string; status?: number; error?: unknown }) {
+  const detail =
+    result.kind === 'http' && typeof result.error === 'object' && result.error !== null
+      ? (result.error as { detail?: unknown }).detail
+      : undefined;
+  return new TenantRequestError(
+    typeof detail === 'string' && detail.length > 0 ? detail : describeFailure(result),
+    result.kind === 'http' ? (result.status ?? null) : null
+  );
+}
+
+export type EmailVerification = 'verified' | 'unverified' | 'unknown';
+
+// Whether the signed-in user owns a verified email address, which self-service creation requires.
+// 'unknown' means the check could not be made; the server still decides on creation.
+export async function readEmailVerification(userId: string | null | undefined): Promise<EmailVerification> {
+  if (!userId) return 'unknown';
+  let cursor: string | undefined;
+  try {
+    do {
+      const result = await client.listEmailAddresses({ params: { user_id: userId }, query: { cursor } });
+      if (!result.ok) return 'unknown';
+      if ((result.data?.items ?? []).some((item) => item?.verified)) return 'verified';
+      cursor = result.data?.next_cursor ?? undefined;
+    } while (cursor !== undefined);
+  } catch {
+    return 'unknown';
+  }
+  return 'unverified';
 }
 
 export async function listMyTenants(): Promise<TenantMembershipSummary[]> {

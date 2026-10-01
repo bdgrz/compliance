@@ -315,12 +315,18 @@ export async function retireApplication(
   applicationId: string,
   expectedRevision: number,
   effectiveAt: string,
-  reason: string
+  reason: string,
+  mergedIntoApplicationId: string | null = null
 ): Promise<void> {
   const tenantId = requireActiveTenantId();
   const result = await client.retireApplication({
     params: { tenant_id: tenantId, application_id: applicationId },
-    body: { expected_revision: expectedRevision, effective_at: effectiveAt, reason },
+    body: {
+      expected_revision: expectedRevision,
+      effective_at: effectiveAt,
+      reason,
+      ...(mergedIntoApplicationId ? { merged_into_application_id: mergedIntoApplicationId } : {}),
+    },
   });
   if (!result.ok) throw failure(result, 'retire the application');
 }
@@ -399,6 +405,46 @@ export async function retireSystemInstance(
     body: { expected_revision: instance.revision, effective_at: effectiveAt, reason },
   });
   if (!result.ok) throw failure(result, 'retire the system instance');
+}
+
+export interface InstanceBoundaryReference {
+  boundaryId: string;
+  programId: string;
+  status: string;
+  kind: string;
+  subject: string;
+  rationale: string;
+}
+
+// The impact of retiring a system instance: every boundary entry that still names it.
+export async function listInstanceBoundaryReferences(
+  applicationId: string,
+  systemInstanceId: string
+): Promise<InstanceBoundaryReference[]> {
+  const tenantId = requireActiveTenantId();
+  const references: InstanceBoundaryReference[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listSystemInstanceBoundaryReferences({
+      params: { tenant_id: tenantId, application_id: applicationId, system_instance_id: systemInstanceId },
+      query: { cursor },
+    });
+    if (!result.ok) throw failure(result, 'preview the retirement');
+    for (const item of result.data?.items ?? []) {
+      if (item) {
+        references.push({
+          boundaryId: item.boundary_id,
+          programId: item.program_id,
+          status: item.status,
+          kind: item.kind,
+          subject: item.subject,
+          rationale: item.rationale,
+        });
+      }
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return references;
 }
 
 type RawDecision = {
