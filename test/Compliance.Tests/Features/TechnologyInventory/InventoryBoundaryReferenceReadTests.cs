@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -123,6 +125,30 @@ public sealed class InventoryBoundaryReferenceReadTests
         Assert.Equal(RequestErrorKind.Validation, result.Error!.Kind);
     }
 
+    [Fact]
+    public async Task ShouldDenyBoundaryReferenceReadsGivenMemberWithoutInventoryGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
+        var authorizer = new TechnologyInventoryAuthorizer(new Memberships(tenantId, userId),
+            new ActiveTenants(), new DenyAll());
+
+        // Act
+        var component = await authorizer.AuthorizeAsync(new RequestContext<ITechnologyInventoryRequest>(
+            new ListTechnologyComponentBoundaryReferences(tenantId, Uuid.CreateVersion4()), actor),
+            CancellationToken.None);
+        var asset = await authorizer.AuthorizeAsync(new RequestContext<ITechnologyInventoryRequest>(
+            new ListInformationAssetBoundaryReferences(tenantId, Uuid.CreateVersion4()), actor),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, component.Error!.Kind);
+        Assert.Equal(RequestErrorKind.Forbidden, asset.Error!.Kind);
+    }
+
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
 
@@ -180,5 +206,33 @@ public sealed class InventoryBoundaryReferenceReadTests
             CancellationToken ct = default) where TAggregate : Aggregate =>
             ValueTask.FromResult(aggregate.Id == component.Id ? (TAggregate)(Aggregate)component :
                 aggregate.Id == asset.Id ? (TAggregate)(Aggregate)asset : aggregate);
+    }
+
+    sealed class Memberships(Uuid tenantId, Uuid userId) : ITenantMembershipDirectoryReader
+    {
+        public ValueTask<TenantMembershipView?> GetAsync(string tenant, Uuid user,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult<TenantMembershipView?>(
+                tenant == tenantId.ToString() && user == userId
+                    ? new TenantMembershipView(userId, tenantId)
+                    : null);
+
+        public ValueTask<bool> IsMemberAsync(string tenant, Uuid user, CancellationToken ct = default) =>
+            ValueTask.FromResult(tenant == tenantId.ToString() && user == userId);
+
+        public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenant, int limit, string? cursor,
+            CancellationToken ct = default) => ValueTask.FromResult(new Page<TenantMembershipView>([], null));
+    }
+
+    sealed class ActiveTenants : ITenantActivity
+    {
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(true);
+    }
+
+    sealed class DenyAll : IPermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission, CancellationToken ct = default) => ValueTask.FromResult(false);
     }
 }
