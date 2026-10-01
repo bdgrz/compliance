@@ -1,0 +1,70 @@
+using Cntryl.Portia;
+
+namespace Bdgrz.Compliance.Features.Operations;
+
+/// <summary>
+///     Answers who holds and may act on operating work from source records: direct member holders,
+///     current team membership, workforce persons, and program-management grants. Access roles
+///     never stand in for an operating responsibility.
+/// </summary>
+public sealed class OperatingAuthority(IAggregateReader reader,
+    IAccessGrantPermissionAuthorizer permissions)
+{
+    public const string MemberHolder = "member";
+    public const string PersonHolder = "person";
+    public const string TeamHolder = "team";
+
+    internal ValueTask<bool> ManagesProgramAsync(Uuid tenantId, OperationsActor actor,
+        Uuid programId, CancellationToken ct) => permissions.IsAllowedAsync(tenantId, actor.UserId,
+        actor.MemberId, programId, IProgramScopedRequest.ManagementPermission, ct);
+
+    /// <summary>Whether the member holds the responsibility directly or through current team membership.</summary>
+    public async ValueTask<bool> HoldsAsync(Uuid tenantId, OperatingHolder? holder, Uuid memberId,
+        CancellationToken ct)
+    {
+        if (holder is null)
+            return false;
+        if (holder.Kind == MemberHolder)
+            return holder.Id == memberId;
+        if (holder.Kind != TeamHolder)
+            return false;
+        var team = await reader.HydrateAsync(new Team(tenantId, holder.Id), ct).ConfigureAwait(false);
+        if (!team.IsActive)
+            return false;
+        var membership = await reader.HydrateAsync(new TeamMember(tenantId, holder.Id, memberId), ct)
+            .ConfigureAwait(false);
+        return membership.IsAssigned;
+    }
+
+    /// <summary>Whether the holder still exists and, for a member, is active client personnel.</summary>
+    public async ValueTask<bool> IsActiveAsync(Uuid tenantId, OperatingHolder holder,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(holder);
+        switch (holder.Kind)
+        {
+            case MemberHolder:
+                var member = await reader.HydrateAsync(Member.ForVerification(tenantId, holder.Id),
+                    ct).ConfigureAwait(false);
+                return member.IsRegistered && !member.IsSuspended &&
+                       member.Affiliation != "firm_staff";
+            case PersonHolder:
+                var person = await reader.HydrateAsync(new Person(tenantId, holder.Id), ct)
+                    .ConfigureAwait(false);
+                return person.IsCreated;
+            case TeamHolder:
+                var team = await reader.HydrateAsync(new Team(tenantId, holder.Id), ct)
+                    .ConfigureAwait(false);
+                return team.IsActive;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Each approved control version's exclusive end, from retirement or supersession.</summary>
+    public static IReadOnlyDictionary<Uuid, DateOnly?> VersionWindows(ControlDraft? control) =>
+        control is null
+            ? []
+            : control.ReadVersions().ToDictionary(static version => version.VersionId,
+                static version => version.EffectiveUntil);
+}

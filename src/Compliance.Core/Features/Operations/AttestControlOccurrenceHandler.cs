@@ -1,0 +1,36 @@
+using Bdgrz.Compliance.Features.Versioning;
+using Cntryl.Portia;
+
+namespace Bdgrz.Compliance.Features.Operations;
+
+/// <summary>Records the performer's own attestation; HTTP-only, never an MCP tool.</summary>
+public sealed class AttestControlOccurrenceHandler(IAggregateExecutor executor,
+    IAggregateReader reader, OperatingAuthority authority, TimeProvider clock)
+    : IRequestHandler<AttestControlOccurrence, ControlOccurrenceView>
+{
+    public async ValueTask<Result<ControlOccurrenceView>> HandleAsync(
+        IRequestContext<AttestControlOccurrence> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        var now = clock.GetUtcNow();
+        var prepared = await OccurrenceAttestation.PrepareAsync(reader, authority, request.TenantId,
+            request.ProgramId, request.ControlId, request.OccurrenceId, request.PerformedByPersonId,
+            context.Actor, now, ct).ConfigureAwait(false);
+        if (!prepared.IsSuccess)
+            return Result<ControlOccurrenceView>.Failure(prepared.Error!);
+        var (actor, performer, windows) = prepared.Value;
+        var input = new AttestationInput(request.Result, request.PerformedAt, request.CoveredFrom,
+            request.CoveredUntil, request.Notes, request.Rationale, request.Evidence ?? [],
+            performer);
+        return await executor.ExecuteAsync(new ControlOperationsLedger(request.TenantId,
+                request.ProgramId),
+            ledger =>
+            {
+                var failure = ledger.Attest(request.ControlId, request.OccurrenceId,
+                    request.ExpectedRevision, input, windows, actor.MemberId, actor.Display, now);
+                return CommandFailureRequestAdapter.ToOutcome(failure,
+                    ledger.ReadOccurrence(request.ControlId, request.OccurrenceId, windows,
+                        DateOnly.FromDateTime(now.UtcDateTime))!);
+            }, context, ct).ConfigureAwait(false);
+    }
+}

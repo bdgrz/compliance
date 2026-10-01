@@ -283,6 +283,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IAccessGrantProjection>(provider =>
             provider.GetRequiredService<FitzAccessGrantDirectory>());
         services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
+        services.AddScoped<OperatingAuthority>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
         services.AddScoped<BoundaryResponsibilityScopeValidator>();
         services.AddScoped<ControlResponsibilityScopeValidator>();
@@ -459,6 +460,29 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListReadinessGapsHandler>()
             .AddRequestHandler<PlanReadinessGapHandler>()
             .AddRequestHandler<DecideReadinessHandler>()
+            .AddRequestHandler<ProposeControlOperatingPlanHandler>()
+            .AddRequestHandler<PreviewControlOperatingPlanHandler>()
+            .AddRequestHandler<ApproveControlOperatingPlanHandler>()
+            .AddRequestHandler<GetControlOperatingPlanHandler>()
+            .AddRequestHandler<ListControlOperatingBlockersHandler>()
+            .AddRequestHandler<ListMyControlWorkHandler>()
+            .AddRequestHandler<OpenControlOccurrenceHandler>()
+            .AddRequestHandler<AttestControlOccurrenceHandler>()
+            .AddRequestHandler<CorrectControlAttestationHandler>()
+            .AddRequestHandler<ReviewControlOccurrenceHandler>()
+            .AddRequestHandler<GetControlOccurrenceHandler>()
+            .AddRequestHandler<ListControlOccurrencesHandler>()
+            .AddRequestHandler<RaiseFindingHandler>()
+            .AddRequestHandler<RaiseOccurrenceFindingHandler>()
+            .AddRequestHandler<ReviseFindingHandler>()
+            .AddRequestHandler<AddCorrectiveActionHandler>()
+            .AddRequestHandler<CompleteCorrectiveActionHandler>()
+            .AddRequestHandler<LinkFindingAcceptanceHandler>()
+            .AddRequestHandler<CloseFindingHandler>()
+            .AddRequestHandler<ReopenFindingHandler>()
+            .AddRequestHandler<GetFindingHandler>()
+            .AddRequestHandler<ListFindingsHandler>()
+            .AddRequestAuthorizer<OperationsReactionAuthorizer>()
             .AddRequestHandler<ProposeControlSuccessorHandler>()
             .AddRequestHandler<ProposeControlRetirementHandler>()
             .AddRequestHandler<PreviewControlImpactHandler>()
@@ -629,6 +653,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
+            .AddReactor<ControlOccurrenceFindingReactor>(
+                ControlOccurrenceFindingReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
             .AddProjector<TeamDirectoryProjector>("TeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TeamMemberDirectoryProjector>("TeamMemberDirectory", WorkloadScope.PerTenant)
