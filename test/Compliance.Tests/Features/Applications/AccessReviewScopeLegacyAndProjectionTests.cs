@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -49,6 +51,125 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
 
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ShouldProhibitCorrelatedAccessOwnerGivenIndependentRegistrant(bool legacy)
+    {
+        // Arrange
+        var ownerUserId = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: ownerUserId, legacy: legacy);
+
+        // Act
+        var result = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(ownerUserId), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+        var recorded = await scenario.Reader.HydrateAsync(new SystemInstanceAccessReviewScope(
+            scenario.TenantId, scenario.InstanceId));
+        Assert.Empty(recorded.Decisions);
+    }
+
+    [Fact]
+    public async Task ShouldRecordWaivedOwnerDecisionGivenExactScopeWaiver()
+    {
+        // Arrange
+        var ownerUserId = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: ownerUserId);
+        var waiverId = await scenario.RecordOwnerWaiverAsync(ownerUserId);
+
+        // Act
+        var result = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(ownerUserId, waiverId), CancellationToken.None);
+        var recorded = await scenario.Reader.HydrateAsync(new SystemInstanceAccessReviewScope(
+            scenario.TenantId, scenario.InstanceId));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var decision = Assert.Single(recorded.Decisions);
+        Assert.Equal(waiverId, decision.SeparationOfDutiesWaiverId);
+        Assert.Equal(RbacIds.Member(scenario.TenantId, ownerUserId).ToString(), decision.ApprovedBy.Id);
+    }
+
+    [Fact]
+    public async Task ShouldUseCurrentApplicationOwnerGivenReassignedOwnership()
+    {
+        // Arrange
+        var priorOwner = Uuid.CreateVersion4();
+        var currentOwner = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: priorOwner);
+        var currentPerson = await scenario.RecordPersonAsync(currentOwner);
+        await scenario.SetAccessOwnerAsync(currentPerson);
+
+        // Act
+        var denied = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(currentOwner), CancellationToken.None);
+        var allowed = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(priorOwner), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(denied.Error).Kind);
+        Assert.True(allowed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldUseCurrentPersonCorrelationGivenRelinkedOwnerMembership()
+    {
+        // Arrange
+        var priorMember = Uuid.CreateVersion4();
+        var currentMember = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: priorMember);
+        await scenario.CorrelateOwnerAsync(currentMember);
+
+        // Act
+        var denied = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(currentMember), CancellationToken.None);
+        var allowed = await scenario.DecideHandler().HandleAsync(
+            scenario.DecideContext(priorMember), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(denied.Error).Kind);
+        Assert.True(allowed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldAllowIndependentApprovalGivenOwnerMembershipUnlinked()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: userId);
+        await scenario.CorrelateOwnerAsync(null);
+
+        // Act
+        var result = await scenario.DecideHandler().HandleAsync(scenario.DecideContext(userId),
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldIgnoreForeignPersonCorrelationGivenSamePersonIdOutsideTenant()
+    {
+        // Arrange
+        var userId = Uuid.CreateVersion4();
+        await using var scenario = await Scenario.CreateAsync(Uuid.CreateVersion4(),
+            accessOwnerUserId: userId, ownerTenantId: Uuid.CreateVersion4());
+
+        // Act
+        var result = await scenario.DecideHandler().HandleAsync(scenario.DecideContext(userId),
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
     }
 
     [Fact]
@@ -179,11 +300,13 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
         public Uuid TenantId { get; } = Uuid.CreateVersion4();
         public Uuid ApplicationId { get; } = Uuid.CreateVersion4();
         public Uuid InstanceId { get; } = Uuid.CreateVersion4();
+        public Uuid? AccessOwnerPersonId { get; private set; }
         public IAggregateReader Reader => _scope.ServiceProvider.GetRequiredService<IAggregateReader>();
         public IEventStore Events => _scope.ServiceProvider.GetRequiredService<IEventStore>();
 
         /// <summary>Declares a legacy instance; a null registrant means the member of <paramref name="userId"/>.</summary>
-        public static async Task<Scenario> CreateAsync(Uuid? registrantId, Uuid? userId = null)
+        public static async Task<Scenario> CreateAsync(Uuid? registrantId, Uuid? userId = null,
+            Uuid? accessOwnerUserId = null, bool legacy = true, Uuid? ownerTenantId = null)
         {
             var services = new ServiceCollection();
             services.AddSingleton<IEventStore>(new InMemoryEventStore());
@@ -192,32 +315,105 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
             var scenario = new Scenario(services.BuildServiceProvider(
                 new ServiceProviderOptions { ValidateScopes = true }));
             var actor = registrantId ?? RbacIds.Member(scenario.TenantId, userId!.Value);
+            Uuid? ownerPersonId = null;
+            if (accessOwnerUserId is { } ownerUserId)
+            {
+                ownerPersonId = await scenario.RecordPersonAsync(ownerUserId, ownerTenantId);
+                scenario.AccessOwnerPersonId = ownerPersonId;
+            }
             var stream = new EventStreamAddress(scenario.TenantId.ToString(), "applications",
                 scenario.ApplicationId.ToString());
             await scenario.Events.AppendAsync(stream, 0,
             [
                 DomainEventSeed.Attach(new ApplicationDeclared(scenario.TenantId,
                     scenario.ApplicationId, "Payroll", "Run payroll", null, actor, "Manager",
-                    Now), scenario.ApplicationId, 1),
-                DomainEventSeed.Attach(new SystemInstanceDeclared(scenario.TenantId,
-                    scenario.ApplicationId, scenario.InstanceId, 2, "Production", "production",
-                    null, "payroll-prod", actor, "Manager", Now), scenario.ApplicationId, 2),
+                    Now, AccessOwnerPersonId: ownerPersonId), scenario.ApplicationId, 1),
             ]);
+            if (legacy)
+                await scenario.Events.AppendAsync(stream, 1,
+                [DomainEventSeed.Attach(new SystemInstanceDeclared(scenario.TenantId,
+                    scenario.ApplicationId, scenario.InstanceId, 2, "Production", "production",
+                    null, "payroll-prod", actor, "Manager", Now), scenario.ApplicationId, 2)]);
+            else
+                await scenario.Events.AppendAsync(new EventStreamAddress(scenario.TenantId.ToString(),
+                        "system-instances", scenario.InstanceId.ToString()), 0,
+                [DomainEventSeed.Attach(new SystemInstanceRegistered(scenario.TenantId,
+                    scenario.ApplicationId, scenario.InstanceId, 1, "Production", "production",
+                    null, "payroll-prod", actor, "Manager", Now), scenario.InstanceId, 1)]);
             return scenario;
+        }
+
+        public async Task<Uuid> RecordPersonAsync(Uuid userId, Uuid? tenantId = null)
+        {
+            var tenant = tenantId ?? TenantId;
+            var personId = Uuid.CreateVersion4();
+            var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Manager");
+            await Events.AppendAsync(new EventStreamAddress(tenant.ToString(), "people",
+                personId.ToString()), 0,
+            [
+                DomainEventSeed.Attach(new PersonRecorded(tenant, personId, "Access owner",
+                    "owner@example.test", actor, Now), personId, 1),
+                DomainEventSeed.Attach(new PersonMembershipCorrelated(tenant, personId, 2,
+                    userId, actor, Now), personId, 2),
+            ]);
+            return personId;
+        }
+
+        public async Task SetAccessOwnerAsync(Uuid personId)
+        {
+            var application = await Reader.HydrateAsync(new DeclaredApplication(TenantId, ApplicationId));
+            var revision = application.Revision + 1;
+            await Events.AppendAsync(new EventStreamAddress(TenantId.ToString(), "applications",
+                ApplicationId.ToString()), (ulong)(revision - 1),
+            [DomainEventSeed.Attach(new ApplicationRevised(TenantId, ApplicationId, revision,
+                "Payroll", "Run payroll", null, Uuid.CreateVersion4(), "Manager", Now,
+                AccessOwnerPersonId: personId), ApplicationId, (ulong)revision)]);
+        }
+
+        public async Task CorrelateOwnerAsync(Uuid? userId)
+        {
+            var personId = AccessOwnerPersonId!.Value;
+            await Events.AppendAsync(new EventStreamAddress(TenantId.ToString(), "people",
+                personId.ToString()), 2,
+            [DomainEventSeed.Attach(new PersonMembershipCorrelated(TenantId, personId, 3,
+                userId, ActorReference.ForMember(Uuid.CreateVersion4(), "Manager"), Now), personId, 3)]);
+        }
+
+        public async Task<Uuid> RecordOwnerWaiverAsync(Uuid userId)
+        {
+            var waiverId = Uuid.CreateVersion4();
+            var scope = new SeparationOfDutiesWaiverScope(
+                SeparationOfDutiesRecordTypes.SystemInstanceAccessReviewScope,
+                InstanceId, InstanceId, 1, SeparationOfDutiesActions.Approve);
+            await Events.AppendAsync(new EventStreamAddress(TenantId.ToString(),
+                "separation-of-duties-waivers", waiverId.ToString()), 0,
+            [
+                DomainEventSeed.Attach(new SeparationOfDutiesWaiverRecorded(TenantId, waiverId,
+                    scope, RbacIds.Member(TenantId, userId), Uuid.CreateVersion4(), "Admin",
+                    "Small team", Now.AddDays(-1), Now.AddDays(1)), waiverId, 1),
+                DomainEventSeed.Attach(new SeparationOfDutiesWaiverApproved(TenantId, waiverId,
+                    Uuid.CreateVersion4(), "Second admin", Now), waiverId, 2),
+            ]);
+            return waiverId;
         }
 
         public DecideAccessReviewScopeHandler DecideHandler() => new(
             _scope.ServiceProvider.GetRequiredService<IAggregateExecutor>(), Reader, Events,
-            TimeProvider.System);
+            new FixedClock());
 
-        public RequestContext<DecideAccessReviewScope> DecideContext(Uuid userId) => new(
+        public RequestContext<DecideAccessReviewScope> DecideContext(Uuid userId, Uuid? waiverId = null) => new(
             new DecideAccessReviewScope(TenantId, ApplicationId, InstanceId, 1, 0, "included",
-                "Production data", Now), Principal(userId));
+                "Production data", Now, SeparationOfDutiesWaiverId: waiverId), Principal(userId));
 
         public async ValueTask DisposeAsync()
         {
             await _scope.DisposeAsync();
             await _provider.DisposeAsync();
         }
+    }
+
+    sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 }

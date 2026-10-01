@@ -78,15 +78,20 @@ Compliance Lead approval. It requires `application_inventory.manage` plus organi
 `program.manage`. It appends an `included` or `excluded` decision with a reason,
 `effective_from`, and an optional `review_by`, bound to the exact instance revision and the
 expected decision count. A new decision supersedes the previous one. It cannot be backdated
-before the previous decision. The member who registered the instance cannot approve its scope
-without an active exact-scope `system_instance_access_review_scope` waiver.
+before the previous decision. The member who registered the instance and the application's
+current access owner cannot approve its scope without an active exact-scope
+`system_instance_access_review_scope` waiver. The handler reads the governed Application and
+its owner Person from their tenant's event streams, using the person's current member
+correlation. Reassigning ownership, relinking membership, or clearing the link affects later
+decisions without editing earlier decisions. A Person reference or correlation grants no
+approval authority; the existing `program.manage` authorization still applies.
 `GET .../access-review-scope` (`bdgrz.system_instance.access_review_scope.get`) returns the
 decision in effect at an optional `as_of` time (`unresolved` when none applies) and the full
 history, read from the source stream.
 
 Scope decisions and reads also accept legacy instances declared in the application stream
 (revision 1). The write path reads that declaration from its source stream, and the
-registrant rule applies to its declaring member.
+registrant and current access-owner rules apply to that instance too.
 
 `GET .../applications/{application_id}/access-review-scopes`
 (`bdgrz.application.access_review_scopes.list`, read-only) pages the application's instances
@@ -95,9 +100,13 @@ and, for each, returns `status` (`included`, `excluded`, or `unresolved`) at an 
 It reads the new `AccessReviewScopeDirectoryV1` Fitz projection. The endpoint returns a
 retryable 409 until both that projection and the instance directory reach their sources.
 
-Still open: the access-owner SoD rule (this needs a member-to-person link), general
-application-to-application relationships, a governed successor or approval gate, and complete
-downstream impact.
+Application and Person state are observed while preparing the decision. The destination
+stream's optimistic check does not atomically fence those source streams against a concurrent
+owner or correlation change; #519 tracks the Fitz conditional write and Portia support.
+Broker and split-host verification also remain pending while Docker is unavailable (#463).
+
+Still open: general application-to-application relationships, a governed successor or
+approval gate, and complete downstream impact.
 
 ## Information asset change preview (#465)
 
