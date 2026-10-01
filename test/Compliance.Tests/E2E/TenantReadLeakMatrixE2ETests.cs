@@ -19,6 +19,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     tenant members, and an outsider exercise tenant-owned pages through HTTP and MCP in both
 ///     host modes.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

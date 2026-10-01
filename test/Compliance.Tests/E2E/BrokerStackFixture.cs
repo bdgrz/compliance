@@ -2,8 +2,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 
 /// <summary>
 ///     The one broker stack every broker test class shares. It starts on first use and stops when
-///     the test process exits; tests isolate themselves with unique tenants and application names,
-///     so classes run in parallel against it.
+///     the test process exits. Tests isolate themselves with unique tenants and application names;
+///     <see cref="BrokerCollectionDefinition" /> runs the classes one at a time.
 /// </summary>
 public sealed class BrokerStackFixture : IAsyncLifetime
 {

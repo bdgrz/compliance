@@ -13,6 +13,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     after projection catch-up, and never discloses one client organization's projection through
 ///     another organization's route, in both standalone and split API/worker hosts.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

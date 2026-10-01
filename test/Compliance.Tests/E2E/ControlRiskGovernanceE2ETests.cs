@@ -21,6 +21,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     reassessment reactor, the full control impact preview, and proposal withdrawal against the
 ///     real broker on a standalone host and on split API and worker hosts.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

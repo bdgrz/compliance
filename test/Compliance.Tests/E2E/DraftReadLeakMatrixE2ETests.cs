@@ -11,6 +11,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     EN-01: current control, commitment, and risk drafts and their history stay in
 ///     the requested tenant and program over HTTP and MCP in both host modes.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

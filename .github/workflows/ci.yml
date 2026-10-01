@@ -49,6 +49,7 @@ jobs:
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
-      # Broker tests share one broker stack (test/Compliance.Tests/E2E/compose.yml) and run in parallel.
+      # Unit tests only. The broker suite (Category=BrokerIntegration) is a local gate:
+      # ./scripts/check-backend.sh full
       - name: Test
-        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --logger "console;verbosity=normal"
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"

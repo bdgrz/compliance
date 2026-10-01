@@ -15,6 +15,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     frozen across storage-chunk streams in split API/worker hosting, read and regenerated from
 ///     its source while the directory projection lags, and replays identically in a fresh host.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

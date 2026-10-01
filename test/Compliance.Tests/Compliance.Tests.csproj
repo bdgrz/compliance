@@ -22,7 +22,4 @@
     <None Update="E2E/compose.yml" CopyToOutputDirectory="PreserveNewest" />
     <None Update="E2E/recovery.compose.yml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup>
-    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 </Project>

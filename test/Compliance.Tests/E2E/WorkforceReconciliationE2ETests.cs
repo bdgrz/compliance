@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

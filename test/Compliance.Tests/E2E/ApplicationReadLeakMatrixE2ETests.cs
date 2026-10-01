@@ -17,6 +17,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     EN-01: two populated tenants must remain separate across application history, instance,
 ///     boundary-reference, and change-preview reads in standalone and split API/worker hosts.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>

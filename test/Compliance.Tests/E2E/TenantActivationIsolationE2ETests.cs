@@ -17,6 +17,7 @@ namespace Bdgrz.Compliance.Tests.E2E;
 ///     limit neither stops the split worker host nor delays another tenant, and it recovers after
 ///     the prerequisite is released and after a worker restart.
 /// </summary>
+[Collection(BrokerCollectionDefinition.Name)]
 [Trait("Category", "BrokerIntegration")]
 public sealed class TenantActivationIsolationE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
