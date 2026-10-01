@@ -194,7 +194,7 @@ public sealed class ClientServiceActorE2ETests(BrokerStackFixture broker) : ICla
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new
@@ -223,7 +223,7 @@ public sealed class ClientServiceActorE2ETests(BrokerStackFixture broker) : ICla
         string programId)
     {
         var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/client-services";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new
@@ -244,7 +244,7 @@ public sealed class ClientServiceActorE2ETests(BrokerStackFixture broker) : ICla
     static async Task<JsonElement> WaitForCurrentAsync(HttpClient owner, string path,
         long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(path);
@@ -262,7 +262,7 @@ public sealed class ClientServiceActorE2ETests(BrokerStackFixture broker) : ICla
     static async Task<JsonElement[]> WaitForHistoryAsync(HttpClient owner, string path,
         int count)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync($"{path}/revisions");

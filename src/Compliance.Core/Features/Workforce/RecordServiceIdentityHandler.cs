@@ -18,7 +18,7 @@ public sealed class RecordServiceIdentityHandler(IAggregateExecutor executor,
         var now = clock.GetUtcNow();
         var terms = new ServiceIdentityTerms(request.DisplayName, request.IdentityKind,
             request.Purpose, request.Environment, "active", request.OwnerKind, request.OwnerId,
-            request.ReviewBy);
+            request.ReviewBy, request.ExpiresOn);
         return await executor.ExecuteAsync(new ServiceIdentity(request.TenantId, context.RequestId),
             identity => AggregateOutcome.CommitOnSuccess(identity.Record(terms,
                 DateOnly.FromDateTime(now.UtcDateTime), actor, now)), context, ct)

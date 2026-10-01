@@ -5,8 +5,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Workforce;
 
 /// <summary>
-///     Captures the accepted roster only after both roster projections have reached their sources,
-///     then freezes it through the reusable population snapshot primitive (R1-11d on EN-03).
+///     Captures the accepted roster only after both roster projections have reached their sources
+///     and proves neither advanced during the read (a fenced capture), then freezes it through the reusable population snapshot primitive (R1-11d on EN-03).
 /// </summary>
 public sealed class WorkforceRosterSnapshotter(IPersonDirectoryReader people,
     PersonReadConsistency peopleConsistency, IWorkRelationshipDirectoryReader relationships,
@@ -17,14 +17,14 @@ public sealed class WorkforceRosterSnapshotter(IPersonDirectoryReader people,
         CancellationToken ct) where TRequest : IRequestBase
     {
         var tenantId = ((IWorkforceRequest)context.Request).TenantId;
-        var peopleReady = await peopleConsistency.EnsureListCaughtUpAsync(tenantId, ct)
+        var peopleFence = await peopleConsistency.CaptureListFenceAsync(tenantId, ct)
             .ConfigureAwait(false);
-        if (!peopleReady.IsSuccess)
-            return Result<SnapshotRegistration>.Failure(peopleReady.Error);
-        var relationshipsReady = await relationshipConsistency.EnsureListCaughtUpAsync(tenantId, ct)
+        if (!peopleFence.IsSuccess)
+            return Result<SnapshotRegistration>.Failure(peopleFence.Error);
+        var relationshipsFence = await relationshipConsistency.CaptureListFenceAsync(tenantId, ct)
             .ConfigureAwait(false);
-        if (!relationshipsReady.IsSuccess)
-            return Result<SnapshotRegistration>.Failure(relationshipsReady.Error);
+        if (!relationshipsFence.IsSuccess)
+            return Result<SnapshotRegistration>.Failure(relationshipsFence.Error);
 
         var roster = await ReadAllAsync((cursor, token) =>
             people.ListAsync(tenantId, 200, cursor, token), ct).ConfigureAwait(false);
@@ -33,6 +33,16 @@ public sealed class WorkforceRosterSnapshotter(IPersonDirectoryReader people,
         if (roster is null || jobs is null)
             return Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
                 $"A roster snapshot currently supports at most {PopulationSnapshot.MaximumInlineRows} rows."));
+        // Fence: pages are read in separate transactions, so a projection that advanced after the
+        // catch-up check could mix versions. Refuse rather than freeze a torn roster.
+        var peopleHeld = await peopleConsistency.EnsureFenceHeldAsync(tenantId, peopleFence.Value,
+            ct).ConfigureAwait(false);
+        if (!peopleHeld.IsSuccess)
+            return Result<SnapshotRegistration>.Failure(peopleHeld.Error);
+        var relationshipsHeld = await relationshipConsistency.EnsureFenceHeldAsync(tenantId,
+            relationshipsFence.Value, ct).ConfigureAwait(false);
+        if (!relationshipsHeld.IsSuccess)
+            return Result<SnapshotRegistration>.Failure(relationshipsHeld.Error);
         if (roster.Any(person => person.TenantId != tenantId) ||
             jobs.Any(job => job.TenantId != tenantId))
             return Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,

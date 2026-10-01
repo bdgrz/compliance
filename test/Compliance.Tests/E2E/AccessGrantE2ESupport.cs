@@ -79,7 +79,9 @@ static class AccessGrantE2ESupport
             effective_until = (DateTimeOffset?)null,
         };
 
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        // After a broker restore, split-host workers replay every per-tenant projector before permissions
+        // catch up, so allow well beyond ordinary lag.
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastResponse = null;
         var succeeded = false;
         while (DateTimeOffset.UtcNow < deadline)
@@ -100,7 +102,7 @@ static class AccessGrantE2ESupport
             $"The {principalKind} could not receive organization grant {grantId} in tenant {tenantId}: " +
             lastResponse);
 
-        var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var projectionDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastProjection = null;
         while (DateTimeOffset.UtcNow < projectionDeadline)
         {

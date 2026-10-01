@@ -148,6 +148,48 @@ public sealed class WorkforceRosterSnapshotTests
     }
 
     [Fact]
+    public async Task ShouldRejectFreezeWithoutWritingGivenRosterProjectionAdvancedDuringRead()
+    {
+        // Arrange
+        await using var harness = await Harness.CreateAsync();
+        var person = Person(harness.TenantId, "Wes");
+        var job = Relationship(harness.TenantId, person.PersonId, "E-100", null);
+        await harness.ProjectAsync([person], [job]);
+        harness.AdvanceDuringRead(job with { Revision = 2, Department = "Finance" });
+
+        // Act
+        var result = await harness.TryFreezeAsync();
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+        Assert.False((await harness.HydrateAsync(result.RequestId)).IsFrozen);
+    }
+
+    [Fact]
+    public async Task ShouldRedactManagerOnLiveReadGivenActorWithoutRestrictedFieldPermission()
+    {
+        // Arrange
+        await using var harness = await Harness.CreateAsync();
+        var manager = Person(harness.TenantId, "Morgan");
+        var worker = Person(harness.TenantId, "Wes");
+        var relationshipId = await harness.RecordRelationshipAsync(worker.PersonId,
+            manager.PersonId);
+
+        // Act
+        var general = await harness.GetRelationshipAsync(relationshipId, canReadManagerChain: false);
+        var restricted = await harness.GetRelationshipAsync(relationshipId,
+            canReadManagerChain: true);
+
+        // Assert
+        Assert.True(general.Value.RestrictedFieldsRedacted);
+        Assert.Null(general.Value.ManagerPersonId);
+        Assert.False(restricted.Value.RestrictedFieldsRedacted);
+        Assert.Equal(manager.PersonId, restricted.Value.ManagerPersonId);
+    }
+
+    [Fact]
     public async Task ShouldNotDiscloseSnapshotGivenOtherTenant()
     {
         // Arrange
@@ -243,6 +285,7 @@ public sealed class WorkforceRosterSnapshotTests
         readonly FitzPersonDirectory _people = new(new InMemoryKvClient());
         readonly FitzWorkRelationshipDirectory _relationships = new(new InMemoryKvClient());
         readonly Uuid _userId = Uuid.CreateVersion4();
+        WorkRelationshipView? _advanceDuringRead;
 
         Harness(ServiceProvider provider) => _provider = provider;
 
@@ -265,8 +308,11 @@ public sealed class WorkforceRosterSnapshotTests
         WorkforceRosterSnapshotter Snapshotter()
         {
             var events = _provider.GetRequiredService<IDomainEventReader>();
+            IWorkRelationshipDirectoryReader relationships = _advanceDuringRead is { } advance
+                ? new AdvancingRelationshipReader(this, advance)
+                : _relationships;
             return new WorkforceRosterSnapshotter(_people,
-                new PersonReadConsistency(_people, Reader, events), _relationships,
+                new PersonReadConsistency(_people, Reader, events), relationships,
                 new WorkRelationshipReadConsistency(_relationships, Reader, events),
                 new PopulationSnapshotFreezer(Reader,
                     new AggregateExecutor(Reader, _provider.GetRequiredService<IAggregateWriter>()),
@@ -303,6 +349,80 @@ public sealed class WorkforceRosterSnapshotTests
                             terms, Author, Now));
                 }
                 await batch.CommitAsync(ProjectionCheckpoint.Start);
+            }
+        }
+
+        public void AdvanceDuringRead(WorkRelationshipView revision) =>
+            _advanceDuringRead = revision;
+
+        /// <summary>Projects a later revision under a new checkpoint, as a worker would mid-read.</summary>
+        async Task ProjectRevisionAsync(WorkRelationshipView job)
+        {
+            await using var batch = await _relationships.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity("WorkRelationshipDirectoryV1",
+                    EventStreamPattern.ForPattern(TenantId.ToString(), "work-relationships")),
+                ProjectionCheckpoint.Start));
+            await _relationships.ApplyAsync(new WorkRelationshipRevised(job.TenantId,
+                job.RelationshipId, job.Revision, new WorkRelationshipTerms(job.WorkerType,
+                    job.LifecycleStatus, job.StartDate, job.EndDate, job.Department,
+                    job.ManagerPersonId, job.SponsorPersonId), Author, Now));
+            await batch.CommitAsync(new ProjectionCheckpoint(new EventCursor("advanced")));
+        }
+
+        public async Task<Uuid> RecordRelationshipAsync(Uuid personId, Uuid managerId)
+        {
+            var relationshipId = WorkRelationship.IdFor(TenantId, "E-500");
+            var relationship = new WorkRelationship(TenantId, relationshipId);
+            Assert.True(relationship.Record(personId, "E-500",
+                new WorkRelationshipTerms("employee", "active", new DateOnly(2025, 1, 6), null, null,
+                    managerId, null), Author, Now).IsSuccess);
+            var events = new AggregateScenario<WorkRelationship>(relationship).PendingEvents.ToList();
+            await _provider.GetRequiredService<IAggregateWriter>().SaveAsync(relationship,
+                new RequestDispatchContext(RequestActor.System));
+            await using var batch = await _relationships.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity("WorkRelationshipDirectoryV1",
+                    EventStreamPattern.ForPattern(TenantId.ToString(), "work-relationships")),
+                ProjectionCheckpoint.Start));
+            foreach (var domainEvent in events)
+                await _relationships.ApplyAsync(domainEvent);
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+            return relationshipId;
+        }
+
+        public ValueTask<Result<WorkRelationshipView>> GetRelationshipAsync(Uuid relationshipId,
+            bool canReadManagerChain)
+        {
+            var consistency = new WorkRelationshipReadConsistency(_relationships, Reader,
+                _provider.GetRequiredService<IDomainEventReader>());
+            return new GetWorkRelationshipHandler(consistency,
+                    new FixedPermissions(canReadManagerChain))
+                .HandleAsync(new RequestContext<GetWorkRelationship>(
+                    new GetWorkRelationship(TenantId, relationshipId), Actor(_userId)),
+                    CancellationToken.None);
+        }
+
+        sealed class AdvancingRelationshipReader(Harness harness, WorkRelationshipView revision)
+            : IWorkRelationshipDirectoryReader
+        {
+            bool _advanced;
+
+            public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+                CancellationToken ct = default) =>
+                harness._relationships.LoadCheckpointAsync(tenantId, ct);
+
+            public ValueTask<WorkRelationshipView?> GetAsync(Uuid tenantId, Uuid relationshipId,
+                CancellationToken ct = default) =>
+                harness._relationships.GetAsync(tenantId, relationshipId, ct);
+
+            public async ValueTask<Page<WorkRelationshipView>> ListAsync(Uuid tenantId, int limit,
+                string? cursor, CancellationToken ct = default)
+            {
+                if (!_advanced)
+                {
+                    _advanced = true;
+                    await harness.ProjectRevisionAsync(revision);
+                }
+                return await harness._relationships.ListAsync(tenantId, limit, cursor, ct);
             }
         }
 

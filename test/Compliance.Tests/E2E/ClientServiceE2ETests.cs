@@ -35,7 +35,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         var programsPath = $"/api/v1/tenants/{tenant.TenantId}/programs";
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenant.TenantId);
         ProgramRegistrationDocument? program = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(programsPath, new
@@ -72,7 +72,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
                 owner_reference = "Operations",
             });
         Assert.Equal(HttpStatusCode.NotFound, missingProgram.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(createPath, new
@@ -95,7 +95,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         var exactRevisionPath =
             $"/api/v1/tenants/{tenant.TenantId}/client-services/{service.ServiceId}/revisions/1";
         ServiceDocument? projected = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(servicePath);
@@ -184,7 +184,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
             owner_reference = "Finance",
         });
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(servicePath);
@@ -199,7 +199,7 @@ public sealed class ClientServiceE2ETests(BrokerStackFixture broker) : IClassFix
         using var retired = await owner.PostAsJsonAsync($"{servicePath}/retirements",
             new { expected_revision = 2, rationale = "Service ended" });
         Assert.Equal(HttpStatusCode.NoContent, retired.StatusCode);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(servicePath);

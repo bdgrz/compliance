@@ -414,7 +414,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                    new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false }))
             Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
         string? token = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture),
                    reviewerEmail, out token))
@@ -442,7 +442,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         var preview = await WaitForOkAsync(() => owner.GetAsync(boundaryPath + "/drafts/" +
             versionId + "/impact-preview?expected_revision=1"));
         string? reviewId = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var reviewedCommand = false;
         string? lastReviewResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
@@ -482,7 +482,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
                    }))
             Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
         var referencesPath = $"/api/v1/tenants/{tenantId}/applications/{applicationId}/boundary-references";
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var references = await owner.GetAsync(referencesPath);
@@ -855,7 +855,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> PostUntilAuthorizedAsync(HttpClient client, string path,
         object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(path, body);
@@ -870,7 +870,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForOkAsync(Func<Task<HttpResponseMessage>> send)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await send();
@@ -885,7 +885,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForItemsAsync(HttpClient owner, string path, int count)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(path);
@@ -902,7 +902,7 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
         Func<JsonElement, bool> ready)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

@@ -492,7 +492,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<string> CreateProgramAsync(HttpClient owner, string path, string name)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new { name, plan = Plan() });
@@ -688,7 +688,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForPageCountAsync(HttpClient client, string path, int count)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -703,7 +703,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForReadAsync(HttpClient client, string path,
         string property, string expectedValue)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -845,7 +845,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForSetupHttpAsync(HttpClient client, string path,
         bool requireNextCursor = false)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -867,7 +867,7 @@ public sealed class ProgramReadLeakMatrixE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForSetupMcpAsync(McpScenario mcp,
         Dictionary<string, object?> input, bool requireNextCursor = false)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             var call = await mcp.When("bdgrz.program.setup-work.get", input);

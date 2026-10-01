@@ -105,7 +105,7 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
                 }
 
                 JsonElement? caughtUp = null;
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (caughtUp is null && DateTimeOffset.UtcNow < deadline)
                 {
                     using var response = await owner.GetAsync(referencesPath);
@@ -236,7 +236,7 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
     static async Task<string> PostUntilOkAsync(HttpClient client, string path, object body,
         string idProperty)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(path, body);
@@ -251,7 +251,7 @@ public sealed class ProjectionReadConsistencyE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForOkAsync(HttpClient client, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

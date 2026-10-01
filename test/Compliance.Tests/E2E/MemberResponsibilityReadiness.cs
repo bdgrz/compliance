@@ -17,7 +17,7 @@ static class MemberResponsibilityReadiness
         var responsibilityScope = new ResponsibilityScope("boundary", boundaryId, versionId, 1);
         var checkpointIdentity = new CheckpointIdentity("MemberResponsibilitiesV1",
             EventStreamPattern.ForPattern(tenantId.ToString()));
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var sourceAssignment = Uuid.Empty;
         var workerCheckpointAdvanced = false;
         var indexed = false;

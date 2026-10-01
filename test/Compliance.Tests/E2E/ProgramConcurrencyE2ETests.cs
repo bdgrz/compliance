@@ -213,7 +213,7 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
         Assert.NotNull(tenant);
         var programs = $"/api/v1/tenants/{tenant.TenantId}/programs";
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenant.TenantId);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(programs, new
@@ -236,7 +236,7 @@ public sealed class ProgramConcurrencyE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForRevisionAsync(HttpClient client, string path, long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

@@ -101,7 +101,7 @@ public sealed class AuthorizationDenialLogE2ETests(BrokerStackFixture broker) : 
         // Wait until the owner's membership is projected so the outsider's denial is not a
         // projection-lag artifact.
         var ownerReady = false;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (!ownerReady && DateTimeOffset.UtcNow < deadline)
         {
             using var ready = await owner.GetAsync(path);

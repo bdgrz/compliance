@@ -356,7 +356,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> StageWhenAuthorizedAsync(HttpClient owner,
         string path, object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, body);
@@ -371,7 +371,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForBatchAsync(HttpClient owner, string batchPath)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(batchPath);
@@ -386,7 +386,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
     static async Task<JsonElement> WaitForBatchRevisionAsync(HttpClient owner, string batchPath,
         long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync(

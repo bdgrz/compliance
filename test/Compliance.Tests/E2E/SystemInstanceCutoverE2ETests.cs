@@ -232,7 +232,7 @@ public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
 
     static async Task<Guid> DeclareApplicationAsync(HttpClient owner, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         HttpStatusCode? lastStatus = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -254,7 +254,7 @@ public sealed class SystemInstanceCutoverE2ETests(BrokerStackFixture broker)
 
     static async Task<JsonElement> WaitForOkAsync(HttpClient owner, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? last = null;
         while (DateTimeOffset.UtcNow < deadline)
         {

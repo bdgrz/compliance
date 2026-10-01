@@ -47,6 +47,31 @@ public sealed class FitzServiceIdentityDirectoryTests
         Assert.Empty(alien.Value.Items);
     }
 
+    [Fact]
+    public async Task ShouldProjectExpiryAndReportExpiredGivenExpiryDatePassed()
+    {
+        // Arrange
+        var kv = new InMemoryKvClient();
+        var identities = new FitzServiceIdentityDirectory(kv);
+        var roster = new FitzWorkforceObservationDirectory(kv);
+        var tenantId = Uuid.CreateVersion4();
+        var ownerId = Uuid.CreateVersion4();
+        await ApplyRosterAsync(roster, tenantId, Relationship(tenantId, ownerId, "E-1", "active"));
+        var expiring = Recorded(tenantId, "a-expiring", ownerId, Today.AddMonths(6));
+        expiring = expiring with { Terms = expiring.Terms with { ExpiresOn = Today.AddMonths(1) } };
+        var lasting = Recorded(tenantId, "b-lasting", ownerId, Today.AddMonths(6));
+        await ApplyAsync(identities, tenantId, expiring, lasting);
+        var handler = Handler(identities, roster, new FixedClock(Now.AddMonths(2)));
+
+        // Act
+        var page = await handler.HandleAsync(Context(tenantId, null), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(Today.AddMonths(1), page.Value.Items[0].ExpiresOn);
+        Assert.Equal([true, false], page.Value.Items.Select(item => item.Expired));
+        Assert.Null(page.Value.Items[1].ExpiresOn);
+    }
+
     static ListServiceIdentitiesHandler Handler(FitzServiceIdentityDirectory identities,
         FitzWorkforceObservationDirectory roster, TimeProvider clock)
     {

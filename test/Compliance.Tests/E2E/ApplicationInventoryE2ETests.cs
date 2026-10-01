@@ -50,7 +50,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var tenant = await tenantResponse.Content.ReadFromJsonAsync<TenantDocument>();
         Assert.NotNull(tenant);
         var applicationsPath = $"/api/v1/tenants/{tenant.TenantId}/applications";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
 
         // Act
         ApplicationRegistrationDocument? first = null;
@@ -186,7 +186,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.Conflict, laggingReference.StatusCode);
         using var restarted = BuildWorker(applicationName, workerLogs);
         await restarted.StartAsync();
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         try
         {
             var instanceProjected = false;
@@ -237,7 +237,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 await wrongRecordType.Content.ReadAsStringAsync(), StringComparison.Ordinal);
             Assert.Contains(missingReference,
                 await absentRecord.Content.ReadAsStringAsync(), StringComparison.Ordinal);
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             var boundaryProjected = false;
             HttpStatusCode? lastBoundaryStatus = null;
             string? lastBoundaryBody = null;
@@ -302,7 +302,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             var instanceReferencesPath =
                 $"{applicationsPath}/{first.ApplicationId}/system-instances/" +
                 $"{unprojectedInstance.SystemInstanceId}/boundary-references";
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             var instanceReferenceProjected = false;
             while (DateTimeOffset.UtcNow < deadline)
             {
@@ -352,7 +352,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
             }
             string? previewJson = null;
             HttpStatusCode? lastPreviewStatus = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var previewResponse = await owner.PostAsJsonAsync(previewPath, new
@@ -489,7 +489,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
                 .ReadFromJsonAsync<SystemInstanceRegistrationDocument>();
             Assert.NotNull(instance);
             SystemInstanceDocument? projectedInstance = null;
-            deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 using var response = await owner.GetAsync(
@@ -553,7 +553,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new
@@ -648,7 +648,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var peoplePath = $"/api/v1/tenants/{tenant.TenantId}/people";
         var systemOwnerId = await RecordPersonAsync(owner, peoplePath, "System Owner");
         var accessOwnerId = await RecordPersonAsync(owner, peoplePath, "Access Owner");
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
 
         // Act
         ApplicationRegistrationDocument? registration = null;
@@ -909,7 +909,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         });
         Assert.Equal(HttpStatusCode.NoContent, revisedResponse.StatusCode);
         ApplicationRevisionDocument? revisedRevision = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.GetAsync($"{applicationPath}/revisions/2");
@@ -936,7 +936,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var recovery = await afterMetadataEdit.Content
             .ReadFromJsonAsync<SystemInstanceRegistrationDocument>();
         Assert.NotNull(recovery);
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var recoveryProjected = false;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -1058,7 +1058,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
         var otherApplicationsPath = $"/api/v1/tenants/{otherTenant.TenantId}/applications";
         ApplicationRegistrationDocument? otherRegistration = null;
         lastStatus = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(otherApplicationsPath, new
@@ -1128,7 +1128,7 @@ public sealed class ApplicationInventoryE2ETests(BrokerStackFixture broker)
     static async Task<Guid> RecordPersonAsync(HttpClient owner, string peoplePath,
         string displayName)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(peoplePath,

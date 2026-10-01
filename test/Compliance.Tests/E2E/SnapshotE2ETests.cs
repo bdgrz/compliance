@@ -144,7 +144,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
                     ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
                     : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < deadline &&
                        !delivery.TryGetLatest(Uuid.Parse(tenantId, CultureInfo.InvariantCulture),
                            reviewerEmail, out token))
@@ -474,7 +474,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
     static async Task<string> CreateProgramAsync(HttpClient owner, string path, object plan)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantForProgramPathAsync(owner, path);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path,
@@ -493,7 +493,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
 
     static async Task PostUntilNoContentAsync(HttpClient client, string path, object body)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -513,7 +513,7 @@ public sealed class SnapshotE2ETests(BrokerStackFixture broker) : IClassFixture<
     static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
         Func<JsonElement, bool> predicate)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

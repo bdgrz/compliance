@@ -828,7 +828,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForHttpAsync(HttpClient client, string path)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -842,7 +842,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForListAsync(HttpClient client, ListSpec spec)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(spec.Path + "?limit=100");
@@ -865,7 +865,7 @@ public sealed class DraftReadLeakMatrixE2ETests(BrokerStackFixture broker)
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new

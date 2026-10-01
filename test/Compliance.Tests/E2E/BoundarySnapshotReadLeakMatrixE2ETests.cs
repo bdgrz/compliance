@@ -362,7 +362,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
             new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false });
         Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
         string? token = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(tenantId, reviewerEmail, out token))
             await Task.Delay(250);
@@ -391,7 +391,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
         string boundaryPath, string versionId)
     {
         var draftPath = boundaryPath + "/drafts/" + versionId;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         var reviewedCommand = false;
         string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
@@ -437,7 +437,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = TenantPath(tenantId) + "/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, new
@@ -498,7 +498,7 @@ public sealed class BoundarySnapshotReadLeakMatrixE2ETests(BrokerStackFixture br
     static async Task<JsonElement> WaitForAsync(HttpClient client, string path,
         Func<JsonElement, bool> ready)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);

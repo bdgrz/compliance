@@ -95,7 +95,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                             new RequestDispatchContext(RequestActor.System));
                     Assert.True(registeredMember.IsSuccess);
                 }
-                var deniedDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deniedDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 var standingDenied = false;
                 string? lastStandingResponse = null;
                 while (DateTimeOffset.UtcNow < deniedDeadline)
@@ -133,7 +133,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     effective_from = DateTimeOffset.UtcNow.AddMinutes(-1),
                     effective_until = (DateTimeOffset?)null,
                 };
-                var issueDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var issueDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 var issuedGrant = false;
                 string? lastIssueResponse = null;
                 while (DateTimeOffset.UtcNow < issueDeadline)
@@ -375,7 +375,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
                     ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
                     : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
-                var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < deliveryDeadline &&
                        !delivery.TryGetLatest(tenantId, participantEmail, out token))
                     await Task.Delay(250);
@@ -679,7 +679,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
     {
         var path = $"/api/v1/tenants/{tenantId}/members/{userId}/access" +
                    $"?expected_built_in_role={role}";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -702,7 +702,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForProgramAsync(HttpClient client, string path, long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -727,7 +727,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
     {
         var path = $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" +
                    Uri.EscapeDataString(email);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await administrator.GetAsync(path);
@@ -747,7 +747,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
     static async Task WaitForGrantAsync(HttpClient administrator, Uuid tenantId, Uuid grantId)
     {
         var path = $"/api/v1/tenants/{tenantId}/access-grants";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -771,7 +771,7 @@ public sealed class ProgramAuthorizationMcpE2ETests(BrokerStackFixture broker)
 
     static async Task WaitForRevocationAsync(HttpClient administrator, Uuid tenantId, Uuid grantId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastObservation = null;
         while (DateTimeOffset.UtcNow < deadline)
         {

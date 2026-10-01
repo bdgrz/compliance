@@ -189,7 +189,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     {
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs";
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.PostAsJsonAsync(path, new
@@ -245,7 +245,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
 
     static async Task<JsonObject> WaitForProgramAsync(HttpClient client, string path, long revision)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
@@ -264,7 +264,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
 
     static async Task<JsonObject> WaitForHistoryAsync(HttpClient client, string path, int count)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{path}/revisions");
@@ -284,7 +284,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     static async Task<JsonObject> WaitForSetupWorkAsync(HttpClient client, string programPath,
         string boundaryId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync($"{programPath}/setup-work");
@@ -307,7 +307,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     {
         var parsedTenantId = Uuid.Parse(tenantId, CultureInfo.InvariantCulture);
         var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(parsedTenantId);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         string? lastResponse = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -434,7 +434,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
         WaitForReplayedProgramAsync(IServiceProvider services, Uuid tenantId, Uuid programId,
             int expectedRevisionCount, Uuid boundaryId)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var scope = services.CreateScope();

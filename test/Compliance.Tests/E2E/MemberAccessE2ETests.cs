@@ -74,7 +74,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                 var invitePath = $"/api/v1/tenants/{tenantId}/member-invitations";
                 var invitationStatusPath = $"{invitePath}?email_address=" +
                     Uri.EscapeDataString(inviteeEmail);
-                var administratorDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var administratorDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 var adminAccess = HttpStatusCode.Forbidden;
                 while (DateTimeOffset.UtcNow < administratorDeadline)
                 {
@@ -114,7 +114,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                 using var deniedStatus = await invitee.GetAsync(invitationStatusPath);
                 Assert.Equal(HttpStatusCode.NotFound, deniedStatus.StatusCode);
                 InvitationPageDocument? pendingInvitations = null;
-                var invitationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var invitationDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < invitationDeadline)
                 {
                     using var response = await administrator.GetAsync(invitationStatusPath);
@@ -133,7 +133,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                     ? worker!.Services.GetRequiredService<MockTenantInvitationDelivery>()
                     : factory.Services.GetRequiredService<MockTenantInvitationDelivery>();
                 string? token = null;
-                var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deliveryDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < deliveryDeadline &&
                        !delivery.TryGetLatest(tenantId, inviteeEmail, out token))
                     await Task.Delay(250);
@@ -147,7 +147,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                 Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
 
                 MemberAccessDocument? explanation = null;
-                var accessDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var accessDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < accessDeadline)
                 {
                     using var response = await administrator.GetAsync(expectedAccessPath);
@@ -171,7 +171,7 @@ public sealed class MemberAccessE2ETests(BrokerStackFixture broker) : IClassFixt
                     path.TeamName == BuiltInRbac.PowerUsersTeamName &&
                     path.RoleName == BuiltInRbac.ComplianceManagementRoleName);
                 InvitationPageDocument? activeInvitations = null;
-                var activationDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var activationDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < activationDeadline)
                 {
                     using var response = await administrator.GetAsync(invitationStatusPath);

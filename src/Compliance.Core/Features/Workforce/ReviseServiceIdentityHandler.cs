@@ -24,7 +24,7 @@ public sealed class ReviseServiceIdentityHandler(IAggregateExecutor executor,
         var now = clock.GetUtcNow();
         var terms = new ServiceIdentityTerms(request.DisplayName, request.IdentityKind,
             request.Purpose, request.Environment, request.LifecycleStatus, request.OwnerKind,
-            request.OwnerId, request.ReviewBy);
+            request.OwnerId, request.ReviewBy, request.ExpiresOn);
         return await executor.ExecuteAsync(
             new ServiceIdentity(request.TenantId, request.ServiceIdentityId),
             identity => CommandFailureRequestAdapter.ToOutcome(identity.Revise(

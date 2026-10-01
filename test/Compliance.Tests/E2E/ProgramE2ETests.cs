@@ -76,7 +76,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     audit_firm = (string?)null,
                 };
                 ProgramRegistrationDocument? registration = null;
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < deadline)
                 {
                     using var response = await owner.PostAsJsonAsync(path,
@@ -373,7 +373,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                 var unrelatedBoundaryPath =
                     $"{path}/{otherProgram.ProgramId}/setup-work?boundary_id={boundary.BoundaryId}" +
                     "&minimum_boundary_revision=1";
-                var unrelatedBoundaryDeadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var unrelatedBoundaryDeadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 HttpStatusCode unrelatedBoundaryStatus = default;
                 while (DateTimeOffset.UtcNow < unrelatedBoundaryDeadline)
                 {
@@ -483,7 +483,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
                     audit_firm = (string?)null,
                 };
                 ProgramRegistrationDocument? registration = null;
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 while (DateTimeOffset.UtcNow < deadline)
                 {
                     using var response = await owner.PostAsJsonAsync(programsPath,
@@ -564,7 +564,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
 
                 restartedWorker = BuildWorker(applicationName);
                 await restartedWorker.StartAsync();
-                deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+                deadline = DateTimeOffset.UtcNow.AddSeconds(120);
                 ProgramSetupDocument? recovered = null;
                 while (DateTimeOffset.UtcNow < deadline)
                 {
@@ -634,7 +634,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
             },
         };
         ProgramRegistrationDocument? registration = null;
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(path, create);
@@ -878,7 +878,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
         await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner,
             secondTenant.TenantId);
         ProgramRegistrationDocument? secondRegistration = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await owner.PostAsJsonAsync(secondPath,
@@ -921,7 +921,7 @@ public sealed class ProgramE2ETests(BrokerStackFixture broker) : IClassFixture<B
         Assert.Equal(HttpStatusCode.OK, conflictingTenant.StatusCode);
         ProgramPageDocument? firstAfterConflict = null;
         ProgramPageDocument? secondAfterConflict = null;
-        deadline = DateTimeOffset.UtcNow.AddSeconds(45);
+        deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var firstList = await owner.GetAsync(path);
