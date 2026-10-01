@@ -246,6 +246,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetReadinessAssessment>(tool => tool.ReadOnly())
         .AddMcpTool<ListReadinessAssessments>(tool => tool.ReadOnly())
         .AddMcpTool<ListReadinessGaps>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTypeIEntryDecisions>(tool => tool.ReadOnly())
+        .AddMcpTool<ListReadinessAnnotations>(tool => tool.ReadOnly())
         .AddMcpTool<ProposeControlOperatingPlan>()
         .AddMcpTool<PreviewControlOperatingPlan>(tool => tool.ReadOnly())
         .AddMcpTool<GetControlOperatingPlan>(tool => tool.ReadOnly())
@@ -928,6 +930,24 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Readiness");
     app.MapPortiaPut<PlanReadinessGap, ReadinessGapPlanView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/gaps/{gap_id}/plan")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    // The Type I entry decision is a personal sign-off and advisor feedback is attributed to
+    // its author; both stay HTTP-only.
+    app.MapPortiaPost<DecideTypeIEntry, TypeIEntryDecisionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/type-i-entry-decision")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaGet<ListTypeIEntryDecisions, Page<TypeIEntryDecisionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/type-i-entry-decisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaPost<AnnotateReadinessGap, ReadinessAnnotationView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/gaps/{gap_id}/annotations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Readiness");
+    app.MapPortiaGet<ListReadinessAnnotations, Page<ReadinessAnnotationView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/annotations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Readiness");
     app.MapPortiaPost<ProposeControlOperatingPlan, ControlOperatingPlanView>(

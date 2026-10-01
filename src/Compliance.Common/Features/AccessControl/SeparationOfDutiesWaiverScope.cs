@@ -26,6 +26,9 @@ public static class SeparationOfDutiesRecordTypes
     /// <summary>A management readiness decision; the version is the assessment ID.</summary>
     public const string ReadinessAssessment = "readiness_assessment";
 
+    /// <summary>A Type I entry sign-off; the version is the assessment ID.</summary>
+    public const string TypeIEntryDecision = "type_i_entry_decision";
+
     /// <summary>A risk acceptance; the version is the residual assessment ID.</summary>
     public const string Risk = "risk";
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Bdgrz.Compliance.Features.Readiness;
 using Cntryl.Fitz;
 using Cntryl.Portia;
 
@@ -76,6 +77,24 @@ sealed class FitzProgramDirectory(IKvClient client)
                         selected.ActorDisplay, selected.ChangedAt)
                     {
                         CriteriaEditionId = selected.EditionId,
+                    }, ct).ConfigureAwait(false);
+                break;
+            case TypeIEntryDecisionRecorded entry
+                when entry.Decision.Outcome != ReadinessLedger.Defer:
+                // Only an approved Type I entry decision advances the stage; a target date,
+                // scope approval, or deferral never does. Replay rewrites the same values.
+                var beforeEntry = await ProgramDirectorySchema.Directory.GetAsync(Transaction,
+                    entry.ProgramId, ct).ConfigureAwait(false);
+                if (beforeEntry is null || beforeEntry.StageDecisionId == entry.Decision.DecisionId)
+                    break;
+                await ProgramDirectorySchema.Directory.ReplaceAsync(Transaction, beforeEntry,
+                    beforeEntry with
+                    {
+                        Stage = "type_i",
+                        NextStage = "type_ii",
+                        StageDecisionId = entry.Decision.DecisionId,
+                        StageEnteredBy = entry.Decision.DecidedBy,
+                        StageEnteredAt = entry.Decision.DecidedAt,
                     }, ct).ConfigureAwait(false);
                 break;
         }

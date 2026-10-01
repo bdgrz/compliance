@@ -42,9 +42,10 @@ public sealed class ReadinessAssessmentHandlerTests
             f.RuleId == ReadinessRules.CriterionMapped);
         Assert.Equal("gap", unmapped.Outcome);
         Assert.Contains(assessment.Gaps, g => g.GapId == unmapped.GapId);
-        Assert.Contains(assessment.Inputs, i => i.Family == "risks" && i.Status == "not_assessed");
+        Assert.Contains(assessment.Inputs, i => i.Family == "risks" && i.Status == "assessed");
+        Assert.Contains(assessment.Gaps, g => g.Kind == "no_risks" && g.Subject == "risks");
         Assert.Contains(assessment.Gaps, g => g.Kind == "input_not_assessed" &&
-            g.Subject == "risks");
+            g.Subject == "evidence");
         Assert.Null(assessment.Decision);
         Assert.Equal(64, assessment.InputFingerprint.Length);
     }
@@ -214,6 +215,168 @@ public sealed class ReadinessAssessmentHandlerTests
             .ExpectFailure(RequestErrorKind.NotFound);
     }
 
+    [Fact]
+    public async Task ShouldRecordTypeIEntryWithFrozenAcknowledgedItemsGivenPlannedGapsAndProceed()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var revision = await fixture.PlanAllAndProceedAsync(assessment);
+        var gapIds = assessment.Gaps.Select(static g => g.GapId).ToArray();
+
+        // Act
+        var decision = await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, revision, "approve_with_exceptions",
+                "Gaps are owned and acknowledged.", gapIds))
+            .ExpectSuccess();
+
+        // Assert
+        var view = decision.Value;
+        Assert.Equal(assessment.InputFingerprint, view.InputFingerprint);
+        Assert.Equal(ReadinessRules.Version, view.RuleVersion);
+        Assert.Equal(gapIds.Length, view.UnresolvedItems.Count);
+        Assert.All(view.UnresolvedItems, item => Assert.True(item.Acknowledged));
+        Assert.All(view.UnresolvedItems, item => Assert.Equal(fixture.OwnerMemberId,
+            item.OwnerMemberId));
+        Assert.Contains(view.UnresolvedItems, item => item.Subject == "evidence");
+        Assert.Contains("not an auditor opinion", view.Notice, StringComparison.Ordinal);
+        var read = await fixture.GetAsync(assessment.AssessmentId);
+        Assert.Equal(view.DecisionId, read.TypeIEntryDecision!.DecisionId);
+        var list = await fixture.QueryAsync<ListTypeIEntryDecisions,
+            Page<TypeIEntryDecisionView>>(new ListTypeIEntryDecisions(fixture.TenantId,
+            fixture.ProgramId));
+        Assert.Single(list.Items);
+        var later = await fixture.RunAsync(revision + 1);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, later.AssessmentId,
+                revision + 2, "defer", "Second try."))
+            .ExpectFailure(RequestErrorKind.Conflict);
+    }
+
+    [Fact]
+    public async Task ShouldRejectTypeIEntryApprovalGivenUnacknowledgedGapOrPlainApprove()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var revision = await fixture.PlanAllAndProceedAsync(assessment);
+        var partial = assessment.Gaps.Skip(1).Select(static g => g.GapId).ToArray();
+
+        await fixture.Scenario(fixture.DeciderUserId)
+            // Act
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, revision, "approve_with_exceptions", "Partial.",
+                partial))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, revision, "approve", "Ignore gaps."))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, revision, "approve_with_exceptions", "Unknown.",
+                [Uuid.CreateVersion4()]))
+            .ExpectFailure(RequestErrorKind.Validation);
+    }
+
+    [Fact]
+    public async Task ShouldRejectTypeIEntryGivenRunnerSignsOrNoProceedDecision()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var all = assessment.Gaps.Select(static g => g.GapId).ToArray();
+
+        await fixture.Scenario(fixture.RunnerUserId)
+            // Act
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "defer", "Self sign."))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "approve_with_exceptions", "No proceed.", all))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var deferred = await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "defer", "Not ready yet."))
+            .ExpectSuccess();
+        Assert.Equal("defer", deferred.Value.Outcome);
+        Assert.All(deferred.Value.UnresolvedItems, item => Assert.False(item.Acknowledged));
+    }
+
+    [Fact]
+    public async Task ShouldRejectTypeIEntryGivenLaterAssessmentExists()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var first = await fixture.RunAsync(0);
+        await fixture.RunAsync(1);
+
+        await fixture.Scenario(fixture.DeciderUserId)
+            // Act
+            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, first.AssessmentId,
+                2, "defer", "Stale."))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Conflict);
+    }
+
+    [Fact]
+    public async Task ShouldRecordSupersededAdvisorAnnotationGivenLaterAssessment()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var gap = assessment.Gaps[0];
+
+        // Act
+        var annotation = await fixture.Scenario(fixture.DeciderUserId)
+            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, gap.GapId, 1, "Consider a quarterly review."))
+            .ExpectSuccess();
+        await fixture.RunAsync(2);
+
+        // Assert
+        Assert.Equal(gap.GapId, annotation.Value.GapId);
+        var list = await fixture.QueryAsync<ListReadinessAnnotations,
+            Page<ReadinessAnnotationView>>(new ListReadinessAnnotations(fixture.TenantId,
+            fixture.ProgramId, assessment.AssessmentId));
+        var stored = Assert.Single(list.Items);
+        Assert.False(stored.Current);
+        Assert.Equal("Consider a quarterly review.", stored.Body);
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, Uuid.CreateVersion4(), 3, "Unknown gap."))
+            .ExpectFailure(RequestErrorKind.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldFilterGapsGivenKindRuleAndOwner()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var assessment = await fixture.RunAsync(0);
+        var planned = assessment.Gaps[0];
+        await fixture.Scenario(fixture.RunnerUserId)
+            .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId, planned.GapId, 1,
+                fixture.OwnerMemberId, new DateOnly(2027, 3, 31), "Close it."))
+            .ExpectSuccess();
+
+        // Act
+        var byOwner = await fixture.QueryAsync<ListReadinessGaps, Page<ReadinessGapView>>(
+            new ListReadinessGaps(fixture.TenantId, fixture.ProgramId, assessment.AssessmentId,
+                OwnerMemberId: fixture.OwnerMemberId));
+        var byKind = await fixture.QueryAsync<ListReadinessGaps, Page<ReadinessGapView>>(
+            new ListReadinessGaps(fixture.TenantId, fixture.ProgramId, assessment.AssessmentId,
+                Kind: "no_risks", RuleId: ReadinessRules.RiskResolved));
+
+        // Assert
+        Assert.Equal(planned.GapId, Assert.Single(byOwner.Items).GapId);
+        Assert.Equal("risks", Assert.Single(byKind.Items).Subject);
+    }
+
     static Result Command(CommandFailure? failure) => failure is null
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
@@ -236,13 +399,18 @@ public sealed class ReadinessAssessmentHandlerTests
             var provider = ProgramManagementServices.Build(
                 new RecordingPermissionAuthorizer(allowed: true),
                 portia => portia.AddRequestHandler<RunReadinessAssessmentHandler>()
+                    .AddRequestHandler<DecideTypeIEntryHandler>()
+                    .AddRequestHandler<ListTypeIEntryDecisionsHandler>()
+                    .AddRequestHandler<AnnotateReadinessGapHandler>()
+                    .AddRequestHandler<ListReadinessAnnotationsHandler>()
                     .AddRequestHandler<GetReadinessAssessmentHandler>()
                     .AddRequestHandler<ListReadinessAssessmentsHandler>()
                     .AddRequestHandler<ListReadinessGapsHandler>()
                     .AddRequestHandler<PlanReadinessGapHandler>()
                     .AddRequestHandler<DecideReadinessHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(
-                    ControlCriterionMappingHandlerTests.TestCatalog()));
+                        ControlCriterionMappingHandlerTests.TestCatalog())
+                    .AddSingleton<IReadinessSourceReader>(new EmptyReadinessSources()));
             var fixture = new Fixture { Provider = provider };
             var now = DateTimeOffset.UtcNow.AddDays(-1);
             var admin = Uuid.CreateVersion4();
@@ -291,6 +459,24 @@ public sealed class ReadinessAssessmentHandlerTests
                         "Matches.", Uuid.CreateVersion4(), "Reviewer", reviewedAt));
                 });
 
+        public async Task<long> PlanAllAndProceedAsync(ReadinessAssessmentView assessment)
+        {
+            var revision = assessment.Revision;
+            foreach (var gap in assessment.Gaps)
+            {
+                await Scenario(RunnerUserId)
+                    .When(new PlanReadinessGap(TenantId, ProgramId, gap.GapId, revision,
+                        OwnerMemberId, new DateOnly(2027, 3, 31), "Close it."))
+                    .ExpectSuccess();
+                revision++;
+            }
+            await Scenario(DeciderUserId)
+                .When(new DecideReadiness(TenantId, ProgramId, assessment.AssessmentId,
+                    revision, "proceed", "Owned."))
+                .ExpectSuccess();
+            return revision + 1;
+        }
+
         public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
             .GivenActor(ProgramManagementServices.Actor(userId));
 
@@ -313,5 +499,12 @@ public sealed class ReadinessAssessmentHandlerTests
             var result = await Scenario(DeciderUserId).When(request).ExpectSuccess();
             return result.Value;
         }
+    }
+
+    sealed class EmptyReadinessSources : IReadinessSourceReader
+    {
+        public ValueTask<ReadinessSourceSet> ReadAsync(Uuid tenantId, Uuid programId,
+            DateTimeOffset asOf, CancellationToken ct = default) =>
+            ValueTask.FromResult(ReadinessSourceSet.Empty);
     }
 }

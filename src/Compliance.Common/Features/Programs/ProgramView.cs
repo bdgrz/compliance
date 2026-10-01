@@ -11,4 +11,11 @@ public sealed record ProgramView(Uuid TenantId, Uuid ProgramId, string Name, str
     public ActorReference LastChangedBy => ActorReference.ForMember(
         LastChangedByMemberId, LastChangedByDisplay);
     public Uuid? CriteriaEditionId { get; init; }
+
+    /// <summary>The approved Type I entry decision that moved the program into its stage.</summary>
+    public Uuid? StageDecisionId { get; init; }
+
+    public ActorReference? StageEnteredBy { get; init; }
+
+    public DateTimeOffset? StageEnteredAt { get; init; }
 }

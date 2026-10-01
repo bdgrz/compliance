@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Criteria;
@@ -9,25 +10,31 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 1 of the manual readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 2 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
+///     Version 2 adds boundary, commitment, risk, and scope-snapshot rules. Risk rule is the
+///     conservative provisional R1-08 choice (#492): every program risk must be residual
+///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/1";
+    public const string Version = "readiness-rules/2";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
+    public const string BoundaryApproved = "program_has_approved_boundary";
+    public const string CommitmentEffective = "commitment_effective";
+    public const string RiskResolved = "risk_assessed_and_treated";
+    public const string ScopeSnapshotFrozen = "program_scope_snapshot_frozen";
     public const string RuleMet = "rule_met";
     public const string Gap = "gap";
 
     /// <summary>Source families whose readiness rules are not yet defined in this version.</summary>
     public static readonly IReadOnlyList<string> UnassessedFamilies =
     [
-        "risks", "commitments", "boundaries", "applications_access_review_scope", "workforce",
-        "technology_inventory", "population_snapshots", "evidence",
+        "applications_access_review_scope", "workforce", "technology_inventory", "evidence",
     ];
 
     public static Uuid GapIdFor(Uuid programId, string ruleId, string subject) =>
@@ -48,8 +55,10 @@ public static class ReadinessRules
     public static ReadinessEvaluation Evaluate(Uuid programId, DateTimeOffset asOf,
         Uuid? editionId, IReadOnlyList<Criterion> criteria,
         IReadOnlyList<ControlCriterionMappingView> mappings,
-        IReadOnlyDictionary<Uuid, ControlVersionView?> effectiveControls)
+        IReadOnlyDictionary<Uuid, ControlVersionView?> effectiveControls,
+        ReadinessSourceSet? sources = null)
     {
+        sources ??= ReadinessSourceSet.Empty;
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(mappings);
         ArgumentNullException.ThrowIfNull(effectiveControls);
@@ -129,6 +138,7 @@ public static class ReadinessRules
         inputs.Add(new ReadinessInputView("controls", "assessed",
             effectiveControls.Values.Count(static control => control is not null),
             "Approved control versions effective on the as-of date for mapped controls."));
+        EvaluateSources(programId, asOf, sources, inputs, gaps, fingerprint);
         foreach (var family in UnassessedFamilies)
         {
             inputs.Add(new ReadinessInputView(family, "not_assessed", 0,
@@ -141,6 +151,83 @@ public static class ReadinessRules
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint.ToString()));
         return new ReadinessEvaluation(inputs, findings, gaps,
             Convert.ToHexStringLower(hash));
+    }
+
+    static void EvaluateSources(Uuid programId, DateTimeOffset asOf, ReadinessSourceSet sources,
+        List<ReadinessInputView> inputs, List<ReadinessGapView> gaps, StringBuilder fingerprint)
+    {
+        var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
+
+        var approved = sources.Boundaries
+            .Select(static boundary => boundary.LatestApprovedVersion)
+            .OfType<BoundaryVersionView>()
+            .Where(version => version.ChangedAt <= asOf &&
+                              version.EffectiveFrom is { } from && from <= asOfDate)
+            .OrderBy(static version => version.BoundaryId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        foreach (var version in approved)
+            fingerprint.Append("boundary|").Append(version.BoundaryId).Append('|')
+                .Append(version.VersionId).Append('\n');
+        inputs.Add(new ReadinessInputView("boundaries", "assessed", approved.Length,
+            "Approved boundary versions effective on the as-of date; drafts and pending reviews do not count."));
+        if (approved.Length == 0)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, BoundaryApproved, "boundaries"),
+                "no_approved_boundary", "boundaries", BoundaryApproved,
+                "No approved system boundary version was effective on the as-of date.", []));
+
+        var commitments = sources.Commitments
+            .OrderBy(static commitment => commitment.Identifier, StringComparer.Ordinal)
+            .ToArray();
+        foreach (var commitment in commitments)
+            fingerprint.Append("commitment|").Append(commitment.DraftId).Append('|')
+                .Append(commitment.Revision).Append('|').Append(commitment.Status).Append('\n');
+        inputs.Add(new ReadinessInputView("commitments", "assessed", commitments.Length,
+            "Program commitments; only effective (approved) commitments meet the rule."));
+        if (commitments.Length == 0)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, CommitmentEffective, "commitments"),
+                "no_commitments", "commitments", CommitmentEffective,
+                "The program records no service commitments or system requirements.", []));
+        foreach (var commitment in commitments.Where(static c => c.Status != "effective"))
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, CommitmentEffective,
+                    commitment.DraftId.ToString()), "commitment_not_effective",
+                commitment.Identifier, CommitmentEffective,
+                $"Commitment {commitment.Identifier} is {commitment.Status}; only an approved, effective commitment counts.",
+                [new ReadinessSourceReference("commitment", commitment.DraftId,
+                    commitment.Revision.ToString(CultureInfo.InvariantCulture))]));
+
+        var risks = sources.Risks
+            .OrderBy(static risk => risk.Identifier, StringComparer.Ordinal)
+            .ToArray();
+        foreach (var risk in risks)
+            fingerprint.Append("risk|").Append(risk.RiskId).Append('|').Append(risk.Revision)
+                .Append('|').Append(risk.EvaluationStatus).Append('\n');
+        inputs.Add(new ReadinessInputView("risks", "assessed", risks.Length,
+            "Program risks; only residual-assessed risks or risks with an active acceptance meet the rule."));
+        if (risks.Length == 0)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, RiskResolved, "risks"), "no_risks",
+                "risks", RiskResolved, "The program records no assessed risks.", []));
+        foreach (var risk in risks.Where(static r =>
+                     r.EvaluationStatus is not ("accepted" or "residual_assessed")))
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, RiskResolved,
+                    risk.RiskId.ToString()), "risk_unresolved", risk.Identifier, RiskResolved,
+                $"Risk {risk.Identifier} is {risk.EvaluationStatus}; it needs a residual assessment or an active acceptance.",
+                [new ReadinessSourceReference("risk", risk.RiskId,
+                    risk.Revision.ToString(CultureInfo.InvariantCulture))]));
+
+        var frozen = sources.Snapshots
+            .Where(snapshot => snapshot.Kind == "program_scope" && snapshot.FrozenAt <= asOf)
+            .OrderBy(static snapshot => snapshot.SnapshotId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        foreach (var snapshot in frozen)
+            fingerprint.Append("snapshot|").Append(snapshot.SnapshotId).Append('|')
+                .Append(snapshot.ContentSha256).Append('\n');
+        inputs.Add(new ReadinessInputView("population_snapshots", "assessed", frozen.Length,
+            "Program scope snapshots frozen at or before the as-of time."));
+        if (frozen.Length == 0)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, ScopeSnapshotFrozen,
+                    "population_snapshots"), "no_scope_snapshot", "population_snapshots",
+                ScopeSnapshotFrozen, "No program scope snapshot was frozen by the as-of time.",
+                []));
     }
 
     static ReadinessFindingView AddGap(Uuid programId, Criterion criterion, string ruleId,
