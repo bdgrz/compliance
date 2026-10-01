@@ -9,6 +9,7 @@ public static class RbacPermissions
     public const string WorkforceManage = "workforce.manage";
     public const string RiskAcceptComplianceLead = "risk.accept.compliance_lead";
     public const string RiskAcceptExecutive = "risk.accept.executive";
+    public const string AccessReviewManage = "access_review.manage";
 
     public static string? RiskAcceptanceFor(string? authority) => authority switch
     {

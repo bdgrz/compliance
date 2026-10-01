@@ -5,7 +5,7 @@ namespace Bdgrz.Compliance.Features.Snapshots;
 public sealed partial class PopulationSnapshotDirectoryProjector(
     IPopulationSnapshotDirectoryProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant("population-snapshots"),
-            "PopulationSnapshotDirectoryV1"),
+            "PopulationSnapshotDirectoryV2"),
       IProjectorHandler<PopulationSnapshotFrozen>
 {
     public ValueTask HandleAsync(PopulationSnapshotFrozen ev, IProjectorContext context,

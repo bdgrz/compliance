@@ -61,9 +61,17 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         using var outsiderRegenerate = await outsider.GetAsync($"{snapshotPath}/manifest-regeneration");
         using var restarted = BuildWorker(applicationName);
         await restarted.StartAsync();
-        // The roster snapshot directory is not asserted here: it never projects in split-host
-        // mode (#498), which predates chunking.
-        await restarted.StopAsync();
+        JsonElement listed;
+        try
+        {
+            listed = await WaitForAsync(owner, $"{root}/workforce-roster-snapshots",
+                body => body.GetProperty("items").EnumerateArray().Any(item =>
+                    item.GetProperty("snapshot_id").GetString() == snapshotId));
+        }
+        finally
+        {
+            await restarted.StopAsync();
+        }
         await using var replayFactory = E2EAppFactory.Create(broker, applicationName);
         using var replayClient = ApiClient(replayFactory);
         await TenantInvitationE2ETests.LoginAsync(replayClient, ownerEmail);
@@ -93,6 +101,8 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         Assert.Equal(People, first.GetProperty("row_count").GetInt64());
         Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderRegenerate.StatusCode);
+        Assert.Contains(listed.GetProperty("items").EnumerateArray(), item =>
+            item.GetProperty("row_count").GetInt64() == People);
         await using var scope = replayFactory.Services.CreateAsyncScope();
         var stored = await Bdgrz.Compliance.Features.Snapshots.PopulationSnapshotContent.ReadAsync(
             scope.ServiceProvider.GetRequiredService<Cntryl.Portia.IAggregateReader>(),
