@@ -49,8 +49,9 @@ stable source worker ID:
   `on_leave`, `ended`), `start_date`, and optional `end_date`, `department`,
   `manager_person_id`, and `sponsor_person_id`. The relationship ID is derived
   from the tenant and the normalized worker ID, so a worker ID identifies one
-  relationship: an identical retry succeeds, and the same worker ID for another
-  person or with other content conflicts. Email is never an identifier.
+  relationship: with both restricted field-read grants, an identical retry
+  succeeds, and the same worker ID for another person or with other content
+  conflicts. Email is never an identifier.
 - The person, manager, and sponsor must be recorded people of the tenant. An
   `ended` relationship needs an end date on or after its start date, nobody
   manages or sponsors themselves, and an external collaborator needs an
@@ -64,6 +65,23 @@ stable source worker ID:
   list (ordered by worker ID, lag-checked like people) always redacts it.
 - MCP tools mirror all four operations. Every operation requires
   `workforce.manage` (Org Admin and Compliance Lead by default).
+- Retrying an already recorded worker ID also requires both existing field-read
+  grants: `workforce.manager_chain` and `workforce.personal_details`. Missing
+  either grant yields the same response for every otherwise valid restricted-value
+  guess: `Forbidden`, including null guesses and retries by the original actor
+  after a lost network response. This protects initial manager
+  and employment-status-reason equality from being disclosed through success or
+  conflict. First creation still requires only `workforce.manage`, including
+  creation with restricted values; the read policy is independent of this write
+  permission. Identical authorized retries preserve the first event's attribution,
+  even after later relationship revisions.
+
+The retry gate runs against the executor's hydrated relationship before initial
+terms are compared. A first creation committed before hydration is gated as a
+retry; a competing creation after empty hydration is rejected by the existing
+destination stream concurrency check, and its later retry requires both grants.
+Field grants are evaluated at the existing permission-read boundary; that
+observation governs this operation even if a grant is revoked concurrently.
 
 Each relationship owns a `work-relationships/{relationship_id}` stream, and
 `WorkRelationshipDirectoryV1` projects it.
