@@ -65,8 +65,20 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         }
         catch (TimeoutException timeout)
         {
+            using var probe = await owner.PostAsJsonAsync($"{root}/people", new { display_name = "Feed probe" });
+            var probeId = (await ReadAsync(probe)).GetProperty("person_id").GetString();
+            string feed;
+            try
+            {
+                _ = await WaitForOkAsync(owner, $"{root}/people/{probeId}");
+                feed = "a person recorded after the freeze projected";
+            }
+            catch (TimeoutException)
+            {
+                feed = "a person recorded after the freeze never projected (tenant feed stalled)";
+            }
             throw new TimeoutException(
-                $"{timeout.Message}{Environment.NewLine}Worker log:{Environment.NewLine}{WorkerLog.Dump()}",
+                $"{timeout.Message}{Environment.NewLine}{feed}{Environment.NewLine}Worker log:{Environment.NewLine}{WorkerLog.Dump()}",
                 timeout);
         }
         await worker.StopAsync();
@@ -233,7 +245,7 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
 
         public ILogger CreateLogger(string categoryName) => new Collector(this, categoryName);
 
-        public string Dump() => string.Join(Environment.NewLine, _entries.TakeLast(60));
+        public string Dump() => string.Join(Environment.NewLine, _entries.TakeLast(80));
 
         public void Dispose()
         {
@@ -243,7 +255,7 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         {
             public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Information;
 
             public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
                 Func<TState, Exception?, string> formatter)
