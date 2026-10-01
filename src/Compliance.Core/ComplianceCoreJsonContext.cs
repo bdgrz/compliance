@@ -9,6 +9,18 @@ namespace Bdgrz.Compliance;
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,
     PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSerializable(typeof(RecordProvider))]
+[JsonSerializable(typeof(ReviseProvider))]
+[JsonSerializable(typeof(GetProvider))]
+[JsonSerializable(typeof(ListProviders))]
+[JsonSerializable(typeof(GetProviderRevision))]
+[JsonSerializable(typeof(ListProviderRevisions))]
+[JsonSerializable(typeof(ProviderRegistration))]
+[JsonSerializable(typeof(Page<ProviderView>))]
+[JsonSerializable(typeof(ProviderRecorded))]
+[JsonSerializable(typeof(ProviderRevised))]
+[JsonSerializable(typeof(ProviderView))]
+[JsonSerializable(typeof(ProviderContent))]
 [JsonSerializable(typeof(ContinueWithDeveloperIdentity))]
 [JsonSerializable(typeof(DateTimeOffset))]
 [JsonSerializable(typeof(DeclareApplication))]
