@@ -23,12 +23,16 @@ public sealed class GetWorkRelationshipHandler(WorkRelationshipReadConsistency c
             : throw new InvalidOperationException("WorkforceAuthorizer must reject this actor.");
         var managerChain = await FieldRestrictions.ForActorAsync(permissions, request.TenantId,
             userId, FieldClasses.WorkforceManagerChain, ct).ConfigureAwait(false);
-        return managerChain.CanRead
-            ? view
-            : Result<WorkRelationshipView>.Success(view.Value with
-            {
-                ManagerPersonId = null,
-                RestrictedFieldsRedacted = true,
-            });
+        var personalDetails = await FieldRestrictions.ForActorAsync(permissions, request.TenantId,
+            userId, FieldClasses.WorkforcePersonalDetails, ct).ConfigureAwait(false);
+        return Result<WorkRelationshipView>.Success(view.Value with
+        {
+            ManagerPersonId = managerChain.CanRead ? view.Value.ManagerPersonId : null,
+            EmploymentStatusReason = personalDetails.CanRead
+                ? view.Value.EmploymentStatusReason
+                : null,
+            RestrictedFieldsRedacted = view.Value.RestrictedFieldsRedacted ||
+                !managerChain.CanRead || !personalDetails.CanRead,
+        });
     }
 }

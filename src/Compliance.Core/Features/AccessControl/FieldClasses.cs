@@ -11,4 +11,7 @@ public static class FieldClasses
 
     /// <summary>A worker's manager chain; general roster and roster-snapshot reads redact it (M0-D06).</summary>
     public static FieldClass WorkforceManagerChain { get; } = new("workforce.manager_chain");
+
+    /// <summary>A worker's personal contact details and employment status reason (M0-D06).</summary>
+    public static FieldClass WorkforcePersonalDetails { get; } = new("workforce.personal_details");
 }

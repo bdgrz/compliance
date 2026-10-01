@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.Responsibilities;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,4 +41,5 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ResponsibilityConflictPreview))]
 [JsonSerializable(typeof(BrowserSession))]
 [JsonSerializable(typeof(ProblemDetails))]
+[JsonSerializable(typeof(PersonalContactDetails))]
 sealed partial class ComplianceJsonContext : JsonSerializerContext;

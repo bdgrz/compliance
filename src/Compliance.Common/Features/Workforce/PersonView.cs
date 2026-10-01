@@ -10,4 +10,5 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// </summary>
 public sealed record PersonView(Uuid TenantId, Uuid PersonId, long Revision,
     string DisplayName, string? WorkEmail, string SourceKind,
-    ActorReference LastChangedBy, DateTimeOffset LastChangedAt, Uuid? CorrelatedUserId = null);
+    ActorReference LastChangedBy, DateTimeOffset LastChangedAt, Uuid? CorrelatedUserId = null,
+    PersonalContactDetails? PersonalContact = null, bool RestrictedFieldsRedacted = false);

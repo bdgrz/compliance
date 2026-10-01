@@ -13,7 +13,8 @@ public sealed class RevisePersonHandler(IAggregateExecutor executor, TimeProvide
         var request = context.Request;
         return executor.ExecuteAsync(new Person(request.TenantId, request.PersonId),
             person => CommandFailureRequestAdapter.ToOutcome(person.Revise(request.ExpectedRevision,
-                request.DisplayName, request.WorkEmail, actor, clock.GetUtcNow())),
+                request.DisplayName, request.WorkEmail, request.PersonalContact, actor,
+                clock.GetUtcNow())),
             context, ct);
     }
 }

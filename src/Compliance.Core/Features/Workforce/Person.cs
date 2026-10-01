@@ -12,6 +12,8 @@ public sealed class Person : Aggregate
     long _revision;
     string? _initialDisplayName;
     string? _initialWorkEmail;
+    PersonalContactDetails? _initialPersonalContact;
+    PersonalContactDetails? _personalContact;
     Uuid? _correlatedUserId;
 
     public bool IsCreated => _created;
@@ -29,8 +31,14 @@ public sealed class Person : Aggregate
             _revision = 1;
             _initialDisplayName = ev.DisplayName;
             _initialWorkEmail = ev.WorkEmail;
+            _initialPersonalContact = Normalize(ev.PersonalContact);
+            _personalContact = _initialPersonalContact;
         });
-        On<PersonRevised>(ev => _revision = ev.Revision);
+        On<PersonRevised>(ev =>
+        {
+            _revision = ev.Revision;
+            _personalContact = ev.PersonalContact;
+        });
         On<PersonMembershipCorrelated>(ev =>
         {
             _revision = ev.Revision;
@@ -40,23 +48,34 @@ public sealed class Person : Aggregate
 
     public Result<PersonRegistration> Record(string displayName, string? workEmail,
         ActorReference actor, DateTimeOffset changedAt)
+        => Record(displayName, workEmail, null, actor, changedAt);
+
+    public Result<PersonRegistration> Record(string displayName, string? workEmail,
+        PersonalContactDetails? personalContact, ActorReference actor, DateTimeOffset changedAt)
     {
         var validation = Validate(displayName, workEmail);
         if (validation is not null)
             return Result<PersonRegistration>.Failure(validation);
         var name = displayName.Trim();
         var email = NormalizeOptional(workEmail);
+        var contact = Normalize(personalContact);
         if (_created)
-            return _initialDisplayName == name && _initialWorkEmail == email
+            return _initialDisplayName == name && _initialWorkEmail == email &&
+                   _initialPersonalContact == contact
                 ? Result<PersonRegistration>.Success(new PersonRegistration(Id))
                 : Result<PersonRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The person already exists with different content."));
-        RaiseEvent(new PersonRecorded(_tenantId, Id, name, email, actor, changedAt));
+        RaiseEvent(new PersonRecorded(_tenantId, Id, name, email, actor, changedAt,
+            contact));
         return Result<PersonRegistration>.Success(new PersonRegistration(Id));
     }
 
     public CommandFailure? Revise(long expectedRevision, string displayName, string? workEmail,
         ActorReference actor, DateTimeOffset changedAt)
+        => Revise(expectedRevision, displayName, workEmail, _personalContact, actor, changedAt);
+
+    public CommandFailure? Revise(long expectedRevision, string displayName, string? workEmail,
+        PersonalContactDetails? personalContact, ActorReference actor, DateTimeOffset changedAt)
     {
         if (!_created)
             return CommandFailure.MissingRecord("The person was not found.");
@@ -66,7 +85,7 @@ public sealed class Person : Aggregate
         if (validation is not null)
             return CommandFailure.InvalidContent(validation.Message!);
         RaiseEvent(new PersonRevised(_tenantId, Id, _revision + 1, displayName.Trim(),
-            NormalizeOptional(workEmail), actor, changedAt));
+            NormalizeOptional(workEmail), actor, changedAt, Normalize(personalContact)));
         return null;
     }
 
@@ -106,4 +125,13 @@ public sealed class Person : Aggregate
 
     static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    static PersonalContactDetails? Normalize(PersonalContactDetails? value)
+    {
+        if (value is null)
+            return null;
+        var email = NormalizeOptional(value.PersonalEmail);
+        var phone = NormalizeOptional(value.PersonalPhone);
+        return email is null && phone is null ? null : new PersonalContactDetails(email, phone);
+    }
 }

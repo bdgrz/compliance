@@ -53,6 +53,7 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
             lifecycle_status = "active",
             start_date = "2025-01-06",
             manager_person_id = graceId,
+            employment_status_reason = "retirement",
         });
         var relationshipId = (await ReadAsync(job)).GetProperty("relationship_id").GetString();
         var relationship = await WaitForAsync(owner,
@@ -93,6 +94,7 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.BadRequest, unknownMember.StatusCode);
         Assert.Equal(ownerUserId, linked.GetProperty("correlated_user_id").GetString());
         Assert.Equal(graceId, relationship.GetProperty("manager_person_id").GetString());
+        Assert.Equal("retirement", relationship.GetProperty("employment_status_reason").GetString());
         Assert.Equal(graceId, graceMissing.GetProperty("person_ids")[0].GetString());
         Assert.Equal(HttpStatusCode.NoContent, resolved.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode);

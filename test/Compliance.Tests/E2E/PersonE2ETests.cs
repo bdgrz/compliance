@@ -33,6 +33,11 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
         {
             display_name = "Ada Lovelace",
             work_email = "ada@example.com",
+            personal_contact = new
+            {
+                personal_email = "ada.personal@example.com",
+                personal_phone = "+1 202 555 0147",
+            },
         });
         var personPath = $"{path}/{personId}";
         var original = await WaitForRevisionAsync(owner, personPath, 1);
@@ -65,6 +70,8 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
 
         // Assert
         Assert.Equal("Ada Lovelace", original.GetProperty("display_name").GetString());
+        Assert.Equal("ada.personal@example.com", original.GetProperty("personal_contact")
+            .GetProperty("personal_email").GetString());
         Assert.Equal("manual", original.GetProperty("source_kind").GetString());
         Assert.Equal("member", original.GetProperty("last_changed_by")
             .GetProperty("kind").GetString());
@@ -73,8 +80,12 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         Assert.Equal("Ada King", current.GetProperty("display_name").GetString());
         Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
-        Assert.Equal(personId, (await ReadAsync(listed)).GetProperty("items")[0]
+        var listedPage = await ReadAsync(listed);
+        Assert.Equal(personId, listedPage.GetProperty("items")[0]
             .GetProperty("person_id").GetString());
+        var listedPerson = listedPage.GetProperty("items")[0];
+        Assert.Equal(JsonValueKind.Null, listedPerson.GetProperty("personal_contact").ValueKind);
+        Assert.True(listedPerson.GetProperty("restricted_fields_redacted").GetBoolean());
         Assert.Equal(HttpStatusCode.BadRequest, invalidLimit.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidCursor.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
@@ -145,8 +156,14 @@ public sealed class PersonE2ETests(BrokerStackFixture broker)
         var tenantId = await CreateTenantAsync(owner);
         var path = $"/api/v1/tenants/{tenantId}/people";
         var firstId = await RecordWhenAuthorizedAsync(owner, path,
-            new { display_name = "Ada Lovelace" });
-        _ = await WaitForRevisionAsync(owner, $"{path}/{firstId}", 1);
+            new
+            {
+                display_name = "Ada Lovelace",
+                personal_contact = new { personal_email = "ada.personal@example.com" },
+            });
+        var first = await WaitForRevisionAsync(owner, $"{path}/{firstId}", 1);
+        Assert.Equal("ada.personal@example.com", first.GetProperty("personal_contact")
+            .GetProperty("personal_email").GetString());
         await worker.StopAsync();
 
         // Act
