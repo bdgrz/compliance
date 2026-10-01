@@ -175,8 +175,8 @@ public sealed class ControlEvaluationLedger : Aggregate
         EvaluationDeviationView? deviation = null;
         if (result == NotMet)
         {
-            var deviationId = Uuid.CreateVersion5(evaluationId, "deviation-" +
-                evaluation.Round.ToString(CultureInfo.InvariantCulture) + "-" + stepId);
+            // Stable per evaluation step, so a resubmitted deviation reuses its finding.
+            var deviationId = Uuid.CreateVersion5(evaluationId, "deviation-" + stepId);
             deviation = new EvaluationDeviationView(deviationId, stepId, evaluation.Round,
                 classification!, description!.Trim(),
                 classification == Material ? PendingRouting : PendingDisposition,
@@ -191,8 +191,8 @@ public sealed class ControlEvaluationLedger : Aggregate
     }
 
     public CommandFailure? DisposeDeviation(Uuid controlId, Uuid evaluationId, Uuid deviationId,
-        long expectedRevision, string disposition, string rationale, Uuid? waiverId,
-        bool waiverActive, Uuid actorMemberId)
+        long expectedRevision, string disposition, string rationale,
+        SeparationOfDutiesWaiver? waiver, Uuid actorMemberId, DateTimeOffset disposedAt)
     {
         if (Find(controlId, evaluationId) is not { } evaluation)
             return CommandFailure.MissingRecord("The control evaluation was not found.");
@@ -207,14 +207,18 @@ public sealed class ControlEvaluationLedger : Aggregate
             return CommandFailure.StateConflict(
                 "A material deviation routes to a finding and a retest; it cannot be dispositioned.");
         if (disposition is not (Corrected or AcceptedWithWaiver) || !IsBoundedText(rationale) ||
-            disposition == Corrected && waiverId is not null ||
-            disposition == AcceptedWithWaiver && waiverId is null)
+            disposition == Corrected && waiver is not null ||
+            disposition == AcceptedWithWaiver && waiver is null)
             return CommandFailure.InvalidContent(
                 "A disposition is corrected, or accepted_with_waiver naming an approved waiver, with a rationale.");
-        if (waiverId is not null && !waiverActive)
-            return CommandFailure.StateConflict("The waiver is not approved and active.");
+        if (waiver is not null && (waiver.TenantId != _tenantId || !waiver.Allows(
+                new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.ControlEvaluation,
+                    evaluationId, deviationId, evaluation.Round, SeparationOfDutiesActions.Approve),
+                actorMemberId, disposedAt)))
+            return CommandFailure.StateConflict(
+                "The waiver is not approved and active for this evaluator, deviation, and round.");
         RaiseEvent(new ControlEvaluationDeviationDisposed(_tenantId, Id, controlId, evaluationId,
-            evaluation.Revision + 1, deviationId, disposition, rationale.Trim(), waiverId));
+            evaluation.Revision + 1, deviationId, disposition, rationale.Trim(), waiver?.Id));
         return null;
     }
 
@@ -347,7 +351,10 @@ public sealed class ControlEvaluationLedger : Aggregate
         else if (retests.Length == 0)
             retestStatus = Required;
         else
-            retestStatus = AcceptedSubmission(retests[^1])?.Overall switch
+            retestStatus = retests.Where(static retest => retest.State == Accepted)
+                .OrderBy(static retest => retest.Reviews[^1].ReviewedAt)
+                .Select(static retest => AcceptedSubmission(retest)!.Overall)
+                .LastOrDefault() switch
             {
                 null => InProgress,
                 Effective or EffectiveWithExceptions => Passed,

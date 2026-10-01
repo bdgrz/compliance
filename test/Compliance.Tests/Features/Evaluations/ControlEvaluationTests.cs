@@ -376,4 +376,105 @@ public sealed class ControlEvaluationTests
             // Assert
             .ExpectFailure(RequestErrorKind.Conflict);
     }
+
+    [Fact]
+    public async Task ShouldRejectWaiverDispositionGivenWaiverScopedToAnotherRecord()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var evaluation = await RecordAllAsync(fixture, await StartAsync(fixture),
+            implementation: "not_met", classification: "minor");
+        var deviation = Assert.Single(evaluation.Deviations);
+        var unrelated = await fixture.ApprovedWaiverAsync(new SeparationOfDutiesWaiverScope(
+            SeparationOfDutiesRecordTypes.Finding, Uuid.CreateVersion4(), Uuid.CreateVersion4(), 1,
+            SeparationOfDutiesActions.Approve), fixture.OwnerMemberId);
+        var scoped = await fixture.ApprovedWaiverAsync(new SeparationOfDutiesWaiverScope(
+            SeparationOfDutiesRecordTypes.ControlEvaluation, evaluation.EvaluationId,
+            deviation.DeviationId, 1, SeparationOfDutiesActions.Approve), fixture.OwnerMemberId);
+        DisposeControlEvaluationDeviation Dispose(Uuid waiverId) => new(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId, evaluation.EvaluationId, deviation.DeviationId,
+            evaluation.Revision, "accepted_with_waiver", "Accepted for this period.", waiverId);
+
+        await fixture.Scenario(fixture.OwnerUserId)
+            // Act
+            .When(Dispose(unrelated))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var disposed = await fixture.AsAsync(fixture.OwnerUserId, Dispose(scoped));
+        Assert.Equal(scoped, Assert.Single(disposed.Deviations).WaiverId);
+    }
+
+    [Fact]
+    public async Task ShouldReuseDeviationIdentityGivenResubmissionAfterRejection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        IReadOnlyList<EvaluationAssertionConclusion> conclusions =
+        [
+            AllEffective[0], new("implementation", "ineffective", "Leavers kept access."),
+            AllEffective[2],
+        ];
+        var first = await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture,
+            await RecordAllAsync(fixture, await StartAsync(fixture), implementation: "not_met",
+                classification: "material"), conclusions));
+        var rejected = await fixture.AsAsync(fixture.ApproverUserId,
+            Review(fixture, first, "rejected"));
+
+        // Act
+        var second = await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture,
+            await RecordAllAsync(fixture, rejected, implementation: "not_met",
+                classification: "material"), conclusions));
+
+        // Assert
+        var findingIds = second.Submissions.SelectMany(static s => s.Deviations)
+            .Select(static d => d.FindingId).Distinct().ToArray();
+        Assert.Equal(2, second.Submissions.Count);
+        Assert.Single(findingIds);
+        Assert.Single(second.Submissions.SelectMany(static s => s.Deviations)
+            .Select(static d => d.DeviationId).Distinct());
+    }
+
+    [Fact]
+    public async Task ShouldReportPassedGivenLaterAbandonedRetest()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var submitted = await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture,
+            await RecordAllAsync(fixture, await StartAsync(fixture), implementation: "not_met",
+                classification: "material"),
+        [
+            AllEffective[0], new("implementation", "ineffective", "Leavers kept access."),
+            AllEffective[2],
+        ]));
+        var accepted = await fixture.AsAsync(fixture.ApproverUserId,
+            Review(fixture, submitted, "accepted"));
+        var retest = await StartAsync(fixture, retestOf: accepted.EvaluationId);
+        await fixture.AsAsync(fixture.ApproverUserId, Review(fixture,
+            await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture,
+                await RecordAllAsync(fixture, retest))), "accepted"));
+
+        // Act
+        await StartAsync(fixture, retestOf: accepted.EvaluationId);
+
+        // Assert
+        var original = await fixture.AsAsync(fixture.OutsiderUserId, new GetControlEvaluation(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, accepted.EvaluationId));
+        Assert.Equal("passed", original.RetestStatus);
+        Assert.Equal(2, original.RetestEvaluationIds.Count);
+    }
+
+    [Fact]
+    public async Task ShouldNotDiscloseGivenControlNoLongerVisibleInProgram()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var evaluation = await StartAsync(fixture);
+
+        await fixture.Scenario(fixture.LeadUserId)
+            // Act
+            .When(new GetControlEvaluation(fixture.TenantId, Uuid.CreateVersion4(),
+                fixture.ControlId, evaluation.EvaluationId))
+            // Assert
+            .ExpectFailure(RequestErrorKind.NotFound);
+    }
 }

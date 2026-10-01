@@ -10,6 +10,9 @@ public sealed class GetControlEvaluationHandler(IAggregateReader reader)
         IRequestContext<GetControlEvaluation> context, CancellationToken ct)
     {
         var request = context.Request;
+        if (await ControlOperationsSource.LoadControlAsync(reader, request.TenantId,
+                request.ProgramId, request.ControlId, ct).ConfigureAwait(false) is null)
+            return Result<ControlEvaluationView>.Failure(ControlOperationsSource.ControlNotFound());
         var ledger = await reader.HydrateAsync(new ControlEvaluationLedger(request.TenantId,
             request.ProgramId), ct).ConfigureAwait(false);
         if (ledger.Read(request.ControlId, request.EvaluationId) is not { } view)

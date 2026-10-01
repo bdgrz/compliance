@@ -34,28 +34,16 @@ public sealed class RaiseEvaluationDeviationFindingHandler(IAggregateExecutor ex
             ? member
             : evaluation.EvaluatorMemberId;
         var now = clock.GetUtcNow();
-        var dueOn = DateOnly.FromDateTime(now.UtcDateTime)
-            .AddDays(RaiseOccurrenceFindingHandler.DefaultDueDays);
         var actor = ActorReference.ForSystemProcess(ProcessId,
             ControlEvaluationDeviationFindingReactor.WorkloadName);
-        return await executor.ExecuteAsync(new RemediationLedger(request.TenantId,
-                request.ProgramId),
-            ledger =>
-            {
-                if (ledger.Contains(request.FindingId))
-                    return CommandFailureRequestAdapter.ToOutcome(null);
-                var failure = ledger.Raise(request.FindingId,
-                    new FindingSource("evaluation_deviation", deviation.DeviationId,
-                        request.EvaluationId.ToString(), deviation.Description),
-                    "Material control evaluation deviation", deviation.Description,
-                    RaiseOccurrenceFindingHandler.DefaultSeverity,
-                    $"Control {request.ControlId}, evaluation {request.EvaluationId}", owner, dueOn,
-                    [new FindingLink("control", request.ControlId.ToString()),
-                        new FindingLink("control_evaluation", request.EvaluationId.ToString())],
-                    actor, now);
-                return CommandFailureRequestAdapter.ToOutcome(failure ?? ledger.AddAction(
-                    request.FindingId, 1, Uuid.CreateVersion5(request.FindingId,
-                        "corrective-action"), deviation.Description, owner, dueOn, actor, now));
-            }, context, ct).ConfigureAwait(false);
+        return await RoutedFinding.RaiseAsync(executor, context, request.TenantId,
+            request.ProgramId, request.FindingId,
+            new FindingSource("evaluation_deviation", deviation.DeviationId,
+                request.EvaluationId.ToString(), deviation.Description),
+            "Material control evaluation deviation",
+            $"Control {request.ControlId}, evaluation {request.EvaluationId}", owner,
+            [new FindingLink("control", request.ControlId.ToString()),
+                new FindingLink("control_evaluation", request.EvaluationId.ToString())],
+            deviation.Description, actor, now, ct).ConfigureAwait(false);
     }
 }

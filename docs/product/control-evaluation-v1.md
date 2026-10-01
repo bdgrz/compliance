@@ -49,8 +49,11 @@ Reads hydrate the program stream, so they never lag. A deviation's
 - A submitted material deviation becomes an owned finding with a corrective
   action through the `ControlEvaluationDeviationFindingsV1` reactor. The
   finding ID derives from the deviation, so replay is idempotent. A minor
-  deviation needs a `corrected` or `accepted_with_waiver` disposition (with an
-  approved, unexpired waiver) before submission. An untested step stays visible
+  deviation needs a `corrected` or `accepted_with_waiver` disposition before
+  submission. The waiver must be approved, active, and scoped to
+  `(control_evaluation, evaluation_id, deviation_id, round, approve)` for the
+  evaluator. A deviation's identity is stable per evaluation step, so a
+  resubmission after rejection reuses its finding. An untested step stays visible
   as `not_tested`.
 - An accepted evaluation with a material deviation has the `retest_status`
   `required`. A retest is a new evaluation that names it, reuses its procedure
