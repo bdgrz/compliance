@@ -79,6 +79,42 @@ public sealed class ProviderHttpMcpTests
         Assert.Equal(["owner", "source_citation"], current.Unresolved);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldReadEmptyTenantRegisterGivenAuthorizedHttpOrMcpCaller(bool mcp)
+    {
+        // Arrange
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        using var login = await client.PostAsJsonAsync("/api/v1/developer-user-sessions", new Login("provider-reader@example.com"), CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        var tenantId = Uuid.CreateVersion4();
+        await using var scenario = mcp ? await McpScenario.ConnectAsync(client, new Uri(client.BaseAddress!, "/mcp")) : null;
+
+        // Act
+        JsonElement page;
+        if (scenario is not null)
+        {
+            var listed = await scenario.When("bdgrz.providers.list", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId.ToString(),
+                ["limit"] = 1,
+            }).ExpectSuccess();
+            page = Result(listed);
+        }
+        else
+        {
+            using var listed = await client.GetAsync($"/api/v1/tenants/{tenantId}/providers?limit=1");
+            Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+            using var json = JsonDocument.Parse(await listed.Content.ReadAsStringAsync());
+            page = json.RootElement.Clone();
+        }
+
+        // Assert
+        Assert.Equal(0, page.GetProperty("items").GetArrayLength());
+    }
+
     static JsonElement Result(McpCallSnapshot snapshot) => Assert.IsType<JsonElement>(snapshot.StructuredJson).GetProperty("result");
 
     static StringContent Body(ProviderContent content) => new("{\"content\":" + JsonSerializer.Serialize(content,

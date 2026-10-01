@@ -194,6 +194,10 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ITechnologyInventoryReader>(provider =>
             provider.GetRequiredService<FitzTechnologyInventoryDirectory>());
         services.AddScoped<ProviderReferences>();
+        services.AddScoped<FitzProviderDirectory>();
+        services.AddScoped<IProviderProjection>(provider => provider.GetRequiredService<FitzProviderDirectory>());
+        services.AddScoped<IProviderReader>(provider => provider.GetRequiredService<FitzProviderDirectory>());
+        services.AddScoped<ProviderReadConsistency>();
         services.AddScoped<TechnologyInventoryReadConsistency>();
         services.AddScoped<TechnologyInventoryReferences>();
         services.AddScoped<ITechnologyInventoryActivity>(provider =>
@@ -428,6 +432,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<ApplicationInventoryAuthorizer>()
             .AddRequestHandler<RecordProviderHandler>()
             .AddRequestHandler<ReviseProviderHandler>()
+            .AddRequestHandler<GetProviderHandler>()
+            .AddRequestHandler<ListProvidersHandler>()
+            .AddRequestHandler<GetProviderRevisionHandler>()
+            .AddRequestHandler<ListProviderRevisionsHandler>()
             .AddRequestAuthorizer<ProviderAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()
@@ -848,6 +856,7 @@ public static class ComplianceServiceCollectionExtensions
                 "ApplicationBoundaryReferencesV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationControlDraftReferenceProjector>(
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
+            .AddProjector<ProviderProjector>(FitzProviderDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
