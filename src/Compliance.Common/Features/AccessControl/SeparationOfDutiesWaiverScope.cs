@@ -34,6 +34,17 @@ public static class SeparationOfDutiesRecordTypes
 
     /// <summary>A criterion applicability decision; the version is the decision ID.</summary>
     public const string CriterionApplicability = "criterion_applicability";
+    /// <summary>
+    ///     A control operating plan. A proposal conflict uses the control version and the next plan
+    ///     revision; an approval uses the plan version and its revision.
+    /// </summary>
+    public const string ControlOperatingPlan = "control_operating_plan";
+
+    /// <summary>An occurrence review; the version is the attestation ID and revision its version.</summary>
+    public const string ControlOccurrence = "control_occurrence";
+
+    /// <summary>A finding closure; the version is the finding ID and revision the finding revision.</summary>
+    public const string Finding = "finding";
 }
 
 public static class SeparationOfDutiesActions
