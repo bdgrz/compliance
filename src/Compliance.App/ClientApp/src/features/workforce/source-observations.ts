@@ -219,11 +219,12 @@ export async function listSourceObservations(target?: {
   kind: SourceTargetKind;
   id: string;
 }): Promise<SourceObservation[]> {
+  const tenantId = requireActiveTenantId();
   const items: SourceObservation[] = [];
   let cursor: string | undefined;
   do {
     const result = await client.list({
-      params: { tenant_id: requireActiveTenantId() },
+      params: { tenant_id: tenantId },
       query: {
         limit: 200,
         ...(target ? { target_kind: target.kind, target_id: target.id } : {}),

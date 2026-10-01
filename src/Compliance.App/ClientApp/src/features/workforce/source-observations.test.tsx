@@ -642,6 +642,47 @@ it('ShouldRequestEverySourcePageWithTheExplicitCanonicalCorrelation', async () =
   expect(queries[1]?.get('cursor')).toBe('page-2');
 });
 
+it('ShouldKeepPaginationBoundToTheStartingTenantGivenActiveContextChanges', async () => {
+  const otherTenantId = '0190a1b2-0000-7000-8000-000000000002';
+  const sourcePaths: string[] = [];
+  const fetch = globalThis.fetch;
+  vi.stubGlobal(
+    'fetch',
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (!url.pathname.endsWith('/workforce-source-observations'))
+        return fetch(input, init);
+      sourcePaths.push(url.pathname);
+      if (sourcePaths.length === 1) {
+        api.reply(base, 200, { items: [observation()], next_cursor: 'page-2' });
+        const firstPage = await fetch(input, init);
+        clearActiveTenant();
+        api.reply('/api/v1/tenant-slugs/bravo/mine', 200, {
+          tenant_id: otherTenantId,
+          current_slug: 'bravo',
+          redirect: false,
+        });
+        api.reply('/api/v1/tenants/mine', 200, {
+          items: [{ tenant_id: otherTenantId, slug: 'bravo', name: 'Bravo' }],
+          next_cursor: null,
+        });
+        await resolveTenantRoute('bravo', {
+          pathname: '/bravo/workforce/sources',
+          search: '',
+          hash: '',
+        });
+        return firstPage;
+      }
+      api.reply(url.pathname, 200, { items: [], next_cursor: null });
+      return fetch(input, init);
+    }
+  );
+
+  await listSourceObservations({ kind: 'person', id: personId });
+
+  expect(sourcePaths).toEqual([base, base]);
+});
+
 it('ShouldShowGenericPermissionFailureGivenRelationshipSourceRecordingIsRevoked', async () => {
   relationshipReplies();
   api.reply(`POST ${base}`, 403, {
