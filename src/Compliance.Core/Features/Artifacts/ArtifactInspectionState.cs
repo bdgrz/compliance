@@ -9,4 +9,6 @@ public enum ArtifactInspectionState
     NotInspected,
     Clean,
     Quarantined,
+    SecretDetected,
+    Invalid,
 }
