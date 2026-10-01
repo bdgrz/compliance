@@ -54,6 +54,8 @@ public static class SeparationOfDutiesRecordTypes
 
     /// <summary>A reviewer's decision on their own access; the record is the item ID, the version the campaign ID, and the revision 1.</summary>
     public const string AccessReviewItem = "access_review_item";
+    /// <summary>A control evaluation review; the version is the evaluation ID and revision its round.</summary>
+    public const string ControlEvaluation = "control_evaluation";
 }
 
 public static class SeparationOfDutiesActions

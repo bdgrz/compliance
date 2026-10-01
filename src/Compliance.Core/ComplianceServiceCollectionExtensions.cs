@@ -542,6 +542,14 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RecordBulkAccessDecisionHandler>()
             .AddRequestHandler<VerifyAccessRemediationHandler>()
             .AddRequestAuthorizer<AccessReviewAuthorizer>()
+            .AddRequestHandler<StartControlEvaluationHandler>()
+            .AddRequestHandler<RecordControlEvaluationStepHandler>()
+            .AddRequestHandler<DisposeControlEvaluationDeviationHandler>()
+            .AddRequestHandler<SubmitControlEvaluationHandler>()
+            .AddRequestHandler<ReviewControlEvaluationHandler>()
+            .AddRequestHandler<GetControlEvaluationHandler>()
+            .AddRequestHandler<ListControlEvaluationsHandler>()
+            .AddRequestHandler<RaiseEvaluationDeviationFindingHandler>()
             .AddRequestHandler<ProposeControlSuccessorHandler>()
             .AddRequestHandler<ProposeControlRetirementHandler>()
             .AddRequestHandler<PreviewControlImpactHandler>()
@@ -747,6 +755,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
             .AddReactor<ControlOccurrenceFindingReactor>(
                 ControlOccurrenceFindingReactor.WorkloadName, WorkloadScope.PerTenant)
+            .AddReactor<ControlEvaluationDeviationFindingReactor>(
+                ControlEvaluationDeviationFindingReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
             .AddProjector<TeamDirectoryProjector>("TeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TeamMemberDirectoryProjector>("TeamMemberDirectory", WorkloadScope.PerTenant)
