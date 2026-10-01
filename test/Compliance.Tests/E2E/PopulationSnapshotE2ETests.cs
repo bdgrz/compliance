@@ -54,6 +54,11 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         var snapshotPath = $"{root}/workforce-roster-snapshots/{snapshotId}";
         var frozen = await WaitForOkAsync(owner, snapshotPath);
         var first = await WaitForOkAsync(owner, $"{snapshotPath}/manifest-regeneration");
+        // The directory must project the chunked freeze before the worker stops; this separates a
+        // projection fault from a restart fault.
+        _ = await WaitForAsync(owner, $"{root}/workforce-roster-snapshots",
+            body => body.GetProperty("items").EnumerateArray().Any(item =>
+                item.GetProperty("snapshot_id").GetString() == snapshotId));
         await worker.StopAsync();
         var duringLag = await WaitForOkAsync(owner, snapshotPath);
         var regeneratedDuringLag = await WaitForOkAsync(owner, $"{snapshotPath}/manifest-regeneration");
