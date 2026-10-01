@@ -8444,7 +8444,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C"
+                  "$ref": "#/components/schemas/Portia_1B41424DD1048776063A851A5730872FAE1FDEBEDCC12ABB187E9407CB0972F3"
                 }
               }
             }
@@ -11205,7 +11205,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902"
+                  "$ref": "#/components/schemas/Portia_6C1C6B7EB17FBC6FFD9D02B19FE9C2FA4FB3C6789E90B0635C3EE527EB8F1603"
                 }
               }
             }
@@ -52763,7 +52763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_7CD37B602BC1B9CED0A3D0552650BDFFF97D061E925708668EA377395BC1DBB7"
+                  "$ref": "#/components/schemas/Portia_C95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6"
                 }
               }
             }
@@ -53167,6 +53167,44 @@
           },
           {
             "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "owner_member_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "rule_id",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "subject",
             "in": "query",
             "schema": {
               "type": [
@@ -54038,6 +54076,1672 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Portia_24AADB452F032CF586816A93E0006D88CF6B74A01ECC66A7DD7E222A5F991AAF"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/type-i-entry-decision": {
+      "post": {
+        "tags": [
+          "Readiness"
+        ],
+        "operationId": "decideTypeIEntry",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "outcome",
+                  "rationale"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "outcome": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "rationale": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "acknowledged_gap_ids": {
+                    "$ref": "#/components/schemas/Portia_0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D"
+                  },
+                  "separation_of_duties_waiver_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_7A69D33280F826A4E8D05D28C507E4C68556897E2948CDFB8FF09D153ED9DF44"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/type-i-entry-decisions": {
+      "get": {
+        "tags": [
+          "Readiness"
+        ],
+        "operationId": "listTypeIEntryDecisions",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_29FC8CE420AC2814A94627199085A8D4740B2FCFF2200FDDEF4D0FCFD528B72D"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/gaps/{gap_id}/annotations": {
+      "post": {
+        "tags": [
+          "Readiness"
+        ],
+        "operationId": "annotateReadinessGap",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "gap_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "body"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "body": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_50C70F44CE8894CF7231272888D6062DE18FA19BF04DAC0834A26B9130C165A1"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/readiness/assessments/{assessment_id}/annotations": {
+      "get": {
+        "tags": [
+          "Readiness"
+        ],
+        "operationId": "listReadinessAnnotations",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_687EE1C23460870912691E4FB708323EBC207241ED63637488F412D5496EE5EA"
                 }
               }
             }
@@ -132157,6 +133861,230 @@
           }
         }
       },
+      "Portia_1B41424DD1048776063A851A5730872FAE1FDEBEDCC12ABB187E9407CB0972F3": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "tenant_id",
+                "program_id",
+                "name",
+                "stage",
+                "next_stage",
+                "revision",
+                "plan",
+                "last_changed_by_member_id",
+                "last_changed_by_display",
+                "last_changed_at",
+                "stage_plan"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "tenant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "program_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "string"
+                },
+                "next_stage": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "plan": {
+                  "required": [
+                    "target_readiness_date",
+                    "target_type_i_as_of_date",
+                    "target_type_ii_start_date",
+                    "target_type_ii_end_date",
+                    "readiness_advisor",
+                    "audit_firm"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "target_readiness_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "target_type_i_as_of_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "target_type_ii_start_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "target_type_ii_end_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "readiness_advisor": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "audit_firm": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                },
+                "last_changed_by_member_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "last_changed_by_display": {
+                  "type": "string"
+                },
+                "last_changed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "stage_plan": {
+                  "type": "array",
+                  "items": {
+                    "required": [
+                      "stage",
+                      "advance_when"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "stage": {
+                        "type": "string"
+                      },
+                      "advance_when": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "last_changed_by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "criteria_edition_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "stage_decision_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "stage_entered_by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "stage_entered_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "Portia_1B51602F06141206ED19B855080CC6A10F95F1354F62A54606D6649DA73FBC07": {
         "required": [
           "kind",
@@ -133952,6 +135880,165 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "Portia_29FC8CE420AC2814A94627199085A8D4740B2FCFF2200FDDEF4D0FCFD528B72D": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "decision_id",
+                "assessment_id",
+                "rule_version",
+                "as_of",
+                "input_fingerprint",
+                "outcome",
+                "rationale",
+                "unresolved_items",
+                "decider_member_id",
+                "decided_by",
+                "decided_at",
+                "separation_of_duties_waiver_id"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "decision_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "assessment_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "rule_version": {
+                  "type": "string"
+                },
+                "as_of": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "input_fingerprint": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "rationale": {
+                  "type": "string"
+                },
+                "unresolved_items": {
+                  "type": "array",
+                  "items": {
+                    "required": [
+                      "gap_id",
+                      "kind",
+                      "subject",
+                      "rule_id",
+                      "explanation",
+                      "owner_member_id",
+                      "target_date",
+                      "acknowledged"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "gap_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "rule_id": {
+                        "type": "string"
+                      },
+                      "explanation": {
+                        "type": "string"
+                      },
+                      "owner_member_id": {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "format": "uuid"
+                      },
+                      "target_date": {
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "items": { },
+                        "format": "date"
+                      },
+                      "acknowledged": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "decider_member_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "decided_by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "decided_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "separation_of_duties_waiver_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "notice": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -137905,6 +139992,69 @@
           }
         }
       },
+      "Portia_50C70F44CE8894CF7231272888D6062DE18FA19BF04DAC0834A26B9130C165A1": {
+        "required": [
+          "annotation_id",
+          "assessment_id",
+          "gap_id",
+          "body",
+          "author_member_id",
+          "authored_by",
+          "annotated_at"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "annotation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gap_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "body": {
+            "type": "string"
+          },
+          "author_member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authored_by": {
+            "required": [
+              "kind",
+              "id",
+              "display"
+            ],
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          },
+          "annotated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
       "Portia_51FE555DD79808725AEE8E82914094E523850FDA6EFBE755215A4071F1A05B52": {
         "required": [
           "campaign_id",
@@ -140976,6 +143126,90 @@
           }
         }
       },
+      "Portia_687EE1C23460870912691E4FB708323EBC207241ED63637488F412D5496EE5EA": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "annotation_id",
+                "assessment_id",
+                "gap_id",
+                "body",
+                "author_member_id",
+                "authored_by",
+                "annotated_at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "annotation_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "assessment_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "gap_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "author_member_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "authored_by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "annotated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "current": {
+                  "type": "boolean",
+                  "default": true
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "Portia_68A3EA0CA5F80C9797BB122EE28E1022CC49939048D6F526CD8CA215FECE13B0": {
         "required": [
           "population_id",
@@ -141109,6 +143343,209 @@
           },
           "redirect": {
             "type": "boolean"
+          }
+        }
+      },
+      "Portia_6C1C6B7EB17FBC6FFD9D02B19FE9C2FA4FB3C6789E90B0635C3EE527EB8F1603": {
+        "required": [
+          "tenant_id",
+          "program_id",
+          "name",
+          "stage",
+          "next_stage",
+          "revision",
+          "plan",
+          "last_changed_by_member_id",
+          "last_changed_by_display",
+          "last_changed_at",
+          "stage_plan"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "program_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "next_stage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "plan": {
+            "required": [
+              "target_readiness_date",
+              "target_type_i_as_of_date",
+              "target_type_ii_start_date",
+              "target_type_ii_end_date",
+              "readiness_advisor",
+              "audit_firm"
+            ],
+            "type": "object",
+            "properties": {
+              "target_readiness_date": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "target_type_i_as_of_date": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "target_type_ii_start_date": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "target_type_ii_end_date": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "items": { },
+                "format": "date"
+              },
+              "readiness_advisor": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "audit_firm": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            }
+          },
+          "last_changed_by_member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_changed_by_display": {
+            "type": "string"
+          },
+          "last_changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stage_plan": {
+            "type": "array",
+            "items": {
+              "required": [
+                "stage",
+                "advance_when"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "string"
+                },
+                "advance_when": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "last_changed_by": {
+            "required": [
+              "kind",
+              "id",
+              "display"
+            ],
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          },
+          "criteria_edition_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "stage_decision_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "stage_entered_by": {
+            "required": [
+              "kind",
+              "id",
+              "display"
+            ],
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          },
+          "stage_entered_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "items": { },
+            "format": "date-time"
           }
         }
       },
@@ -142928,172 +145365,6 @@
           }
         }
       },
-      "Portia_75DB7E91559424F7B5B78D00E6D5C15DE7D087132C05E6E4E37BD168D7C10902": {
-        "required": [
-          "tenant_id",
-          "program_id",
-          "name",
-          "stage",
-          "next_stage",
-          "revision",
-          "plan",
-          "last_changed_by_member_id",
-          "last_changed_by_display",
-          "last_changed_at",
-          "stage_plan"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "program_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "stage": {
-            "type": "string"
-          },
-          "next_stage": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "revision": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "plan": {
-            "required": [
-              "target_readiness_date",
-              "target_type_i_as_of_date",
-              "target_type_ii_start_date",
-              "target_type_ii_end_date",
-              "readiness_advisor",
-              "audit_firm"
-            ],
-            "type": "object",
-            "properties": {
-              "target_readiness_date": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "items": { },
-                "format": "date"
-              },
-              "target_type_i_as_of_date": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "items": { },
-                "format": "date"
-              },
-              "target_type_ii_start_date": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "items": { },
-                "format": "date"
-              },
-              "target_type_ii_end_date": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "items": { },
-                "format": "date"
-              },
-              "readiness_advisor": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              },
-              "audit_firm": {
-                "type": [
-                  "null",
-                  "string"
-                ]
-              }
-            }
-          },
-          "last_changed_by_member_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "last_changed_by_display": {
-            "type": "string"
-          },
-          "last_changed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "stage_plan": {
-            "type": "array",
-            "items": {
-              "required": [
-                "stage",
-                "advance_when"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "stage": {
-                  "type": "string"
-                },
-                "advance_when": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "last_changed_by": {
-            "required": [
-              "kind",
-              "id",
-              "display"
-            ],
-            "type": [
-              "null",
-              "object"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string"
-              },
-              "id": {
-                "type": "string"
-              },
-              "display": {
-                "type": "string"
-              }
-            }
-          },
-          "criteria_edition_id": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          }
-        }
-      },
       "Portia_77BC6F20B8FD14DA873B0870E2E097EC40F2D759251FC89539FC397ABB0863C7": {
         "required": [
           "campaign_id",
@@ -143370,6 +145641,144 @@
           "recorded_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Portia_7A69D33280F826A4E8D05D28C507E4C68556897E2948CDFB8FF09D153ED9DF44": {
+        "required": [
+          "decision_id",
+          "assessment_id",
+          "rule_version",
+          "as_of",
+          "input_fingerprint",
+          "outcome",
+          "rationale",
+          "unresolved_items",
+          "decider_member_id",
+          "decided_by",
+          "decided_at",
+          "separation_of_duties_waiver_id"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "decision_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rule_version": {
+            "type": "string"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "input_fingerprint": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "unresolved_items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "gap_id",
+                "kind",
+                "subject",
+                "rule_id",
+                "explanation",
+                "owner_member_id",
+                "target_date",
+                "acknowledged"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "gap_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "rule_id": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "owner_member_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                },
+                "target_date": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date"
+                },
+                "acknowledged": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "decider_member_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decided_by": {
+            "required": [
+              "kind",
+              "id",
+              "display"
+            ],
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "separation_of_duties_waiver_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "notice": {
+            "type": "string"
           }
         }
       },
@@ -144443,401 +146852,6 @@
             }
           },
           "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "Portia_7CD37B602BC1B9CED0A3D0552650BDFFF97D061E925708668EA377395BC1DBB7": {
-        "required": [
-          "tenant_id",
-          "program_id",
-          "assessment_id",
-          "revision",
-          "rule_version",
-          "as_of",
-          "edition_id",
-          "input_fingerprint",
-          "inputs",
-          "findings",
-          "gaps",
-          "rule_met_count",
-          "gap_count",
-          "run_by",
-          "run_at",
-          "decision"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "program_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "assessment_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "revision": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "rule_version": {
-            "type": "string"
-          },
-          "as_of": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "edition_id": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "input_fingerprint": {
-            "type": "string"
-          },
-          "inputs": {
-            "type": "array",
-            "items": {
-              "required": [
-                "family",
-                "status",
-                "record_count",
-                "explanation"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "family": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "record_count": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "explanation": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "findings": {
-            "type": "array",
-            "items": {
-              "required": [
-                "criterion_identifier",
-                "category",
-                "summary",
-                "rule_id",
-                "outcome",
-                "explanation",
-                "sources",
-                "gap_id"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "criterion_identifier": {
-                  "type": "string"
-                },
-                "category": {
-                  "type": "string"
-                },
-                "summary": {
-                  "type": "string"
-                },
-                "rule_id": {
-                  "type": "string"
-                },
-                "outcome": {
-                  "type": "string"
-                },
-                "explanation": {
-                  "type": "string"
-                },
-                "sources": {
-                  "type": "array",
-                  "items": {
-                    "required": [
-                      "kind",
-                      "id",
-                      "version"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string"
-                      },
-                      "id": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "version": {
-                        "type": [
-                          "null",
-                          "string"
-                        ]
-                      }
-                    }
-                  }
-                },
-                "gap_id": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "format": "uuid"
-                }
-              }
-            }
-          },
-          "gaps": {
-            "type": "array",
-            "items": {
-              "required": [
-                "gap_id",
-                "kind",
-                "subject",
-                "rule_id",
-                "explanation",
-                "sources"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "gap_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "kind": {
-                  "type": "string"
-                },
-                "subject": {
-                  "type": "string"
-                },
-                "rule_id": {
-                  "type": "string"
-                },
-                "explanation": {
-                  "type": "string"
-                },
-                "sources": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Portia_7CD37B602BC1B9CED0A3D0552650BDFFF97D061E925708668EA377395BC1DBB7_1"
-                  }
-                },
-                "plan": {
-                  "required": [
-                    "gap_id",
-                    "owner_member_id",
-                    "target_date",
-                    "action",
-                    "planned_by",
-                    "planned_at"
-                  ],
-                  "type": [
-                    "null",
-                    "object"
-                  ],
-                  "properties": {
-                    "gap_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "owner_member_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "target_date": {
-                      "type": "string",
-                      "format": "date"
-                    },
-                    "action": {
-                      "type": "string"
-                    },
-                    "planned_by": {
-                      "required": [
-                        "kind",
-                        "id",
-                        "display"
-                      ],
-                      "type": "object",
-                      "properties": {
-                        "kind": {
-                          "type": "string"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "display": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "planned_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
-                  "default": null
-                }
-              }
-            }
-          },
-          "rule_met_count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "gap_count": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ]
-          },
-          "run_by": {
-            "required": [
-              "kind",
-              "id",
-              "display"
-            ],
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string"
-              },
-              "id": {
-                "type": "string"
-              },
-              "display": {
-                "type": "string"
-              }
-            }
-          },
-          "run_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "decision": {
-            "required": [
-              "decision_id",
-              "assessment_id",
-              "outcome",
-              "rationale",
-              "decider_member_id",
-              "decided_by",
-              "decided_at",
-              "separation_of_duties_waiver_id"
-            ],
-            "type": [
-              "null",
-              "object"
-            ],
-            "properties": {
-              "decision_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "assessment_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "outcome": {
-                "type": "string"
-              },
-              "rationale": {
-                "type": "string"
-              },
-              "decider_member_id": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "decided_by": {
-                "required": [
-                  "kind",
-                  "id",
-                  "display"
-                ],
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "type": "string"
-                  },
-                  "display": {
-                    "type": "string"
-                  }
-                }
-              },
-              "decided_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "separation_of_duties_waiver_id": {
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "format": "uuid"
-              }
-            }
-          }
-        }
-      },
-      "Portia_7CD37B602BC1B9CED0A3D0552650BDFFF97D061E925708668EA377395BC1DBB7_1": {
-        "required": [
-          "kind",
-          "id",
-          "version"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "kind": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "version": {
             "type": [
               "null",
               "string"
@@ -146503,193 +148517,6 @@
                 }
               }
             }
-          }
-        }
-      },
-      "Portia_893477255AAE0AA0AD6E0DCBE3CE082174CE5BCEBAB798A5A9AE84E4D5B70F2C": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "required": [
-                "tenant_id",
-                "program_id",
-                "name",
-                "stage",
-                "next_stage",
-                "revision",
-                "plan",
-                "last_changed_by_member_id",
-                "last_changed_by_display",
-                "last_changed_at",
-                "stage_plan"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "tenant_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "program_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "stage": {
-                  "type": "string"
-                },
-                "next_stage": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "revision": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "plan": {
-                  "required": [
-                    "target_readiness_date",
-                    "target_type_i_as_of_date",
-                    "target_type_ii_start_date",
-                    "target_type_ii_end_date",
-                    "readiness_advisor",
-                    "audit_firm"
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "target_readiness_date": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "items": { },
-                      "format": "date"
-                    },
-                    "target_type_i_as_of_date": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "items": { },
-                      "format": "date"
-                    },
-                    "target_type_ii_start_date": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "items": { },
-                      "format": "date"
-                    },
-                    "target_type_ii_end_date": {
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "items": { },
-                      "format": "date"
-                    },
-                    "readiness_advisor": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "audit_firm": {
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    }
-                  }
-                },
-                "last_changed_by_member_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "last_changed_by_display": {
-                  "type": "string"
-                },
-                "last_changed_at": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "stage_plan": {
-                  "type": "array",
-                  "items": {
-                    "required": [
-                      "stage",
-                      "advance_when"
-                    ],
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "stage": {
-                        "type": "string"
-                      },
-                      "advance_when": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                },
-                "last_changed_by": {
-                  "required": [
-                    "kind",
-                    "id",
-                    "display"
-                  ],
-                  "type": [
-                    "null",
-                    "object"
-                  ],
-                  "properties": {
-                    "kind": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "display": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "criteria_edition_id": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "format": "uuid"
-                }
-              }
-            }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -154902,6 +156729,540 @@
             }
           },
           "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "Portia_C95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6": {
+        "required": [
+          "tenant_id",
+          "program_id",
+          "assessment_id",
+          "revision",
+          "rule_version",
+          "as_of",
+          "edition_id",
+          "input_fingerprint",
+          "inputs",
+          "findings",
+          "gaps",
+          "rule_met_count",
+          "gap_count",
+          "run_by",
+          "run_at",
+          "decision"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "program_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "rule_version": {
+            "type": "string"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "edition_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "input_fingerprint": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "required": [
+                "family",
+                "status",
+                "record_count",
+                "explanation"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "family": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "record_count": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "explanation": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "required": [
+                "criterion_identifier",
+                "category",
+                "summary",
+                "rule_id",
+                "outcome",
+                "explanation",
+                "sources",
+                "gap_id"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "criterion_identifier": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "rule_id": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "required": [
+                      "kind",
+                      "id",
+                      "version"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "version": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "gap_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "gaps": {
+            "type": "array",
+            "items": {
+              "required": [
+                "gap_id",
+                "kind",
+                "subject",
+                "rule_id",
+                "explanation",
+                "sources"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "gap_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "rule_id": {
+                  "type": "string"
+                },
+                "explanation": {
+                  "type": "string"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Portia_C95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6_1"
+                  }
+                },
+                "plan": {
+                  "required": [
+                    "gap_id",
+                    "owner_member_id",
+                    "target_date",
+                    "action",
+                    "planned_by",
+                    "planned_at"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "gap_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "owner_member_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "target_date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "action": {
+                      "type": "string"
+                    },
+                    "planned_by": {
+                      "required": [
+                        "kind",
+                        "id",
+                        "display"
+                      ],
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "display": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "planned_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "default": null
+                }
+              }
+            }
+          },
+          "rule_met_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "gap_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "run_by": {
+            "required": [
+              "kind",
+              "id",
+              "display"
+            ],
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              }
+            }
+          },
+          "run_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decision": {
+            "required": [
+              "decision_id",
+              "assessment_id",
+              "outcome",
+              "rationale",
+              "decider_member_id",
+              "decided_by",
+              "decided_at",
+              "separation_of_duties_waiver_id"
+            ],
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "decision_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "assessment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "decider_member_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decided_by": {
+                "required": [
+                  "kind",
+                  "id",
+                  "display"
+                ],
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "display": {
+                    "type": "string"
+                  }
+                }
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "separation_of_duties_waiver_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              }
+            }
+          },
+          "type_i_entry_decision": {
+            "required": [
+              "decision_id",
+              "assessment_id",
+              "rule_version",
+              "as_of",
+              "input_fingerprint",
+              "outcome",
+              "rationale",
+              "unresolved_items",
+              "decider_member_id",
+              "decided_by",
+              "decided_at",
+              "separation_of_duties_waiver_id"
+            ],
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "decision_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "assessment_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "rule_version": {
+                "type": "string"
+              },
+              "as_of": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "input_fingerprint": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "unresolved_items": {
+                "type": "array",
+                "items": {
+                  "required": [
+                    "gap_id",
+                    "kind",
+                    "subject",
+                    "rule_id",
+                    "explanation",
+                    "owner_member_id",
+                    "target_date",
+                    "acknowledged"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "gap_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "subject": {
+                      "type": "string"
+                    },
+                    "rule_id": {
+                      "type": "string"
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "owner_member_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "format": "uuid"
+                    },
+                    "target_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "items": { },
+                      "format": "date"
+                    },
+                    "acknowledged": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              },
+              "decider_member_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "decided_by": {
+                "required": [
+                  "kind",
+                  "id",
+                  "display"
+                ],
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "display": {
+                    "type": "string"
+                  }
+                }
+              },
+              "decided_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "separation_of_duties_waiver_id": {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "format": "uuid"
+              },
+              "notice": {
+                "type": "string"
+              }
+            },
+            "default": null
+          }
+        }
+      },
+      "Portia_C95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6_1": {
+        "required": [
+          "kind",
+          "id",
+          "version"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
             "type": [
               "null",
               "string"

@@ -318,6 +318,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IControlImpactContributor, MappingControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, RiskTreatmentControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>();
+        services.AddScoped<IReadinessSourceReader, DirectoryReadinessSourceReader>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
@@ -483,6 +484,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListReadinessGapsHandler>()
             .AddRequestHandler<PlanReadinessGapHandler>()
             .AddRequestHandler<DecideReadinessHandler>()
+            .AddRequestHandler<DecideTypeIEntryHandler>()
+            .AddRequestHandler<ListTypeIEntryDecisionsHandler>()
+            .AddRequestHandler<AnnotateReadinessGapHandler>()
+            .AddRequestHandler<ListReadinessAnnotationsHandler>()
             .AddRequestHandler<ProposeControlOperatingPlanHandler>()
             .AddRequestHandler<PreviewControlOperatingPlanHandler>()
             .AddRequestHandler<ApproveControlOperatingPlanHandler>()

@@ -13,11 +13,16 @@ public sealed class ReadinessLedger : Aggregate
 {
     public const string Proceed = "proceed";
     public const string DoNotProceed = "do_not_proceed";
+    public const string Approve = "approve";
+    public const string ApproveWithExceptions = "approve_with_exceptions";
+    public const string Defer = "defer";
     const int MaximumTextLength = 4000;
 
     readonly Uuid _tenantId;
     readonly List<AssessmentState> _assessments = [];
     readonly Dictionary<Uuid, ReadinessGapPlanView> _plans = [];
+    readonly List<TypeIEntryDecisionView> _entryDecisions = [];
+    readonly List<ReadinessAnnotationView> _annotations = [];
 
     public ReadinessLedger(Uuid tenantId, Uuid programId)
         : base(programId, new EventStreamAddress(tenantId.ToString(), "readiness",
@@ -38,6 +43,16 @@ public sealed class ReadinessLedger : Aggregate
         {
             Revision = ev.Revision;
             Find(ev.Decision.AssessmentId)!.Decision = ev.Decision;
+        });
+        On<TypeIEntryDecisionRecorded>(ev =>
+        {
+            Revision = ev.Revision;
+            _entryDecisions.Add(ev.Decision);
+        });
+        On<ReadinessGapAnnotated>(ev =>
+        {
+            Revision = ev.Revision;
+            _annotations.Add(ev.Annotation);
         });
     }
 
@@ -126,6 +141,142 @@ public sealed class ReadinessLedger : Aggregate
         return null;
     }
 
+    /// <summary>
+    ///     The Type I entry sign-off on the latest assessment. Approval requires that management
+    ///     decided to proceed on it, the current rule version, and that no earlier decision
+    ///     already entered Type I. approve requires no gaps; approve_with_exceptions requires every
+    ///     gap to be planned and explicitly acknowledged. defer always records.
+    ///     The runner may sign only under an approved waiver scoped to
+    ///     (type_i_entry_decision, assessment_id, assessment_id, expected_revision, approve).
+    /// </summary>
+    public CommandFailure? DecideTypeIEntry(Uuid assessmentId, long expectedRevision,
+        Uuid decisionId, string outcome, string rationale, IReadOnlyCollection<Uuid> acknowledged,
+        Uuid deciderMemberId, string deciderDisplay, DateTimeOffset decidedAt,
+        SeparationOfDutiesWaiver? waiver = null)
+    {
+        ArgumentNullException.ThrowIfNull(acknowledged);
+        if (_entryDecisions.Find(decision => decision.DecisionId == decisionId) is { } retry)
+            return retry.AssessmentId == assessmentId && retry.DeciderMemberId == deciderMemberId
+                ? null
+                : CommandFailure.StateConflict("The Type I entry request was already recorded.");
+        if (Find(assessmentId) is not { } assessment)
+            return CommandFailure.MissingRecord("The readiness assessment was not found.");
+        if (expectedRevision != Revision)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision(
+                "readiness ledger", Revision));
+        if (_entryDecisions.Any(static decision => decision.Outcome != Defer))
+            return CommandFailure.StateConflict("The program already entered Type I.");
+        if (_entryDecisions.Any(decision => decision.AssessmentId == assessmentId))
+            return CommandFailure.StateConflict(
+                "The assessment already has a Type I entry decision; run a new assessment.");
+        if (_assessments[^1] != assessment)
+            return CommandFailure.StateConflict(
+                "A later assessment exists; decide Type I entry on the latest assessment.");
+        if (waiver is not null && (waiver.TenantId != _tenantId || !waiver.Allows(
+                new SeparationOfDutiesWaiverScope(SeparationOfDutiesRecordTypes.TypeIEntryDecision,
+                    assessmentId, assessmentId, expectedRevision, SeparationOfDutiesActions.Approve),
+                deciderMemberId, decidedAt)))
+            return CommandFailure.ActorProhibited(
+                "The separation-of-duties waiver is not active for this member and assessment revision.");
+        if (assessment.Recorded.RunnerMemberId == deciderMemberId && waiver is null)
+            return CommandFailure.ActorProhibited(
+                "The member who ran an assessment cannot sign its Type I entry decision.");
+        if (outcome is not (Approve or ApproveWithExceptions or Defer) || !IsBoundedText(rationale))
+            return CommandFailure.InvalidContent(
+                "A Type I entry decision requires an outcome of approve, approve_with_exceptions, or defer and a rationale of at most 4000 characters.");
+        var gaps = assessment.Recorded.Gaps;
+        var gapIds = gaps.Select(static gap => gap.GapId).ToHashSet();
+        if (acknowledged.Any(id => !gapIds.Contains(id)))
+            return CommandFailure.InvalidContent(
+                "Acknowledgements may name only gaps of this assessment.");
+        if (outcome != Defer)
+        {
+            if (assessment.Recorded.RuleVersion != ReadinessRules.Version)
+                return CommandFailure.StateConflict(
+                    "The assessment used superseded readiness rules; run a new assessment.");
+            if (assessment.Decision?.Outcome != Proceed)
+                return CommandFailure.StateConflict(
+                    "Management must decide to proceed on the assessment before Type I entry is approved.");
+            if (outcome == Approve && gaps.Count > 0)
+                return CommandFailure.StateConflict(
+                    "Unresolved gaps remain; approve with exceptions and acknowledge each one, or defer.");
+            if (outcome == ApproveWithExceptions)
+            {
+                if (gaps.Count == 0)
+                    return CommandFailure.InvalidContent(
+                        "No gaps remain; approve without exceptions.");
+                if (!gapIds.SetEquals(acknowledged))
+                    return CommandFailure.StateConflict(
+                        "Every unresolved gap must be explicitly acknowledged.");
+                if (gaps.Any(gap => !_plans.ContainsKey(gap.GapId)))
+                    return CommandFailure.StateConflict(
+                        "Every acknowledged gap needs an owner and target date.");
+            }
+        }
+        var acknowledgedSet = acknowledged.ToHashSet();
+        var items = gaps.Select(gap =>
+        {
+            var plan = _plans.GetValueOrDefault(gap.GapId);
+            return new TypeIEntryUnresolvedItemView(gap.GapId, gap.Kind, gap.Subject, gap.RuleId,
+                gap.Explanation, plan?.OwnerMemberId, plan?.TargetDate,
+                acknowledgedSet.Contains(gap.GapId));
+        }).ToArray();
+        var recorded = assessment.Recorded;
+        RaiseEvent(new TypeIEntryDecisionRecorded(_tenantId, Id, Revision + 1,
+            new TypeIEntryDecisionView(decisionId, assessmentId, recorded.RuleVersion,
+                recorded.AsOf, recorded.InputFingerprint, outcome, rationale.Trim(), items,
+                deciderMemberId, ActorReference.ForMember(deciderMemberId, deciderDisplay),
+                decidedAt, waiver?.Id)));
+        return null;
+    }
+
+    /// <summary>Records immutable, attributed feedback on one gap of the latest assessment.</summary>
+    public CommandFailure? Annotate(Uuid assessmentId, Uuid gapId, long expectedRevision,
+        Uuid annotationId, string body, Uuid authorMemberId, string authorDisplay,
+        DateTimeOffset annotatedAt)
+    {
+        if (_annotations.Find(annotation => annotation.AnnotationId == annotationId) is { } retry)
+            return retry.GapId == gapId && retry.AuthorMemberId == authorMemberId
+                ? null
+                : CommandFailure.StateConflict("The annotation request was already recorded.");
+        if (Find(assessmentId) is not { } assessment ||
+            assessment.Recorded.Gaps.All(gap => gap.GapId != gapId))
+            return CommandFailure.MissingRecord("The readiness gap was not found.");
+        if (expectedRevision != Revision)
+            return CommandFailure.ForVersion(VersionedRecordRules.StaleRevision(
+                "readiness ledger", Revision));
+        if (_assessments[^1] != assessment)
+            return CommandFailure.StateConflict(
+                "A later assessment exists; annotate the latest assessment.");
+        if (!IsBoundedText(body))
+            return CommandFailure.InvalidContent(
+                "An annotation requires a body of at most 4000 characters.");
+        RaiseEvent(new ReadinessGapAnnotated(_tenantId, Id, Revision + 1,
+            new ReadinessAnnotationView(annotationId, assessmentId, gapId, body.Trim(),
+                authorMemberId, ActorReference.ForMember(authorMemberId, authorDisplay),
+                annotatedAt)));
+        return null;
+    }
+
+    public TypeIEntryDecisionView? FindTypeIEntryDecision(Uuid decisionId) =>
+        _entryDecisions.Find(decision => decision.DecisionId == decisionId);
+
+    public ReadinessAnnotationView? FindAnnotation(Uuid annotationId) =>
+        _annotations.Find(annotation => annotation.AnnotationId == annotationId);
+
+    public IReadOnlyList<TypeIEntryDecisionView> TypeIEntryDecisions() =>
+        _entryDecisions.AsEnumerable().Reverse().ToArray();
+
+    /// <summary>Annotations on one assessment; null when the assessment does not exist.</summary>
+    public IReadOnlyList<ReadinessAnnotationView>? Annotations(Uuid assessmentId)
+    {
+        if (Find(assessmentId) is null)
+            return null;
+        var current = _assessments[^1].Recorded.AssessmentId == assessmentId;
+        return _annotations.Where(annotation => annotation.AssessmentId == assessmentId)
+            .Select(annotation => annotation with { Current = current }).ToArray();
+    }
+
     public ReadinessGapPlanView? FindPlan(Uuid gapId) => _plans.GetValueOrDefault(gapId);
 
     public ReadinessDecisionView? FindDecision(Uuid assessmentId) => Find(assessmentId)?.Decision;
@@ -139,7 +290,8 @@ public sealed class ReadinessLedger : Aggregate
         return new ReadinessAssessmentView(_tenantId, Id, ev.AssessmentId, Revision,
             ev.RuleVersion, ev.AsOf, ev.EditionId, ev.InputFingerprint, ev.Inputs, ev.Findings,
             gaps, ev.Findings.Count(static finding => finding.Outcome == ReadinessRules.RuleMet),
-            gaps.Length, ev.RunBy, ev.RunAt, assessment.Decision);
+            gaps.Length, ev.RunBy, ev.RunAt, assessment.Decision,
+            _entryDecisions.Find(decision => decision.AssessmentId == assessmentId));
     }
 
     public IReadOnlyList<ReadinessGapView>? ReadGaps(Uuid assessmentId) =>

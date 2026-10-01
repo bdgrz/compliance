@@ -14,7 +14,8 @@ namespace Bdgrz.Compliance.Features.Readiness;
 ///     A missing input is recorded as an acknowledged gap; it never blocks the run.
 /// </summary>
 public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
-    IAggregateReader reader, ICriteriaCatalog catalog, TimeProvider clock)
+    IAggregateReader reader, ICriteriaCatalog catalog, IReadinessSourceReader sources,
+    TimeProvider clock)
     : IRequestHandler<RunReadinessAssessment, ReadinessAssessmentRegistration>
 {
     public async ValueTask<Result<ReadinessAssessmentRegistration>> HandleAsync(
@@ -54,8 +55,10 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
                 ? control.EffectiveVersion(effectiveOn)
                 : null;
         }
+        var sourceSet = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)
+            .ConfigureAwait(false);
         var evaluation = ReadinessRules.Evaluate(request.ProgramId, asOf, editionId, criteria,
-            mappings, controls);
+            mappings, controls, sourceSet);
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
