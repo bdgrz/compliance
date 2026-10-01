@@ -539,3 +539,51 @@ svg {
   font-weight: 600;
   margin: 0;
 }
+
+.readiness-notice {
+  border-inline-start: 4px solid var(--ak-color-border-strong, currentColor);
+  margin: 0;
+  padding-inline-start: var(--ak-space-sm, 0.75rem);
+}
+
+.readiness-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.readiness-table caption {
+  font-weight: 600;
+  text-align: start;
+}
+
+.readiness-table th,
+.readiness-table td {
+  border-bottom: 1px solid var(--ak-color-border, currentColor);
+  padding: 0.375rem 0.5rem;
+  text-align: start;
+  vertical-align: top;
+}
+
+.readiness-table tr[aria-current='true'] {
+  font-weight: 600;
+}
+
+.readiness-fingerprint {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.readiness-outcome-gap {
+  color: var(--ak-color-danger-text, inherit);
+}
+
+.readiness-gaps,
+.readiness-outcomes {
+  display: grid;
+  gap: var(--ak-space-sm, 0.75rem);
+}
+
+.readiness-gap h3,
+.readiness-gap p {
+  margin: 0.25rem 0;
+}
