@@ -65,6 +65,48 @@ public sealed class EvidenceRequestHandlerTests
     }
 
     [Fact]
+    public async Task ShouldRefuseFulfilmentAndPreserveOpenRequestGivenPendingInspection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var opened = await OpenAsync(fixture);
+        var artifactId = await ArtifactAsync(fixture, null);
+
+        // Act
+        var result = fixture.Scenario(fixture.OwnerUserId).When(new FulfilEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, opened.EvidenceRequestId, opened.Revision, artifactId));
+
+        // Assert
+        await result.ExpectFailure(RequestErrorKind.Conflict);
+        var unchanged = await fixture.AsAsync(fixture.LeadUserId, new GetEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, opened.EvidenceRequestId));
+        Assert.Equal(EvidenceRequestLedger.Open, unchanged.Status);
+        Assert.Equal(opened.Revision, unchanged.Revision);
+        Assert.Null(unchanged.ArtifactId);
+    }
+
+    [Fact]
+    public async Task ShouldRefuseFulfilmentAndPreserveOpenRequestGivenQuarantinedArtifact()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var opened = await OpenAsync(fixture);
+        var artifactId = await ArtifactAsync(fixture, EvidenceInspectionOutcome.Malware);
+
+        // Act
+        var result = fixture.Scenario(fixture.OwnerUserId).When(new FulfilEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, opened.EvidenceRequestId, opened.Revision, artifactId));
+
+        // Assert
+        await result.ExpectFailure(RequestErrorKind.Conflict);
+        var unchanged = await fixture.AsAsync(fixture.LeadUserId, new GetEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, opened.EvidenceRequestId));
+        Assert.Equal(EvidenceRequestLedger.Open, unchanged.Status);
+        Assert.Equal(opened.Revision, unchanged.Revision);
+        Assert.Null(unchanged.ArtifactId);
+    }
+
+    [Fact]
     public async Task ShouldRejectOpeningGivenAnUnknownOwner()
     {
         // Arrange
@@ -113,7 +155,7 @@ public sealed class EvidenceRequestHandlerTests
             "Q3 access review export", "Upload the signed review record.", fixture.OwnerMemberId,
             fixture.Today.AddDays(14), fixture.ControlId));
 
-    static async Task<Uuid> ArtifactAsync(OperationsFixture fixture, EvidenceInspectionOutcome outcome)
+    static async Task<Uuid> ArtifactAsync(OperationsFixture fixture, EvidenceInspectionOutcome? outcome)
     {
         var artifactId = Uuid.CreateVersion4();
         var collector = ActorReference.ForMember(fixture.OwnerMemberId, "Owner");
@@ -121,10 +163,11 @@ public sealed class EvidenceRequestHandlerTests
             new EvidenceArtifact(fixture.TenantId, artifactId), artifact => artifact.Register(
                 new EvidenceArtifactContent("Signed review", null, "document", "Okta", DateTimeOffset.UtcNow,
                     fixture.Today, fixture.Today, "internal"), Sha256, 4, collector, DateTimeOffset.UtcNow));
-        await ProgramManagementServices.SeedAsync(fixture.Provider, new EvidenceArtifact(fixture.TenantId, artifactId),
-            artifact => artifact.RecordInspection(outcome, DateTimeOffset.UtcNow) is null
-                ? Result.Success
-                : Result.Failure(new RequestError(RequestErrorKind.Conflict, "inspection")));
+        if (outcome is { } inspection)
+            await ProgramManagementServices.SeedAsync(fixture.Provider, new EvidenceArtifact(fixture.TenantId, artifactId),
+                artifact => artifact.RecordInspection(inspection, DateTimeOffset.UtcNow) is null
+                    ? Result.Success
+                    : Result.Failure(new RequestError(RequestErrorKind.Conflict, "inspection")));
         return artifactId;
     }
 }

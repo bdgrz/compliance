@@ -5,8 +5,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Evidence;
 
 /// <summary>
-///     Fulfils an open request with a captured artifact. Only the request owner or a program manager may fulfil, and a
-///     rejected or disposed artifact can never answer a request.
+///     Fulfils an open request with a captured artifact. Only the request owner or a program manager may fulfil, and an
+///     available artifact may answer a request.
 /// </summary>
 public sealed class FulfilEvidenceRequestHandler(IAggregateExecutor executor, IAggregateReader reader,
     OperatingAuthority authority, TimeProvider clock) : IRequestHandler<FulfilEvidenceRequest, EvidenceRequestView>
@@ -30,9 +30,9 @@ public sealed class FulfilEvidenceRequestHandler(IAggregateExecutor executor, IA
         if (!artifact.IsCreated)
             return Result<EvidenceRequestView>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The evidence artifact was not found."));
-        if (artifact.State is EvidenceArtifactStates.Rejected or EvidenceArtifactStates.Disposed)
+        if (artifact.State != EvidenceArtifactStates.Available)
             return Result<EvidenceRequestView>.Failure(new RequestError(RequestErrorKind.Conflict,
-                $"A {artifact.State} evidence artifact cannot fulfil a request."));
+                "Only an available evidence artifact can fulfil a request."));
         return await EvidenceRequestCommands.ExecuteAsync(executor, context, request.TenantId, request.ProgramId,
             request.EvidenceRequestId, l => l.Fulfil(request.EvidenceRequestId, request.ExpectedRevision,
                 request.ArtifactId, ActorReference.ForMember(actor.MemberId, actor.Display), clock.GetUtcNow()), ct)
