@@ -409,11 +409,19 @@ public sealed class ApplicationReadLeakMatrixE2ETests(BrokerStackFixture broker)
         Guid applicationId, Guid boundaryId)
     {
         var tenantPath = $"/api/v1/tenants/{tenantId}";
-        using (var invitation = await owner.PostAsJsonAsync(tenantPath + "/invitations",
-                   new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false }))
-            Assert.Equal(HttpStatusCode.NoContent, invitation.StatusCode);
-        string? token = null;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        HttpStatusCode invited;
+        do
+        {
+            // The tenant's membership projection can still lag, which is a transient conflict.
+            using var invitation = await owner.PostAsJsonAsync(tenantPath + "/invitations",
+                new { email_address = reviewerEmail, affiliation = "client_personnel", administrator = false });
+            invited = invitation.StatusCode;
+            if (invited == HttpStatusCode.Conflict)
+                await Task.Delay(250);
+        } while (invited == HttpStatusCode.Conflict && DateTimeOffset.UtcNow < deadline);
+        Assert.Equal(HttpStatusCode.NoContent, invited);
+        string? token = null;
         while (DateTimeOffset.UtcNow < deadline &&
                !delivery.TryGetLatest(Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture),
                    reviewerEmail, out token))

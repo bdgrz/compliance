@@ -77,16 +77,29 @@ jobs:
       - name: Test without broker
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 
+      # The broker shards reuse this exact build tree. Runner workspace paths are identical, so the
+      # app host's static web asset manifests and the built SPA resolve unchanged.
+      - name: Package build tree
+        run: tar -czf build-tree.tgz src/*/bin src/*/obj src/Compliance.App/ClientApp/dist test/*/bin test/*/obj
+
+      - name: Upload build tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-tree
+          path: build-tree.tgz
+          retention-days: 1
+
   broker:
     name: Broker tests ${{ matrix.shard }}
+    needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     env:
-      BROKER_SHARDS: 16
+      BROKER_SHARDS: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -95,25 +108,14 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7 # v7.0.0
+      - name: Download build tree
+        uses: actions/download-artifact@v4
         with:
-          node-version: 24
-          cache: npm
+          name: build-tree
 
-      - name: Install client dependencies
-        run: npm ci
-
-      - name: Restore locked packages
-        run: dotnet restore test/Compliance.Tests --locked-mode
-
-      # Each shard builds for itself: the app host under test needs its full build tree (static
-      # web assets, the built SPA), not just the test assembly.
-      - name: Build
-        run: dotnet build test/Compliance.Tests --configuration Release --no-restore
+      - name: Unpack build tree
+        run: tar -xzf build-tree.tgz
 
       # Broker tests own their compose lifecycle (test/Compliance.Tests/E2E/compose.yml).
       - name: Test with real broker

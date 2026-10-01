@@ -2,45 +2,51 @@
 # Prints the dotnet test filter for one shard of the broker integration suite.
 # Usage: scripts/broker-test-filter.sh <shard-index> <shard-count>
 #
-# Each broker test class owns its own compose stack (BrokerStackFixture), so classes can run on
-# separate CI runners. Classes are assigned round-robin in name order so a shard's membership only
-# changes when classes are added or removed.
+# Classes are balanced across shards by their observed duration
+# (test/Compliance.Tests/E2E/broker-test-seconds.txt): longest first, each to the currently
+# lightest shard. Classes without an observed duration count as 90 seconds.
 set -euo pipefail
 
 index=${1:?shard index (0-based)}
 count=${2:?shard count}
 root=$(cd "$(dirname "$0")/.." && pwd)
 
-classes=()
-while IFS= read -r line; do classes+=("$line"); done < <(
-  grep -rl --include='*.cs' 'Trait("Category", "BrokerIntegration")' "$root/test" |
-    xargs -n1 awk '
-      /^namespace / { ns = $2; sub(/;$/, "", ns) }
-      /^(public |internal )?(sealed |static |abstract )*(partial )?class / {
-        for (i = 1; i <= NF; i++) if ($i == "class") { name = $(i + 1); break }
-        sub(/[(<:].*/, "", name)
-        print ns "." name
-        exit
-      }' |
-    sort -u
-)
+python3 - "$root" "$index" "$count" <<'PY'
+import pathlib
+import re
+import sys
 
-if [ "${#classes[@]}" -eq 0 ]; then
-  echo "No broker test classes found." >&2
-  exit 1
-fi
+root, index, count = pathlib.Path(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
 
-filter=""
-for i in "${!classes[@]}"; do
-  if [ $((i % count)) -eq "$index" ]; then
-    clause="FullyQualifiedName~${classes[$i]}."
-    filter=${filter:+$filter|}$clause
-  fi
-done
+classes = set()
+for path in (root / "test").rglob("*.cs"):
+    text = path.read_text(encoding="utf-8")
+    if 'Trait("Category", "BrokerIntegration")' not in text:
+        continue
+    namespace = re.search(r"^namespace ([\w.]+);", text, re.M)
+    declared = re.search(r"^(?:public |internal )?(?:sealed |static |abstract )*(?:partial )?class (\w+)", text, re.M)
+    if namespace and declared:
+        classes.add(f"{namespace.group(1)}.{declared.group(1)}")
+if not classes:
+    sys.exit("No broker test classes found.")
 
-if [ -z "$filter" ]; then
-  echo "Shard $index of $count has no classes." >&2
-  exit 1
-fi
+observed = {}
+durations = root / "test/Compliance.Tests/E2E/broker-test-seconds.txt"
+for line in durations.read_text(encoding="utf-8").splitlines():
+    if line.strip() and not line.startswith("#"):
+        name, seconds = line.split()
+        observed[name] = int(seconds)
 
-echo "Category=BrokerIntegration&($filter)"
+loads = [0] * count
+shards = [[] for _ in range(count)]
+for name in sorted(classes, key=lambda c: (-observed.get(c.rsplit(".", 1)[1], 90), c)):
+    target = loads.index(min(loads))
+    shards[target].append(name)
+    loads[target] += observed.get(name.rsplit(".", 1)[1], 90)
+
+mine = shards[index]
+if not mine:
+    sys.exit(f"Shard {index} of {count} has no classes.")
+print(f"Shard {index}: ~{loads[index]}s", file=sys.stderr)
+print("Category=BrokerIntegration&(" + "|".join(f"FullyQualifiedName~{c}." for c in mine) + ")")
+PY
