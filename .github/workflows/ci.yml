@@ -81,7 +81,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-build
-          path: test/Compliance.Tests/bin/Release
+          # The app host under test serves the built SPA, so the shards need it next to the tests.
+          path: |
+            test/Compliance.Tests/bin/Release
+            src/Compliance.App/ClientApp/dist
           retention-days: 1
 
   broker:
@@ -108,7 +111,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: test-build
-          path: test/Compliance.Tests/bin/Release
 
       # Broker tests own their compose lifecycle (test/Compliance.Tests/E2E/compose.yml).
       - name: Test with real broker
