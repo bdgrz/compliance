@@ -20,6 +20,44 @@ export interface RiskDraft {
   lastChangedAt: string;
 }
 
+export interface RiskDraftRevision {
+  revision: number;
+  title: string;
+  scenario: string;
+  potentialEffect: string;
+  sourceNote: string | null;
+  changedBy: string;
+  changedAt: string;
+}
+
+export interface RiskControlTreatment {
+  treatmentId: string;
+  status: string;
+  rationale: string;
+  proposedBy: string;
+  proposedAt: string;
+  reviewedBy: string | null;
+  reviewRationale: string | null;
+}
+
+export interface RiskReassessmentTrigger {
+  triggerId: string;
+  kind: string;
+  sourceReference: string;
+  raisedAt: string;
+  status: string | null;
+}
+
+export interface RiskGovernance {
+  revision: number;
+  ownerPersonId: string | null;
+  ownerRationale: string | null;
+  controlTreatments: RiskControlTreatment[];
+  reassessmentTriggers: RiskReassessmentTrigger[];
+}
+
+export type TreatmentReviewOutcome = 'accept' | 'reject';
+
 export interface RiskMethod {
   version: number;
   likelihoodScale: string[];
@@ -105,6 +143,15 @@ export function riskStatusLabel(status: string): string {
   return statusLabels[status] ?? status.replaceAll('_', ' ');
 }
 
+const triggerLabels: Record<string, string> = {
+  method_changed: 'Risk method changed',
+  boundary_changed: 'Boundary changed',
+};
+
+export function triggerLabel(kind: string): string {
+  return triggerLabels[kind] ?? kind.replaceAll('_', ' ');
+}
+
 export const phaseLabels: Record<AssessmentPhase, string> = {
   inherent: 'Inherent',
   target: 'Target',
@@ -175,6 +222,118 @@ export async function createRiskDraft(
   if (!result.ok) throw failure(result, 'record the risk');
   if (!result.data) throw new RiskRequestError('The risk was not recorded.', null, false);
   return result.data.risk_id;
+}
+
+export async function reviseRiskDraft(
+  programId: string,
+  riskId: string,
+  expectedRevision: number,
+  content: { title: string; scenario: string; potentialEffect: string; sourceNote: string | null }
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.reviseRiskDraft({
+    params: { tenant_id: tenantId, program_id: programId, risk_id: riskId },
+    body: {
+      expected_revision: expectedRevision,
+      title: content.title,
+      scenario: content.scenario,
+      potential_effect: content.potentialEffect,
+      source_note: content.sourceNote,
+    },
+  });
+  if (!result.ok) throw failure(result, 'save the risk');
+}
+
+export async function listRiskDraftRevisions(programId: string, riskId: string): Promise<RiskDraftRevision[]> {
+  const tenantId = requireActiveTenantId();
+  const revisions: RiskDraftRevision[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listRiskDraftRevisions({
+      params: { tenant_id: tenantId, program_id: programId, risk_id: riskId },
+      query: { cursor },
+    });
+    if (!result.ok) throw failure(result, 'load the risk draft history');
+    for (const item of result.data?.items ?? []) {
+      if (item) {
+        revisions.push({
+          revision: Number(item.revision),
+          title: item.content.title,
+          scenario: item.content.scenario,
+          potentialEffect: item.content.potential_effect,
+          sourceNote: item.content.source_note,
+          changedBy: item.actor?.display ?? item.changed_by_display,
+          changedAt: item.changed_at,
+        });
+      }
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return revisions.sort((a, b) => b.revision - a.revision);
+}
+
+export async function getRiskGovernance(programId: string, riskId: string): Promise<RiskGovernance> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.getRiskGovernance({ params: { tenant_id: tenantId, program_id: programId, risk_id: riskId } });
+  if (!result.ok) throw failure(result, 'load the risk owner and treatments');
+  const data = result.data;
+  if (!data) throw new RiskRequestError('This risk was not found.', 404, false);
+  return {
+    revision: Number(data.revision),
+    ownerPersonId: data.owner?.person_id ?? null,
+    ownerRationale: data.owner?.rationale ?? null,
+    controlTreatments: data.control_treatments
+      .filter((t) => t !== null)
+      .map((t) => ({
+        treatmentId: t.treatment_id,
+        status: t.status,
+        rationale: t.rationale,
+        proposedBy: t.proposed_by.display,
+        proposedAt: t.proposed_at,
+        reviewedBy: t.reviewed_by?.display ?? null,
+        reviewRationale: t.review_rationale,
+      })),
+    reassessmentTriggers: data.reassessment_triggers
+      .filter((t) => t !== null)
+      .map((t) => ({
+        triggerId: t.trigger_id,
+        kind: t.trigger_kind,
+        sourceReference: t.source_reference,
+        raisedAt: t.raised_at,
+        status: t.status ?? null,
+      })),
+  };
+}
+
+export async function assignRiskOwner(
+  programId: string,
+  riskId: string,
+  expectedRevision: number,
+  personId: string,
+  rationale: string | null
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.assignRiskOwner({
+    params: { tenant_id: tenantId, program_id: programId, risk_id: riskId },
+    body: { expected_revision: expectedRevision, person_id: personId, rationale },
+  });
+  if (!result.ok) throw failure(result, 'assign the risk owner');
+}
+
+export async function reviewRiskControlTreatment(
+  programId: string,
+  riskId: string,
+  treatmentId: string,
+  expectedRevision: number,
+  outcome: TreatmentReviewOutcome,
+  rationale: string
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.reviewRiskControlTreatment({
+    params: { tenant_id: tenantId, program_id: programId, risk_id: riskId, treatment_id: treatmentId },
+    body: { expected_revision: expectedRevision, outcome, rationale },
+  });
+  if (!result.ok) throw failure(result, 'review the control treatment');
 }
 
 // Returns null when the program has not published a risk method yet.

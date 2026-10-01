@@ -15,28 +15,37 @@ import {
 } from '@askrjs/themes/components';
 
 import { organizationPath } from '../../tenants/tenants.js';
+import { listPeople, type Person } from '../../workforce/workforce.js';
 import {
   acceptRisk,
+  assignRiskOwner,
   authorityLabels,
   chooseRiskTreatment,
   createRiskDraft,
   getRiskEvaluation,
+  getRiskGovernance,
   getRiskMethod,
   listRiskDrafts,
+  listRiskDraftRevisions,
   listRiskEvaluationHistory,
   phaseLabels,
   publishRiskMethod,
   recordRiskAssessment,
+  reviewRiskControlTreatment,
+  reviseRiskDraft,
   RiskRequestError,
   riskStatusLabel,
   treatmentLabels,
+  triggerLabel,
   type ApproverAuthority,
   type AssessmentPhase,
   type RiskAssessment,
   type RiskDraft,
   type RiskEvaluation,
+  type RiskGovernance,
   type RiskMethod,
   type TreatmentKind,
+  type TreatmentReviewOutcome,
 } from '../risks.js';
 
 const levels = [1, 2, 3, 4, 5];
@@ -241,6 +250,56 @@ function CreateRiskForm({ programId, onCreated }: { programId: string; onCreated
         {action.notice() ? <p role="status">{action.notice()}</p> : null}
         <Button variant="primary" type="submit" disabled={action.pending()}>
           {action.pending() ? 'Recording…' : 'Record risk'}
+        </Button>
+      </Stack>
+    </form>
+  );
+}
+
+function EditDraftForm({ programId, risk, onSaved }: { programId: string; risk: RiskDraft; onSaved: () => void }) {
+  const [title, setTitle] = state(risk.title);
+  const [scenario, setScenario] = state(risk.scenario);
+  const [effect, setEffect] = state(risk.potentialEffect);
+  const [sourceNote, setSourceNote] = state(risk.sourceNote ?? '');
+  const action = useAction(onSaved);
+  return (
+    <form
+      aria-label={`Edit ${risk.identifier}`}
+      onSubmit={(event: Event) =>
+        void action.run(
+          event,
+          () =>
+            reviseRiskDraft(programId, risk.riskId, risk.revision, {
+              title: title().trim(),
+              scenario: scenario().trim(),
+              potentialEffect: effect().trim(),
+              sourceNote: sourceNote().trim() || null,
+            }),
+          'Risk saved.'
+        )
+      }
+    >
+      <Stack gap="sm">
+        <label className="registration-field">
+          <span>Title</span>
+          <input type="text" value={title()} required onInput={(event: Event) => setTitle(inputValue(event))} />
+        </label>
+        <label className="registration-field">
+          <span>Scenario</span>
+          <textarea value={scenario()} required onInput={(event: Event) => setScenario(inputValue(event))} />
+        </label>
+        <label className="registration-field">
+          <span>Potential effect</span>
+          <textarea value={effect()} required onInput={(event: Event) => setEffect(inputValue(event))} />
+        </label>
+        <label className="registration-field">
+          <span>Source note (optional)</span>
+          <input type="text" value={sourceNote()} onInput={(event: Event) => setSourceNote(inputValue(event))} />
+        </label>
+        <ActionError error={action.error()} record="risk" />
+        {action.notice() ? <p role="status">{action.notice()}</p> : null}
+        <Button variant="primary" type="submit" disabled={action.pending()}>
+          {action.pending() ? 'Saving…' : 'Save risk'}
         </Button>
       </Stack>
     </form>
@@ -515,7 +574,225 @@ function RiskHistory({ programId, riskId }: { programId: string; riskId: string 
   );
 }
 
-function RiskCard({ programId, risk, method }: { programId: string; risk: RiskDraft; method: RiskMethod | null }) {
+function DraftHistory({ programId, riskId }: { programId: string; riskId: string }) {
+  const history = resource(() => listRiskDraftRevisions(programId, riskId), [programId, riskId]);
+  if (history.pending) return <Spinner label="Loading draft history" />;
+  if (history.error) {
+    return (
+      <Stack gap="sm">
+        <p role="alert">{history.error.message}</p>
+        <Button variant="secondary" onPress={() => history.refresh()}>
+          Try again
+        </Button>
+      </Stack>
+    );
+  }
+  return (
+    <ol className="plain-list risk-draft-history" aria-label="Draft revisions">
+      {(history.value ?? []).map((item) => (
+        <li>
+          <strong>Draft revision {item.revision}</strong> by {item.changedBy} on {formatDate(item.changedAt)}: {item.title}. Scenario:{' '}
+          {item.scenario}. Potential effect: {item.potentialEffect}
+          {item.sourceNote ? `. Source: ${item.sourceNote}` : ''}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const treatmentStatusLabels: Record<string, string> = {
+  proposed: 'Proposed',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  retired: 'Retired',
+};
+
+function OwnerForm({
+  programId,
+  risk,
+  governance,
+  people,
+  onSaved,
+}: {
+  programId: string;
+  risk: RiskDraft;
+  governance: RiskGovernance;
+  people: Person[];
+  onSaved: () => void;
+}) {
+  const [personId, setPersonId] = state(governance.ownerPersonId ?? people[0]?.personId ?? '');
+  const [rationale, setRationale] = state('');
+  const action = useAction(() => {
+    setRationale('');
+    onSaved();
+  });
+  return (
+    <form
+      aria-label={`Assign owner for ${risk.identifier}`}
+      onSubmit={(event: Event) =>
+        void action.run(
+          event,
+          () => assignRiskOwner(programId, risk.riskId, governance.revision, personId(), rationale().trim() || null),
+          'Owner assigned.'
+        )
+      }
+    >
+      <Stack gap="sm">
+        <label className="registration-field">
+          <span>Owner</span>
+          <select value={personId()} required onChange={(event: Event) => setPersonId(inputValue(event))}>
+            {people.map((person) => (
+              <option value={person.personId} selected={personId() === person.personId}>
+                {person.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="registration-field">
+          <span>Owner rationale (optional)</span>
+          <textarea value={rationale()} onInput={(event: Event) => setRationale(inputValue(event))} />
+        </label>
+        <ActionError error={action.error()} record="risk" />
+        {action.notice() ? <p role="status">{action.notice()}</p> : null}
+        <Button variant="primary" type="submit" disabled={action.pending() || people.length === 0}>
+          {action.pending() ? 'Assigning…' : 'Assign owner'}
+        </Button>
+      </Stack>
+    </form>
+  );
+}
+
+function TreatmentReviewForm({
+  programId,
+  risk,
+  treatmentId,
+  revision,
+  onSaved,
+}: {
+  programId: string;
+  risk: RiskDraft;
+  treatmentId: string;
+  revision: number;
+  onSaved: () => void;
+}) {
+  const [outcome, setOutcome] = state<TreatmentReviewOutcome>('accept');
+  const [rationale, setRationale] = state('');
+  const action = useAction(onSaved);
+  return (
+    <form
+      aria-label={`Review treatment ${treatmentId}`}
+      onSubmit={(event: Event) =>
+        void action.run(
+          event,
+          () => reviewRiskControlTreatment(programId, risk.riskId, treatmentId, revision, outcome(), rationale().trim()),
+          'Review recorded.'
+        )
+      }
+    >
+      <Stack gap="sm">
+        <p className="risk-rule">The person who proposed a control treatment cannot review it.</p>
+        <label className="registration-field">
+          <span>Review outcome</span>
+          <select value={outcome()} onChange={(event: Event) => setOutcome(inputValue(event) as TreatmentReviewOutcome)}>
+            <option value="accept" selected={outcome() === 'accept'}>
+              Accept
+            </option>
+            <option value="reject" selected={outcome() === 'reject'}>
+              Reject
+            </option>
+          </select>
+        </label>
+        <label className="registration-field">
+          <span>Review rationale</span>
+          <textarea value={rationale()} required onInput={(event: Event) => setRationale(inputValue(event))} />
+        </label>
+        <ActionError error={action.error()} record="risk" />
+        {action.notice() ? <p role="status">{action.notice()}</p> : null}
+        <Button variant="primary" type="submit" disabled={action.pending()}>
+          {action.pending() ? 'Recording…' : 'Record review'}
+        </Button>
+      </Stack>
+    </form>
+  );
+}
+
+// Owner, control treatments, and reassessment triggers live on the risk governance ledger, which
+// has its own revision; a failure here leaves the rest of the risk card usable.
+function RiskGovernancePanel({ programId, risk, people }: { programId: string; risk: RiskDraft; people: Person[] }) {
+  const [version, setVersion] = state(0);
+  const governance = resource(() => getRiskGovernance(programId, risk.riskId), [programId, risk.riskId, version()]);
+  const reload = () => setVersion(version() + 1);
+  if (governance.pending && !governance.value) return <Spinner label={`Loading ${risk.identifier} owner and treatments`} />;
+  if (governance.error) {
+    return (
+      <Stack gap="sm">
+        <p role="alert">{governance.error.message}</p>
+        <Button variant="secondary" onPress={() => governance.refresh()}>
+          Try again
+        </Button>
+      </Stack>
+    );
+  }
+  const current = governance.value!;
+  const owner = current.ownerPersonId
+    ? (people.find((p) => p.personId === current.ownerPersonId)?.displayName ?? 'Unknown person')
+    : null;
+  return (
+    <section className="risk-governance" aria-label={`${risk.identifier} owner and treatments`}>
+      <Stack gap="sm">
+        <p>
+          <strong>Owner:</strong> {owner ?? 'Not assigned'}
+          {owner && current.ownerRationale ? ` — ${current.ownerRationale}` : ''}
+        </p>
+        <details>
+          <summary>{owner ? 'Change owner' : 'Assign owner'} for {risk.identifier}</summary>
+          <OwnerForm programId={programId} risk={risk} governance={current} people={people} onSaved={reload} />
+        </details>
+        {current.reassessmentTriggers.length > 0 ? (
+          <ul className="plain-list risk-triggers" aria-label="Reassessment triggers">
+            {current.reassessmentTriggers.map((t) => (
+              <li>
+                {triggerLabel(t.kind)} ({t.sourceReference}) on {formatDate(t.raisedAt)}
+                {t.status ? `: ${t.status.replaceAll('_', ' ')}` : ''}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {current.controlTreatments.length > 0 ? (
+          <ul className="plain-list risk-control-treatments" aria-label="Control treatments">
+            {current.controlTreatments.map((t) => (
+              <li>
+                <strong>{treatmentStatusLabels[t.status] ?? t.status}:</strong> {t.rationale}. Proposed by {t.proposedBy} on{' '}
+                {formatDate(t.proposedAt)}
+                {t.reviewedBy ? `; reviewed by ${t.reviewedBy}${t.reviewRationale ? ` (${t.reviewRationale})` : ''}` : ''}.
+                {t.status === 'proposed' ? (
+                  <details>
+                    <summary>Review this treatment</summary>
+                    <TreatmentReviewForm programId={programId} risk={risk} treatmentId={t.treatmentId} revision={current.revision} onSaved={reload} />
+                  </details>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </Stack>
+    </section>
+  );
+}
+
+function RiskCard({
+  programId,
+  risk,
+  method,
+  people,
+  onChanged,
+}: {
+  programId: string;
+  risk: RiskDraft;
+  method: RiskMethod | null;
+  people: Person[];
+  onChanged: () => void;
+}) {
   const [minimum, setMinimum] = state<number | undefined>(undefined);
   const [showHistory, setShowHistory] = state(false);
   const evaluation = resource(() => getRiskEvaluation(programId, risk.riskId, minimum()), [programId, risk.riskId, minimum()]);
@@ -636,7 +913,12 @@ function RiskCard({ programId, risk, method }: { programId: string; risk: RiskDr
         <Button variant="secondary" onPress={() => setShowHistory(!showHistory())} aria-expanded={showHistory() ? 'true' : 'false'}>
           {showHistory() ? 'Hide history' : 'Show history'}
         </Button>
-        {showHistory() ? <RiskHistory programId={programId} riskId={risk.riskId} /> : null}
+        {showHistory() ? (
+          <>
+            <DraftHistory programId={programId} riskId={risk.riskId} />
+            <RiskHistory programId={programId} riskId={risk.riskId} />
+          </>
+        ) : null}
       </Stack>
     );
   }
@@ -652,6 +934,19 @@ function RiskCard({ programId, risk, method }: { programId: string; risk: RiskDr
       <p>
         <strong>Potential effect:</strong> {risk.potentialEffect}
       </p>
+      {risk.sourceNote ? (
+        <p>
+          <strong>Source:</strong> {risk.sourceNote}
+        </p>
+      ) : null}
+      <p className="risk-rule">
+        Revision {risk.revision}, last changed by {risk.lastChangedBy} on {formatDate(risk.lastChangedAt)}
+      </p>
+      <details>
+        <summary>Edit {risk.identifier}</summary>
+        <EditDraftForm programId={programId} risk={risk} onSaved={onChanged} />
+      </details>
+      <RiskGovernancePanel programId={programId} risk={risk} people={people} />
       {body}
     </li>
   );
@@ -661,6 +956,8 @@ export function ProgramRisksPage({ programId }: { programId: string }) {
   const [version, setVersion] = state(0);
   const drafts = resource(() => listRiskDrafts(programId), [programId, version()]);
   const method = resource(() => getRiskMethod(programId), [programId, version()]);
+  // Owner names come from the workforce roster; without roster access owners show as unknown.
+  const people = resource(() => listPeople().catch(() => [] as Person[]), [version()]);
   const back = <a href={organizationPath(`/programs/${programId}`)}>Back to program</a>;
   const reload = () => setVersion(version() + 1);
 
@@ -724,7 +1021,7 @@ export function ProgramRisksPage({ programId }: { programId: string }) {
             ) : (
               <ul className="plain-list risk-list">
                 {(drafts.value ?? []).map((risk) => (
-                  <RiskCard programId={programId} risk={risk} method={method.value ?? null} />
+                  <RiskCard programId={programId} risk={risk} method={method.value ?? null} people={people.value ?? []} onChanged={reload} />
                 ))}
               </ul>
             )}
