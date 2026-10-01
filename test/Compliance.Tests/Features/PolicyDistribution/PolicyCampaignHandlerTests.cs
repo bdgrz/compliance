@@ -50,7 +50,7 @@ public sealed class PolicyCampaignHandlerTests
         // Act
         var memberForOther = await fixture.Scenario(fixture.MemberUserId)
             .When(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+            .ExpectFailure(RequestErrorKind.NotFound);
         var managerForMember = await fixture.Scenario(fixture.ManagerUserId)
             .When(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version))
             .ExpectFailure(RequestErrorKind.Forbidden);
@@ -82,6 +82,26 @@ public sealed class PolicyCampaignHandlerTests
                 DateOnly.FromDateTime(Now.UtcDateTime).AddDays(1)))
             .ExpectSuccess()).Value.Totals;
         Assert.Equal(2, totals.Satisfied);
+    }
+
+    [Fact]
+    public async Task ShouldNotDiscloseAudienceMembershipGivenMemberAcknowledgingForOthers()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var version = await fixture.ApprovePolicyAsync();
+        var campaign = await fixture.LaunchAsync(version);
+
+        // Act
+        var inAudience = await fixture.Scenario(fixture.MemberUserId)
+            .When(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version))
+            .ExpectFailure(RequestErrorKind.NotFound);
+        var outsideAudience = await fixture.Scenario(fixture.MemberUserId)
+            .When(fixture.Acknowledge(campaign.CampaignId, Uuid.CreateVersion4(), version))
+            .ExpectFailure(RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.Equal(outsideAudience.Error!.Message, inAudience.Error!.Message);
     }
 
     [Fact]

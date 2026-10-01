@@ -23,26 +23,21 @@ public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
             request.CampaignId, ct).ConfigureAwait(false);
         if (!source.IsSuccess)
             return Result<CampaignAcknowledgementView>.Failure(source.Error);
-        if (!source.Value.Contains(request.PersonId))
-            return Result<CampaignAcknowledgementView>.Failure(new RequestError(
-                RequestErrorKind.NotFound, "The person is not in this campaign's current audience."));
         var actor = PolicyActor.From(context, request.TenantId);
         var person = await reader.HydrateAsync(new Person(request.TenantId, request.PersonId), ct)
             .ConfigureAwait(false);
-        bool onBehalf;
-        if (person.CorrelatedUserId == actor.UserId)
-            onBehalf = false;
-        else if (person.CorrelatedUserId is not null)
+        // Authorize before consulting the audience, so a member acting for someone else learns
+        // nothing about who is in it or who holds a membership.
+        var self = person.CorrelatedUserId == actor.UserId;
+        if (!self && !await permissions.IsAllowedAsync(request.TenantId, actor.UserId, actor.MemberId,
+                request.ProgramId, IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false))
+            return NotInAudience();
+        if (!source.Value.Contains(request.PersonId))
+            return NotInAudience();
+        if (!self && person.CorrelatedUserId is not null)
             return Result<CampaignAcknowledgementView>.Failure(new RequestError(
                 RequestErrorKind.Forbidden, "A member must acknowledge a policy personally."));
-        else if (await permissions.IsAllowedAsync(request.TenantId, actor.UserId, actor.MemberId,
-                     request.ProgramId, IProgramScopedRequest.ManagementPermission, ct)
-                 .ConfigureAwait(false))
-            onBehalf = true;
-        else
-            return Result<CampaignAcknowledgementView>.Failure(new RequestError(
-                RequestErrorKind.Forbidden,
-                "Only a program manager may record an acknowledgement for a non-member."));
+        var onBehalf = !self;
         var performer = new ActorReference("workforce_person", request.PersonId.ToString(),
             source.Value.DisplayNameOf(request.PersonId) ?? "Workforce person");
         return await executor.ExecuteAsync(new PolicyDistributionCampaign(request.TenantId,
@@ -57,4 +52,8 @@ public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
                     campaign.FindAcknowledgement(request.PersonId)!);
             }, context, ct).ConfigureAwait(false);
     }
+
+    static Result<CampaignAcknowledgementView> NotInAudience() =>
+        Result<CampaignAcknowledgementView>.Failure(new RequestError(RequestErrorKind.NotFound,
+            "The person is not in this campaign's current audience."));
 }
