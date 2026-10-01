@@ -113,6 +113,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.control.successor.propose",
             "bdgrz.control.retirement.propose",
             "bdgrz.control.impact.preview",
+            "bdgrz.criterion_applicability.get",
+            "bdgrz.criterion_applicability.list",
             "bdgrz.commitment.draft.create",
             "bdgrz.commitment.draft.revise",
             "bdgrz.commitment.draft.get",
@@ -134,6 +136,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.risk.method.version.get",
             "bdgrz.risk.evaluation.get",
             "bdgrz.risk.evaluation.history.list",
+            "bdgrz.risk.governance.get",
             "bdgrz.snapshot.program_scope.freeze",
             "bdgrz.snapshot.program_scope.amend",
             "bdgrz.snapshot.get",
@@ -269,7 +272,8 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.control.decision.get", "bdgrz.control.decisions.list",
                      "bdgrz.control_mapping.get", "bdgrz.control_mappings.list",
                      "bdgrz.control_mappings.coverage.list",
-                     "bdgrz.control.impact.preview",
+                     "bdgrz.control.impact.preview", "bdgrz.criterion_applicability.get",
+                     "bdgrz.criterion_applicability.list",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
@@ -281,7 +285,11 @@ public sealed class RbacMcpScenarioTests
         Assert.True(discardControlDraft.Destructive);
         Assert.NotEqual(true, discardControlDraft.ReadOnly);
         Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.control.review" or
-            "bdgrz.control.approve" or "bdgrz.control.retire");
+            "bdgrz.control.approve" or "bdgrz.control.retire" or
+            "bdgrz.control.proposal.withdraw" or "bdgrz.control.owner_person.designate" or
+            "bdgrz.criterion_applicability.propose_not_applicable" or
+            "bdgrz.criterion_applicability.review" or
+            "bdgrz.criterion_applicability.withdraw_not_applicable");
         foreach (var name in new[]
                  {
                      "bdgrz.commitment.draft.get", "bdgrz.commitment.draft.list",
@@ -303,6 +311,7 @@ public sealed class RbacMcpScenarioTests
                      "bdgrz.risk.draft.revision.get", "bdgrz.risk.draft.revisions.list",
                      "bdgrz.risk.method.get", "bdgrz.risk.method.version.get",
                      "bdgrz.risk.evaluation.get", "bdgrz.risk.evaluation.history.list",
+                     "bdgrz.risk.governance.get",
                  })
             Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
         Assert.Null(Assert.Single(tools, tool =>
@@ -311,6 +320,9 @@ public sealed class RbacMcpScenarioTests
                  {
                      "bdgrz.risk.method.publish", "bdgrz.risk.assessment.record",
                      "bdgrz.risk.treatment.choose", "bdgrz.risk.accept",
+                     "bdgrz.risk.owner.assign", "bdgrz.risk.control_treatment.propose",
+                     "bdgrz.risk.control_treatment.review", "bdgrz.risk.control_treatment.retire",
+                     "bdgrz.risk.reassessment.raise",
                  })
             Assert.DoesNotContain(tools, tool => tool.Name == personalOrWrite);
         Assert.True(Assert.Single(tools, tool =>

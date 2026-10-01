@@ -4,7 +4,8 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.ControlMappings;
 
-public sealed class ListControlCriterionMappingsHandler(IAggregateReader reader)
+/// <summary>Lists a program's mappings from the caught-up mapping projection.</summary>
+public sealed class ListControlCriterionMappingsHandler(CriteriaCoverageReadConsistency coverage)
     : IRequestHandler<ListControlCriterionMappings, Page<ControlCriterionMappingView>>
 {
     public async ValueTask<Result<Page<ControlCriterionMappingView>>> HandleAsync(
@@ -15,9 +16,11 @@ public sealed class ListControlCriterionMappingsHandler(IAggregateReader reader)
             return Result<Page<ControlCriterionMappingView>>.Failure(new RequestError(
                 RequestErrorKind.Validation,
                 "The mapping status filter must be pending, active, rejected, or retired."));
-        var ledger = await reader.HydrateAsync(new ControlCriterionMappingLedger(request.TenantId,
-            request.ProgramId), ct).ConfigureAwait(false);
-        var items = ledger.ReadAll().Where(mapping =>
+        var projected = await coverage.ReadMappingsAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        if (!projected.IsSuccess)
+            return Result<Page<ControlCriterionMappingView>>.Failure(projected.Error);
+        var items = projected.Value.Where(mapping =>
                 (request.ControlId is null || mapping.ControlId == request.ControlId) &&
                 (request.EditionId is null || mapping.EditionId == request.EditionId) &&
                 (request.Status is null || mapping.Status == request.Status))

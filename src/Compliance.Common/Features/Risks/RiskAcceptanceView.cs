@@ -7,4 +7,8 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record RiskAcceptanceView(Uuid AcceptanceId, Uuid ResidualAssessmentId,
     int ResidualScore, int? AppetiteThreshold, Uuid ApproverMemberId, ActorReference Approver,
     string ApproverAuthority, string Rationale, DateTimeOffset AcceptedAt,
-    DateTimeOffset ExpiresAt, string Status = "active");
+    DateTimeOffset ExpiresAt, string Status = "active")
+{
+    /// <summary>The approved waiver that let the risk owner accept their own risk, if any.</summary>
+    public Uuid? SeparationOfDutiesWaiverId { get; init; }
+}

@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Controls;
@@ -54,6 +55,19 @@ public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregat
                 member.Affiliation == "client_personnel")
                 verifiedOwners.Add(ownerMemberId);
         }
+        // A designated workforce person is verified against the roster with their current
+        // member correlation, which also binds owner-based separation of duties.
+        ControlPersonOwner? verifiedPerson = null;
+        if (current.CurrentPersonOwner is { } designated)
+        {
+            var person = await reader.HydrateAsync(new Person(request.TenantId,
+                designated.PersonId), ct).ConfigureAwait(false);
+            if (person.IsCreated)
+                verifiedPerson = new ControlPersonOwner(designated.PersonId,
+                    person.CorrelatedUserId is { } correlated
+                        ? RbacIds.Member(request.TenantId, correlated)
+                        : null, designated.DesignationId);
+        }
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
@@ -74,7 +88,7 @@ public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregat
                     request.EffectiveFrom, request.Rationale, verifiedOwners,
                     RbacIds.Member(request.TenantId, userId),
                     UserIdentityClaims.BdgrzDisplay(context.Actor, userId), now, waiver,
-                    request.ImpactDigest));
+                    request.ImpactDigest, verifiedPerson));
             },
             context, ct).ConfigureAwait(false);
     }

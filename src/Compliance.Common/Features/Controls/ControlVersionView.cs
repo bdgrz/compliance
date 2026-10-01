@@ -13,4 +13,12 @@ public sealed record ControlVersionView(Uuid TenantId, Uuid ProgramId, Uuid Cont
     Uuid OwnerAssignmentId, Uuid OwnerMemberId, string OwnerResolution,
     Uuid AcceptedReviewDecisionId, Uuid ApprovalDecisionId, ActorReference ApprovedBy,
     string ApprovalRationale, DateTimeOffset ApprovedAt,
-    Uuid? SeparationOfDutiesWaiverId, DateOnly? EffectiveUntil = null);
+    Uuid? SeparationOfDutiesWaiverId, DateOnly? EffectiveUntil = null)
+{
+    /// <summary>
+    ///     The verified workforce person owner when <c>OwnerResolution</c> is
+    ///     <c>verified_person</c>; <c>OwnerMemberId</c> is then the person's correlated member or
+    ///     empty when the person does not sign in.
+    /// </summary>
+    public Uuid? OwnerPersonId { get; init; }
+}

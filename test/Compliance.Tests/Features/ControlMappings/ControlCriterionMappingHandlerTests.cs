@@ -199,6 +199,110 @@ public sealed class ControlCriterionMappingHandlerTests
             .ExpectFailure(RequestErrorKind.NotFound);
     }
 
+    [Fact]
+    public async Task ShouldReportNotApplicableGivenIndependentlyAcceptedDecision()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var proposed = await fixture.Scenario(fixture.AuthorUserId)
+            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                CurrentEdition, "CC6.2", 0, "No user accounts are approved by the service."))
+            .ExpectSuccess();
+        var registration = proposed.Value;
+        await fixture.Scenario(fixture.AuthorUserId)
+            .When(fixture.ReviewApplicability(registration.DecisionId, 1, "accept"))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        var pending = await fixture.CoverageAsync("CC6.2");
+
+        // Act
+        await fixture.Scenario(fixture.ReviewerUserId)
+            .When(fixture.ReviewApplicability(registration.DecisionId, 1, "accept"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Equal("unmapped", pending.CoverageState);
+        var excluded = await fixture.CoverageAsync("CC6.2");
+        Assert.Equal("not_applicable", excluded.CoverageState);
+        Assert.Equal(registration.DecisionId, excluded.NotApplicableDecisionId);
+        var filtered = await fixture.QueryAsync<ListCriteriaCoverage,
+            Page<CriterionCoverageView>>(new ListCriteriaCoverage(fixture.TenantId,
+            fixture.ProgramId, CoverageState: "not_applicable"));
+        Assert.Equal(["CC6.2"], filtered.Items.Select(item => item.Identifier));
+        var decisions = await fixture.QueryAsync<ListCriterionApplicability,
+            Page<CriterionApplicabilityView>>(new ListCriterionApplicability(fixture.TenantId,
+            fixture.ProgramId, Status: "not_applicable"));
+        var decision = Assert.Single(decisions.Items);
+        Assert.Equal("accepted", decision.Versions[0].Status);
+        await fixture.Scenario(fixture.AuthorUserId)
+            .When(new WithdrawCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                registration.DecisionId, 2, "The service now approves accounts."))
+            .ExpectSuccess();
+        Assert.Equal("unmapped", (await fixture.CoverageAsync("CC6.2")).CoverageState);
+        var withdrawn = await fixture.QueryAsync<GetCriterionApplicability,
+            CriterionApplicabilityView>(new GetCriterionApplicability(fixture.TenantId,
+            fixture.ProgramId, registration.DecisionId));
+        Assert.Equal("withdrawn", withdrawn.Status);
+    }
+
+    [Fact]
+    public async Task ShouldRejectNotApplicableGivenPointOfFocusOrUnselectedEdition()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+
+        await fixture.Scenario(fixture.AuthorUserId)
+            // Act
+            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                CurrentEdition, FocusIdentifier, 0, "Not applicable."))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Validation);
+        await fixture.Scenario(fixture.AuthorUserId)
+            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                NextEdition, "CC6.2", 0, "Not applicable."))
+            .ExpectFailure(RequestErrorKind.Conflict);
+    }
+
+    [Fact]
+    public async Task ShouldFlagRemapRequiredGivenApprovedSuccessorControlVersion()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var registration = await fixture.ProposeAsync("CC6.1");
+        await fixture.Scenario(fixture.ReviewerUserId)
+            .When(fixture.Review(registration.MappingId, registration.Revision, "accept"))
+            .ExpectSuccess();
+        var before = Assert.Single((await fixture.CoverageAsync("CC6.1")).MappedControls);
+
+        // Act
+        await fixture.ApproveSuccessorAsync();
+
+        // Assert
+        Assert.False(before.RemapRequired);
+        var after = Assert.Single((await fixture.CoverageAsync("CC6.1")).MappedControls);
+        Assert.True(after.RemapRequired);
+        Assert.Equal(fixture.ControlVersionId, after.ControlVersionId);
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenCoverageProjectionBehindSource()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.ProposeAsync("CC6.1");
+
+        await fixture.Scenario(fixture.ReviewerUserId)
+            // Act
+            .When(new ListCriteriaCoverage(fixture.TenantId, fixture.ProgramId))
+            // Assert
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListControlCriterionMappings(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        Assert.Single((await fixture.QueryAsync<ListControlCriterionMappings,
+            Page<ControlCriterionMappingView>>(new ListControlCriterionMappings(
+            fixture.TenantId, fixture.ProgramId))).Items);
+    }
+
     static Result Command(CommandFailure? failure) => failure is null
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
@@ -238,9 +342,15 @@ public sealed class ControlCriterionMappingHandlerTests
                     .AddRequestHandler<RetireControlCriterionMappingHandler>()
                     .AddRequestHandler<GetControlCriterionMappingHandler>()
                     .AddRequestHandler<ListControlCriterionMappingsHandler>()
-                    .AddRequestHandler<ListCriteriaCoverageHandler>(),
+                    .AddRequestHandler<ListCriteriaCoverageHandler>()
+                    .AddRequestHandler<ProposeCriterionNotApplicableHandler>()
+                    .AddRequestHandler<ReviewCriterionApplicabilityHandler>()
+                    .AddRequestHandler<WithdrawCriterionNotApplicableHandler>()
+                    .AddRequestHandler<GetCriterionApplicabilityHandler>()
+                    .AddRequestHandler<ListCriterionApplicabilityHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(TestCatalog())
-                    .AddScoped<ControlActivationSource>());
+                    .AddScoped<ControlActivationSource>()
+                    .AddCoverageProjections());
             var fixture = new Fixture { Provider = provider };
             var now = DateTimeOffset.UtcNow;
             var admin = Uuid.CreateVersion4();
@@ -291,6 +401,36 @@ public sealed class ControlCriterionMappingHandlerTests
             return result.Value;
         }
 
+        public ReviewCriterionApplicability ReviewApplicability(Uuid decisionId, long revision,
+            string outcome) => new(TenantId, ProgramId, decisionId, revision, outcome,
+            "The rationale is supported.");
+
+        public Task ApproveSuccessorAsync()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var author = Uuid.CreateVersion4();
+            var owner = Uuid.CreateVersion4();
+            var reviewId = Uuid.CreateVersion4();
+            return ProgramManagementServices.SeedAsync(Provider,
+                new ControlDraft(TenantId, ControlId), control =>
+                {
+                    Assert.Null(control.ProposeSuccessor(ProgramId, ControlVersionId,
+                        new ControlDraftContent("Access review v2", "Review access",
+                            "Management reviews access", "Monthly review.", ["Record"]),
+                        author, "Author", now));
+                    Assert.Null(control.AssignResponsibility(new ResponsibilityScope("control",
+                            ControlId, control.DraftVersionId, control.Revision),
+                        Uuid.CreateVersion4(), owner, ResponsibilityType.ControlOwner, author,
+                        "Author", now, now.AddMinutes(-1), null, []));
+                    Assert.Null(control.Review(ProgramId, control.Revision, reviewId, "accept",
+                        "Ok", Uuid.CreateVersion4(), "Reviewer", now));
+                    return Command(control.Approve(ProgramId, control.Revision,
+                        Uuid.CreateVersion4(), reviewId, new DateOnly(2026, 11, 1), "Ready",
+                        new HashSet<Uuid> { owner }, Uuid.CreateVersion4(), "Approver", now,
+                        impactDigest: "DIGEST"));
+                });
+        }
+
         public ReviewControlCriterionMapping Review(Uuid mappingId, long revision,
             string outcome) => new(TenantId, ProgramId, mappingId, revision, outcome,
             "The rationale matches the criterion.");
@@ -309,6 +449,7 @@ public sealed class ControlCriterionMappingHandlerTests
         public async Task<TOut> QueryAsync<TRequest, TOut>(TRequest request)
             where TRequest : IRequest<TOut>
         {
+            await CoverageProjections.CatchUpAsync(Provider, TenantId);
             var result = await Scenario(ReviewerUserId).When(request).ExpectSuccess();
             return result.Value;
         }

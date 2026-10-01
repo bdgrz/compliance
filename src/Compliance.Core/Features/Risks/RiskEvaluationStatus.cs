@@ -20,7 +20,8 @@ public static class RiskEvaluationStatus
         var acceptance = residual is null
             ? null
             : acceptances.LastOrDefault(item => item.ResidualAssessmentId == residual.AssessmentId);
-        var status = (now >= due, view.Treatment, residual, acceptance) switch
+        var triggered = view.OpenReassessmentTriggers is { Count: > 0 };
+        var status = (now >= due || triggered, view.Treatment, residual, acceptance) switch
         {
             (true, _, _, _) => "reassessment_due",
             (_, null, _, _) => "assessed",

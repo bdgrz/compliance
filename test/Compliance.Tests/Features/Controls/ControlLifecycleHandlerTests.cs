@@ -1,7 +1,10 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Responsibilities;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -52,7 +55,7 @@ public sealed class ControlLifecycleHandlerTests
             record.VersionId == fixture.InitialVersionId);
         var mappings = Assert.Single(preview.Contributions,
             contribution => contribution.Context == "mappings");
-        Assert.Equal("unlinked", mappings.Status);
+        Assert.Equal("complete", mappings.Status);
         Assert.Empty(mappings.Records);
         var versions = await fixture.QueryAsync<ListControlVersions, Page<ControlVersionView>>(
             new ListControlVersions(fixture.TenantId, fixture.ProgramId, fixture.ControlId));
@@ -142,6 +145,120 @@ public sealed class ControlLifecycleHandlerTests
         Assert.Equal(RequestErrorKind.Conflict, result.Error!.Kind);
     }
 
+    [Fact]
+    public async Task ShouldReportMappingsAndRiskTreatmentsGivenRecordsNamingControl()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateApprovedAsync(lifecycleEnabled: true);
+        var mappingId = await fixture.SeedAcceptedMappingAsync();
+        var treatmentId = await fixture.SeedAcceptedRiskTreatmentAsync();
+        var registration = await fixture.ProposeSuccessorAsync();
+
+        // Act
+        var preview = await fixture.QueryAsync<PreviewControlImpact, ControlImpactPreview>(
+            new PreviewControlImpact(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                registration.Revision));
+
+        // Assert
+        var mappings = Assert.Single(preview.Contributions,
+            contribution => contribution.Context == "mappings");
+        Assert.Equal("complete", mappings.Status);
+        var mapping = Assert.Single(mappings.Records);
+        Assert.Equal(mappingId, mapping.RecordId);
+        Assert.Equal(fixture.InitialVersionId, mapping.VersionId);
+        var treatments = Assert.Single(preview.Contributions,
+            contribution => contribution.Context == "risk_treatments");
+        Assert.Equal(treatmentId, Assert.Single(treatments.Records).RecordId);
+        var readiness = Assert.Single(preview.Contributions,
+            contribution => contribution.Context == "readiness");
+        Assert.Equal("complete", readiness.Status);
+        Assert.Equal(["engagements", "evidence", "work"], preview.Contributions
+            .Where(static contribution => contribution.Status == "unlinked")
+            .Select(static contribution => contribution.Context));
+        Assert.True(preview.Complete);
+    }
+
+    [Fact]
+    public async Task ShouldRestoreApprovedContentGivenWithdrawnSuccessorOverHttp()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateApprovedAsync(lifecycleEnabled: true);
+        var registration = await fixture.ProposeSuccessorAsync();
+
+        // Act
+        await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new WithdrawControlProposal(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, registration.Revision, "Not needed this quarter."))
+            .ExpectSuccess();
+
+        // Assert
+        var source = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new ControlDraft(fixture.TenantId, fixture.ControlId));
+        Assert.False(source.HasOpenDraft);
+        Assert.Equal(registration.Revision + 1, source.Revision);
+        Assert.Equal("Access review", source.CurrentContent!.Title);
+        var preview = await fixture.Scenario(fixture.ApproverUserId)
+            .When(new PreviewControlImpact(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, source.Revision))
+            .ExpectFailure();
+        Assert.Equal(RequestErrorKind.Conflict, preview.Error!.Kind);
+        var decisions = await fixture.QueryAsync<ListControlDecisions,
+            Page<ControlDecisionView>>(new ListControlDecisions(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId));
+        Assert.Equal("withdrawal", decisions.Items[^1].Kind);
+    }
+
+    [Fact]
+    public async Task ShouldActivateSuccessorGivenDesignatedPersonOwnerOverHttp()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateApprovedAsync(lifecycleEnabled: true);
+        var registration = await fixture.ProposeSuccessorAsync();
+        var personId = await fixture.SeedPersonAsync();
+        await fixture.Scenario(fixture.AuthorUserId)
+            .When(new DesignateControlOwnerPerson(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, registration.Revision, Uuid.CreateVersion4(),
+                "Unknown person."))
+            .ExpectFailure(RequestErrorKind.Validation);
+        await fixture.Scenario(fixture.AuthorUserId)
+            .When(new DesignateControlOwnerPerson(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, registration.Revision, personId,
+                "The facilities manager owns the control but does not sign in."))
+            .ExpectSuccess();
+        var reviewId = await fixture.ReviewAsync(registration.Revision);
+        var preview = await fixture.QueryAsync<PreviewControlImpact, ControlImpactPreview>(
+            new PreviewControlImpact(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                registration.Revision));
+
+        // Act
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.Approve(registration.Revision, reviewId, SuccessorFrom, preview.Digest))
+            .ExpectSuccess();
+
+        // Assert
+        var current = await fixture.QueryAsync<GetCurrentControlVersion, ControlVersionView>(
+            new GetCurrentControlVersion(fixture.TenantId, fixture.ProgramId, fixture.ControlId));
+        Assert.Equal("verified_person", current.OwnerResolution);
+        Assert.Equal(personId, current.OwnerPersonId);
+        Assert.Equal(Uuid.Empty, current.OwnerMemberId);
+    }
+
+    [Fact]
+    public async Task ShouldRejectWithdrawalGivenDisabledLifecycleGate()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateApprovedAsync(lifecycleEnabled: false);
+
+        await fixture.Scenario(fixture.AuthorUserId)
+            // Act
+            .When(new WithdrawControlProposal(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, 1, "Nothing."))
+            // Assert
+            .ExpectAuthorized()
+            .ExpectHandled()
+            .ExpectFailure(RequestErrorKind.Conflict);
+    }
+
     sealed class Fixture
     {
         public required ServiceProvider Provider { get; init; }
@@ -168,7 +285,10 @@ public sealed class ControlLifecycleHandlerTests
                     .AddRequestHandler<GetControlVersionHandler>()
                     .AddRequestHandler<GetCurrentControlVersionHandler>()
                     .AddRequestHandler<GetEffectiveControlVersionHandler>()
-                    .AddRequestHandler<ListControlVersionsHandler>(),
+                    .AddRequestHandler<ListControlVersionsHandler>()
+                    .AddRequestHandler<ListControlDecisionsHandler>()
+                    .AddRequestHandler<WithdrawControlProposalHandler>()
+                    .AddRequestHandler<DesignateControlOwnerPersonHandler>(),
                 services => services
                     .AddSingleton(new ControlActivationReleaseGate(true))
                     .AddSingleton(new ControlLifecycleReleaseGate(lifecycleEnabled))
@@ -176,6 +296,9 @@ public sealed class ControlLifecycleHandlerTests
                     .AddScoped<ControlImpactService>()
                     .AddScoped<IControlImpactContributor, ApplicabilityControlImpactContributor>()
                     .AddScoped<IControlImpactContributor, ResponsibilityControlImpactContributor>()
+                    .AddScoped<IControlImpactContributor, MappingControlImpactContributor>()
+                    .AddScoped<IControlImpactContributor, RiskTreatmentControlImpactContributor>()
+                    .AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>()
                     .AddSingleton<IControlApplicabilityReferenceValidator, AcceptingValidator>());
             var fixture = new Fixture { Provider = provider };
             var now = DateTimeOffset.UtcNow;
@@ -232,6 +355,54 @@ public sealed class ControlLifecycleHandlerTests
                             ControlId, versionId, revision), Uuid.CreateVersion4(), OwnerMemberId,
                         ResponsibilityType.ControlOwner, RbacIds.Member(TenantId, AuthorUserId),
                         "Author", now, now.AddMinutes(-1), null, [])));
+        }
+
+        public async Task<Uuid> SeedAcceptedMappingAsync()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var edition = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(Provider,
+                new ControlCriterionMappingLedger(TenantId, ProgramId), ledger =>
+                {
+                    Assert.Null(ledger.Propose(ControlId, InitialVersionId, edition, "CC6.1",
+                        "criterion", 0, "Reviews restrict access.", "Production.",
+                        Uuid.CreateVersion4(), "Author", now, out _));
+                    return CommandResult(ledger.Review(ledger.ReadAll()[0].MappingId, 1,
+                        Uuid.CreateVersion4(), "accept", "Ok.", Uuid.CreateVersion4(),
+                        "Reviewer", now));
+                });
+            return ControlCriterionMappingLedger.MappingIdFor(ProgramId, ControlId, edition,
+                "CC6.1");
+        }
+
+        public async Task<Uuid> SeedAcceptedRiskTreatmentAsync()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var riskId = Uuid.CreateVersion4();
+            var treatmentId = Uuid.CreateVersion4();
+            var proposer = Uuid.CreateVersion4();
+            var reviewer = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(Provider,
+                new RiskGovernanceLedger(TenantId, ProgramId), ledger =>
+                {
+                    Assert.Null(ledger.ProposeControlTreatment(riskId, 0, treatmentId,
+                        "mitigate", ControlId, InitialVersionId, "Treats the risk.", proposer,
+                        ActorReference.ForMember(proposer, "Proposer"), now));
+                    return CommandResult(ledger.ReviewControlTreatment(riskId, treatmentId, 1,
+                        Uuid.CreateVersion4(), "accept", "Ok.", reviewer,
+                        ActorReference.ForMember(reviewer, "Reviewer"), now));
+                });
+            return treatmentId;
+        }
+
+        public async Task<Uuid> SeedPersonAsync()
+        {
+            var personId = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(Provider, new Person(TenantId, personId),
+                person => person.Record("Facilities manager", "facilities@example.com",
+                    ActorReference.ForMember(Uuid.CreateVersion4(), "Admin"),
+                    DateTimeOffset.UtcNow));
+            return personId;
         }
 
         public async Task<Uuid> ReviewAsync(long revision)

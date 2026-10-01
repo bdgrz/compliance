@@ -226,6 +226,17 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IRiskEvaluationDirectoryReader>(provider =>
             provider.GetRequiredService<FitzRiskEvaluationDirectory>());
         services.AddScoped<RiskEvaluationReadConsistency>();
+        services.AddScoped<FitzControlMappingDirectoryV1>();
+        services.AddScoped<IControlMappingDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzControlMappingDirectoryV1>());
+        services.AddScoped<IControlMappingDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzControlMappingDirectoryV1>());
+        services.AddScoped<FitzCriterionApplicabilityDirectoryV1>();
+        services.AddScoped<ICriterionApplicabilityDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzCriterionApplicabilityDirectoryV1>());
+        services.AddScoped<ICriterionApplicabilityDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzCriterionApplicabilityDirectoryV1>());
+        services.AddScoped<CriteriaCoverageReadConsistency>();
         services.AddScoped<FitzClientServiceDirectory>();
         services.AddScoped<IClientServiceDirectoryProjection>(
             provider => provider.GetRequiredService<FitzClientServiceDirectory>());
@@ -277,6 +288,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ControlImpactService>();
         services.AddScoped<IControlImpactContributor, ApplicabilityControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, ResponsibilityControlImpactContributor>();
+        services.AddScoped<IControlImpactContributor, MappingControlImpactContributor>();
+        services.AddScoped<IControlImpactContributor, RiskTreatmentControlImpactContributor>();
+        services.AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
         services.AddScoped<IBoundaryReferenceValidator,
@@ -431,6 +445,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetControlCriterionMappingHandler>()
             .AddRequestHandler<ListControlCriterionMappingsHandler>()
             .AddRequestHandler<ListCriteriaCoverageHandler>()
+            .AddRequestHandler<ProposeCriterionNotApplicableHandler>()
+            .AddRequestHandler<ReviewCriterionApplicabilityHandler>()
+            .AddRequestHandler<WithdrawCriterionNotApplicableHandler>()
+            .AddRequestHandler<GetCriterionApplicabilityHandler>()
+            .AddRequestHandler<ListCriterionApplicabilityHandler>()
             .AddRequestHandler<RunReadinessAssessmentHandler>()
             .AddRequestHandler<GetReadinessAssessmentHandler>()
             .AddRequestHandler<ListReadinessAssessmentsHandler>()
@@ -441,6 +460,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ProposeControlRetirementHandler>()
             .AddRequestHandler<PreviewControlImpactHandler>()
             .AddRequestHandler<RetireControlHandler>()
+            .AddRequestHandler<WithdrawControlProposalHandler>()
+            .AddRequestHandler<DesignateControlOwnerPersonHandler>()
             .AddRequestHandler<CreateCommitmentDraftHandler>()
             .AddRequestHandler<ReviseCommitmentDraftHandler>()
             .AddRequestHandler<GetCommitmentDraftHandler>()
@@ -468,6 +489,13 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AcceptRiskHandler>()
             .AddRequestHandler<GetRiskEvaluationHandler>()
             .AddRequestHandler<ListRiskEvaluationHistoryHandler>()
+            .AddRequestHandler<AssignRiskOwnerHandler>()
+            .AddRequestHandler<ProposeRiskControlTreatmentHandler>()
+            .AddRequestHandler<ReviewRiskControlTreatmentHandler>()
+            .AddRequestHandler<RetireRiskControlTreatmentHandler>()
+            .AddRequestHandler<GetRiskGovernanceHandler>()
+            .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()
+            .AddRequestAuthorizer<RiskReassessmentReactionAuthorizer>()
             .AddRequestHandler<ReviseProgramHandler>()
             .AddRequestHandler<SelectProgramCriteriaEditionHandler>()
             .AddRequestHandler<GetProgramHandler>()
@@ -590,6 +618,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<WorkforceRestrictedFieldGrantBackfillReactor>(
                 "WorkforceRestrictedFieldGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
+            .AddReactor<RiskMethodReassessmentReactor>("RiskMethodReassessmentV1",
+                WorkloadScope.PerTenant)
+            .AddReactor<BoundaryRiskReassessmentReactor>("BoundaryRiskReassessmentV1",
+                WorkloadScope.PerTenant)
             .AddReactor<TeamCleanupReactor>("TeamCleanup", WorkloadScope.PerTenant)
             .AddReactor<RoleCleanupReactor>("RoleCleanup", WorkloadScope.PerTenant)
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
@@ -628,6 +660,10 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<RiskEvaluationDirectoryProjectorV1>("RiskEvaluationDirectoryV1",
                 WorkloadScope.PerTenant)
+            .AddProjector<ControlMappingDirectoryV1Projector>(
+                FitzControlMappingDirectoryV1.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<CriterionApplicabilityDirectoryV1Projector>(
+                FitzCriterionApplicabilityDirectoryV1.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationDirectoryProjector>("ApplicationDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationImportProjector>("ApplicationImportDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<AccessReviewScopeDirectoryProjector>(

@@ -7,4 +7,8 @@ public sealed record RiskEvaluationView(Uuid TenantId, Uuid ProgramId, Uuid Risk
     long Revision, string Status, IReadOnlyList<RiskAssessmentView> Assessments,
     RiskTreatmentView? Treatment, IReadOnlyList<RiskAcceptanceView> Acceptances,
     DateTimeOffset? ReassessmentDueAt, ActorReference? LastChangedBy,
-    DateTimeOffset? LastChangedAt);
+    DateTimeOffset? LastChangedAt)
+{
+    /// <summary>Open M0-D10 reassessment triggers, evaluated when read; never projected.</summary>
+    public IReadOnlyList<RiskReassessmentTriggerView>? OpenReassessmentTriggers { get; init; }
+}

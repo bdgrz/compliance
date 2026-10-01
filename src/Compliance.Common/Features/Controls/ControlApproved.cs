@@ -11,7 +11,8 @@ public sealed record ControlApproved(Uuid TenantId, Uuid ProgramId, Uuid Control
     ControlDraftContent Content, Uuid OwnerAssignmentId, Uuid OwnerMemberId,
     Uuid ActorMemberId, string ActorDisplay, string Rationale, DateOnly EffectiveFrom,
     DateTimeOffset DecidedAt, Uuid? SeparationOfDutiesWaiverId = null,
-    Uuid? PredecessorVersionId = null, string? ImpactDigest = null) : DomainEvent
+    Uuid? PredecessorVersionId = null, string? ImpactDigest = null,
+    Uuid? OwnerPersonId = null) : DomainEvent
 {
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }
