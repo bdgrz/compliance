@@ -70,12 +70,12 @@ Each relationship owns a `work-relationships/{relationship_id}` stream, and
 
 ## Not yet delivered
 
-- Source precedence and reconciliation between sources, which needs a second
-  source (HRIS import waits on [#347](https://github.com/bdgrz/compliance/issues/347)).
-- The employment status reason and personal contact fields, and a separate
-  restricted-field grant; today lists redact the manager and single reads
-  require `workforce.manage`.
 - HRIS import (waits on [#347](https://github.com/bdgrz/compliance/issues/347)).
+
+Source observations and attributable reconciliation are available without an
+import through the [source-governance contract](workforce-source-governance.md).
+Personal contact and employment-status reason are captured and restricted under
+[#515](https://github.com/bdgrz/compliance/issues/515).
 
 ## Joiner, mover, and leaver observations (#221, partial)
 
@@ -98,8 +98,8 @@ date in the future and at most one year out. HTTP and MCP record, revise, get,
 and list operations require `workforce.manage`. Reads evaluate `unowned` with
 `unowned_reasons` (`review_expired`, `owner_relationship_ended`,
 `owner_not_on_roster`, `owner_team_deleted`); `unowned_only` filters a list
-page. Not yet delivered: expiry date, non-manual sources, and account
-correlation.
+page. Expiry, manually entered provider-source observations, and explicit
+provider-account classification against service identities are also available.
 
 ## Membership correlation, reconciliation, and resolution (#461, #219)
 
@@ -131,10 +131,11 @@ joiner/mover/leaver observation. Each closure is a
 `WorkforceObservationResolutionsV1`; lists overlay `status` and the attributed
 `resolution`, and are transiently conflicted while that projection lags.
 
-Source precedence: every roster record carries `source_kind`. M0-D06 ranks an
-HRIS export above the manual roster, with conflicts shown for a decision. Only
-`manual` exists until HRIS import ([#347](https://github.com/bdgrz/compliance/issues/347)),
-so precedence between sources is not yet exercised.
+The canonical record's `source_kind: manual` describes its entry origin.
+Separate immutable source observations record HRIS authority and IdP
+corroboration, preview conflicts, and retain an attributed reconciliation decision
+bound to an exact canonical revision. An observation does not apply its values.
+See [workforce source governance](workforce-source-governance.md).
 
 ## Roster freeze fence (#479)
 
@@ -147,5 +148,7 @@ never mixes versions or includes a change made after the check.
 
 Service identities take an optional `expires_on`. An active identity cannot
 already be expired, and reads report `expired` for a non-retired identity on or
-after that date. Non-manual sources and account correlation are not yet
-delivered.
+after that date. Provider-source observations corroborate externally observable
+identity facts. `ClassifyAccessPrincipal` explicitly correlates an accepted
+provider account or service principal to a governed `ServiceIdentityId`, with
+attribution and classification history. This link never grants platform access.

@@ -293,11 +293,21 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.workforce.observation.resolve",
             "bdgrz.workforce.person.correlate-membership",
             "bdgrz.workforce.reconciliation.list",
+            "bdgrz.workforce.source.record",
+            "bdgrz.workforce.source.get",
+            "bdgrz.workforce.source.list",
+            "bdgrz.workforce.source.preview",
+            "bdgrz.workforce.source.reconcile",
             "bdgrz.workforce.service-identity.record",
             "bdgrz.workforce.service-identity.revise",
             "bdgrz.workforce.service-identity.get",
             "bdgrz.workforce.service-identity.list");
         var tools = await scenario.ListTools();
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.get").ReadOnly);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.list").ReadOnly);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.record").Idempotent);
+        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.reconcile").Idempotent);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.revision.get").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
