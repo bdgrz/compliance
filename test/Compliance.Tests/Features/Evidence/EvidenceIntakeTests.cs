@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Evidence;
 
-public sealed class EvidenceIntakeTests : IAsyncDisposable
+public sealed class EvidenceIntakeTests : IDisposable
 {
     static readonly ActorReference Collector = ActorReference.ForMember(Uuid.CreateVersion4(), "Collector");
     readonly string _root = Path.Combine(Path.GetTempPath(), $"bdgrz-evidence-{Guid.NewGuid():N}");
@@ -29,10 +29,10 @@ public sealed class EvidenceIntakeTests : IAsyncDisposable
             new byte[32], 64), TimeProvider.System);
     }
 
-    public async ValueTask DisposeAsync()
+    public void Dispose()
     {
-        await _scope.DisposeAsync();
-        await _provider.DisposeAsync();
+        _scope.Dispose();
+        _provider.Dispose();
         if (Directory.Exists(_root))
             Directory.Delete(_root, recursive: true);
     }

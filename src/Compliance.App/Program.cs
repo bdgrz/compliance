@@ -265,6 +265,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RaiseFinding>()
         .AddMcpTool<GetFinding>(tool => tool.ReadOnly())
         .AddMcpTool<ListFindings>(tool => tool.ReadOnly())
+        .AddMcpTool<OpenEvidenceRequest>()
+        .AddMcpTool<CancelEvidenceRequest>()
+        .AddMcpTool<GetEvidenceRequest>(tool => tool.ReadOnly())
+        .AddMcpTool<ListEvidenceRequests>(tool => tool.ReadOnly())
         .AddMcpTool<OpenAccessPopulation>()
         .AddMcpTool<RecordAccessPopulationFacts>(tool => tool.Idempotent())
         .AddMcpTool<PreviewAccessPopulation>(tool => tool.ReadOnly())
@@ -1028,6 +1032,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/evaluations/{evaluation_id}/reviews")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Control evaluations");
+    app.MapPortiaPost<OpenEvidenceRequest, EvidenceRequestView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence requests");
+    app.MapPortiaGet<ListEvidenceRequests, Page<EvidenceRequestView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence requests");
+    app.MapPortiaGet<GetEvidenceRequest, EvidenceRequestView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests/{evidence_request_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence requests");
+    app.MapPortiaPost<FulfilEvidenceRequest, EvidenceRequestView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests/{evidence_request_id}/fulfilments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence requests");
+    app.MapPortiaPost<CancelEvidenceRequest, EvidenceRequestView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests/{evidence_request_id}/cancellations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence requests");
     app.MapPortiaPost<RaiseFinding, FindingRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/findings")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

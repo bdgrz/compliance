@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Work;
@@ -9,6 +10,33 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 
 public sealed class WorkQueueTests
 {
+    [Fact]
+    public async Task ShouldListOpenEvidenceRequestForItsOwnerAndDropItGivenCancellation()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var request = await fixture.AsAsync(fixture.LeadUserId, new OpenEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, "Q3 access review export", "Upload the signed record.", fixture.OwnerMemberId,
+            fixture.Today.AddDays(5), fixture.ControlId));
+
+        // Act
+        var before = await fixture.AsAsync(fixture.OwnerUserId, new ListWork(fixture.TenantId, fixture.ProgramId));
+        await fixture.AsAsync(fixture.LeadUserId, new CancelEvidenceRequest(fixture.TenantId, fixture.ProgramId,
+            request.EvidenceRequestId, request.Revision, "Not needed"));
+        var after = await fixture.AsAsync(fixture.OwnerUserId, new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        var item = Assert.Single(before.Items, item => item.Kind == "evidence_request");
+        Assert.Equal(request.EvidenceRequestId, item.SourceId);
+        Assert.Equal(fixture.ControlId, item.ControlId);
+        Assert.Equal("fulfil", item.NextAction);
+        Assert.Equal(fixture.Today.AddDays(5), item.DueOn);
+        Assert.Equal(fixture.OwnerMemberId, item.AssigneeMemberId);
+        Assert.EndsWith($"/evidence-requests/{request.EvidenceRequestId}/fulfilments", item.ActionPath,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(after.Items, item => item.Kind == "evidence_request");
+    }
+
     [Fact]
     public async Task ShouldListSourceLinkedItemsInDeterministicOrderGivenMixedSources()
     {

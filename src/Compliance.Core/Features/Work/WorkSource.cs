@@ -1,10 +1,11 @@
+using Bdgrz.Compliance.Features.Evidence;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
 ///     Derives open work from the authoritative source ledgers at read time (M0-D15): control
-///     occurrences to perform, attestations awaiting review, and open corrective actions. Nothing
+///     occurrences to perform, attestations awaiting review, open corrective actions, and open evidence requests. Nothing
 ///     here is stored, so completing source work removes the item and a projection-only change can
 ///     never complete it.
 /// </summary>
@@ -13,6 +14,7 @@ static class WorkSource
     public const string ControlOccurrence = "control_occurrence";
     public const string OccurrenceReview = "occurrence_review";
     public const string CorrectiveAction = "corrective_action";
+    public const string EvidenceRequest = "evidence_request";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
@@ -81,6 +83,17 @@ static class WorkSource
                     $"{prefix}/findings/{finding.FindingId}/corrective-actions/{action.ActionId}/completions",
                     new OperatingHolder(OperatingAuthority.MemberHolder, action.OwnerMemberId),
                     null, new HashSet<Uuid>(), action.AddedAt));
+        var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
+            .ConfigureAwait(false);
+        foreach (var request in evidence.ReadAll().Where(request =>
+                     request.Status == EvidenceRequestLedger.Open && Wanted(request.EvidenceRequestId, EvidenceRequest)))
+            candidates.Add(new WorkCandidate(
+                WorkCandidate.IdFor(request.EvidenceRequestId, EvidenceRequest), EvidenceRequest,
+                request.EvidenceRequestId, request.ControlId, null, request.Title, request.Instructions,
+                request.DueOn, null, "fulfil",
+                $"{prefix}/evidence-requests/{request.EvidenceRequestId}/fulfilments",
+                new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
+                new HashSet<Uuid>(), request.OpenedAt));
         return candidates;
     }
 }
