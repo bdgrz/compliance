@@ -107,7 +107,7 @@ public sealed class WorkforceRosterSnapshotTests
     }
 
     [Fact]
-    public async Task ShouldRedactManagerChainGivenActorWithoutRestrictedFieldPermission()
+    public async Task ShouldRedactManagerChainInSnapshotGivenActorWithOrWithoutFieldPermission()
     {
         // Arrange
         await using var harness = await Harness.CreateAsync();
@@ -125,7 +125,7 @@ public sealed class WorkforceRosterSnapshotTests
         Assert.True(general.RestrictedFieldsRedacted);
         Assert.Null(Assert.Single(general.WorkRelationships).ManagerPersonId);
         Assert.True(restricted.RestrictedFieldsRedacted);
-        Assert.Equal(manager.PersonId, Assert.Single(restricted.WorkRelationships).ManagerPersonId);
+        Assert.Null(Assert.Single(restricted.WorkRelationships).ManagerPersonId);
         Assert.Equal(general.ContentSha256, restricted.ContentSha256);
     }
 

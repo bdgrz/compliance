@@ -9,7 +9,7 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// <summary>
 ///     The canonical v1 row format of a frozen workforce roster: one <c>person/…</c> row per person
 ///     and one <c>work_relationship/…</c> row per relationship, ordered by key. Rows hold the full
-///     accepted facts, including the restricted manager chain; reads redact it.
+///     accepted facts, including the restricted manager chain; every public view redacts it.
 /// </summary>
 static class WorkforceRosterSnapshotContent
 {
@@ -69,7 +69,7 @@ static class WorkforceRosterSnapshotContent
                     Text(content, "source_worker_id")!, Text(content, "worker_type")!,
                     Text(content, "lifecycle_status")!, ParseDate(Text(content, "start_date"))!.Value,
                     ParseDate(Text(content, "end_date")), Text(content, "department"),
-                    managerChain.CanRead ? OptionalId(content, "manager_person_id") : null,
+                    null, // Snapshot reads always redact the manager chain, including granted actors.
                     OptionalId(content, "sponsor_person_id")));
             else
                 throw new SnapshotContentException("The roster snapshot holds an unknown row kind.");

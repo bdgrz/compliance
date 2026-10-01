@@ -772,6 +772,8 @@ public static class ComplianceServiceCollectionExtensions
                 "AccessReviewGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceRestrictedFieldGrantBackfillReactor>(
                 "WorkforceRestrictedFieldGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<WorkforcePersonalDetailsGrantBackfillReactor>(
+                WorkforcePersonalDetailsGrantBackfillReactor.WorkloadName, WorkloadScope.Global)
             .AddReactor<TenantSlugReactor>("TenantSlug", WorkloadScope.Global)
             .AddReactor<RiskMethodReassessmentReactor>("RiskMethodReassessmentV1",
                 WorkloadScope.PerTenant)
