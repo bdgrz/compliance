@@ -11,4 +11,5 @@ public sealed record WorkRelationshipView(Uuid TenantId, Uuid RelationshipId, lo
     Uuid PersonId, string SourceWorkerId, string WorkerType, string LifecycleStatus,
     DateOnly StartDate, DateOnly? EndDate, string? Department, Uuid? ManagerPersonId,
     Uuid? SponsorPersonId, bool RestrictedFieldsRedacted, string SourceKind,
-    ActorReference LastChangedBy, DateTimeOffset LastChangedAt);
+    ActorReference LastChangedBy, DateTimeOffset LastChangedAt,
+    string? EmploymentStatusReason = null);

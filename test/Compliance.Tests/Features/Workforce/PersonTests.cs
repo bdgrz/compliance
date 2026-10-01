@@ -34,6 +34,28 @@ public sealed class PersonTests
     }
 
     [Fact]
+    public void ShouldRecordRestrictedPersonalContactGivenValidPerson()
+    {
+        // Arrange
+        var person = new Person(TenantId, Uuid.CreateVersion4());
+        var contact = new PersonalContactDetails("ada.personal@example.com", "+1 202 555 0147");
+
+        // Act
+        var result = person.Record("Ada Lovelace", "ada@example.com", contact, Author, Now);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var recorded = Assert.IsType<PersonRecorded>(
+            Assert.Single(new AggregateScenario<Person>(person).PendingEvents));
+        Assert.Equal(contact, recorded.PersonalContact);
+        Assert.Equal(Author, recorded.Actor);
+        var changedReplay = person.Record("Ada Lovelace", "ada@example.com",
+            new PersonalContactDetails("different@example.com", contact.PersonalPhone), Author, Now);
+        Assert.Equal(RequestErrorKind.Conflict,
+            Assert.IsType<RequestError>(changedReplay.Error).Kind);
+    }
+
+    [Fact]
     public void ShouldAdvanceRevisionAndRejectStaleOrMissingGivenRevise()
     {
         // Arrange

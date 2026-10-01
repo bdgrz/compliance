@@ -77,7 +77,7 @@ static class WorkforceRosterSnapshotContent
         return new WorkforceRosterSnapshotView(tenantId, snapshot.Id, snapshot.RootSnapshotId,
             snapshot.AmendsSnapshotId, snapshot.ContentSha256!, snapshot.RowCount,
             snapshot.AmendmentReason, snapshot.FrozenBy!, snapshot.FrozenAt, people, relationships,
-            !managerChain.CanRead);
+            true);
     }
 
     static JsonElement Element(Action<Utf8JsonWriter> write)

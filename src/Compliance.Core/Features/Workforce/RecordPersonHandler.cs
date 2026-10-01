@@ -12,6 +12,6 @@ public sealed class RecordPersonHandler(IAggregateExecutor executor, TimeProvide
         var request = context.Request;
         return executor.ExecuteAsync(new Person(request.TenantId, context.RequestId),
             person => AggregateOutcome.CommitOnSuccess(person.Record(request.DisplayName,
-                request.WorkEmail, actor, clock.GetUtcNow())), context, ct);
+                request.WorkEmail, request.PersonalContact, actor, clock.GetUtcNow())), context, ct);
     }
 }

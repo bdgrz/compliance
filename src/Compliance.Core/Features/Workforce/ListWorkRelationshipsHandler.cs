@@ -39,6 +39,7 @@ public sealed class ListWorkRelationshipsHandler(IWorkRelationshipDirectoryReade
         new([.. page.Items.Select(static item => item with
         {
             ManagerPersonId = null,
+            EmploymentStatusReason = null,
             RestrictedFieldsRedacted = true,
         })], page.NextCursor);
 }

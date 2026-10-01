@@ -24,7 +24,7 @@ sealed class FitzPersonDirectory(IKvClient client)
                 await PersonDirectorySchema.People.InsertAsync(Transaction,
                     new PersonView(recorded.TenantId, recorded.PersonId, 1,
                         recorded.DisplayName, recorded.WorkEmail, ManualSource,
-                        recorded.Actor, recorded.ChangedAt), ct).ConfigureAwait(false);
+                        recorded.Actor, recorded.ChangedAt, PersonalContact: recorded.PersonalContact), ct).ConfigureAwait(false);
                 break;
             case PersonRevised revised:
                 var current = await PersonDirectorySchema.People.GetAsync(Transaction,
@@ -39,6 +39,7 @@ sealed class FitzPersonDirectory(IKvClient client)
                         Revision = revised.Revision,
                         DisplayName = revised.DisplayName,
                         WorkEmail = revised.WorkEmail,
+                        PersonalContact = revised.PersonalContact,
                         LastChangedBy = revised.Actor,
                         LastChangedAt = revised.ChangedAt,
                     }, ct).ConfigureAwait(false);

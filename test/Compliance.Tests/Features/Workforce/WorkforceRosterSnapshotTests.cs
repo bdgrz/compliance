@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Fitz.Testing;
@@ -123,7 +124,7 @@ public sealed class WorkforceRosterSnapshotTests
         // Assert
         Assert.True(general.RestrictedFieldsRedacted);
         Assert.Null(Assert.Single(general.WorkRelationships).ManagerPersonId);
-        Assert.False(restricted.RestrictedFieldsRedacted);
+        Assert.True(restricted.RestrictedFieldsRedacted);
         Assert.Equal(manager.PersonId, Assert.Single(restricted.WorkRelationships).ManagerPersonId);
         Assert.Equal(general.ContentSha256, restricted.ContentSha256);
     }
@@ -185,8 +186,35 @@ public sealed class WorkforceRosterSnapshotTests
         // Assert
         Assert.True(general.Value.RestrictedFieldsRedacted);
         Assert.Null(general.Value.ManagerPersonId);
+        Assert.Null(general.Value.EmploymentStatusReason);
         Assert.False(restricted.Value.RestrictedFieldsRedacted);
         Assert.Equal(manager.PersonId, restricted.Value.ManagerPersonId);
+        Assert.Equal("retirement", restricted.Value.EmploymentStatusReason);
+    }
+
+    [Fact]
+    public async Task ShouldKeepPersonalDetailsSeparateFromManagerChainGrantGivenSingleRelationshipRead()
+    {
+        // Arrange
+        await using var harness = await Harness.CreateAsync();
+        var manager = Person(harness.TenantId, "Morgan");
+        var worker = Person(harness.TenantId, "Wes");
+        var relationshipId = await harness.RecordRelationshipAsync(worker.PersonId,
+            manager.PersonId);
+
+        // Act
+        var managerOnly = await harness.GetRelationshipAsync(relationshipId,
+            new GrantedPermissions(FieldClasses.WorkforceManagerChain.ReadPermission));
+        var personalOnly = await harness.GetRelationshipAsync(relationshipId,
+            new GrantedPermissions(FieldClasses.WorkforcePersonalDetails.ReadPermission));
+
+        // Assert
+        Assert.Equal(manager.PersonId, managerOnly.Value.ManagerPersonId);
+        Assert.Null(managerOnly.Value.EmploymentStatusReason);
+        Assert.True(managerOnly.Value.RestrictedFieldsRedacted);
+        Assert.Null(personalOnly.Value.ManagerPersonId);
+        Assert.Equal("retirement", personalOnly.Value.EmploymentStatusReason);
+        Assert.True(personalOnly.Value.RestrictedFieldsRedacted);
     }
 
     [Fact]
@@ -269,6 +297,13 @@ public sealed class WorkforceRosterSnapshotTests
     {
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default) => ValueTask.FromResult(allowed);
+    }
+
+    sealed class GrantedPermissions(params string[] permissions) : IPermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(permissions.Contains(permission, StringComparer.Ordinal));
     }
 
     sealed class SnapshotsReader(IReadOnlyList<PopulationSnapshot> snapshots) : IAggregateReader
@@ -375,7 +410,7 @@ public sealed class WorkforceRosterSnapshotTests
             var relationship = new WorkRelationship(TenantId, relationshipId);
             Assert.True(relationship.Record(personId, "E-500",
                 new WorkRelationshipTerms("employee", "active", new DateOnly(2025, 1, 6), null, null,
-                    managerId, null), Author, Now).IsSuccess);
+                    managerId, null, "retirement"), Author, Now).IsSuccess);
             var events = new AggregateScenario<WorkRelationship>(relationship).PendingEvents.ToList();
             await _provider.GetRequiredService<IAggregateWriter>().SaveAsync(relationship,
                 new RequestDispatchContext(RequestActor.System));
@@ -391,11 +426,15 @@ public sealed class WorkforceRosterSnapshotTests
 
         public ValueTask<Result<WorkRelationshipView>> GetRelationshipAsync(Uuid relationshipId,
             bool canReadManagerChain)
+            => GetRelationshipAsync(relationshipId, new FixedPermissions(canReadManagerChain));
+
+        public ValueTask<Result<WorkRelationshipView>> GetRelationshipAsync(Uuid relationshipId,
+            IPermissionAuthorizer permissions)
         {
             var consistency = new WorkRelationshipReadConsistency(_relationships, Reader,
                 _provider.GetRequiredService<IDomainEventReader>());
             return new GetWorkRelationshipHandler(consistency,
-                    new FixedPermissions(canReadManagerChain))
+                    permissions)
                 .HandleAsync(new RequestContext<GetWorkRelationship>(
                     new GetWorkRelationship(TenantId, relationshipId), Actor(_userId)),
                     CancellationToken.None);

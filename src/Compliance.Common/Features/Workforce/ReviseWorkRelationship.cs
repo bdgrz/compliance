@@ -7,4 +7,5 @@ namespace Bdgrz.Compliance.Features.Workforce;
 public sealed record ReviseWorkRelationship(Uuid TenantId, Uuid RelationshipId,
     long ExpectedRevision, string WorkerType, string LifecycleStatus, DateOnly StartDate,
     DateOnly? EndDate = null, string? Department = null, Uuid? ManagerPersonId = null,
-    Uuid? SponsorPersonId = null) : IRequest, IWorkforceRequest, ICallable;
+    Uuid? SponsorPersonId = null, string? EmploymentStatusReason = null)
+    : IRequest, IWorkforceRequest, ICallable;

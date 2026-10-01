@@ -31,6 +31,11 @@ public sealed class ListPeopleHandler(IPersonDirectoryReader directory,
         return page.Items.Any(item => item.TenantId != request.TenantId)
             ? Result<Page<PersonView>>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The people were not found."))
-            : Result<Page<PersonView>>.Success(page);
+            : Result<Page<PersonView>>.Success(new Page<PersonView>([.. page.Items.Select(
+                static item => item with
+                {
+                    PersonalContact = null,
+                    RestrictedFieldsRedacted = true,
+                })], page.NextCursor));
     }
 }

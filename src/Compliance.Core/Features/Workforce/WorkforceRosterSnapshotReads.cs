@@ -4,7 +4,7 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
 
-/// <summary>Reads a roster snapshot from its immutable source and applies manager-chain redaction.</summary>
+/// <summary>Reads a roster snapshot from its immutable source and redacts restricted fields.</summary>
 static class WorkforceRosterSnapshotReads
 {
     public static async ValueTask<Result<WorkforceRosterSnapshotView>> ReadAsync<TRequest>(

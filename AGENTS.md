@@ -23,6 +23,21 @@ Follow `.editorconfig`: UTF-8, LF, final newline, four-space C# indentation, and
 
 .NET tests use xUnit; SPA tests use Vitest. For behavior changes, first add a focused failing test. Name .NET tests `Should<ExpectedBehavior>Given<Condition>` (optionally prefix the method); mark Arrange, Act, and Assert in block-bodied tests. Run `Category=BrokerIntegration` tests for persistence, projection, reactor, or split-host changes; those tests manage an isolated Compose stack.
 
+## JEV and Backlog Workflow
+
+JEV is TypeSafe's Jev model, called through the TypeSafe System One API. It supplies semantic judgments for backlog triage; GitHub Issues and the `Compliance — SOC 2 product journey` project remain the source of truth for issue text, status, dependencies, and delivery progress. Use `scripts/backlog-jev.mjs` as the repository wrapper. It reads GitHub and calls JEV but does not change GitHub state; use the GitHub CLI to record issue comments, dependencies, project fields, and completion.
+
+The API key is stored at `~/.config/typesafe/jev.key`. Load it only into the command environment, and never print, commit, or copy the key into a file:
+
+```sh
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < "$HOME/.config/typesafe/jev.key")" node scripts/backlog-jev.mjs triage --milestone R1
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < "$HOME/.config/typesafe/jev.key")" node scripts/backlog-jev.mjs criteria 209 211
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < "$HOME/.config/typesafe/jev.key")" node scripts/backlog-jev.mjs preflight 437
+TYPESAFE_API_KEY="$(tr -d '[:space:]' < "$HOME/.config/typesafe/jev.key")" node scripts/backlog-jev.mjs api-gap "<UI need> :: <current client workaround>"
+```
+
+Run `triage` to select and group work, `criteria` before closing an issue, and `preflight` on the proposed PR head. Treat model probabilities as review signals: verify them against issue text, recorded dependencies, decisions, code, tests, and CI. Record newly discovered blockers in GitHub before proceeding. See `docs/product/delivery-cycle.md` for queue rules and the complete delivery loop.
+
 ## Commits & Pull Requests
 
 Recent commits use `feat(scope): summary (#issue)` or `docs(scope): summary (#issue)`. Keep each branch reviewable and link its issue. Complete the PR template’s summary, validation, and contract/operations sections, including authentication, wire, persistence, and deployment effects where relevant. Run applicable local gates and require CI on the final PR head before merge. CI is one five-minute job (format, build, unit tests); the broker suite is a local gate (`./scripts/check-backend.sh full`). See `CONTRIBUTING.md` for the full delivery workflow and `SECURITY.md` for vulnerability reporting.

@@ -9,5 +9,6 @@ namespace Bdgrz.Compliance.Features.Workforce;
 [Discriminator("bdgrz.workforce.work-relationship.record", 1)]
 public sealed record RecordWorkRelationship(Uuid TenantId, Uuid PersonId, string SourceWorkerId,
     string WorkerType, string LifecycleStatus, DateOnly StartDate, DateOnly? EndDate = null,
-    string? Department = null, Uuid? ManagerPersonId = null, Uuid? SponsorPersonId = null)
+    string? Department = null, Uuid? ManagerPersonId = null, Uuid? SponsorPersonId = null,
+    string? EmploymentStatusReason = null)
     : IRequest<WorkRelationshipRegistration>, IWorkforceRequest, ICallable;

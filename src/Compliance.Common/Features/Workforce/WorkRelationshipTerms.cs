@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// </summary>
 public sealed record WorkRelationshipTerms(string WorkerType, string LifecycleStatus,
     DateOnly StartDate, DateOnly? EndDate, string? Department, Uuid? ManagerPersonId,
-    Uuid? SponsorPersonId);
+    Uuid? SponsorPersonId, string? EmploymentStatusReason = null);

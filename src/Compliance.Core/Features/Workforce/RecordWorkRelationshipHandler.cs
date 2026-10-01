@@ -13,7 +13,7 @@ public sealed class RecordWorkRelationshipHandler(IAggregateExecutor executor,
         var request = context.Request;
         var terms = new WorkRelationshipTerms(request.WorkerType, request.LifecycleStatus,
             request.StartDate, request.EndDate, request.Department, request.ManagerPersonId,
-            request.SponsorPersonId);
+            request.SponsorPersonId, request.EmploymentStatusReason);
         var invalid = await WorkRelationshipReferences.ValidateAsync(reader, request.TenantId,
             request.PersonId, terms, ct).ConfigureAwait(false);
         if (invalid is not null)
