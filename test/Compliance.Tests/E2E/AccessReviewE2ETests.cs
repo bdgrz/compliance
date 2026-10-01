@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -59,19 +58,9 @@ public sealed class AccessReviewE2ETests(BrokerStackFixture broker)
             new { expected_revision = 2, attestation = "Observed population." });
         var population = await WaitForAsync(owner, $"{root}/access-populations/{populationId}",
             static _ => true);
-        JsonElement listed;
-        try
-        {
-            listed = await WaitForAsync(owner, $"{root}/system-instances/{instanceId}/access-populations",
-                static body => body.GetProperty("items").EnumerateArray()
-                    .Any(item => item.GetProperty("status").GetString() == "accepted"));
-        }
-        catch (TimeoutException timeout)
-        {
-            throw new TimeoutException(timeout.Message + Environment.NewLine +
-                await DescribePopulationDirectoryAsync(factory,
-                    Uuid.Parse(tenantId, CultureInfo.InvariantCulture)), timeout);
-        }
+        var listed = await WaitForAsync(owner, $"{root}/system-instances/{instanceId}/access-populations",
+            static body => body.GetProperty("items").EnumerateArray()
+                .Any(item => item.GetProperty("status").GetString() == "accepted"));
         var coverage = await WaitForAsync(owner,
             $"{root}/applications/{applicationId}/access-review-coverage", static _ => true);
         using var launch = await owner.PostAsJsonAsync($"{root}/access-review-campaigns", new
@@ -220,34 +209,6 @@ public sealed class AccessReviewE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException($"{path} did not reach the expected state.");
-    }
-
-    static async Task<string> DescribePopulationDirectoryAsync(
-        Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> factory, Uuid tenantId)
-    {
-        await using var scope = factory.Services.CreateAsyncScope();
-        var directory = scope.ServiceProvider.GetRequiredService<
-            Bdgrz.Compliance.Features.AccessReviews.IAccessPopulationDirectoryReader>();
-        var events = scope.ServiceProvider.GetRequiredService<IDomainEventReader>();
-        var pattern = EventStreamPattern.ForPattern(tenantId.ToString(), "access-populations");
-        var checkpoint = await directory.LoadCheckpointAsync(tenantId);
-        var pending = new List<string>();
-        await foreach (var record in events.ReadAsync(pattern, checkpoint.Cursor, CancellationToken.None))
-        {
-            pending.Add($"{record.Stream} @{record.ResourceOffset} {record.Event.GetType().Name}");
-            if (pending.Count == 20)
-                break;
-        }
-        var all = new List<string>();
-        await foreach (var record in events.ReadAsync(pattern, ProjectionCheckpoint.Start.Cursor,
-                           CancellationToken.None))
-        {
-            all.Add($"{record.Stream} @{record.ResourceOffset} {record.Event.GetType().Name}");
-            if (all.Count == 20)
-                break;
-        }
-        return $"checkpoint: {checkpoint}; pending after checkpoint: [{string.Join(", ", pending)}]; " +
-               $"all: [{string.Join(", ", all)}]";
     }
 
     static async Task<JsonElement> ReadAsync(HttpResponseMessage response) =>
