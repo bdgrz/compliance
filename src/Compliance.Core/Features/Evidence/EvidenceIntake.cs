@@ -6,9 +6,9 @@ namespace Bdgrz.Compliance.Features.Evidence;
 
 /// <summary>
 ///     Captures uploaded content as evidence under M0-D16: store by digest, register as pending inspection, then apply
-///     the inspection result. Malware is quarantined in storage; a detected secret or invalid upload is purged and only
-///     its tombstone remains. Identical content in a tenant always resolves to one artifact, whose stream serializes
-///     concurrent uploads of the same bytes.
+///     the inspection result durably before its storage effect. Request retries resume pending inspection or the
+///     recorded verdict's storage effect. Malware is quarantined; a detected secret or invalid upload is purged.
+///     Identical content in a tenant resolves to one artifact, preserving its initial metadata and collector.
 /// </summary>
 public sealed class EvidenceIntake(IArtifactContentStore store, IArtifactInspector inspector,
     IAggregateReader reader, IAggregateWriter writer, TimeProvider clock)
@@ -32,44 +32,56 @@ public sealed class EvidenceIntake(IArtifactContentStore store, IArtifactInspect
         var reference = written.Content;
         var artifact = await reader.HydrateAsync(new EvidenceArtifact(tenantId, IdFor(tenantId, reference.Sha256)),
             ct).ConfigureAwait(false);
-        if (artifact.IsCreated)
+        var duplicate = artifact.IsCreated;
+        if (!duplicate)
         {
-            // A rejected upload's bytes must never reappear, even when uploaded again.
-            if (artifact.State == EvidenceArtifactStates.Rejected)
-                await store.DeleteAsync(reference, ct).ConfigureAwait(false);
-            return Result<EvidenceCapture>.Success(new EvidenceCapture(artifact.Id, artifact.State!,
-                artifact.StateReason, true));
+            var registered = artifact.Register(normalized, reference.Sha256, reference.Length, collector,
+                clock.GetUtcNow());
+            if (!registered.IsSuccess)
+                return Result<EvidenceCapture>.Failure(registered.Error);
+            await writer.SaveAsync(artifact, dispatch, ct).ConfigureAwait(false);
         }
-        var registered = artifact.Register(normalized, reference.Sha256, reference.Length, collector,
-            clock.GetUtcNow());
-        if (!registered.IsSuccess)
-            return Result<EvidenceCapture>.Failure(registered.Error);
-        var inspection = await inspector.InspectAsync(reference, ct).ConfigureAwait(false);
-        var outcome = inspection.State switch
+        if (artifact.State == EvidenceArtifactStates.PendingInspection)
         {
-            ArtifactInspectionState.Clean => EvidenceInspectionOutcome.Clean,
-            ArtifactInspectionState.Quarantined => EvidenceInspectionOutcome.Malware,
-            ArtifactInspectionState.SecretDetected => EvidenceInspectionOutcome.SecretDetected,
-            ArtifactInspectionState.Invalid => EvidenceInspectionOutcome.Invalid,
-            _ => (EvidenceInspectionOutcome?)null,
-        };
-        if (outcome is { } result)
-        {
-            if (artifact.RecordInspection(result, clock.GetUtcNow()) is { } failure)
-                return Result<EvidenceCapture>.Failure(new RequestError(RequestErrorKind.Conflict,
-                    failure.Message ?? "The evidence artifact could not record its inspection."));
-            if (result == EvidenceInspectionOutcome.Malware)
-                await store.QuarantineAsync(reference, ct).ConfigureAwait(false);
-            else if (result is EvidenceInspectionOutcome.SecretDetected or EvidenceInspectionOutcome.Invalid)
-                await store.DeleteAsync(reference, ct).ConfigureAwait(false);
+            var inspection = await inspector.InspectAsync(reference, ct).ConfigureAwait(false);
+            var outcome = inspection.State switch
+            {
+                ArtifactInspectionState.Clean => EvidenceInspectionOutcome.Clean,
+                ArtifactInspectionState.Quarantined => EvidenceInspectionOutcome.Malware,
+                ArtifactInspectionState.SecretDetected => EvidenceInspectionOutcome.SecretDetected,
+                ArtifactInspectionState.Invalid => EvidenceInspectionOutcome.Invalid,
+                _ => (EvidenceInspectionOutcome?)null,
+            };
+            if (outcome is { } result)
+            {
+                if (artifact.RecordInspection(result, clock.GetUtcNow()) is { } failure)
+                    return Conflict(failure.Message ?? "The evidence artifact could not record its inspection.");
+                await writer.SaveAsync(artifact, dispatch, ct).ConfigureAwait(false);
+            }
         }
-        await writer.SaveAsync(artifact, dispatch, ct).ConfigureAwait(false);
+        if (artifact.State == EvidenceArtifactStates.Quarantined &&
+            !await store.QuarantineAsync(reference, ct).ConfigureAwait(false))
+        {
+            await using var quarantined = await store.OpenQuarantinedAsync(reference, ct).ConfigureAwait(false);
+            if (quarantined is null)
+                return Conflict("The evidence content could not be quarantined.");
+        }
+        else if (artifact.State == EvidenceArtifactStates.Rejected &&
+                 !await PurgeAsync(reference, ct).ConfigureAwait(false))
+            return Conflict("The rejected evidence content could not be purged.");
         return Result<EvidenceCapture>.Success(new EvidenceCapture(artifact.Id, artifact.State!,
-            artifact.StateReason, false));
+            artifact.StateReason, duplicate));
     }
 
     public static Uuid IdFor(Uuid tenantId, string sha256) =>
         Uuid.CreateVersion5(tenantId, "evidence-content:" + sha256);
+
+    async ValueTask<bool> PurgeAsync(ArtifactContentReference content, CancellationToken ct) =>
+        await store.DeleteAsync(content, ct).ConfigureAwait(false) is
+            ArtifactDeletionResult.Deleted or ArtifactDeletionResult.NotFound;
+
+    static Result<EvidenceCapture> Conflict(string message) =>
+        Result<EvidenceCapture>.Failure(new RequestError(RequestErrorKind.Conflict, message));
 
     static Result<EvidenceCapture> Validation(string message) =>
         Result<EvidenceCapture>.Failure(new RequestError(RequestErrorKind.Validation, message));
