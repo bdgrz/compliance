@@ -255,6 +255,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.tenant.get",
             "bdgrz.inventory.component.record",
             "bdgrz.inventory.component.revise",
+            "bdgrz.inventory.asset.boundary_references.list",
+            "bdgrz.inventory.component.boundary_references.list",
             "bdgrz.inventory.component.get",
             "bdgrz.inventory.component.list",
             "bdgrz.inventory.component.revision.list",

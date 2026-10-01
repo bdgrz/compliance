@@ -21,6 +21,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(GetSystemInstance))]
 [JsonSerializable(typeof(ListSystemInstances))]
 [JsonSerializable(typeof(ListApplicationBoundaryReferences))]
+[JsonSerializable(typeof(ListTechnologyComponentBoundaryReferences))]
+[JsonSerializable(typeof(ListInformationAssetBoundaryReferences))]
 [JsonSerializable(typeof(ListSystemInstanceBoundaryReferences))]
 [JsonSerializable(typeof(PreviewApplicationChange))]
 [JsonSerializable(typeof(RetireApplication))]

@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed partial class ApplicationBoundaryReferenceProjector(
     IApplicationBoundaryReferenceProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant("boundaries"),
-        "ApplicationBoundaryReferencesV1"),
+        "ApplicationBoundaryReferencesV2"),
       IProjectorHandler<BoundaryDraftCreated>, IProjectorHandler<BoundaryDraftRevised>,
       IProjectorHandler<BoundaryDraftDiscarded>, IProjectorHandler<BoundaryReviewed>,
       IProjectorHandler<BoundaryApproved>, IProjectorHandler<BoundarySuccessorProposed>

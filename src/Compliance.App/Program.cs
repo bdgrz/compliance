@@ -196,6 +196,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
+        .AddMcpTool<ListTechnologyComponentBoundaryReferences>(tool => tool.ReadOnly())
+        .AddMcpTool<ListInformationAssetBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListTechnologyComponents>(tool => tool.ReadOnly())
         .AddMcpTool<ListTechnologyComponentRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<RecordInformationAsset>()
@@ -1274,6 +1276,18 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPut<ReviseTechnologyComponent>(
             "/api/v1/tenants/{tenant_id}/technology-components/{component_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListTechnologyComponentBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/technology-components/{component_id}/boundary-references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for a technology component")
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListInformationAssetBoundaryReferences,
+            Page<ApplicationBoundaryReferenceView>>(
+            "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/boundary-references")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List current draft and approved boundary references for an information asset")
         .WithTags("TechnologyInventory");
     app.MapPortiaGet<GetTechnologyComponent, TechnologyComponentView>(
             "/api/v1/tenants/{tenant_id}/technology-components/{component_id}")

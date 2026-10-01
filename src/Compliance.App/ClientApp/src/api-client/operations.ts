@@ -6612,6 +6612,83 @@ export type ReviseInformationAssetError_500 = {
   "transient"?: boolean;
 };
 
+export type ListInformationAssetBoundaryReferencesPath = {
+  "information_asset_id": string;
+  "tenant_id": string;
+};
+
+export type ListInformationAssetBoundaryReferencesQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListInformationAssetBoundaryReferencesResponse200 = PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626;
+
+export type ListInformationAssetBoundaryReferencesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_401 = undefined;
+
+export type ListInformationAssetBoundaryReferencesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListInformationAssetBoundaryReferencesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type PreviewInformationAssetChangePath = {
   "information_asset_id": string;
   "tenant_id": string;
@@ -23367,6 +23444,83 @@ export type ReviseTechnologyComponentError_415 = {
 };
 
 export type ReviseTechnologyComponentError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesPath = {
+  "component_id": string;
+  "tenant_id": string;
+};
+
+export type ListTechnologyComponentBoundaryReferencesQuery = {
+  "cursor"?: string | null;
+  "limit"?: number | string;
+};
+
+export type ListTechnologyComponentBoundaryReferencesResponse200 = PortiaED1DF65949C6DF6D7D9CCF63B9EE97A054381BD875B459C20A7BD5339B9C7626;
+
+export type ListTechnologyComponentBoundaryReferencesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_401 = undefined;
+
+export type ListTechnologyComponentBoundaryReferencesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ListTechnologyComponentBoundaryReferencesError_500 = {
   "type": string;
   "title": string;
   "status": number;

@@ -400,6 +400,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetSystemInstanceHandler>()
             .AddRequestHandler<ListSystemInstancesHandler>()
             .AddRequestHandler<ListApplicationBoundaryReferencesHandler>()
+            .AddRequestHandler<ListTechnologyComponentBoundaryReferencesHandler>()
+            .AddRequestHandler<ListInformationAssetBoundaryReferencesHandler>()
             .AddRequestHandler<ListSystemInstanceBoundaryReferencesHandler>()
             .AddRequestHandler<PreviewApplicationChangeHandler>()
             .AddRequestHandler<RetireApplicationHandler>()
@@ -815,7 +817,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<AccessReviewScopeDirectoryProjector>(
                 AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
-                "ApplicationBoundaryReferencesV1", WorkloadScope.PerTenant)
+                "ApplicationBoundaryReferencesV2", WorkloadScope.PerTenant)
             .AddProjector<ApplicationControlDraftReferenceProjector>(
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)

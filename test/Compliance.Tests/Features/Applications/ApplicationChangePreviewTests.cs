@@ -288,7 +288,7 @@ public sealed class ApplicationChangePreviewTests
                     "application", "Payroll", applicationId, "Operations", "In scope", false)]),
             actorId, "Manager", now);
         await using (var batch = await references.BeginAsync(new ProjectionBatchContext(
-                         new CheckpointIdentity("ApplicationBoundaryReferencesV1",
+                         new CheckpointIdentity("ApplicationBoundaryReferencesV2",
                              EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries")),
                          ProjectionCheckpoint.Start)))
         {
@@ -415,7 +415,7 @@ public sealed class ApplicationChangePreviewTests
         {
             Assert.True(await cursor.MoveNextAsync());
             await using var batch = await references.BeginAsync(new ProjectionBatchContext(
-                new CheckpointIdentity("ApplicationBoundaryReferencesV1",
+                new CheckpointIdentity("ApplicationBoundaryReferencesV2",
                     EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries")),
                 ProjectionCheckpoint.Start));
             await references.ApplyAsync(boundary);
