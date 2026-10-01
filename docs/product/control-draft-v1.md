@@ -148,12 +148,36 @@ aggregate continues to enforce expected revisions for stale edits.
   retirement proposal at its exact revision. The approved version stays current, its content is
   restored on a new revision so stale reviews and digests cannot apply, and a `withdrawal`
   decision is kept in the decision history.
-- The impact preview now has authoritative contributors for `mappings` (active and pending
+- The impact preview has authoritative contributors for `mappings` (active and pending
   criterion mappings naming the control), `risk_treatments` (proposed and accepted control
   treatment assertions), and `readiness` (whether the latest readiness assessment relied on a
-  version of the control). `engagements`, `evidence`, and `work` stay `unlinked` because no
-  record in those contexts can reference a control in this build. A context naming more than
-  200 records reports `pending`, which blocks the decision.
+  version of the control).
+- The `evidence` contributor includes retained open, fulfilled, and cancelled requests; their
+  fulfilment artifacts; every attestation version's support; planned/current/submitted evaluation
+  evidence; corrective-action evidence; and closure evidence even after a finding is reopened.
+  Artifact IDs are deduplicated while their source relationships and inspected version/digest
+  remain in the preview. Unresolved textual support is represented by its canonical owning
+  attestation, evaluation, action, or closure. This read does not verify artifact content.
+- The `work` contributor includes every pending, approved, and superseded cadence plan;
+  every recorded occurrence, including completed historical work; retained evaluations;
+  related findings and corrective actions; and retained evidence requests. A cadence plan
+  represents its future expected work without generating an infinite list of occurrences.
+  Findings resolve through canonical control/occurrence/evaluation IDs or the owning control's
+  normalized identifier. Exact control-version links are retained where the source has them;
+  a request linked only to the stable control has no exact `version_id`.
+- Evidence and work read their authoritative tenant/program streams without actor-filtered
+  queues or a date horizon. Source revisions and retained relationships enter the digest, so
+  a source mutation invalidates an earlier preview when approval recomputes it. Each whole
+  context combines its sources before applying the 200-record bound; overflow reports
+  `pending` and blocks both successor and retirement decisions. `engagements` remains
+  `unlinked` because that owning source is absent from this build.
+- Impact confirmation re-reads independent source streams before the Control decision append.
+  The owning Control revision is checked at append, but independent source revisions are not
+  atomically fenced through that write. Concurrent source mutation between confirmation and
+  append remains the stronger atomic linked-source contract in
+  [#519](https://github.com/bdgrz/compliance/issues/519), separate from these evidence/work
+  contributors. The contributors preserve the existing recomputed-digest contract; sequential
+  mutation tests prove that recheck and do not prove the later interleaving safe.
 - Person-owner designation and withdrawal emit new discriminators, so they share the
   `Compliance:Controls:LifecycleEnabled` readers-before-writers gate. Enabling it and
   `ActivationEnabled` in production remains a rollout decision.
