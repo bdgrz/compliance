@@ -306,6 +306,7 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzAccessGrantDirectory>());
         services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
         services.AddScoped<OperatingAuthority>();
+        services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
         services.AddScoped<BoundaryResponsibilityScopeValidator>();
         services.AddScoped<ControlResponsibilityScopeValidator>();
@@ -504,6 +505,16 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReopenFindingHandler>()
             .AddRequestHandler<GetFindingHandler>()
             .AddRequestHandler<ListFindingsHandler>()
+            .AddRequestHandler<ListWorkHandler>()
+            .AddRequestHandler<GetWorkItemHandler>()
+            .AddRequestHandler<ClaimWorkItemHandler>()
+            .AddRequestHandler<AssignWorkItemHandler>()
+            .AddRequestHandler<DelegateWorkItemHandler>()
+            .AddRequestHandler<EscalateWorkItemHandler>()
+            .AddRequestHandler<ListWorkRemindersHandler>()
+            .AddRequestHandler<GetWorkDigestHandler>()
+            .AddRequestHandler<SetWorkDigestPreferenceHandler>()
+            .AddRequestHandler<GetWorkDigestPreferenceHandler>()
             .AddRequestAuthorizer<OperationsReactionAuthorizer>()
             .AddRequestHandler<AcceptAccessPopulationHandler>()
             .AddRequestHandler<ApproveAccessExpectationHandler>()
