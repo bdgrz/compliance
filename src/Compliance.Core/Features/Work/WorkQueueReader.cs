@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.PolicyDistribution;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
@@ -10,7 +11,7 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     membership, and eligibility answers so each is hydrated at most once.
 /// </summary>
 public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority authority,
-    TimeProvider clock)
+    TimeProvider clock, ICampaignDirectoryReader? campaigns = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -40,8 +41,12 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     {
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var candidates = await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, ct).ConfigureAwait(false);
+        var candidates = (await WorkSource.LoadAsync(reader, tenantId, programId, today,
+            today.AddDays(horizonDays), now, workItemId, ct).ConfigureAwait(false)).ToList();
+        if (campaigns is not null)
+            candidates.AddRange((await PolicyCampaignWork.LoadAsync(reader, campaigns, tenantId, programId,
+                    today, ct).ConfigureAwait(false))
+                .Where(candidate => workItemId is not { } wanted || candidate.WorkItemId == wanted));
         var ledger = await reader.HydrateAsync(new WorkAssignmentLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         var manages = await authority.ManagesProgramAsync(tenantId, actor, programId, ct)
