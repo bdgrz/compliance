@@ -8,6 +8,30 @@ namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
 public sealed class AccessClassificationAndVarianceTests
 {
     [Fact]
+    public async Task ShouldRetainGovernedServiceIdentityCorrelationGivenProviderPrincipalClassification()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        fixture.Sources.Identities[fixture.BotIdentityId] = new ServiceIdentityView(fixture.TenantId,
+            fixture.BotIdentityId, 1, "Deploy bot", "bot", "Deploys", null, "active", "person",
+            fixture.AdaPersonId, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(90)), "manual", false,
+            [], ActorReference.ForMember(Uuid.CreateVersion4(), "Seeder"), DateTimeOffset.UtcNow);
+
+        // Act
+        await fixture.ClassifyAsync(populationId, "bot", AccessReviewVocabulary.Nhi,
+            serviceIdentityId: fixture.BotIdentityId);
+        var principals = await fixture.SendAsync(fixture.ManagerUserId,
+            new ListAccessPrincipals(fixture.TenantId, populationId));
+
+        // Assert
+        var principal = Assert.Single(principals.Items, item => item.ProviderSubjectId == "bot");
+        Assert.Equal("nhi", principal.Classification);
+        Assert.Equal(fixture.BotIdentityId, principal.Current!.ServiceIdentityId);
+        Assert.Equal(fixture.BotIdentityId, Assert.Single(principal.History).ServiceIdentityId);
+    }
+
+    [Fact]
     public async Task ShouldProposeWithoutDecidingAndKeepHistoryGivenReclassification()
     {
         // Arrange

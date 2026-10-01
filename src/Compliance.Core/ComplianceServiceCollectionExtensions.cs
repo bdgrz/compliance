@@ -211,6 +211,13 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IWorkforceObservationResolutionReader>(provider =>
             provider.GetRequiredService<FitzWorkforceObservationResolutionDirectory>());
         services.AddScoped<WorkforceObservationResolutions>();
+        services.AddScoped<FitzWorkforceSourceDirectory>();
+        services.AddScoped<IWorkforceSourceDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzWorkforceSourceDirectory>());
+        services.AddScoped<IWorkforceSourceProjection>(provider =>
+            provider.GetRequiredService<FitzWorkforceSourceDirectory>());
+        services.AddScoped<WorkforceSourceReadConsistency>();
+        services.AddScoped<WorkforceSourceTargets>();
         services.AddScoped<WorkforceRosterReconciler>();
         services.AddScoped<FitzServiceIdentityDirectory>();
         services.AddScoped<IServiceIdentityDirectoryProjection>(provider =>
@@ -430,6 +437,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListWorkforceObservationsHandler>()
             .AddRequestHandler<ListWorkforceReconciliationObservationsHandler>()
             .AddRequestHandler<ResolveWorkforceObservationHandler>()
+            .AddRequestHandler<RecordWorkforceSourceObservationHandler>()
+            .AddRequestHandler<GetWorkforceSourceObservationHandler>()
+            .AddRequestHandler<ListWorkforceSourceObservationsHandler>()
+            .AddRequestHandler<PreviewWorkforceSourceObservationHandler>()
+            .AddRequestHandler<ReconcileWorkforceSourceObservationHandler>()
             .AddRequestHandler<RecordServiceIdentityHandler>()
             .AddRequestHandler<ReviseServiceIdentityHandler>()
             .AddRequestHandler<GetServiceIdentityHandler>()
@@ -805,6 +817,7 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<WorkforceObservationResolutionProjector>(
                 "WorkforceObservationResolutionsV1", WorkloadScope.PerTenant)
+            .AddProjector<WorkforceSourceProjector>("WorkforceSourcesV1", WorkloadScope.PerTenant)
             .AddProjector<ServiceIdentityDirectoryProjector>("ServiceIdentityDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",

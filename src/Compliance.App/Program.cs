@@ -189,6 +189,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListWorkforceObservations>(tool => tool.ReadOnly())
         .AddMcpTool<ListWorkforceReconciliationObservations>(tool => tool.ReadOnly())
         .AddMcpTool<ResolveWorkforceObservation>(tool => tool.Idempotent())
+        .AddMcpTool<RecordWorkforceSourceObservation>(tool => tool.Idempotent())
+        .AddMcpTool<GetWorkforceSourceObservation>(tool => tool.ReadOnly())
+        .AddMcpTool<ListWorkforceSourceObservations>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewWorkforceSourceObservation>(tool => tool.ReadOnly())
+        .AddMcpTool<ReconcileWorkforceSourceObservation>(tool => tool.Idempotent())
         .AddMcpTool<RecordServiceIdentity>()
         .AddMcpTool<ReviseServiceIdentity>(tool => tool.Idempotent())
         .AddMcpTool<GetServiceIdentity>(tool => tool.ReadOnly())
@@ -1270,6 +1275,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Workforce");
     app.MapPortiaPut<ResolveWorkforceObservation>(
             "/api/v1/tenants/{tenant_id}/workforce-observations/{observation_id}/resolution")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPost<RecordWorkforceSourceObservation, WorkforceSourceRegistration>(
+            "/api/v1/tenants/{tenant_id}/workforce-source-observations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<GetWorkforceSourceObservation, WorkforceSourceView>(
+            "/api/v1/tenants/{tenant_id}/workforce-source-observations/{observation_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<ListWorkforceSourceObservations, Page<WorkforceSourceView>>(
+            "/api/v1/tenants/{tenant_id}/workforce-source-observations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaGet<PreviewWorkforceSourceObservation, WorkforceSourcePreview>(
+            "/api/v1/tenants/{tenant_id}/workforce-source-observations/{observation_id}/preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Workforce");
+    app.MapPortiaPut<ReconcileWorkforceSourceObservation>(
+            "/api/v1/tenants/{tenant_id}/workforce-source-observations/{observation_id}/decision")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Workforce");
     app.MapPortiaGet<ListWorkforceReconciliationObservations,
