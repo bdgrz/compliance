@@ -105,9 +105,10 @@ public sealed class SystemInstanceAccessReviewScope : Aggregate
             return new RequestError(RequestErrorKind.Validation,
                 "A new scope decision cannot take effect before the decision it supersedes.");
 
-        // Separation of duties (M0-D03, M0-D05): the member who registered the instance may not
-        // approve its scope unless an Org Admin approved an exact-scope waiver.
-        var conflict = approverMemberId == instance.RegisteredByMemberId;
+        // Separation of duties (M0-D03, M0-D05): the registrant and current access owner may
+        // approve scope only with an independently approved exact-scope waiver.
+        var conflict = approverMemberId == instance.RegisteredByMemberId ||
+                       approverMemberId == instance.AccessOwnerMemberId;
         if (!conflict)
             return waiver is null ? null : new RequestError(RequestErrorKind.Forbidden,
                 "A separation-of-duties waiver may only be used for a current conflict.");
@@ -118,6 +119,6 @@ public sealed class SystemInstanceAccessReviewScope : Aggregate
                waiver.Allows(scope, approverMemberId, decidedAt)
             ? null
             : new RequestError(RequestErrorKind.Forbidden,
-                "The member who registered the system instance cannot approve its access-review scope without an active exact-scope waiver.");
+                "The registrant or access owner cannot approve the system instance's access-review scope without an active exact-scope waiver.");
     }
 }

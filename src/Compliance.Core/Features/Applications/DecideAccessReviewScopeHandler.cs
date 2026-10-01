@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -27,6 +28,18 @@ public sealed class DecideAccessReviewScopeHandler(IAggregateExecutor executor,
             return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
                 $"The system instance is at revision {instance.Revision}; the decision names revision {request.ExpectedSystemInstanceRevision}."));
+        var application = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
+            request.ApplicationId), ct).ConfigureAwait(false);
+        if (application.AccessOwnerPersonId is { } ownerId)
+        {
+            var owner = await reader.HydrateAsync(new Person(request.TenantId, ownerId), ct)
+                .ConfigureAwait(false);
+            if (owner.IsCreated && owner.CorrelatedUserId is { } ownerUserId)
+                instance = instance with
+                {
+                    AccessOwnerMemberId = RbacIds.Member(request.TenantId, ownerUserId),
+                };
+        }
         SeparationOfDutiesWaiver? waiver = null;
         if (request.SeparationOfDutiesWaiverId is { } waiverId)
             waiver = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId,

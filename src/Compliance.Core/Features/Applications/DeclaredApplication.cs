@@ -22,6 +22,7 @@ public sealed class DeclaredApplication : Aggregate
     public bool IsCreated => _created;
     public bool IsRetired => _retired;
     public long Revision => _revision;
+    public Uuid? AccessOwnerPersonId { get; private set; }
 
     public DeclaredApplication(Uuid tenantId, Uuid applicationId)
         : base(applicationId, new EventStreamAddress(tenantId.ToString(), "applications",
@@ -38,8 +39,13 @@ public sealed class DeclaredApplication : Aggregate
             _initialClassification = ev.Classification;
             _initialSystemOwner = ev.SystemOwnerPersonId;
             _initialAccessOwner = ev.AccessOwnerPersonId;
+            AccessOwnerPersonId = ev.AccessOwnerPersonId;
         });
-        On<ApplicationRevised>(ev => _revision = ev.Revision);
+        On<ApplicationRevised>(ev =>
+        {
+            _revision = ev.Revision;
+            AccessOwnerPersonId = ev.AccessOwnerPersonId;
+        });
         On<ApplicationRetired>(ev =>
         {
             _revision = ev.Revision;

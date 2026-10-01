@@ -152,6 +152,46 @@ public sealed class AccessReviewScopeDecisionTests
         Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
     }
 
+    [Theory]
+    [InlineData("exact", true)]
+    [InlineData("other_tenant", false)]
+    [InlineData("other_beneficiary", false)]
+    [InlineData("other_revision", false)]
+    [InlineData("expired", false)]
+    [InlineData("unapproved", false)]
+    public void ShouldEnforceExistingWaiverPolicyGivenAccessOwnerConflict(string variant,
+        bool allowed)
+    {
+        // Arrange
+        var instance = ScopedSystemInstance.From(Instance()) with { AccessOwnerMemberId = LeadId };
+        var scope = new SystemInstanceAccessReviewScope(TenantId, instance.Id);
+        var waiverScope = new SeparationOfDutiesWaiverScope(
+            SeparationOfDutiesRecordTypes.SystemInstanceAccessReviewScope, instance.Id,
+            instance.Id, variant == "other_revision" ? instance.Revision + 1 : instance.Revision,
+            SeparationOfDutiesActions.Approve);
+        var waiver = new SeparationOfDutiesWaiver(variant == "other_tenant"
+            ? Uuid.CreateVersion4() : TenantId, Uuid.CreateVersion4());
+        Assert.Null(waiver.Record(waiverScope, variant == "other_beneficiary"
+                ? Uuid.CreateVersion4() : LeadId, Uuid.CreateVersion4(), "Admin", "Small team",
+            Now.AddDays(-2), variant == "expired" ? Now : Now.AddDays(1)));
+        if (variant != "unapproved")
+            Assert.Null(waiver.Approve(Uuid.CreateVersion4(), "Second admin", Now.AddDays(-1)));
+
+        // Act
+        var result = scope.Decide(instance, 0, Uuid.CreateVersion4(), "included", "Production",
+            Now, null, LeadId, "Access owner", Now, waiver);
+
+        // Assert
+        Assert.Equal(allowed, result.IsSuccess);
+        if (allowed)
+            Assert.Equal(waiver.Id, Assert.Single(scope.Decisions).SeparationOfDutiesWaiverId);
+        else
+        {
+            Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+            Assert.Empty(scope.Decisions);
+        }
+    }
+
     [Fact]
     public void ShouldRejectDecisionGivenRetiredInstance()
     {

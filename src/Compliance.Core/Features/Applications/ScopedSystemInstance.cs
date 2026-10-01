@@ -9,6 +9,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed record ScopedSystemInstance(Uuid Id, Uuid ApplicationId, long Revision,
     bool IsRetired, Uuid RegisteredByMemberId)
 {
+    public Uuid? AccessOwnerMemberId { get; init; }
+
     public static ScopedSystemInstance From(DeclaredSystemInstance instance)
     {
         ArgumentNullException.ThrowIfNull(instance);
