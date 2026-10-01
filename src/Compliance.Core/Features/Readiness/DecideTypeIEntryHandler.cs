@@ -16,9 +16,7 @@ public sealed class DecideTypeIEntryHandler(IAggregateExecutor executor, IAggreg
         if (request.SeparationOfDutiesWaiverId is { } waiverId)
             waiver = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId,
                 waiverId), ct).ConfigureAwait(false);
-        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
-            ? subject
-            : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
+        var actor = ReadinessActor.From(context, request.TenantId);
         return await executor.ExecuteAsync(new ReadinessLedger(request.TenantId,
                 request.ProgramId),
             ledger =>
@@ -26,9 +24,7 @@ public sealed class DecideTypeIEntryHandler(IAggregateExecutor executor, IAggreg
                 var failure = ledger.DecideTypeIEntry(request.AssessmentId,
                     request.ExpectedRevision, context.RequestId, request.Outcome,
                     request.Rationale, request.AcknowledgedGapIds ?? [],
-                    RbacIds.Member(request.TenantId, userId),
-                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow(),
-                    waiver);
+                    actor.MemberId, actor.Display, clock.GetUtcNow(), waiver);
                 return CommandFailureRequestAdapter.ToOutcome(failure,
                     ledger.FindTypeIEntryDecision(context.RequestId)!);
             }, context, ct).ConfigureAwait(false);

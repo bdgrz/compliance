@@ -2,6 +2,9 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Readiness;
 
-/// <summary>One program risk with its evaluation status as of the assessment time.</summary>
-public sealed record ReadinessRiskInput(Uuid RiskId, string Identifier, long Revision,
-    string EvaluationStatus);
+/// <summary>
+///     One program risk resolved as of the assessment time: when it was created, the revision in
+///     force, and its evaluation status from assessments, treatment, and acceptances recorded by then.
+/// </summary>
+public sealed record ReadinessRiskInput(Uuid RiskId, string Identifier, DateTimeOffset CreatedAt,
+    long Revision, string EvaluationStatus);

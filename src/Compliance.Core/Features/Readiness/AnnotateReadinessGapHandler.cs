@@ -1,4 +1,3 @@
-using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -12,17 +11,14 @@ public sealed class AnnotateReadinessGapHandler(IAggregateExecutor executor, Tim
         IRequestContext<AnnotateReadinessGap> context, CancellationToken ct)
     {
         var request = context.Request;
-        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
-            ? subject
-            : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");
+        var actor = ReadinessActor.From(context, request.TenantId);
         return await executor.ExecuteAsync(new ReadinessLedger(request.TenantId,
                 request.ProgramId),
             ledger =>
             {
                 var failure = ledger.Annotate(request.AssessmentId, request.GapId,
                     request.ExpectedRevision, context.RequestId, request.Body,
-                    RbacIds.Member(request.TenantId, userId),
-                    UserIdentityClaims.BdgrzDisplay(context.Actor, userId), clock.GetUtcNow());
+                    actor.MemberId, actor.Display, clock.GetUtcNow());
                 return CommandFailureRequestAdapter.ToOutcome(failure,
                     ledger.FindAnnotation(context.RequestId)!);
             }, context, ct).ConfigureAwait(false);

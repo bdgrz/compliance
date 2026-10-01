@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Criteria;
@@ -159,50 +160,53 @@ public static class ReadinessRules
         var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
 
         var approved = sources.Boundaries
-            .Select(static boundary => boundary.LatestApprovedVersion)
+            .Select(boundary => BoundaryVersionAt(boundary, asOf, asOfDate))
             .OfType<BoundaryVersionView>()
-            .Where(version => version.ChangedAt <= asOf &&
-                              version.EffectiveFrom is { } from && from <= asOfDate)
             .OrderBy(static version => version.BoundaryId.ToString(), StringComparer.Ordinal)
             .ToArray();
         foreach (var version in approved)
             fingerprint.Append("boundary|").Append(version.BoundaryId).Append('|')
                 .Append(version.VersionId).Append('\n');
         inputs.Add(new ReadinessInputView("boundaries", "assessed", approved.Length,
-            "Approved boundary versions effective on the as-of date; drafts and pending reviews do not count."));
+            "Boundary versions approved by the as-of time and effective on the as-of date; drafts and pending reviews do not count."));
         if (approved.Length == 0)
             gaps.Add(new ReadinessGapView(GapIdFor(programId, BoundaryApproved, "boundaries"),
                 "no_approved_boundary", "boundaries", BoundaryApproved,
                 "No approved system boundary version was effective on the as-of date.", []));
 
         var commitments = sources.Commitments
-            .OrderBy(static commitment => commitment.Identifier, StringComparer.Ordinal)
+            .Where(commitment => commitment.CreatedAt <= asOf)
+            .Select(commitment => (Commitment: commitment,
+                Version: CommitmentVersionAt(commitment, asOf, asOfDate)))
+            .OrderBy(static pair => pair.Commitment.Identifier, StringComparer.Ordinal)
+            .ThenBy(static pair => pair.Commitment.DraftId.ToString(), StringComparer.Ordinal)
             .ToArray();
-        foreach (var commitment in commitments)
+        foreach (var (commitment, version) in commitments)
             fingerprint.Append("commitment|").Append(commitment.DraftId).Append('|')
-                .Append(commitment.Revision).Append('|').Append(commitment.Status).Append('\n');
+                .Append(version?.Version ?? 0).Append('\n');
         inputs.Add(new ReadinessInputView("commitments", "assessed", commitments.Length,
-            "Program commitments; only effective (approved) commitments meet the rule."));
+            "Commitments recorded by the as-of time; only a version approved by then and effective on the as-of date meets the rule."));
         if (commitments.Length == 0)
             gaps.Add(new ReadinessGapView(GapIdFor(programId, CommitmentEffective, "commitments"),
                 "no_commitments", "commitments", CommitmentEffective,
                 "The program records no service commitments or system requirements.", []));
-        foreach (var commitment in commitments.Where(static c => c.Status != "effective"))
+        foreach (var (commitment, _) in commitments.Where(static pair => pair.Version is null))
             gaps.Add(new ReadinessGapView(GapIdFor(programId, CommitmentEffective,
                     commitment.DraftId.ToString()), "commitment_not_effective",
                 commitment.Identifier, CommitmentEffective,
-                $"Commitment {commitment.Identifier} is {commitment.Status}; only an approved, effective commitment counts.",
-                [new ReadinessSourceReference("commitment", commitment.DraftId,
-                    commitment.Revision.ToString(CultureInfo.InvariantCulture))]));
+                $"Commitment {commitment.Identifier} had no approved version in force at the as-of time.",
+                [new ReadinessSourceReference("commitment", commitment.DraftId, "0")]));
 
         var risks = sources.Risks
+            .Where(risk => risk.CreatedAt <= asOf)
             .OrderBy(static risk => risk.Identifier, StringComparer.Ordinal)
+            .ThenBy(static risk => risk.RiskId.ToString(), StringComparer.Ordinal)
             .ToArray();
         foreach (var risk in risks)
             fingerprint.Append("risk|").Append(risk.RiskId).Append('|').Append(risk.Revision)
                 .Append('|').Append(risk.EvaluationStatus).Append('\n');
         inputs.Add(new ReadinessInputView("risks", "assessed", risks.Length,
-            "Program risks; only residual-assessed risks or risks with an active acceptance meet the rule."));
+            "Risks recorded by the as-of time; only residual-assessed risks or risks with an active acceptance at that time meet the rule."));
         if (risks.Length == 0)
             gaps.Add(new ReadinessGapView(GapIdFor(programId, RiskResolved, "risks"), "no_risks",
                 "risks", RiskResolved, "The program records no assessed risks.", []));
@@ -210,7 +214,7 @@ public static class ReadinessRules
                      r.EvaluationStatus is not ("accepted" or "residual_assessed")))
             gaps.Add(new ReadinessGapView(GapIdFor(programId, RiskResolved,
                     risk.RiskId.ToString()), "risk_unresolved", risk.Identifier, RiskResolved,
-                $"Risk {risk.Identifier} is {risk.EvaluationStatus}; it needs a residual assessment or an active acceptance.",
+                $"Risk {risk.Identifier} was {risk.EvaluationStatus} at the as-of time; it needs a residual assessment or an active acceptance.",
                 [new ReadinessSourceReference("risk", risk.RiskId,
                     risk.Revision.ToString(CultureInfo.InvariantCulture))]));
 
@@ -228,7 +232,38 @@ public static class ReadinessRules
                     "population_snapshots"), "no_scope_snapshot", "population_snapshots",
                 ScopeSnapshotFrozen, "No program scope snapshot was frozen by the as-of time.",
                 []));
+
+        foreach (var family in sources.TruncatedFamilies.Order(StringComparer.Ordinal))
+        {
+            fingerprint.Append("truncated|").Append(family).Append('\n');
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, SourceFamilyAssessed,
+                    "truncated|" + family), "source_truncated", family, SourceFamilyAssessed,
+                $"The {family} source family exceeded the readiness read limit; records beyond it were not assessed.",
+                []));
+        }
     }
+
+    /// <summary>The boundary version approved by the as-of time with the latest effective date on or before it.</summary>
+    static BoundaryVersionView? BoundaryVersionAt(ReadinessBoundaryInput boundary,
+        DateTimeOffset asOf, DateOnly asOfDate)
+    {
+        var approvedBy = boundary.Decisions
+            .Where(decision => decision.Outcome == "approve" && decision.DecidedAt <= asOf)
+            .Select(static decision => decision.VersionId)
+            .ToHashSet();
+        return boundary.ApprovedVersions
+            .Where(version => approvedBy.Contains(version.VersionId) &&
+                              version.EffectiveFrom is { } from && from <= asOfDate)
+            .MaxBy(static version => version.EffectiveFrom);
+    }
+
+    /// <summary>The commitment version approved by the as-of time and effective on the as-of date.</summary>
+    static CommitmentVersionView? CommitmentVersionAt(ReadinessCommitmentInput commitment,
+        DateTimeOffset asOf, DateOnly asOfDate) =>
+        commitment.Versions
+            .Where(version => (version.Approval ?? version.Decision).DecidedAt <= asOf &&
+                              version.EffectiveFrom <= asOfDate)
+            .MaxBy(static version => version.Version);
 
     static ReadinessFindingView AddGap(Uuid programId, Criterion criterion, string ruleId,
         string kind, string explanation, IReadOnlyList<ReadinessSourceReference> sources,
