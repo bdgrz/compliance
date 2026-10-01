@@ -15,13 +15,16 @@ import {
 } from '@askrjs/themes/components';
 
 import { listApplications, listSystemInstances } from '../../applications/applications.js';
+import { organizationPath } from '../../tenants/tenants.js';
 import {
   classifications,
   componentCategories,
   InventoryRequestError,
   lifecycles,
+  listAssetBoundaries,
   listAssetRevisions,
   listAssets,
+  listComponentBoundaries,
   listComponentRevisions,
   listComponents,
   listFlowRevisions,
@@ -37,6 +40,7 @@ import {
   vocabularyLabel,
   type AssetChangeImpact,
   type AssetContent,
+  type BoundaryReference,
   type ComponentContent,
   type DataFlow,
   type FlowContent,
@@ -550,19 +554,52 @@ function History<T extends { revision: number; lastChangedBy: string; lastChange
 }
 
 // One inventory record: its summary plus on-demand revise and history panels.
+// Which boundaries name this record, draft or approved, each linking to its boundary.
+function Boundaries({ load }: { load: () => Promise<BoundaryReference[]> }) {
+  const references = resource(() => load(), []);
+  if (references.pending && !references.value) return <Spinner label="Loading boundaries" />;
+  if (references.error) {
+    return (
+      <Stack gap="sm">
+        <p role="alert">{references.error.message}</p>
+        <Button variant="secondary" onPress={() => references.refresh()}>
+          Try again
+        </Button>
+      </Stack>
+    );
+  }
+  const items = references.value ?? [];
+  if (items.length === 0) return <p>No boundary includes this record yet.</p>;
+  return (
+    <ul className="plain-list inventory-boundaries">
+      {items.map((r) => (
+        <li>
+          <a href={organizationPath(`/programs/${r.programId}/boundaries/${r.boundaryId}`)}>
+            {vocabularyLabel(r.status)} boundary{r.effectiveFrom ? ` effective ${formatDate(r.effectiveFrom)}` : ''}
+          </a>
+          {' · '}
+          {vocabularyLabel(r.kind)}: {r.subject} — {r.rationale}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RecordRow({
   name,
   summary,
   editor,
   history,
+  boundaries,
 }: {
   name: string;
   summary: string;
   editor: () => unknown;
   history: () => unknown;
+  boundaries?: () => unknown;
 }) {
-  const [panel, setPanel] = state<'none' | 'edit' | 'history'>('none');
-  const toggle = (next: 'edit' | 'history') => setPanel(panel() === next ? 'none' : next);
+  const [panel, setPanel] = state<'none' | 'edit' | 'history' | 'boundaries'>('none');
+  const toggle = (next: 'edit' | 'history' | 'boundaries') => setPanel(panel() === next ? 'none' : next);
   return (
     <li className="inventory-record">
       <p>
@@ -575,8 +612,23 @@ function RecordRow({
         <Button variant="secondary" onPress={() => toggle('history')} aria-expanded={panel() === 'history' ? 'true' : 'false'}>
           History of {name}
         </Button>
+        {boundaries ? (
+          <Button
+            variant="secondary"
+            onPress={() => toggle('boundaries')}
+            aria-expanded={panel() === 'boundaries' ? 'true' : 'false'}
+          >
+            Boundaries of {name}
+          </Button>
+        ) : null}
       </div>
-      {panel() === 'edit' ? editor() : panel() === 'history' ? history() : null}
+      {panel() === 'edit'
+        ? editor()
+        : panel() === 'history'
+          ? history()
+          : panel() === 'boundaries' && boundaries
+            ? boundaries()
+            : null}
     </li>
   );
 }
@@ -722,6 +774,7 @@ export function InventoryPage() {
                             describe={(r: TechnologyComponent) => `${r.name}; ${componentSummary(r, owner)}`}
                           />
                         )}
+                        boundaries={() => <Boundaries load={() => listComponentBoundaries(item.componentId)} />}
                       />
                     ))}
                   </ul>
@@ -754,6 +807,7 @@ export function InventoryPage() {
                             describe={(r: InformationAsset) => `${r.name}; ${assetSummary(r, owner)}`}
                           />
                         )}
+                        boundaries={() => <Boundaries load={() => listAssetBoundaries(item.informationAssetId)} />}
                       />
                     ))}
                   </ul>

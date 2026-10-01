@@ -449,4 +449,65 @@ describe('technology and information inventory (R1-12 frontend #228)', () => {
     });
     expect(await accessibilityViolations(container)).toEqual([]);
   });
+
+  function reference(subjectType: string, recordId: string, status: string) {
+    return {
+      tenant_id: tenantId,
+      subject_type: subjectType,
+      governed_record_id: recordId,
+      boundary_id: '0190a1b2-0000-7000-8000-0000000000b9',
+      program_id: '0190a1b2-0000-7000-8000-0000000000b8',
+      version_id: '0190a1b2-0000-7000-8000-0000000000b7',
+      entry_id: '0190a1b2-0000-7000-8000-0000000000b6',
+      revision: 1,
+      status,
+      effective_from: status === 'draft' ? null : '2026-09-01',
+      kind: 'inclusion',
+      subject: 'Orders database',
+      owner_reference: 'Platform team',
+      rationale: 'Stores customer orders',
+    };
+  }
+
+  it('ShouldListBoundariesThatIncludeAComponentGivenBoundaryReferences', async () => {
+    // Arrange
+    inventoryAnswers();
+    api.reply(`${base}/technology-components/${storeId}/boundary-references`, 200, {
+      items: [reference('component', storeId, 'approved')],
+      next_cursor: null,
+    });
+    const container = mount(InventoryPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('Orders DB'));
+
+    // Act
+    press(container, 'Boundaries of Orders DB');
+    await vi.waitFor(() => expect(container.querySelector('.inventory-boundaries li')).not.toBeNull());
+
+    // Assert
+    const item = container.querySelector('.inventory-boundaries li')!;
+    expect(item.textContent).toContain('Approved');
+    expect(item.textContent).toContain('Inclusion: Orders database');
+    expect(item.textContent).toContain('Stores customer orders');
+    expect(item.querySelector('a')?.getAttribute('href')).toBe(
+      '/acme/programs/0190a1b2-0000-7000-8000-0000000000b8/boundaries/0190a1b2-0000-7000-8000-0000000000b9'
+    );
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldSayNoBoundaryIncludesAnAssetGivenNoReferences', async () => {
+    // Arrange
+    inventoryAnswers();
+    api.reply(`${base}/information-assets/${assetId}/boundary-references`, 200, { items: [], next_cursor: null });
+    const container = mount(InventoryPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('Orders DB'));
+    press(container, 'Information assets');
+    await vi.waitFor(() => expect(container.textContent).toContain('Customer records'));
+
+    // Act
+    press(container, 'Boundaries of Customer records');
+    await vi.waitFor(() => expect(container.textContent).toContain('No boundary includes this record yet.'));
+
+    // Assert
+    expect(api.requested).toContain(`${base}/information-assets/${assetId}/boundary-references`);
+  });
 });

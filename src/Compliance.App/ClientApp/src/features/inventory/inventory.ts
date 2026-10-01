@@ -88,6 +88,16 @@ export interface AssetChangeImpact {
   flowsOverLimit: boolean;
 }
 
+export interface BoundaryReference {
+  boundaryId: string;
+  programId: string;
+  status: string;
+  effectiveFrom: string | null;
+  kind: string;
+  subject: string;
+  rationale: string;
+}
+
 export interface Person {
   personId: string;
   displayName: string;
@@ -381,6 +391,53 @@ export async function previewAssetChange(
       })),
     flowsOverLimit: data.flows_over_limit,
   };
+}
+
+type BoundaryReferenceWire = {
+  boundary_id: string;
+  program_id: string;
+  status: string;
+  effective_from: string | null;
+  kind: string;
+  subject: string;
+  rationale: string;
+};
+
+function toBoundaryReference(item: BoundaryReferenceWire): BoundaryReference {
+  return {
+    boundaryId: item.boundary_id,
+    programId: item.program_id,
+    status: item.status,
+    effectiveFrom: item.effective_from,
+    kind: item.kind,
+    subject: item.subject,
+    rationale: item.rationale,
+  };
+}
+
+// Every boundary entry, draft or approved, that includes this component.
+export function listComponentBoundaries(componentId: string): Promise<BoundaryReference[]> {
+  const tenant_id = requireActiveTenantId();
+  return collect(
+    (cursor) =>
+      client.listTechnologyComponentBoundaryReferences({ params: { tenant_id, component_id: componentId }, query: { cursor } }),
+    toBoundaryReference,
+    'load the boundaries for this component'
+  );
+}
+
+// Every boundary entry, draft or approved, that includes this information asset.
+export function listAssetBoundaries(assetId: string): Promise<BoundaryReference[]> {
+  const tenant_id = requireActiveTenantId();
+  return collect(
+    (cursor) =>
+      client.listInformationAssetBoundaryReferences({
+        params: { tenant_id, information_asset_id: assetId },
+        query: { cursor },
+      }),
+    toBoundaryReference,
+    'load the boundaries for this information asset'
+  );
 }
 
 export function listFlows(): Promise<DataFlow[]> {
