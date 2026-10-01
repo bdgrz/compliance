@@ -181,9 +181,11 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
         Func<JsonElement, bool> condition)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        var last = "(no response)";
         while (DateTimeOffset.UtcNow < deadline)
         {
             using var response = await client.GetAsync(path);
+            last = $"{(int)response.StatusCode} {await response.Content.ReadAsStringAsync()}";
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 var body = await ReadAsync(response);
@@ -194,7 +196,8 @@ public sealed class PopulationSnapshotE2ETests(BrokerStackFixture broker)
                 Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             await Task.Delay(250);
         }
-        throw new TimeoutException($"{path} did not reach the expected state.");
+        throw new TimeoutException(
+            $"{path} did not reach the expected state; last response: {last[..Math.Min(last.Length, 2000)]}");
     }
 
     IHost BuildWorker(string applicationName)
