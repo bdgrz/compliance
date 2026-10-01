@@ -32,7 +32,7 @@ public sealed class WorkforceRosterSnapshotter(IPersonDirectoryReader people,
             relationships.ListAsync(tenantId, 200, cursor, token), ct).ConfigureAwait(false);
         if (roster is null || jobs is null)
             return Result<SnapshotRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
-                $"A roster snapshot currently supports at most {PopulationSnapshot.MaximumInlineRows} rows."));
+                $"A roster snapshot supports at most {PopulationContentIdentity.MaximumRows} rows."));
         // Fence: pages are read in separate transactions, so a projection that advanced after the
         // catch-up check could mix versions. Refuse rather than freeze a torn roster.
         var peopleHeld = await peopleConsistency.EnsureFenceHeldAsync(tenantId, peopleFence.Value,
@@ -62,7 +62,7 @@ public sealed class WorkforceRosterSnapshotter(IPersonDirectoryReader people,
         {
             var page = await read(cursor, ct).ConfigureAwait(false);
             items.AddRange(page.Items);
-            if (items.Count > PopulationSnapshot.MaximumInlineRows)
+            if (items.Count > PopulationContentIdentity.MaximumRows)
                 return null;
             cursor = page.NextCursor;
         } while (cursor is not null);

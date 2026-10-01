@@ -12,20 +12,20 @@ static class WorkforceRosterSnapshotReads
         IPermissionAuthorizer permissions, Uuid tenantId, Uuid snapshotId, CancellationToken ct)
         where TRequest : IRequestBase
     {
-        var snapshot = await reader.HydrateAsync(new PopulationSnapshot(tenantId, snapshotId), ct)
-            .ConfigureAwait(false);
-        if (!snapshot.IsFrozen || snapshot.Kind != WorkforceRosterSnapshotContent.Kind)
-            return Result<WorkforceRosterSnapshotView>.Failure(new RequestError(
-                RequestErrorKind.NotFound, "The roster snapshot was not found."));
-        if (!snapshot.HasIntactContent)
-            return Result<WorkforceRosterSnapshotView>.Failure(new RequestError(
-                RequestErrorKind.Conflict, "The stored roster snapshot failed integrity verification."));
+        var content = await PopulationSnapshotContent.ReadAsync(reader, tenantId, snapshotId,
+            WorkforceRosterSnapshotContent.Kind, ct).ConfigureAwait(false);
+        if (!content.IsSuccess)
+            return Result<WorkforceRosterSnapshotView>.Failure(new RequestError(content.Error.Kind,
+                content.Error.Kind == RequestErrorKind.NotFound
+                    ? "The roster snapshot was not found."
+                    : "The stored roster snapshot failed integrity verification."));
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("WorkforceAuthorizer must reject this actor.");
         var managerChain = await FieldRestrictions.ForActorAsync(permissions, tenantId, userId,
             FieldClasses.WorkforceManagerChain, ct).ConfigureAwait(false);
         return Result<WorkforceRosterSnapshotView>.Success(
-            WorkforceRosterSnapshotContent.ToView(tenantId, snapshot, managerChain));
+            WorkforceRosterSnapshotContent.ToView(tenantId, content.Value.Snapshot,
+                content.Value.Rows, managerChain));
     }
 }

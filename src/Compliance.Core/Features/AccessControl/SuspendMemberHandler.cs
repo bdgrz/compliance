@@ -2,23 +2,46 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class SuspendMemberHandler(IAggregateExecutor executor, TimeProvider clock)
+/// <summary>
+///     Suspends a member after the tenant manager guard confirms that another active
+///     administrator remains (#432). The member decision is checked first, so an invalid request
+///     never records a guard withdrawal.
+/// </summary>
+public sealed class SuspendMemberHandler(IAggregateExecutor executor, TimeProvider clock,
+    TenantManagerInvariant managers, IAggregateReader reader)
     : IRequestHandler<SuspendMember>
 {
-    public ValueTask<Result> HandleAsync(IRequestContext<SuspendMember> context, CancellationToken ct)
+    public async ValueTask<Result> HandleAsync(IRequestContext<SuspendMember> context, CancellationToken ct)
     {
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var actorUserId))
-            return ValueTask.FromResult(Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
-                "Member suspension requires a Bdgrz user identity.")));
+            return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
+                "Member suspension requires a Bdgrz user identity."));
 
-        var actorMemberId = RbacIds.Member(context.Request.TenantId, actorUserId);
-        if (actorUserId == context.Request.UserId)
-            return ValueTask.FromResult(Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "An administrator cannot suspend their own tenant membership.")));
+        var request = context.Request;
+        var actorMemberId = RbacIds.Member(request.TenantId, actorUserId);
+        if (actorUserId == request.UserId)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "An administrator cannot suspend their own tenant membership."));
 
-        return executor.ExecuteAsync(new Member(context.Request.TenantId, context.Request.UserId), member =>
-                AggregateOutcome.CommitOnSuccess(member.Suspend(actorMemberId,
-                    UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId), clock.GetUtcNow(),
-                    context.Request.Reason)), context, ct);
+        var actorDisplay = UserIdentityClaims.BdgrzDisplay(context.Actor, actorUserId);
+        var suspendedAt = clock.GetUtcNow();
+        var current = await reader.HydrateAsync(new Member(request.TenantId, request.UserId), ct)
+            .ConfigureAwait(false);
+        var wasSuspended = current.IsSuspended;
+        var decision = current.Suspend(actorMemberId, actorDisplay, suspendedAt, request.Reason);
+        if (!decision.IsSuccess)
+            return decision;
+        if (!wasSuspended)
+        {
+            var guarded = await managers.WithdrawAsync(context, request.TenantId,
+                RbacIds.Member(request.TenantId, request.UserId), actorMemberId,
+                TenantManagerInvariant.Suspended, ct).ConfigureAwait(false);
+            if (!guarded.IsSuccess)
+                return guarded;
+        }
+
+        return await executor.ExecuteAsync(new Member(request.TenantId, request.UserId), member =>
+                AggregateOutcome.CommitOnSuccess(member.Suspend(actorMemberId, actorDisplay,
+                    suspendedAt, request.Reason)), context, ct).ConfigureAwait(false);
     }
 }

@@ -33,11 +33,13 @@ public sealed class WorkforceRosterReconciler(IPersonDirectoryReader people,
             memberships.ListAsync(tenantId, 200, cursor, token), ct).ConfigureAwait(false);
         if (roster is null || jobs is null || members is null)
             return Failure(new RequestError(RequestErrorKind.Validation,
-                $"Roster reconciliation currently supports at most {PopulationSnapshot.MaximumInlineRows} rows."));
+                $"Roster reconciliation currently supports at most {MaximumRows} rows."));
         return Result<IReadOnlyList<WorkforceReconciliationObservationView>>.Success(
             WorkforceRosterReconciliation.Evaluate(tenantId, roster, jobs, members,
                 DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)));
     }
+
+    const int MaximumRows = 500;
 
     static Result<IReadOnlyList<WorkforceReconciliationObservationView>> Failure(RequestError error) =>
         Result<IReadOnlyList<WorkforceReconciliationObservationView>>.Failure(error);
@@ -51,7 +53,7 @@ public sealed class WorkforceRosterReconciler(IPersonDirectoryReader people,
         {
             var page = await read(cursor, ct).ConfigureAwait(false);
             items.AddRange(page.Items);
-            if (items.Count > PopulationSnapshot.MaximumInlineRows)
+            if (items.Count > MaximumRows)
                 return null;
             cursor = page.NextCursor;
         } while (cursor is not null);

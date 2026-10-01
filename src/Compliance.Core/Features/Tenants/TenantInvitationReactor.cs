@@ -4,11 +4,17 @@ using Microsoft.Extensions.Logging;
 namespace Bdgrz.Compliance.Features.Tenants;
 
 public sealed partial class TenantInvitationReactor(IProjectionCheckpointStore checkpoints, IRequestBus bus,
-    ILogger<TenantInvitationReactor> logger)
+    ILogger<TenantInvitationReactor> logger, TenantActivationPolicy? policy = null)
     : Reactor(checkpoints, EventStreamPattern.ForTenant("tenant-invitations")),
       IReactorHandler<TenantInvitationAccepted>
 {
-    public async ValueTask HandleAsync(IReactorContext<TenantInvitationAccepted> context, CancellationToken ct)
+    readonly TenantActivationPolicy _policy = policy ?? TenantActivationPolicy.Default;
+
+    public ValueTask HandleAsync(IReactorContext<TenantInvitationAccepted> context, CancellationToken ct) =>
+        _policy.ReactAsync(nameof(TenantInvitationReactor), context.Trigger.TenantId, context.Trigger,
+            logger, token => ReactAsync(context, token), ct);
+
+    async ValueTask ReactAsync(IReactorContext<TenantInvitationAccepted> context, CancellationToken ct)
     {
         await bus.SendReactionAsync(new RegisterMember(context.Trigger.TenantId, context.Trigger.UserId,
             context.Trigger.Affiliation), context, ct);
@@ -24,7 +30,7 @@ public sealed partial class TenantInvitationReactor(IProjectionCheckpointStore c
         {
             await bus.SendReactionAsync(new AssignTeamMember(context.Trigger.TenantId,
                 BuiltInRbac.AdministratorsTeamId(context.Trigger.TenantId), memberId), context, ct);
-            await TenantActivationRetry.SendAsync(bus,
+            await _policy.SendActivationAsync(bus,
                 new ActivateTenant(context.Trigger.TenantId, context.Trigger.UserId,
                     context.Trigger.EmailAddress), context, logger, ct);
         }

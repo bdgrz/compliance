@@ -3,12 +3,13 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests;
 
-sealed class RequestContext<TRequest>(TRequest request, ClaimsPrincipal actor) : IRequestContext<TRequest>
+sealed class RequestContext<TRequest>(TRequest request, ClaimsPrincipal actor, Uuid? requestId = null)
+    : IRequestContext<TRequest>
 {
     public TRequest Request { get; } = request;
     public ClaimsPrincipal Actor => actor;
     public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
-    public Uuid RequestId { get; } = Uuid.CreateVersion4();
+    public Uuid RequestId { get; } = requestId ?? Uuid.CreateVersion4();
     public Uuid CorrelationId { get; } = Uuid.CreateVersion4();
     public Uuid? CausationId => null;
     public Uuid CauseId => RequestId;

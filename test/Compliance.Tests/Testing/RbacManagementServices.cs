@@ -20,6 +20,8 @@ static class RbacManagementServices
         services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(allowed));
         services.AddSingleton<ITenantActivity, ActiveTenant>();
         services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
+        services.AddSingleton<ITeamMemberDirectoryReader, EmptyTeamMemberDirectory>();
+        services.AddScoped<TenantManagerInvariant>();
         handlers(services.AddPortia().AddRequestAuthorizer<RbacManagementAuthorizer>());
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -36,5 +38,12 @@ static class RbacManagementServices
             .ExecuteAsync(aggregate, item => AggregateOutcome.Commit(operation(item)),
                 new RequestDispatchContext(RequestActor.System), CancellationToken.None);
         Assert.True(result.IsSuccess);
+    }
+
+    sealed class EmptyTeamMemberDirectory : ITeamMemberDirectoryReader
+    {
+        public ValueTask<Page<TeamMemberView>> ListAsync(Uuid tenantId, Uuid teamId, int? limit,
+            string? cursor, string? search, bool descending, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<TeamMemberView>([], null));
     }
 }

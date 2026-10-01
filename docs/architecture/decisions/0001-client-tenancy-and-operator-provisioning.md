@@ -68,6 +68,41 @@ operators should use a neutral slug when a client name is confidential. The
 firm's client-naming and log-retention policy remains an M0-A07 product
 decision; the service cannot infer confidentiality from the slug string.
 
+## Activation failure isolation (#430)
+
+The per-tenant `TenantInvitation` and `TenantSelfServiceActivationV1` reactors
+register an unbounded failed-pass limit, so a prolonged transient outage for
+one tenant's activation prerequisites (for example a lagging permission
+projection) never throws Portia's `WorkloadFailureException` and never stops the
+worker host or other tenants' workloads. Each pass retries locally for eight
+seconds, logs `LogActivationDeferred` (event 41502), and returns to durable
+replay with its checkpoint unchanged; recovery logs `LogActivationRecovered`
+(41503). A permanent (non-transient) failure is replayed up to 20 consecutive
+times per worker process and then abandoned with `LogActivationAbandoned`
+(41504, error): the checkpoint advances and the tenant stays inactive, which is
+fail closed. Operations should alert on any 41504 and on 41502 for one tenant
+persisting beyond a few minutes. Recovery for an abandoned activation is an
+operator administrator invitation (`POST /api/v1/tenants/{tenant_id}/invitations`
+with `administrator: true`). A worker restart resets only the in-process
+permanent-failure count; durable checkpoints replay the pending activation.
+
+## Last active administrator (#432)
+
+A tenant keeps at least one active administrator: a registered, unsuspended
+member of the built-in Administrators team, whose undeletable Tenant
+Administration role keeps `tenant.access` and `tenant.rbac.manage`. Member
+suspension and removal from the Administrators team serialize through the
+tenant-scoped `rbac-manager-guard` stream and need another active administrator
+read from source streams; a refused change returns a non-transient `409`.
+Reinstatement and reassignment clear the guard before the source change. The
+Administrators team cannot lose that role, and the role cannot lose those two
+permissions. Sequential self-suspension stays rejected. Custom roles that grant
+`tenant.rbac.manage` are not counted as the protected anchor. A future member
+deprovisioning command must withdraw through the same guard. For a tenant that
+was already locked before this guard, the recovery path is a platform operator
+administrator invitation, which grants a new administrator without giving the
+operator access to business records.
+
 ## Alternatives and consequences
 
 Verified self-service creation lets a platform user create an organization and become its first Org Admin without operator action. Granting an operator tenant access by default would create an unrequested cross-client access path. Using email or slug as a tenant identity would make renames and identity-provider changes unsafe. Storing roles in identity-provider tokens would delay revocation and blur the tenant boundary.
