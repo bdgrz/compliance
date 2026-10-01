@@ -16,16 +16,16 @@ public static class RosterSnapshotSource
         ReadAsync(IAggregateReader reader, Uuid tenantId, Uuid snapshotId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(reader);
-        var snapshot = await reader.HydrateAsync(new PopulationSnapshot(tenantId, snapshotId), ct)
-            .ConfigureAwait(false);
-        if (!snapshot.IsFrozen || snapshot.Kind != WorkforceRosterSnapshotContent.Kind)
+        var content = await PopulationSnapshotContent.ReadAsync(reader, tenantId, snapshotId,
+            WorkforceRosterSnapshotContent.Kind, ct).ConfigureAwait(false);
+        if (!content.IsSuccess)
             return Result<(WorkforceRosterSnapshotView, DateTimeOffset)>.Failure(new RequestError(
-                RequestErrorKind.NotFound, "The roster snapshot was not found."));
-        if (!snapshot.HasIntactContent)
-            return Result<(WorkforceRosterSnapshotView, DateTimeOffset)>.Failure(new RequestError(
-                RequestErrorKind.Conflict, "The stored roster snapshot failed integrity verification."));
+                content.Error.Kind, content.Error.Kind == RequestErrorKind.NotFound
+                    ? "The roster snapshot was not found."
+                    : "The stored roster snapshot failed integrity verification."));
+        var snapshot = content.Value.Snapshot;
         return Result<(WorkforceRosterSnapshotView, DateTimeOffset)>.Success((
-            WorkforceRosterSnapshotContent.ToView(tenantId, snapshot,
+            WorkforceRosterSnapshotContent.ToView(tenantId, snapshot, content.Value.Rows,
                 new FieldRedactor(FieldClasses.WorkforceManagerChain, false)),
             snapshot.FrozenAt));
     }
