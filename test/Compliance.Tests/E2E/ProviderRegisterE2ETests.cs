@@ -39,6 +39,7 @@ public sealed class ProviderRegisterE2ETests(BrokerStackFixture broker)
         using var owner = client;
         await TenantInvitationE2ETests.LoginAsync(owner, $"provider-{Guid.NewGuid():N}@example.com");
         var tenantId = await CreateTenantAsync(owner);
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/providers";
         var registration = await RecordWhenAuthorizedAsync(owner, path);
         var exact = $"{path}/{registration.ProviderId}";
@@ -84,6 +85,7 @@ public sealed class ProviderRegisterE2ETests(BrokerStackFixture broker)
         Assert.Equal(1, Assert.IsType<JsonElement>(mcpHistory.StructuredJson)
             .GetProperty("result").GetProperty("revision").GetInt64());
         var otherTenantId = await CreateTenantAsync(owner);
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(owner, otherTenantId);
         var otherPath = $"/api/v1/tenants/{otherTenantId}/providers";
         await RecordWhenAuthorizedAsync(owner, otherPath);
         using var foreign = await owner.GetAsync($"{otherPath}/{registration.ProviderId}");
@@ -133,7 +135,7 @@ public sealed class ProviderRegisterE2ETests(BrokerStackFixture broker)
                 await response.Content.ReadAsStringAsync());
             await Task.Delay(250);
         }
-        throw new TimeoutException("Default provider management grant was not projected.");
+        throw new TimeoutException("The explicit organization provider management grant was not projected.");
     }
 
     static async Task WaitForRevisionAsync(HttpClient client, string path, long revision)

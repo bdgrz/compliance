@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 static class AccessReviewDirectorySchema
 {
     public const string PopulationProjector = "AccessPopulationDirectoryV2";
-    public const string CampaignProjector = "AccessReviewCampaignDirectoryV1";
+    public const string CampaignProjector = "AccessReviewCampaignDirectoryV2";
 
     // Newest first through an ascending scan: a descending scan bounded by a prefix returns no
     // rows from the broker (#498), so the time component is inverted instead.
@@ -23,8 +23,8 @@ static class AccessReviewDirectorySchema
         [PopulationsByInstance]);
 
     public static readonly KvDirectoryIndex<AccessReviewCampaignSummaryView> CampaignsByLaunch = new(
-        "by_launched_at", 1, static campaign =>
-            [campaign.LaunchedAt.ToUniversalTime().Ticks.ToString("D20", CultureInfo.InvariantCulture),
+        "by_launch_newest_first", 1, static campaign =>
+            [(long.MaxValue - campaign.LaunchedAt.ToUniversalTime().Ticks).ToString("D20", CultureInfo.InvariantCulture),
                 campaign.CampaignId.ToString()]);
 
     public static readonly KvDirectory<AccessReviewCampaignSummaryView, Uuid> Campaigns = new(
