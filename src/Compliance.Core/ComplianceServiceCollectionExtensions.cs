@@ -695,6 +695,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RetireRiskControlTreatmentHandler>()
             .AddRequestHandler<GetRiskGovernanceHandler>()
             .AddRequestHandler<AddRiskTreatmentActionHandler>()
+            .AddRequestHandler<CancelRiskTreatmentActionHandler>()
             .AddRequestHandler<SubmitRiskTreatmentActionCompletionHandler>()
             .AddRequestHandler<ReviewRiskTreatmentActionCompletionHandler>()
             .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()

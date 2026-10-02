@@ -19,6 +19,7 @@ public sealed class RiskGovernanceLedger : Aggregate
     public const string ActionOpen = "open";
     public const string ActionSubmitted = "completion_submitted";
     public const string ActionCompleted = "completed";
+    public const string ActionCancelled = "cancelled";
     const int MaximumTextLength = 4000;
     const int MaximumTitleLength = 200;
 
@@ -90,6 +91,21 @@ public sealed class RiskGovernanceLedger : Aggregate
             var risk = State(ev.RiskId);
             risk.Revision = ev.Revision;
             risk.Actions.Add(ev.Action);
+        });
+        On<RiskTreatmentActionCancelled>(ev =>
+        {
+            var risk = State(ev.RiskId);
+            risk.Revision = ev.Revision;
+            var index = risk.Actions.FindIndex(item => item.ActionId == ev.ActionId);
+            var action = risk.Actions[index];
+            risk.Actions[index] = action with
+            {
+                Status = ActionCancelled,
+                CancellationRationale = ev.Rationale,
+                CancelledBy = ev.CancelledBy,
+                CancelledAt = ev.CancelledAt,
+            };
+            risk.CancellationIds[ev.ActionId] = ev.CancellationId;
         });
         On<RiskTreatmentActionCompletionSubmitted>(ev =>
         {
@@ -188,13 +204,16 @@ public sealed class RiskGovernanceLedger : Aggregate
             : null;
 
     static bool IsOverdue(RiskTreatmentActionView action, DateOnly today) =>
-        action.Status != ActionCompleted && action.DueOn < today;
+        action.Status is not (ActionCompleted or ActionCancelled) && action.DueOn < today;
 
-    static string ActionStatus(RiskTreatmentActionView[] actions) =>
-        actions.Length == 0 ? "none"
-        : actions.All(static action => action.Status == ActionCompleted) ? "completed"
-        : actions.Any(static action => action.Overdue) ? "overdue"
+    static string ActionStatus(RiskTreatmentActionView[] actions)
+    {
+        var active = actions.Where(static action => action.Status != ActionCancelled).ToArray();
+        return active.Length == 0 ? "none"
+        : active.All(static action => action.Status == ActionCompleted) ? "completed"
+        : active.Any(static action => action.Overdue) ? "overdue"
         : "in_progress";
+    }
 
     /// <summary>Triggers not yet answered by an inherent assessment recorded at or after them.</summary>
     public IReadOnlyList<RiskReassessmentTriggerView> OpenTriggers(Uuid riskId,
@@ -361,6 +380,34 @@ public sealed class RiskGovernanceLedger : Aggregate
         return null;
     }
 
+    public CommandFailure? CancelTreatmentAction(Uuid riskId, Uuid actionId,
+        long expectedRevision, Uuid cancellationId, string rationale, ActorReference actor,
+        DateTimeOffset cancelledAt)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        if (FindAction(riskId, actionId) is not { } action)
+            return CommandFailure.MissingRecord("The treatment action was not found.");
+        if (action.Status == ActionCancelled)
+            return _risks[riskId].CancellationIds.TryGetValue(actionId, out var existingId) &&
+                   existingId == cancellationId &&
+                   action.CancellationRationale == rationale?.Trim() &&
+                   action.CancelledBy == actor
+                ? null
+                : CommandFailure.StateConflict("The treatment action is already cancelled.");
+        if (CheckRevision(riskId, expectedRevision) is { } stale)
+            return stale;
+        if (action.Status is not (ActionOpen or ActionSubmitted))
+            return CommandFailure.StateConflict(
+                "Only unfinished treatment actions can be cancelled.");
+        if (cancellationId == Uuid.Empty || InvalidText(rationale))
+            return CommandFailure.InvalidContent(
+                "Cancelling a treatment action requires a cancellation ID and a rationale of at most 4000 characters.");
+        RaiseEvent(new RiskTreatmentActionCancelled(_tenantId, Id, riskId,
+            RevisionOf(riskId) + 1, actionId, cancellationId, rationale.Trim(), actor,
+            cancelledAt));
+        return null;
+    }
+
     /// <param name="fulfilledEvidenceRequestIds">
     ///     The program evidence requests that are fulfilled now.
     /// </param>
@@ -479,6 +526,7 @@ public sealed class RiskGovernanceLedger : Aggregate
         public Dictionary<Uuid, Uuid> Proposers { get; } = [];
         public List<RiskReassessmentTriggerView> Triggers { get; } = [];
         public List<RiskTreatmentActionView> Actions { get; } = [];
+        public Dictionary<Uuid, Uuid> CancellationIds { get; } = [];
         public Dictionary<Uuid, Uuid> Submitters { get; } = [];
     }
 }

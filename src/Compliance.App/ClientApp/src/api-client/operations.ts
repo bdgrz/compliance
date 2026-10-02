@@ -20284,6 +20284,85 @@ export type AddRiskTreatmentActionError_500 = {
   "transient"?: boolean;
 };
 
+export type CancelRiskTreatmentActionPath = {
+  "action_id": string;
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type CancelRiskTreatmentActionBody = {
+  "expected_revision": number | string;
+  "rationale": string | null;
+};
+
+export type CancelRiskTreatmentActionResponse204 = undefined;
+
+export type CancelRiskTreatmentActionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_401 = undefined;
+
+export type CancelRiskTreatmentActionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
 export type ReviewRiskTreatmentActionCompletionPath = {
   "action_id": string;
   "program_id": string;

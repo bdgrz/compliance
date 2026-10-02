@@ -6191,6 +6191,13 @@ export type PortiaDDE2C5FB36C4E3ADE4BC29962E3FA4DF30C07A0D10F0B3C8F1FCB6F5B34DFA
   "reviewed_at": string | null;
   "separation_of_duties_waiver_id": string | null;
 } | null>;
+  "cancellation_rationale"?: string | null;
+  "cancelled_by"?: {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "cancelled_at"?: string | null;
 } | null>;
   "treatment_action_status": string;
 } | null;
