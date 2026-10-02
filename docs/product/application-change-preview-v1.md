@@ -107,8 +107,9 @@ the destination stream's optimistic check does not make unrelated source writes 
 an owner or correlation change may interleave between these reads and the decision append.
 [#519](https://github.com/bdgrz/compliance/issues/519) owns the stronger current-at-commit
 source preconditions as a separate follow-up, using Fitz conditional writes and Portia support.
-It is separate from #463's canonical owner predicate acceptance. Broker and split-host
-verification remain required for #463 and pending while Docker is unavailable.
+It is separate from #463's canonical owner predicate acceptance. `AccessReviewScopeOwnerE2ETests`
+proves the owner rule, legacy-instance decisions, the projection and its transient lag through
+the real broker, standalone and split-host, with tenant isolation.
 
 Still open: general application-to-application relationships, a governed successor or
 approval gate, and complete downstream impact.
