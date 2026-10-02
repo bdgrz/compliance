@@ -40,15 +40,55 @@ export interface CoverageRow {
   category: string;
   parentIdentifier: string | null;
   summary: string;
-  coverageState: 'mapped' | 'unmapped';
+  coverageState: 'mapped' | 'unmapped' | 'not_applicable';
+  notApplicableDecisionId: string | null;
   mappedControls: {
     mappingId: string;
     controlId: string;
     controlVersionId: string;
     versionNumber: number;
     applicabilityExplanation: string;
+    remapRequired: boolean;
   }[];
   pendingProposalCount: number;
+}
+
+export interface ApplicabilityVersion {
+  versionNumber: number;
+  status: string;
+  rationale: string;
+  proposedBy: string;
+  proposedAt: string;
+  reviewedBy: string | null;
+  reviewRationale: string | null;
+  reviewedAt: string | null;
+}
+
+export interface ApplicabilityDecision {
+  decisionId: string;
+  criterionIdentifier: string;
+  revision: number;
+  status: string;
+  activeVersionNumber: number | null;
+  versions: ApplicabilityVersion[];
+}
+
+export function pendingApplicability(
+  decision: ApplicabilityDecision
+): ApplicabilityVersion | null {
+  return (
+    decision.versions.find((version) => version.status === 'pending') ?? null
+  );
+}
+
+export function activeApplicability(
+  decision: ApplicabilityDecision
+): ApplicabilityVersion | null {
+  return (
+    decision.versions.find(
+      (version) => version.versionNumber === decision.activeVersionNumber
+    ) ?? null
+  );
 }
 
 type Actor = { display: string } | null | undefined;
@@ -249,7 +289,11 @@ export async function listCriteriaCoverage(
           parentIdentifier: item.parent_identifier,
           summary: item.summary,
           coverageState:
-            item.coverage_state === 'mapped' ? 'mapped' : 'unmapped',
+            item.coverage_state === 'mapped' ||
+            item.coverage_state === 'not_applicable'
+              ? item.coverage_state
+              : 'unmapped',
+          notApplicableDecisionId: item.not_applicable_decision_id ?? null,
           mappedControls: item.mapped_controls
             .filter((control) => control !== null)
             .map((control) => ({
@@ -258,6 +302,7 @@ export async function listCriteriaCoverage(
               controlVersionId: control.control_version_id,
               versionNumber: Number(control.version_number),
               applicabilityExplanation: control.applicability_explanation,
+              remapRequired: control.remap_required === true,
             })),
           pendingProposalCount: Number(item.pending_proposal_count),
         });
@@ -266,6 +311,119 @@ export async function listCriteriaCoverage(
     cursor = result.data?.next_cursor ?? undefined;
   } while (cursor !== undefined);
   return rows;
+}
+
+export async function listCriterionApplicability(
+  programId: string,
+  editionId: string
+): Promise<ApplicabilityDecision[]> {
+  const tenantId = requireActiveTenantId();
+  const decisions: ApplicabilityDecision[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listCriterionApplicability({
+      params: { tenant_id: tenantId, program_id: programId },
+      query: { edition_id: editionId, cursor },
+    });
+    if (!result.ok)
+      throw programFailure(result, 'load the applicability decisions');
+    for (const item of result.data?.items ?? []) {
+      if (!item) continue;
+      decisions.push({
+        decisionId: item.decision_id,
+        criterionIdentifier: item.criterion_identifier,
+        revision: Number(item.revision),
+        status: item.status,
+        activeVersionNumber:
+          item.active_version_number === null
+            ? null
+            : Number(item.active_version_number),
+        versions: item.versions
+          .filter((version) => version !== null)
+          .map((version) => ({
+            versionNumber: Number(version.version_number),
+            status: version.status,
+            rationale: version.rationale,
+            proposedBy: version.proposed_by.display,
+            proposedAt: version.proposed_at,
+            reviewedBy: version.reviewed_by?.display ?? null,
+            reviewRationale: version.review_rationale,
+            reviewedAt: version.reviewed_at,
+          }))
+          .sort((a, b) => b.versionNumber - a.versionNumber),
+      });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return decisions;
+}
+
+export async function proposeCriterionNotApplicable(
+  programId: string,
+  editionId: string,
+  criterionIdentifier: string,
+  expectedRevision: number,
+  rationale: string
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.proposeCriterionNotApplicable({
+    params: { tenant_id: tenantId, program_id: programId },
+    body: {
+      edition_id: editionId,
+      criterion_identifier: criterionIdentifier,
+      expected_revision: expectedRevision,
+      rationale: rationale.trim(),
+    },
+  });
+  if (!result.ok)
+    throw programFailure(result, 'propose the not-applicable decision');
+}
+
+export async function reviewCriterionApplicability(
+  programId: string,
+  decisionId: string,
+  expectedRevision: number,
+  outcome: 'accept' | 'reject',
+  rationale: string,
+  waiverId: string
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.reviewCriterionApplicability({
+    params: {
+      tenant_id: tenantId,
+      program_id: programId,
+      decision_id: decisionId,
+    },
+    body: {
+      expected_revision: expectedRevision,
+      outcome,
+      rationale: rationale.trim(),
+      ...(waiverId.trim()
+        ? { separation_of_duties_waiver_id: waiverId.trim() }
+        : {}),
+    },
+  });
+  if (!result.ok)
+    throw programFailure(result, 'review the not-applicable decision');
+}
+
+export async function withdrawCriterionNotApplicable(
+  programId: string,
+  decisionId: string,
+  expectedRevision: number,
+  rationale: string
+): Promise<void> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.withdrawCriterionNotApplicable({
+    params: {
+      tenant_id: tenantId,
+      program_id: programId,
+      decision_id: decisionId,
+    },
+    body: { expected_revision: expectedRevision, rationale: rationale.trim() },
+  });
+  if (!result.ok)
+    throw programFailure(result, 'withdraw the not-applicable decision');
 }
 
 export function describeMappingFailure(error: Error): string {
