@@ -9,4 +9,5 @@ namespace Bdgrz.Compliance.Features.Criteria;
 /// because the 2022 source does not number those points.
 /// </summary>
 public sealed record Criterion(Uuid EditionId, string Identifier, string? SourceIdentifier,
-    string Category, string Kind, string? ParentIdentifier, string Summary);
+    string Category, string Kind, string? ParentIdentifier, string Summary, string? LicensedText = null,
+    CriteriaTextOverlayMetadata? Overlay = null);
