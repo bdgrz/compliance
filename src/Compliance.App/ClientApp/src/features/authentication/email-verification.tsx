@@ -117,7 +117,7 @@ export function EmailVerificationForm({
           </>
         ) : (
           <>
-            <label>
+            <label className="registration-field">
               <span>Email address</span>
               <input
                 type="email"
@@ -136,7 +136,7 @@ export function EmailVerificationForm({
             {challengedEmail() ? (
               <>
                 <p role="status">{delivery()}</p>
-                <label>
+                <label className="registration-field">
                   <span>Verification code</span>
                   <input
                     type="text"
