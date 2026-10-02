@@ -928,6 +928,11 @@ export type Portia29FC8CE420AC2814A94627199085A8D4740B2FCFF2200FDDEF4D0FCFD528B7
   "next_cursor": string | null;
 } | null;
 
+export type Portia2D28D798C7E78AA816D56CF90D4B3AD6B04CBB011C8A2B53F284B2CEE5DC2595 = {
+  "report_id": string;
+  "revision": number | string;
+} | null;
+
 export type Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552 = {
   "user_id": string;
   "email_address": string;
@@ -1373,6 +1378,36 @@ export type Portia3FB59D2954C0596502DAAFC4D857D1FECF2F3D8E1E967CE98B8A0A7D8B5A8D
 } | null>;
 } | null> | null;
 
+export type Portia4102F5E3944C6CBBC785606A61638B2837409F5150AFCBD4BAD1D62977567318 = {
+  "report_kind": string;
+  "issuer": string;
+  "scope": string;
+  "period_end": string;
+  "period_start"?: string | null;
+  "opinion"?: string | null;
+  "opinion_source"?: string | null;
+  "covered_services"?: Array<string | null> | null;
+  "exceptions"?: Array<{
+  "reference": string | null;
+  "description": string;
+} | null> | null;
+  "complementary_controls"?: Array<string | null> | null;
+  "coverage_gaps"?: Array<string | null> | null;
+  "bridge_letter"?: {
+  "letter_date": string;
+  "covers_from": string;
+  "covers_through": string;
+} | null;
+  "citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+} | null;
+
 export type Portia411B3239057A525C3562E4BE0D1A71F30A3844A0A56231069471136CDD4A37E4 = {
   "items": Array<{
   "role_id": string;
@@ -1798,6 +1833,24 @@ export type Portia514BB8F14671A5FE5E15A9E3C84B8C349CD2D2B46CD8B518774D745D6ECEEE
 export type Portia51FE555DD79808725AEE8E82914094E523850FDA6EFBE755215A4071F1A05B52 = {
   "campaign_id": string;
   "audience_count": number | string;
+} | null;
+
+export type Portia526838A97DE1C39D2D1C769E7508562C0D25FDDCB1C77518E04A32DDCBB15567 = {
+  "reviewed_at": string;
+  "next_review_due": string;
+  "evidence_kind": string;
+  "conclusion": string;
+  "rationale": string;
+  "assurance_report_id"?: string | null;
+  "exceptions"?: Array<string | null> | null;
+  "evidence"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
 } | null;
 
 export type Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B6726 = {
@@ -3969,6 +4022,10 @@ export type Portia9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F78
   "plan_version_id": string;
 } | null> | null;
 
+export type Portia91637078B6803C41CE2F7C2391EFBBC19AA8823F1C8D5DFF07992965B11B58BA = {
+  "review_id": string;
+} | null;
+
 export type Portia9190F0762BE0FE85D210B7FD1FAE130C97FF4C88C2AD59CDD6ADA371D450795C = {
   "tenant_id": string;
   "person_id": string;
@@ -4013,6 +4070,56 @@ export type Portia92D234454C20DC8E7698D3F4608F463CC45108FD7C6FCB35EBDEFD7131274C
 } | null>;
   "complete": boolean;
   "digest": string;
+} | null;
+
+export type Portia9343E06683F5492A5177C6923B997DCF9AC66E69DDA26188D70BD59FADEA1A95 = {
+  "items": Array<{
+  "tenant_id": string;
+  "report_id": string;
+  "provider_id": string;
+  "revision": number | string;
+  "content": {
+  "report_kind": string;
+  "issuer": string;
+  "scope": string;
+  "period_end": string;
+  "period_start"?: string | null;
+  "opinion"?: string | null;
+  "opinion_source"?: string | null;
+  "covered_services"?: Array<string | null> | null;
+  "exceptions"?: Array<{
+  "reference": string | null;
+  "description": string;
+} | null> | null;
+  "complementary_controls"?: Array<string | null> | null;
+  "coverage_gaps"?: Array<string | null> | null;
+  "bridge_letter"?: {
+  "letter_date": string;
+  "covers_from": string;
+  "covers_through": string;
+} | null;
+  "citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+};
+  "provider_revision": number | string;
+  "exception_count": number | string;
+  "complementary_control_count": number | string;
+  "coverage_gap_count": number | string;
+  "recorded_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
+  "redacted"?: boolean;
+} | null>;
+  "next_cursor": string | null;
 } | null;
 
 export type Portia96294E0FB33C6297223052ED7387F5E7FAA0C2A7CD4DC2CD6B9BFA4998A6D5C7 = Array<{
@@ -4433,6 +4540,37 @@ export type Portia9EE7CFBC2DB1E57A7AB5450792B4056ACF5FDF2A4383256FD21D6EEEBF8938
   "id": string;
 };
   "plan_version_id": string;
+} | null;
+
+export type Portia9F2330FA1664CEBC250B28A295DA20EF64128048D793B795BC7771ED46FDB904 = {
+  "tenant_id": string;
+  "provider_id": string;
+  "provider_revision": number | string;
+  "as_of": string;
+  "materiality": string | null;
+  "status": string;
+  "complete": boolean;
+  "reasons": Array<string | null>;
+  "latest_review_id": string | null;
+  "latest_reviewed_at": string | null;
+  "next_review_due": string | null;
+  "latest_conclusion": string | null;
+  "reports": Array<{
+  "report_id": string;
+  "revision": number | string;
+  "report_kind": string;
+  "issuer": string;
+  "period_start": string | null;
+  "period_end": string;
+  "opinion": string | null;
+  "exception_count": number | string;
+  "coverage_gap_count": number | string;
+  "bridge_covers_through": string | null;
+  "currency": string;
+  "period_coverage": string;
+  "complete": boolean;
+  "incomplete_reasons": Array<string | null>;
+} | null>;
 } | null;
 
 export type Portia9F2A4A90E821B453D9470CC440A45D27AEF3F04BB48AECD8C5D70C0A9FD56D99 = {
@@ -5216,6 +5354,41 @@ export type PortiaC747F28324E7028799B4841BA8A86774FDDF4EBFA16AF49924B1ED2322221A
   "reinstated_by_display"?: string | null;
   "verified_email_address"?: string | null;
   "display_name"?: string | null;
+} | null;
+
+export type PortiaC774062C6674E8414DC3A297B451F46378C373D2923664A0DE52AD446627AF4B = {
+  "items": Array<{
+  "tenant_id": string;
+  "review_id": string;
+  "provider_id": string;
+  "content": {
+  "reviewed_at": string;
+  "next_review_due": string;
+  "evidence_kind": string;
+  "conclusion": string;
+  "rationale": string;
+  "assurance_report_id"?: string | null;
+  "exceptions"?: Array<string | null> | null;
+  "evidence"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+};
+  "provider_revision": number | string;
+  "assurance_report_revision": number | string | null;
+  "reviewed_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
+  "redacted"?: boolean;
+} | null>;
+  "next_cursor": string | null;
 } | null;
 
 export type PortiaC95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6 = {
