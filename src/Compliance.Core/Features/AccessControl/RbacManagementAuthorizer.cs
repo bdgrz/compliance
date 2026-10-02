@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
@@ -20,12 +21,16 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenant
                     "Access grant changes require an authenticated member."))
                 : Result.Success;
 
-        if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
+        return await AuthorizeTenantAsync(context.Actor, context.Request.TenantId, ct).ConfigureAwait(false);
+    }
+
+    internal async ValueTask<Result> AuthorizeTenantAsync(ClaimsPrincipal actor, Uuid tenantId, CancellationToken ct)
+    {
+        if (!UserIdentityClaims.TryGetBdgrzSubject(actor, out var userId))
             return Result.Failure(new RequestError(
                 RequestErrorKind.Unauthorized,
                 "RBAC management requires a Bdgrz user identity."));
 
-        var tenantId = context.Request.TenantId;
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
         if (membership is null || membership.IsSuspended)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));

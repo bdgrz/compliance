@@ -141,6 +141,65 @@ public sealed class RbacManagementAuthorizerTests
         Assert.Empty(permissions.Permissions);
     }
 
+    [Fact]
+    public async Task ShouldAllowMemberListingGivenTenantAdministratorWithoutPlatformAuthority()
+    {
+        // Arrange
+        var authorizer = new ListTenantMembersAuthorizer(new FixedOperator(false),
+            new RecordingPermissionAuthorizer(true), new ActiveTenant(), new FixedMembershipDirectory(true));
+        var context = new RequestContext<ListTenantMembers>(new ListTenantMembers(TenantId), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, "client_personnel", false, RequestErrorKind.NotFound)]
+    [InlineData(false, true, false, "client_personnel", false, RequestErrorKind.Forbidden)]
+    [InlineData(false, true, true, "firm_staff", false, RequestErrorKind.Forbidden)]
+    [InlineData(false, true, true, "client_personnel", true, RequestErrorKind.NotFound)]
+    public async Task ShouldRejectMemberListingGivenIneligibleTenantActor(bool isOperator, bool member,
+        bool permission, string affiliation, bool suspended, RequestErrorKind expected)
+    {
+        // Arrange
+        var authorizer = new ListTenantMembersAuthorizer(new FixedOperator(isOperator),
+            new RecordingPermissionAuthorizer(permission), new ActiveTenant(),
+            new FixedMembershipDirectory(member, affiliation, suspended));
+        var context = new RequestContext<ListTenantMembers>(new ListTenantMembers(TenantId), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(expected, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldAllowMemberListingGivenCurrentPlatformOperatorWithoutTenantMembership()
+    {
+        // Arrange
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var authorizer = new ListTenantMembersAuthorizer(new FixedOperator(true), permissions,
+            new ActiveTenant(), new FixedMembershipDirectory(false));
+        var context = new RequestContext<ListTenantMembers>(new ListTenantMembers(TenantId), BdgrzActor());
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Empty(permissions.Permissions);
+    }
+
+    sealed class FixedOperator(bool allowed) : IPlatformOperatorAccess
+    {
+        public ValueTask<bool> IsOperatorAsync(Uuid userId, CancellationToken ct = default) =>
+            ValueTask.FromResult(allowed);
+    }
+
     static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", UserId.ToString())], "BdgrzSession"));
 

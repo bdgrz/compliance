@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Workforce;
 
 public sealed partial class PersonDirectoryProjector(IPersonDirectoryProjection projection)
-    : Projector(projection, EventStreamPattern.ForTenant("people"), "PersonDirectoryV1"),
+    : Projector(projection, EventStreamPattern.ForTenant("people"), "PersonDirectoryV2"),
       IProjectorHandler<PersonRecorded>, IProjectorHandler<PersonRevised>,
       IProjectorHandler<PersonMembershipCorrelated>
 {

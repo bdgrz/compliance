@@ -183,6 +183,8 @@ export function MembersPage() {
                     <a href={organizationPath(`/members/${member.userId}`)}>
                       {memberLabel(member, member.userId)}
                     </a>
+                    {member.emailAddress && member.emailAddress !== memberLabel(member, member.userId)
+                      ? <span>{member.emailAddress}</span> : null}
                     <span>{member.affiliation === 'firm_staff' ? 'Firm staff' : 'Client personnel'}</span>
                     <span>{member.suspended ? 'Suspended' : 'Active'}</span>
                   </Block>

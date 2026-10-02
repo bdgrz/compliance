@@ -39,11 +39,12 @@ export interface MemberSummary {
   affiliation: string;
   suspended: boolean;
   emailAddress?: string | null;
+  displayName?: string | null;
 }
 
-// A member's readable name: their verified email when the server returned one.
+// Presentation comes from authorized server facts; it never supplies an access decision.
 export function memberLabel(member: MemberSummary | undefined, userId: string): string {
-  return member?.emailAddress ?? `Member ${userId.slice(0, 8)}`;
+  return member?.displayName ?? member?.emailAddress ?? `Member ${userId.slice(0, 8)}`;
 }
 
 export interface InvitationSummary {
@@ -81,6 +82,7 @@ export async function listMembers(): Promise<MemberSummary[]> {
           affiliation: item.affiliation ?? 'client_personnel',
           suspended: item.is_suspended ?? false,
           emailAddress: item.verified_email_address ?? null,
+          displayName: item.display_name ?? null,
         });
       }
     }
@@ -151,6 +153,8 @@ export interface MembershipState {
   suspendedAt: string | null;
   suspendedBy: string | null;
   suspensionReason: string | null;
+  displayName?: string | null;
+  emailAddress?: string | null;
 }
 
 export interface OpenResponsibility {
@@ -174,6 +178,8 @@ export async function getMembership(userId: string): Promise<MembershipState> {
     suspendedAt: result.data.suspended_at ?? null,
     suspendedBy: result.data.suspended_by_display ?? null,
     suspensionReason: result.data.suspension_reason ?? null,
+    displayName: result.data.display_name ?? null,
+    emailAddress: result.data.verified_email_address ?? null,
   };
 }
 

@@ -358,7 +358,7 @@ public sealed class WorkforceRosterSnapshotTests
             IEnumerable<WorkRelationshipView> relationships)
         {
             await using (var batch = await _people.BeginAsync(new ProjectionBatchContext(
-                             new CheckpointIdentity("PersonDirectoryV1",
+                             new CheckpointIdentity("PersonDirectoryV2",
                                  EventStreamPattern.ForPattern(TenantId.ToString(), "people")),
                              ProjectionCheckpoint.Start)))
             {

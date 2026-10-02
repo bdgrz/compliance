@@ -1,11 +1,13 @@
 using Bdgrz.Compliance.Features.UserIdentities;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
 public sealed class ListTenantMembersHandler(ITenantMembershipDirectoryReader directory,
-    IEmailAddressDirectoryReader? emails = null)
+    IEmailAddressDirectoryReader? emails = null, IUserDisplayNameReader? profiles = null,
+    IPersonMemberDisplayReader? people = null)
     : IRequestHandler<ListTenantMembers, Page<TenantMembershipView>>
 {
     public async ValueTask<Result<Page<TenantMembershipView>>> HandleAsync(
@@ -38,7 +40,8 @@ public sealed class ListTenantMembersHandler(ITenantMembershipDirectoryReader di
     {
         var enriched = new List<TenantMembershipView>(members.Count);
         foreach (var member in members)
-            enriched.Add(await MemberEmailEnrichment.WithEmailAsync(emails, member, ct).ConfigureAwait(false));
+            enriched.Add(await MemberPresentationEnrichment.WithMemberAsync(emails, member, ct,
+                profiles, people).ConfigureAwait(false));
         return enriched;
     }
 }

@@ -219,10 +219,12 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
                 [ownerAId, memberAId], tenantB);
             var membersB = await AssertTenantMemberPagesAsync(operatorClient, tenantB,
                 [ownerBId, memberBId], tenantA);
-            await AssertDeniedHttpAsync(ownerBClient, TenantPath(tenantB) + "/members",
-                HttpStatusCode.Forbidden, ownerAEmail);
+            Assert.Equal(membersB, await AssertTenantMemberPagesAsync(ownerBClient, tenantB,
+                [ownerBId, memberBId], tenantA, HttpStatusCode.NotFound));
+            await AssertDeniedHttpAsync(ownerBClient, TenantPath(tenantA) + "/members",
+                HttpStatusCode.NotFound, ownerAEmail);
             await AssertDeniedHttpAsync(outsider, TenantPath(tenantA) + "/members",
-                HttpStatusCode.Forbidden, ownerAEmail);
+                HttpStatusCode.NotFound, ownerAEmail);
             Assert.Equal(membersA, Ids(await ReadToolAsync(operatorMcp,
                 "bdgrz.tenant-member.list", TenantInput(tenantA)), "user_id"));
             Assert.Equal(membersB, Ids(await ReadToolAsync(operatorMcp,
@@ -231,10 +233,12 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
                 [ownerAId, memberAId], tenantB);
             await AssertTenantMemberMcpPagesAsync(operatorMcp, tenantB,
                 [ownerBId, memberBId], tenantA);
-            _ = await ownerBMcp.When("bdgrz.tenant-member.list", TenantInput(tenantB))
-                .ExpectFailure("Forbidden");
+            Assert.Equal(membersB, Ids(await ReadToolAsync(ownerBMcp,
+                "bdgrz.tenant-member.list", TenantInput(tenantB)), "user_id"));
+            _ = await ownerBMcp.When("bdgrz.tenant-member.list", TenantInput(tenantA))
+                .ExpectFailure("NotFound");
             _ = await outsiderMcp.When("bdgrz.tenant-member.list", TenantInput(tenantA))
-                .ExpectFailure("Forbidden");
+                .ExpectFailure("NotFound");
 
             AssertMemberAccess(await ReadToolAsync(ownerAMcp, "bdgrz.member.access.get",
                 MemberInput(tenantA, ownerAId)), tenantA, ownerAId);
@@ -407,7 +411,8 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
     }
 
     static async Task<string[]> AssertTenantMemberPagesAsync(HttpClient operatorClient,
-        Uuid tenantId, IReadOnlyCollection<Uuid> expectedIds, Uuid otherTenantId)
+        Uuid tenantId, IReadOnlyCollection<Uuid> expectedIds, Uuid otherTenantId,
+        HttpStatusCode foreignCursorStatus = HttpStatusCode.BadRequest)
     {
         var path = TenantPath(tenantId) + "/members";
         var ids = new List<string>();
@@ -438,7 +443,7 @@ public sealed class TenantIdentityReadLeakMatrixE2ETests(BrokerStackFixture brok
         Assert.False(string.IsNullOrWhiteSpace(foreignCursor));
         using var transplanted = await operatorClient.GetAsync(TenantPath(otherTenantId) +
             "/members?limit=1&cursor=" + Uri.EscapeDataString(foreignCursor));
-        Assert.Equal(HttpStatusCode.BadRequest, transplanted.StatusCode);
+        Assert.Equal(foreignCursorStatus, transplanted.StatusCode);
         return ids.ToArray();
     }
 

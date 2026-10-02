@@ -8,6 +8,47 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class UserIdentityTests
 {
     [Fact]
+    public void ShouldRejectProfileObservationGivenRevokedIdentity()
+    {
+        // Arrange
+        var identity = new UserIdentity("issuer", "revoked-profile");
+        Assert.True(identity.Register(null, null).IsSuccess);
+        Assert.True(identity.Revoke(Uuid.CreateVersion4(), DateTimeOffset.UtcNow).IsSuccess);
+        var version = identity.Version;
+
+        // Act
+        var result = identity.ObserveAuthenticatedProfile("Rejected name", DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Unauthorized, result.Error.Kind);
+        Assert.Equal(version, identity.Version);
+    }
+
+    [Theory]
+    [InlineData("\nUnsafe\tname", null)]
+    [InlineData("  Safe name  ", "Safe name")]
+    public void ShouldNormalizePresentationWithoutIdentityAuthorityGivenProviderText(
+        string name, string? expected)
+    {
+        // Arrange
+        var identity = new UserIdentity("issuer", "profile-text");
+        var userId = Uuid.CreateVersion4();
+        var scenario = new AggregateScenario<UserIdentity>(identity).Given(DomainEventSeed.Attach(
+            new UserIdentityRegistered(userId, "issuer", "profile-text", null), identity.Id, 1));
+
+        // Act
+        var result = identity.ObserveAuthenticatedProfile(name, DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var observed = Assert.IsType<UserIdentityProfileObserved>(Assert.Single(scenario.PendingEvents));
+        Assert.Equal(expected, observed.DisplayName);
+        Assert.Equal(userId, observed.UserId);
+        Assert.Equal(identity.Id, observed.Metadata.AggregateId);
+    }
+
+    [Fact]
     public void ShouldRecordOnlyProviderIdentityGivenRegistrationWithEmail()
     {
         // Arrange

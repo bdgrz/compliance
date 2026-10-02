@@ -5,15 +5,29 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Workforce;
 
 sealed class FitzPersonDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/person-directory-v1/projection",
-            "PersonDirectoryV1"),
-        IPersonDirectoryReader, IPersonDirectoryProjection
+    : FitzKvProjectionStore(client, "kv://bdgrz/person-directory-v2/projection",
+            "PersonDirectoryV2"),
+        IPersonDirectoryReader, IPersonDirectoryProjection, IPersonMemberDisplayReader
 {
     public const string ManualSource = "manual";
 
+    public async ValueTask<string?> ReadAsync(Uuid tenantId, Uuid userId, CancellationToken ct = default)
+    {
+        if (tenantId == Uuid.Empty || userId == Uuid.Empty)
+            return null;
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        var matches = await PersonDirectorySchema.People.QueryAsync(tx,
+            PersonDirectorySchema.ByCorrelatedUser.Query().WithPrefix(userId.ToString()).Take(2), ct)
+            .ConfigureAwait(false);
+        return matches.Items.Count == 1 && matches.Items[0].TenantId == tenantId &&
+               matches.Items[0].CorrelatedUserId == userId
+            ? matches.Items[0].DisplayName
+            : null;
+    }
+
     public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
         CancellationToken ct = default) =>
-        base.LoadCheckpointAsync(new CheckpointIdentity("PersonDirectoryV1",
+        base.LoadCheckpointAsync(new CheckpointIdentity("PersonDirectoryV2",
             EventStreamPattern.ForPattern(tenantId.ToString(), "people")), ct);
 
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
