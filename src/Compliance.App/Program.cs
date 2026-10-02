@@ -204,6 +204,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListProviders>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<GetProviderRevision>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<ListProviderRevisions>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<RecordAssuranceReport>()
+        .AddMcpTool<ReviseAssuranceReport>(tool => tool.Idempotent())
+        .AddMcpTool<ListProviderAssuranceReports>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<ListProviderReviews>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<GetProviderAssuranceCoverage>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
@@ -1363,6 +1368,31 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Providers");
     app.MapPortiaGet<ListProviderRevisions, Page<ProviderView>>("/api/v1/tenants/{tenant_id}/providers/{provider_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPost<RecordAssuranceReport, AssuranceReportRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-reports")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPut<ReviseAssuranceReport, AssuranceReportRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-reports/{report_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<ListProviderAssuranceReports, Page<AssuranceReportView>>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-reports")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    // Personal sign-off: HTTP-only, deliberately not an MCP tool.
+    app.MapPortiaPost<RecordProviderReview, ProviderReviewRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<ListProviderReviews, Page<ProviderReviewView>>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<GetProviderAssuranceCoverage, ProviderAssuranceCoverageView>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-coverage")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Providers");
     app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(

@@ -202,6 +202,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProviderProjection>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<IProviderReader>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<ProviderReadConsistency>();
+        services.AddScoped<AssuranceReferences>();
+        services.AddScoped<AssuranceDisclosure>();
+        services.AddScoped<FitzAssuranceDirectory>();
+        services.AddScoped<IAssuranceProjection>(provider => provider.GetRequiredService<FitzAssuranceDirectory>());
+        services.AddScoped<IAssuranceReader>(provider => provider.GetRequiredService<FitzAssuranceDirectory>());
+        services.AddScoped<AssuranceReadConsistency>();
         services.AddScoped<TechnologyInventoryReadConsistency>();
         services.AddScoped<FitzInventoryRegisterDirectory>();
         services.AddScoped<IInventoryRegisterProjection>(provider =>
@@ -446,6 +452,12 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListProvidersHandler>()
             .AddRequestHandler<GetProviderRevisionHandler>()
             .AddRequestHandler<ListProviderRevisionsHandler>()
+            .AddRequestHandler<RecordAssuranceReportHandler>()
+            .AddRequestHandler<ReviseAssuranceReportHandler>()
+            .AddRequestHandler<RecordProviderReviewHandler>()
+            .AddRequestHandler<ListProviderAssuranceReportsHandler>()
+            .AddRequestHandler<ListProviderReviewsHandler>()
+            .AddRequestHandler<GetProviderAssuranceCoverageHandler>()
             .AddRequestAuthorizer<ProviderAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()
@@ -883,6 +895,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<ApplicationControlDraftReferenceProjector>(
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ProviderProjector>(FitzProviderDirectory.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<AssuranceProjector>(FitzAssuranceDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
