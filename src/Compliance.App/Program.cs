@@ -931,6 +931,19 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/control-treatments/{treatment_id}/retirements")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
+    app.MapPortiaPost<AddRiskTreatmentAction, RiskTreatmentActionRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<SubmitRiskTreatmentActionCompletion,
+            RiskTreatmentActionCompletionRegistration>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/completions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<ReviewRiskTreatmentActionCompletion>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/completion-reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
     app.MapPortiaGet<GetRiskGovernance, RiskGovernanceView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/governance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

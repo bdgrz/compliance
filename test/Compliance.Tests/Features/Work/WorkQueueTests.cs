@@ -1,8 +1,11 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Remediation;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Tests.Features.Operations;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -35,6 +38,65 @@ public sealed class WorkQueueTests
         Assert.EndsWith($"/evidence-requests/{request.EvidenceRequestId}/fulfilments", item.ActionPath,
             StringComparison.Ordinal);
         Assert.DoesNotContain(after.Items, item => item.Kind == "evidence_request");
+    }
+
+    [Fact]
+    public async Task ShouldListRiskTreatmentActionForAccountableMemberGivenOpenActionUntilCompletionIsSubmitted()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var riskId = Uuid.CreateVersion4();
+        var actionId = Uuid.CreateVersion4();
+        var evidenceId = Uuid.CreateVersion4();
+        var lead = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new EvidenceRequestLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.OpenRequest(evidenceId, "Export", "Upload.",
+                    fixture.OwnerMemberId, fixture.Today.AddDays(5), null, lead,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(riskId, 0, actionId, "mitigate",
+                    "Enforce MFA", "MFA everywhere.", "Policy export.", fixture.Today.AddDays(9),
+                    fixture.OwnerMemberId, [evidenceId], lead, DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+
+        // Act
+        var before = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new EvidenceRequestLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Fulfil(evidenceId, 1, Uuid.CreateVersion4(), lead,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.SubmitActionCompletion(riskId, actionId, 1,
+                    Uuid.CreateVersion4(), "Done.", [evidenceId],
+                    new HashSet<Uuid> { evidenceId }, fixture.OwnerMemberId, lead,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        var after = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        var item = Assert.Single(before.Items, item => item.Kind == "risk_treatment_action");
+        Assert.Equal(actionId, item.SourceId);
+        Assert.Equal("complete", item.NextAction);
+        Assert.Equal(fixture.Today.AddDays(9), item.DueOn);
+        Assert.Equal(fixture.OwnerMemberId, item.AssigneeMemberId);
+        Assert.EndsWith($"/risks/{riskId}/treatment-actions/{actionId}/completions",
+            item.ActionPath, StringComparison.Ordinal);
+        Assert.DoesNotContain(after.Items, item => item.Kind == "risk_treatment_action");
     }
 
     [Fact]

@@ -68,7 +68,35 @@ governance revision for `expected_revision`. Writes are HTTP-only;
   inherent assessment is recorded at or after it; an open trigger makes the
   evaluation status `reassessment_due`.
 
+## Treatment actions (#537)
+
+Treatment actions live in the same `risk-governance` ledger and share each risk's governance
+revision. Writes are HTTP-only and require `program.manage`; the replayed Portia request ID
+identifies each action, submission, and decision.
+
+- `POST .../risks/{risk_id}/treatment-actions` adds accountable work to a risk whose chosen
+  treatment is `mitigate`, `transfer`, or `avoid`: `title`, `target_state`, `expected_evidence`,
+  `due_on` (not in the past), `accountable_member_id` (an active client member), and optional
+  `evidence_request_ids` (uncancelled evidence requests in the same program).
+- `POST .../treatment-actions/{action_id}/completions` reports the target state reached. It
+  needs a summary and at least one `evidence_request_ids` entry, and every cited request must be
+  fulfilled. The action becomes `completion_submitted`, not complete.
+- `POST .../treatment-actions/{action_id}/completion-reviews` accepts or rejects the pending
+  completion. The submitter and the accountable member may not review without an approved waiver
+  scoped to (`risk_treatment_action`, action ID, submission ID, expected revision, `review`).
+  Acceptance re-reads the evidence requests and fails if a cited request is no longer fulfilled.
+  Rejection returns the action to `open`; completions keep their history.
+- `GET .../risks/{risk_id}/governance` lists `treatment_actions` with status (`open`,
+  `completion_submitted`, `completed`), read-time `overdue`, and each completion with its review,
+  plus `treatment_action_status`: `none`, `in_progress`, `overdue`, or `completed`. Treatment
+  reads `completed` only when every action has an independently accepted completion.
+- An open action appears in the accountable member's work queue as `risk_treatment_action`.
+
 ## Deferred
+
+- Cancelling or editing a treatment action, and a distinct work item for completion review.
+- A treatment-action readiness rule and an evaluation status that depends on completion; the
+  readiness rules belong to R1-08.
 
 - Vendor and incident reassessment triggers, which need their owning sources.
 - Program-level evaluation lists and readiness contribution; readiness rule

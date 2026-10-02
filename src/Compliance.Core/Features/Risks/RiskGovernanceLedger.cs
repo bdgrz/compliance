@@ -16,7 +16,11 @@ public sealed class RiskGovernanceLedger : Aggregate
     public const string Reject = "reject";
     public const string MethodChanged = "method_changed";
     public const string BoundaryChanged = "boundary_changed";
+    public const string ActionOpen = "open";
+    public const string ActionSubmitted = "completion_submitted";
+    public const string ActionCompleted = "completed";
     const int MaximumTextLength = 4000;
+    const int MaximumTitleLength = 200;
 
     readonly Uuid _tenantId;
     readonly Dictionary<Uuid, RiskState> _risks = [];
@@ -81,6 +85,56 @@ public sealed class RiskGovernanceLedger : Aggregate
             risk.Revision = ev.Revision;
             risk.Triggers.Add(ev.Trigger);
         });
+        On<RiskTreatmentActionAdded>(ev =>
+        {
+            var risk = State(ev.RiskId);
+            risk.Revision = ev.Revision;
+            risk.Actions.Add(ev.Action);
+        });
+        On<RiskTreatmentActionCompletionSubmitted>(ev =>
+        {
+            var risk = State(ev.RiskId);
+            risk.Revision = ev.Revision;
+            var index = risk.Actions.FindIndex(item => item.ActionId == ev.ActionId);
+            var action = risk.Actions[index];
+            risk.Actions[index] = action with
+            {
+                Status = ActionSubmitted,
+                Completions =
+                [
+                    .. action.Completions,
+                    new RiskTreatmentActionCompletionView(ev.SubmissionId, ev.Summary,
+                        ev.EvidenceRequestIds, ev.SubmittedBy, ev.SubmittedAt, null, null, null,
+                        null, null, null),
+                ],
+            };
+            risk.Submitters[ev.SubmissionId] = ev.SubmitterMemberId;
+        });
+        On<RiskTreatmentActionCompletionReviewed>(ev =>
+        {
+            var risk = State(ev.RiskId);
+            risk.Revision = ev.Revision;
+            var index = risk.Actions.FindIndex(item => item.ActionId == ev.ActionId);
+            var action = risk.Actions[index];
+            var last = action.Completions[^1];
+            risk.Actions[index] = action with
+            {
+                Status = ev.Outcome == Accept ? ActionCompleted : ActionOpen,
+                Completions =
+                [
+                    .. action.Completions.Take(action.Completions.Count - 1),
+                    last with
+                    {
+                        ReviewDecisionId = ev.DecisionId,
+                        ReviewOutcome = ev.Outcome,
+                        ReviewedBy = ev.Reviewer,
+                        ReviewRationale = ev.Rationale,
+                        ReviewedAt = ev.ReviewedAt,
+                        SeparationOfDutiesWaiverId = ev.SeparationOfDutiesWaiverId,
+                    },
+                ],
+            };
+        });
     }
 
     /// <summary>A stable trigger identity, so a replayed reaction never raises it twice.</summary>
@@ -111,14 +165,36 @@ public sealed class RiskGovernanceLedger : Aggregate
             .Where(treatment => treatment.ControlId == controlId &&
                 treatment.Status is "proposed" or "accepted")];
 
-    public RiskGovernanceView View(Uuid riskId, IReadOnlyList<RiskAssessmentView> assessments)
+    public RiskGovernanceView View(Uuid riskId, IReadOnlyList<RiskAssessmentView> assessments,
+        DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(assessments);
         _risks.TryGetValue(riskId, out var risk);
+        var actions = (risk?.Actions ?? [])
+            .Select(action => action with { Overdue = IsOverdue(action, today) }).ToArray();
         return new RiskGovernanceView(_tenantId, Id, riskId, risk?.Revision ?? 0, risk?.Owner,
             risk?.Treatments.ToArray() ?? [],
-            [.. (risk?.Triggers ?? []).Select(trigger => WithStatus(trigger, assessments))]);
+            [.. (risk?.Triggers ?? []).Select(trigger => WithStatus(trigger, assessments))],
+            actions, ActionStatus(actions));
     }
+
+    /// <summary>Every treatment action in the program, in the order it was added.</summary>
+    public IReadOnlyList<RiskTreatmentActionView> Actions() =>
+        [.. _risks.Values.SelectMany(static risk => risk.Actions)];
+
+    public RiskTreatmentActionView? FindAction(Uuid riskId, Uuid actionId) =>
+        _risks.TryGetValue(riskId, out var risk)
+            ? risk.Actions.Find(item => item.ActionId == actionId)
+            : null;
+
+    static bool IsOverdue(RiskTreatmentActionView action, DateOnly today) =>
+        action.Status != ActionCompleted && action.DueOn < today;
+
+    static string ActionStatus(RiskTreatmentActionView[] actions) =>
+        actions.Length == 0 ? "none"
+        : actions.All(static action => action.Status == ActionCompleted) ? "completed"
+        : actions.Any(static action => action.Overdue) ? "overdue"
+        : "in_progress";
 
     /// <summary>Triggers not yet answered by an inherent assessment recorded at or after them.</summary>
     public IReadOnlyList<RiskReassessmentTriggerView> OpenTriggers(Uuid riskId,
@@ -249,6 +325,117 @@ public sealed class RiskGovernanceLedger : Aggregate
         return null;
     }
 
+    /// <param name="riskTreatmentKind">The risk's currently chosen treatment kind, if any.</param>
+    public CommandFailure? AddTreatmentAction(Uuid riskId, long expectedRevision, Uuid actionId,
+        string? riskTreatmentKind, string title, string targetState, string expectedEvidence,
+        DateOnly dueOn, Uuid accountableMemberId, IReadOnlyList<Uuid>? evidenceRequestIds,
+        ActorReference actor, DateTimeOffset createdAt)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        var evidence = Distinct(evidenceRequestIds);
+        if (FindAction(riskId, actionId) is { } existing)
+            return existing.Title == title?.Trim() && existing.DueOn == dueOn &&
+                   existing.TargetState == targetState?.Trim() &&
+                   existing.ExpectedEvidence == expectedEvidence?.Trim() &&
+                   existing.AccountableMemberId == accountableMemberId &&
+                   existing.EvidenceRequestIds.SequenceEqual(evidence)
+                ? null
+                : CommandFailure.StateConflict(
+                    "The treatment action was already recorded with different content.");
+        if (CheckRevision(riskId, expectedRevision) is { } stale)
+            return stale;
+        if (actionId == Uuid.Empty || accountableMemberId == Uuid.Empty ||
+            string.IsNullOrWhiteSpace(title) || title.Trim().Length > MaximumTitleLength ||
+            InvalidText(targetState) || InvalidText(expectedEvidence))
+            return CommandFailure.InvalidContent(
+                "A treatment action requires a title of at most 200 characters, a target state, expected evidence, and an accountable member.");
+        if (dueOn < DateOnly.FromDateTime(createdAt.UtcDateTime))
+            return CommandFailure.InvalidContent("A treatment action cannot be due in the past.");
+        if (riskTreatmentKind is null or "accept")
+            return CommandFailure.StateConflict(
+                "Choose a mitigate, transfer, or avoid treatment before adding treatment actions.");
+        RaiseEvent(new RiskTreatmentActionAdded(_tenantId, Id, riskId, RevisionOf(riskId) + 1,
+            new RiskTreatmentActionView(actionId, riskId, title.Trim(), targetState.Trim(),
+                expectedEvidence.Trim(), dueOn, accountableMemberId, evidence, ActionOpen, false,
+                actor, createdAt, [])));
+        return null;
+    }
+
+    /// <param name="fulfilledEvidenceRequestIds">
+    ///     The program evidence requests that are fulfilled now.
+    /// </param>
+    public CommandFailure? SubmitActionCompletion(Uuid riskId, Uuid actionId,
+        long expectedRevision, Uuid submissionId, string summary,
+        IReadOnlyList<Uuid> evidenceRequestIds, IReadOnlySet<Uuid> fulfilledEvidenceRequestIds,
+        Uuid submitterMemberId, ActorReference submitter, DateTimeOffset submittedAt)
+    {
+        ArgumentNullException.ThrowIfNull(submitter);
+        ArgumentNullException.ThrowIfNull(fulfilledEvidenceRequestIds);
+        if (FindAction(riskId, actionId) is not { } action)
+            return CommandFailure.MissingRecord("The treatment action was not found.");
+        if (action.Completions.Any(item => item.SubmissionId == submissionId))
+            return null;
+        if (CheckRevision(riskId, expectedRevision) is { } stale)
+            return stale;
+        if (action.Status != ActionOpen)
+            return CommandFailure.StateConflict(
+                "The treatment action has no open work to complete.");
+        var evidence = Distinct(evidenceRequestIds);
+        if (submissionId == Uuid.Empty || InvalidText(summary) || evidence.Count == 0)
+            return CommandFailure.InvalidContent(
+                "A completion requires a summary of at most 4000 characters and at least one evidence request.");
+        if (evidence.Any(id => !fulfilledEvidenceRequestIds.Contains(id)))
+            return CommandFailure.StateConflict(
+                "Every cited evidence request must be fulfilled before completion is submitted.");
+        RaiseEvent(new RiskTreatmentActionCompletionSubmitted(_tenantId, Id, riskId,
+            RevisionOf(riskId) + 1, actionId, submissionId, summary.Trim(), evidence,
+            submitterMemberId, submitter, submittedAt));
+        return null;
+    }
+
+    public CommandFailure? ReviewActionCompletion(Uuid riskId, Uuid actionId,
+        long expectedRevision, Uuid decisionId, string outcome, string rationale,
+        Uuid reviewerMemberId, ActorReference reviewer, DateTimeOffset reviewedAt,
+        IReadOnlySet<Uuid> fulfilledEvidenceRequestIds, SeparationOfDutiesWaiver? waiver = null)
+    {
+        ArgumentNullException.ThrowIfNull(reviewer);
+        ArgumentNullException.ThrowIfNull(fulfilledEvidenceRequestIds);
+        if (FindAction(riskId, actionId) is not { } action)
+            return CommandFailure.MissingRecord("The treatment action was not found.");
+        if (action.Status != ActionSubmitted)
+            return CommandFailure.StateConflict(
+                "The treatment action has no pending completion to review.");
+        if (CheckRevision(riskId, expectedRevision) is { } stale)
+            return stale;
+        var submission = action.Completions[^1];
+        if (waiver is not null && (waiver.TenantId != _tenantId || !waiver.Allows(
+                new SeparationOfDutiesWaiverScope(
+                    SeparationOfDutiesRecordTypes.RiskTreatmentAction, actionId,
+                    submission.SubmissionId, expectedRevision,
+                    SeparationOfDutiesActions.Review), reviewerMemberId, reviewedAt)))
+            return CommandFailure.ActorProhibited(
+                "The separation-of-duties waiver is not active for this member and completion.");
+        if ((_risks[riskId].Submitters[submission.SubmissionId] == reviewerMemberId ||
+             action.AccountableMemberId == reviewerMemberId) && waiver is null)
+            return CommandFailure.ActorProhibited(
+                "The member who submitted or is accountable for the action cannot review its completion.");
+        if (decisionId == Uuid.Empty || outcome is not (Accept or Reject) ||
+            InvalidText(rationale))
+            return CommandFailure.InvalidContent(
+                "A completion review requires an outcome of accept or reject and a rationale of at most 4000 characters.");
+        if (outcome == Accept && submission.EvidenceRequestIds
+                .Any(id => !fulfilledEvidenceRequestIds.Contains(id)))
+            return CommandFailure.StateConflict(
+                "Completion cannot be accepted while a cited evidence request is not fulfilled.");
+        RaiseEvent(new RiskTreatmentActionCompletionReviewed(_tenantId, Id, riskId,
+            RevisionOf(riskId) + 1, actionId, decisionId, outcome, rationale.Trim(), reviewer,
+            reviewedAt, waiver?.Id));
+        return null;
+    }
+
+    static List<Uuid> Distinct(IReadOnlyList<Uuid>? ids) =>
+        [.. (ids ?? []).Where(static id => id != Uuid.Empty).Distinct()];
+
     /// <summary>Raises the trigger once; a replayed trigger is a no-op.</summary>
     public void RaiseTrigger(Uuid riskId, string triggerKind, string sourceReference,
         DateTimeOffset raisedAt)
@@ -291,5 +478,7 @@ public sealed class RiskGovernanceLedger : Aggregate
         public List<RiskControlTreatmentView> Treatments { get; } = [];
         public Dictionary<Uuid, Uuid> Proposers { get; } = [];
         public List<RiskReassessmentTriggerView> Triggers { get; } = [];
+        public List<RiskTreatmentActionView> Actions { get; } = [];
+        public Dictionary<Uuid, Uuid> Submitters { get; } = [];
     }
 }

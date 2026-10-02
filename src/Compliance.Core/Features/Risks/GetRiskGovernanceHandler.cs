@@ -2,8 +2,11 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Risks;
 
-/// <summary>Reads a risk's governance from the program ledger, its authoritative source.</summary>
-public sealed class GetRiskGovernanceHandler(IAggregateReader reader)
+/// <summary>
+///     Reads a risk's governance from the program ledger, its authoritative source. Treatment
+///     action overdue state is evaluated at read time.
+/// </summary>
+public sealed class GetRiskGovernanceHandler(IAggregateReader reader, TimeProvider clock)
     : IRequestHandler<GetRiskGovernance, RiskGovernanceView>
 {
     public async ValueTask<Result<RiskGovernanceView>> HandleAsync(
@@ -19,6 +22,6 @@ public sealed class GetRiskGovernanceHandler(IAggregateReader reader)
         var evaluation = await reader.HydrateAsync(new RiskEvaluation(request.TenantId,
             request.RiskId), ct).ConfigureAwait(false);
         return Result<RiskGovernanceView>.Success(ledger.View(request.RiskId,
-            evaluation.ToView().Assessments));
+            evaluation.ToView().Assessments, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)));
     }
 }

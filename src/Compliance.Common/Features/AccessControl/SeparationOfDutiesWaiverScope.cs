@@ -35,6 +35,9 @@ public static class SeparationOfDutiesRecordTypes
     /// <summary>A control treatment assertion; the version is the control version ID.</summary>
     public const string RiskControlTreatment = "risk_control_treatment";
 
+    /// <summary>A risk treatment action completion review; the version is the submission ID.</summary>
+    public const string RiskTreatmentAction = "risk_treatment_action";
+
     /// <summary>A criterion applicability decision; the version is the decision ID.</summary>
     public const string CriterionApplicability = "criterion_applicability";
 

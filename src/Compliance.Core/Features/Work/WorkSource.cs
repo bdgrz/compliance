@@ -1,11 +1,12 @@
 using Bdgrz.Compliance.Features.Evidence;
+using Bdgrz.Compliance.Features.Risks;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
 ///     Derives open work from the authoritative source ledgers at read time (M0-D15): control
-///     occurrences to perform, attestations awaiting review, open corrective actions, and open evidence requests. Nothing
+///     occurrences to perform, attestations awaiting review, open corrective actions, open risk treatment actions, and open evidence requests. Nothing
 ///     here is stored, so completing source work removes the item and a projection-only change can
 ///     never complete it.
 /// </summary>
@@ -15,6 +16,7 @@ static class WorkSource
     public const string OccurrenceReview = "occurrence_review";
     public const string CorrectiveAction = "corrective_action";
     public const string EvidenceRequest = "evidence_request";
+    public const string RiskTreatmentAction = "risk_treatment_action";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
@@ -83,6 +85,19 @@ static class WorkSource
                     $"{prefix}/findings/{finding.FindingId}/corrective-actions/{action.ActionId}/completions",
                     new OperatingHolder(OperatingAuthority.MemberHolder, action.OwnerMemberId),
                     null, new HashSet<Uuid>(), action.AddedAt));
+        var governance = await reader.HydrateAsync(new RiskGovernanceLedger(tenantId, programId),
+            ct).ConfigureAwait(false);
+        foreach (var action in governance.Actions().Where(action =>
+                     action.Status == RiskGovernanceLedger.ActionOpen &&
+                     Wanted(action.ActionId, RiskTreatmentAction)))
+            candidates.Add(new WorkCandidate(
+                WorkCandidate.IdFor(action.ActionId, RiskTreatmentAction), RiskTreatmentAction,
+                action.ActionId, null, null, action.Title,
+                $"Treatment work for a risk. Target state: {action.TargetState}", action.DueOn,
+                null, "complete",
+                $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completions",
+                new OperatingHolder(OperatingAuthority.MemberHolder, action.AccountableMemberId),
+                null, new HashSet<Uuid>(), action.CreatedAt));
         var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         foreach (var request in evidence.ReadAll().Where(request =>
