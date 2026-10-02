@@ -19,21 +19,19 @@ import { correlatePersonMembership, getPerson, revisePerson, sourceKindLabel, ty
 import { ActionError, inputValue, LoadFailure, RecordFailure } from '../workforce-shared.js';
 import { SourceObservationsPanel } from '../source-record.js';
 
-function PersonEditor({ person, onSaved }: { person: Person; onSaved: () => void }) {
+function PersonEditor({ person, onSaving, onSaved }: { key?: string; person: Person; onSaving: () => void; onSaved: () => void }) {
   const [name, setName] = state(person.displayName);
   const [email, setEmail] = state(person.workEmail ?? '');
   const [pending, setPending] = state(false);
   const [error, setError] = state<Error | null>(null);
-  const [notice, setNotice] = state<string | null>(null);
 
   async function save(event: Event) {
     event.preventDefault();
     setError(null);
-    setNotice(null);
+    onSaving();
     setPending(true);
     try {
       await revisePerson(person.personId, person.revision, name(), email() || null);
-      setNotice('Person saved.');
       onSaved();
     } catch (failure) {
       setError(failure instanceof Error ? failure : new Error('Unable to save this person.'));
@@ -54,7 +52,6 @@ function PersonEditor({ person, onSaved }: { person: Person; onSaved: () => void
           <input type="email" value={email()} onInput={(event: Event) => setEmail(inputValue(event))} />
         </label>
         <ActionError error={error()} noun="person" />
-        {notice() ? <p role="status">{notice()}</p> : null}
         <Button variant="primary" type="submit" disabled={pending()}>
           {pending() ? 'Saving…' : 'Save person'}
         </Button>
@@ -133,6 +130,7 @@ function MembershipCorrelation({ person, onSaved }: { person: Person; onSaved: (
 
 export function PersonDetailPage({ personId }: { personId: string }) {
   const [version, setVersion] = state(0);
+  const [saveNotice, setSaveNotice] = state<string | null>(null);
   const person = resource(() => getPerson(personId), [personId, version()]);
 
   if (person.pending && !person.value) {
@@ -169,7 +167,16 @@ export function PersonDetailPage({ personId }: { personId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <PersonEditor person={current} onSaved={() => setVersion(version() + 1)} />
+            {saveNotice() ? <p role="status">{saveNotice()}</p> : null}
+            <PersonEditor
+              key={`${current.personId}:${current.revision}`}
+              person={current}
+              onSaving={() => setSaveNotice(null)}
+              onSaved={() => {
+                setSaveNotice('Person saved.');
+                setVersion(version() + 1);
+              }}
+            />
           </CardContent>
         </Card>
         <Card>

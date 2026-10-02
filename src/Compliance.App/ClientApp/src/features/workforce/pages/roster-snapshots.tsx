@@ -109,6 +109,7 @@ export function RosterSnapshotsPage() {
   }
 
   const items = snapshots.value ?? [];
+  const historyPending = frozenId() !== null && !items.some((item) => item.snapshotId === frozenId());
   return (
     <Page>
       <PageHeader
@@ -154,12 +155,20 @@ export function RosterSnapshotsPage() {
             <CardDescription>Newest first. Amendments link to the snapshot they correct.</CardDescription>
           </CardHeader>
           <CardContent>
+            {historyPending ? (
+              <Stack gap="sm">
+                <p role="status">Your snapshot is saved. Snapshot history is still updating.</p>
+                <Button variant="secondary" disabled={snapshots.pending} onPress={() => snapshots.refresh()}>
+                  Refresh snapshot history
+                </Button>
+              </Stack>
+            ) : null}
             {snapshots.pending && !snapshots.value ? (
               <Spinner label="Loading workforce snapshots" />
             ) : snapshots.error ? (
               <LoadFailure error={snapshots.error} onRetry={() => snapshots.refresh()} />
             ) : items.length === 0 ? (
-              <p>No workforce snapshots frozen yet.</p>
+              historyPending ? null : <p>No workforce snapshots frozen yet.</p>
             ) : (
               <table className="inventory-table workforce-table">
                 <caption className="visually-hidden">Workforce snapshots</caption>
