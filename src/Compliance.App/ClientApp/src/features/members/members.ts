@@ -224,10 +224,14 @@ export interface ScopeOption {
 // Scopes an administrator can grant on: the whole organization or one of its programs.
 export async function listGrantScopes(): Promise<ScopeOption[]> {
   const tenantId = requireActiveTenantId();
-  const scopes: ScopeOption[] = [{ kind: 'organization', id: tenantId, label: 'Whole organization' }];
+  const organization: ScopeOption = { kind: 'organization', id: tenantId, label: 'Whole organization' };
+  const scopes: ScopeOption[] = [organization];
   let cursor: string | undefined;
   do {
     const result = await client.listPrograms({ params: { tenant_id: tenantId }, query: { cursor } });
+    // Grant administration can precede business-record visibility. The active organization is
+    // already known; denied program discovery must not prevent its first explicit grant.
+    if (!result.ok && result.status === 403) return [organization];
     if (!result.ok) throw failure(result, 'load the programs');
     for (const item of result.data?.items ?? []) {
       if (item) scopes.push({ kind: 'program', id: item.program_id, label: `Program: ${item.name}` });
