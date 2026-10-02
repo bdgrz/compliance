@@ -20,8 +20,26 @@ env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  validate:
-    name: Validate
+  format:
+    name: Format
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - run: dotnet restore Compliance.slnx --locked-mode
+
+      - name: Format
+        run: dotnet format whitespace Compliance.slnx --verify-no-changes --no-restore
+
+  build-test:
+    name: Build and test
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -43,9 +61,6 @@ jobs:
 
       - run: dotnet restore Compliance.slnx --locked-mode
 
-      - name: Format
-        run: dotnet format whitespace Compliance.slnx --verify-no-changes
-
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
@@ -53,3 +68,19 @@ jobs:
       # ./scripts/check-backend.sh full
       - name: Test
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+
+  validate:
+    name: Validate
+    if: always()
+    needs:
+      - format
+      - build-test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail if a validation lane did not succeed
+        if: ${{ needs.format.result != 'success' || needs.build-test.result != 'success' }}
+        run: exit 1
+
+      - name: Record aggregate success
+        if: ${{ needs.format.result == 'success' && needs.build-test.result == 'success' }}
+        run: echo "Format and build/test checks passed."

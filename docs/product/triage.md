@@ -29,8 +29,10 @@ planned in **F1 - Multi-client firm operations**.
 Existing backend and frontend children keep separate acceptance evidence.
 Future children are created only for independently closable work. Backend
 dependencies use upstream backend capabilities rather than UI-dependent product
-parents. One capability bundle is Active at a time; a high priority does not
-override an open dependency. An unvalidated P2 hypothesis remains in Discovery.
+parents. Independent capability bundles may be Active in parallel when each
+has a separate branch/worktree and closed prerequisites; a high priority does
+not override an open dependency. An unvalidated P2 hypothesis remains in
+Discovery.
 
 Use one PR for a reviewable capability that may satisfy several dependent
 issue children. Keep separate acceptance evidence for each child and close only
