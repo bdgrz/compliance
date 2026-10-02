@@ -10,11 +10,10 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { slugPattern } from '../../tenants/tenants.js';
+import { slugPattern, slugRule } from '../../tenants/tenants.js';
 import {
   changeTenantSlug,
   inviteFirmStaff,
-  slugRule,
   type TenantInventoryItem,
 } from '../operator.js';
 

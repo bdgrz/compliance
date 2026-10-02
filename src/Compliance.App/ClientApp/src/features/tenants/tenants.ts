@@ -25,6 +25,8 @@ export interface ActiveTenant {
 // the form can reject an invalid slug before a round trip — the server remains the source of truth
 // and re-validates (reserved routes, retired slugs, and uniqueness can't be checked client-side).
 export const slugPattern = /^[a-z](?:[a-z0-9]|-(?=[a-z0-9])){3,62}$/;
+export const slugRule =
+  'Use 4 to 63 characters: lowercase letters, digits, and single hyphens, starting with a letter.';
 
 // The organization resolved from the current document's URL. It lives only in memory: API adapters
 // read the tenant_id from here, never from storage, so a request can only target the organization
@@ -160,18 +162,60 @@ export async function registerTenant(
   const result = await client.registerTenant({
     body: { name, slug, ...(trimmedLegalName ? { legal_name: trimmedLegalName } : {}) },
   });
-  if (!result.ok) throw registrationFailure(result);
+  if (!result.ok) throw tenantRequestFailure(result, describeFailure(result));
 
   return result.data;
 }
 
-function registrationFailure(result: { ok: false; kind: string; status?: number; error?: unknown }) {
+export async function changeCurrentTenantSlug(slug: string): Promise<void> {
+  const tenant = currentTenant();
+  if (!tenant) {
+    throw new TenantRequestError('No active organization is selected.', null);
+  }
+
+  const result = await client.changeTenantSlug({
+    params: { tenant_id: tenant.tenantId },
+    body: { slug },
+  });
+  if (!result.ok) {
+    throw tenantRequestFailure(result, 'Unable to change this organization address.');
+  }
+}
+
+// Waits for the event-sourced redirect to become authoritative before the initiating admin leaves
+// the old route. This avoids navigating to a slug whose reservation is still being confirmed.
+export async function waitForTenantSlugRedirect(
+  previousSlug: string,
+  expectedSlug: string,
+  timeoutMs = 30_000
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const result = await client.resolveMyTenantSlug({ params: { slug: previousSlug } });
+    if (
+      result.ok &&
+      result.data?.redirect &&
+      result.data.current_slug === expectedSlug
+    ) {
+      return true;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+  }
+
+  return false;
+}
+
+function tenantRequestFailure(
+  result: { ok: false; kind: string; status?: number; error?: unknown },
+  fallback: string
+) {
   const detail =
     result.kind === 'http' && typeof result.error === 'object' && result.error !== null
       ? (result.error as { detail?: unknown }).detail
       : undefined;
   return new TenantRequestError(
-    typeof detail === 'string' && detail.length > 0 ? detail : describeFailure(result),
+    typeof detail === 'string' && detail.length > 0 ? detail : fallback,
     result.kind === 'http' ? (result.status ?? null) : null
   );
 }
