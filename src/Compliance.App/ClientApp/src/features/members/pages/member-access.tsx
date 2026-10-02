@@ -14,7 +14,7 @@ import {
 } from '@askrjs/themes/components';
 
 import { organizationPath } from '../../tenants/tenants.js';
-import { getMemberAccess, MemberRequestError } from '../members.js';
+import { getMemberAccess, getMembership, memberLabel, MemberRequestError } from '../members.js';
 import { AccessGrantsCard } from './access-grants-card.js';
 import { MembershipPanel } from './membership-panel.js';
 
@@ -22,6 +22,7 @@ import { MembershipPanel } from './membership-panel.js';
 
 export function MemberAccessPage({ userId }: { userId: string }) {
   const access = resource(() => getMemberAccess(userId), [userId]);
+  const membership = resource(() => getMembership(userId), [userId]);
   const back = (
     <a href={organizationPath('/members')}>Back to members</a>
   );
@@ -59,16 +60,17 @@ export function MemberAccessPage({ userId }: { userId: string }) {
   const value = access.value!;
   const permissions = value.effective_permissions.filter((p): p is string => typeof p === 'string');
   const teamPaths = value.paths.filter((p) => p !== null);
+  const member = membership.pending || membership.error ? undefined : membership.value ?? undefined;
 
   return (
     <Page>
       <PageHeader
-        title={`Member ${value.user_id.slice(0, 8)}`}
-        description="Why this member can do what they can do."
+        title={memberLabel(member, value.user_id)}
+        description={`${member?.emailAddress ? `${member.emailAddress} · ` : ''}Why this member can do what they can do.`}
       />
       <Stack gap="md">
         {back}
-        <MembershipPanel userId={userId} onChanged={() => access.refresh()} />
+        <MembershipPanel userId={userId} onChanged={() => { access.refresh(); membership.refresh(); }} />
         <Card>
           <CardHeader>
             <CardTitle>Effective permissions</CardTitle>

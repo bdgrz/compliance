@@ -8,6 +8,40 @@ namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 public sealed class UserIdentityContinuationTests
 {
     [Fact]
+    public async Task ShouldRetainProfileChangesGivenAuthenticatedOidcNameChangesOrDisappears()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var handler = new ContinueWithOidcProviderHandler(new UserIdentityContinuation(fixture.Repository));
+        var names = new string?[] { "  Ada Lovelace  ", "Ada Byron", null };
+
+        // Act
+        foreach (var name in names)
+        {
+            var claims = new List<Claim>
+            {
+                new("iss", "https://issuer.example/"), new("sub", "profile-subject"),
+            };
+            if (name is not null)
+                claims.Add(new Claim("name", name));
+            var result = await handler.HandleAsync(Context(new ContinueWithOidcProvider(),
+                AuthenticatedActor(claims.ToArray())), CancellationToken.None);
+            Assert.True(result.IsSuccess);
+        }
+        var profileEvents = new List<UserIdentityProfileObserved>();
+        await foreach (var record in fixture.Store.ReadAsync(
+                           EventStreamPattern.ForPattern("bdgrz", "user-identities"),
+                           EventCursor.Start, CancellationToken.None))
+            if (record.Event is UserIdentityProfileObserved observed)
+                profileEvents.Add(observed);
+
+        // Assert
+        Assert.Equal(3, profileEvents.Count);
+        Assert.Equal(new string?[] { "Ada Lovelace", "Ada Byron", null },
+            profileEvents.Select(ev => ev.DisplayName));
+    }
+
+    [Fact]
     public async Task ShouldProduceSameIdentityShapeGivenDeveloperAndOidcRegistration()
     {
         // Arrange
@@ -147,10 +181,11 @@ public sealed class UserIdentityContinuationTests
         Assert.True(authentication.IsSuccess);
         Assert.Equal(registration.Value.UserId, authentication.Value.UserId);
         Assert.Equal(
-            ["UserIdentityRegistered", "UserIdentityAuthenticated"],
+            ["UserIdentityRegistered", "UserIdentityProfileObserved", "UserIdentityAuthenticated",
+                "UserIdentityProfileObserved"],
             records.Select(record => record.Event.GetType().Name));
         Assert.False(records[0].Event.Metadata.IsAudit);
-        Assert.True(records[1].Event.Metadata.IsAudit);
+        Assert.True(records[2].Event.Metadata.IsAudit);
     }
 
     [Fact]

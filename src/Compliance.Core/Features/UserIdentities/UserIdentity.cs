@@ -35,6 +35,7 @@ public sealed class UserIdentity : Aggregate
         _identifier = identifier;
         On<UserIdentityRegistered>(Apply);
         On<UserIdentityRevoked>(Apply);
+        On<UserIdentityProfileObserved>(Apply);
     }
 
     static Uuid CreateIdentityId(string provider, string identifier) =>
@@ -137,6 +138,28 @@ public sealed class UserIdentity : Aggregate
 
         RaiseEvent(new UserIdentityRevoked(Id, _userId, replacementIdentityId, revokedAt));
         return Result.Success;
+    }
+
+    public Result<AuthenticatedUserIdentity> ObserveAuthenticatedProfile(string? displayName,
+        DateTimeOffset observedAt)
+    {
+        if (_isRevoked)
+            return Result<AuthenticatedUserIdentity>.Failure(new RequestError(RequestErrorKind.Unauthorized,
+                "The provider identity has been revoked."));
+        if (!_isRegistered)
+            return Result<AuthenticatedUserIdentity>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The user identity is not registered."));
+        var normalized = displayName?.Trim();
+        if (string.IsNullOrEmpty(normalized) || normalized.Length > 200 || normalized.Any(char.IsControl))
+            normalized = null;
+        RaiseEvent(new UserIdentityProfileObserved(_userId, normalized, observedAt));
+        return Registered();
+    }
+
+    void Apply(UserIdentityProfileObserved observed)
+    {
+        if (!_isRegistered || _isRevoked || observed.UserId != _userId)
+            throw new InvalidOperationException("The profile observation does not match the active identity.");
     }
 
     void Apply(UserIdentityRegistered registered)

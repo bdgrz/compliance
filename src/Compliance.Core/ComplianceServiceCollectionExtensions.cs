@@ -67,6 +67,8 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
         services.AddScoped<IPlatformUserDirectoryReader>(
             provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
+        services.AddScoped<IUserDisplayNameReader>(
+            provider => provider.GetRequiredService<FitzPlatformUserDirectory>());
         services.AddScoped<UserIdentityContinuation>();
         services.AddScoped<TenantInvitationIssuer>();
         services.AddScoped<FitzPermissionAuthorizer>();
@@ -179,6 +181,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ICampaignDirectoryReader>(provider =>
             provider.GetRequiredService<FitzCampaignDirectory>());
         services.AddScoped<FitzPersonDirectory>();
+        services.AddScoped<IPersonMemberDisplayReader>(
+            provider => provider.GetRequiredService<FitzPersonDirectory>());
         services.AddScoped<IPersonDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzPersonDirectory>());
         services.AddScoped<IPersonDirectoryReader>(provider =>
@@ -754,6 +758,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ActivateTenantHandler>()
             .AddRequestAuthorizer<ActivateTenantAuthorizer>()
             .AddRequestAuthorizer<PlatformOperatorAuthorizer>()
+            .AddRequestAuthorizer<ListTenantMembersAuthorizer>()
             .AddRequestHandler<ListMyTenantsHandler>()
             .AddRequestAuthorizer<ListMyTenantsAuthorizer>()
             .AddRequestGuard<RegisterTenantSlugAvailabilityGuard>()
@@ -781,7 +786,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
             .AddReactor<IdentityRecoveryNoticeReactor>("IdentityRecoveryNoticeV1", WorkloadScope.Global)
-            .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectory", WorkloadScope.Global)
+            .AddProjector<PlatformUserDirectoryProjector>("PlatformUserDirectoryV2", WorkloadScope.Global)
             .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
@@ -843,7 +848,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<CommitmentDraftHistoryDirectoryProjectorV1>(
                 "CommitmentDraftHistoryDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<RiskDraftDirectoryProjector>("RiskDraftDirectory", WorkloadScope.PerTenant)
-            .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
+            .AddProjector<PersonDirectoryProjector>("PersonDirectoryV2", WorkloadScope.PerTenant)
             .AddProjector<TechnologyInventoryDirectoryProjector>(
                 FitzTechnologyInventoryDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<InventoryRegisterProjector>(

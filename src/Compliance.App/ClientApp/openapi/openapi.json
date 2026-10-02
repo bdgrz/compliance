@@ -4991,7 +4991,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_FA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26"
+                  "$ref": "#/components/schemas/Portia_C747F28324E7028799B4841BA8A86774FDDF4EBFA16AF49924B1ED2322221AD7"
                 }
               }
             }
@@ -6904,7 +6904,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_C6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556"
+                  "$ref": "#/components/schemas/Portia_7A7FF2422A43329111BBEE4CEA08DE0E013B6A19261F95611EB5C5FADFFEA99B"
                 }
               }
             }
@@ -138339,7 +138339,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Portia_534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A"
+                  "$ref": "#/components/schemas/Portia_5C5F9A967BB338A4D4DE3DD622030D627DD47666127DABD9211D7B42F6EC002E"
                 }
               }
             }
@@ -153396,47 +153396,6 @@
           }
         }
       },
-      "Portia_534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "required": [
-                "team_id",
-                "member_id"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "team_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "member_id": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "Portia_5395E8EB93A7F927C06702E6F40680736BAFDF03A8CC1607A7345BA92295690E": {
         "required": [
           "sequence",
@@ -154045,6 +154004,69 @@
           },
           "digest": {
             "type": "string"
+          }
+        }
+      },
+      "Portia_5C5F9A967BB338A4D4DE3DD622030D627DD47666127DABD9211D7B42F6EC002E": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "team_id",
+                "member_id"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "team_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "member_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "user_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "format": "uuid",
+                  "default": null
+                },
+                "display_name": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "verified_email_address": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -159796,6 +159818,118 @@
           },
           "notice": {
             "type": "string"
+          }
+        }
+      },
+      "Portia_7A7FF2422A43329111BBEE4CEA08DE0E013B6A19261F95611EB5C5FADFFEA99B": {
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "required": [
+                "user_id",
+                "tenant_id"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "tenant_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "affiliation": {
+                  "type": "string",
+                  "default": "client_personnel"
+                },
+                "is_suspended": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "suspended_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date-time",
+                  "default": null
+                },
+                "suspended_by_member_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "default": "00000000-0000-0000-0000-000000000000"
+                },
+                "suspended_by_display": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "suspension_reason": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "reinstated_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": { },
+                  "format": "date-time",
+                  "default": null
+                },
+                "reinstated_by_member_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "default": "00000000-0000-0000-0000-000000000000"
+                },
+                "reinstated_by_display": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "verified_email_address": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                },
+                "display_name": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "default": null
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -170701,108 +170835,94 @@
           }
         }
       },
-      "Portia_C6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556": {
+      "Portia_C747F28324E7028799B4841BA8A86774FDDF4EBFA16AF49924B1ED2322221AD7": {
         "required": [
-          "items",
-          "next_cursor"
+          "user_id",
+          "tenant_id"
         ],
         "type": [
           "null",
           "object"
         ],
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "required": [
-                "user_id",
-                "tenant_id"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "user_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "tenant_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "affiliation": {
-                  "type": "string",
-                  "default": "client_personnel"
-                },
-                "is_suspended": {
-                  "type": "boolean",
-                  "default": false
-                },
-                "suspended_at": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "items": { },
-                  "format": "date-time",
-                  "default": null
-                },
-                "suspended_by_member_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "default": "00000000-0000-0000-0000-000000000000"
-                },
-                "suspended_by_display": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "default": null
-                },
-                "suspension_reason": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "default": null
-                },
-                "reinstated_at": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "items": { },
-                  "format": "date-time",
-                  "default": null
-                },
-                "reinstated_by_member_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "default": "00000000-0000-0000-0000-000000000000"
-                },
-                "reinstated_by_display": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "default": null
-                },
-                "verified_email_address": {
-                  "type": [
-                    "null",
-                    "string"
-                  ],
-                  "default": null
-                }
-              }
-            }
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           },
-          "next_cursor": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "affiliation": {
+            "type": "string",
+            "default": "client_personnel"
+          },
+          "is_suspended": {
+            "type": "boolean",
+            "default": false
+          },
+          "suspended_at": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "items": { },
+            "format": "date-time",
+            "default": null
+          },
+          "suspended_by_member_id": {
+            "type": "string",
+            "format": "uuid",
+            "default": "00000000-0000-0000-0000-000000000000"
+          },
+          "suspended_by_display": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          "suspension_reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          "reinstated_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "items": { },
+            "format": "date-time",
+            "default": null
+          },
+          "reinstated_by_member_id": {
+            "type": "string",
+            "format": "uuid",
+            "default": "00000000-0000-0000-0000-000000000000"
+          },
+          "reinstated_by_display": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          "verified_email_address": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
+          },
+          "display_name": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null
           }
         }
       },
@@ -177576,90 +177696,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "Portia_FA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26": {
-        "required": [
-          "user_id",
-          "tenant_id"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenant_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "affiliation": {
-            "type": "string",
-            "default": "client_personnel"
-          },
-          "is_suspended": {
-            "type": "boolean",
-            "default": false
-          },
-          "suspended_at": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "items": { },
-            "format": "date-time",
-            "default": null
-          },
-          "suspended_by_member_id": {
-            "type": "string",
-            "format": "uuid",
-            "default": "00000000-0000-0000-0000-000000000000"
-          },
-          "suspended_by_display": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          "suspension_reason": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          "reinstated_at": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "items": { },
-            "format": "date-time",
-            "default": null
-          },
-          "reinstated_by_member_id": {
-            "type": "string",
-            "format": "uuid",
-            "default": "00000000-0000-0000-0000-000000000000"
-          },
-          "reinstated_by_display": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
-          },
-          "verified_email_address": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "default": null
           }
         }
       },

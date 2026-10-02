@@ -75,6 +75,24 @@ afterEach(() => {
 });
 
 describe('member invitation (R1-04a frontend #184)', () => {
+  it('ShouldShowDisplayNameAndVerifiedEmailGivenMemberPresentation', async () => {
+    // Arrange
+    listsAnswer();
+    api.reply(`${base}/members`, 200, { items: [{ user_id: userId, tenant_id: tenantId,
+      display_name: 'Ada Lovelace', verified_email_address: 'ada@example.test',
+      email_address: 'unverified@example.test' }], next_cursor: null });
+
+    // Act
+    const container = mount(MembersPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('Ada Lovelace'));
+
+    // Assert
+    expect(container.querySelector(`a[href="/acme/members/${userId}"]`)?.textContent).toBe('Ada Lovelace');
+    expect(container.textContent).toContain('ada@example.test');
+    expect(container.textContent).not.toContain('unverified@example.test');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
   it('ShouldExplainEachBuiltInRoleGivenTheInviteForm', async () => {
     // Arrange
     listsAnswer();
@@ -223,6 +241,21 @@ describe('member access explanation (R1-04a frontend #184)', () => {
     expect(container.textContent).toContain('granted by Alex Admin');
     expect([...container.querySelectorAll('.grant-status')].map((s) => s.textContent)).toEqual(['active', 'revoked']);
     expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldNameTheMemberGivenAuthorizedMemberDetail', async () => {
+    // Arrange
+    api.reply(`${base}/members/${userId}`, 200, { user_id: userId, tenant_id: tenantId,
+      display_name: 'Ada Lovelace', verified_email_address: 'ada@example.test' });
+    api.reply(`${base}/members/${userId}/access`, 200, { tenant_id: tenantId, user_id: userId,
+      member_id: 'member-aa', paths: [], grant_paths: [], effective_permissions: [] });
+
+    // Act
+    const container = mount(() => <MemberAccessPage userId={userId} />);
+
+    // Assert
+    await vi.waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Ada Lovelace'));
+    expect(container.textContent).toContain('ada@example.test');
   });
 
   it('ShouldShowNotFoundGivenAnUnknownMember', async () => {

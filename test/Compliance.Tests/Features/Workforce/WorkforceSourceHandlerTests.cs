@@ -414,7 +414,7 @@ public sealed class WorkforceSourceHandlerTests
         public RequestScenario As(Uuid? userId = null) => RequestScenario.For(Provider)
             .GivenActor(ProgramManagementServices.Actor(userId ?? UserId));
 
-        public Task ProjectPeopleAsync() => ProjectAsync("PersonDirectoryV1", "people", People,
+        public Task ProjectPeopleAsync() => ProjectAsync("PersonDirectoryV2", "people", People,
             People.ApplyAsync, People.LoadCheckpointAsync);
 
         public Task ProjectSourcesAsync() => ProjectAsync("WorkforceSourcesV1", "workforce-source-observations",

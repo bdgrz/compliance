@@ -10,7 +10,7 @@ public sealed class ContinueWithOidcProviderHandler(UserIdentityContinuation con
         CancellationToken ct)
     {
         if (!OidcProviderClaims.TryGet(context.Actor, out var provider,
-                out var identifier, out var emailAddress))
+                out var identifier, out var emailAddress, out var displayName))
         {
             return ValueTask.FromResult(Result<AuthenticatedUserIdentity>.Failure(new RequestError(
                 RequestErrorKind.Unauthorized,
@@ -25,6 +25,6 @@ public sealed class ContinueWithOidcProviderHandler(UserIdentityContinuation con
             // Identity linking needs its own reviewed, authorized request.
             existingUserId: null,
             context,
-            ct);
+            ct, observeProfile: true, displayName);
     }
 }

@@ -1,5 +1,8 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
+using Cntryl.Portia.Testing;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
@@ -8,6 +11,89 @@ public sealed class ListTeamMembersHandlerTests
     static readonly Uuid TenantId = Uuid.CreateVersion4();
     static readonly Uuid TeamId = Uuid.CreateVersion4();
     static readonly Uuid MemberId = Uuid.CreateVersion4();
+
+    [Fact]
+    public async Task ShouldShowAuthenticatedNameGivenCanonicalTenantMemberSource()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(TenantId, userId);
+        await fixture.Repository.ExecuteAsync(new Member(TenantId, userId),
+            member => AggregateOutcome.CommitOnSuccess(member.Register()),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        var reader = new FakeTeamMemberDirectoryReader();
+        reader.Members[(TenantId, TeamId)] = [new TeamMemberView(TeamId, memberId)];
+        var handler = new ListTeamMembersHandler(reader, fixture.Store,
+            new FixedMembershipDirectory(true), profiles: new Names(userId));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListTeamMembers>(
+            new ListTeamMembers(TenantId, TeamId), Actor()), CancellationToken.None);
+
+        // Assert
+        var member = Assert.Single(result.Value.Items);
+        Assert.Equal(userId, member.UserId);
+        Assert.Equal("Provider member", member.DisplayName);
+        Assert.Null(member.VerifiedEmailAddress);
+    }
+
+    [Fact]
+    public async Task ShouldFailTransientlyGivenCanonicalMemberHasNotProjected()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(TenantId, userId);
+        await fixture.Repository.ExecuteAsync(new Member(TenantId, userId),
+            member => AggregateOutcome.CommitOnSuccess(member.Register()),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        var reader = new FakeTeamMemberDirectoryReader();
+        reader.Members[(TenantId, TeamId)] = [new TeamMemberView(TeamId, memberId)];
+        var handler = new ListTeamMembersHandler(reader, fixture.Store, new FixedMembershipDirectory(false));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListTeamMembers>(
+            new ListTeamMembers(TenantId, TeamId), Actor()), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error.Kind);
+        Assert.True(result.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldKeepUserUnknownGivenMemberIdFromAnotherTenant()
+    {
+        // Arrange
+        await using var fixture = new StoreFixture();
+        var otherTenant = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(otherTenant, userId);
+        await fixture.Repository.ExecuteAsync(new Member(otherTenant, userId),
+            member => AggregateOutcome.CommitOnSuccess(member.Register()),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        var reader = new FakeTeamMemberDirectoryReader();
+        reader.Members[(TenantId, TeamId)] = [new TeamMemberView(TeamId, memberId)];
+        var handler = new ListTeamMembersHandler(reader, fixture.Store,
+            new FixedMembershipDirectory(true), profiles: new Names(userId));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListTeamMembers>(
+            new ListTeamMembers(TenantId, TeamId), Actor()), CancellationToken.None);
+
+        // Assert
+        var member = Assert.Single(result.Value.Items);
+        Assert.Null(member.UserId);
+        Assert.Equal(memberId.ToString(), member.DisplayName);
+        Assert.Null(member.VerifiedEmailAddress);
+    }
+
+    sealed class Names(Uuid userId) : IUserDisplayNameReader
+    {
+        public ValueTask<string?> ReadAsync(Uuid target, CancellationToken ct = default) =>
+            ValueTask.FromResult(target == userId ? "Provider member" : null);
+    }
 
     [Fact]
     public async Task ShouldReturnPageGivenReaderResult()

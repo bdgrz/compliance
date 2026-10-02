@@ -778,6 +778,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(LinkOidcProviderIdentity))]
 [JsonSerializable(typeof(AuthenticatedUserIdentity))]
 [JsonSerializable(typeof(UserIdentityRegistered))]
+[JsonSerializable(typeof(UserIdentityProfileObserved))]
 [JsonSerializable(typeof(UserIdentityRevoked))]
 [JsonSerializable(typeof(IdentityRecoveryChallengeIssued))]
 [JsonSerializable(typeof(IdentityRecoveryChallengeClaimed))]

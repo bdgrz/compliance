@@ -9,6 +9,51 @@ public sealed class FitzPersonDirectoryTests
     static readonly DateTimeOffset Now = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task ShouldUseOnlyUniqueTenantCorrelationGivenNameChangesAndUnlinking()
+    {
+        // Arrange
+        var directory = new FitzPersonDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var first = Recorded(tenantId, "Ada");
+        var second = Recorded(tenantId, "Other person");
+        var actor = first.Actor;
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(first);
+            await directory.ApplyAsync(second);
+            await directory.ApplyAsync(new PersonMembershipCorrelated(tenantId, first.PersonId,
+                2, userId, actor, Now));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Assert
+        Assert.Equal("Ada", await directory.ReadAsync(tenantId, userId));
+        Assert.Null(await directory.ReadAsync(Uuid.CreateVersion4(), userId));
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new PersonRevised(tenantId, first.PersonId, 3,
+                "Ada King", null, actor, Now));
+            await directory.ApplyAsync(new PersonMembershipCorrelated(tenantId, second.PersonId,
+                2, userId, actor, Now));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        Assert.Null(await directory.ReadAsync(tenantId, userId));
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new PersonMembershipCorrelated(tenantId, second.PersonId,
+                3, null, actor, Now));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        Assert.Equal("Ada King", await directory.ReadAsync(tenantId, userId));
+    }
+
+    [Fact]
     public async Task ShouldPageByNameAndKeepTenantsSeparateGivenSharedProjection()
     {
         // Arrange
@@ -104,6 +149,6 @@ public sealed class FitzPersonDirectoryTests
         Uuid.CreateVersion4(), name, null,
         ActorReference.ForMember(Uuid.CreateVersion4(), "Author"), Now);
 
-    static CheckpointIdentity Identity(Uuid tenantId) => new("PersonDirectoryV1",
+    static CheckpointIdentity Identity(Uuid tenantId) => new("PersonDirectoryV2",
         EventStreamPattern.ForPattern(tenantId.ToString(), "people"));
 }

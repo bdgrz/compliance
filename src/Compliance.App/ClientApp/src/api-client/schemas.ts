@@ -1811,14 +1811,6 @@ export type Portia533F78EAEB8819DE62744BA4544C862D58319F328039FE16CF9904D0F81B67
   "requires_activation"?: boolean;
 } | null;
 
-export type Portia534841146AA01FC616B441EB6CC816411AE29E916AB93C8329D97EB96B560E0A = {
-  "items": Array<{
-  "team_id": string;
-  "member_id": string;
-} | null>;
-  "next_cursor": string | null;
-} | null;
-
 export type Portia5395E8EB93A7F927C06702E6F40680736BAFDF03A8CC1607A7345BA92295690E = {
   "sequence": number | string;
   "classification": string;
@@ -1933,6 +1925,17 @@ export type Portia5C08B534C036029E349B3D0CE114F3E24CAD136A7E31207CE6E7D5B26A0947
   "pending_contexts": Array<string | null>;
   "complete": boolean;
   "digest": string;
+} | null;
+
+export type Portia5C5F9A967BB338A4D4DE3DD622030D627DD47666127DABD9211D7B42F6EC002E = {
+  "items": Array<{
+  "team_id": string;
+  "member_id": string;
+  "user_id"?: string | null;
+  "display_name"?: string | null;
+  "verified_email_address"?: string | null;
+} | null>;
+  "next_cursor": string | null;
 } | null;
 
 export type Portia5C785825C5C3F7E845CCBEE2767058870CB823F13882AECF91DBC1CBDA9F87FC = {
@@ -3073,6 +3076,25 @@ export type Portia7A69D33280F826A4E8D05D28C507E4C68556897E2948CDFB8FF09D153ED9DF
   "decided_at": string;
   "separation_of_duties_waiver_id": string | null;
   "notice"?: string;
+} | null;
+
+export type Portia7A7FF2422A43329111BBEE4CEA08DE0E013B6A19261F95611EB5C5FADFFEA99B = {
+  "items": Array<{
+  "user_id": string;
+  "tenant_id": string;
+  "affiliation"?: string;
+  "is_suspended"?: boolean;
+  "suspended_at"?: string | null;
+  "suspended_by_member_id"?: string;
+  "suspended_by_display"?: string | null;
+  "suspension_reason"?: string | null;
+  "reinstated_at"?: string | null;
+  "reinstated_by_member_id"?: string;
+  "reinstated_by_display"?: string | null;
+  "verified_email_address"?: string | null;
+  "display_name"?: string | null;
+} | null>;
+  "next_cursor": string | null;
 } | null;
 
 export type Portia7A8595D2FC8E586A820EE122D8C373E01E418CA296483244AB95A35A0943E149 = {
@@ -5180,8 +5202,7 @@ export type PortiaC695C5A9B781750DCBCA504BA9AFE97AFE550E8F63FAF6ADE2DFE5B2E157C7
   "owner_reference": string | null;
 } | null> | null;
 
-export type PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B1556 = {
-  "items": Array<{
+export type PortiaC747F28324E7028799B4841BA8A86774FDDF4EBFA16AF49924B1ED2322221AD7 = {
   "user_id": string;
   "tenant_id": string;
   "affiliation"?: string;
@@ -5194,8 +5215,7 @@ export type PortiaC6B58953EEC5AF0CF98AEC8E58EA963F8A1EF8B3D2BFA36F2F60E3073C7B15
   "reinstated_by_member_id"?: string;
   "reinstated_by_display"?: string | null;
   "verified_email_address"?: string | null;
-} | null>;
-  "next_cursor": string | null;
+  "display_name"?: string | null;
 } | null;
 
 export type PortiaC95DF1FEF74AB78C247A61B1C7CA71C04A8A85C72948A02B997E3FFA2295B1A6 = {
@@ -6519,21 +6539,6 @@ export type PortiaF9B77C7ADBEF0EB8FE1C2659269AA790D9F0D90014FCAFB7B2571FB108D35F
 } | null;
 } | null>;
   "next_cursor": string | null;
-} | null;
-
-export type PortiaFA8797A2099AD3C0E34408B3661A645092B14759512BA3656FC05B7770BF1E26 = {
-  "user_id": string;
-  "tenant_id": string;
-  "affiliation"?: string;
-  "is_suspended"?: boolean;
-  "suspended_at"?: string | null;
-  "suspended_by_member_id"?: string;
-  "suspended_by_display"?: string | null;
-  "suspension_reason"?: string | null;
-  "reinstated_at"?: string | null;
-  "reinstated_by_member_id"?: string;
-  "reinstated_by_display"?: string | null;
-  "verified_email_address"?: string | null;
 } | null;
 
 export type PortiaFB363E63265F366744A1615DFD1F101B4EADC47287216F1A34FA3DACB525E2AF = {

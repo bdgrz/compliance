@@ -1,9 +1,15 @@
+using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class ListTeamMembersHandler(ITeamMemberDirectoryReader directory)
+public sealed class ListTeamMembersHandler(ITeamMemberDirectoryReader directory,
+    IDomainEventReader? events = null, ITenantMembershipDirectoryReader? memberships = null,
+    IEmailAddressDirectoryReader? emails = null, IUserDisplayNameReader? profiles = null,
+    IPersonMemberDisplayReader? people = null)
     : IRequestHandler<ListTeamMembers, Page<TeamMemberView>>
 {
     public async ValueTask<Result<Page<TeamMemberView>>> HandleAsync(
@@ -31,9 +37,20 @@ public sealed class ListTeamMembersHandler(ITeamMemberDirectoryReader directory)
             return Result<Page<TeamMemberView>>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The team member cursor is invalid."));
         }
-        return page.Items.Any(item => item.TeamId != request.TeamId)
-            ? Result<Page<TeamMemberView>>.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The team members were not found."))
-            : Result<Page<TeamMemberView>>.Success(page);
+        if (page.Items.Any(item => item.TeamId != request.TeamId))
+            return Result<Page<TeamMemberView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The team members were not found."));
+        if (events is null || memberships is null)
+            return Result<Page<TeamMemberView>>.Success(page);
+        var enriched = new List<TeamMemberView>(page.Items.Count);
+        foreach (var member in page.Items)
+        {
+            var result = await MemberPresentationEnrichment.WithTeamAsync(events, memberships,
+                emails, profiles, people, request.TenantId, member, ct).ConfigureAwait(false);
+            if (!result.IsSuccess)
+                return Result<Page<TeamMemberView>>.Failure(result.Error);
+            enriched.Add(result.Value);
+        }
+        return Result<Page<TeamMemberView>>.Success(new Page<TeamMemberView>(enriched, page.NextCursor));
     }
 }
