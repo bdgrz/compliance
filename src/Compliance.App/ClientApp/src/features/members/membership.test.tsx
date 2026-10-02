@@ -149,6 +149,25 @@ describe('member suspension (R1-04d frontend #191)', () => {
     );
   });
 
+  it('ShouldStateNoBusinessRecordAccessGivenAFirmStaffMembership', async () => {
+    // Arrange
+    api.reply(`GET ${member}`, 200, {
+      user_id: userId,
+      tenant_id: tenantId,
+      affiliation: 'firm_staff',
+      is_suspended: false,
+    });
+    api.reply(`${member}/responsibilities`, 200, []);
+
+    // Act
+    const container = mount(() => <MembershipPanel userId={userId} />);
+    await vi.waitFor(() => expect(container.textContent).toContain('Firm staff'));
+
+    // Assert
+    expect(container.textContent).toContain('no access to business records until an accepted engagement assignment');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
   it('ShouldShowForbiddenWithoutRetryGivenTheViewerCannotManageMembers', async () => {
     // Arrange
     api.reply(`GET ${member}`, 403, { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'x', instance: '/' });
