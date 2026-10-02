@@ -14,7 +14,12 @@ import {
   Stack,
 } from '@askrjs/themes/components';
 
-import { listMyTenants, readEmailVerification, type EmailVerification } from '../tenants.js';
+import {
+  listMyTenants,
+  readEmailVerification,
+  type EmailVerification,
+} from '../tenants.js';
+import { EmailVerificationForm } from '../../authentication/email-verification.js';
 
 const accessGuidance: Record<EmailVerification, string> = {
   verified:
@@ -26,13 +31,17 @@ const accessGuidance: Record<EmailVerification, string> = {
 };
 
 export function SelectTenantPage({ userId }: { userId?: string | null } = {}) {
-  const viewer = userId === undefined ? (currentAuth().principal?.id ?? null) : userId;
+  const viewer =
+    userId === undefined ? (currentAuth().principal?.id ?? null) : userId;
   const tenants = resource(() => listMyTenants(), []);
   const verification = resource(() => readEmailVerification(viewer), [viewer]);
 
   const memberships = tenants.pending ? null : tenants.value;
   const error = tenants.error?.message ?? null;
-  const noAccess = memberships !== null && memberships !== undefined && memberships.length === 0;
+  const noAccess =
+    memberships !== null &&
+    memberships !== undefined &&
+    memberships.length === 0;
   const verified: EmailVerification = verification.value ?? 'unknown';
   const canCreate = !noAccess || verified !== 'unverified';
 
@@ -41,7 +50,9 @@ export function SelectTenantPage({ userId }: { userId?: string | null } = {}) {
       <Block as="section" align="center" justify="center" grow>
         <Block width="full" maxWidth="sm" direction="column" gap="lg">
           <PageHeader
-            title={noAccess ? 'No organization access yet' : 'Choose an organization'}
+            title={
+              noAccess ? 'No organization access yet' : 'Choose an organization'
+            }
             description={
               noAccess
                 ? 'You are signed in, but you are not a member of any organization.'
@@ -50,27 +61,47 @@ export function SelectTenantPage({ userId }: { userId?: string | null } = {}) {
           />
           <Card variant="raised">
             <CardHeader>
-              <CardTitle>{noAccess ? 'Get access' : 'Your organizations'}</CardTitle>
-              {noAccess ? <CardDescription>{accessGuidance[verified]}</CardDescription> : null}
+              <CardTitle>
+                {noAccess ? 'Get access' : 'Your organizations'}
+              </CardTitle>
+              {noAccess ? (
+                <CardDescription>{accessGuidance[verified]}</CardDescription>
+              ) : null}
             </CardHeader>
             <CardContent>
               <Stack gap="md">
                 {error ? (
                   <Stack gap="sm">
                     <p role="alert">{error}</p>
-                    <Button variant="secondary" width="full" onPress={() => tenants.refresh()}>
+                    <Button
+                      variant="secondary"
+                      width="full"
+                      onPress={() => tenants.refresh()}
+                    >
                       Try again
                     </Button>
                   </Stack>
                 ) : null}
-                {memberships === null && !error ? <Spinner label="Loading organizations" /> : null}
+                {memberships === null && !error ? (
+                  <Spinner label="Loading organizations" />
+                ) : null}
+                {noAccess && verified === 'unverified' && viewer ? (
+                  <EmailVerificationForm
+                    userId={viewer}
+                    onVerified={() => verification.refresh()}
+                  />
+                ) : null}
                 {(memberships ?? []).map((tenant) => (
                   <Button asChild variant="secondary" width="full">
                     <a href={`/${tenant.slug}`}>{tenant.name}</a>
                   </Button>
                 ))}
                 {canCreate ? (
-                  <Button asChild variant={noAccess ? 'primary' : 'ghost'} width="full">
+                  <Button
+                    asChild
+                    variant={noAccess ? 'primary' : 'ghost'}
+                    width="full"
+                  >
                     <a href="/organizations/new">Create a new organization</a>
                   </Button>
                 ) : null}

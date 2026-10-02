@@ -19,9 +19,9 @@ function mount(component: () => unknown): HTMLElement {
 }
 
 function setField(container: Element, label: string, value: string) {
-  const input = [...container.querySelectorAll('label')].find((l) => l.textContent?.startsWith(label))!.querySelector(
-    'input'
-  ) as HTMLInputElement;
+  const input = [...container.querySelectorAll('label')]
+    .find((l) => l.textContent?.startsWith(label))!
+    .querySelector('input') as HTMLInputElement;
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -55,10 +55,14 @@ describe('no-access state (R1-15 frontend #176)', () => {
 
     // Act
     const container = mount(() => <SelectTenantPage userId={userId} />);
-    await vi.waitFor(() => expect(container.textContent).toContain('Your email address is verified'));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('Your email address is verified')
+    );
 
     // Assert
-    expect(container.querySelector('a[href="/organizations/new"]')).not.toBeNull();
+    expect(
+      container.querySelector('a[href="/organizations/new"]')
+    ).not.toBeNull();
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 
@@ -69,11 +73,164 @@ describe('no-access state (R1-15 frontend #176)', () => {
 
     // Act
     const container = mount(() => <SelectTenantPage userId={userId} />);
-    await vi.waitFor(() => expect(container.textContent).toContain('verify an email address you own'));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('verify an email address you own')
+    );
 
     // Assert
     expect(container.querySelector('a[href="/organizations/new"]')).toBeNull();
+    expect(container.querySelector('input[type="email"]')).not.toBeNull();
     expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldOfferOrganizationCreationGivenCompletedEmailProof', async () => {
+    // Arrange
+    noMemberships();
+    emails(false);
+    const path = `/api/v1/users/${userId}/email-addresses/casey%40acme.test`;
+    api.reply(`POST ${path}`, 204);
+    api.reply(`POST ${path}/challenges`, 204);
+    api.reply(`${path}/challenges/status`, 200, {
+      delivery_status: 'delivered',
+      expires_at: '2026-10-02T00:15:00Z',
+    });
+    api.reply(`POST ${path}/verifications`, 204);
+    const container = mount(() => <SelectTenantPage userId={userId} />);
+    await vi.waitFor(() =>
+      expect(container.querySelector('input[type="email"]')).not.toBeNull()
+    );
+
+    // Act
+    setField(container, 'Email address', 'casey@acme.test');
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('Verification code')
+    );
+    setField(container, 'Verification code', 'proof-from-mailbox');
+    emails(true);
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    // Assert
+    await vi.waitFor(() =>
+      expect(
+        container.querySelector('a[href="/organizations/new"]')
+      ).not.toBeNull()
+    );
+    expect(
+      api.bodies.find((b) => b.path === `${path}/verifications`)?.body
+    ).toEqual({ token: 'proof-from-mailbox' });
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldKeepCreationUnavailableGivenFailedEmailDeliveryAndAllowRetry', async () => {
+    // Arrange
+    noMemberships();
+    emails(false);
+    const path = `/api/v1/users/${userId}/email-addresses/casey%40acme.test`;
+    api.reply(`POST ${path}`, 204);
+    api.reply(`POST ${path}/challenges`, 204);
+    api.reply(`${path}/challenges/status`, 200, {
+      delivery_status: 'failed',
+      expires_at: null,
+    });
+    const container = mount(() => <SelectTenantPage userId={userId} />);
+    await vi.waitFor(() =>
+      expect(container.querySelector('input[type="email"]')).not.toBeNull()
+    );
+    setField(container, 'Email address', 'casey@acme.test');
+
+    // Act
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('could not be delivered')
+    );
+    api.reply(`${path}/challenges/status`, 200, {
+      delivery_status: 'delivered',
+      expires_at: null,
+    });
+    [...container.querySelectorAll('button')]
+      .find((b) => b.textContent === 'Send a new code')!
+      .click();
+
+    // Assert
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('Check your email')
+    );
+    expect(
+      api.bodies.filter(
+        (b) => b.method === 'POST' && b.path === `${path}/challenges`
+      )
+    ).toHaveLength(2);
+    expect(container.querySelector('a[href="/organizations/new"]')).toBeNull();
+  });
+
+  it('ShouldRetainProofFormGivenInvalidCodeAndRefreshAccessGivenProjectionLag', async () => {
+    // Arrange
+    noMemberships();
+    emails(false);
+    const path = `/api/v1/users/${userId}/email-addresses/casey%40acme.test`;
+    api.reply(`POST ${path}`, 204);
+    api.reply(`POST ${path}/challenges`, 204);
+    api.reply(`${path}/challenges/status`, 200, {
+      delivery_status: 'delivered',
+      expires_at: null,
+    });
+    api.reply(`POST ${path}/verifications`, 400, {
+      detail: 'The verification code is invalid or expired.',
+    });
+    const container = mount(() => <SelectTenantPage userId={userId} />);
+    await vi.waitFor(() =>
+      expect(container.querySelector('input[type="email"]')).not.toBeNull()
+    );
+    setField(container, 'Email address', 'casey@acme.test');
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain('Verification code')
+    );
+
+    // Act
+    setField(container, 'Verification code', 'invalid');
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+        'invalid or expired'
+      )
+    );
+    expect(container.querySelector('a[href="/organizations/new"]')).toBeNull();
+    api.reply(`POST ${path}/verifications`, 204);
+    setField(container, 'Verification code', 'mailbox-proof');
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain(
+        'Organization access may take a moment'
+      )
+    );
+    emails(true);
+    [...container.querySelectorAll('button')]
+      .find((b) => b.textContent === 'Refresh organization access')!
+      .click();
+
+    // Assert
+    await vi.waitFor(() =>
+      expect(
+        container.querySelector('a[href="/organizations/new"]')
+      ).not.toBeNull()
+    );
+    expect(
+      container.querySelector('input[autocomplete="one-time-code"]')
+    ).toBeNull();
   });
 });
 
@@ -89,7 +246,9 @@ describe('self-service organization creation (R1-15 frontend #176)', () => {
     setField(container, 'Slug', 'acme');
 
     // Act
-    container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('/acme'));
 
     // Assert
@@ -107,7 +266,8 @@ describe('self-service organization creation (R1-15 frontend #176)', () => {
       type: 'about:blank',
       title: 'Forbidden',
       status: 403,
-      detail: 'Verify an email address you own before creating an organization.',
+      detail:
+        'Verify an email address you own before creating an organization.',
       instance: '/',
     });
     const container = mount(CreateTenantPage);
@@ -116,18 +276,28 @@ describe('self-service organization creation (R1-15 frontend #176)', () => {
     setField(container, 'Slug', 'acme');
 
     // Act
-    container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.querySelector('[role="alert"]')).not.toBeNull()
+    );
 
     // Assert
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Verify an email address you own');
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'Verify an email address you own'
+    );
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 
   it('ShouldShowTheServerValidationReason', async () => {
     // Arrange
     api.reply('POST /api/v1/tenants', 409, {
-      type: 'about:blank', title: 'Conflict', status: 409, detail: 'The slug is already taken.', instance: '/',
+      type: 'about:blank',
+      title: 'Conflict',
+      status: 409,
+      detail: 'The slug is already taken.',
+      instance: '/',
     });
     const container = mount(CreateTenantPage);
     setField(container, 'Name', 'Acme');
@@ -135,10 +305,16 @@ describe('self-service organization creation (R1-15 frontend #176)', () => {
     setField(container, 'Slug', 'acme');
 
     // Act
-    container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() =>
+      expect(container.querySelector('[role="alert"]')).not.toBeNull()
+    );
 
     // Assert
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The slug is already taken.');
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      'The slug is already taken.'
+    );
   });
 });

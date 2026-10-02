@@ -88,6 +88,68 @@ afterEach(() => {
 });
 
 describe('scoped access grants (R1-04b frontend #187)', () => {
+  it('ShouldGrantKnownOrganizationScopeGivenDeniedProgramDiscovery', async () => {
+    // Arrange
+    catalog();
+    api.reply(`${base}/programs`, 403, {
+      detail: 'Program access requires a business grant.',
+    });
+    api.reply(`POST ${base}/access-grants/*`, 204);
+    const changed = vi.fn();
+    const container = mount(() => (
+      <AccessGrantsCard access={access([])} onChanged={changed} />
+    ));
+    await vi.waitFor(() =>
+      expect(
+        container.querySelector(`select option[value="${tenantId}"]`)
+      ).not.toBeNull()
+    );
+
+    // Act
+    choose(container, 0, 'role-lead');
+    choose(container, 1, tenantId);
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    // Assert
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce());
+    expect(container.textContent).not.toContain('SOC 2 2026');
+    const sent = api.bodies.find(
+      (b) => b.method === 'POST' && b.path.startsWith(`${base}/access-grants/`)
+    );
+    expect(sent).toBeDefined();
+    expect(
+      (sent!.body as { proposal: { scope: unknown } }).proposal.scope
+    ).toEqual({ kind: 'organization', id: tenantId });
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldPreserveRetryGivenProgramDiscoveryUnavailable', async () => {
+    // Arrange
+    catalog();
+    api.reply(`${base}/programs`, 503, {
+      detail: 'Program discovery is temporarily unavailable.',
+    });
+
+    // Act
+    const container = mount(() => (
+      <AccessGrantsCard access={access([])} onChanged={() => {}} />
+    ));
+    await vi.waitFor(() =>
+      expect(container.querySelector('[role="alert"]')).not.toBeNull()
+    );
+
+    // Assert
+    expect(container.querySelector('form')).toBeNull();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Unable to load the programs.');
+    expect(
+      [...container.querySelectorAll('button')].some(
+        (b) => b.textContent === 'Try again'
+      )
+    ).toBe(true);
+  });
+
   it('ShouldGrantARoleOnAProgramScopeForTheMember', async () => {
     // Arrange
     catalog();
