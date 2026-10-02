@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.PolicyDistribution;
+using Cntryl.Fitz;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -19,6 +20,38 @@ public sealed class FitzPolicyDirectoryTests
         PolicyAudience.CoreSecurity, null, cadence, "Body", null, "Owner", []);
 
     static ActorReference Actor(Uuid memberId) => ActorReference.ForMember(memberId, "Member");
+
+    [Fact]
+    public async Task ShouldReadOnlyMatchingCampaignsGivenLargeUnrelatedProgramPopulation()
+    {
+        // Arrange
+        var client = new CountingKvClient(new InMemoryKvClient());
+        var directory = new FitzCampaignDirectory(client);
+        var policyId = Uuid.CreateVersion4();
+        var matches = new[] { Launched(policyId, 1, Now), Launched(policyId, 1, Now.AddDays(1)) };
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         new CheckpointIdentity(FitzCampaignDirectory.ProjectorName,
+                             EventStreamPattern.ForPattern(TenantId.ToString(),
+                                 "policy-distribution-campaigns")), ProjectionCheckpoint.Start)))
+        {
+            foreach (var campaign in matches)
+                await directory.ApplyAsync(campaign);
+            for (var i = 0; i < 405; i++)
+                await directory.ApplyAsync(Launched(Uuid.CreateVersion4(), 1, Now.AddMinutes(i)));
+            await directory.ApplyAsync(Launched(policyId, 2, Now));
+            await directory.ApplyAsync(Launched(policyId, 1, Now) with { ProgramId = Uuid.CreateVersion4() });
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        client.ScannedRows = 0;
+
+        // Act
+        var found = await directory.ListForSubjectAsync(TenantId, ProgramId, policyId, 1);
+
+        // Assert
+        Assert.Equal(matches.Select(static campaign => campaign.CampaignId).Order(), found.Order());
+        Assert.Equal(matches.Length, client.ScannedRows);
+        Assert.Empty(await directory.ListForSubjectAsync(Uuid.CreateVersion4(), ProgramId, policyId, 1));
+    }
 
     [Fact]
     public async Task ShouldProjectLifecycleAndDeleteDiscardedDraftGivenPolicyEvents()
@@ -113,4 +146,40 @@ public sealed class FitzPolicyDirectoryTests
 
     static CheckpointIdentity Identity(Uuid tenantId) => new(FitzPolicyDirectory.ProjectorName,
         EventStreamPattern.ForPattern(tenantId.ToString(), "policies"));
+
+    sealed class CountingKvClient(IKvClient inner) : IKvClient
+    {
+        public int ScannedRows { get; set; }
+
+        public async Task<IKvTransaction> BeginAsync(string route, KvDurability durability,
+            KvMode mode = KvMode.ReadWrite, CancellationToken ct = default) =>
+            new CountingTransaction(await inner.BeginAsync(route, durability, mode, ct), this);
+
+        public Task<KvSubscription> SubscribeAsync(string pattern, CancellationToken ct = default) =>
+            inner.SubscribeAsync(pattern, ct);
+
+        sealed class CountingTransaction(IKvTransaction inner, CountingKvClient owner) : IKvTransaction
+        {
+            public string Route => inner.Route;
+            public Task<KvGetResult> GetAsync(ReadOnlyMemory<byte> key, CancellationToken ct = default) =>
+                inner.GetAsync(key, ct);
+            public Task PutAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value,
+                CancellationToken ct = default) => inner.PutAsync(key, value, ct);
+            public Task InsertAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value,
+                CancellationToken ct = default) => inner.InsertAsync(key, value, ct);
+            public Task DeleteAsync(ReadOnlyMemory<byte> key, CancellationToken ct = default) =>
+                inner.DeleteAsync(key, ct);
+            public Task DeleteRangeAsync(ReadOnlyMemory<byte> startKey, ReadOnlyMemory<byte> endKey,
+                CancellationToken ct = default) => inner.DeleteRangeAsync(startKey, endKey, ct);
+            public async Task<KvScanResult> ScanAsync(KvScanQuery query, CancellationToken ct = default)
+            {
+                var result = await inner.ScanAsync(query, ct);
+                owner.ScannedRows += result.Pairs.Count;
+                return result;
+            }
+            public Task CommitAsync(CancellationToken ct = default) => inner.CommitAsync(ct);
+            public Task RollbackAsync(CancellationToken ct = default) => inner.RollbackAsync(ct);
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
+        }
+    }
 }
