@@ -5,6 +5,10 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance;
 
+[JsonSerializable(typeof(CriteriaTextOverlayEntryRevised))]
+[JsonSerializable(typeof(CriteriaTextOverlayRevision))]
+[JsonSerializable(typeof(CriteriaTextOverlayRegistration))]
+[JsonSerializable(typeof(SetCriteriaTextOverlay))]
 [PortiaJsonContext]
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,

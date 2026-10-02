@@ -5752,6 +5752,7 @@ export type ListCriteriaCatalogEntriesQuery = {
   "kind"?: string | null;
   "limit"?: number | string;
   "parent_identifier"?: string | null;
+  "purpose"?: string | null;
 };
 
 export type ListCriteriaCatalogEntriesResponse200 = PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738;
@@ -5825,6 +5826,10 @@ export type GetCriteriaCatalogEntryPath = {
   "edition_id": string;
   "identifier": string | null;
   "tenant_id": string;
+};
+
+export type GetCriteriaCatalogEntryQuery = {
+  "purpose"?: string | null;
 };
 
 export type GetCriteriaCatalogEntryResponse200 = Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C;

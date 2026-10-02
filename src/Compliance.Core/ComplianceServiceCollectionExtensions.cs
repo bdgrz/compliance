@@ -32,6 +32,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
+        services.AddScoped<CriteriaTextOverlayReader>();
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
@@ -512,6 +513,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
             .AddRequestHandler<ListCriteriaCatalogEntriesHandler>()
             .AddRequestHandler<GetCriteriaCatalogEntryHandler>()
+            .AddRequestHandler<SetCriteriaTextOverlayHandler>()
             .AddRequestHandler<CreateControlDraftHandler>()
             .AddRequestHandler<ReviseControlDraftHandler>()
             .AddRequestHandler<DiscardControlDraftHandler>()

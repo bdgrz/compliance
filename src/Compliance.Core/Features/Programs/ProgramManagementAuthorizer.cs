@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Criteria;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -105,7 +106,7 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
 
         // Program creation is organization-scoped; a grant to one existing program cannot
         // authorize creating another. Existing program records must carry or resolve that scope.
-        if (context.Request is CreateProgram)
+        if (context.Request is CreateProgram or SetCriteriaTextOverlay)
         {
             var organizationAccess = await scopedPermissions.GetProgramVisibilityAsync(tenantId,
                     userId, memberId, IProgramScopedRequest.ManagementPermission, ct)
@@ -113,7 +114,7 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
             return organizationAccess.OrganizationWide
                 ? Result.Success
                 : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                    "Program creation requires an organization-wide grant."));
+                    "This operation requires organization-wide program management."));
         }
 
         return Result.Failure(new RequestError(RequestErrorKind.Forbidden,

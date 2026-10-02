@@ -7,5 +7,5 @@ namespace Bdgrz.Compliance.Features.Criteria;
 [Discriminator("bdgrz.criteria.entries.list", 1)]
 public sealed record ListCriteriaCatalogEntries(Uuid TenantId, Uuid EditionId,
     string? Category = null, string? Kind = null, string? ParentIdentifier = null,
-    int? Limit = null, string? Cursor = null)
+    int? Limit = null, string? Cursor = null, string? Purpose = null)
     : IRequest<Page<Criterion>>, ITenantAccessRequest, ICallable;

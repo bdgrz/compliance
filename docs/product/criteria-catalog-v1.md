@@ -3,9 +3,10 @@
 This slice delivers the platform SOC 2 criteria catalog and explicit program
 edition selection for [#209](https://github.com/bdgrz/compliance/issues/209),
 following [M0-D02](decisions/m0-d02-criteria-content.md) and
-[M0-D01](decisions/m0-d01-program-targets.md). The licensed text overlay
-(`CriteriaTextOverlay`, supplier, license reference, usage flags) is not part
-of this slice; it waits on [#351](https://github.com/bdgrz/compliance/issues/351).
+[M0-D01](decisions/m0-d01-program-targets.md). Tenant-supplied licensed text
+overlays are implemented in [#448](https://github.com/bdgrz/compliance/issues/448).
+Supplier and license facts still come from [#351](https://github.com/bdgrz/compliance/issues/351);
+they inform overlay content without blocking its data shape.
 
 ## Catalog content
 
@@ -41,7 +42,15 @@ All routes are tenant scoped and require tenant access. Names are snake_case.
 | `GET .../criteria-editions/{edition_id}` | `bdgrz.criteria.edition.get` | 404 for unknown edition |
 | `GET .../criteria-editions/{edition_id}/entries` | `bdgrz.criteria.entries.list` | `category`, `kind`, `parent_identifier`, `limit` (1–200, default 50), `cursor` |
 | `GET .../criteria-editions/{edition_id}/entries/{identifier}` | `bdgrz.criteria.entry.get` | 404 for unknown identifier |
+| `PUT .../criteria-editions/{edition_id}/entries/{identifier}/overlay` | `bdgrz.criteria.overlay.set` | `expected_revision`, `content`; requires organization-wide `program.manage` |
 | `PUT .../programs/{program_id}/criteria-edition` | `bdgrz.program.criteria.select` (idempotent) | Body `expected_revision`, `edition_id`; requires `program.manage` |
+
+Entry reads accept `purpose=display` (default) or `purpose=export`. They return
+overlay text only when the corresponding usage flag allows it; otherwise they
+return the platform-written summary. The `purpose` is part of the list cursor
+scope. Overlay writes are tenant-owned, version-checked and attributed; each
+accepted revision is retained as an immutable event. Platform catalog data
+continues to contain only identifiers and original summaries.
 
 - Entry cursors are bound to the tenant, edition, and filters; a cursor used
   elsewhere returns 400 / `Validation`.
@@ -72,7 +81,8 @@ All routes are tenant scoped and require tenant access. Names are snake_case.
 
 - Point-of-focus coverage is partial; the full 2022 hierarchy still needs
   authored summaries and review against the source.
-- No control mapping, overlay, export, or usage-flag enforcement yet.
+- Control mappings reference identifiers, never text. No other catalog export
+  format is provided by this slice.
 - Only one platform edition exists, so edition remapping is proven with test
   catalogs rather than a second shipped edition.
 
@@ -92,4 +102,4 @@ All routes are tenant scoped and require tenant access. Names are snake_case.
   `ControlMappingDirectoryV1` and `CriterionApplicabilityDirectoryV1` Fitz
   projections. A read before both reach every tenant source event returns a
   transient `409`.
-- Licensed overlay text (#351, #448) is still out of scope.
+- Licensed overlay text and usage-flag enforcement are delivered by #448.
