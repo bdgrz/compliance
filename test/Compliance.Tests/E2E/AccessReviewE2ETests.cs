@@ -110,12 +110,18 @@ public sealed class AccessReviewE2ETests(BrokerStackFixture broker)
         using var laterAccepted = await owner.PostAsJsonAsync(
             $"{root}/access-populations/{laterId}/acceptance",
             new { expected_revision = 2, attestation = "Observed after remediation." });
+        Assert.True(laterAccepted.StatusCode == HttpStatusCode.OK,
+            await laterAccepted.Content.ReadAsStringAsync());
         using var verified = await owner.PostAsJsonAsync(
             $"{root}/access-review-campaigns/{campaignId}/items/{adminItem}/remediation-verifications",
             new { expected_revision = revision++, population_id = laterId });
+        Assert.True(verified.StatusCode == HttpStatusCode.OK,
+            await verified.Content.ReadAsStringAsync());
         using var completed = await owner.PostAsJsonAsync(
             $"{root}/access-review-campaigns/{campaignId}/completion",
             new { expected_revision = revision, attestation = "Every decision is recorded and verified." });
+        Assert.True(completed.StatusCode == HttpStatusCode.OK,
+            await completed.Content.ReadAsStringAsync());
         var campaigns = await WaitForAsync(owner, $"{root}/access-review-campaigns",
             static body => body.GetProperty("items").EnumerateArray()
                 .Any(item => item.GetProperty("status").GetString() == "completed"));

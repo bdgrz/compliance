@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Projects campaign identities and status; replays are idempotent.</summary>
 sealed class FitzAccessReviewCampaignDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/access-review-campaign-directory-v1/projection",
+    : FitzKvProjectionStore(client, "kv://bdgrz/access-review-campaign-directory-v2/projection",
             AccessReviewDirectorySchema.CampaignProjector),
         IAccessReviewCampaignDirectoryReader, IAccessReviewCampaignDirectoryProjection
 {
@@ -49,7 +49,7 @@ sealed class FitzAccessReviewCampaignDirectory(IKvClient client)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         return await AccessReviewDirectorySchema.Campaigns.QueryAsync(tx,
-            AccessReviewDirectorySchema.CampaignsByLaunch.Query().Descending()
+            AccessReviewDirectorySchema.CampaignsByLaunch.Query()
                 .Take(Math.Clamp(limit, 1, 200)).After(cursor), ct).ConfigureAwait(false);
     }
 }
