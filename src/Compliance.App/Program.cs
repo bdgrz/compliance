@@ -210,6 +210,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListProviderAssuranceReports>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<ListProviderReviews>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<GetProviderAssuranceCoverage>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<PreviewProviderChange>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
@@ -1399,6 +1400,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<GetProviderAssuranceCoverage, ProviderAssuranceCoverageView>(
             "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-coverage")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPost<PreviewProviderChange, ProviderChangeImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/change-impact-previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview provider change impact across systems, data, controls, evidence, and scope")
         .WithTags("Providers");
     app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(
             "/api/v1/tenants/{tenant_id}/technology-components")

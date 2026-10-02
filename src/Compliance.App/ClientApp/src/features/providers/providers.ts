@@ -57,6 +57,35 @@ export interface Provider {
   recordedAt: string;
 }
 
+export type ProviderChangeKind = 'renewal' | 'material_change' | 'termination';
+
+export interface ProviderChangeAffectedRecord {
+  recordType: string;
+  recordId: string;
+  parentRecordId: string | null;
+  revision: number | null;
+  relationship: string;
+}
+
+export interface ProviderChangeImpactSection {
+  context: string;
+  records: ProviderChangeAffectedRecord[];
+  complete: boolean;
+  incompleteReason: string | null;
+}
+
+export interface ProviderChangeImpactPreview {
+  providerId: string;
+  providerRevision: number;
+  changeKind: ProviderChangeKind;
+  effectiveOn: string;
+  changeSummary: string;
+  contexts: ProviderChangeImpactSection[];
+  pendingContexts: string[];
+  complete: boolean;
+  digest: string;
+}
+
 export interface ClientServiceChoice {
   serviceId: string;
   programId: string | null;
@@ -309,6 +338,50 @@ export async function reviseProvider(providerId: string, expectedRevision: numbe
   });
   if (!result.ok) throw failure(result, 'save the provider');
   return result.data ? Number(result.data.revision) : expectedRevision + 1;
+}
+
+export async function previewProviderChange(
+  providerId: string,
+  expectedRevision: number,
+  changeKind: ProviderChangeKind,
+  effectiveOn: string,
+  changeSummary: string
+): Promise<ProviderChangeImpactPreview> {
+  const tenantId = requireActiveTenantId();
+  const result = await client.previewProviderChange({
+    params: { tenant_id: tenantId, provider_id: providerId },
+    body: {
+      expected_revision: expectedRevision,
+      change_kind: changeKind,
+      effective_on: effectiveOn,
+      change_summary: changeSummary,
+    },
+  });
+  if (!result.ok) throw failure(result, 'preview this provider change');
+  if (!result.data) throw new ProviderRequestError('The impact preview was empty.', null, false);
+
+  return {
+    providerId: result.data.provider_id,
+    providerRevision: Number(result.data.provider_revision),
+    changeKind: result.data.change_kind as ProviderChangeKind,
+    effectiveOn: result.data.effective_on,
+    changeSummary: result.data.change_summary,
+    contexts: result.data.contexts.map((section) => ({
+      context: section.context,
+      complete: section.complete,
+      incompleteReason: section.incomplete_reason,
+      records: section.records.map((record) => ({
+        recordType: record.record_type,
+        recordId: record.record_id,
+        parentRecordId: record.parent_record_id,
+        revision: record.revision === null ? null : Number(record.revision),
+        relationship: record.relationship,
+      })),
+    })),
+    pendingContexts: result.data.pending_contexts,
+    complete: result.data.complete,
+    digest: result.data.digest,
+  };
 }
 
 // Existing client services a dependency can reference, each with its owning program.

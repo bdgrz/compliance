@@ -98769,6 +98769,135 @@
         }
       }
     },
+    "/api/v1/tenants/{tenant_id}/providers/{provider_id}/change-impact-previews": {
+      "post": {
+        "tags": [
+          "Providers"
+        ],
+        "operationId": "previewProviderChange",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "change_kind",
+                  "effective_on",
+                  "change_summary"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "change_kind": {
+                    "type": "string"
+                  },
+                  "effective_on": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "change_summary": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "required": [
+                    "tenant_id",
+                    "provider_id",
+                    "provider_revision",
+                    "change_kind",
+                    "effective_on",
+                    "change_summary",
+                    "contexts",
+                    "pending_contexts",
+                    "complete",
+                    "digest"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "tenant_id": { "type": "string", "format": "uuid" },
+                    "provider_id": { "type": "string", "format": "uuid" },
+                    "provider_revision": { "type": ["integer", "string"] },
+                    "change_kind": { "type": "string" },
+                    "effective_on": { "type": "string", "format": "date" },
+                    "change_summary": { "type": "string" },
+                    "contexts": {
+                      "type": "array",
+                      "items": {
+                        "required": ["context", "records", "complete", "incomplete_reason"],
+                        "type": "object",
+                        "properties": {
+                          "context": { "type": "string" },
+                          "records": {
+                            "type": "array",
+                            "items": {
+                              "required": ["record_type", "record_id", "parent_record_id", "revision", "relationship"],
+                              "type": "object",
+                              "properties": {
+                                "record_type": { "type": "string" },
+                                "record_id": { "type": "string", "format": "uuid" },
+                                "parent_record_id": { "type": ["null", "string"], "format": "uuid" },
+                                "revision": { "type": ["null", "integer", "string"] },
+                                "relationship": { "type": "string" }
+                              }
+                            }
+                          },
+                          "complete": { "type": "boolean" },
+                          "incomplete_reason": { "type": ["null", "string"] }
+                        }
+                      }
+                    },
+                    "pending_contexts": { "type": "array", "items": { "type": "string" } },
+                    "complete": { "type": "boolean" },
+                    "digest": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Provider not found" },
+          "409": { "description": "Stale revision or projections have not caught up" },
+          "500": { "description": "Unexpected error" }
+        }
+      }
+    },
     "/api/v1/tenants/{tenant_id}/technology-components": {
       "post": {
         "tags": [

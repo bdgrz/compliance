@@ -203,6 +203,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProviderProjection>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<IProviderReader>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<ProviderReadConsistency>();
+        services.AddScoped<ProviderChangeImpactService>();
         services.AddScoped<AssuranceReferences>();
         services.AddScoped<AssuranceDisclosure>();
         services.AddScoped<FitzAssuranceDirectory>();
@@ -459,6 +460,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListProviderAssuranceReportsHandler>()
             .AddRequestHandler<ListProviderReviewsHandler>()
             .AddRequestHandler<GetProviderAssuranceCoverageHandler>()
+            .AddRequestHandler<PreviewProviderChangeHandler>()
             .AddRequestAuthorizer<ProviderAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()

@@ -24,9 +24,12 @@ import {
   listProviderRevisions,
   messageFor,
   optionLabel,
+  previewProviderChange,
   ProviderRequestError,
   reviseProvider,
   type Provider,
+  type ProviderChangeImpactPreview,
+  type ProviderChangeKind,
   type ProviderContent,
 } from '../providers.js';
 
@@ -81,6 +84,140 @@ function ReviseCard({
             </Button>
           </Stack>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProviderChangeImpactCard({ provider }: { provider: Provider }) {
+  const [changeKind, setChangeKind] = state<ProviderChangeKind>('renewal');
+  const [effectiveOn, setEffectiveOn] = state(new Date().toISOString().slice(0, 10));
+  const [summary, setSummary] = state('');
+  const [pending, setPending] = state(false);
+  const [assessment, setAssessment] = state<ProviderChangeImpactPreview | null>(null);
+  const [actionError, setActionError] = state<Error | null>(null);
+
+  async function preview(event: Event) {
+    event.preventDefault();
+    setActionError(null);
+    setAssessment(null);
+    setPending(true);
+    try {
+      setAssessment(
+        await previewProviderChange(provider.providerId, provider.revision, changeKind(), effectiveOn(), summary().trim())
+      );
+    } catch (failure) {
+      setActionError(failure instanceof Error ? failure : new Error('Unable to preview this provider change.'));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const error = actionError();
+  const stale = error instanceof ProviderRequestError && error.status === 409 && !error.transient;
+  const impact = assessment();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Assess a provider change</CardTitle>
+        <CardDescription>
+          Review linked systems, data, controls, evidence, and scope before making a separate approval decision. This preview does not approve or record a lifecycle change.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Stack gap="sm">
+          <form onSubmit={(event: Event) => void preview(event)} aria-label="Preview provider change impact">
+            <Stack gap="sm">
+              <label className="registration-field">
+                <span>Change type</span>
+                <select
+                  value={changeKind()}
+                  onChange={(event: Event) => {
+                    setChangeKind((event.target as HTMLSelectElement).value as ProviderChangeKind);
+                    setAssessment(null);
+                  }}
+                >
+                  <option value="renewal">Renewal</option>
+                  <option value="material_change">Material service change</option>
+                  <option value="termination">Termination</option>
+                </select>
+              </label>
+              <label className="registration-field">
+                <span>Effective date</span>
+                <input
+                  type="date"
+                  value={effectiveOn()}
+                  onInput={(event: Event) => {
+                    setEffectiveOn((event.target as HTMLInputElement).value);
+                    setAssessment(null);
+                  }}
+                  required
+                />
+              </label>
+              <label className="registration-field">
+                <span>Change summary</span>
+                <textarea
+                  value={summary()}
+                  onInput={(event: Event) => {
+                    setSummary((event.target as HTMLTextAreaElement).value);
+                    setAssessment(null);
+                  }}
+                  maxLength={2000}
+                  required
+                />
+              </label>
+              {error ? <p role="alert">{messageFor(error, 'this provider')}</p> : null}
+              {stale ? <p>Reload the provider before requesting another assessment.</p> : null}
+              <Button variant="primary" type="submit" disabled={pending()}>
+                {pending() ? 'Assessing…' : 'Preview impact'}
+              </Button>
+            </Stack>
+          </form>
+
+          {pending() ? <Spinner label="Assessing provider change impact" /> : null}
+          {impact && impact.providerRevision !== provider.revision ? (
+            <p role="alert">
+              This assessment belongs to provider revision {impact.providerRevision}; the current revision is {provider.revision}. Preview again before relying on it.
+            </p>
+          ) : null}
+          {impact && impact.providerRevision === provider.revision ? (
+            <section aria-label="Provider change impact results" aria-live="polite">
+              <h3>{impact.complete ? 'Assessment complete' : 'Assessment needs follow-up'}</h3>
+              <p>
+                {optionLabel(impact.changeKind)} effective {formatDate(impact.effectiveOn)} · provider revision {impact.providerRevision}
+              </p>
+              {!impact.complete ? (
+                <p role="alert">Some impact contexts are incomplete. Resolve the listed gaps before relying on this preview for approval.</p>
+              ) : null}
+              <Stack gap="sm">
+                {impact.contexts.map((section) => (
+                  <section aria-label={`${optionLabel(section.context)} impact`}>
+                    <h4>
+                      {optionLabel(section.context)} {section.complete ? '' : '· Follow-up required'}
+                    </h4>
+                    {section.incompleteReason ? <p role="alert">Incomplete: {optionLabel(section.incompleteReason)}</p> : null}
+                    {section.records.length === 0 ? (
+                      <p>No linked records found.</p>
+                    ) : (
+                      <ul>
+                        {section.records.map((record) => (
+                          <li>
+                            <strong>{optionLabel(record.recordType)}</strong> · {optionLabel(record.relationship)} ·{' '}
+                            <code>{record.recordId}</code>
+                            {record.parentRecordId ? <> · Parent <code>{record.parentRecordId}</code></> : null}
+                            {record.revision !== null ? ` · Revision ${record.revision}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                ))}
+              </Stack>
+              <p>Assessment digest: <code>{impact.digest}</code></p>
+            </section>
+          ) : null}
+        </Stack>
       </CardContent>
     </Card>
   );
@@ -173,6 +310,7 @@ export function ProviderDetailPage({ providerId }: { providerId: string }) {
             <DependencyList dependencies={facts.dependencies} applicationNames={applicationNames} />
           </CardContent>
         </Card>
+        <ProviderChangeImpactCard provider={current} />
         {provider.pending ? (
           <Spinner label="Refreshing provider" />
         ) : (

@@ -15818,6 +15818,38 @@ export const api = defineApi({
   "instance": string;
   "transient"?: boolean;
 }>() }),
+  previewProviderChange: post("/api/v1/tenants/{tenant_id}/providers/{provider_id}/change-impact-previews")
+    .params<{ "provider_id": string; "tenant_id": string }>({ "provider_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
+    .body(json<{
+  "expected_revision": number | string;
+  "change_kind": string;
+  "effective_on": string;
+  "change_summary": string;
+}>())
+    .returns(json<{
+  "tenant_id": string;
+  "provider_id": string;
+  "provider_revision": number | string;
+  "change_kind": string;
+  "effective_on": string;
+  "change_summary": string;
+  "contexts": Array<{
+    "context": string;
+    "records": Array<{
+      "record_type": string;
+      "record_id": string;
+      "parent_record_id": string | null;
+      "revision": number | string | null;
+      "relationship": string;
+    }>;
+    "complete": boolean;
+    "incomplete_reason": string | null;
+  }>;
+  "pending_contexts": Array<string>;
+  "complete": boolean;
+  "digest": string;
+}>())
+    .errors({ "400": json<unknown>(), "401": empty(), "403": json<unknown>(), "404": json<unknown>(), "409": json<unknown>(), "413": json<unknown>(), "415": json<unknown>(), "500": json<unknown>() }),
   listProviderAssuranceReports: get("/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-reports")
     .params<ListProviderAssuranceReportsPath>({ "provider_id": { style: "simple", explode: false }, "tenant_id": { style: "simple", explode: false } })
     .query<ListProviderAssuranceReportsQuery>({ "cursor": { style: "form", explode: true }, "limit": { style: "form", explode: true } })
