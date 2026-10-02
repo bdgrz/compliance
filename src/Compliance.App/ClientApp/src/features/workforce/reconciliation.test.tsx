@@ -327,6 +327,36 @@ describe('roster reconciliation (R1-11 frontend b #484)', () => {
 });
 
 describe('membership correlation (R1-11 frontend b #484)', () => {
+  it('ShouldRehydratePersonEditorGivenSavedRevisionAfterProjectionLagRetry', async () => {
+    // Arrange
+    members();
+    api.reply(`GET ${base}/people/${alexId}`, 200, person(alexId, 'Alex Rivera'));
+    api.reply(`GET ${base}/workforce-source-observations`, 200, { items: [], next_cursor: null });
+    api.reply(`PUT ${base}/people/${alexId}`, 204);
+    const container = mount(() => <PersonDetailPage personId={alexId} />);
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+    const form = container.querySelector('form')!;
+    setField(form, 'Display name', 'Alex Rivera Corrected');
+    api.reply(`GET ${base}/people/${alexId}`, 409, problem(409, 'Projection is catching up', true));
+
+    // Act
+    submit(form);
+    await vi.waitFor(() => expect(button(container, 'Try again')).toBeDefined());
+    api.reply(`GET ${base}/people/${alexId}`, 200, person(alexId, 'Alex Rivera Corrected', { revision: 5 }));
+    button(container, 'Try again')!.click();
+    await vi.waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Alex Rivera Corrected'));
+
+    // Assert
+    const editor = container.querySelector('form')!;
+    expect(editor.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('Alex Rivera Corrected');
+    submit(editor);
+    await vi.waitFor(() => expect(api.bodies.filter((entry) => entry.method === 'PUT')).toHaveLength(2));
+    expect(api.bodies.filter((entry) => entry.method === 'PUT')[1].body).toMatchObject({
+      expected_revision: 5,
+      display_name: 'Alex Rivera Corrected',
+    });
+  });
+
   it('ShouldCorrelateAPersonWithAWorkforceMemberOnly', async () => {
     // Arrange
     api.reply(`GET ${base}/people/${alexId}`, 200, person(alexId, 'Alex Rivera'));
@@ -427,6 +457,30 @@ describe('non-human identity expiry (R1-11 frontend b #484)', () => {
 });
 
 describe('workforce snapshots (R1-11d frontend #226)', () => {
+  it.each([409, 503])('ShouldNotShowACompleteFreezeGivenFailureStatus%sAndAllowRetry', async (status) => {
+    // Arrange
+    api.reply(`GET ${base}/workforce-roster-snapshots`, 200, { items: [], next_cursor: null });
+    api.reply(`POST ${base}/workforce-roster-snapshots`, status, problem(status, 'Freeze unavailable', status === 409));
+    const container = mount(RosterSnapshotsPage);
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
+    await vi.waitFor(() => expect(container.textContent).toContain('No workforce snapshots frozen yet'));
+
+    // Act
+    button(container, 'Freeze roster now')!.click();
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+
+    // Assert
+    expect(container.textContent).not.toContain('Roster frozen.');
+    expect(container.textContent).not.toContain('Your snapshot is saved.');
+    expect(container.querySelector(`a[href="/acme/workforce/snapshots/${snapshotId}"]`)).toBeNull();
+    expect(button(container, 'Freeze roster now')!.disabled).toBe(false);
+    api.reply(`POST ${base}/workforce-roster-snapshots`, 200, { snapshot_id: snapshotId, content_sha256: hash });
+    button(container, 'Freeze roster now')!.click();
+    await vi.waitFor(() => expect(container.querySelector(`a[href="/acme/workforce/snapshots/${snapshotId}"]`)).not.toBeNull());
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
   it('ShouldRetainSavedIdentityAndRefreshHistoryGivenLaggingSnapshotProjection', async () => {
     // Arrange
     api.reply(`GET ${base}/workforce-roster-snapshots`, 200, { items: [], next_cursor: null });
