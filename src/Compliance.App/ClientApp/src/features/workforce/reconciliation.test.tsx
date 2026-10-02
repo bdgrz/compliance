@@ -427,6 +427,32 @@ describe('non-human identity expiry (R1-11 frontend b #484)', () => {
 });
 
 describe('workforce snapshots (R1-11d frontend #226)', () => {
+  it('ShouldRetainSavedIdentityAndRefreshHistoryGivenLaggingSnapshotProjection', async () => {
+    // Arrange
+    api.reply(`GET ${base}/workforce-roster-snapshots`, 200, { items: [], next_cursor: null });
+    api.reply(`POST ${base}/workforce-roster-snapshots`, 200, { snapshot_id: snapshotId, content_sha256: hash });
+    const container = mount(RosterSnapshotsPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('No workforce snapshots frozen yet'));
+
+    // Act
+    button(container, 'Freeze roster now')!.click();
+    await vi.waitFor(() => expect(container.querySelector(`a[href="/acme/workforce/snapshots/${snapshotId}"]`)).not.toBeNull());
+
+    // Assert
+    expect(container.textContent).toContain('Your snapshot is saved. Snapshot history is still updating.');
+    expect(container.textContent).not.toContain('No workforce snapshots frozen yet');
+    api.reply(`GET ${base}/workforce-roster-snapshots`, 503, problem(503, 'History unavailable'));
+    button(container, 'Refresh snapshot history')!.click();
+    await vi.waitFor(() => expect(button(container, 'Try again')).toBeDefined());
+    expect(container.querySelector(`a[href="/acme/workforce/snapshots/${snapshotId}"]`)).not.toBeNull();
+    api.reply(`GET ${base}/workforce-roster-snapshots`, 200, { items: [snapshot()], next_cursor: null });
+    button(container, 'Try again')!.click();
+    await vi.waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(1));
+    expect(container.textContent).not.toContain('Snapshot history is still updating');
+    expect(button(container, 'Refresh snapshot history')).toBeUndefined();
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
   it('ShouldListSnapshotsWithLineageAndFreezeANewOne', async () => {
     // Arrange
     api.reply(`GET ${base}/workforce-roster-snapshots`, 200, {
