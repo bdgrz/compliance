@@ -94,6 +94,12 @@ const ApplicationsPage = lazy(() =>
 const ApplicationDetailPage = lazy(() =>
   import('../features/applications/pages/application-detail.js').then((module) => module.ApplicationDetailPage)
 );
+const ProvidersPage = lazy(() =>
+  import('../features/providers/pages/providers-list.js').then((module) => module.ProvidersPage)
+);
+const ProviderDetailPage = lazy(() =>
+  import('../features/providers/pages/provider-detail.js').then((module) => module.ProviderDetailPage)
+);
 const WorkforceRosterPage = lazy(() =>
   import('../features/workforce/pages/workforce-roster.js').then((module) => module.WorkforceRosterPage)
 );
@@ -200,6 +206,8 @@ export const pageRegistry = createRouteRegistry(
           route('/{slug}/inventory', InventoryPage);
           route('/{slug}/applications', ApplicationsPage);
           route('/{slug}/applications/{applicationId}', ApplicationDetailPage);
+          route('/{slug}/providers', ProvidersPage);
+          route('/{slug}/providers/{providerId}', ProviderDetailPage);
           route('/{slug}/workforce', WorkforceRosterPage);
           route('/{slug}/workforce/people/{personId}', PersonDetailPage);
           route('/{slug}/workforce/relationships/{relationshipId}', WorkRelationshipDetailPage);
