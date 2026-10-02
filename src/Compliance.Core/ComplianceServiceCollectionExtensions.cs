@@ -199,6 +199,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProviderReader>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<ProviderReadConsistency>();
         services.AddScoped<TechnologyInventoryReadConsistency>();
+        services.AddScoped<FitzInventoryRegisterDirectory>();
+        services.AddScoped<IInventoryRegisterProjection>(provider =>
+            provider.GetRequiredService<FitzInventoryRegisterDirectory>());
+        services.AddScoped<IInventoryRegisterReader>(provider =>
+            provider.GetRequiredService<FitzInventoryRegisterDirectory>());
+        services.AddScoped<InventoryRegisterReadConsistency>();
         services.AddScoped<TechnologyInventoryReferences>();
         services.AddScoped<ITechnologyInventoryActivity>(provider =>
             provider.GetRequiredService<TechnologyInventoryReferences>());
@@ -474,6 +480,16 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetDataFlowHandler>()
             .AddRequestHandler<ListDataFlowsHandler>()
             .AddRequestHandler<ListDataFlowRevisionsHandler>()
+            .AddRequestHandler<RecordLocationHandler>()
+            .AddRequestHandler<ReviseLocationHandler>()
+            .AddRequestHandler<GetLocationHandler>()
+            .AddRequestHandler<ListLocationsHandler>()
+            .AddRequestHandler<ListLocationRevisionsHandler>()
+            .AddRequestHandler<RecordOperationalProcessHandler>()
+            .AddRequestHandler<ReviseOperationalProcessHandler>()
+            .AddRequestHandler<GetOperationalProcessHandler>()
+            .AddRequestHandler<ListOperationalProcessesHandler>()
+            .AddRequestHandler<ListOperationalProcessRevisionsHandler>()
             .AddRequestAuthorizer<TechnologyInventoryAuthorizer>()
             .AddRequestHandler<CreateProgramHandler>()
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
@@ -827,6 +843,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<PersonDirectoryProjector>("PersonDirectoryV1", WorkloadScope.PerTenant)
             .AddProjector<TechnologyInventoryDirectoryProjector>(
                 FitzTechnologyInventoryDirectory.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<InventoryRegisterProjector>(
+                FitzInventoryRegisterDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<WorkRelationshipDirectoryProjector>("WorkRelationshipDirectoryV1",
                 WorkloadScope.PerTenant)
             .AddProjector<WorkforceObservationProjector>("WorkforceObservationsV1",

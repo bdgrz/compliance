@@ -89,6 +89,10 @@ public sealed class TechnologyInventoryReferences(IAggregateReader reader,
                 is not null,
             "information" => (await reader.HydrateAsync(new InformationAsset(tenantId, id), ct)
                 .ConfigureAwait(false)).Content is { Lifecycle: TechnologyInventoryRules.Active },
+            "location" => (await reader.HydrateAsync(new LocationRegister(tenantId), ct)
+                .ConfigureAwait(false)).Get(id) is { Lifecycle: TechnologyInventoryRules.Active },
+            "process" => (await reader.HydrateAsync(new OperationalProcessRegister(tenantId), ct)
+                .ConfigureAwait(false)).Get(id) is { Lifecycle: TechnologyInventoryRules.Active },
             "data_flow" => (await reader.HydrateAsync(new DataFlow(tenantId, id), ct)
                 .ConfigureAwait(false)).Content is { Lifecycle: TechnologyInventoryRules.Active },
             _ => false,

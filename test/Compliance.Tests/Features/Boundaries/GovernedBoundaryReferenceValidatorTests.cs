@@ -101,6 +101,34 @@ public sealed class GovernedBoundaryReferenceValidatorTests
         Assert.Equal(RequestErrorKind.Conflict, wrongType.Error!.Kind);
     }
 
+    [Theory]
+    [InlineData("location")]
+    [InlineData("process")]
+    public async Task ShouldResolveGovernedRegisterRecordsGivenLocationOrProcessScopeReferences(
+        string subjectType)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var recordId = Uuid.CreateVersion4();
+        var validator = new GovernedBoundaryReferenceValidator(
+            new ServiceActivity(tenantId, programId, Uuid.CreateVersion4()),
+            new ApplicationActivity(tenantId, Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            new InventoryActivity(tenantId, subjectType, recordId));
+
+        // Act
+        var active = await validator.ValidateAsync(tenantId, programId, Content(subjectType, recordId));
+        var foreign = await validator.ValidateAsync(Uuid.CreateVersion4(), programId,
+            Content(subjectType, recordId));
+        var unknown = await validator.ValidateAsync(tenantId, programId,
+            Content(subjectType, Uuid.CreateVersion4()));
+
+        // Assert
+        Assert.True(active.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, foreign.Error!.Kind);
+        Assert.Equal(RequestErrorKind.Conflict, unknown.Error!.Kind);
+    }
+
     sealed class InventoryActivity(Uuid tenantId, string subjectType, Uuid recordId)
         : ITechnologyInventoryActivity
     {
