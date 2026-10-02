@@ -56,6 +56,26 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
   if (!result.ok) throw failure(result, 'reactivate this organization');
 }
 
+// The server records the request and moves the address once it is confirmed; members who open the
+// old address are redirected to the new one.
+export async function changeTenantSlug(tenantId: string, slug: string): Promise<void> {
+  const result = await client.changeTenantSlug({ params: { tenant_id: tenantId }, body: { slug } });
+  if (!result.ok) throw failure(result, 'change this organization address');
+}
+
+// Adds a firm-staff membership by invitation. Firm staff reach business records only through an
+// accepted engagement assignment (M0-D25); the invitation itself grants none.
+export async function inviteFirmStaff(tenantId: string, emailAddress: string): Promise<void> {
+  const result = await client.inviteTenantMember({
+    params: { tenant_id: tenantId },
+    body: { email_address: emailAddress, affiliation: 'firm_staff', administrator: false },
+  });
+  if (!result.ok) throw failure(result, 'invite firm staff');
+}
+
+export const slugRule =
+  'Use 4 to 63 characters: lowercase letters, digits, and single hyphens, starting with a letter.';
+
 // Platform operators by user id. Operator status covers organization metadata and lifecycle only.
 export async function listPlatformOperators(): Promise<string[]> {
   const result = await client.listPlatformOperators();

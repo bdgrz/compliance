@@ -24,6 +24,7 @@ import {
   type TenantInventoryItem,
 } from '../operator.js';
 import { PlatformOperatorsCard } from './platform-operators-card.js';
+import { TenantActionsPanel, type TenantAction } from './tenant-actions-panel.js';
 
 export function TenantInventoryPage() {
   const [cursors, setCursors] = state<(string | null)[]>([null]);
@@ -31,6 +32,7 @@ export function TenantInventoryPage() {
   const [actionError, setActionError] = state<string | null>(null);
   const [notice, setNotice] = state<string | null>(null);
   const [version, setVersion] = state(0);
+  const [selected, setSelected] = state<{ item: TenantInventoryItem; action: TenantAction } | null>(null);
 
   const cursor = cursors()[cursors().length - 1] ?? null;
   const page = resource(() => listTenantInventory(cursor), [cursor, version()]);
@@ -126,6 +128,23 @@ export function TenantInventoryPage() {
                       <td>{item.status === 'suspended' ? 'Suspended' : item.status === 'active' ? 'Active' : item.status}</td>
                       <td>{provisioningLabel(item) ?? 'Complete'}</td>
                       <td>
+                        <Block direction="row" gap="sm" wrap>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`Change address of ${item.name}`}
+                          onPress={() => setSelected({ item, action: 'slug' })}
+                        >
+                          Change address
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`Add firm staff to ${item.name}`}
+                          onPress={() => setSelected({ item, action: 'firm-staff' })}
+                        >
+                          Add firm staff
+                        </Button>
                         {item.status === 'suspended' ? (
                           <Button
                             variant="secondary"
@@ -147,6 +166,7 @@ export function TenantInventoryPage() {
                             Suspend
                           </Button>
                         )}
+                        </Block>
                       </td>
                     </tr>
                   ))}
@@ -171,6 +191,15 @@ export function TenantInventoryPage() {
           </Stack>
         </CardContent>
       </Card>
+      {selected() ? (
+        <TenantActionsPanel
+          key={`${selected()!.item.tenantId}:${selected()!.action}`}
+          item={selected()!.item}
+          action={selected()!.action}
+          onClose={() => setSelected(null)}
+          onChanged={() => setVersion(version() + 1)}
+        />
+      ) : null}
       <PlatformOperatorsCard />
     </Page>
   );

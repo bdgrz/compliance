@@ -12,6 +12,7 @@ import {
 } from '@askrjs/themes/components';
 
 import {
+  firmStaffNoAccessNotice,
   getMembership,
   listOpenResponsibilities,
   MemberRequestError,
@@ -97,6 +98,9 @@ export function MembershipPanel({ userId, onChanged }: { userId: string; onChang
                 }${member.suspensionReason ? `: ${member.suspensionReason}` : ''}`
               : 'Active member of this organization.'}
           </CardDescription>
+          {member.affiliation === 'firm_staff' ? (
+            <CardDescription>Firm staff. {firmStaffNoAccessNotice}</CardDescription>
+          ) : null}
         </CardHeader>
         <CardContent>
           <Stack gap="md">

@@ -167,6 +167,29 @@ describe('member invitation (R1-04a frontend #184)', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('That email address is already a member.');
   });
 
+  it('ShouldStateFirmStaffHaveNoBusinessAccessUntilAnAcceptedEngagementGivenAFirmStaffMember', async () => {
+    // Arrange
+    listsAnswer();
+    api.reply(`${base}/members`, 200, {
+      items: [
+        { user_id: userId, tenant_id: tenantId, affiliation: 'client_personnel', is_suspended: false },
+        { user_id: 'firm-1', tenant_id: tenantId, affiliation: 'firm_staff', is_suspended: false },
+      ],
+      next_cursor: null,
+    });
+
+    // Act
+    const container = mount(MembersPage);
+    await vi.waitFor(() => expect(container.textContent).toContain('Firm staff'));
+
+    // Assert
+    const rows = [...container.querySelectorAll('.plain-list li')].filter((li) => li.textContent?.includes('Firm staff'));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.textContent).toContain('No business-record access until an accepted engagement assignment');
+    expect(container.textContent).toContain('Engagement assignments are accepted separately');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
   it('ShouldShowForbiddenGivenTheViewerIsNotAnAdministrator', async () => {
     // Arrange
     api.reply(`${base}/members`, 403, problem(403, 'Forbidden'));

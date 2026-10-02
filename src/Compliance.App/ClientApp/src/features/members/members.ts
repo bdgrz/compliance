@@ -30,6 +30,11 @@ export const builtInRoles: readonly BuiltInRole[] = [
   },
 ];
 
+// Firm staff are never standing members of a client's records (M0-D25): access comes only from an
+// accepted engagement assignment, which is accepted separately from membership.
+export const firmStaffNoAccessNotice =
+  'Firm staff have no access to business records until an accepted engagement assignment gives them a role.';
+
 export function roleLabel(value: string | null | undefined): string {
   return builtInRoles.find((role) => role.value === value)?.label ?? value ?? 'No role';
 }

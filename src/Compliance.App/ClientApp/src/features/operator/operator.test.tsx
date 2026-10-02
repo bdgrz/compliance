@@ -134,3 +134,117 @@ describe('operator organization inventory (R1-15a frontend #239)', () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 });
+
+describe('operator slug change and firm-staff membership (R1-15 frontend #539)', () => {
+  function problem(status: number, detail: string) {
+    return { type: 'about:blank', title: 'Problem', status, detail, instance: '/' };
+  }
+
+  async function openPanel(container: HTMLElement, label: string) {
+    await vi.waitFor(() => expect(container.querySelector(`button[aria-label="${label}"]`)).not.toBeNull());
+    (container.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+  }
+
+  function type(container: HTMLElement, selector: string, value: string) {
+    const input = container.querySelector(selector) as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function submit(container: HTMLElement) {
+    (container.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
+  }
+
+  it('ShouldRequestASlugChangeAndExplainTheRedirectGivenAValidSlug', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    api.reply('POST /api/v1/tenants/t1/slug-changes', 204);
+    const container = mount(TenantInventoryPage);
+    await openPanel(container, 'Change address of Acme Corp');
+    expect(await accessibilityViolations(container)).toEqual([]);
+
+    // Act
+    type(container, 'input[name="slug"]', 'acme-group');
+    submit(container);
+    await vi.waitFor(() => expect(container.querySelector('[role="status"]')).not.toBeNull());
+
+    // Assert
+    const sent = api.bodies.find((b) => b.path === '/api/v1/tenants/t1/slug-changes');
+    expect(sent?.body).toEqual({ slug: 'acme-group' });
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('/acme-corp');
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('/acme-group');
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('redirect');
+  });
+
+  it('ShouldRejectAnInvalidSlugWithoutCallingTheServer', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    const container = mount(TenantInventoryPage);
+    await openPanel(container, 'Change address of Acme Corp');
+
+    // Act
+    type(container, 'input[name="slug"]', 'Bad Slug!');
+    submit(container);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+
+    // Assert
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('lowercase');
+    expect(api.bodies.some((b) => b.path.endsWith('/slug-changes'))).toBe(false);
+  });
+
+  it('ShouldShowTheServerReasonGivenATakenSlug', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    api.reply('POST /api/v1/tenants/t1/slug-changes', 409, problem(409, 'The tenant slug is already reserved or retired.'));
+    const container = mount(TenantInventoryPage);
+    await openPanel(container, 'Change address of Acme Corp');
+
+    // Act
+    type(container, 'input[name="slug"]', 'taken-slug');
+    submit(container);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+
+    // Assert
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The tenant slug is already reserved or retired.');
+  });
+
+  it('ShouldExplainFirmStaffHaveNoBusinessAccessAndInviteWithFirmAffiliation', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    api.reply('POST /api/v1/tenants/t1/invitations', 204);
+    const container = mount(TenantInventoryPage);
+    await openPanel(container, 'Add firm staff to Acme Corp');
+    expect(container.textContent).toContain('no access to business records');
+    expect(container.textContent).toContain('accepted engagement assignment');
+    expect(await accessibilityViolations(container)).toEqual([]);
+
+    // Act
+    type(container, 'input[type="email"]', 'advisor@firm.test');
+    submit(container);
+    await vi.waitFor(() => expect(container.querySelector('[role="status"]')).not.toBeNull());
+
+    // Assert
+    const sent = api.bodies.find((b) => b.path === '/api/v1/tenants/t1/invitations');
+    expect(sent?.body).toEqual({ email_address: 'advisor@firm.test', affiliation: 'firm_staff', administrator: false });
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('no business-record access');
+  });
+
+  it('ShouldShowTheServerReasonGivenAFirmStaffInvitationFailure', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    api.reply('POST /api/v1/tenants/t1/invitations', 400, problem(400, 'Enter a valid email address.'));
+    const container = mount(TenantInventoryPage);
+    await openPanel(container, 'Add firm staff to Acme Corp');
+
+    // Act
+    type(container, 'input[type="email"]', 'nope');
+    submit(container);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+
+    // Assert
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Enter a valid email address.');
+  });
+});

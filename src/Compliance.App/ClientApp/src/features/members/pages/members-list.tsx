@@ -18,6 +18,7 @@ import {
 import { organizationPath } from '../../tenants/tenants.js';
 import {
   builtInRoles,
+  firmStaffNoAccessNotice,
   inviteMember,
   listInvitations,
   listMembers,
@@ -171,6 +172,12 @@ export function MembersPage() {
           <CardTitle>Active members</CardTitle>
         </CardHeader>
         <CardContent>
+          {(members.value ?? []).some((member) => member.affiliation === 'firm_staff') ? (
+            <p className="consequence">
+              Firm staff are added by a platform operator. Engagement assignments are accepted
+              separately and are what give firm staff a role on business records.
+            </p>
+          ) : null}
           {members.pending ? (
             <Spinner label="Loading members" />
           ) : (members.value ?? []).length === 0 ? (
@@ -188,6 +195,11 @@ export function MembersPage() {
                     <span>{member.affiliation === 'firm_staff' ? 'Firm staff' : 'Client personnel'}</span>
                     <span>{member.suspended ? 'Suspended' : 'Active'}</span>
                   </Block>
+                  {member.affiliation === 'firm_staff' ? (
+                    <p className="role-explanation">
+                      No business-record access until an accepted engagement assignment.
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>
