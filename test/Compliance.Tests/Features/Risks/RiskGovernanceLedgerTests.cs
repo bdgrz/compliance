@@ -141,7 +141,8 @@ public sealed class RiskGovernanceLedgerTests
         Assert.Empty(resolved);
         Assert.Equal(1, ledger.RevisionOf(RiskId));
         Assert.Equal("resolved", Assert.Single(ledger.View(RiskId,
-            [Assessment(Now.AddMinutes(1))]).ReassessmentTriggers).Status);
+            [Assessment(Now.AddMinutes(1))], new DateOnly(2026, 10, 1)).ReassessmentTriggers)
+            .Status);
     }
 
     [Fact]
@@ -167,6 +168,111 @@ public sealed class RiskGovernanceLedgerTests
         Assert.Equal(memberId, owner.CorrelatedMemberId);
         var pending = new AggregateScenario<RiskGovernanceLedger>(ledger).PendingEvents;
         Assert.IsType<RiskOwnerAssigned>(Assert.Single(pending));
+    }
+
+    [Fact]
+    public void ShouldKeepActionIncompleteGivenSubmissionUntilIndependentReviewAccepts()
+    {
+        // Arrange
+        var ledger = New();
+        var actionId = AddAction(ledger, 0);
+        var evidenceId = Uuid.CreateVersion4();
+        var fulfilled = new HashSet<Uuid> { evidenceId };
+
+        // Act
+        var noEvidence = ledger.SubmitActionCompletion(RiskId, actionId, 1, Uuid.CreateVersion4(),
+            "Done.", [], new HashSet<Uuid>(), ProposerId, Proposer(), Now.AddDays(1));
+        var unfulfilled = ledger.SubmitActionCompletion(RiskId, actionId, 1,
+            Uuid.CreateVersion4(), "Done.", [evidenceId], new HashSet<Uuid>(), ProposerId,
+            Proposer(), Now.AddDays(1));
+        var submissionId = Uuid.CreateVersion4();
+        var submitted = ledger.SubmitActionCompletion(RiskId, actionId, 1, submissionId, "Done.",
+            [evidenceId], fulfilled, ProposerId, Proposer(), Now.AddDays(1));
+        var pending = ledger.View(RiskId, [], DateOnly.FromDateTime(Now.UtcDateTime));
+        var self = ledger.ReviewActionCompletion(RiskId, actionId, 2, Uuid.CreateVersion4(),
+            "accept", "Mine.", ProposerId, Proposer(), Now.AddDays(2), fulfilled);
+        var lostEvidence = ledger.ReviewActionCompletion(RiskId, actionId, 2,
+            Uuid.CreateVersion4(), "accept", "Gone.", ReviewerId,
+            ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(2),
+            new HashSet<Uuid>());
+        var accepted = ledger.ReviewActionCompletion(RiskId, actionId, 2, Uuid.CreateVersion4(),
+            "accept", "Evidence shows it.", ReviewerId,
+            ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(2), fulfilled);
+
+        // Assert
+        Assert.Equal(CommandFailureCode.InvalidContent, noEvidence!.Code);
+        Assert.Equal(CommandFailureCode.StateConflict, unfulfilled!.Code);
+        Assert.Null(submitted);
+        var pendingAction = Assert.Single(pending.TreatmentActions);
+        Assert.Equal("completion_submitted", pendingAction.Status);
+        Assert.Equal("in_progress", pending.TreatmentActionStatus);
+        Assert.Equal(CommandFailureCode.ActorProhibited, self!.Code);
+        Assert.Equal(CommandFailureCode.StateConflict, lostEvidence!.Code);
+        Assert.Null(accepted);
+        var done = ledger.View(RiskId, [], DateOnly.FromDateTime(Now.UtcDateTime));
+        Assert.Equal("completed", Assert.Single(done.TreatmentActions).Status);
+        Assert.Equal("completed", done.TreatmentActionStatus);
+        Assert.Equal(3, ledger.RevisionOf(RiskId));
+    }
+
+    [Fact]
+    public void ShouldReopenActionAndReportOverdueGivenRejectedCompletionPastDueDate()
+    {
+        // Arrange
+        var ledger = New();
+        var actionId = AddAction(ledger, 0);
+        var evidenceId = Uuid.CreateVersion4();
+        var fulfilled = new HashSet<Uuid> { evidenceId };
+        Assert.Null(ledger.SubmitActionCompletion(RiskId, actionId, 1, Uuid.CreateVersion4(),
+            "Done.", [evidenceId], fulfilled, ProposerId, Proposer(), Now));
+
+        // Act
+        var rejected = ledger.ReviewActionCompletion(RiskId, actionId, 2, Uuid.CreateVersion4(),
+            "reject", "Screenshot is of the wrong tenant.", ReviewerId,
+            ActorReference.ForMember(ReviewerId, "Reviewer"), Now, fulfilled);
+        var late = ledger.View(RiskId, [], new DateOnly(2026, 12, 1));
+
+        // Assert
+        Assert.Null(rejected);
+        var action = Assert.Single(late.TreatmentActions);
+        Assert.Equal("open", action.Status);
+        Assert.True(action.Overdue);
+        Assert.Equal("overdue", late.TreatmentActionStatus);
+        Assert.Equal("reject", Assert.Single(action.Completions).ReviewOutcome);
+    }
+
+    [Fact]
+    public void ShouldRejectActionGivenPastDueDateNonTreatingRiskOrStaleRevision()
+    {
+        // Arrange
+        var ledger = New();
+
+        // Act
+        var past = ledger.AddTreatmentAction(RiskId, 0, Uuid.CreateVersion4(), "mitigate", "T",
+            "State", "Evidence", new DateOnly(2026, 9, 1), ProposerId, [], Proposer(), Now);
+        var accept = ledger.AddTreatmentAction(RiskId, 0, Uuid.CreateVersion4(), "accept", "T",
+            "State", "Evidence", new DateOnly(2026, 11, 1), ProposerId, [], Proposer(), Now);
+        var stale = ledger.AddTreatmentAction(RiskId, 5, Uuid.CreateVersion4(), "mitigate", "T",
+            "State", "Evidence", new DateOnly(2026, 11, 1), ProposerId, [], Proposer(), Now);
+        var blank = ledger.AddTreatmentAction(RiskId, 0, Uuid.CreateVersion4(), "mitigate", " ",
+            "State", "Evidence", new DateOnly(2026, 11, 1), ProposerId, [], Proposer(), Now);
+
+        // Assert
+        Assert.Equal(CommandFailureCode.InvalidContent, past!.Code);
+        Assert.Equal(CommandFailureCode.StateConflict, accept!.Code);
+        Assert.Equal(CommandFailureCode.VersionConflict, stale!.Code);
+        Assert.Equal(CommandFailureCode.InvalidContent, blank!.Code);
+        Assert.Equal("none", ledger.View(RiskId, [], new DateOnly(2026, 10, 1))
+            .TreatmentActionStatus);
+    }
+
+    static Uuid AddAction(RiskGovernanceLedger ledger, long revision)
+    {
+        var actionId = Uuid.CreateVersion4();
+        Assert.Null(ledger.AddTreatmentAction(RiskId, revision, actionId, "mitigate",
+            "Enforce MFA", "MFA required for every administrator.", "IdP policy export.",
+            new DateOnly(2026, 11, 1), ProposerId, [], Proposer(), Now));
+        return actionId;
     }
 
     static RiskGovernanceLedger New() => new(TenantId, ProgramId);
