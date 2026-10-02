@@ -19,6 +19,60 @@ public sealed class PolicyCampaignHandlerTests
     static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     [Fact]
+    public async Task ShouldRejectSuccessorApprovalGivenUnprojectedPredecessorCampaign()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        var predecessor = await fixture.ApprovePolicyAsync();
+        var successor = await fixture.Scenario(fixture.AuthorUserId)
+            .When(new ProposePolicySuccessor(fixture.TenantId, fixture.ProgramId,
+                predecessor.PolicyId, 1, predecessor.Content with { Title = "Successor" }))
+            .ExpectSuccess();
+        var review = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ReviewPolicyDraft(fixture.TenantId, fixture.ProgramId,
+                predecessor.PolicyId, successor.Value.Revision, "accept", "Reviewed"))
+            .ExpectSuccess();
+        var preview = await fixture.Scenario(fixture.ManagerUserId)
+            .When(new PreviewPolicyImpact(fixture.TenantId, fixture.ProgramId,
+                predecessor.PolicyId, successor.Value.Revision)).ExpectSuccess();
+        var campaign = await fixture.LaunchAsync(predecessor);
+
+        // Act
+        var approval = await fixture.Scenario(fixture.ManagerUserId)
+            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+                successor.Value.Revision, review.Value.DecisionId,
+                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var retained = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new Policy(fixture.TenantId, predecessor.PolicyId));
+
+        // Assert
+        Assert.True(approval.Error!.IsTransient);
+        Assert.Equal(1, retained.CurrentVersion!.Version);
+        Assert.NotNull(retained.DraftContent);
+
+        // Act: the projector catches up; an old digest still cannot acknowledge the new impact.
+        await fixture.ProjectCampaignsAsync();
+        await fixture.Scenario(fixture.ManagerUserId)
+            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+                successor.Value.Revision, review.Value.DecisionId,
+                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var refreshed = await fixture.Scenario(fixture.ManagerUserId)
+            .When(new PreviewPolicyImpact(fixture.TenantId, fixture.ProgramId,
+                predecessor.PolicyId, successor.Value.Revision)).ExpectSuccess();
+        var approved = await fixture.Scenario(fixture.ManagerUserId)
+            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+                successor.Value.Revision, review.Value.DecisionId,
+                new DateOnly(2026, 11, 1), true, "Approved", refreshed.Value.Digest))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Equal([campaign.CampaignId], refreshed.Value.AffectedCampaignIds);
+        Assert.Equal(2, approved.Value.Version);
+    }
+
+    [Fact]
     public async Task ShouldApproveExactVersionAndLaunchFrozenAudienceGivenIndependentMembers()
     {
         // Arrange
@@ -178,6 +232,8 @@ public sealed class PolicyCampaignHandlerTests
             var managers = new HashSet<Uuid>();
             var provider = ProgramManagementServices.Build(new ManagerPermissions(managers),
                 portia => portia.AddRequestHandler<CreatePolicyDraftHandler>()
+                    .AddRequestHandler<ProposePolicySuccessorHandler>()
+                    .AddRequestHandler<PreviewPolicyImpactHandler>()
                     .AddRequestHandler<ReviewPolicyDraftHandler>()
                     .AddRequestHandler<ApprovePolicyHandler>()
                     .AddRequestHandler<LaunchPolicyCampaignHandler>()
@@ -186,6 +242,8 @@ public sealed class PolicyCampaignHandlerTests
                     .AddRequestHandler<GetCampaignHandler>()
                     .AddRequestHandler<ListCampaignParticipantsHandler>(),
                 services => services.AddScoped<PolicyImpactService>()
+                    .AddSingleton<IDomainEventReader>(provider =>
+                        (IDomainEventReader)provider.GetRequiredService<IEventStore>())
                     .AddSingleton<ICampaignDirectoryReader>(
                         new FitzCampaignDirectory(new InMemoryKvClient())));
             var fixture = new Fixture { Provider = provider };
@@ -225,6 +283,23 @@ public sealed class PolicyCampaignHandlerTests
 
         public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
             .GivenActor(ProgramManagementServices.Actor(userId));
+
+        public async Task ProjectCampaignsAsync()
+        {
+            var events = Provider.GetRequiredService<IDomainEventReader>();
+            var directory = (FitzCampaignDirectory)Provider.GetRequiredService<ICampaignDirectoryReader>();
+            var pattern = EventStreamPattern.ForPattern(TenantId.ToString(), "policy-distribution-campaigns");
+            var checkpoint = await directory.LoadCheckpointAsync(TenantId);
+            await using var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity(FitzCampaignDirectory.ProjectorName, pattern), checkpoint));
+            var cursor = checkpoint.Cursor;
+            await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+            {
+                await directory.ApplyAsync(record.Event);
+                cursor = record.NextCursor;
+            }
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
 
         public async Task<PolicyVersionView> ApprovePolicyAsync()
         {

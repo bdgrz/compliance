@@ -11,7 +11,7 @@ namespace Bdgrz.Compliance.Features.Policies;
 ///     never rewrites them.
 /// </summary>
 public sealed class PolicyImpactService(IAggregateReader reader,
-    ICampaignDirectoryReader campaigns)
+    ICampaignDirectoryReader campaigns, IDomainEventReader events)
 {
     public async ValueTask<Result<PolicyImpactPreview>> PreviewAsync(Uuid tenantId,
         Uuid programId, Uuid policyId, long expectedRevision, CancellationToken ct)
@@ -57,10 +57,19 @@ public sealed class PolicyImpactService(IAggregateReader reader,
             .Select(static pair => pair.Value).ToArray();
         if (before is not null && (added.Length > 0 || removed.Length > 0))
             changed.Add("applicability");
+        var checkpoint = predecessor is null ? ProjectionCheckpoint.Start :
+            await campaigns.LoadCheckpointAsync(tenantId, ct).ConfigureAwait(false);
+        if (predecessor is not null && !await IsCaughtUpAsync(tenantId, checkpoint, ct)
+                .ConfigureAwait(false))
+            return BehindSource();
         var affected = predecessor is null
             ? []
             : await campaigns.ListForSubjectAsync(tenantId, programId, policyId,
                 predecessor.Version, ct).ConfigureAwait(false);
+        if (predecessor is not null &&
+            (await campaigns.LoadCheckpointAsync(tenantId, ct).ConfigureAwait(false) != checkpoint ||
+             !await IsCaughtUpAsync(tenantId, checkpoint, ct).ConfigureAwait(false)))
+            return BehindSource();
         var audienceChanged = changed.Contains("audience_kind") ||
                               changed.Contains("audience_teams");
         var digest = new StringBuilder()
@@ -77,4 +86,18 @@ public sealed class PolicyImpactService(IAggregateReader reader,
     }
 
     static string Join(IReadOnlyList<string>? values) => string.Join('\n', values ?? []);
+
+    async ValueTask<bool> IsCaughtUpAsync(Uuid tenantId, ProjectionCheckpoint checkpoint,
+        CancellationToken ct)
+    {
+        await using var pending = events.ReadAsync(EventStreamPattern.ForPattern(
+                tenantId.ToString(), "policy-distribution-campaigns"), checkpoint.Cursor, ct)
+            .GetAsyncEnumerator(ct);
+        return !await pending.MoveNextAsync().ConfigureAwait(false);
+    }
+
+    static Result<PolicyImpactPreview> BehindSource() => Result<PolicyImpactPreview>.Failure(
+        new RequestError(RequestErrorKind.Conflict,
+            "The policy campaign projection changed or has not reached the source. Reload the impact preview.",
+            isTransient: true));
 }

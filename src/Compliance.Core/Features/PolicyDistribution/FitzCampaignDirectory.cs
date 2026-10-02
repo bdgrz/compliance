@@ -4,11 +4,12 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.PolicyDistribution;
 
 sealed class FitzCampaignDirectory(IKvClient client)
-    : FitzKvProjectionStore(client, "kv://bdgrz/policy-campaign-directory/projection",
+    : FitzKvProjectionStore(client, "kv://bdgrz/policy-campaign-directory/projection-v2",
             ProjectorName),
         ICampaignDirectoryReader, ICampaignDirectoryProjection
 {
-    public const string ProjectorName = "PolicyCampaignDirectoryV1";
+    // A fresh route and checkpoint replay retained launches/closes into the new covering index.
+    public const string ProjectorName = "PolicyCampaignDirectoryV2";
 
     public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
         CancellationToken ct = default) =>
@@ -54,13 +55,16 @@ sealed class FitzCampaignDirectory(IKvClient client)
     {
         var matches = new List<Uuid>();
         string? cursor = null;
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
         do
         {
-            var page = await ListProgramAsync(tenantId, programId, 200, cursor, ct)
+            var page = await CampaignDirectorySchema.Campaigns.QueryAsync(tx,
+                CampaignDirectorySchema.BySubject.Query().WithPrefix(programId.ToString(),
+                    subjectId.ToString(), version.ToString("D20",
+                        System.Globalization.CultureInfo.InvariantCulture))
+                    .Take(200).After(cursor), ct)
                 .ConfigureAwait(false);
-            matches.AddRange(page.Items.Where(campaign => campaign.SubjectId == subjectId &&
-                    campaign.SubjectVersion == version)
-                .Select(static campaign => campaign.CampaignId));
+            matches.AddRange(page.Items.Select(static campaign => campaign.CampaignId));
             cursor = page.NextCursor;
         } while (cursor is not null);
         return matches;
