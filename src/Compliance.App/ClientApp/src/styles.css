@@ -722,3 +722,27 @@ svg {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Provider register (R1-14 frontend #232) */
+.provider-list li,
+.provider-history li {
+  padding-block: var(--ak-space-xs, 0.5rem);
+}
+
+.provider-exposures,
+.provider-dependency-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-space-xs, 0.5rem);
+  border: 1px solid var(--ak-color-border);
+  border-radius: var(--ak-radius-md);
+  padding: var(--ak-space-sm, 0.75rem);
+}
+
+.provider-checkbox,
+.provider-exposures label {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-space-xs, 0.5rem);
+  min-block-size: 2.75rem;
+}

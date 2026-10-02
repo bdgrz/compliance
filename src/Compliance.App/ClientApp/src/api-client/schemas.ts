@@ -420,6 +420,66 @@ export type Portia183272C2785AB7DAF0DDB9887649BB6524E07D26A9750A0F1422C8AD50831F
   "next_cursor": string | null;
 } | null;
 
+export type Portia19632CADA912ED63C5D1A42FAA515D0BB0715B9E77D43CA3FE2B0115D474BB64 = {
+  "items": Array<{
+  "tenant_id": string;
+  "provider_id": string;
+  "revision": number | string;
+  "content": {
+  "name": string;
+  "provider_kind": string;
+  "materiality"?: string | null;
+  "materiality_basis"?: Array<string | null> | null;
+  "materiality_rationale"?: string | null;
+  "subservice"?: boolean;
+  "boundary_treatment"?: string | null;
+  "boundary_treatment_rationale"?: string | null;
+  "owner_person_id"?: string | null;
+  "owner_reference"?: string | null;
+  "dependencies"?: Array<{
+  "subject_kind": string;
+  "subject_id": string | null;
+  "program_id": string | null;
+  "application_id": string | null;
+  "rationale": string;
+  "effective_from": string;
+  "effective_until_exclusive"?: string | null;
+  "unresolved_reference"?: string | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "source_revision"?: number | string | null;
+  "program_revision"?: number | string | null;
+  "application_revision"?: number | string | null;
+} | null> | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "owner_person_revision"?: number | string | null;
+};
+  "source_kind": string;
+  "lifecycle": string;
+  "unresolved": Array<string | null>;
+  "recorded_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
+} | null>;
+  "next_cursor": string | null;
+} | null;
+
 export type Portia1A72141BBDF886D72A311BA94564A77E3CFA5B0DBA1A3FD78CF78C689F1F779D = {
   "tenant_id": string;
   "application_id": string;
@@ -864,29 +924,6 @@ export type Portia29FC8CE420AC2814A94627199085A8D4740B2FCFF2200FDDEF4D0FCFD528B7
   "next_cursor": string | null;
 } | null;
 
-export type Portia2AED3AF47093A366AD687BFFDD638FD60E8E83EBFD47EB5EB710621485B5041F = {
-  "tenant_id": string;
-  "relationship_id": string;
-  "revision": number | string;
-  "person_id": string;
-  "source_worker_id": string;
-  "worker_type": string;
-  "lifecycle_status": string;
-  "start_date": string;
-  "end_date": string | null;
-  "department": string | null;
-  "manager_person_id": string | null;
-  "sponsor_person_id": string | null;
-  "restricted_fields_redacted": boolean;
-  "source_kind": string;
-  "last_changed_by": {
-  "kind": string;
-  "id": string;
-  "display": string;
-};
-  "last_changed_at": string;
-} | null;
-
 export type Portia2D5AB432C63465374C50AF5FA1724B74CECAE9F5CB78FC5BE2C2AF45228FF552 = {
   "user_id": string;
   "email_address": string;
@@ -959,6 +996,13 @@ export type Portia33A914476F5916BA05D9CCA32D0BA6790B75A8EBFC139D7F65E58BAF1716FF
 } | null;
 } | null>;
   "next_cursor": string | null;
+} | null;
+
+export type Portia369D696E364644EA9BC775CEF8A6503CDCD51B966C3EEAD11068D741D99FD1E9 = {
+  "source_kind": string;
+  "source_system": string;
+  "source_record_id": string;
+  "source_revision": string;
 } | null;
 
 export type Portia36D1608FA46982FB7C0145375EB90B733846AA018C6B495E9A88F5B790185F37 = {
@@ -1214,6 +1258,68 @@ export type Portia3D403D282DFA1E4ED98B4578E4D7850CCEC17460A271A4EEE9124D80AD0914
   "approved_at": string;
 } | null;
 
+export type Portia3EE8E0A3DCAA7DF314DC1E56EEC988FB2D01EE05FD8CF4BE81D867B87C9FCC48 = {
+  "items": Array<{
+  "tenant_id": string;
+  "observation_id": string;
+  "revision": number | string;
+  "source": {
+  "source_kind": string;
+  "source_system": string;
+  "source_record_id": string;
+  "source_revision": string;
+};
+  "target_kind": string;
+  "target_id": string;
+  "observed_target_revision": number | string;
+  "facts": {
+  "person"?: {
+  "display_name": string;
+  "work_email": string | null;
+} | null;
+  "work_relationship"?: {
+  "worker_type": string;
+  "lifecycle_status": string;
+  "start_date": string;
+  "end_date": string | null;
+  "department": string | null;
+  "manager_person_id": string | null;
+  "sponsor_person_id": string | null;
+  "employment_status_reason"?: string | null;
+} | null;
+  "service_identity"?: {
+  "display_name": string;
+  "identity_kind": string;
+  "environment": string | null;
+  "lifecycle_status": string;
+  "expires_on": string | null;
+} | null;
+};
+  "observed_at": string;
+  "recorded_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
+  "decision"?: {
+  "outcome": string;
+  "note": string;
+  "target_revision": number | string;
+  "actor": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "decided_at": string;
+} | null;
+  "restricted_fields_redacted"?: boolean;
+  "current_target_revision"?: number | string | null;
+  "accepted_for_current_revision"?: boolean | null;
+} | null>;
+  "next_cursor": string | null;
+} | null;
+
 export type Portia3F6E09D9310B082917FB4E979E225D9A959D6DE8796E3B5D244A47C587B91F82 = {
   "tenant_id": string;
   "waiver_id": string;
@@ -1432,32 +1538,6 @@ export type Portia4745E5442B58B410B21973D635D16710CD3A17B4B309CF195296D53640E378
   "completed_at": string;
 } | null;
 
-export type Portia474D872CD82992E0F6DAA877E95A738CD0E651D58C89FD20650936F7E9442787 = {
-  "items": Array<{
-  "tenant_id": string;
-  "relationship_id": string;
-  "revision": number | string;
-  "person_id": string;
-  "source_worker_id": string;
-  "worker_type": string;
-  "lifecycle_status": string;
-  "start_date": string;
-  "end_date": string | null;
-  "department": string | null;
-  "manager_person_id": string | null;
-  "sponsor_person_id": string | null;
-  "restricted_fields_redacted": boolean;
-  "source_kind": string;
-  "last_changed_by": {
-  "kind": string;
-  "id": string;
-  "display": string;
-};
-  "last_changed_at": string;
-} | null>;
-  "next_cursor": string | null;
-} | null;
-
 export type Portia47859CF5FF8AFC9721EEF5A600985A572F055CA4FA57B5D4FB578E7C08549EC9 = {
   "items": Array<{
   "tenant_id": string;
@@ -1570,6 +1650,11 @@ export type Portia4D86519FCC16F02548C3E29E580EC003867A07CF26D256F57E4B3D9A40816F
   "not_applicable_decision_id"?: string | null;
 } | null>;
   "next_cursor": string | null;
+} | null;
+
+export type Portia4DC9627850FC5EDDA9510C934A8C2B366CAC9421CFD6444090D9B587E7571960 = {
+  "provider_id": string;
+  "revision": number | string;
 } | null;
 
 export type Portia4DD7D3410340405FBA257F32935EE3C1C844A4AB7348761CE6EC36FE0442CFEA = {
@@ -2155,6 +2240,65 @@ export type Portia64968A1E13B54F46E6D59363F33BAE3CC4FF6500FD184206E0B3BFBEA31615
   "display": string;
 };
 
+export type Portia677598C9EC3D5898C024D28902A86C949DAB1D006688F88B3B5DC88FD78C7119 = {
+  "tenant_id": string;
+  "observation_id": string;
+  "revision": number | string;
+  "source": {
+  "source_kind": string;
+  "source_system": string;
+  "source_record_id": string;
+  "source_revision": string;
+};
+  "target_kind": string;
+  "target_id": string;
+  "observed_target_revision": number | string;
+  "facts": {
+  "person"?: {
+  "display_name": string;
+  "work_email": string | null;
+} | null;
+  "work_relationship"?: {
+  "worker_type": string;
+  "lifecycle_status": string;
+  "start_date": string;
+  "end_date": string | null;
+  "department": string | null;
+  "manager_person_id": string | null;
+  "sponsor_person_id": string | null;
+  "employment_status_reason"?: string | null;
+} | null;
+  "service_identity"?: {
+  "display_name": string;
+  "identity_kind": string;
+  "environment": string | null;
+  "lifecycle_status": string;
+  "expires_on": string | null;
+} | null;
+};
+  "observed_at": string;
+  "recorded_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
+  "decision"?: {
+  "outcome": string;
+  "note": string;
+  "target_revision": number | string;
+  "actor": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "decided_at": string;
+} | null;
+  "restricted_fields_redacted"?: boolean;
+  "current_target_revision"?: number | string | null;
+  "accepted_for_current_revision"?: boolean | null;
+} | null;
+
 export type Portia67B9E95C80AD633362E30AED291963C74151F8CE6124A0F98697F8E3DCABB8D7 = {
   "tenant_id": string;
   "campaign_id": string;
@@ -2602,6 +2746,30 @@ export type Portia7289719EC72DE6F96317B0AF7168E28E848A0049DF1FA90D4E65F4328B1EC5
   "manifest_sha256": string;
 } | null;
 
+export type Portia72AE1FA65A39FA48FB72C45824F41DEF6DAEFAD49AB23B71DFD2609CA0DF223A = {
+  "items": Array<{
+  "tenant_id": string;
+  "person_id": string;
+  "revision": number | string;
+  "display_name": string;
+  "work_email": string | null;
+  "source_kind": string;
+  "last_changed_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "last_changed_at": string;
+  "correlated_user_id"?: string | null;
+  "personal_contact"?: {
+  "personal_email"?: string | null;
+  "personal_phone"?: string | null;
+} | null;
+  "restricted_fields_redacted"?: boolean;
+} | null>;
+  "next_cursor": string | null;
+} | null;
+
 export type Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94DC6 = {
   "items": Array<{
   "tenant_id": string;
@@ -2662,6 +2830,30 @@ export type Portia73AADDF0B812FAE76C884FD50264381D369C3E9825947F115D6EE39E12C94D
 } | null;
 } | null>;
   "next_cursor": string | null;
+} | null;
+
+export type Portia740494EB992E89C1FA8251837E1F99C6953785D0EC3ED4DA702FCF99C1EE22E3 = {
+  "person"?: {
+  "display_name": string;
+  "work_email": string | null;
+} | null;
+  "work_relationship"?: {
+  "worker_type": string;
+  "lifecycle_status": string;
+  "start_date": string;
+  "end_date": string | null;
+  "department": string | null;
+  "manager_person_id": string | null;
+  "sponsor_person_id": string | null;
+  "employment_status_reason"?: string | null;
+} | null;
+  "service_identity"?: {
+  "display_name": string;
+  "identity_kind": string;
+  "environment": string | null;
+  "lifecycle_status": string;
+  "expires_on": string | null;
+} | null;
 } | null;
 
 export type Portia7447FB6BBB482B1C467364D016B654F11C2ED1628609E41058681ED0CB44705E = {
@@ -3048,6 +3240,11 @@ export type Portia7C156CFCACA80768D1A08D2432719D7F1C4D591F3979C08C55586944821D80
 
 export type Portia7F8B4C9203507BBF4A214CB378B625DDB003E856C25F722EAE639A78025702C1 = {
   "program_id": string;
+} | null;
+
+export type Portia8066360EDDF041DF115FFB3BAFA95C60978D867A638134D7871A0BE445508158 = {
+  "personal_email"?: string | null;
+  "personal_phone"?: string | null;
 } | null;
 
 export type Portia8165C4E0E3F218936EE79C52D55D60B2229FE25D669BF8BC3124D4D9E388B010 = {
@@ -3756,6 +3953,27 @@ export type Portia9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F78
   "plan_version_id": string;
 } | null> | null;
 
+export type Portia9190F0762BE0FE85D210B7FD1FAE130C97FF4C88C2AD59CDD6ADA371D450795C = {
+  "tenant_id": string;
+  "person_id": string;
+  "revision": number | string;
+  "display_name": string;
+  "work_email": string | null;
+  "source_kind": string;
+  "last_changed_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "last_changed_at": string;
+  "correlated_user_id"?: string | null;
+  "personal_contact"?: {
+  "personal_email"?: string | null;
+  "personal_phone"?: string | null;
+} | null;
+  "restricted_fields_redacted"?: boolean;
+} | null;
+
 export type Portia92D234454C20DC8E7698D3F4608F463CC45108FD7C6FCB35EBDEFD7131274C0D = {
   "tenant_id": string;
   "program_id": string;
@@ -4201,6 +4419,37 @@ export type Portia9EE7CFBC2DB1E57A7AB5450792B4056ACF5FDF2A4383256FD21D6EEEBF8938
   "plan_version_id": string;
 } | null;
 
+export type Portia9F2A4A90E821B453D9470CC440A45D27AEF3F04BB48AECD8C5D70C0A9FD56D99 = {
+  "observation_id": string;
+  "revision": number | string;
+  "source": {
+  "source_kind": string;
+  "source_system": string;
+  "source_record_id": string;
+  "source_revision": string;
+};
+  "target_kind": string;
+  "target_id": string;
+  "observed_target_revision": number | string;
+  "current_target_revision": number | string;
+  "source_authority": string;
+  "conflicting_fields": Array<string | null>;
+  "restricted_fields_conflict": boolean;
+  "can_accept": boolean;
+  "accepted_for_current_revision": boolean;
+  "decision": {
+  "outcome": string;
+  "note": string;
+  "target_revision": number | string;
+  "actor": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "decided_at": string;
+} | null;
+} | null;
+
 export type Portia9FA5D5CF525C4AF42E939440C7466EDE599F60FC5B4D7162FD53DD072DBF2027 = {
   "tenant_id": string;
   "program_id": string;
@@ -4599,6 +4848,10 @@ export type PortiaAFAF766C0228CE70B8538430CAEDC481CB9225A47B3D7DB91672B60DE869A0
   "display_name": string;
 } | null> | null;
 
+export type PortiaAFB2F9CE160FF094A01C3404C7DEF345E0D67696C31290CF2745348AEA5DF112 = {
+  "observation_id": string;
+} | null;
+
 export type PortiaB2401AF589C5863F4C683B88251FE1B9E91B82E95AFAA57501CD8611540CBC1B = {
   "items": Array<{
   "tenant_id": string;
@@ -4890,25 +5143,6 @@ export type PortiaC3C24AD50D924F9A1F4D0C270B605BEB0F1317AF1B9B674857E2967845D5EA
   "invited_by": string;
   "accepted_user_id": string | null;
   "delivery_status"?: string;
-} | null>;
-  "next_cursor": string | null;
-} | null;
-
-export type PortiaC646B2FC53C967587683B193B991EC40E30A4137E8479560E880A6AAEA504244 = {
-  "items": Array<{
-  "tenant_id": string;
-  "person_id": string;
-  "revision": number | string;
-  "display_name": string;
-  "work_email": string | null;
-  "source_kind": string;
-  "last_changed_by": {
-  "kind": string;
-  "id": string;
-  "display": string;
-};
-  "last_changed_at": string;
-  "correlated_user_id"?: string | null;
 } | null>;
   "next_cursor": string | null;
 } | null;
@@ -5365,6 +5599,33 @@ export type PortiaD1911225671F0102A93760A010419412AB90210CE93B2AFC1084DF988DE0A1
 } | null>;
 } | null;
 
+export type PortiaD30F8A32FF201DE96DC01EA38475795F890F3A856CB6A4FAED63F793182FBD83 = {
+  "items": Array<{
+  "tenant_id": string;
+  "relationship_id": string;
+  "revision": number | string;
+  "person_id": string;
+  "source_worker_id": string;
+  "worker_type": string;
+  "lifecycle_status": string;
+  "start_date": string;
+  "end_date": string | null;
+  "department": string | null;
+  "manager_person_id": string | null;
+  "sponsor_person_id": string | null;
+  "restricted_fields_redacted": boolean;
+  "source_kind": string;
+  "last_changed_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "last_changed_at": string;
+  "employment_status_reason"?: string | null;
+} | null>;
+  "next_cursor": string | null;
+} | null;
+
 export type PortiaD38366C0F7A014B7D38BCF2DDAEABAEB55C1BD6883615DFD34DDBA3D43322457 = {
   "tenant_id": string;
   "population_id": string;
@@ -5551,6 +5812,30 @@ export type PortiaDAC5690D56A8404A50FAA955F800B7A921C23C5147D404EFC243B5021316A5
   "next_cursor": string | null;
 } | null;
 
+export type PortiaDAE652D30A9D20E66CB21DB4B841E04B8C84157A3F4BF38B362982BBC3E58B6C = {
+  "tenant_id": string;
+  "relationship_id": string;
+  "revision": number | string;
+  "person_id": string;
+  "source_worker_id": string;
+  "worker_type": string;
+  "lifecycle_status": string;
+  "start_date": string;
+  "end_date": string | null;
+  "department": string | null;
+  "manager_person_id": string | null;
+  "sponsor_person_id": string | null;
+  "restricted_fields_redacted": boolean;
+  "source_kind": string;
+  "last_changed_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "last_changed_at": string;
+  "employment_status_reason"?: string | null;
+} | null;
+
 export type PortiaDCF1EC4C8F6FE11762AB8AED23484BA812024D7817D6BDDEF7F58B3DFFA66AE3 = {
   "exception_id": string;
   "rationale": string;
@@ -5611,22 +5896,6 @@ export type PortiaE34EE1C8D184A6D16AD1FE0849FC8B94B131A1A6FA453BB4C4FF29D2EC239B
   "group_provider_subject_id": string;
   "member_provider_subject_id": string;
 } | null> | null;
-
-export type PortiaE533A13177B62D1EFE8E47B2C8DBE1B703CC5A9D68DD56C8A5015618FD353625 = {
-  "tenant_id": string;
-  "person_id": string;
-  "revision": number | string;
-  "display_name": string;
-  "work_email": string | null;
-  "source_kind": string;
-  "last_changed_by": {
-  "kind": string;
-  "id": string;
-  "display": string;
-};
-  "last_changed_at": string;
-  "correlated_user_id"?: string | null;
-} | null;
 
 export type PortiaE696B3EC1B513A6E3725F1903D7BE6C03EAA06E8EC473F8555A1F39F198BB262 = {
   "items": Array<{
@@ -5724,6 +5993,63 @@ export type PortiaE86118FEDCAAD9C8EECB6F0820286060A99630C598D8AE761402890F6BA8A2
   "amended_at": string;
 } | null>;
   "next_cursor": string | null;
+} | null;
+
+export type PortiaE9A2037BD04E88EFB9978A12C6CF1D0545B6372ABBB8BE193D5C0658539BB18A = {
+  "tenant_id": string;
+  "provider_id": string;
+  "revision": number | string;
+  "content": {
+  "name": string;
+  "provider_kind": string;
+  "materiality"?: string | null;
+  "materiality_basis"?: Array<string | null> | null;
+  "materiality_rationale"?: string | null;
+  "subservice"?: boolean;
+  "boundary_treatment"?: string | null;
+  "boundary_treatment_rationale"?: string | null;
+  "owner_person_id"?: string | null;
+  "owner_reference"?: string | null;
+  "dependencies"?: Array<{
+  "subject_kind": string;
+  "subject_id": string | null;
+  "program_id": string | null;
+  "application_id": string | null;
+  "rationale": string;
+  "effective_from": string;
+  "effective_until_exclusive"?: string | null;
+  "unresolved_reference"?: string | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "source_revision"?: number | string | null;
+  "program_revision"?: number | string | null;
+  "application_revision"?: number | string | null;
+} | null> | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "owner_person_revision"?: number | string | null;
+};
+  "source_kind": string;
+  "lifecycle": string;
+  "unresolved": Array<string | null>;
+  "recorded_by": {
+  "kind": string;
+  "id": string;
+  "display": string;
+};
+  "recorded_at": string;
 } | null;
 
 export type PortiaE9B2575F51D37D152BB376D660B9FD59648CDADCCFB631542854BC97BC5CBA7D = {
@@ -6201,6 +6527,49 @@ export type PortiaFDFB5EB07BD18FCE44E06DBD37F46C64A2C4C2935EAE7D0785664C275FB120
 };
   "plan_version_id": string;
 } | null> | null;
+} | null;
+
+export type PortiaFED2918E0EC0C96808EB7D037B26ED468901747019E2EF518FB5324ACA763D7C = {
+  "name": string;
+  "provider_kind": string;
+  "materiality"?: string | null;
+  "materiality_basis"?: Array<string | null> | null;
+  "materiality_rationale"?: string | null;
+  "subservice"?: boolean;
+  "boundary_treatment"?: string | null;
+  "boundary_treatment_rationale"?: string | null;
+  "owner_person_id"?: string | null;
+  "owner_reference"?: string | null;
+  "dependencies"?: Array<{
+  "subject_kind": string;
+  "subject_id": string | null;
+  "program_id": string | null;
+  "application_id": string | null;
+  "rationale": string;
+  "effective_from": string;
+  "effective_until_exclusive"?: string | null;
+  "unresolved_reference"?: string | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "source_revision"?: number | string | null;
+  "program_revision"?: number | string | null;
+  "application_revision"?: number | string | null;
+} | null> | null;
+  "source_citation"?: {
+  "artifact_kind": string;
+  "title": string;
+  "version_or_date": string;
+  "locator": string;
+  "metadata_classification": string;
+  "artifact_id"?: string | null;
+} | null;
+  "owner_person_revision"?: number | string | null;
 } | null;
 
 export type PortiaFF23C6AFCFE989210F90258F60DB04711DE3E6CCC9A94A0EF8BEC518127F86BE = Array<{
