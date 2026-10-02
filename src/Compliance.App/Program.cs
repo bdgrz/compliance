@@ -217,6 +217,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListInformationAssets>(tool => tool.ReadOnly())
         .AddMcpTool<ListInformationAssetRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewInformationAssetChange>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordLocation>()
+        .AddMcpTool<ReviseLocation>(tool => tool.Idempotent())
+        .AddMcpTool<GetLocation>(tool => tool.ReadOnly())
+        .AddMcpTool<ListLocations>(tool => tool.ReadOnly())
+        .AddMcpTool<ListLocationRevisions>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordOperationalProcess>()
+        .AddMcpTool<ReviseOperationalProcess>(tool => tool.Idempotent())
+        .AddMcpTool<GetOperationalProcess>(tool => tool.ReadOnly())
+        .AddMcpTool<ListOperationalProcesses>(tool => tool.ReadOnly())
+        .AddMcpTool<ListOperationalProcessRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<RecordDataFlow>()
         .AddMcpTool<ReviseDataFlow>(tool => tool.Idempotent())
         .AddMcpTool<GetDataFlow>(tool => tool.ReadOnly())
@@ -1398,6 +1408,46 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/change-previews")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("Preview the data-flow impact of reclassifying or retiring an information asset")
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPost<RecordLocation, LocationRegistration>(
+            "/api/v1/tenants/{tenant_id}/locations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPut<ReviseLocation>(
+            "/api/v1/tenants/{tenant_id}/locations/{location_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<GetLocation, LocationView>(
+            "/api/v1/tenants/{tenant_id}/locations/{location_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListLocations, Page<LocationView>>(
+            "/api/v1/tenants/{tenant_id}/locations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListLocationRevisions, Page<LocationView>>(
+            "/api/v1/tenants/{tenant_id}/locations/{location_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPost<RecordOperationalProcess, OperationalProcessRegistration>(
+            "/api/v1/tenants/{tenant_id}/operational-processes")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaPut<ReviseOperationalProcess>(
+            "/api/v1/tenants/{tenant_id}/operational-processes/{operational_process_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<GetOperationalProcess, OperationalProcessView>(
+            "/api/v1/tenants/{tenant_id}/operational-processes/{operational_process_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListOperationalProcesses, Page<OperationalProcessView>>(
+            "/api/v1/tenants/{tenant_id}/operational-processes")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("TechnologyInventory");
+    app.MapPortiaGet<ListOperationalProcessRevisions, Page<OperationalProcessView>>(
+            "/api/v1/tenants/{tenant_id}/operational-processes/{operational_process_id}/revisions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("TechnologyInventory");
     app.MapPortiaPost<RecordDataFlow, DataFlowRegistration>(
             "/api/v1/tenants/{tenant_id}/data-flows")

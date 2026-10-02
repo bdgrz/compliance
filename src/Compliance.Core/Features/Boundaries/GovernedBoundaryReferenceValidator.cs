@@ -41,7 +41,8 @@ public sealed class GovernedBoundaryReferenceValidator(IClientServiceActivity se
                         return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                             "The governed system instance reference is unavailable in this tenant. Retry after projection or correct the record ID."));
                     break;
-                case "component" or "information" or "data_flow" when inventory is not null:
+                case "component" or "information" or "data_flow" or "location" or "process"
+                    when inventory is not null:
                     if (!await inventory.IsActiveAsync(tenantId, entry.SubjectType, id, ct)
                             .ConfigureAwait(false))
                         return Result.Failure(new RequestError(RequestErrorKind.Conflict,
