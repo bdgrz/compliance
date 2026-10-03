@@ -26,7 +26,7 @@ export function PageLayout({ children }: { children?: unknown }) {
         <Block minHeight="screen" direction="column">
           {!isAuthenticationRoute ? (
             <Header sticky>
-              <Container size="xl" paddingY="sm">
+              <Container size="xl" paddingY="xs">
                 <Navbar aria-label="Site header">
                   <NavBrand>
                     <ComplianceBrand />
