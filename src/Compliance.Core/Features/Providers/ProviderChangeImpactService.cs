@@ -76,18 +76,20 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
 
         foreach (var dependency in dependencies)
         {
-            var affectedByChange = IsAffectedByChange(dependency, request.ChangeKind,
-                request.EffectiveOn);
+            var affectedByChange = ProviderChangeImpactRules.IsAffectedByChange(
+                dependency, request.ChangeKind, request.EffectiveOn);
             if (dependency.ProgramId is { } programId)
             {
                 if (affectedByChange)
                     programIds.Add(programId);
                 Add("scope", "program", programId, null, dependency.ProgramRevision,
-                    DependencyRelationship(request.ChangeKind, affectedByChange));
+                    ProviderChangeImpactRules.DependencyRelationship(request.ChangeKind,
+                        affectedByChange));
             }
             if (dependency.SubjectId is not { } subjectId)
                 continue;
-            var relationship = DependencyRelationship(request.ChangeKind, affectedByChange);
+            var relationship = ProviderChangeImpactRules.DependencyRelationship(request.ChangeKind,
+                affectedByChange);
             if (dependency.SubjectKind == "client_service")
             {
                 if (affectedByChange)
@@ -764,25 +766,6 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
          entry.SubjectType == "component" && componentIds.Contains(id) ||
          entry.SubjectType == "information" && informationIds.Contains(id) ||
          entry.SubjectType == "data_flow" && dataFlowIds.Contains(id));
-
-    static bool IsAffectedByChange(ProviderDependency dependency, string changeKind,
-        DateOnly effectiveOn)
-    {
-        var date = new DateTimeOffset(effectiveOn.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
-        if (changeKind == "termination")
-            return dependency.EffectiveFrom < date &&
-                   (dependency.EffectiveUntilExclusive is null ||
-                    date <= dependency.EffectiveUntilExclusive);
-        return dependency.EffectiveFrom <= date &&
-               (dependency.EffectiveUntilExclusive is null || date < dependency.EffectiveUntilExclusive);
-    }
-
-    static string DependencyRelationship(string changeKind, bool affected) =>
-        changeKind == "termination"
-            ? affected ? "provider_dependency_active_before_termination" :
-                "provider_dependency_outside_termination_window"
-            : affected ? "provider_dependency_effective_on_change_date" :
-                "provider_dependency_outside_change_date";
 
     static bool SameDependencyFence(ProviderContent before, ProviderContent after)
     {
