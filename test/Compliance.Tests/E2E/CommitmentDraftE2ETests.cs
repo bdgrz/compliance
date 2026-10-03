@@ -518,6 +518,160 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, outsiderPreview.StatusCode);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldShowCsocsForEachCarvedOutSubserviceProviderGivenStandaloneOrSplitHost(
+        bool splitHosts)
+    {
+        // Arrange
+        var applicationName = $"compliance-csoc-{Guid.NewGuid():N}";
+        using var worker = splitHosts ? BuildWorker(applicationName) : null;
+        if (worker is not null)
+            await worker.StartAsync();
+        await using var factory = E2EAppFactory.Create(broker, applicationName);
+        var previousMode = TestHostMode.Current;
+        HttpClient client;
+        try
+        {
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
+            client = factory.CreateClient();
+        }
+        finally
+        {
+            TestHostMode.Set(previousMode);
+        }
+        using var owner = client;
+        using var outsider = factory.CreateClient();
+        await TenantInvitationE2ETests.LoginAsync(owner,
+            $"csoc-owner-{Guid.NewGuid():N}@example.com");
+        await TenantInvitationE2ETests.LoginAsync(outsider,
+            $"csoc-outsider-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId, serviceId) = await CreateServiceAsync(owner);
+        var providerId = await CreateSubserviceProviderAsync(owner, tenantId);
+        var secondProviderId = await CreateSubserviceProviderAsync(owner, tenantId,
+            "Second commitment subservice provider");
+        var providerPath = $"/api/v1/tenants/{tenantId}/providers/{providerId}";
+        var provider = await WaitForProviderAsync(owner, providerPath);
+        var secondProvider = await WaitForProviderAsync(owner,
+            $"/api/v1/tenants/{tenantId}/providers/{secondProviderId}");
+        var draftsPath = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment-drafts";
+
+        if (worker is not null)
+            await worker.StopAsync();
+
+        // Act
+        using var created = await owner.PostAsJsonAsync(draftsPath, new
+        {
+            service_id = serviceId,
+            kind = "subservice_responsibility",
+            identifier = "CSOC-01",
+            statement = "The hosting provider reviews privileged access",
+            context = "Carved-out hosting service",
+            source_reference = "SOC 2 section CC6.1",
+            provider_id = providerId,
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var draftId = (await ReadAsync(created)).GetProperty("draft_id").GetString();
+        var draftPath = $"{draftsPath}/{draftId}";
+        using var secondCreated = await owner.PostAsJsonAsync(draftsPath, new
+        {
+            service_id = serviceId,
+            kind = "subservice_responsibility",
+            identifier = "CSOC-02",
+            statement = "The second hosting provider reviews access",
+            context = "Second carved-out hosting service",
+            source_reference = "SOC 2 section CC6.1",
+            provider_id = secondProviderId,
+        });
+        Assert.Equal(HttpStatusCode.OK, secondCreated.StatusCode);
+        var secondDraftId = (await ReadAsync(secondCreated)).GetProperty("draft_id").GetString();
+        var secondDraftPath = $"{draftsPath}/{secondDraftId}";
+        using var lagged = splitHosts
+            ? await owner.GetAsync($"{draftPath}?minimum_revision=1")
+            : null;
+        using var secondLagged = splitHosts
+            ? await owner.GetAsync($"{secondDraftPath}?minimum_revision=1")
+            : null;
+
+        using var restartedWorker = splitHosts ? BuildWorker(applicationName) : null;
+        if (restartedWorker is not null)
+            await restartedWorker.StartAsync();
+        var initial = await WaitForRevisionAsync(owner, draftPath, 1);
+        var secondInitial = await WaitForRevisionAsync(owner, secondDraftPath, 1);
+        using var revised = await owner.PutAsJsonAsync(draftPath, new
+        {
+            expected_revision = 1,
+            statement = "The provider reviews privileged access quarterly",
+            context = "Carved-out hosting service",
+            source_reference = "SOC 2 section CC6.1, current report",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
+        var current = await WaitForRevisionAsync(owner, draftPath, 2);
+        using var historical = await owner.GetAsync($"{draftPath}/revisions/1");
+        var (otherTenantId, otherProgramId, _) = await CreateServiceAsync(owner);
+        using var otherTenantRead = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherProgramId}/commitment-drafts/{draftId}");
+        using var otherTenantSecondRead = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherProgramId}/commitment-drafts/{secondDraftId}");
+        using var outsiderRead = await outsider.GetAsync(draftPath);
+        using var outsiderSecondRead = await outsider.GetAsync(secondDraftPath);
+        using var ordinaryCommitmentWithProvider = await owner.PostAsJsonAsync(draftsPath, new
+        {
+            service_id = serviceId,
+            kind = "service_commitment",
+            identifier = "SC-99",
+            statement = "A service promise",
+            context = "Management draft",
+            source_reference = "Service description",
+            provider_id = providerId,
+        });
+
+        // Assert
+        Assert.True(provider.GetProperty("content").GetProperty("subservice").GetBoolean());
+        Assert.Equal("carve_out", provider.GetProperty("content")
+            .GetProperty("boundary_treatment").GetString());
+        Assert.True(secondProvider.GetProperty("content").GetProperty("subservice").GetBoolean());
+        Assert.Equal("carve_out", secondProvider.GetProperty("content")
+            .GetProperty("boundary_treatment").GetString());
+        Assert.Equal(providerId.ToString(), initial.GetProperty("provider_id").GetString());
+        Assert.Equal(providerId.ToString(), current.GetProperty("provider_id").GetString());
+        Assert.Equal(secondProviderId.ToString(),
+            secondInitial.GetProperty("provider_id").GetString());
+        var original = await ReadAsync(historical);
+        Assert.Equal("CSOC-01", original.GetProperty("identifier").GetString());
+        Assert.Equal(providerId.ToString(), original.GetProperty("provider_id").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, outsiderRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderSecondRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantSecondRead.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, ordinaryCommitmentWithProvider.StatusCode);
+        if (lagged is not null)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, lagged.StatusCode);
+            Assert.Equal("true", lagged.Headers.GetValues("Portia-Transient").Single());
+            Assert.Equal(HttpStatusCode.Conflict, secondLagged!.StatusCode);
+            Assert.Equal("true", secondLagged.Headers.GetValues("Portia-Transient").Single());
+        }
+        if (restartedWorker is not null)
+            await restartedWorker.StopAsync();
+    }
+
+    static async Task<JsonElement> WaitForProviderAsync(HttpClient client, string path)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync($"{path}?minimum_revision=1");
+            if (response.StatusCode == HttpStatusCode.OK)
+                return await ReadAsync(response);
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Conflict,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The subservice provider projection did not catch up.");
+    }
+
     static async Task<(Guid TenantId, Guid ProgramId, Guid ServiceId)> CreateServiceAsync(
         HttpClient owner)
     {
@@ -541,7 +695,8 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         return (tenantId, programId, serviceId);
     }
 
-    static async Task<Guid> CreateSubserviceProviderAsync(HttpClient owner, Guid tenantId)
+    static async Task<Guid> CreateSubserviceProviderAsync(HttpClient owner, Guid tenantId,
+        string name = "Commitment subservice provider")
     {
         var path = $"/api/v1/tenants/{tenantId}/providers";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
@@ -551,7 +706,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             {
                 content = new
                 {
-                    name = "Commitment subservice provider",
+                    name,
                     provider_kind = "vendor",
                     materiality = "material",
                     materiality_basis = CustomerDataBasis,

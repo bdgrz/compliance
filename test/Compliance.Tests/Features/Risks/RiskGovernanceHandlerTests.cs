@@ -158,6 +158,9 @@ public sealed class RiskGovernanceHandlerTests
             .ExpectFailure(RequestErrorKind.Forbidden);
         await fixture.Scenario(fixture.ApproverUserId)
             .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.CancelAction(added.Value.ActionId, 3, "Already completed."))
+            .ExpectFailure(RequestErrorKind.Conflict);
         var done = await fixture.GovernanceAsync();
 
         // Assert
@@ -248,6 +251,59 @@ public sealed class RiskGovernanceHandlerTests
         Assert.Single(Assert.Single(governance.TreatmentActions).Completions);
     }
 
+    [Fact]
+    public async Task ShouldCancelSubmittedActionAndPreserveItsHistoryGivenRequestReplay()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate");
+        var worker = await fixture.SeedMemberAsync();
+        var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
+        var submitted = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var requestId = Uuid.CreateVersion4();
+        var cancellation = fixture.CancelAction(added.Value.ActionId, 2,
+            "The planned control is being replaced.");
+
+        // Act
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.CancelAction(Uuid.CreateVersion4(), 2, "Missing action."))
+            .ExpectFailure(RequestErrorKind.NotFound);
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.CancelAction(added.Value.ActionId, 1, "Stale cancellation."))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.CancelAction(added.Value.ActionId, 2, "  "))
+            .ExpectFailure(RequestErrorKind.Validation);
+        await fixture.ReplayCommand(fixture.AssessorUserId, requestId)
+            .When(cancellation).ExpectSuccess();
+        await fixture.ReplayCommand(fixture.AssessorUserId, requestId)
+            .When(cancellation).ExpectSuccess();
+        await fixture.ReplayCommand(fixture.AssessorUserId, requestId)
+            .When(cancellation with { Rationale = "Changed on retry." })
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.CancelAction(added.Value.ActionId, 3, cancellation.Rationale))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var governance = await fixture.GovernanceAsync();
+
+        // Assert
+        var action = Assert.Single(governance.TreatmentActions);
+        var completion = Assert.Single(action.Completions);
+        Assert.Equal(submitted.Value.SubmissionId, completion.SubmissionId);
+        Assert.Equal("MFA enforced on all administrators.", completion.Summary);
+        Assert.Null(completion.ReviewOutcome);
+        Assert.Equal("cancelled", action.Status);
+        Assert.Equal(cancellation.Rationale, action.CancellationRationale);
+        Assert.Equal(RbacIds.Member(fixture.TenantId, fixture.AssessorUserId).ToString(),
+            action.CancelledBy!.Id);
+        Assert.NotNull(action.CancelledAt);
+        Assert.False(action.Overdue);
+        Assert.Equal("none", governance.TreatmentActionStatus);
+        Assert.Equal(3, governance.Revision);
+    }
+
     sealed record Worker(Uuid UserId, Uuid MemberId);
 
     sealed class Fixture
@@ -274,6 +330,7 @@ public sealed class RiskGovernanceHandlerTests
                     .AddRequestHandler<ReviewRiskControlTreatmentHandler>()
                     .AddRequestHandler<GetRiskGovernanceHandler>()
                     .AddRequestHandler<AddRiskTreatmentActionHandler>()
+                    .AddRequestHandler<CancelRiskTreatmentActionHandler>()
                     .AddRequestHandler<SubmitRiskTreatmentActionCompletionHandler>()
                     .AddRequestHandler<ReviewRiskTreatmentActionCompletionHandler>()
                     .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()
@@ -340,6 +397,11 @@ public sealed class RiskGovernanceHandlerTests
             .GivenMetadata(new RequestMetadata(requestId, requestId, null))
             .When(request).ExpectAuthorized().ExpectHandled();
 
+        public RequestScenario ReplayCommand(Uuid userId, Uuid requestId) =>
+            RequestScenario.For(Provider)
+                .GivenActor(ProgramManagementServices.Actor(userId))
+                .GivenMetadata(new RequestMetadata(requestId, requestId, null));
+
         public AddRiskTreatmentAction AddAction(Worker worker, IReadOnlyList<Uuid> evidence,
             long revision) => new(TenantId, ProgramId, RiskId, revision, "Enforce MFA",
             "MFA is required for every administrator.", "Identity provider policy export.",
@@ -348,6 +410,9 @@ public sealed class RiskGovernanceHandlerTests
         public SubmitRiskTreatmentActionCompletion Submit(Uuid actionId, long revision,
             IReadOnlyList<Uuid> evidence) => new(TenantId, ProgramId, RiskId, actionId, revision,
             "MFA enforced on all administrators.", evidence);
+
+        public CancelRiskTreatmentAction CancelAction(Uuid actionId, long revision,
+            string rationale) => new(TenantId, ProgramId, RiskId, actionId, revision, rationale);
 
         public ReviewRiskTreatmentActionCompletion ReviewAction(Uuid actionId, long revision,
             string outcome) => new(TenantId, ProgramId, RiskId, actionId, revision, outcome,

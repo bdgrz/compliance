@@ -274,6 +274,146 @@ public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, outsiderCoverage.StatusCode);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldCancelUnfinishedRiskActionsWithoutErasingHistoryOrCompletingTreatmentGivenStandaloneOrSplitHost(
+        bool splitHosts)
+    {
+        // Arrange
+        var applicationName = $"compliance-risk-cancellation-{Guid.NewGuid():N}";
+        using var worker = splitHosts ? BuildWorker(applicationName) : null;
+        if (worker is not null)
+            await worker.StartAsync();
+        await using var factory = E2EAppFactory.Create(broker, applicationName);
+        var previousMode = TestHostMode.Current;
+        HttpClient ownerClient;
+        HttpClient outsiderClient;
+        try
+        {
+            TestHostMode.Set(splitHosts ? "api" : "standalone");
+            ownerClient = factory.CreateClient();
+            outsiderClient = factory.CreateClient();
+        }
+        finally
+        {
+            TestHostMode.Set(previousMode);
+        }
+        using var owner = ownerClient;
+        using var outsider = outsiderClient;
+        var ownerUserId = await TenantInvitationE2ETests.LoginAsync(owner,
+            $"risk-cancellation-owner-{Guid.NewGuid():N}@example.com");
+        await TenantInvitationE2ETests.LoginAsync(outsider,
+            $"risk-cancellation-outsider-{Guid.NewGuid():N}@example.com");
+        var (tenantId, programId) = await CreateProgramAsync(owner);
+        var tenantUuid = Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture);
+        var ownerUuid = Uuid.Parse(ownerUserId, CultureInfo.InvariantCulture);
+        var ownerMemberId = RbacIds.Member(tenantUuid, ownerUuid);
+        var programPath = $"/api/v1/tenants/{tenantId}/programs/{programId}";
+        using var createdRisk = await RetryUntilAuthorizedAsync(() => owner.PostAsJsonAsync(
+            $"{programPath}/risks", new
+            {
+                identifier = "R-CANCEL",
+                title = "Provider control becomes unavailable",
+                scenario = "The provider stops applying the agreed safeguard",
+                potential_effect = "Customer data may be exposed",
+            }));
+        Assert.Equal(HttpStatusCode.OK, createdRisk.StatusCode);
+        var riskId = (await ReadAsync(createdRisk)).GetProperty("risk_id").GetString()!;
+        var riskPath = $"{programPath}/risks/{riskId}";
+        await PublishMethodAsync(owner, programPath, 0);
+        using (var assessed = await owner.PostAsJsonAsync($"{riskPath}/assessments",
+                   Assessment(0, "inherent", 4)))
+            Assert.Equal(HttpStatusCode.OK, assessed.StatusCode);
+        using var treatment = await owner.PutAsJsonAsync($"{riskPath}/treatment", new
+        {
+            expected_revision = 1,
+            kind = "mitigate",
+            rationale = "Maintain the safeguard through assigned work.",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, treatment.StatusCode);
+
+        var actionPath = $"{riskPath}/treatment-actions";
+        using var firstAction = await owner.PostAsJsonAsync(actionPath, new
+        {
+            expected_revision = 0,
+            title = "Confirm provider safeguards",
+            target_state = "Provider control is operating",
+            expected_evidence = "A current review record",
+            due_on = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(5),
+            accountable_member_id = ownerMemberId,
+        });
+        Assert.Equal(HttpStatusCode.OK, firstAction.StatusCode);
+        var firstActionId = (await ReadAsync(firstAction)).GetProperty("action_id").GetString()!;
+        using var secondAction = await owner.PostAsJsonAsync(actionPath, new
+        {
+            expected_revision = 1,
+            title = "Validate provider recovery",
+            target_state = "Recovery procedure is confirmed",
+            expected_evidence = "A tested recovery record",
+            due_on = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(8),
+            accountable_member_id = ownerMemberId,
+        });
+        Assert.Equal(HttpStatusCode.OK, secondAction.StatusCode);
+        var secondActionId = (await ReadAsync(secondAction)).GetProperty("action_id").GetString()!;
+        var workPath = $"{programPath}/work";
+        _ = await WaitForRiskWorkItemsAsync(owner, workPath, firstActionId, secondActionId);
+
+        // Act
+        var cancellationPath = $"{actionPath}/{firstActionId}/cancellations";
+        using var stale = await owner.PostAsJsonAsync(cancellationPath, new
+        {
+            expected_revision = 0,
+            rationale = "This uses an out-of-date governance revision.",
+        });
+        var (otherTenantId, otherProgramId) = await CreateProgramAsync(owner);
+        using var otherTenantRead = await owner.GetAsync(
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherProgramId}/risks/{riskId}/governance");
+        using var foreignCancellation = await owner.PostAsJsonAsync(
+            $"/api/v1/tenants/{otherTenantId}/programs/{otherProgramId}/risks/{riskId}/" +
+            $"treatment-actions/{firstActionId}/cancellations", new
+            {
+                expected_revision = 2,
+                rationale = "Foreign tenant must not see this action.",
+            });
+        using var outsiderCancellation = await outsider.PostAsJsonAsync(cancellationPath,
+            new { expected_revision = 2, rationale = "Unauthorized cancellation." });
+        using var cancelledFirst = await owner.PostAsJsonAsync(cancellationPath, new
+        {
+            expected_revision = 2,
+            rationale = "The provider relationship is ending.",
+        });
+        using var cancelledSecond = await owner.PostAsJsonAsync(
+            $"{actionPath}/{secondActionId}/cancellations", new
+            {
+                expected_revision = 3,
+                rationale = "The dependent recovery work is no longer required.",
+            });
+        var governance = await WaitForGovernanceAsync(owner, $"{riskPath}/governance", 4);
+        var work = await WaitForRiskWorkItemsAsync(owner, workPath);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignCancellation.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, outsiderCancellation.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, cancelledFirst.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, cancelledSecond.StatusCode);
+        Assert.DoesNotContain(work.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("kind").GetString() == "risk_treatment_action");
+        Assert.Equal("none", governance.GetProperty("treatment_action_status").GetString());
+        Assert.Equal(2, governance.GetProperty("treatment_actions").GetArrayLength());
+        foreach (var action in governance.GetProperty("treatment_actions").EnumerateArray())
+        {
+            Assert.Equal("cancelled", action.GetProperty("status").GetString());
+            Assert.False(action.GetProperty("overdue").GetBoolean());
+            Assert.NotEmpty(action.GetProperty("cancellation_rationale").GetString()!);
+            Assert.Equal(ownerMemberId.ToString(), action.GetProperty("cancelled_by")
+                .GetProperty("id").GetString());
+            Assert.Empty(action.GetProperty("completions").EnumerateArray());
+        }
+    }
+
     static object Content(string title, object? provenance) => new
     {
         title,
@@ -426,6 +566,55 @@ public sealed class ControlRiskGovernanceE2ETests(BrokerStackFixture broker)
             await Task.Delay(250);
         }
         throw new TimeoutException("The control draft projection did not catch up.");
+    }
+
+    static async Task<JsonElement> WaitForRiskWorkItemsAsync(HttpClient client, string path,
+        params string[] expectedActionIds)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var queue = await ReadAsync(response);
+                var actionIds = queue.GetProperty("items").EnumerateArray()
+                    .Where(item => item.GetProperty("kind").GetString() == "risk_treatment_action")
+                    .Select(item => item.GetProperty("source_id").GetString()).ToArray();
+                if (expectedActionIds.Length == 0
+                    ? actionIds.Length == 0
+                    : expectedActionIds.All(expected => actionIds.Contains(expected)))
+                    return queue;
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The risk treatment actions did not reach the work queue.");
+    }
+
+    static async Task<JsonElement> WaitForGovernanceAsync(HttpClient client, string path,
+        long revision)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync(path);
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var governance = await ReadAsync(response);
+                if (governance.GetProperty("revision").GetInt64() >= revision)
+                    return governance;
+            }
+            else
+            {
+                Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The cancelled risk treatment actions were not projected.");
     }
 
     static async Task<(Guid TenantId, Guid ProgramId)> CreateProgramAsync(HttpClient owner)

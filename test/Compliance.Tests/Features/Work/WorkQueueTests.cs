@@ -100,6 +100,52 @@ public sealed class WorkQueueTests
     }
 
     [Fact]
+    public async Task ShouldRemoveCancelledRiskActionFromWorkWithoutCompletingTreatmentGivenCancellation()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var riskId = Uuid.CreateVersion4();
+        var actionId = Uuid.CreateVersion4();
+        var actor = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(riskId, 0, actionId, "mitigate",
+                    "Enforce MFA", "MFA everywhere.", "Policy export.",
+                    fixture.Today.AddDays(5), fixture.OwnerMemberId, [], actor,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        var before = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Act
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.CancelTreatmentAction(riskId, actionId, 1,
+                    Uuid.CreateVersion4(), "The control is no longer applicable.", actor,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        var after = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        var governance = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId));
+        var risk = governance.View(riskId, [], fixture.Today);
+
+        // Assert
+        var item = Assert.Single(before.Items, item => item.Kind == "risk_treatment_action");
+        Assert.Equal(actionId, item.SourceId);
+        Assert.DoesNotContain(after.Items, item => item.Kind == "risk_treatment_action");
+        var action = Assert.Single(risk.TreatmentActions);
+        Assert.Equal("cancelled", action.Status);
+        Assert.False(action.Overdue);
+        Assert.Equal("none", risk.TreatmentActionStatus);
+        Assert.Empty(action.Completions);
+    }
+
+    [Fact]
     public async Task ShouldListSourceLinkedItemsInDeterministicOrderGivenMixedSources()
     {
         // Arrange
