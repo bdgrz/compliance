@@ -146670,6 +146670,906 @@
           }
         }
       }
+    },
+    "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/export": {
+      "get": {
+        "tags": [
+          "Criteria"
+        ],
+        "operationId": "exportCriteriaCatalogEntries",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "parent_identifier",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_DF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}/overlay": {
+      "put": {
+        "tags": [
+          "Criteria"
+        ],
+        "operationId": "setCriteriaTextOverlay",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "content"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "null",
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "content": {
+                    "required": [
+                      "text",
+                      "supplier",
+                      "license_reference",
+                      "usage_flags"
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "supplier": {
+                        "type": "string"
+                      },
+                      "license_reference": {
+                        "type": "string"
+                      },
+                      "usage_flags": {
+                        "required": [
+                          "display",
+                          "export"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "display": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "required": [
+                    "edition_id",
+                    "identifier",
+                    "revision"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "edition_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -155845,50 +156745,125 @@
         }
       },
       "Portia_4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C": {
-        "required": [
-          "edition_id",
-          "identifier",
-          "source_identifier",
-          "category",
-          "kind",
-          "parent_identifier",
-          "summary"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "edition_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "identifier": {
-            "type": "string"
-          },
-          "source_identifier": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "category": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "parent_identifier": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "summary": {
-            "type": "string"
+          "required": [
+            "edition_id",
+            "identifier",
+            "source_identifier",
+            "category",
+            "kind",
+            "parent_identifier",
+            "summary",
+            "licensed_text",
+            "overlay"
+          ],
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "edition_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "identifier": {
+              "type": "string"
+            },
+            "source_identifier": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "category": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "parent_identifier": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "type": "string"
+            },
+            "licensed_text": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "overlay": {
+              "required": [
+                "revision",
+                "supplier",
+                "license_reference",
+                "allowed_uses",
+                "actor",
+                "recorded_at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "supplier": {
+                  "type": "string"
+                },
+                "license_reference": {
+                  "type": "string"
+                },
+                "allowed_uses": {
+                  "required": [
+                    "display",
+                    "export"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "display": {
+                      "type": "boolean"
+                    },
+                    "export": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "actor": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "recorded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
           }
-        }
-      },
+        },
       "Portia_50C70F44CE8894CF7231272888D6062DE18FA19BF04DAC0834A26B9130C165A1": {
         "required": [
           "annotation_id",
@@ -178491,71 +179466,146 @@
         }
       },
       "Portia_DF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
+          "required": [
+            "items",
+            "next_cursor"
+          ],
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
             "items": {
-              "required": [
-                "edition_id",
-                "identifier",
-                "source_identifier",
-                "category",
-                "kind",
-                "parent_identifier",
-                "summary"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "edition_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "identifier": {
-                  "type": "string"
-                },
-                "source_identifier": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "category": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string"
-                },
-                "parent_identifier": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "summary": {
-                  "type": "string"
+              "type": "array",
+              "items": {
+                "required": [
+                  "edition_id",
+                  "identifier",
+                  "source_identifier",
+                  "category",
+                  "kind",
+                  "parent_identifier",
+                  "summary",
+                  "licensed_text",
+                  "overlay"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "edition_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "identifier": {
+                    "type": "string"
+                  },
+                  "source_identifier": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "parent_identifier": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "licensed_text": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "overlay": {
+                    "required": [
+                      "revision",
+                      "supplier",
+                      "license_reference",
+                      "allowed_uses",
+                      "actor",
+                      "recorded_at"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "revision": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "supplier": {
+                        "type": "string"
+                      },
+                      "license_reference": {
+                        "type": "string"
+                      },
+                      "allowed_uses": {
+                        "required": [
+                          "display",
+                          "export"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "display": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "actor": {
+                        "required": [
+                          "kind",
+                          "id",
+                          "display"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "display": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "recorded_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
                 }
               }
+            },
+            "next_cursor": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
-        }
-      },
+        },
       "Portia_E2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00": {
         "required": [
           "tenant_id",
