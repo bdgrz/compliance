@@ -21,7 +21,7 @@ namespace Bdgrz.Compliance.Features.Readiness;
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/2";
+    public const string Version = "readiness-rules/3";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -35,7 +35,8 @@ public static class ReadinessRules
     /// <summary>Source families whose readiness rules are not yet defined in this version.</summary>
     public static readonly IReadOnlyList<string> UnassessedFamilies =
     [
-        "applications_access_review_scope", "workforce", "technology_inventory", "evidence",
+        "applications_access_review_scope", "workforce", "technology_inventory",
+        "evidence", "providers",
     ];
 
     public static Uuid GapIdFor(Uuid programId, string ruleId, string subject) =>
