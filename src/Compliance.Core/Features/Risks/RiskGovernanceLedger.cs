@@ -107,6 +107,26 @@ public sealed class RiskGovernanceLedger : Aggregate
             };
             risk.CancellationIds[ev.ActionId] = ev.CancellationId;
         });
+        On<RiskTreatmentActionRevised>(ev =>
+        {
+            var risk = State(ev.RiskId);
+            risk.Revision = ev.Revision;
+            var index = risk.Actions.FindIndex(item => item.ActionId == ev.ActionId);
+            var action = risk.Actions[index];
+            risk.Actions[index] = action with
+            {
+                Title = ev.Title,
+                TargetState = ev.TargetState,
+                ExpectedEvidence = ev.ExpectedEvidence,
+                DueOn = ev.DueOn,
+                AccountableMemberId = ev.AccountableMemberId,
+                EvidenceRequestIds = ev.EvidenceRequestIds,
+            };
+            risk.ActionEditRequests[ev.RequestId] = new ActionEditRequest(ev.RiskId,
+                ev.ActionId, ev.ExpectedRevision, ev.Title, ev.TargetState,
+                ev.ExpectedEvidence, ev.DueOn, ev.AccountableMemberId,
+                ev.EvidenceRequestIds);
+        });
         On<RiskTreatmentActionCompletionSubmitted>(ev =>
         {
             var risk = State(ev.RiskId);
@@ -408,6 +428,65 @@ public sealed class RiskGovernanceLedger : Aggregate
         return null;
     }
 
+    /// <summary>Checks whether the request ID already records this exact edit.</summary>
+    public CommandFailure? CheckTreatmentActionEditReplay(Uuid riskId, Uuid actionId,
+        long expectedRevision, Uuid requestId, string title, string targetState,
+        string expectedEvidence, DateOnly dueOn, Uuid accountableMemberId,
+        IReadOnlyList<Uuid>? evidenceRequestIds, out bool handled)
+    {
+        handled = false;
+        if (!_risks.TryGetValue(riskId, out var risk) ||
+            !risk.ActionEditRequests.TryGetValue(requestId, out var recorded))
+            return null;
+        handled = true;
+        var candidate = new ActionEditRequest(riskId, actionId, expectedRevision,
+            title?.Trim() ?? string.Empty, targetState?.Trim() ?? string.Empty,
+            expectedEvidence?.Trim() ?? string.Empty, dueOn, accountableMemberId,
+            DistinctForReplay(evidenceRequestIds));
+        return recorded.Matches(candidate)
+            ? null
+            : CommandFailure.StateConflict(
+                "The treatment action edit request was already recorded with different content.");
+    }
+
+    /// <summary>Edits an open action and records request identity for safe retry.</summary>
+    public CommandFailure? ReviseTreatmentAction(Uuid riskId, Uuid actionId,
+        long expectedRevision, Uuid requestId, string title, string targetState,
+        string expectedEvidence, DateOnly dueOn, Uuid accountableMemberId,
+        IReadOnlyList<Uuid>? evidenceRequestIds, ActorReference actor,
+        DateTimeOffset revisedAt)
+    {
+        ArgumentNullException.ThrowIfNull(actor);
+        var evidence = Distinct(evidenceRequestIds);
+        if (CheckTreatmentActionEditReplay(riskId, actionId, expectedRevision, requestId,
+                title, targetState, expectedEvidence, dueOn, accountableMemberId,
+                evidenceRequestIds, out var replayed) is { } replayFailure)
+            return replayFailure;
+        if (replayed)
+            return null;
+        if (FindAction(riskId, actionId) is not { } action)
+            return CommandFailure.MissingRecord("The treatment action was not found.");
+        if (action.Status != ActionOpen)
+            return CommandFailure.StateConflict(
+                "Only open treatment actions can be edited.");
+        if (CheckRevision(riskId, expectedRevision) is { } stale)
+            return stale;
+        if (requestId == Uuid.Empty || accountableMemberId == Uuid.Empty ||
+            string.IsNullOrWhiteSpace(title) || title.Trim().Length > MaximumTitleLength ||
+            InvalidText(targetState) || InvalidText(expectedEvidence) ||
+            evidenceRequestIds?.Any(static id => id == Uuid.Empty) is true)
+            return CommandFailure.InvalidContent(
+                "A treatment action edit requires a title of at most 200 characters, a target state, expected evidence, and an accountable member and valid evidence references.");
+        if (dueOn < DateOnly.FromDateTime(revisedAt.UtcDateTime))
+            return CommandFailure.InvalidContent("A treatment action cannot be due in the past.");
+
+        RaiseEvent(new RiskTreatmentActionRevised(_tenantId, Id, riskId,
+            RevisionOf(riskId) + 1, actionId, requestId, expectedRevision,
+            title.Trim(), targetState.Trim(), expectedEvidence.Trim(), dueOn,
+            accountableMemberId, evidence, actor, revisedAt));
+        return null;
+    }
+
     /// <param name="fulfilledEvidenceRequestIds">
     ///     The program evidence requests that are fulfilled now.
     /// </param>
@@ -483,6 +562,9 @@ public sealed class RiskGovernanceLedger : Aggregate
     static List<Uuid> Distinct(IReadOnlyList<Uuid>? ids) =>
         [.. (ids ?? []).Where(static id => id != Uuid.Empty).Distinct()];
 
+    static List<Uuid> DistinctForReplay(IReadOnlyList<Uuid>? ids) =>
+        [.. (ids ?? []).Distinct()];
+
     /// <summary>Raises the trigger once; a replayed trigger is a no-op.</summary>
     public void RaiseTrigger(Uuid riskId, string triggerKind, string sourceReference,
         DateTimeOffset raisedAt)
@@ -527,6 +609,19 @@ public sealed class RiskGovernanceLedger : Aggregate
         public List<RiskReassessmentTriggerView> Triggers { get; } = [];
         public List<RiskTreatmentActionView> Actions { get; } = [];
         public Dictionary<Uuid, Uuid> CancellationIds { get; } = [];
+        public Dictionary<Uuid, ActionEditRequest> ActionEditRequests { get; } = [];
         public Dictionary<Uuid, Uuid> Submitters { get; } = [];
+    }
+
+    sealed record ActionEditRequest(Uuid RiskId, Uuid ActionId, long ExpectedRevision,
+        string Title, string TargetState, string ExpectedEvidence, DateOnly DueOn,
+        Uuid AccountableMemberId, IReadOnlyList<Uuid> EvidenceRequestIds)
+    {
+        public bool Matches(ActionEditRequest other) => RiskId == other.RiskId &&
+            ActionId == other.ActionId && ExpectedRevision == other.ExpectedRevision &&
+            Title == other.Title && TargetState == other.TargetState &&
+            ExpectedEvidence == other.ExpectedEvidence && DueOn == other.DueOn &&
+            AccountableMemberId == other.AccountableMemberId &&
+            EvidenceRequestIds.SequenceEqual(other.EvidenceRequestIds);
     }
 }

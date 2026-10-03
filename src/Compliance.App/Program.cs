@@ -951,6 +951,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
+    app.MapPortiaPut<ReviseRiskTreatmentAction>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
     app.MapPortiaPost<CancelRiskTreatmentAction>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/cancellations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

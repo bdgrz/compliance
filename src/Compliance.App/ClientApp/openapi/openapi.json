@@ -51975,6 +51975,454 @@
         }
       }
     },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}": {
+      "put": {
+        "tags": [
+          "Risks"
+        ],
+        "operationId": "reviseRiskTreatmentAction",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "title",
+                  "target_state",
+                  "expected_evidence",
+                  "due_on",
+                  "accountable_member_id"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "target_state": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "expected_evidence": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "due_on": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "accountable_member_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "evidence_request_ids": {
+                    "$ref": "#/components/schemas/Portia_0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revise an open risk treatment action",
+        "description": "Edits an open treatment action using the expected risk governance revision. The accountable member must be active and referenced evidence requests must remain uncancelled in the program. Submitted, completed, and cancelled actions cannot be edited."
+      }
+    },
     "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/cancellations": {
       "post": {
         "tags": [
@@ -148185,14 +148633,14 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "effective_from": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "impact_digest": {
@@ -148373,14 +148821,14 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "effective_from": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "impact_digest": {
@@ -148497,7 +148945,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -148671,7 +149119,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "department": {
@@ -148818,7 +149266,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "status": {
@@ -148874,7 +149322,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -149270,7 +149718,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_i_as_of_date": {
@@ -149278,7 +149726,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_start_date": {
@@ -149286,7 +149734,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_end_date": {
@@ -149294,7 +149742,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "readiness_advisor": {
@@ -150342,7 +150790,7 @@
                               "null",
                               "string"
                             ],
-                            "items": { },
+                            "items": {},
                             "format": "date-time",
                             "default": null
                           },
@@ -150399,7 +150847,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           },
                           "program_revision": {
                             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -150408,7 +150856,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           },
                           "application_revision": {
                             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -150417,7 +150865,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           }
                         }
                       },
@@ -150469,7 +150917,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     }
                   }
                 },
@@ -150588,7 +151036,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "approved_by": {
@@ -150720,7 +151168,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_i_as_of_date": {
@@ -150728,7 +151176,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_start_date": {
@@ -150736,7 +151184,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_end_date": {
@@ -150744,7 +151192,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "readiness_advisor": {
@@ -150856,7 +151304,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -151020,7 +151468,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "reassessment_interval": {
             "type": "string"
@@ -151068,7 +151516,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -151278,7 +151726,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date-time"
                         }
                       }
@@ -151310,7 +151758,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -151527,7 +151975,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "status": {
@@ -151583,7 +152031,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "separation_of_duties_waiver_id": {
@@ -151763,7 +152211,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "accepted_review_decision_id": {
             "type": [
@@ -151779,14 +152227,14 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "current_effective_from": {
             "type": [
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "last_reviewed_on": {
@@ -151794,7 +152242,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "next_review_due_on": {
@@ -151802,7 +152250,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "review_overdue": {
@@ -152028,14 +152476,14 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "current_effective_from": {
                   "type": [
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "next_review_due_on": {
@@ -152043,7 +152491,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "review_overdue": {
@@ -152158,7 +152606,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "active_control_version_id": {
             "type": [
@@ -152275,7 +152723,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -152318,7 +152766,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -152604,7 +153052,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -152785,7 +153233,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "acknowledged": {
@@ -153071,7 +153519,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 }
               }
@@ -153197,7 +153645,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "lifecycle": {
                   "type": "string"
@@ -153350,7 +153798,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "overdue": {
@@ -154643,7 +155091,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date"
                         },
                         "department": {
@@ -154709,7 +155157,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date"
                         }
                       },
@@ -154807,7 +155255,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "default": null
                 },
                 "accepted_for_current_revision": {
@@ -154815,7 +155263,7 @@
                     "null",
                     "boolean"
                   ],
-                  "items": { },
+                  "items": {},
                   "default": null
                 }
               }
@@ -154932,7 +155380,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "status": {
@@ -155090,7 +155538,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -155554,7 +156002,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -155688,7 +156136,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "overdue": {
@@ -156873,7 +157321,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "version": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -156882,7 +157330,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "rationale": {
                   "type": "string"
@@ -157054,7 +157502,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "author_member_id": {
@@ -157753,7 +158201,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_i_as_of_date": {
@@ -157761,7 +158209,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_start_date": {
@@ -157769,7 +158217,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_end_date": {
@@ -157777,7 +158225,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "readiness_advisor": {
@@ -158440,7 +158888,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "cancellation_rationale": {
@@ -158476,7 +158924,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -158592,7 +159040,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -158814,7 +159262,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -158822,7 +159270,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "due_on": {
@@ -158830,7 +159278,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "trigger": {
@@ -158904,7 +159352,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "covered_until": {
@@ -158912,7 +159360,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "notes": {
@@ -158947,7 +159395,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -159249,7 +159697,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time",
               "default": null
             }
@@ -160220,7 +160668,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date"
                   },
                   "department": {
@@ -160286,7 +160734,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date"
                   }
                 },
@@ -160384,7 +160832,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "accepted_for_current_revision": {
@@ -160392,7 +160840,7 @@
               "null",
               "boolean"
             ],
-            "items": { },
+            "items": {},
             "default": null
           }
         }
@@ -160639,7 +161087,7 @@
                               "null",
                               "string"
                             ],
-                            "items": { },
+                            "items": {},
                             "format": "date-time"
                           }
                         }
@@ -160650,7 +161098,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -160942,7 +161390,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -161402,7 +161850,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_i_as_of_date": {
@@ -161410,7 +161858,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_start_date": {
@@ -161418,7 +161866,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_end_date": {
@@ -161426,7 +161874,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "readiness_advisor": {
@@ -161538,7 +161986,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -161592,7 +162040,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -161601,7 +162049,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "rationale": {
             "type": "string"
@@ -161834,7 +162282,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "lifecycle": {
                 "type": "string"
@@ -162233,7 +162681,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -162295,7 +162743,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time",
                         "default": null
                       }
@@ -162540,7 +162988,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "kind": {
             "type": "string"
@@ -162948,7 +163396,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "lifecycle": {
                       "type": "string"
@@ -163120,7 +163568,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "department": {
@@ -163186,7 +163634,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               }
             },
@@ -163774,7 +164222,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -163785,7 +164233,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -163984,7 +164432,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "acknowledged": {
@@ -164075,7 +164523,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -164103,7 +164551,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -164244,7 +164692,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time"
               },
               "approved_by": {
@@ -164347,7 +164795,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "approved_by": {
@@ -164468,7 +164916,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "management_source": {
                 "type": [
@@ -164661,7 +165109,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "author_member_id": {
@@ -164730,7 +165178,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "author_member_id": {
@@ -166316,7 +166764,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -166348,7 +166796,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -166738,7 +167186,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -166984,7 +167432,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "predecessor_version": {
@@ -166994,7 +167442,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "approval_decision_id": {
                   "type": "string",
@@ -167418,7 +167866,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "approver_member_id": {
             "type": "string",
@@ -167612,7 +168060,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "versions": {
                   "type": "array",
@@ -167713,7 +168161,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -167756,7 +168204,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -167914,7 +168362,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date",
                     "default": null
                   },
@@ -167925,7 +168373,7 @@
                       "integer",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "default": null
                   },
                   "trigger": {
@@ -167958,7 +168406,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "rationale": {
@@ -168027,7 +168475,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time",
                 "default": null
               },
@@ -168186,7 +168634,7 @@
                 "type": "string"
               },
               "expected_evidence": {
-                "items": { },
+                "items": {},
                 "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_4"
               },
               "effective_from": {
@@ -168198,7 +168646,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "rationale": {
@@ -168232,7 +168680,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time",
                 "default": null
               },
@@ -168252,7 +168700,7 @@
                 "default": null
               },
               "reassignments": {
-                "items": { },
+                "items": {},
                 "default": null,
                 "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_7"
               }
@@ -168334,7 +168782,7 @@
                   "type": "string"
                 },
                 "expected_evidence": {
-                  "items": { },
+                  "items": {},
                   "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_4"
                 },
                 "effective_from": {
@@ -168346,7 +168794,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "rationale": {
@@ -168380,7 +168828,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -168400,7 +168848,7 @@
                   "default": null
                 },
                 "reassignments": {
-                  "items": { },
+                  "items": {},
                   "default": null,
                   "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_7"
                 }
@@ -168465,7 +168913,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -168476,7 +168924,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "trigger": {
@@ -168765,7 +169213,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "changes": {
             "type": "array",
@@ -168934,7 +169382,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date",
                       "default": null
                     },
@@ -169245,7 +169693,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time"
             },
             "revoked_at": {
@@ -169253,7 +169701,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time"
             },
             "revoked_by_member_id": {
@@ -169468,14 +169916,14 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "effective_from": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "impact_digest": {
@@ -169656,14 +170104,14 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "effective_from": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "impact_digest": {
@@ -169987,7 +170435,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -169998,7 +170446,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "trigger": {
@@ -170195,7 +170643,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time",
                       "default": null
                     }
@@ -170299,7 +170747,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -170310,7 +170758,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -170388,7 +170836,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -170531,7 +170979,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "author_member_id": {
@@ -170682,7 +171130,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_i_as_of_date": {
@@ -170690,7 +171138,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_ii_start_date": {
@@ -170698,7 +171146,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_ii_end_date": {
@@ -170706,7 +171154,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "readiness_advisor": {
@@ -170935,7 +171383,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -170943,7 +171391,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "due_on": {
@@ -170951,7 +171399,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "trigger": {
@@ -171025,7 +171473,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "covered_until": {
@@ -171033,7 +171481,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "notes": {
@@ -171068,7 +171516,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -171468,7 +171916,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "next_review_due": {
@@ -171476,7 +171924,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "latest_conclusion": {
@@ -171531,7 +171979,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -171563,7 +172011,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "currency": {
@@ -171907,7 +172355,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "predecessor_version": {
@@ -171917,7 +172365,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "approval_decision_id": {
             "type": "string",
@@ -172051,7 +172499,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -172742,7 +173190,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "approver_member_id": {
                   "type": "string",
@@ -172800,7 +173248,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "last_changed_by": {
@@ -172830,7 +173278,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "open_reassessment_triggers": {
@@ -172901,7 +173349,7 @@
                 "integer",
                 "string"
               ],
-              "items": { }
+              "items": {}
             },
             "kind": {
               "type": "string"
@@ -173182,7 +173630,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "revoked_at": {
@@ -173190,7 +173638,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "revoked_by_member_id": {
@@ -173280,7 +173728,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "versions": {
             "type": "array",
@@ -173381,7 +173829,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -173424,7 +173872,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -173713,7 +174161,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "approver_member_id": {
                       "type": "string",
@@ -174214,7 +174662,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date",
                   "default": null
                 },
@@ -174414,7 +174862,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -174425,7 +174873,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -174534,14 +174982,14 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "effective_from": {
                   "type": [
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "impact_digest": {
@@ -174916,7 +175364,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -175061,7 +175509,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "kind": {
@@ -175261,7 +175709,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "lifecycle": {
                   "type": "string"
@@ -175581,7 +176029,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -175609,7 +176057,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -175784,7 +176232,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "reviewed_by": {
                   "required": [
@@ -176281,7 +176729,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "acknowledged": {
@@ -176884,7 +177332,7 @@
                           "integer",
                           "string"
                         ],
-                        "items": { }
+                        "items": {}
                       },
                       "kind": {
                         "type": "string"
@@ -176946,7 +177394,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 }
@@ -177182,7 +177630,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "kind": {
             "type": "string"
@@ -177423,7 +177871,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "lifecycle": {
             "type": "string"
@@ -177770,7 +178218,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "cancellation_rationale": {
@@ -177806,7 +178254,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -178011,7 +178459,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "exception": {
@@ -178146,7 +178594,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "department": {
@@ -178411,7 +178859,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -178726,7 +179174,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "author_member_id": {
@@ -178795,7 +179243,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "author_member_id": {
@@ -179170,7 +179618,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date",
                   "default": null
                 },
@@ -179250,7 +179698,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "department": {
@@ -179336,7 +179784,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "approved_by": {
@@ -179563,7 +180011,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -179606,7 +180054,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -179840,7 +180288,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -179886,7 +180334,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -180344,7 +180792,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -180445,7 +180893,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -180533,7 +180981,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date"
             },
             "days_overdue": {
@@ -180666,7 +181114,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "roster_snapshot_id": {
@@ -180870,7 +181318,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time",
                       "default": null
                     },
@@ -180927,7 +181375,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "program_revision": {
                       "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -180936,7 +181384,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "application_revision": {
                       "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -180945,7 +181393,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     }
                   }
                 },
@@ -180997,7 +181445,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               }
             }
           },
@@ -181104,7 +181552,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "cadence_description": {
@@ -181160,7 +181608,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -181345,7 +181793,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "kind": {
@@ -181690,7 +182138,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "period_end": {
@@ -181698,7 +182146,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "due_on": {
@@ -181706,7 +182154,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "trigger": {
@@ -181780,7 +182228,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "covered_until": {
@@ -181788,7 +182236,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "notes": {
@@ -181823,7 +182271,7 @@
                           "integer",
                           "string"
                         ],
-                        "items": { }
+                        "items": {}
                       },
                       "kind": {
                         "type": "string"
@@ -182336,7 +182784,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "changed_fields": {
             "type": "array",
@@ -182521,7 +182969,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "management_source": {
                       "type": [
@@ -182948,7 +183396,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "active_control_version_id": {
                   "type": [
@@ -183065,7 +183513,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -183108,7 +183556,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -183242,7 +183690,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date",
                 "default": null
               },
@@ -183253,7 +183701,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "default": null
               },
               "trigger": {
@@ -183286,7 +183734,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "rationale": {
@@ -183355,7 +183803,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -183571,7 +184019,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -183628,7 +184076,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "program_revision": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -183637,7 +184085,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "application_revision": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -183646,7 +184094,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 }
               }
             },
@@ -183698,7 +184146,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           }
         }
       },
@@ -183989,7 +184437,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "closing_totals": {

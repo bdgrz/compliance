@@ -20363,6 +20363,33 @@ export type CancelRiskTreatmentActionError_500 = {
   "transient"?: boolean;
 };
 
+export type ReviseRiskTreatmentActionPath = {
+  "action_id": string;
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseRiskTreatmentActionBody = {
+  "expected_revision": number | string;
+  "title": string | null;
+  "target_state": string | null;
+  "expected_evidence": string | null;
+  "due_on": string;
+  "accountable_member_id": string;
+  "evidence_request_ids"?: Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D;
+};
+
+export type ReviseRiskTreatmentActionResponse204 = undefined;
+export type ReviseRiskTreatmentActionError_400 = CancelRiskTreatmentActionError_400;
+export type ReviseRiskTreatmentActionError_401 = CancelRiskTreatmentActionError_401;
+export type ReviseRiskTreatmentActionError_403 = CancelRiskTreatmentActionError_403;
+export type ReviseRiskTreatmentActionError_404 = CancelRiskTreatmentActionError_404;
+export type ReviseRiskTreatmentActionError_409 = CancelRiskTreatmentActionError_409;
+export type ReviseRiskTreatmentActionError_413 = CancelRiskTreatmentActionError_413;
+export type ReviseRiskTreatmentActionError_415 = CancelRiskTreatmentActionError_415;
+export type ReviseRiskTreatmentActionError_500 = CancelRiskTreatmentActionError_500;
+
 export type ReviewRiskTreatmentActionCompletionPath = {
   "action_id": string;
   "program_id": string;
