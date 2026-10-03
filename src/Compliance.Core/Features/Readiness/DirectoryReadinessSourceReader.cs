@@ -23,6 +23,7 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
     IRiskDraftHistoryDirectoryReader riskHistory,
     RiskEvaluationReadConsistency evaluationConsistency,
     ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance,
+    IPopulationSnapshotDirectoryReader populationSnapshots, IAggregateReader aggregateReader,
     IAccessReviewScopeDirectoryReader accessReviewScopes,
     ITechnologyInventoryReader technology, IInventoryRegisterReader inventoryRegister,
     ProgramSetupWorkReadConsistency programBoundaryConsistency,
@@ -36,6 +37,7 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
 {
     public const int MaximumRecordsPerFamily = 500;
     const int PageSize = 200;
+    const string WorkforceRosterSnapshotKind = "workforce_roster";
 
     public async ValueTask<Result<ReadinessSourceSet>> ReadAsync(Uuid tenantId, Uuid programId,
         DateTimeOffset asOf, CancellationToken ct = default)
@@ -48,6 +50,10 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             .ConfigureAwait(false);
         if (!snapshotFence.IsSuccess)
             return Result<ReadinessSourceSet>.Failure(snapshotFence.Error);
+        var populationSnapshotFence = await projectionConsistency
+            .CapturePopulationSnapshotsAsync(tenantId, ct).ConfigureAwait(false);
+        if (!populationSnapshotFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(populationSnapshotFence.Error);
         var commitmentFence = await commitmentConsistency.CaptureFenceAsync(tenantId, ct)
             .ConfigureAwait(false);
         if (!commitmentFence.IsSuccess)
@@ -94,6 +100,10 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         var snapshotViews = await ScanAsync("population_snapshots", truncated, (cursor, token) =>
             snapshots.ListProgramAsync(tenantId, programId, PageSize, cursor, token), ct)
             .ConfigureAwait(false);
+        var workforceRosterSnapshot = await ReadWorkforceRosterSnapshotAsync(tenantId, asOf,
+            truncated, ct).ConfigureAwait(false);
+        if (!workforceRosterSnapshot.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(workforceRosterSnapshot.Error);
         var boundaryInputs = new List<ReadinessBoundaryInput>(boundaryViews.Count);
         foreach (var boundary in boundaryViews)
         {
@@ -159,6 +169,11 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             .ConfigureAwait(false);
         if (!snapshotsConfirmed.IsSuccess)
             return Result<ReadinessSourceSet>.Failure(snapshotsConfirmed.Error);
+        var populationSnapshotsConfirmed = await projectionConsistency
+            .ConfirmPopulationSnapshotsUnchangedAndCaughtUpAsync(tenantId,
+                populationSnapshotFence.Value, ct).ConfigureAwait(false);
+        if (!populationSnapshotsConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(populationSnapshotsConfirmed.Error);
         var commitmentsConfirmed = await commitmentConsistency.ConfirmUnchangedAndCaughtUpAsync(
             tenantId, commitmentFence.Value, ct).ConfigureAwait(false);
         if (!commitmentsConfirmed.IsSuccess)
@@ -203,9 +218,84 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             AccessReviewScopes = accessReviewScopeInputs,
             Providers = providerInputs,
             TechnologyInventory = technologyInputs,
+            WorkforceRosterSnapshot = workforceRosterSnapshot.Value,
             TruncatedFamilies = truncated,
         });
     }
+
+    async ValueTask<Result<ReadinessWorkforceRosterSnapshotInput?>>
+        ReadWorkforceRosterSnapshotAsync(Uuid tenantId, DateTimeOffset asOf,
+            List<string> truncated, CancellationToken ct)
+    {
+        PopulationSnapshotSummary? selected = null;
+        string? cursor = null;
+        var summaryReads = 0;
+        do
+        {
+            var remaining = MaximumRecordsPerFamily - summaryReads;
+            if (remaining <= 0)
+            {
+                if (cursor is not null)
+                    truncated.Add("workforce_roster_snapshots");
+                break;
+            }
+
+            var page = await populationSnapshots.ListAsync(tenantId,
+                WorkforceRosterSnapshotKind, Math.Min(PageSize, remaining), cursor, ct)
+                .ConfigureAwait(false);
+            if (page.Items.Count > remaining)
+            {
+                truncated.Add("workforce_roster_snapshots");
+                break;
+            }
+
+            foreach (var item in page.Items)
+            {
+                summaryReads++;
+                if (item.TenantId != tenantId || item.Kind != WorkforceRosterSnapshotKind)
+                    return InvalidWorkforceRosterSnapshot();
+                if (item.FrozenAt <= asOf)
+                {
+                    selected = item;
+                    break;
+                }
+            }
+
+            if (selected is not null)
+                break;
+            cursor = page.NextCursor;
+            if (cursor is not null && summaryReads >= MaximumRecordsPerFamily)
+            {
+                truncated.Add("workforce_roster_snapshots");
+                break;
+            }
+        } while (cursor is not null);
+
+        if (selected is null)
+            return Result<ReadinessWorkforceRosterSnapshotInput?>.Success(null);
+
+        var content = await PopulationSnapshotContent.ReadAsync(aggregateReader, tenantId,
+            selected.SnapshotId, WorkforceRosterSnapshotKind, ct).ConfigureAwait(false);
+        if (!content.IsSuccess)
+            return InvalidWorkforceRosterSnapshot();
+
+        var snapshot = content.Value.Snapshot;
+        if (!snapshot.HasIntactIdentity || snapshot.Id != selected.SnapshotId ||
+            snapshot.FrozenAt != selected.FrozenAt || snapshot.RowCount != selected.RowCount ||
+            !string.Equals(snapshot.ContentSha256, selected.ContentSha256,
+                StringComparison.Ordinal))
+            return InvalidWorkforceRosterSnapshot();
+
+        return Result<ReadinessWorkforceRosterSnapshotInput?>.Success(
+            new ReadinessWorkforceRosterSnapshotInput(snapshot.Id, snapshot.ContentSha256!,
+                snapshot.FrozenAt, snapshot.RowCount));
+    }
+
+    static Result<ReadinessWorkforceRosterSnapshotInput?> InvalidWorkforceRosterSnapshot() =>
+        Result<ReadinessWorkforceRosterSnapshotInput?>.Failure(new RequestError(
+            RequestErrorKind.Conflict,
+            "The selected workforce roster snapshot is unavailable or failed integrity verification.",
+            isTransient: true));
 
     async ValueTask<IReadOnlyList<ReadinessTechnologyInventoryInput>> ReadTechnologyInventoryAsync(
         Uuid tenantId, DateTimeOffset asOf,

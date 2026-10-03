@@ -9,6 +9,11 @@ sealed class FitzPopulationSnapshotDirectory(IKvClient client)
             "PopulationSnapshotDirectoryV2"),
         IPopulationSnapshotDirectoryReader, IPopulationSnapshotDirectoryProjection
 {
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("PopulationSnapshotDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "population-snapshots")), ct);
+
     public ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
         if (domainEvent is not PopulationSnapshotFrozen frozen)

@@ -14,7 +14,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 8 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 9 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
@@ -23,13 +23,15 @@ namespace Bdgrz.Compliance.Features.Readiness;
 ///     in force at the requested as-of time. Version 5 adds provider review and CSOC rules.
 ///     Version 6 adds effective as-of access-review scope rules. Version 7 selects
 ///     technology inventory revisions referenced by the as-of boundary; data flows also respect
-///     their effective date. Risk rule is the
-///     conservative provisional R1-08 choice (#492): every program risk must be residual
-///     assessed or accepted with an active acceptance; any other status is a gap.
+///     their effective date. Version 8 fences source projections. Version 9 binds the latest
+///     integrity-verified workforce roster snapshot available by the assessment time without
+///     assessing workforce completeness. Risk rule is the conservative provisional R1-08
+///     choice (#492): every program risk must be residual assessed or accepted with an active
+///     acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/8";
+    public const string Version = "readiness-rules/9";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -45,6 +47,7 @@ public static class ReadinessRules
     public const string TechnologyInventoryRevisionAt = "technology_inventory_revision_at_as_of";
     public const string TechnologyInventoryActive = "technology_inventory_record_active_at_as_of";
     public const string TechnologyInventoryPresent = "program_has_technology_inventory";
+    public const string WorkforceRosterSnapshotPresent = "workforce_roster_snapshot_present";
     public const string RuleMet = "rule_met";
     public const string Gap = "gap";
 
@@ -248,6 +251,8 @@ public static class ReadinessRules
                     "population_snapshots"), "no_scope_snapshot", "population_snapshots",
                 ScopeSnapshotFrozen, "No program scope snapshot was frozen by the as-of time.",
                 []));
+
+        EvaluateWorkforceRosterSnapshot(programId, sources, inputs, gaps, fingerprint);
 
         EvaluateProviders(programId, asOf, sources, inputs, gaps, fingerprint);
         EvaluateAccessReviewScopes(programId, asOf, sources, inputs, gaps, fingerprint);
@@ -490,6 +495,47 @@ public static class ReadinessRules
                     "technology_inventory"), "technology_inventory_missing",
                 "technology_inventory", TechnologyInventoryPresent,
                 "The approved program boundary references no technology inventory records.", []));
+    }
+
+    static void EvaluateWorkforceRosterSnapshot(Uuid programId, ReadinessSourceSet sources,
+        List<ReadinessInputView> inputs, List<ReadinessGapView> gaps,
+        StringBuilder fingerprint)
+    {
+        var snapshot = sources.WorkforceRosterSnapshot;
+        var lookupTruncated = sources.TruncatedFamilies.Contains("workforce_roster_snapshots",
+            StringComparer.Ordinal);
+        var status = snapshot is null && lookupTruncated ? "not_assessed" : "assessed";
+        var recordCount = snapshot is null ? 0 : checked((int)snapshot.RowCount);
+        inputs.Add(new ReadinessInputView("workforce_roster_snapshot", status, recordCount,
+            status == "assessed"
+                ? "Latest integrity-verified workforce roster snapshot frozen by the as-of time; broader workforce completeness is not assessed."
+                : "The roster snapshot lookup exceeded its read limit; no missing-snapshot conclusion is drawn."));
+
+        if (snapshot is null)
+        {
+            fingerprint.Append("workforce-roster-snapshot|none\n");
+            if (!lookupTruncated)
+                gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                        WorkforceRosterSnapshotPresent, "workforce_roster_snapshot"),
+                    "workforce_roster_snapshot_missing", "workforce_roster_snapshot",
+                    WorkforceRosterSnapshotPresent,
+                    "No integrity-verified workforce roster snapshot was frozen by the as-of time.",
+                    []));
+            return;
+        }
+
+        fingerprint.Append("workforce-roster-snapshot|").Append(snapshot.SnapshotId).Append('|')
+            .Append(snapshot.ContentSha256).Append('|')
+            .Append(snapshot.FrozenAt.ToString("O", CultureInfo.InvariantCulture)).Append('|')
+            .Append(snapshot.RowCount.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        if (snapshot.RowCount == 0)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                    WorkforceRosterSnapshotPresent, snapshot.SnapshotId.ToString()),
+                "workforce_roster_snapshot_empty", snapshot.SnapshotId.ToString(),
+                WorkforceRosterSnapshotPresent,
+                "The latest integrity-verified workforce roster snapshot contains no rows.",
+                [new ReadinessSourceReference("workforce_roster_snapshot", snapshot.SnapshotId,
+                    snapshot.ContentSha256)]));
     }
 
     /// <summary>The boundary version approved by the as-of time with the latest effective date on or before it.</summary>

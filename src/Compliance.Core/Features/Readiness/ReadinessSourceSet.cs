@@ -20,5 +20,7 @@ public sealed record ReadinessSourceSet(IReadOnlyList<ReadinessBoundaryInput> Bo
 
     public IReadOnlyList<ReadinessTechnologyInventoryInput> TechnologyInventory { get; init; } = [];
 
+    public ReadinessWorkforceRosterSnapshotInput? WorkforceRosterSnapshot { get; init; }
+
     public IReadOnlyList<string> TruncatedFamilies { get; init; } = [];
 }

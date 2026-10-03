@@ -12,6 +12,7 @@ namespace Bdgrz.Compliance.Features.Readiness;
 /// </summary>
 sealed class ReadinessProjectionReadConsistency(IInventoryRegisterReader inventoryRegister,
     IAccessReviewScopeDirectoryReader accessReviewScopes, ISnapshotDirectoryReader snapshots,
+    IPopulationSnapshotDirectoryReader populationSnapshots,
     IRiskDraftHistoryDirectoryReader riskHistory, IDomainEventReader events)
 {
     public ValueTask<Result<ProjectionCheckpoint>> CaptureRiskHistoryAsync(Uuid tenantId,
@@ -34,6 +35,18 @@ sealed class ReadinessProjectionReadConsistency(IInventoryRegisterReader invento
         token => snapshots.LoadCheckpointAsync(tenantId, token),
         EventStreamPattern.ForPattern(tenantId.ToString(), "snapshots"), fence,
         "program snapshot", ct);
+
+    public ValueTask<Result<ProjectionCheckpoint>> CapturePopulationSnapshotsAsync(Uuid tenantId,
+        CancellationToken ct) => CaptureAsync(
+        token => populationSnapshots.LoadCheckpointAsync(tenantId, token),
+        EventStreamPattern.ForPattern(tenantId.ToString(), "population-snapshots"),
+        "population snapshot", ct);
+
+    public ValueTask<Result> ConfirmPopulationSnapshotsUnchangedAndCaughtUpAsync(Uuid tenantId,
+        ProjectionCheckpoint fence, CancellationToken ct) => ConfirmAsync(
+        token => populationSnapshots.LoadCheckpointAsync(tenantId, token),
+        EventStreamPattern.ForPattern(tenantId.ToString(), "population-snapshots"), fence,
+        "population snapshot", ct);
 
     public ValueTask<Result<ProjectionCheckpoint>> CaptureInventoryRegisterAsync(Uuid tenantId,
         CancellationToken ct) => CaptureAsync(
