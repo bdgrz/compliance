@@ -8,25 +8,27 @@ using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Providers;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 6 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 7 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
 ///     Version 2 added boundary, commitment, risk, and scope-snapshot rules. Version 3
 ///     acknowledged providers as not assessed. Version 4 selects the criteria edition that was
 ///     in force at the requested as-of time. Version 5 adds provider review and CSOC rules.
-///     Version 6 adds effective as-of access-review scope rules. Risk rule is the
+///     Version 6 adds effective as-of access-review scope rules. Version 7 selects
+///     technology inventory revisions referenced by the as-of boundary. Risk rule is the
 ///     conservative provisional R1-08 choice (#492): every program risk must be residual
 ///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/6";
+    public const string Version = "readiness-rules/7";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -39,13 +41,16 @@ public static class ReadinessRules
     public const string ProviderCsocLinked = "carved_out_subservice_has_csoc";
     public const string AccessReviewScopeResolved = "application_access_review_scope_decided";
     public const string AccessReviewScopeCurrent = "application_access_review_scope_current";
+    public const string TechnologyInventoryRevisionAt = "technology_inventory_revision_at_as_of";
+    public const string TechnologyInventoryActive = "technology_inventory_record_active_at_as_of";
+    public const string TechnologyInventoryPresent = "program_has_technology_inventory";
     public const string RuleMet = "rule_met";
     public const string Gap = "gap";
 
     /// <summary>Source families whose readiness rules are not yet defined in this version.</summary>
     public static readonly IReadOnlyList<string> UnassessedFamilies =
     [
-        "workforce", "technology_inventory", "evidence",
+        "workforce", "evidence",
     ];
 
     public static Uuid GapIdFor(Uuid programId, string ruleId, string subject) =>
@@ -245,6 +250,7 @@ public static class ReadinessRules
 
         EvaluateProviders(programId, asOf, sources, inputs, gaps, fingerprint);
         EvaluateAccessReviewScopes(programId, asOf, sources, inputs, gaps, fingerprint);
+        EvaluateTechnologyInventory(programId, asOf, sources, inputs, gaps, fingerprint);
 
         foreach (var family in sources.TruncatedFamilies.Order(StringComparer.Ordinal))
         {
@@ -434,6 +440,54 @@ public static class ReadinessRules
         version is not null && version.Kind == "subservice_responsibility" &&
         version.ProviderId is not null && version.Applicability == "applicable" &&
         version.Interpretation == "supported";
+
+    static void EvaluateTechnologyInventory(Uuid programId, DateTimeOffset asOf,
+        ReadinessSourceSet sources, List<ReadinessInputView> inputs,
+        List<ReadinessGapView> gaps, StringBuilder fingerprint)
+    {
+        var records = sources.TechnologyInventory
+            .OrderBy(static input => input.SubjectType, StringComparer.Ordinal)
+            .ThenBy(static input => input.RecordId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        inputs.Add(new ReadinessInputView("technology_inventory", "assessed", records.Length,
+            "As-of revisions for technology records referenced by the approved program boundary."));
+
+        foreach (var record in records)
+        {
+            fingerprint.Append("technology-inventory|").Append(record.SubjectType).Append('|')
+                .Append(record.RecordId).Append('|').Append(record.Revision).Append('|')
+                .Append(record.Lifecycle).Append('|')
+                .Append(record.LastChangedAt?.ToString("O", CultureInfo.InvariantCulture))
+                .Append('\n');
+            var source = new ReadinessSourceReference(record.SubjectType, record.RecordId,
+                record.Revision?.ToString(CultureInfo.InvariantCulture));
+            if (record.Revision is null)
+                gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                        TechnologyInventoryRevisionAt,
+                        $"{record.SubjectType}|{record.RecordId}"),
+                    "technology_inventory_revision_missing_at_as_of",
+                    record.RecordId.ToString(), TechnologyInventoryRevisionAt,
+                    $"No {record.SubjectType} revision was recorded by the as-of time for a record referenced by the program boundary.",
+                    [source]));
+            else if (record.Lifecycle != TechnologyInventoryRules.Active)
+                gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                        TechnologyInventoryActive,
+                        $"{record.SubjectType}|{record.RecordId}"),
+                    "technology_inventory_record_inactive_at_as_of",
+                    record.RecordId.ToString(), TechnologyInventoryActive,
+                    $"The {record.SubjectType} record referenced by the program boundary was not active at the as-of time.",
+                    [source]));
+        }
+
+        var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
+        var hasApprovedBoundary = sources.Boundaries.Any(boundary =>
+            BoundaryVersionAt(boundary, asOf, asOfDate) is not null);
+        if (records.Length == 0 && hasApprovedBoundary)
+            gaps.Add(new ReadinessGapView(GapIdFor(programId, TechnologyInventoryPresent,
+                    "technology_inventory"), "technology_inventory_missing",
+                "technology_inventory", TechnologyInventoryPresent,
+                "The approved program boundary references no technology inventory records.", []));
+    }
 
     /// <summary>The boundary version approved by the as-of time with the latest effective date on or before it.</summary>
     static BoundaryVersionView? BoundaryVersionAt(ReadinessBoundaryInput boundary,

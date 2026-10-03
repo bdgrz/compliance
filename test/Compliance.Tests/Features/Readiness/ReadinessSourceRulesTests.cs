@@ -32,7 +32,9 @@ public sealed class ReadinessSourceRulesTests
                 .Status);
         Assert.Equal("assessed", Assert.Single(evaluation.Inputs,
             i => i.Family == "applications_access_review_scope").Status);
-        foreach (var family in new[] { "workforce", "technology_inventory", "evidence" })
+        Assert.Equal("assessed", Assert.Single(evaluation.Inputs,
+            i => i.Family == "technology_inventory").Status);
+        foreach (var family in new[] { "workforce", "evidence" })
             Assert.Contains(evaluation.Gaps, g => g.Kind == "input_not_assessed" &&
                                                    g.Subject == family);
     }

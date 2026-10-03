@@ -1,5 +1,5 @@
-using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Providers;
+using Bdgrz.Compliance.Features.Snapshots;
 
 namespace Bdgrz.Compliance.Features.Readiness;
 
@@ -17,6 +17,8 @@ public sealed record ReadinessSourceSet(IReadOnlyList<ReadinessBoundaryInput> Bo
     public IReadOnlyList<ReadinessAccessReviewScopeInput> AccessReviewScopes { get; init; } = [];
 
     public IReadOnlyList<ReadinessProviderInput> Providers { get; init; } = [];
+
+    public IReadOnlyList<ReadinessTechnologyInventoryInput> TechnologyInventory { get; init; } = [];
 
     public IReadOnlyList<string> TruncatedFamilies { get; init; } = [];
 }

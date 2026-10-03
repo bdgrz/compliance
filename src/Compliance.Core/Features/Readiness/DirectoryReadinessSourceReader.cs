@@ -4,6 +4,7 @@ using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Providers;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -20,7 +21,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
     ICommitmentDraftDirectoryReader commitments, IRiskDraftDirectoryReader risks,
     IRiskDraftHistoryDirectoryReader riskHistory, IRiskEvaluationDirectoryReader evaluations,
     ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance,
-    IAccessReviewScopeDirectoryReader accessReviewScopes)
+    IAccessReviewScopeDirectoryReader accessReviewScopes,
+    ITechnologyInventoryReader technology, IInventoryRegisterReader inventoryRegister)
     : IReadinessSourceReader
 {
     public const int MaximumRecordsPerFamily = 500;
@@ -60,6 +62,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         var scopedSubjects = SubjectsAt(boundaryInputs, asOf);
         var accessReviewScopeInputs = await ReadAccessReviewScopesAsync(tenantId,
             scopedSubjects, truncated, ct).ConfigureAwait(false);
+        var technologyInputs = await ReadTechnologyInventoryAsync(tenantId, asOf,
+            scopedSubjects, truncated, ct).ConfigureAwait(false);
         var providerInputs = await ReadProvidersAsync(tenantId, programId, asOf,
             scopedSubjects, truncated, ct).ConfigureAwait(false);
 
@@ -97,8 +101,105 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         {
             AccessReviewScopes = accessReviewScopeInputs,
             Providers = providerInputs,
+            TechnologyInventory = technologyInputs,
             TruncatedFamilies = truncated,
         };
+    }
+
+    async ValueTask<IReadOnlyList<ReadinessTechnologyInventoryInput>> ReadTechnologyInventoryAsync(
+        Uuid tenantId, DateTimeOffset asOf,
+        HashSet<(string SubjectType, Uuid RecordId)> scopedSubjects,
+        List<string> truncated, CancellationToken ct)
+    {
+        var targets = scopedSubjects
+            .Where(static subject => subject.SubjectType is "component" or "information" or
+                "data_flow" or "location" or "process")
+            .GroupBy(static subject => subject.SubjectType, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key,
+                static group => group.Select(static subject => subject.RecordId)
+                    .OrderBy(static id => id.ToString(), StringComparer.Ordinal).ToArray(),
+                StringComparer.Ordinal);
+        var inputs = new List<ReadinessTechnologyInventoryInput>();
+        var recordReads = 0;
+        var historyReads = 0;
+        await AddRevisionsAsync("component", targets.GetValueOrDefault("component", []),
+            (id, cursor, token) => technology.ListComponentRevisionsAsync(tenantId, id,
+                PageSize, cursor, token), static view => view.TenantId,
+            static view => view.ComponentId, static view => view.Revision,
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            .ConfigureAwait(false);
+        await AddRevisionsAsync("information", targets.GetValueOrDefault("information", []),
+            (id, cursor, token) => technology.ListAssetRevisionsAsync(tenantId, id,
+                PageSize, cursor, token), static view => view.TenantId,
+            static view => view.InformationAssetId, static view => view.Revision,
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            .ConfigureAwait(false);
+        await AddRevisionsAsync("data_flow", targets.GetValueOrDefault("data_flow", []),
+            (id, cursor, token) => technology.ListFlowRevisionsAsync(tenantId, id,
+                PageSize, cursor, token), static view => view.TenantId,
+            static view => view.DataFlowId, static view => view.Revision,
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            .ConfigureAwait(false);
+        await AddRevisionsAsync("location", targets.GetValueOrDefault("location", []),
+            (id, cursor, token) => inventoryRegister.ListLocationRevisionsAsync(tenantId, id,
+                PageSize, cursor, token), static view => view.TenantId,
+            static view => view.LocationId, static view => view.Revision,
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            .ConfigureAwait(false);
+        await AddRevisionsAsync("process", targets.GetValueOrDefault("process", []),
+            (id, cursor, token) => inventoryRegister.ListOperationalProcessRevisionsAsync(
+                tenantId, id, PageSize, cursor, token), static view => view.TenantId,
+            static view => view.OperationalProcessId, static view => view.Revision,
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            .ConfigureAwait(false);
+        return inputs;
+
+        async ValueTask AddRevisionsAsync<T>(string subjectType, IReadOnlyList<Uuid> recordIds,
+            Func<Uuid, string?, CancellationToken, ValueTask<Page<T>>> read,
+            Func<T, Uuid> getTenantId, Func<T, Uuid> getRecordId,
+            Func<T, long> getRevision, Func<T, DateTimeOffset> getChangedAt,
+            Func<T, string> getLifecycle) where T : class
+        {
+            if (recordIds.Count > MaximumRecordsPerFamily &&
+                !truncated.Contains("technology_inventory", StringComparer.Ordinal))
+                truncated.Add("technology_inventory");
+            foreach (var recordId in recordIds.Take(MaximumRecordsPerFamily))
+            {
+                if (recordReads >= MaximumRecordsPerFamily)
+                {
+                    if (!truncated.Contains("technology_inventory", StringComparer.Ordinal))
+                        truncated.Add("technology_inventory");
+                    return;
+                }
+                var remainingHistory = MaximumRecordsPerFamily - historyReads;
+                if (remainingHistory <= 0)
+                {
+                    if (!truncated.Contains("technology_inventory", StringComparer.Ordinal))
+                        truncated.Add("technology_inventory");
+                    return;
+                }
+                var revisions = await ReadBoundedAsync((cursor, token) =>
+                        read(recordId, cursor, token), remainingHistory, ct)
+                    .ConfigureAwait(false);
+                historyReads += revisions.Items.Count;
+                if (revisions.Truncated &&
+                    !truncated.Contains("technology_inventory", StringComparer.Ordinal))
+                    truncated.Add("technology_inventory");
+                var selected = revisions.Items
+                    .Where(view => getTenantId(view) == tenantId &&
+                                   getRecordId(view) == recordId &&
+                                   getChangedAt(view) <= asOf)
+                    .MaxBy(getRevision);
+                inputs.Add(selected is null
+                    ? new ReadinessTechnologyInventoryInput(subjectType, recordId,
+                        null, null, null)
+                    : new ReadinessTechnologyInventoryInput(subjectType, recordId,
+                        getRevision(selected), getLifecycle(selected), getChangedAt(selected)));
+                recordReads++;
+                if (revisions.Truncated)
+                    return;
+            }
+        }
     }
 
     async ValueTask<IReadOnlyList<ReadinessAccessReviewScopeInput>> ReadAccessReviewScopesAsync(
@@ -224,7 +325,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
                 continue;
             foreach (var entry in version.Content.Entries.Where(static entry =>
                          entry.Kind == "inclusion" && !entry.Unresolved &&
-                         entry.SubjectType is "service" or "system_instance" &&
+                         entry.SubjectType is "service" or "system_instance" or "component" or
+                             "information" or "data_flow" or "location" or "process" &&
                          entry.GovernedRecordId is not null))
                 subjects.Add((entry.SubjectType, entry.GovernedRecordId!.Value));
         }
