@@ -1,8 +1,9 @@
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Providers;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Snapshots;
-using Bdgrz.Compliance.Features.Providers;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -18,7 +19,8 @@ namespace Bdgrz.Compliance.Features.Readiness;
 sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
     ICommitmentDraftDirectoryReader commitments, IRiskDraftDirectoryReader risks,
     IRiskDraftHistoryDirectoryReader riskHistory, IRiskEvaluationDirectoryReader evaluations,
-    ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance)
+    ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance,
+    IAccessReviewScopeDirectoryReader accessReviewScopes)
     : IReadinessSourceReader
 {
     public const int MaximumRecordsPerFamily = 500;
@@ -56,6 +58,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         }
 
         var scopedSubjects = SubjectsAt(boundaryInputs, asOf);
+        var accessReviewScopeInputs = await ReadAccessReviewScopesAsync(tenantId,
+            scopedSubjects, truncated, ct).ConfigureAwait(false);
         var providerInputs = await ReadProvidersAsync(tenantId, programId, asOf,
             scopedSubjects, truncated, ct).ConfigureAwait(false);
 
@@ -91,9 +95,37 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         return new ReadinessSourceSet(boundaryInputs, commitmentInputs, riskInputs,
             snapshotViews)
         {
+            AccessReviewScopes = accessReviewScopeInputs,
             Providers = providerInputs,
             TruncatedFamilies = truncated,
         };
+    }
+
+    async ValueTask<IReadOnlyList<ReadinessAccessReviewScopeInput>> ReadAccessReviewScopesAsync(
+        Uuid tenantId, HashSet<(string SubjectType, Uuid RecordId)> scopedSubjects,
+        List<string> truncated, CancellationToken ct)
+    {
+        var instanceIds = scopedSubjects
+            .Where(static subject => subject.SubjectType == "system_instance")
+            .Select(static subject => subject.RecordId)
+            .Distinct()
+            .OrderBy(static id => id.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        if (instanceIds.Length > MaximumRecordsPerFamily &&
+            !truncated.Contains("applications_access_review_scope", StringComparer.Ordinal))
+            truncated.Add("applications_access_review_scope");
+        var inputs = new List<ReadinessAccessReviewScopeInput>(
+            Math.Min(instanceIds.Length, MaximumRecordsPerFamily));
+        foreach (var instanceId in instanceIds.Take(MaximumRecordsPerFamily))
+        {
+            var record = await accessReviewScopes.GetAsync(tenantId, instanceId, ct)
+                .ConfigureAwait(false);
+            if (record is not null && (record.TenantId != tenantId ||
+                                       record.SystemInstanceId != instanceId))
+                record = null;
+            inputs.Add(new ReadinessAccessReviewScopeInput(instanceId, record));
+        }
+        return inputs;
     }
 
     async ValueTask<IReadOnlyList<ReadinessProviderInput>> ReadProvidersAsync(Uuid tenantId,

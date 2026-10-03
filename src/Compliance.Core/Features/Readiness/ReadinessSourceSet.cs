@@ -14,6 +14,8 @@ public sealed record ReadinessSourceSet(IReadOnlyList<ReadinessBoundaryInput> Bo
 {
     public static ReadinessSourceSet Empty { get; } = new([], [], [], []);
 
+    public IReadOnlyList<ReadinessAccessReviewScopeInput> AccessReviewScopes { get; init; } = [];
+
     public IReadOnlyList<ReadinessProviderInput> Providers { get; init; } = [];
 
     public IReadOnlyList<string> TruncatedFamilies { get; init; } = [];

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -12,19 +13,20 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 5 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 6 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
 ///     Version 2 added boundary, commitment, risk, and scope-snapshot rules. Version 3
 ///     acknowledged providers as not assessed. Version 4 selects the criteria edition that was
-///     in force at the requested as-of time. Version 5 adds as-of provider review and CSOC rules. Risk rule is the
+///     in force at the requested as-of time. Version 5 adds provider review and CSOC rules.
+///     Version 6 adds effective as-of access-review scope rules. Risk rule is the
 ///     conservative provisional R1-08 choice (#492): every program risk must be residual
 ///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/5";
+    public const string Version = "readiness-rules/6";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -35,14 +37,15 @@ public static class ReadinessRules
     public const string ProviderMaterialityResolved = "provider_materiality_resolved";
     public const string ProviderReviewCurrent = "material_provider_has_current_review";
     public const string ProviderCsocLinked = "carved_out_subservice_has_csoc";
+    public const string AccessReviewScopeResolved = "application_access_review_scope_decided";
+    public const string AccessReviewScopeCurrent = "application_access_review_scope_current";
     public const string RuleMet = "rule_met";
     public const string Gap = "gap";
 
     /// <summary>Source families whose readiness rules are not yet defined in this version.</summary>
     public static readonly IReadOnlyList<string> UnassessedFamilies =
     [
-        "applications_access_review_scope", "workforce", "technology_inventory",
-        "evidence",
+        "workforce", "technology_inventory", "evidence",
     ];
 
     public static Uuid GapIdFor(Uuid programId, string ruleId, string subject) =>
@@ -241,6 +244,7 @@ public static class ReadinessRules
                 []));
 
         EvaluateProviders(programId, asOf, sources, inputs, gaps, fingerprint);
+        EvaluateAccessReviewScopes(programId, asOf, sources, inputs, gaps, fingerprint);
 
         foreach (var family in sources.TruncatedFamilies.Order(StringComparer.Ordinal))
         {
@@ -366,6 +370,63 @@ public static class ReadinessRules
                     $"Carved-out subservice provider {provider.Content.Name} has no effective, applicable CSOC linked to it at the as-of time.",
                     [providerReference]));
             }
+        }
+    }
+
+    static void EvaluateAccessReviewScopes(Uuid programId, DateTimeOffset asOf,
+        ReadinessSourceSet sources, List<ReadinessInputView> inputs,
+        List<ReadinessGapView> gaps, StringBuilder fingerprint)
+    {
+        var scopes = sources.AccessReviewScopes
+            .OrderBy(static input => input.SystemInstanceId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        inputs.Add(new ReadinessInputView("applications_access_review_scope", "assessed",
+            scopes.Length,
+            "Effective access-review scope decisions for system instances in the as-of program boundary."));
+
+        foreach (var input in scopes)
+        {
+            var instanceReference = new ReadinessSourceReference("system_instance",
+                input.SystemInstanceId, null);
+            var scope = input.Scope;
+            var decisions = (scope?.Decisions ?? [])
+                .Where(decision => scope is not null &&
+                                   decision.TenantId == scope.TenantId &&
+                                   decision.ApplicationId == scope.ApplicationId &&
+                                   decision.SystemInstanceId == input.SystemInstanceId &&
+                                   decision.SystemInstanceRevision > 0 &&
+                                   decision.DecidedAt <= asOf && decision.EffectiveFrom <= asOf)
+                .OrderBy(static decision => decision.Sequence)
+                .ToArray();
+            var effective = decisions.LastOrDefault();
+            foreach (var decision in decisions)
+                fingerprint.Append("access-review-scope|").Append(input.SystemInstanceId)
+                    .Append('|').Append(decision.DecisionId).Append('|').Append(decision.Sequence)
+                    .Append('|').Append(decision.SystemInstanceRevision).Append('|')
+                    .Append(decision.Decision).Append('|')
+                    .Append(decision.EffectiveFrom.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('|').Append(decision.ReviewBy?.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('|').Append(decision.DecidedAt.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('\n');
+
+            if (effective is null || effective.Decision is not ("included" or "excluded"))
+            {
+                gaps.Add(new ReadinessGapView(GapIdFor(programId, AccessReviewScopeResolved,
+                        input.SystemInstanceId.ToString()), "access_review_scope_unresolved",
+                    input.SystemInstanceId.ToString(), AccessReviewScopeResolved,
+                    "The in-boundary system instance has no effective access-review scope decision recorded by the as-of time.",
+                    [instanceReference]));
+                continue;
+            }
+
+            var decisionReference = new ReadinessSourceReference("access_review_scope_decision",
+                effective.DecisionId, effective.Sequence.ToString(CultureInfo.InvariantCulture));
+            if (effective.ReviewBy is { } reviewBy && reviewBy <= asOf)
+                gaps.Add(new ReadinessGapView(GapIdFor(programId, AccessReviewScopeCurrent,
+                        input.SystemInstanceId.ToString()), "access_review_scope_overdue",
+                    input.SystemInstanceId.ToString(), AccessReviewScopeCurrent,
+                    $"The effective access-review scope decision for system instance {input.SystemInstanceId} was due for review by {reviewBy:O}.",
+                    [instanceReference, decisionReference]));
         }
     }
 
