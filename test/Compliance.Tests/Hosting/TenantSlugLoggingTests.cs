@@ -31,14 +31,17 @@ public sealed class TenantSlugLoggingTests
         using var client = factory.CreateClient();
 
         // Act
+        // Web routes belong to the separate client. If they reach this backend, the slug remains
+        // in an unmatched request path and must still stay out of framework logs.
         using var browser = await client.GetAsync($"/{Slug}/controls", CancellationToken.None);
         using var root = await client.GetAsync($"/{Slug}", CancellationToken.None);
-        // Unauthenticated: this proves the framework request pipeline, not the resolution handler.
+        // Unauthenticated: this proves the API request pipeline, not the resolution handler.
         using var resolution = await client.GetAsync($"/api/v1/tenant-slugs/{Slug}/mine",
             CancellationToken.None);
 
         // Assert
-        Assert.Equal(System.Net.HttpStatusCode.OK, browser.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, browser.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, root.StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, resolution.StatusCode);
         Assert.NotEmpty(capture.Entries);
         var leaks = capture.Entries
