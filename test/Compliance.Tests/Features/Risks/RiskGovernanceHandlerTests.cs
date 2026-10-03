@@ -170,6 +170,71 @@ public sealed class RiskGovernanceHandlerTests
     }
 
     [Fact]
+    public async Task ShouldReviseOpenActionGivenActiveAccountableMemberAndProgramEvidence()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate");
+        var originalOwner = await fixture.SeedMemberAsync();
+        var revisedOwner = await fixture.SeedMemberAsync();
+        var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: false, revisedOwner);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(originalOwner, [], 0)).ExpectSuccess();
+        var revise = new ReviseRiskTreatmentAction(fixture.TenantId, fixture.ProgramId,
+            fixture.RiskId, added.Value.ActionId, 1, "Enforce phishing-resistant MFA",
+            "Every administrator uses a hardware key.",
+            "Identity provider policy export.", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30),
+            revisedOwner.MemberId, [evidenceId]);
+
+        // Act
+        await fixture.Scenario(fixture.AssessorUserId).When(revise).ExpectSuccess();
+        var governance = await fixture.GovernanceAsync();
+
+        // Assert
+        var action = Assert.Single(governance.TreatmentActions);
+        Assert.Equal("Enforce phishing-resistant MFA", action.Title);
+        Assert.Equal("Every administrator uses a hardware key.", action.TargetState);
+        Assert.Equal("Identity provider policy export.", action.ExpectedEvidence);
+        Assert.Equal(revisedOwner.MemberId, action.AccountableMemberId);
+        Assert.Equal([evidenceId], action.EvidenceRequestIds);
+        Assert.Equal("open", action.Status);
+        Assert.Equal(2, governance.Revision);
+    }
+
+    [Fact]
+    public async Task ShouldRejectTreatmentActionEditGivenForeignEvidenceOrInactiveAccountableMember()
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate");
+        var other = await Fixture.CreateAsync("mitigate");
+        var owner = await fixture.SeedMemberAsync();
+        var otherOwner = await other.SeedMemberAsync();
+        var foreignEvidenceId = await other.SeedEvidenceAsync(fulfilled: false, otherOwner);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(owner, [], 0)).ExpectSuccess();
+        var foreignEvidenceEdit = new ReviseRiskTreatmentAction(fixture.TenantId,
+            fixture.ProgramId, fixture.RiskId, added.Value.ActionId, 1, "Updated action",
+            "Updated state", "Updated evidence", DateOnly.FromDateTime(DateTime.UtcNow)
+                .AddDays(30), owner.MemberId, [foreignEvidenceId]);
+        var inactiveMemberEdit = new ReviseRiskTreatmentAction(fixture.TenantId,
+            fixture.ProgramId, fixture.RiskId, added.Value.ActionId, 1, "Updated action",
+            "Updated state", "Updated evidence", DateOnly.FromDateTime(DateTime.UtcNow)
+                .AddDays(30), Uuid.CreateVersion4());
+
+        // Act
+        await fixture.Scenario(fixture.AssessorUserId).When(foreignEvidenceEdit)
+            .ExpectFailure(RequestErrorKind.Validation);
+        await fixture.Scenario(fixture.AssessorUserId).When(inactiveMemberEdit)
+            .ExpectFailure(RequestErrorKind.Validation);
+        var governance = await fixture.GovernanceAsync();
+
+        // Assert
+        var action = Assert.Single(governance.TreatmentActions);
+        Assert.Equal("Enforce MFA", action.Title);
+        Assert.Equal(owner.MemberId, action.AccountableMemberId);
+        Assert.Equal(1, governance.Revision);
+    }
+
+    [Fact]
     public async Task ShouldForbidTreatmentActionWritesGivenActorWithoutProgramManage()
     {
         // Arrange
@@ -181,6 +246,12 @@ public sealed class RiskGovernanceHandlerTests
             .ExpectFailure(RequestErrorKind.Forbidden);
         await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.Submit(Uuid.CreateVersion4(), 1, [Uuid.CreateVersion4()]))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.Scenario(fixture.AssessorUserId)
+            .When(new ReviseRiskTreatmentAction(fixture.TenantId, fixture.ProgramId,
+                fixture.RiskId, Uuid.CreateVersion4(), 0, "Updated action", "Updated state",
+                "Updated evidence", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30),
+                Uuid.CreateVersion4()))
             .ExpectFailure(RequestErrorKind.Forbidden);
         await fixture.Scenario(fixture.ApproverUserId)
             .When(fixture.ReviewAction(Uuid.CreateVersion4(), 1, "accept"))
@@ -274,6 +345,7 @@ public sealed class RiskGovernanceHandlerTests
                     .AddRequestHandler<ReviewRiskControlTreatmentHandler>()
                     .AddRequestHandler<GetRiskGovernanceHandler>()
                     .AddRequestHandler<AddRiskTreatmentActionHandler>()
+                    .AddRequestHandler<ReviseRiskTreatmentActionHandler>()
                     .AddRequestHandler<SubmitRiskTreatmentActionCompletionHandler>()
                     .AddRequestHandler<ReviewRiskTreatmentActionCompletionHandler>()
                     .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()

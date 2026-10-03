@@ -216,6 +216,101 @@ public sealed class RiskGovernanceLedgerTests
     }
 
     [Fact]
+    public void ShouldReviseOpenTreatmentActionGivenValidEdit()
+    {
+        // Arrange
+        var ledger = New();
+        var actionId = AddAction(ledger, 0);
+        var requestId = Uuid.CreateVersion4();
+        var evidenceRequestId = Uuid.CreateVersion4();
+        var revisedBy = ActorReference.ForMember(ReviewerId, "Reviewer");
+        var revisedAt = Now.AddDays(1);
+
+        // Act
+        var failure = ledger.ReviseTreatmentAction(RiskId, actionId, 1, requestId,
+            "Enforce phishing-resistant MFA", "Every administrator uses a hardware key.",
+            "Identity provider policy export.", new DateOnly(2026, 12, 1), ReviewerId,
+            [evidenceRequestId], revisedBy, revisedAt);
+
+        // Assert
+        Assert.Null(failure);
+        var action = ledger.FindAction(RiskId, actionId)!;
+        Assert.Equal("Enforce phishing-resistant MFA", action.Title);
+        Assert.Equal("Every administrator uses a hardware key.", action.TargetState);
+        Assert.Equal("Identity provider policy export.", action.ExpectedEvidence);
+        Assert.Equal(new DateOnly(2026, 12, 1), action.DueOn);
+        Assert.Equal(ReviewerId, action.AccountableMemberId);
+        Assert.Equal([evidenceRequestId], action.EvidenceRequestIds);
+        Assert.Equal("open", action.Status);
+        Assert.Equal(Proposer(), action.CreatedBy);
+        Assert.Equal(Now, action.CreatedAt);
+        Assert.Equal(2, ledger.RevisionOf(RiskId));
+        var revised = Assert.IsType<RiskTreatmentActionRevised>(
+            new AggregateScenario<RiskGovernanceLedger>(ledger).PendingEvents.Single(ev =>
+                ev is RiskTreatmentActionRevised));
+        Assert.Equal(requestId, revised.RequestId);
+        Assert.Equal(revisedBy, revised.RevisedBy);
+        Assert.Equal(revisedAt, revised.RevisedAt);
+    }
+
+    [Fact]
+    public void ShouldReplayTreatmentActionEditAndRejectChangedContentGivenRequestId()
+    {
+        // Arrange
+        var ledger = New();
+        var actionId = AddAction(ledger, 0);
+        var requestId = Uuid.CreateVersion4();
+
+        // Act
+        var first = ledger.ReviseTreatmentAction(RiskId, actionId, 1, requestId,
+            "Updated action", "Updated state", "Updated evidence", new DateOnly(2026, 12, 1),
+            ReviewerId, [], ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(1));
+        var replay = ledger.ReviseTreatmentAction(RiskId, actionId, 1, requestId,
+            "Updated action", "Updated state", "Updated evidence", new DateOnly(2026, 12, 1),
+            ReviewerId, [], ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(2));
+        var changedReplay = ledger.ReviseTreatmentAction(RiskId, actionId, 1, requestId,
+            "Changed action", "Updated state", "Updated evidence", new DateOnly(2026, 12, 1),
+            ReviewerId, [], ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(2));
+
+        // Assert
+        Assert.Null(first);
+        Assert.Null(replay);
+        Assert.Equal(CommandFailureCode.StateConflict, changedReplay!.Code);
+        Assert.Equal(2, ledger.RevisionOf(RiskId));
+        Assert.Equal("Updated action", ledger.FindAction(RiskId, actionId)!.Title);
+    }
+
+    [Fact]
+    public void ShouldRejectTreatmentActionEditGivenStaleRevisionOrSubmittedAction()
+    {
+        // Arrange
+        var ledger = New();
+        var staleActionId = AddAction(ledger, 0);
+        var submittedActionId = AddAction(ledger, 1);
+        var evidenceRequestId = Uuid.CreateVersion4();
+        Assert.Null(ledger.SubmitActionCompletion(RiskId, submittedActionId, 2,
+            Uuid.CreateVersion4(), "Completed the action.", [evidenceRequestId],
+            new HashSet<Uuid> { evidenceRequestId }, ProposerId, Proposer(), Now));
+
+        // Act
+        var stale = ledger.ReviseTreatmentAction(RiskId, staleActionId, 0,
+            Uuid.CreateVersion4(), "Stale edit", "State", "Evidence",
+            new DateOnly(2026, 12, 1), ReviewerId, [],
+            ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(1));
+        var submitted = ledger.ReviseTreatmentAction(RiskId, submittedActionId, 3,
+            Uuid.CreateVersion4(), "Submitted edit", "State", "Evidence",
+            new DateOnly(2026, 12, 1), ReviewerId, [],
+            ActorReference.ForMember(ReviewerId, "Reviewer"), Now.AddDays(1));
+
+        // Assert
+        Assert.Equal(CommandFailureCode.VersionConflict, stale!.Code);
+        Assert.Equal(CommandFailureCode.StateConflict, submitted!.Code);
+        Assert.Equal("Enforce MFA", ledger.FindAction(RiskId, staleActionId)!.Title);
+        Assert.Equal("Enforce MFA", ledger.FindAction(RiskId, submittedActionId)!.Title);
+        Assert.Equal(3, ledger.RevisionOf(RiskId));
+    }
+
+    [Fact]
     public void ShouldReopenActionAndReportOverdueGivenRejectedCompletionPastDueDate()
     {
         // Arrange
