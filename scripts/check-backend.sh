@@ -23,10 +23,7 @@ case "${1:-}" in
     dotnet restore Compliance.slnx --locked-mode
     dotnet format Compliance.slnx --verify-no-changes --no-restore
     dotnet build Compliance.slnx --configuration Release --no-restore
-    dotnet test Compliance.slnx --configuration Release --no-build --no-restore \
-      --filter 'Category!=BrokerIntegration'
-    dotnet test Compliance.slnx --configuration Release --no-build --no-restore \
-      --filter 'Category=BrokerIntegration'
+    dotnet test Compliance.slnx --configuration Release --no-build --no-restore
     ;;
   *)
     echo "Usage: $0 focused '<dotnet test filter>' | full" >&2
