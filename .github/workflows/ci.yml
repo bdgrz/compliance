@@ -24,6 +24,7 @@ jobs:
     name: Validate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+
     steps:
       - uses: actions/checkout@v7
 
@@ -49,7 +50,5 @@ jobs:
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
-      # Unit tests only. The broker suite (Category=BrokerIntegration) is a local gate:
-      # ./scripts/check-backend.sh full
       - name: Test
-        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore
