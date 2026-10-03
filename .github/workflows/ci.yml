@@ -26,15 +26,18 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v6
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      - run: dotnet restore Compliance.slnx --locked-mode
+      - name: Restore
+        run: dotnet restore Compliance.slnx --locked-mode
 
       - name: Format
         run: dotnet format whitespace Compliance.slnx --verify-no-changes
