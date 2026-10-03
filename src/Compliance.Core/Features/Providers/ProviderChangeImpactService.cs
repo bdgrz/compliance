@@ -70,26 +70,27 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
         var instanceIds = new HashSet<Uuid>();
         var serviceIds = new HashSet<Uuid>();
         var programIds = new HashSet<Uuid>();
+        var impactedComponentIds = new HashSet<Uuid>();
+        var impactedInformationIds = new HashSet<Uuid>();
+        var impactedDataFlowIds = new HashSet<Uuid>();
 
         foreach (var dependency in dependencies)
         {
-            var effectiveOnChangeDate = IsEffectiveOn(dependency, request.EffectiveOn);
+            var affectedByChange = IsAffectedByChange(dependency, request.ChangeKind,
+                request.EffectiveOn);
             if (dependency.ProgramId is { } programId)
             {
-                if (effectiveOnChangeDate)
+                if (affectedByChange)
                     programIds.Add(programId);
                 Add("scope", "program", programId, null, dependency.ProgramRevision,
-                    effectiveOnChangeDate ? "provider_dependency_effective_on_change_date" :
-                        "provider_dependency_outside_change_date");
+                    DependencyRelationship(request.ChangeKind, affectedByChange));
             }
             if (dependency.SubjectId is not { } subjectId)
                 continue;
-            var relationship = effectiveOnChangeDate
-                ? "provider_dependency_effective_on_change_date"
-                : "provider_dependency_outside_change_date";
+            var relationship = DependencyRelationship(request.ChangeKind, affectedByChange);
             if (dependency.SubjectKind == "client_service")
             {
-                if (effectiveOnChangeDate)
+                if (affectedByChange)
                     serviceIds.Add(subjectId);
                 Add("systems", "client_service", subjectId, dependency.ProgramId,
                     dependency.SourceRevision, relationship);
@@ -99,7 +100,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
             else if (dependency.SubjectKind == "system_instance")
             {
                 var applicationId = dependency.ApplicationId!.Value;
-                if (effectiveOnChangeDate)
+                if (affectedByChange)
                 {
                     instanceIds.Add(subjectId);
                     applicationIds.Add(applicationId);
@@ -142,27 +143,65 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
             var scopeProgramIds = new HashSet<Uuid>(tenantProgramIds);
             scopeProgramIds.UnionWith(programIds);
 
+            ProjectionCheckpoint? inventoryFence = null;
+            if (instanceIds.Count > 0)
+            {
+                var captured = await inventoryConsistency.CaptureAsync(request.TenantId, ct)
+                    .ConfigureAwait(false);
+                if (!captured.IsSuccess)
+                    return Result<ProviderChangeImpactPreview>.Failure(captured.Error);
+                inventoryFence = captured.Value;
+            }
             await AddTechnologyImpactAsync(request.TenantId, instanceIds, records["data"],
+                impactedComponentIds, impactedInformationIds, impactedDataFlowIds,
                 incomplete, ct).ConfigureAwait(false);
 
             var providerScopedPrograms = await AddBoundaryImpactAsync(request.TenantId,
                 request.ProviderId, request.EffectiveOn, scopeProgramIds, serviceIds,
-                applicationIds, instanceIds, records["scope"], incomplete, ct)
+                applicationIds, instanceIds, impactedComponentIds, impactedInformationIds,
+                impactedDataFlowIds, records["scope"], incomplete, ct)
                 .ConfigureAwait(false);
 
+            ProjectionCheckpoint? controlFence = null;
+            if (controlProgramIds.Count > 0 &&
+                (applicationIds.Count > 0 || instanceIds.Count > 0))
+            {
+                var captured = await controlConsistency.CaptureAsync(request.TenantId, ct)
+                    .ConfigureAwait(false);
+                if (!captured.IsSuccess)
+                    return Result<ProviderChangeImpactPreview>.Failure(captured.Error);
+                controlFence = captured.Value;
+            }
             var impactedControls = await FindImpactedControlsAsync(request.TenantId,
                 controlProgramIds, applicationIds, instanceIds, records["controls"],
                 incomplete, ct).ConfigureAwait(false);
 
             if (providerScopedPrograms.Count > 0 && applicationIds.Count == 0 &&
-                instanceIds.Count == 0)
+                instanceIds.Count == 0 && serviceIds.Count == 0)
             {
+                incomplete["systems"] ??= "provider_scope_without_system_dependency_mapping";
+                incomplete["data"] ??= "provider_scope_without_data_dependency_mapping";
                 incomplete["controls"] ??= "provider_scope_without_system_control_mapping";
                 incomplete["evidence"] ??= "provider_scope_without_system_evidence_mapping";
             }
 
             await AddEvidenceImpactAsync(request.TenantId, request.ProviderId,
                 impactedControls, records["evidence"], incomplete, ct).ConfigureAwait(false);
+
+            if (inventoryFence is { } inventoryCheckpoint)
+            {
+                var unchangedInventory = await inventoryConsistency.ConfirmUnchangedAndCaughtUpAsync(
+                    request.TenantId, inventoryCheckpoint, ct).ConfigureAwait(false);
+                if (!unchangedInventory.IsSuccess)
+                    return Result<ProviderChangeImpactPreview>.Failure(unchangedInventory.Error);
+            }
+            if (controlFence is { } controlCheckpoint)
+            {
+                var unchangedControls = await controlConsistency.ConfirmUnchangedAndCaughtUpAsync(
+                    request.TenantId, controlCheckpoint, ct).ConfigureAwait(false);
+                if (!unchangedControls.IsSuccess)
+                    return Result<ProviderChangeImpactPreview>.Failure(unchangedControls.Error);
+            }
 
             var unchanged = await programConsistency.ConfirmUnchangedAndCaughtUpAsync(
                 request.TenantId, programFence.Value, ct).ConfigureAwait(false);
@@ -274,15 +313,12 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
     }
 
     async ValueTask AddTechnologyImpactAsync(Uuid tenantId, HashSet<Uuid> instanceIds,
-        List<ProviderChangeAffectedRecord> records,
+        List<ProviderChangeAffectedRecord> records, HashSet<Uuid> impactedComponentIds,
+        HashSet<Uuid> impactedInformationIds, HashSet<Uuid> impactedDataFlowIds,
         Dictionary<string, string?> incomplete, CancellationToken ct)
     {
         if (instanceIds.Count == 0)
             return;
-        var caughtUp = await inventoryConsistency.EnsureListCaughtUpAsync(tenantId, ct)
-            .ConfigureAwait(false);
-        if (!caughtUp.IsSuccess)
-            throw new ProviderImpactReadException(caughtUp.Error);
 
         var components = new Dictionary<Uuid, TechnologyComponentView>();
         var scanned = 0;
@@ -315,6 +351,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                     !instanceIds.Contains(currentSystemInstanceId))
                     continue;
                 components.TryAdd(current.Value.ComponentId, current.Value);
+                AddScopeId(impactedComponentIds, current.Value.ComponentId);
                 Add("technology_component", current.Value.ComponentId, currentSystemInstanceId,
                     current.Value.Revision, "technology_component_belongs_to_affected_system");
             }
@@ -370,6 +407,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                                                 componentIds.Contains(currentDestinationId);
                 if (!currentSourceMatches && !currentDestinationMatches)
                     continue;
+                AddScopeId(impactedDataFlowIds, current.Value.DataFlowId);
                 Add("data_flow", current.Value.DataFlowId, null, current.Value.Revision,
                     "data_flow_touches_affected_system");
                 foreach (var assetId in current.Value.Content.InformationAssetIds)
@@ -381,6 +419,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                         incomplete["data"] ??= "information_asset_reference_unavailable";
                         continue;
                     }
+                    AddScopeId(impactedInformationIds, asset.Value.InformationAssetId);
                     Add("information_asset", asset.Value.InformationAssetId,
                         current.Value.DataFlowId, asset.Value.Revision,
                         "carried_by_affected_data_flow");
@@ -408,6 +447,19 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
             }
             records.Add(new ProviderChangeAffectedRecord(recordType, recordId, parentId,
                 revision, relationship));
+        }
+
+        void AddScopeId(HashSet<Uuid> target, Uuid recordId)
+        {
+            if (target.Contains(recordId))
+                return;
+            if (target.Count >= MaximumScannedRecords)
+            {
+                incomplete["data"] ??= "impact_reference_limit";
+                incomplete["scope"] ??= "impact_reference_limit";
+                return;
+            }
+            target.Add(recordId);
         }
     }
 
@@ -488,7 +540,9 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
     {
         var assurance = await reader.HydrateAsync(new ProviderAssuranceRegister(tenantId), ct)
             .ConfigureAwait(false);
-        foreach (var report in assurance.Reports(providerId))
+        var reportSnapshot = assurance.Reports(providerId);
+        var reviewSnapshot = assurance.Reviews(providerId);
+        foreach (var report in reportSnapshot)
         {
             Add("assurance_report", report.ReportId, null, report.Revision,
                 "provider_assurance_record");
@@ -496,7 +550,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                 Add("evidence_artifact", artifactId, report.ReportId, null,
                     "cited_by_provider_assurance_report");
         }
-        foreach (var review in assurance.Reviews(providerId))
+        foreach (var review in reviewSnapshot)
         {
             Add("provider_review", review.ReviewId, null, null,
                 "provider_due_diligence_record");
@@ -510,13 +564,16 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
 
         var scanned = 0;
         var scanLimitReached = false;
+        var ledgerSnapshots = new Dictionary<Uuid, IReadOnlyList<EvidenceRequestView>>();
         foreach (var programId in controls.Select(static item => item.ProgramId).Distinct())
         {
             if (scanLimitReached)
                 break;
             var ledger = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId,
                 programId), ct).ConfigureAwait(false);
-            foreach (var item in ledger.ReadAll())
+            var snapshot = ledger.ReadAll();
+            ledgerSnapshots.Add(programId, snapshot);
+            foreach (var item in snapshot)
             {
                 if (scanned++ >= MaximumScannedRecords)
                 {
@@ -540,6 +597,19 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
             }
         }
 
+        var currentAssurance = await reader.HydrateAsync(new ProviderAssuranceRegister(tenantId), ct)
+            .ConfigureAwait(false);
+        if (!reportSnapshot.SequenceEqual(currentAssurance.Reports(providerId)) ||
+            !reviewSnapshot.SequenceEqual(currentAssurance.Reviews(providerId)))
+            throw new ProviderImpactReadException(SourceChangedError("provider assurance evidence"));
+        foreach (var (programId, snapshot) in ledgerSnapshots)
+        {
+            var currentLedger = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId,
+                programId), ct).ConfigureAwait(false);
+            if (!snapshot.SequenceEqual(currentLedger.ReadAll()))
+                throw new ProviderImpactReadException(SourceChangedError("evidence requests"));
+        }
+
         void Add(string recordType, Uuid recordId, Uuid? parentId, long? revision,
             string relationship)
         {
@@ -559,6 +629,8 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
     async ValueTask<HashSet<Uuid>> AddBoundaryImpactAsync(Uuid tenantId, Uuid providerId,
         DateOnly effectiveOn, HashSet<Uuid> programIds, HashSet<Uuid> serviceIds,
         HashSet<Uuid> applicationIds, HashSet<Uuid> instanceIds,
+        HashSet<Uuid> componentIds, HashSet<Uuid> informationIds,
+        HashSet<Uuid> dataFlowIds,
         List<ProviderChangeAffectedRecord> records, Dictionary<string, string?> incomplete,
         CancellationToken ct)
     {
@@ -610,7 +682,8 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                         foreach (var entry in version!.Content.Entries)
                         {
                             if (!ReferencesAffectedScope(entry, providerId, serviceIds,
-                                    applicationIds, instanceIds))
+                                    applicationIds, instanceIds, componentIds,
+                                    informationIds, dataFlowIds))
                                 continue;
                             var isEffectiveVersion = effectiveVersion?.VersionId == version.VersionId;
                             Add("boundary_scope_entry", entry.EntryId, boundary.BoundaryId,
@@ -681,19 +754,35 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                 (reference.SubjectType == "system_instance" && instanceIds.Contains(id))));
 
     static bool ReferencesAffectedScope(BoundaryScopeEntry entry, Uuid providerId,
-        HashSet<Uuid> serviceIds, HashSet<Uuid> applicationIds, HashSet<Uuid> instanceIds) =>
+        HashSet<Uuid> serviceIds, HashSet<Uuid> applicationIds, HashSet<Uuid> instanceIds,
+        HashSet<Uuid> componentIds, HashSet<Uuid> informationIds, HashSet<Uuid> dataFlowIds) =>
         entry is { Unresolved: false, GovernedRecordId: { } id } && id != Uuid.Empty &&
         (entry.SubjectType == "provider" && id == providerId ||
          entry.SubjectType == "service" && serviceIds.Contains(id) ||
          entry.SubjectType == "application" && applicationIds.Contains(id) ||
-         entry.SubjectType == "system_instance" && instanceIds.Contains(id));
+         entry.SubjectType == "system_instance" && instanceIds.Contains(id) ||
+         entry.SubjectType == "component" && componentIds.Contains(id) ||
+         entry.SubjectType == "information" && informationIds.Contains(id) ||
+         entry.SubjectType == "data_flow" && dataFlowIds.Contains(id));
 
-    static bool IsEffectiveOn(ProviderDependency dependency, DateOnly effectiveOn)
+    static bool IsAffectedByChange(ProviderDependency dependency, string changeKind,
+        DateOnly effectiveOn)
     {
         var date = new DateTimeOffset(effectiveOn.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+        if (changeKind == "termination")
+            return dependency.EffectiveFrom < date &&
+                   (dependency.EffectiveUntilExclusive is null ||
+                    date <= dependency.EffectiveUntilExclusive);
         return dependency.EffectiveFrom <= date &&
                (dependency.EffectiveUntilExclusive is null || date < dependency.EffectiveUntilExclusive);
     }
+
+    static string DependencyRelationship(string changeKind, bool affected) =>
+        changeKind == "termination"
+            ? affected ? "provider_dependency_active_before_termination" :
+                "provider_dependency_outside_termination_window"
+            : affected ? "provider_dependency_effective_on_change_date" :
+                "provider_dependency_outside_change_date";
 
     static bool SameDependencyFence(ProviderContent before, ProviderContent after)
     {
@@ -715,6 +804,9 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
 
     static Result<ProviderChangeImpactPreview> Failure(RequestErrorKind kind, string message) =>
         Result<ProviderChangeImpactPreview>.Failure(new RequestError(kind, message));
+
+    static RequestError SourceChangedError(string source) => new(RequestErrorKind.Conflict,
+        $"The {source} changed during impact assessment. Retry the preview.", isTransient: true);
 }
 
 sealed class ProviderImpactReadException(RequestError error) : Exception(error.Message)
