@@ -214,30 +214,6 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
-    public async Task ShouldServeSpaFallbackGivenNonApiRoute()
-    {
-        // Arrange
-        await using var factory = CreateBrokerFreeFactory("Development");
-        using var client = factory.CreateClient();
-
-        // Act
-        using var index = await client.GetAsync("/index.html", CancellationToken.None);
-        using var response = await client.GetAsync("/client-name/controls/example", CancellationToken.None);
-        using var callback = await client.GetAsync("/auth/callback", CancellationToken.None);
-        using var registration = await client.GetAsync("/developer-login?returnUrl=%2Fcontrols", CancellationToken.None);
-        var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, index.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, callback.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, registration.StatusCode);
-        Assert.Contains("<div id=\"app\"></div>", body, StringComparison.Ordinal);
-        Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
-        Assert.Equal("no-referrer", Assert.Single(index.Headers.GetValues("Referrer-Policy")));
-    }
-
-    [Fact]
     public async Task ShouldExposePublicAuthSettingsGivenExternalConfiguration()
     {
         // Arrange

@@ -43,16 +43,8 @@ jobs:
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
       - name: Validate
         run: |
-          npm ci
-          npm run client:check
           dotnet restore Compliance.slnx --locked-mode
           dotnet build Compliance.slnx --configuration Release --no-restore
           dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"

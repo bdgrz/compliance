@@ -20,36 +20,30 @@ env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  validate:
-    name: Validate
+  backend:
+    name: Backend
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v6
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      # The app build bundles the SPA.
-      - uses: actions/setup-node@v7 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-
-      - run: dotnet restore Compliance.slnx --locked-mode
+      - name: Restore
+        run: dotnet restore
 
       - name: Format
-        run: dotnet format whitespace Compliance.slnx --verify-no-changes
+        run: dotnet format Compliance.slnx --verify-no-changes
 
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
-      # Unit tests only. The broker suite (Category=BrokerIntegration) is a local gate:
-      # ./scripts/check-backend.sh full
       - name: Test
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"

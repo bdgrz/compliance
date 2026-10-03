@@ -25,7 +25,7 @@ Every frontend child needs both kinds of evidence before it is done.
 
 ### Automated
 
-`src/Compliance.App/ClientApp/src/accessibility/axe.ts` runs axe-core with the
+`ui/src/accessibility/axe.ts` runs axe-core with the
 WCAG 2.2 AA rule tags (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`,
 `wcag22aa`) against a rendered page, and runs the document-level rules
 (`html-has-lang`, `html-lang-valid`, `document-title`, `meta-viewport`)
