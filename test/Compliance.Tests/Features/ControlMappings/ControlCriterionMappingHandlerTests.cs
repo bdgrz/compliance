@@ -349,6 +349,7 @@ public sealed class ControlCriterionMappingHandlerTests
                     .AddRequestHandler<GetCriterionApplicabilityHandler>()
                     .AddRequestHandler<ListCriterionApplicabilityHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(TestCatalog())
+                    .AddScoped<CriteriaTextOverlayReader>()
                     .AddScoped<ControlActivationSource>()
                     .AddCoverageProjections());
             var fixture = new Fixture { Provider = provider };

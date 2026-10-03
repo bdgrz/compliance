@@ -87,6 +87,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.criteria.edition.get",
             "bdgrz.criteria.entries.list",
             "bdgrz.criteria.entry.get",
+            "bdgrz.criteria.overlay.set",
             "bdgrz.program.criteria.select",
             "bdgrz.program.revise",
             "bdgrz.program.get",
