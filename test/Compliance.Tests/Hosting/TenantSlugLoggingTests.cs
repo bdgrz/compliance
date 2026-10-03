@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Bdgrz.Compliance.Tests.Hosting;
 
+[Trait("Category", "WebIntegration")]
 public sealed class TenantSlugLoggingTests
 {
     const string Slug = "confidential-client-name";

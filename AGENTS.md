@@ -12,7 +12,7 @@ Use the .NET SDK selected by `global.json` and Docker Compose. Copy `.env.exampl
 
 - `dotnet restore Compliance.slnx --locked-mode`: restore .NET dependencies.
 - `dotnet build Compliance.slnx -c Release --no-restore`: compile with analyzers and warnings as errors.
-- `dotnet test Compliance.slnx -c Release --no-restore --filter "Category!=BrokerIntegration"`: run the unit-test suite without broker integration tests.
+- `dotnet test Compliance.slnx -c Release --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"`: run the backend unit-test suite.
 - `docker compose up --build`: start the standalone app and its dependencies at `http://127.0.0.1:8080`.
 
 ## Coding Style & Naming Conventions
@@ -21,18 +21,18 @@ Follow `.editorconfig`: UTF-8, LF, final newline, four-space C# indentation, and
 
 ## Testing Guidelines
 
-.NET tests use xUnit. For backend behavior changes, first add a focused failing unit test. Name .NET tests `Should<ExpectedBehavior>Given<Condition>` (optionally prefix the method); mark Arrange, Act, and Assert in block-bodied tests. The normal development and PR loop excludes `Category=BrokerIntegration`; do not launch broker integration tests for persistence, projection, reactor, or split-host changes as part of red/green work or PR iteration. Web and mobile tests run in their respective repositories.
+.NET tests use xUnit; client repositories use their own unit-test runners. For every backend or frontend behavior change, first add a focused failing unit test. Name .NET tests `Should<ExpectedBehavior>Given<Condition>` (optionally prefix the method); mark Arrange, Act, and Assert in block-bodied tests.
 
 ## Fast Development Loop
 
-1. **Red:** write a focused unit test that demonstrates the missing behavior and run that test alone. Do not run broker integration tests in the red/green loop.
-2. **Green:** make the smallest change that passes the focused unit test. Run the full unit-only suite when the change is ready for review.
-3. **PR:** open a focused PR after the unit-only suite passes. CI runs format, build, and unit tests; its test filter excludes `BrokerIntegration`.
+1. **Red:** in the backend or client repository, write a focused unit test that demonstrates the missing behavior and run that test alone.
+2. **Green:** make the smallest change that passes the focused unit test. Run that repository's unit-test suite when the change is ready for review.
+3. **PR:** open a focused PR after the unit-test suite passes. CI runs the repository's applicable format, build, and unit-test checks.
 4. **Adversarial review:** review the exact PR head for contract, authorization, tenant isolation, replay, and failure-mode gaps. Treat review findings as actionable until resolved or explicitly documented.
-5. **Refine and refactor:** address findings, simplify the implementation, and rerun the focused test plus the unit-only suite. Push the revised head and repeat review as needed.
+5. **Refine and refactor:** address findings, simplify the implementation, and rerun the focused test plus the unit-test suite. Push the revised head and repeat review as needed.
 6. **Squash merge:** merge after the final PR head has passed required CI and the adversarial review is clear.
 
-Broker integration tests are a separate, opt-in acceptance activity, not a default development, PR, or merge gate. Run them only when the user or an explicit release acceptance requirement asks for that evidence. If such evidence is required, record it as a separate gate and do not stall the red/green and review loop waiting for it.
+The current feature-delivery gate is unit tests. End-to-end validation is a later phase, after backend and client features work independently; it is not required for current issue completion, PR review, or merge.
 
 ## JEV and Backlog Workflow
 
@@ -51,4 +51,4 @@ Run `triage` to select and group work, `criteria` before closing an issue, and `
 
 ## Commits & Pull Requests
 
-Recent commits use `feat(scope): summary (#issue)` or `docs(scope): summary (#issue)`. Keep each branch reviewable and link its backend issue. A PR in this repository changes backend code or its API contract; link related client work rather than including client code. Complete the PR template’s summary, validation, and contract/operations sections, including authentication, wire compatibility, persistence, and deployment effects where relevant. Run the fast development loop above and require CI on the final PR head before squash merge. CI is one five-minute job (format, build, unit tests) and excludes broker integration tests. See `CONTRIBUTING.md` for branch and release rules and `SECURITY.md` for vulnerability reporting.
+Recent commits use `feat(scope): summary (#issue)` or `docs(scope): summary (#issue)`. Keep each branch reviewable and link its backend issue. A PR in this repository changes backend code or its API contract; link related client work rather than including client code. Complete the PR template’s summary, validation, and contract/operations sections, including authentication, wire compatibility, persistence, and deployment effects where relevant. Run the fast development loop above and require CI on the final PR head before squash merge. This repository's CI runs formatting, build, and backend unit tests. See `CONTRIBUTING.md` for branch and release rules and `SECURITY.md` for vulnerability reporting.

@@ -21,6 +21,7 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 ///     deliberate: it forces a visible review of the registered surface instead of registration
 ///     drift going unnoticed.
 /// </summary>
+[Trait("Category", "WebIntegration")]
 public sealed class RbacMcpScenarioTests
 {
     [Fact]

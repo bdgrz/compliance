@@ -18,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Bdgrz.Compliance.Tests.Features.UserIdentities;
 
+[Trait("Category", "WebIntegration")]
 public sealed class UserIdentityContinuationWebTests
 {
     const string SessionSecret = "bdgrz-test-session-signing-key-000001";

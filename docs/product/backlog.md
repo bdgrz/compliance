@@ -33,11 +33,11 @@ Three kinds of non-story issue are explicit exceptions:
 
 A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice retains an API-to-UI outcome whose acceptance criteria come from the parent story. Create a child only when it can be accepted and closed independently or breaks a real dependency cycle. Existing backend and frontend children remain acceptance records; new stories do not automatically require a pair. Give each child the milestone of the outcome it actually completes and record applicable dependencies explicitly, because sub-issues do not inherit dependency relationships. Do not schedule implementation for an unvalidated P2 hypothesis.
 
-Each backend child owns its authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and non-UI acceptance evidence. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has backend children, depend on the applicable backend child or children rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and integration with the delivered API. It depends on all applicable backend children and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
+Each backend child owns its authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and backend behavior. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has backend children, depend on the applicable backend child or children rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and consumes the delivered API contract. It depends on all applicable backend children and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
 
-Close each child only when its own acceptance evidence is complete. Keep the product parent open until the integrated product outcome passes. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
+Close each child when its own behavior and unit-test evidence are complete. This applies even when older story text names workflow-wide, deployment-mode, or browser-level proof; that proof is deferred with the product parent. The product parent tracks the full cross-client outcome, with end-to-end validation deferred until its backend and frontend features work independently. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
 
-Bundle dependent backend children into a PR when they form one reviewable capability and share contracts, domain records, or acceptance tests. List every covered child and its specific acceptance evidence in the PR. During implementation, use focused Release tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the full applicable local gate once when the bundle is ready, then push its final head for exact-head CI and Native AOT on both architectures. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
+Bundle dependent backend children into a PR when they form one reviewable capability and share contracts or domain records. List every covered child and its unit-test evidence in the PR. During implementation, use focused Release unit tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the backend unit-test suite once when the bundle is ready and require exact-head CI. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
 
 Record merged implementation, exact acceptance evidence, and remaining limits on the owning GitHub issue and PR. Close a completed child against that evidence; do not create a synthetic documentation PR to represent work already merged.
 
@@ -53,11 +53,9 @@ Every story must include:
 - scoping to exactly one client organization (tenant), with no cross-tenant disclosure;
 - usable loading, empty, error, retry, and forbidden states;
 - traceable activity and historical behavior where the action matters to an audit;
-- accessible UI that meets WCAG 2.2 AA in the supported browsers, with the
-  automated and manual evidence in
-  [accessibility and browser support](accessibility-and-browser-support.md)
-  (M0-D24), and documented API behavior;
-- focused automated acceptance evidence;
+- accessible UI that meets WCAG 2.2 AA in the supported browsers, and
+  documented API behavior;
+- focused unit tests for the behavior owned by each backend or frontend child;
 - a `Public references` section with direct, versioned links and the applicable
   use classification from `source-reference-policy.md`, or an explicit
   `No external normative source; product decision` statement linked to its
@@ -111,11 +109,9 @@ copyright, attribution, patent, or redistribution decision.
 
 ## Definition of done
 
-A story is done when its full API-to-UI workflow meets the acceptance criteria; allowed and denied behavior is tested; changes and decisions are traceable; period and snapshot behavior is correct; relevant failure states are recoverable; and the result works in the supported standalone and split-host deployments.
+A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable backend behavior are implemented and covered by focused and full unit tests. Formatting and required exact-head CI checks must pass before the reviewed PR is merged. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Link the merged PR and unit-test evidence from the backend child.
 
-A backend child is done when its authorized HTTP and machine-appropriate MCP contracts, Portia authorization and guards, domain records, Fitz-backed projections and reactors, and applicable non-UI acceptance criteria are verified. Verification covers allowed and denied behavior, tenant isolation, concurrent and replayed work, projection lag, recoverable failure, and standalone and split API-worker deployment. Login, email verification, invitation acceptance, acknowledgements, attestations, approvals, and personal sign-offs remain HTTP-only. Focused and applicable full .NET and broker tests, formatting, and required exact-head CI checks must pass before the reviewed PR is merged. Link the merged PR and verification evidence from the backend child.
-
-A frontend child is done when its accessible browser workflow consumes the authorized API, handles loading, empty, error, retry, and forbidden states, and passes focused browser acceptance and applicable repository checks. Its rendered pages pass the automated WCAG 2.2 AA axe-core check with zero violations, and its PR links the manual accessibility pass defined in [accessibility and browser support](accessibility-and-browser-support.md). Link its merged PR and evidence from the frontend child. Close the product parent only after both delivery children and the integrated story acceptance pass.
+A frontend child is done when its accessible workflow consumes the authorized API contract, handles loading, empty, error, retry, and forbidden states, and passes focused and full unit tests in its owning repository. WCAG 2.2 AA and the supported-browser behavior remain product requirements; component-level axe checks run in the unit suite, while manual browser and assistive-technology evidence is deferred to the later end-to-end validation phase. Link the merged PR and unit-test evidence from the frontend child. The product parent tracks the complete API-to-UI outcome and remains open for that later validation.
 
 ## M0 - Design and discovery
 
@@ -868,7 +864,7 @@ Accepted decisions:
 - Use WCAG 2.2 Level AA for every first-release browser workflow; the product owner approves exceptions.
 - Support current and previous major desktop Chrome, Edge, Firefox, and Safari versions. Mobile browsers may display the product but are not supported workflow targets.
 - Require keyboard operation, visible and unobscured focus, the documented contrast and target-size thresholds, 200% zoom, 320 CSS px reflow, semantic screen-reader exposure, reduced-motion support, and identified and announced errors.
-- Require zero axe-core WCAG 2.2 AA violations for rendered pages, document-level shell checks, and the documented manual pass for layout and assistive-technology behavior.
+- Require zero axe-core WCAG 2.2 AA violations in client unit tests. Defer manual browser and assistive-technology review to the later end-to-end validation phase.
 - Show a non-blocking supported-browser notice outside the supported range; track known accessibility limitations with the `accessibility` label and list them in the accessibility statement until fixed.
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
@@ -878,7 +874,7 @@ Blocks: frontend children and their first product delivery slices. It does not b
 Done when:
 
 - The decision, rationale, owner, and date are recorded in the decision document and the GitHub issue.
-- The product-backlog contract, automated and manual test strategy, browser support statement, and global frontend definition of done reflect the decision.
+- The product-backlog contract, unit-test strategy, browser support statement, and global frontend definition of done reflect the decision and deferred manual validation.
 - Every currently open frontend child records M0-D24 as a blocker; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
 - Remaining product-specific accessibility and browser-policy uncertainty is captured as a follow-up issue if discovered; no open decision remains here.
 

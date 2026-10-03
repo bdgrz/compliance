@@ -24,6 +24,11 @@ until at least two real features need it. Runtime pages use real application
 states; scenario fixtures and failure injection belong in tests, not the
 production shell.
 
+Use TDD for each UI behavior change: add a focused failing unit test, implement
+the smallest change that makes it pass, then run the client unit suite with
+`npm test`. Unit tests are the feature and PR test gate. End-to-end validation
+is deferred until the client and backend features work independently.
+
 Client route guards improve navigation, but they never replace server-side
 authorization. The SPA consumes versioned endpoints under `/api/v1` and does
 not depend on whether the ASP.NET Core host runs standalone or in split API and

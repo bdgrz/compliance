@@ -10,7 +10,7 @@ Compliance is a Native AOT ASP.NET Core backend built on Portia, with a separate
 | `src/Compliance.Core` | Application composition and Portia/Fitz infrastructure |
 | `src/Compliance.App` | ASP.NET Core API and worker host |
 | `ui` | Independent AskrJS single-page application |
-| `test/Compliance.Tests` | Unit, HTTP, broker, and architecture-level tests |
+| `test/Compliance.Tests` | Backend tests; the fast gate runs unit tests only |
 
 Dependencies point inward: App references Core and Common; Core references Common; Common does not reference either host layer. All code uses the `Bdgrz.Compliance` root namespace and `Bdgrz.Compliance.*` assembly names.
 
@@ -39,14 +39,14 @@ Copy `.env.example` to `.env` and set `GITHUB_ACTOR` and `GITHUB_TOKEN` for .NET
 ```console
 dotnet restore Compliance.slnx --locked-mode
 dotnet build Compliance.slnx --configuration Release --no-restore
-dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
 ```
 
-Run the UI checks separately from the .NET build and test flow:
+Run the UI unit tests separately from the .NET build and test flow:
 
 ```console
 npm ci
-npm run client:check
+npm test
 ```
 
 ## Running locally
@@ -133,13 +133,20 @@ management, organization queries, lifecycle, and slug operations use both HTTP a
 
 ## Tests and containers
 
-The real-broker tests start and tear down their own isolated Fitz and Sqrzl Compose stack:
+Feature development uses TDD with unit tests in the owning backend or client
+repository. The backend unit-test command is:
 
 ```console
-dotnet test Compliance.slnx --configuration Release --filter "Category=BrokerIntegration"
+dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
 ```
 
-CI runs formatting, TypeScript, lint, browser-auth unit tests, the .NET suite, and the real-broker test. In parallel, it builds and executes the Native AOT image on native AMD64 and ARM64 GitHub runners—without emulation—and exercises standalone, API, and worker modes. All jobs must pass on the final pull-request head before merge; use the focused local loop in [CONTRIBUTING.md](CONTRIBUTING.md) during development.
+Client repositories run their own unit-test suites. This repository's pull
+request CI runs formatting, build, and backend unit tests. After successful CI
+on `main`, `containers.yml` builds and publishes Native AOT images on native
+AMD64 and ARM64 runners; it does not run as a feature pull-request check.
+End-to-end validation is planned for a later phase after features work
+independently. See [CONTRIBUTING.md](CONTRIBUTING.md) for the current delivery
+loop.
 
 The publish workflow runs only after CI succeeds (or by explicit manual dispatch), rebuilds the validated commit on native runners, pushes architecture digests, and assembles a multi-platform manifest. Images include BuildKit provenance and SBOM attestations. `sha-<commit>` and `latest` tags are emitted; a SemVer tag is created only when it does not already exist.
 

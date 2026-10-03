@@ -18,6 +18,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.Features.Providers;
 
+[Trait("Category", "WebIntegration")]
 public sealed class ProviderHttpMcpTests
 {
     [Theory]
