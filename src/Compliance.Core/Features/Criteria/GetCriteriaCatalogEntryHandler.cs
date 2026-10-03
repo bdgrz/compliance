@@ -4,7 +4,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Criteria;
 
 public sealed class GetCriteriaCatalogEntryHandler(ICriteriaCatalog catalog,
-    CriteriaTextOverlayReader overlays)
+    ICriteriaTextOverlayReader overlays)
     : IRequestHandler<GetCriteriaCatalogEntry, Criterion>
 {
     public async ValueTask<Result<Criterion>> HandleAsync(IRequestContext<GetCriteriaCatalogEntry> context,
@@ -15,7 +15,7 @@ public sealed class GetCriteriaCatalogEntryHandler(ICriteriaCatalog catalog,
         if (entry is null)
             return Result<Criterion>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The criterion was not found."));
-        return Result<Criterion>.Success(await overlays.ApplyAsync(request.TenantId, entry,
-            export: false, ct).ConfigureAwait(false));
+        return await overlays.ApplyAsync(request.TenantId, entry, isExport: false, ct)
+            .ConfigureAwait(false);
     }
 }

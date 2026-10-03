@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Criteria;
+using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.Criteria;
@@ -17,7 +18,7 @@ public sealed class CriteriaCatalogHandlerTests
     {
         // Arrange
         var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform,
-            new CriteriaTextOverlayReader(new EmptyReader()));
+            new EmptyCriteriaTextOverlayReader());
         var request = new ListCriteriaCatalogEntries(TenantId, EditionId, "security",
             "criterion", Limit: 10);
 
@@ -61,7 +62,7 @@ public sealed class CriteriaCatalogHandlerTests
     {
         // Arrange
         var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform,
-            new CriteriaTextOverlayReader(new EmptyReader()));
+            new EmptyCriteriaTextOverlayReader());
 
         // Act
         var result = await ListAsync(handler, new ListCriteriaCatalogEntries(TenantId, EditionId,
@@ -76,7 +77,7 @@ public sealed class CriteriaCatalogHandlerTests
     {
         // Arrange
         var entries = new GetCriteriaCatalogEntryHandler(CriteriaCatalog.Platform,
-            new CriteriaTextOverlayReader(new EmptyReader()));
+            new EmptyCriteriaTextOverlayReader());
         var editions = new GetCriteriaCatalogEditionHandler(CriteriaCatalog.Platform);
 
         // Act
@@ -96,15 +97,45 @@ public sealed class CriteriaCatalogHandlerTests
         Assert.Equal(RequestErrorKind.NotFound, unknownEdition.Error?.Kind);
     }
 
+    [Fact]
+    public async Task ShouldReturnCatalogEntryWithoutOverlayGivenEmptyProjection()
+    {
+        // Arrange
+        var directory = new FitzCriteriaTextOverlayDirectory(new InMemoryKvClient());
+        var overlays = new FitzCriteriaTextOverlayReader(directory,
+            new CriteriaTextOverlayReadConsistency(directory, new EmptyEventReader()));
+        var entry = CriteriaCatalog.Platform.GetEntry(EditionId, "CC6.1")!;
+
+        // Act
+        var result = await overlays.ApplyAsync(TenantId, entry, isExport: false,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(entry, result.Value);
+    }
+
     static async Task<Result<Page<Criterion>>> ListAsync(ListCriteriaCatalogEntriesHandler handler,
         ListCriteriaCatalogEntries request) =>
         await handler.HandleAsync(new RequestContext<ListCriteriaCatalogEntries>(request, Actor),
             CancellationToken.None);
 
-    sealed class EmptyReader : IAggregateReader
+    sealed class EmptyEventReader : IDomainEventReader
     {
-        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
-            CancellationToken ct = default) where TAggregate : Aggregate =>
-            ValueTask.FromResult(aggregate);
+        public async IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamAddress stream,
+            ulong fromVersion, [System.Runtime.CompilerServices.EnumeratorCancellation]
+            CancellationToken ct = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+
+        public async IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamPattern pattern,
+            EventCursor after, [System.Runtime.CompilerServices.EnumeratorCancellation]
+            CancellationToken ct = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
     }
 }

@@ -14,7 +14,7 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 ///     criterion is satisfied.
 /// </summary>
 public sealed class ListCriteriaCoverageHandler(IAggregateReader reader, ICriteriaCatalog catalog,
-    CriteriaCoverageReadConsistency coverage, CriteriaTextOverlayReader overlays)
+    CriteriaCoverageReadConsistency coverage, ICriteriaTextOverlayReader overlays)
     : IRequestHandler<ListCriteriaCoverage, Page<CriterionCoverageView>>
 {
     public async ValueTask<Result<Page<CriterionCoverageView>>> HandleAsync(
@@ -62,10 +62,12 @@ public sealed class ListCriteriaCoverageHandler(IAggregateReader reader, ICriter
             .ToDictionary(static decision => decision.CriterionIdentifier,
                 static decision => decision.DecisionId, StringComparer.Ordinal);
         var entries = catalog.ListEntries(editionId, request.Category, request.Kind, null);
-        var displayEntries = await overlays.ApplyPageAsync(request.TenantId, entries, false, ct)
+        var projectedEntries = await overlays.ApplyPageAsync(request.TenantId, entries, false, ct)
             .ConfigureAwait(false);
+        if (!projectedEntries.IsSuccess)
+            return Result<Page<CriterionCoverageView>>.Failure(projectedEntries.Error);
         var items = new List<CriterionCoverageView>();
-        foreach (var entry in displayEntries)
+        foreach (var entry in projectedEntries.Value)
         {
             var item = Coverage(entry, mappings[entry.Identifier].ToArray(), current,
                 notApplicable.TryGetValue(entry.Identifier, out var decisionId) ? decisionId : null);
