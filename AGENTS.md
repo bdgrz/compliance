@@ -32,7 +32,7 @@ Follow `.editorconfig`: UTF-8, LF, final newline, four-space C# indentation, and
 5. **Refine and refactor:** address findings, simplify the implementation, and rerun the focused test plus the unit-test suite. Push the revised head and repeat review as needed.
 6. **Squash merge:** merge after the final PR head has passed required CI and the adversarial review is clear.
 
-The current feature-delivery gate is unit tests. End-to-end validation is a later phase, after backend and client features work independently; it is not required for current issue completion, PR review, or merge.
+For both backend and frontend features, current acceptance is proved with focused and full unit tests. Integration, broker, split-host, and end-to-end test execution is not an issue, PR, CI, or merge requirement. End-to-end validation is a later phase, after backend and client features work independently.
 
 ## JEV and Backlog Workflow
 

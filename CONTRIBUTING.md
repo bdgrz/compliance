@@ -45,8 +45,10 @@ test results, and exact-head CI checks. A previously merged PR can satisfy part
 of a child's criteria, but record the remaining gaps explicitly. Client issues
 are completed in their owning web or mobile repositories after their contract,
 accessible workflow, required UI states, and unit-test results are evidenced.
-Clients consume backend contracts; they do not redefine authorization or
-domain policy.
+Both backend and frontend feature acceptance uses unit tests in this phase;
+integration test execution is not an issue, PR, CI, or merge requirement.
+End-to-end validation is deferred until features work independently. Clients
+consume backend contracts; they do not redefine authorization or domain policy.
 
 1. Take the lowest Run order item marked Ready, move its capability bundle to Active, and open a branch for that reviewable backend outcome. Link related client issues in their separate repositories; do not combine cross-repository code in one PR. Keep domain code within the ownership boundaries documented in `README.md`.
 2. Follow the fast TDD loop in both backend and frontend repositories: add a focused failing unit test (red), make the smallest correction that passes it (green), and run the repository's unit-test suite before opening the PR.
