@@ -25994,6 +25994,13 @@
                       "null",
                       "string"
                     ]
+                  },
+                  "provider_id": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "format": "uuid"
                   }
                 }
               }
@@ -154330,6 +154337,13 @@
             "type": "string",
             "format": "uuid"
           },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
           "kind": {
             "type": "string"
           },
@@ -159085,6 +159099,13 @@
           },
           "service_id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "kind": {
@@ -169777,6 +169798,13 @@
           },
           "service_id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "kind": {

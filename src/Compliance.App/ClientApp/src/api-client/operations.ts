@@ -10338,6 +10338,7 @@ export type CreateCommitmentDraftBody = {
   "statement": string | null;
   "context": string | null;
   "source_reference": string | null;
+  "provider_id"?: string | null;
 };
 
 export type CreateCommitmentDraftResponse200 = PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05;

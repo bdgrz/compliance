@@ -14,4 +14,8 @@ public sealed record CommitmentVersionView(Uuid TenantId, Uuid ProgramId, Uuid D
     string Applicability, string Interpretation, string? InterpretationNote,
     string PerformedBy, bool InternallyPerformed, DateOnly EffectiveFrom,
     CommitmentDecisionView Decision, string SourceResolution = "unverified",
-    string? SourceEvidence = null, CommitmentDecisionView? Approval = null);
+    string? SourceEvidence = null, CommitmentDecisionView? Approval = null)
+{
+    /// <summary>The subservice provider responsible for this CSOC, when recorded.</summary>
+    public Uuid? ProviderId { get; init; }
+}

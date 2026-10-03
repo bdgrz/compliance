@@ -22,6 +22,7 @@ import {
   label,
   listCommitmentDrafts,
   listServiceOptions,
+  listSubserviceProviderOptions,
   ProgramRequestError,
 } from '../commitments.js';
 
@@ -34,12 +35,17 @@ export function CommitmentsPage({ programId }: { programId: string }) {
   const services = resource(() => listServiceOptions(programId), [programId]);
   const [kind, setKind] = state<string>('service_commitment');
   const [serviceId, setServiceId] = state('');
+  const [providerId, setProviderId] = state('');
   const [identifier, setIdentifier] = state('');
   const [statement, setStatement] = state('');
   const [context, setContext] = state('');
   const [sourceReference, setSourceReference] = state('');
   const [pending, setPending] = state(false);
   const [actionError, setActionError] = state<Error | null>(null);
+  const subserviceProviders = resource(
+    () => kind() === 'subservice_responsibility' ? listSubserviceProviderOptions() : Promise.resolve([]),
+    [kind()]
+  );
   const back = <a href={organizationPath(`/programs/${programId}`)}>Back to program</a>;
 
   if (drafts.pending && !drafts.value) {
@@ -81,7 +87,10 @@ export function CommitmentsPage({ programId }: { programId: string }) {
 
   const list = drafts.value ?? [];
   const serviceList = services.value ?? [];
+  const providerList = subserviceProviders.value ?? [];
   const selectedService = serviceId() || serviceList[0]?.serviceId || '';
+  const selectedProvider = providerList.find((provider) => provider.providerId === providerId()) ?? providerList[0];
+  const requiresProvider = kind() === 'subservice_responsibility';
 
   async function create(event: Event) {
     event.preventDefault();
@@ -95,6 +104,7 @@ export function CommitmentsPage({ programId }: { programId: string }) {
         statement: statement(),
         context: context(),
         sourceReference: sourceReference(),
+        providerId: requiresProvider ? selectedProvider?.providerId ?? null : null,
       });
       window.location.assign(organizationPath(`/programs/${programId}/commitments/${draftId}`));
     } catch (failure) {
@@ -137,6 +147,9 @@ export function CommitmentsPage({ programId }: { programId: string }) {
                         <span className="commitment-meta">
                           {item.statement.slice(0, 100)} · revision {item.revision} · {label(item.status)} · source{' '}
                           {label(item.sourceResolution)}
+                          {item.kind === 'subservice_responsibility' && item.providerId ? (
+                            <> · Subservice provider <a href={organizationPath(`/providers/${item.providerId}`)}>{item.providerId}</a></>
+                          ) : null}
                         </span>
                       </li>
                     ))}
@@ -180,6 +193,32 @@ export function CommitmentsPage({ programId }: { programId: string }) {
                     ))}
                   </select>
                 </label>
+                {requiresProvider ? (
+                  <div className="registration-field">
+                    <label htmlFor="commitment-subservice-provider">Subservice provider</label>
+                    {subserviceProviders.pending ? (
+                      <p role="status">Loading subservice providers…</p>
+                    ) : subserviceProviders.error ? (
+                      <p role="alert">{subserviceProviders.error.message}</p>
+                    ) : providerList.length === 0 ? (
+                      <p>Record a provider as a subservice organization before adding its CSOCs.</p>
+                    ) : (
+                      <select
+                        id="commitment-subservice-provider"
+                        value={selectedProvider?.providerId ?? ''}
+                        onChange={(event: Event) => setProviderId(inputValue(event))}
+                        required
+                      >
+                        <option value="" disabled>Select a subservice provider</option>
+                        {providerList.map((provider) => (
+                          <option value={provider.providerId} selected={provider.providerId === selectedProvider?.providerId}>
+                            {provider.name} · {provider.boundaryTreatment?.replaceAll('_', ' ') ?? 'treatment unresolved'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ) : null}
                 <label className="registration-field">
                   <span>Identifier</span>
                   <input type="text" value={identifier()} onInput={(event: Event) => setIdentifier(inputValue(event))} required />
@@ -202,7 +241,12 @@ export function CommitmentsPage({ programId }: { programId: string }) {
                   />
                 </label>
                 {error ? <p role="alert">{describeCommitmentFailure(error)}</p> : null}
-                <Button variant="primary" type="submit" disabled={pending() || selectedService === ''}>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  disabled={pending() || selectedService === '' ||
+                    (requiresProvider && (subserviceProviders.pending || !!subserviceProviders.error || !selectedProvider))}
+                >
                   {pending() ? 'Saving…' : 'Create draft'}
                 </Button>
               </Stack>
