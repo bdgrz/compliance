@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.Providers;
 
 namespace Bdgrz.Compliance.Features.Readiness;
 
@@ -12,6 +13,8 @@ public sealed record ReadinessSourceSet(IReadOnlyList<ReadinessBoundaryInput> Bo
     IReadOnlyList<SnapshotView> Snapshots)
 {
     public static ReadinessSourceSet Empty { get; } = new([], [], [], []);
+
+    public IReadOnlyList<ReadinessProviderInput> Providers { get; init; } = [];
 
     public IReadOnlyList<string> TruncatedFamilies { get; init; } = [];
 }

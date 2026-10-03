@@ -6,24 +6,25 @@ using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Providers;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 4 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 5 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
 ///     Version 2 added boundary, commitment, risk, and scope-snapshot rules. Version 3
 ///     acknowledged providers as not assessed. Version 4 selects the criteria edition that was
-///     in force at the requested as-of time. Risk rule is the
+///     in force at the requested as-of time. Version 5 adds as-of provider review and CSOC rules. Risk rule is the
 ///     conservative provisional R1-08 choice (#492): every program risk must be residual
 ///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/4";
+    public const string Version = "readiness-rules/5";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -31,6 +32,9 @@ public static class ReadinessRules
     public const string CommitmentEffective = "commitment_effective";
     public const string RiskResolved = "risk_assessed_and_treated";
     public const string ScopeSnapshotFrozen = "program_scope_snapshot_frozen";
+    public const string ProviderMaterialityResolved = "provider_materiality_resolved";
+    public const string ProviderReviewCurrent = "material_provider_has_current_review";
+    public const string ProviderCsocLinked = "carved_out_subservice_has_csoc";
     public const string RuleMet = "rule_met";
     public const string Gap = "gap";
 
@@ -38,7 +42,7 @@ public static class ReadinessRules
     public static readonly IReadOnlyList<string> UnassessedFamilies =
     [
         "applications_access_review_scope", "workforce", "technology_inventory",
-        "evidence", "providers",
+        "evidence",
     ];
 
     public static Uuid GapIdFor(Uuid programId, string ruleId, string subject) =>
@@ -236,6 +240,8 @@ public static class ReadinessRules
                 ScopeSnapshotFrozen, "No program scope snapshot was frozen by the as-of time.",
                 []));
 
+        EvaluateProviders(programId, asOf, sources, inputs, gaps, fingerprint);
+
         foreach (var family in sources.TruncatedFamilies.Order(StringComparer.Ordinal))
         {
             fingerprint.Append("truncated|").Append(family).Append('\n');
@@ -245,6 +251,128 @@ public static class ReadinessRules
                 []));
         }
     }
+
+    static void EvaluateProviders(Uuid programId, DateTimeOffset asOf,
+        ReadinessSourceSet sources, List<ReadinessInputView> inputs,
+        List<ReadinessGapView> gaps, StringBuilder fingerprint)
+    {
+        var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
+        var providers = sources.Providers
+            .OrderBy(static input => input.Provider.ProviderId.ToString(), StringComparer.Ordinal)
+            .ToArray();
+        inputs.Add(new ReadinessInputView("providers", "assessed", providers.Length,
+            "Provider declarations, reviews and linked CSOCs retained by the as-of time."));
+
+        var csocs = sources.Commitments
+            .Where(commitment => commitment.CreatedAt <= asOf)
+            .Select(commitment => (Commitment: commitment,
+                Version: CommitmentVersionAt(commitment, asOf, asOfDate)))
+            .Where(static pair => IsApplicableProviderCsoc(pair.Version))
+            .ToArray();
+
+        foreach (var input in providers)
+        {
+            var provider = input.Provider;
+            var providerReference = new ReadinessSourceReference("provider", provider.ProviderId,
+                provider.Revision.ToString(CultureInfo.InvariantCulture));
+            var unresolvedMateriality = provider.Unresolved.Contains("materiality",
+                StringComparer.Ordinal);
+            fingerprint.Append("provider|").Append(provider.ProviderId).Append('|')
+                .Append(provider.Revision).Append('|').Append(provider.Content.Materiality)
+                .Append('|').Append(provider.Content.Subservice).Append('|')
+                .Append(provider.Content.BoundaryTreatment).Append('\n');
+            foreach (var report in input.Reports.OrderBy(static item => item.ReportId.ToString(),
+                         StringComparer.Ordinal))
+                fingerprint.Append("provider-report|").Append(report.ReportId).Append('|')
+                    .Append(report.Revision).Append('\n');
+            foreach (var review in input.Reviews.OrderBy(static item => item.ReviewId.ToString(),
+                         StringComparer.Ordinal))
+                fingerprint.Append("provider-review|").Append(review.ReviewId).Append('|')
+                    .Append(review.ProviderRevision).Append('|')
+                    .Append(review.AssuranceReportRevision).Append('|')
+                    .Append(review.Content.ReviewedAt.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('|').Append(review.Content.NextReviewDue.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('|').Append(review.Content.Conclusion).Append('\n');
+
+            if (unresolvedMateriality)
+                gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                        ProviderMaterialityResolved, provider.ProviderId.ToString()),
+                    "provider_materiality_unresolved", provider.ProviderId.ToString(),
+                    ProviderMaterialityResolved,
+                    $"Provider {provider.Content.Name} has unresolved materiality; classify it with a bounded rationale and basis.",
+                    [providerReference]));
+
+            var latestReview = input.Reviews
+                .Where(review => review.RecordedAt <= asOf &&
+                                 review.Content.ReviewedAt <= asOfDate)
+                .OrderByDescending(static review => review.Content.ReviewedAt)
+                .ThenByDescending(static review => review.RecordedAt)
+                .ThenByDescending(static review => review.ReviewId)
+                .FirstOrDefault();
+            IReadOnlyCollection<AssuranceReportView> selectedReport = [];
+            if (latestReview?.Content.AssuranceReportId is { } linkedReportId &&
+                latestReview.AssuranceReportRevision is { } linkedReportRevision)
+                selectedReport = input.Reports.Where(report =>
+                    report.ReportId == linkedReportId &&
+                    report.Revision == linkedReportRevision).ToArray();
+            var coverage = ProviderAssuranceCoverage.Evaluate(provider, selectedReport,
+                input.Reviews, asOfDate);
+            var reviewMatchesProvider = latestReview?.ProviderRevision == provider.Revision;
+            var externalEvidence = latestReview is { Content.AssuranceReportId: null, Content.Evidence: not null };
+            var reviewInForce = latestReview is not null &&
+                                latestReview.Content.Conclusion != "not_acceptable" &&
+                                latestReview.Content.NextReviewDue >= asOfDate &&
+                                reviewMatchesProvider &&
+                                (externalEvidence || coverage.Status == "current");
+            var reviewSources = new List<ReadinessSourceReference> { providerReference };
+            if (latestReview is not null)
+            {
+                reviewSources.Add(new ReadinessSourceReference("provider_review",
+                    latestReview.ReviewId,
+                    latestReview.ProviderRevision.ToString(CultureInfo.InvariantCulture)));
+                if (latestReview.Content.AssuranceReportId is { } sourceReportId &&
+                    latestReview.AssuranceReportRevision is { } sourceReportRevision)
+                    reviewSources.Add(new ReadinessSourceReference("assurance_report",
+                        sourceReportId, sourceReportRevision.ToString(CultureInfo.InvariantCulture)));
+                else if (latestReview.Content.Evidence?.ArtifactId is { } artifactId)
+                    reviewSources.Add(new ReadinessSourceReference("evidence_artifact", artifactId,
+                        null));
+            }
+            if (provider.Content.Materiality != "not_material" && !reviewInForce)
+            {
+                var detail = !reviewMatchesProvider && latestReview is not null
+                    ? "The latest review refers to a different provider revision."
+                    : $"The as-of assurance status is {coverage.Status}; an in-force review and its recorded evidence are required.";
+                var explanation = $"Material provider {provider.Content.Name} needs a current review for its as-of provider revision. {detail}";
+                gaps.Add(new ReadinessGapView(GapIdFor(programId, ProviderReviewCurrent,
+                        provider.ProviderId.ToString()), "provider_review_incomplete",
+                    provider.ProviderId.ToString(), ProviderReviewCurrent, explanation,
+                    reviewSources));
+            }
+
+            var providerCsocs = csocs.Where(pair => pair.Version!.ProviderId == provider.ProviderId)
+                .OrderBy(static pair => pair.Commitment.DraftId.ToString(), StringComparer.Ordinal)
+                .ToArray();
+            foreach (var csoc in providerCsocs)
+                fingerprint.Append("provider-csoc|").Append(provider.ProviderId).Append('|')
+                    .Append(csoc.Commitment.DraftId).Append('|').Append(csoc.Version!.Version)
+                    .Append('\n');
+            if (provider.Content.Subservice && provider.Content.BoundaryTreatment == "carve_out" &&
+                providerCsocs.Length == 0)
+            {
+                gaps.Add(new ReadinessGapView(GapIdFor(programId, ProviderCsocLinked,
+                        provider.ProviderId.ToString()), "carved_out_provider_without_csoc",
+                    provider.ProviderId.ToString(), ProviderCsocLinked,
+                    $"Carved-out subservice provider {provider.Content.Name} has no effective, applicable CSOC linked to it at the as-of time.",
+                    [providerReference]));
+            }
+        }
+    }
+
+    static bool IsApplicableProviderCsoc(CommitmentVersionView? version) =>
+        version is not null && version.Kind == "subservice_responsibility" &&
+        version.ProviderId is not null && version.Applicability == "applicable" &&
+        version.Interpretation == "supported";
 
     /// <summary>The boundary version approved by the as-of time with the latest effective date on or before it.</summary>
     static BoundaryVersionView? BoundaryVersionAt(ReadinessBoundaryInput boundary,

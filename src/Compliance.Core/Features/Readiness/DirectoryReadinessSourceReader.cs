@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.Providers;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -17,7 +18,7 @@ namespace Bdgrz.Compliance.Features.Readiness;
 sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
     ICommitmentDraftDirectoryReader commitments, IRiskDraftDirectoryReader risks,
     IRiskDraftHistoryDirectoryReader riskHistory, IRiskEvaluationDirectoryReader evaluations,
-    ISnapshotDirectoryReader snapshots)
+    ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance)
     : IReadinessSourceReader
 {
     public const int MaximumRecordsPerFamily = 500;
@@ -39,7 +40,6 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         var snapshotViews = await ScanAsync("population_snapshots", truncated, (cursor, token) =>
             snapshots.ListProgramAsync(tenantId, programId, PageSize, cursor, token), ct)
             .ConfigureAwait(false);
-
         var boundaryInputs = new List<ReadinessBoundaryInput>(boundaryViews.Count);
         foreach (var boundary in boundaryViews)
         {
@@ -54,6 +54,10 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             boundaryInputs.Add(new ReadinessBoundaryInput(boundary.BoundaryId, versions,
                 decisions));
         }
+
+        var scopedSubjects = SubjectsAt(boundaryInputs, asOf);
+        var providerInputs = await ReadProvidersAsync(tenantId, programId, asOf,
+            scopedSubjects, truncated, ct).ConfigureAwait(false);
 
         var commitmentInputs = new List<ReadinessCommitmentInput>(commitmentViews.Count);
         foreach (var commitment in commitmentViews)
@@ -87,8 +91,112 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         return new ReadinessSourceSet(boundaryInputs, commitmentInputs, riskInputs,
             snapshotViews)
         {
+            Providers = providerInputs,
             TruncatedFamilies = truncated,
         };
+    }
+
+    async ValueTask<IReadOnlyList<ReadinessProviderInput>> ReadProvidersAsync(Uuid tenantId,
+        Uuid programId, DateTimeOffset asOf, HashSet<(string SubjectType, Uuid RecordId)> scopedSubjects,
+        List<string> truncated, CancellationToken ct)
+    {
+        var currentProviders = await ScanAsync("providers", truncated, (cursor, token) =>
+            providers.ListAsync(tenantId, PageSize, cursor, token), ct).ConfigureAwait(false);
+        var inputs = new List<ReadinessProviderInput>();
+        var historyReads = 0;
+        var historyTruncated = false;
+        foreach (var current in currentProviders)
+        {
+            var provider = current;
+            while (provider.RecordedAt > asOf && provider.Revision > 1)
+            {
+                if (historyReads >= MaximumRecordsPerFamily)
+                {
+                    historyTruncated = true;
+                    break;
+                }
+                var previous = await providers.GetRevisionAsync(tenantId, provider.ProviderId,
+                    provider.Revision - 1, ct).ConfigureAwait(false);
+                if (previous is null)
+                {
+                    historyTruncated = true;
+                    break;
+                }
+                provider = previous;
+                historyReads++;
+            }
+            if (provider.RecordedAt > asOf)
+            {
+                if (provider.Revision > 1)
+                    historyTruncated = true;
+                continue;
+            }
+
+            var inProgram = (provider.Content.Dependencies ?? []).Any(dependency =>
+                dependency.SubjectId is not null &&
+                dependency.EffectiveFrom <= asOf &&
+                (dependency.EffectiveUntilExclusive is not { } until || asOf < until) &&
+                (dependency.SubjectKind == "client_service" && dependency.ProgramId == programId ||
+                 dependency.SubjectKind == "system_instance" &&
+                 scopedSubjects.Contains(("system_instance", dependency.SubjectId.Value))));
+            if (!inProgram)
+                continue;
+
+            var reviews = await ReadBoundedAsync((cursor, token) =>
+                    assurance.ListReviewsAsync(tenantId, provider.ProviderId, PageSize, cursor, token),
+                ProviderAssuranceRegister.MaximumRecordsPerProvider, ct).ConfigureAwait(false);
+            if (reviews.Truncated)
+            {
+                if (!truncated.Contains("providers", StringComparer.Ordinal))
+                    truncated.Add("providers");
+            }
+            var retainedReviews = reviews.Items
+                .Where(review => review.RecordedAt <= asOf).ToArray();
+            var reports = new Dictionary<(Uuid ReportId, long Revision), AssuranceReportView>();
+            foreach (var review in retainedReviews)
+            {
+                if (review.Content.AssuranceReportId is not { } reportId ||
+                    review.AssuranceReportRevision is not { } revision)
+                    continue;
+                var report = await assurance.GetReportRevisionAsync(tenantId, reportId,
+                    revision, ct).ConfigureAwait(false);
+                if (report is { } retained && retained.ProviderId == provider.ProviderId &&
+                    retained.RecordedAt <= asOf)
+                    reports[(reportId, revision)] = retained;
+            }
+            inputs.Add(new ReadinessProviderInput(provider,
+                reports.Values.ToArray(), retainedReviews));
+        }
+        if (historyTruncated && !truncated.Contains("providers", StringComparer.Ordinal))
+            truncated.Add("providers");
+        return inputs;
+    }
+
+    static HashSet<(string SubjectType, Uuid RecordId)> SubjectsAt(
+        IReadOnlyList<ReadinessBoundaryInput> boundaries,
+        DateTimeOffset asOf)
+    {
+        var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
+        var subjects = new HashSet<(string SubjectType, Uuid RecordId)>();
+        foreach (var boundary in boundaries)
+        {
+            var approvedBy = boundary.Decisions
+                .Where(decision => decision.Outcome == "approve" && decision.DecidedAt <= asOf)
+                .Select(static decision => decision.VersionId)
+                .ToHashSet();
+            var version = boundary.ApprovedVersions
+                .Where(item => approvedBy.Contains(item.VersionId) &&
+                               item.EffectiveFrom is { } from && from <= asOfDate)
+                .MaxBy(static item => item.EffectiveFrom);
+            if (version is null)
+                continue;
+            foreach (var entry in version.Content.Entries.Where(static entry =>
+                         entry.Kind == "inclusion" && !entry.Unresolved &&
+                         entry.SubjectType is "service" or "system_instance" &&
+                         entry.GovernedRecordId is not null))
+                subjects.Add((entry.SubjectType, entry.GovernedRecordId!.Value));
+        }
+        return subjects;
     }
 
     /// <summary>The risk status computed only from assessments, treatment, and acceptances recorded by the as-of time.</summary>
@@ -138,5 +246,22 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             cursor = page.NextCursor;
         } while (cursor is not null);
         return items;
+    }
+
+    static async ValueTask<(IReadOnlyList<T> Items, bool Truncated)> ReadBoundedAsync<T>(
+        Func<string?, CancellationToken, ValueTask<Page<T>>> read, int maximum,
+        CancellationToken ct)
+    {
+        var items = new List<T>();
+        string? cursor = null;
+        do
+        {
+            var page = await read(cursor, ct).ConfigureAwait(false);
+            items.AddRange(page.Items);
+            cursor = page.NextCursor;
+            if (items.Count > maximum)
+                return (items.Take(maximum).ToArray(), true);
+        } while (cursor is not null);
+        return (items, false);
     }
 }
