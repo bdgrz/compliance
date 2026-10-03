@@ -164,7 +164,7 @@ describe('member suspension (R1-04d frontend #191)', () => {
     await vi.waitFor(() => expect(container.textContent).toContain('Firm staff'));
 
     // Assert
-    expect(container.textContent).toContain('no access to business records until an accepted engagement assignment');
+    expect(container.textContent).toContain('No business-record access until an accepted engagement assignment');
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 

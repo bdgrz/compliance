@@ -228,12 +228,40 @@ describe('commitment authoring (R1-13 frontend #230)', () => {
       items: [{ tenant_id: tenantId, service_id: serviceId, revision: 1, name: 'Payments', purpose: 'p', owner_reference: 'o', status: 'active', last_changed_by_member_id: 'a', last_changed_by_display: 'A', last_changed_at: '2026-09-20T00:00:00Z' }],
       next_cursor: null,
     });
+    api.reply(`GET ${base}/providers`, 200, {
+      items: [{
+        tenant_id: tenantId,
+        provider_id: '0190a1b2-0000-7000-8000-0000000000b2',
+        revision: 1,
+        content: {
+          name: 'Cloud hosting',
+          provider_kind: 'hosting',
+          materiality: null,
+          materiality_basis: [],
+          materiality_rationale: null,
+          subservice: true,
+          boundary_treatment: 'carve_out',
+          boundary_treatment_rationale: null,
+          owner_person_id: null,
+          owner_reference: null,
+          dependencies: [],
+          source_citation: null,
+        },
+        source_kind: 'manual',
+        lifecycle: 'active',
+        unresolved: [],
+        recorded_by: { display: 'Avery Author' },
+        recorded_at: '2026-09-20T00:00:00Z',
+      }],
+      next_cursor: null,
+    });
     api.reply(`POST ${list}`, 409, problem(409, 'The draft identifier already exists.'));
     const container = mount(() => <CommitmentsPage programId={programId} />);
     await vi.waitFor(() => expect(container.querySelector('option[value="' + serviceId + '"]')).not.toBeNull());
     const kind = field(container, 'Kind') as HTMLSelectElement;
     kind.value = 'subservice_responsibility';
     kind.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(container.querySelector('#commitment-subservice-provider option')).not.toBeNull());
     type(field(container, 'Identifier') as HTMLInputElement, 'CSOC-01');
     type(field(container, 'Statement') as HTMLTextAreaElement, 'The hosting provider patches hypervisors.');
     type(field(container, 'Source reference') as HTMLInputElement, 'Hosting SOC 2 report');

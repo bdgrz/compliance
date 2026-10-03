@@ -95,6 +95,12 @@ export function CommitmentsPage({ programId }: { programId: string }) {
   async function create(event: Event) {
     event.preventDefault();
     setActionError(null);
+    if (requiresProvider && (subserviceProviders.pending || subserviceProviders.error || !selectedProvider)) {
+      setActionError(
+        subserviceProviders.error ?? new Error('Load and select a subservice provider before creating a CSOC.')
+      );
+      return;
+    }
     setPending(true);
     try {
       const draftId = await createCommitmentDraft(programId, {

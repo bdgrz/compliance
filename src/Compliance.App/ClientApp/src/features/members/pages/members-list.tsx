@@ -196,9 +196,7 @@ export function MembersPage() {
                     <span>{member.suspended ? 'Suspended' : 'Active'}</span>
                   </Block>
                   {member.affiliation === 'firm_staff' ? (
-                    <p className="role-explanation">
-                      No business-record access until an accepted engagement assignment.
-                    </p>
+                    <p className="role-explanation">{firmStaffNoAccessNotice}</p>
                   ) : null}
                 </li>
               ))}
