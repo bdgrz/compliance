@@ -26,6 +26,7 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                             created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
                         {
                             LastChangedBy = created.Actor,
+                            ProviderId = created.ProviderId,
                         }, ct)
                     .ConfigureAwait(false);
                 await CommitmentDraftDirectorySchema.Revisions.InsertAsync(Transaction,
@@ -35,6 +36,7 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                             created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
                         {
                             Actor = created.Actor,
+                            ProviderId = created.ProviderId,
                         }, ct)
                     .ConfigureAwait(false);
                 break;
@@ -70,6 +72,7 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                         revised.ActorDisplay, revised.ChangedAt)
                     {
                         Actor = revised.Actor,
+                        ProviderId = current.ProviderId,
                     }, ct).ConfigureAwait(false);
                 break;
             case CommitmentReviewed reviewed:
@@ -112,7 +115,10 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                     reviewed.Interpretation!, reviewed.InterpretationNote,
                     CommitmentDraft.PerformedBy(current.Kind),
                     CommitmentDraft.IsInternallyPerformed(current.Kind),
-                    reviewed.EffectiveFrom!.Value, decision), ct).ConfigureAwait(false);
+                    reviewed.EffectiveFrom!.Value, decision)
+                {
+                    ProviderId = current.ProviderId,
+                }, ct).ConfigureAwait(false);
         var accepted = StringComparer.Ordinal.Equals(reviewed.Outcome, "accept");
         await CommitmentDraftDirectorySchema.Drafts.ReplaceAsync(Transaction, current,
             accepted
@@ -157,7 +163,10 @@ sealed class FitzCommitmentDraftDirectory(IKvClient client)
                 review.InterpretationNote, CommitmentDraft.PerformedBy(current.Kind),
                 CommitmentDraft.IsInternallyPerformed(current.Kind), approved.EffectiveFrom,
                 review, review.SourceVerification ?? "unverified", review.SourceEvidence,
-                decision), ct).ConfigureAwait(false);
+                decision)
+            {
+                ProviderId = current.ProviderId,
+            }, ct).ConfigureAwait(false);
         await CommitmentDraftDirectorySchema.Drafts.ReplaceAsync(Transaction, current,
             current with { Status = "effective" }, ct).ConfigureAwait(false);
     }

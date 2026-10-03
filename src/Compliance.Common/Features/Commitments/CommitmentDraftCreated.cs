@@ -10,6 +10,9 @@ public sealed record CommitmentDraftCreated(Uuid TenantId, Uuid ProgramId, Uuid 
     string Statement, string Context, string SourceReference,
     Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
 {
+    /// <summary>The provider that performs a canonical CSOC; absent on legacy or non-CSOC drafts.</summary>
+    public Uuid? ProviderId { get; init; }
+
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }
 

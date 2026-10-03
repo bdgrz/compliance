@@ -17,22 +17,22 @@ Every open issue belongs to the project and has a priority and one **Delivery qu
 
 | Queue | Meaning | Selection rule |
 | --- | --- | --- |
-| Active | One capability bundle is being implemented or verified. | Finish its acceptance and PR lifecycle before starting another. |
-| Ready | An implementation issue with known inputs and no open prerequisite. | Select the lowest Run order after Active completes. |
+| Active | An independent capability bundle is being implemented or verified in its own branch/worktree. Multiple bundles may be Active concurrently. | Keep each lane isolated; start another Ready bundle when a lane has capacity and its dependencies are closed. |
+| Ready | An implementation issue with known inputs and no open prerequisite. | Select the lowest Run order when a lane opens. |
 | Blocked | A current R1 implementation issue waiting on a named upstream issue or external platform capability. | Move to Ready only after checking the actual dependency and remaining acceptance. |
 | Later | Approved future-stage backend work or frontend work parked during the backend-first pass. | Re-triage when its consuming workflow enters the near horizon. |
 | Discovery | A real-world fact, professional decision, measurement, or unvalidated P2 hypothesis. | Record who or what supplies the evidence; do not treat it as implementation-ready. |
 | Outcome | Product or enabler parent that tracks integrated acceptance. | Keep open until its children and end-to-end outcome pass. |
 
-**Status** is Todo, In Progress, or Done. Only the Active capability is In Progress. **Run order** is a short, dependency-aware lookahead, not a fixed roadmap; update it after each merge or material discovery. Priority is urgency for the product release, not permission to bypass a blocker.
+**Status** is Todo, In Progress, or Done. Every Active capability is In Progress; other queues remain Todo until their work starts. **Run order** is a short, dependency-aware launch order sized to keep available lanes fed, not a fixed roadmap; update it after each merge or material discovery. Priority is urgency for the product release, not permission to bypass a blocker.
 
 ## One delivery loop
 
-1. Refresh the issue, its dependencies and comments, open PRs, the current branch, and the project fields. Preserve unrelated worktrees and uncommitted changes. If a dependency is already closed, inspect its acceptance evidence before removing the edge.
-2. Pick one Ready capability. Before coding, state its user or operator outcome, exact acceptance, upstream contract, non-goals, and which existing children the PR can close. If an issue only describes a test or technical layer, fold its proof into the owning capability issue. Split an issue only to break a real dependency cycle or make an independently useful result closable.
+1. Refresh the issue, its dependencies and comments, open PRs, the current branch, and the project fields. Preserve unrelated worktrees and uncommitted changes. Give each Active lane its own branch/worktree. If a dependency is already closed, inspect its acceptance evidence before removing the edge.
+2. Fill available lanes from Ready in Run order. Before coding, state each bundle's user or operator outcome, exact acceptance, upstream contract, non-goals, and every existing child the PR can close. Batch related backend, UI, and proof issues into one capability PR when they share an outcome or contract. If an issue only describes a test or technical layer, fold its proof into the owning capability issue. Split an issue only to break a real dependency cycle or make an independently useful result closable.
 3. Write a focused failing behavior test, implement the domain and authorized HTTP/MCP path, and prove tenant isolation, replay, lag/recovery, and standalone/split-host behavior where applicable. Personal proofs, attestations, approvals, and sign-offs remain HTTP-only.
-4. Run the focused gate during development, then the full applicable local gate once the bundle is reviewable. Open a PR to `develop`, review the exact head, fix findings, and require the repository checks and required native AOT qualification before squash merge.
-5. Read back the merged commit and each linked issue. Close only acceptance that actually passed. Record remaining gaps on partial issues, update the product parent if the integrated outcome advanced, move completed project items to Done, and promote the next unblocked issue to Ready. Keep Active to one bundle.
+4. Run focused gates during development, then the full applicable local gate once the bundle is reviewable. Open PRs to `develop` as lanes become reviewable; let independent CI runs overlap, review exact heads, fix findings, and require repository checks and required native AOT qualification before squash merge. Coordinate shared registration and generated-contract files through an integration owner to avoid repeated conflicts and CI runs.
+5. Read back each merged commit and every linked issue. Close only acceptance that actually passed. Record remaining gaps on partial issues, update the product parent if the integrated outcome advanced, move completed project items to Done, and refill open lanes from the next unblocked Ready items.
 
 Jev can classify issue shape, spot likely blockers, and challenge a proposed bundle. Its probabilities are triage signals. GitHub issue state, product decisions, code, tests, and exact-head CI determine closure and readiness. Recheck Jev disagreements against those sources; do not turn a model judgment into an automatic issue closure.
 

@@ -633,6 +633,10 @@ public sealed class ScopeSnapshotTests
 
     sealed class SnapshotDirectoryStub(SnapshotView? view) : ISnapshotDirectoryReader
     {
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(default(ProjectionCheckpoint));
+
         public ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
             CancellationToken ct = default) => ValueTask.FromResult(view);
 

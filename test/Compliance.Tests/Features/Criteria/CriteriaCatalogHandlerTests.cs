@@ -16,7 +16,8 @@ public sealed class CriteriaCatalogHandlerTests
     public async Task ShouldWalkFilteredPagesAndRejectTransplantedCursorGivenOtherTenant()
     {
         // Arrange
-        var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform);
+        var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform,
+            new CriteriaTextOverlayReader(new EmptyReader()));
         var request = new ListCriteriaCatalogEntries(TenantId, EditionId, "security",
             "criterion", Limit: 10);
 
@@ -59,7 +60,8 @@ public sealed class CriteriaCatalogHandlerTests
         int limit)
     {
         // Arrange
-        var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform);
+        var handler = new ListCriteriaCatalogEntriesHandler(CriteriaCatalog.Platform,
+            new CriteriaTextOverlayReader(new EmptyReader()));
 
         // Act
         var result = await ListAsync(handler, new ListCriteriaCatalogEntries(TenantId, EditionId,
@@ -73,7 +75,8 @@ public sealed class CriteriaCatalogHandlerTests
     public async Task ShouldReturnNotFoundGivenUnknownEditionOrIdentifier()
     {
         // Arrange
-        var entries = new GetCriteriaCatalogEntryHandler(CriteriaCatalog.Platform);
+        var entries = new GetCriteriaCatalogEntryHandler(CriteriaCatalog.Platform,
+            new CriteriaTextOverlayReader(new EmptyReader()));
         var editions = new GetCriteriaCatalogEditionHandler(CriteriaCatalog.Platform);
 
         // Act
@@ -97,4 +100,11 @@ public sealed class CriteriaCatalogHandlerTests
         ListCriteriaCatalogEntries request) =>
         await handler.HandleAsync(new RequestContext<ListCriteriaCatalogEntries>(request, Actor),
             CancellationToken.None);
+
+    sealed class EmptyReader : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult(aggregate);
+    }
 }

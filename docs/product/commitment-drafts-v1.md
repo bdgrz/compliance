@@ -14,8 +14,13 @@ readiness, control operation, or an auditor conclusion.
   are `service_commitment`, `system_requirement`,
   `user_entity_responsibility`, and `subservice_responsibility`. The last two
   represent CUEC and CSOC drafts; they never count as internally performed
-  controls. `source_reference` is a user-supplied locator, not imported
-  contract text or verified source provenance.
+  controls. A `subservice_responsibility` also requires `provider_id` for an
+  existing tenant Provider marked as a subservice organization; other kinds
+  reject `provider_id`. This is the canonical CSOC-to-provider link from M0-D09
+  and M0-D11. The provider association is immutable across draft revisions and
+  is carried by current, historical, and effective-version reads.
+  `source_reference` is a user-supplied locator, not imported contract text or
+  verified source provenance.
 - `PUT .../commitment-drafts/{draft_id}` revises statement, context, and
   source reference with `expected_revision`. Kind, identifier, program, and
   service do not change. Each accepted change retains its author and exact
@@ -47,7 +52,9 @@ aggregate callback checks that state only for a new draft, so a replay still
 works after service retirement. Creating a service retirement and a draft in
 different streams is not one atomic transaction; #229 still needs the
 cross-record consistency policy before an approved commitment can depend on
-that relationship.
+that relationship. CSOC creation similarly validates the tenant provider
+register before appending the draft; it does not claim an atomic transaction
+with a concurrent provider revision.
 
 A new or revised draft says `status: draft`, `source_resolution: unverified`,
 `owner_resolution: unresolved`, and `applicability_resolution: unresolved`.

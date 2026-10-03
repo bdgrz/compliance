@@ -181,6 +181,9 @@ public sealed class FitzRiskDraftHistoryDirectoryV1Tests
         public int ListCalls { get; private set; }
         public int RevisionReads { get; private set; }
 
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => inner.LoadCheckpointAsync(tenantId, ct);
+
         public ValueTask<RiskDraftRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid riskId,
             long revision, CancellationToken ct = default)
         {

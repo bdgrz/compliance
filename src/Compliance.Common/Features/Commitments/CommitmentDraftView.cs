@@ -10,6 +10,9 @@ public sealed record CommitmentDraftView(Uuid TenantId, Uuid ProgramId, Uuid Dra
     string Statement, string Context, string SourceReference,
     Uuid LastChangedByMemberId, string LastChangedByDisplay, DateTimeOffset LastChangedAt)
 {
+    /// <summary>The subservice provider responsible for this CSOC, when recorded.</summary>
+    public Uuid? ProviderId { get; init; }
+
     readonly ActorReference? _lastChangedBy;
 
     /// <summary>The snapshotted actor; pre-snapshot rows fall back to the member columns.</summary>

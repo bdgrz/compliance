@@ -25,6 +25,7 @@ sealed class FitzCommitmentDraftHistoryDirectoryV1(IKvClient client)
                             created.ActorMemberId, created.ActorDisplay, created.ChangedAt)
                         {
                             Actor = created.Actor,
+                            ProviderId = created.ProviderId,
                         }, ct)
                     .ConfigureAwait(false);
                 break;
@@ -48,6 +49,7 @@ sealed class FitzCommitmentDraftHistoryDirectoryV1(IKvClient client)
                         revised.ActorDisplay, revised.ChangedAt)
                     {
                         Actor = revised.Actor,
+                        ProviderId = predecessor.ProviderId,
                     }, ct).ConfigureAwait(false);
                 break;
         }

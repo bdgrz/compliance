@@ -1,5 +1,6 @@
 import { createApiClient } from '../../api-client/index.js';
 import { programFailure, ProgramRequestError } from '../programs/programs.js';
+import { listProviders } from '../providers/providers.js';
 import { requireActiveTenantId } from '../tenants/tenants.js';
 
 const client = createApiClient();
@@ -38,6 +39,7 @@ export function label(value: string | null | undefined): string {
 export interface CommitmentDraft {
   draftId: string;
   serviceId: string;
+  providerId: string | null;
   kind: string;
   identifier: string;
   revision: number;
@@ -54,6 +56,7 @@ export interface CommitmentDraft {
 
 export interface CommitmentRevision {
   revision: number;
+  providerId: string | null;
   statement: string;
   context: string;
   sourceReference: string;
@@ -85,6 +88,7 @@ export interface CommitmentDecision {
 export interface CommitmentVersion {
   version: number;
   revision: number;
+  providerId: string | null;
   statement: string;
   context: string;
   sourceReference: string;
@@ -116,6 +120,12 @@ export interface ServiceOption {
   name: string;
 }
 
+export interface ProviderOption {
+  providerId: string;
+  name: string;
+  boundaryTreatment: string | null;
+}
+
 export interface DraftInput {
   statement: string;
   context: string;
@@ -126,6 +136,7 @@ type Actor = { display: string } | null | undefined;
 type DraftData = {
   draft_id: string;
   service_id: string;
+  provider_id?: string | null;
   kind: string;
   identifier: string;
   revision: number | string;
@@ -163,6 +174,7 @@ type DecisionData = {
 type VersionData = {
   version: number | string;
   revision: number | string;
+  provider_id?: string | null;
   statement: string;
   context: string;
   source_reference: string;
@@ -183,6 +195,7 @@ function toDraft(data: DraftData): CommitmentDraft {
   return {
     draftId: data.draft_id,
     serviceId: data.service_id,
+    providerId: data.provider_id ?? null,
     kind: data.kind,
     identifier: data.identifier,
     revision: Number(data.revision),
@@ -224,6 +237,7 @@ function toVersion(data: VersionData): CommitmentVersion {
   return {
     version: Number(data.version),
     revision: Number(data.revision),
+    providerId: data.provider_id ?? null,
     statement: data.statement,
     context: data.context,
     sourceReference: data.source_reference,
@@ -281,6 +295,17 @@ export async function listServiceOptions(programId: string): Promise<ServiceOpti
   return services;
 }
 
+export async function listSubserviceProviderOptions(): Promise<ProviderOption[]> {
+  const providers = await listProviders();
+  return providers
+    .filter((provider) => provider.content.subservice)
+    .map((provider) => ({
+      providerId: provider.providerId,
+      name: provider.content.name,
+      boundaryTreatment: provider.content.boundaryTreatment,
+    }));
+}
+
 // `minimumRevision` asks the server to wait for (or report lag behind) a revision this client just wrote.
 export async function getCommitmentDraft(
   programId: string,
@@ -298,7 +323,7 @@ export async function getCommitmentDraft(
 
 export async function createCommitmentDraft(
   programId: string,
-  input: DraftInput & { serviceId: string; kind: string; identifier: string }
+  input: DraftInput & { serviceId: string; kind: string; identifier: string; providerId?: string | null }
 ): Promise<string> {
   const tenantId = requireActiveTenantId();
   const result = await client.createCommitmentDraft({
@@ -310,6 +335,7 @@ export async function createCommitmentDraft(
       statement: input.statement.trim(),
       context: input.context.trim(),
       source_reference: input.sourceReference.trim(),
+      ...(input.providerId ? { provider_id: input.providerId } : {}),
     },
   });
   if (!result.ok) throw programFailure(result, 'create the commitment');
@@ -348,6 +374,7 @@ export async function listCommitmentRevisions(programId: string, draftId: string
       if (item)
         revisions.push({
           revision: Number(item.revision),
+          providerId: (item as typeof item & { provider_id?: string | null }).provider_id ?? null,
           statement: item.statement,
           context: item.context,
           sourceReference: item.source_reference,

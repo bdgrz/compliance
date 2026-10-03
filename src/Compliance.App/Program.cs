@@ -82,6 +82,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetCriteriaCatalogEdition>(tool => tool.ReadOnly())
         .AddMcpTool<ListCriteriaCatalogEntries>(tool => tool.ReadOnly())
         .AddMcpTool<GetCriteriaCatalogEntry>(tool => tool.ReadOnly())
+        .AddMcpTool<ExportCriteriaCatalogEntries>(tool => tool.ReadOnly())
+        .AddMcpTool<SetCriteriaTextOverlay>(tool => tool.Idempotent())
         .AddMcpTool<SelectProgramCriteriaEdition>(tool => tool.Idempotent())
         .AddMcpTool<CreateControlDraft>()
         .AddMcpTool<ReviseControlDraft>(tool => tool.Idempotent())
@@ -209,6 +211,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListProviderAssuranceReports>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<ListProviderReviews>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<GetProviderAssuranceCoverage>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<PreviewProviderChange>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
         .AddMcpTool<ReviseTechnologyComponent>(tool => tool.Idempotent())
         .AddMcpTool<GetTechnologyComponent>(tool => tool.ReadOnly())
@@ -522,8 +525,16 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Criteria");
+    app.MapPortiaGet<ExportCriteriaCatalogEntries, Page<Criterion>>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/export")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
     app.MapPortiaGet<GetCriteriaCatalogEntry, Criterion>(
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaPut<SetCriteriaTextOverlay, CriteriaTextOverlayRegistration>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}/overlay")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Criteria");
     app.MapPortiaPut<SelectProgramCriteriaEdition>(
@@ -938,6 +949,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Risks");
     app.MapPortiaPost<AddRiskTreatmentAction, RiskTreatmentActionRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPut<ReviseRiskTreatmentAction>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Risks");
+    app.MapPortiaPost<CancelRiskTreatmentAction>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/cancellations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Risks");
     app.MapPortiaPost<SubmitRiskTreatmentActionCompletion,
@@ -1394,6 +1413,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<GetProviderAssuranceCoverage, ProviderAssuranceCoverageView>(
             "/api/v1/tenants/{tenant_id}/providers/{provider_id}/assurance-coverage")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPost<PreviewProviderChange, ProviderChangeImpactPreview>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/change-impact-previews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview provider change impact across systems, data, controls, evidence, and scope")
         .WithTags("Providers");
     app.MapPortiaPost<RecordTechnologyComponent, TechnologyComponentRegistration>(
             "/api/v1/tenants/{tenant_id}/technology-components")

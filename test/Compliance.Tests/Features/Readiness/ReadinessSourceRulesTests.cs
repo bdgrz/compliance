@@ -1,6 +1,8 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Providers;
 using Bdgrz.Compliance.Features.Readiness;
 using Bdgrz.Compliance.Features.Snapshots;
 using Cntryl.Portia;
@@ -30,10 +32,42 @@ public sealed class ReadinessSourceRulesTests
         foreach (var family in new[] { "boundaries", "commitments", "risks", "population_snapshots" })
             Assert.Equal("assessed", Assert.Single(evaluation.Inputs, i => i.Family == family)
                 .Status);
-        foreach (var family in new[] { "workforce", "technology_inventory", "evidence",
-                     "applications_access_review_scope" })
+        Assert.Equal("assessed", Assert.Single(evaluation.Inputs,
+            i => i.Family == "applications_access_review_scope").Status);
+        Assert.Equal("assessed", Assert.Single(evaluation.Inputs,
+            i => i.Family == "technology_inventory").Status);
+        foreach (var family in new[] { "workforce", "evidence" })
             Assert.Contains(evaluation.Gaps, g => g.Kind == "input_not_assessed" &&
                                                    g.Subject == family);
+    }
+
+    [Fact]
+    public void ShouldAssessProviderAndEmitStableReviewGapGivenMaterialProviderWithoutReview()
+    {
+        // Arrange
+        var providerId = Uuid.CreateVersion4();
+        var provider = new ProviderView(Tenant, providerId, 1,
+            new ProviderContent("Cloud hosting", "hosting", Materiality: "material",
+                Subservice: true, BoundaryTreatment: "carve_out"), "manual", "active", [],
+            ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), AsOf.AddDays(-2));
+        var sources = ReadinessSourceSet.Empty with
+        {
+            Providers = [new ReadinessProviderInput(provider, [], [])],
+        };
+
+        // Act
+        var evaluation = Evaluate(sources);
+
+        // Assert
+        var family = Assert.Single(evaluation.Inputs, input => input.Family == "providers");
+        Assert.Equal("assessed", family.Status);
+        Assert.Equal(1, family.RecordCount);
+        var gap = Assert.Single(evaluation.Gaps, item =>
+            item.Kind == "provider_review_incomplete" && item.Subject == providerId.ToString());
+        Assert.Equal(ReadinessRules.GapIdFor(Program, ReadinessRules.ProviderReviewCurrent,
+            providerId.ToString()), gap.GapId);
+        Assert.DoesNotContain(evaluation.Gaps, item => item.Kind == "input_not_assessed" &&
+            item.Subject == "providers");
     }
 
     [Fact]

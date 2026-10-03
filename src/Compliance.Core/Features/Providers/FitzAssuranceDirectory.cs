@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Features.Providers;
 sealed class FitzAssuranceDirectory(IKvClient client)
     : FitzKvProjectionStore(client, "kv://bdgrz/provider-assurance-v1/projection", ProjectorName), IAssuranceReader, IAssuranceProjection
 {
-    public const string ProjectorName = "ProviderAssuranceV1";
+    public const string ProjectorName = "ProviderAssuranceV2";
     Uuid? _batchTenantId;
 
     public new ValueTask<IProjectionBatch> BeginAsync(ProjectionBatchContext context,
@@ -30,6 +30,17 @@ sealed class FitzAssuranceDirectory(IKvClient client)
     public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId, CancellationToken ct = default) =>
         base.LoadCheckpointAsync(new CheckpointIdentity(ProjectorName,
             EventStreamPattern.ForPattern(tenantId.ToString(), ProviderAssuranceRegister.Area)), ct);
+
+    public async ValueTask<AssuranceReportView?> GetReportRevisionAsync(Uuid tenantId,
+        Uuid reportId, long revision, CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        var view = await AssuranceDirectorySchema.ReportRevisions.GetAsync(tx,
+            AssuranceDirectorySchema.ReportRevisionKey(reportId, revision), ct).ConfigureAwait(false);
+        return view?.TenantId == tenantId && view.ReportId == reportId && view.Revision == revision
+            ? view
+            : null;
+    }
 
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
@@ -74,12 +85,21 @@ sealed class FitzAssuranceDirectory(IKvClient client)
     async ValueTask ApplyReportAsync(AssuranceReportView view, CancellationToken ct)
     {
         RequireBatchTenant(view.TenantId, view.ProviderId, view.ReportId);
+        var revisionKey = AssuranceDirectorySchema.ReportRevisionKey(view.ReportId,
+            view.Revision);
+        var retainedRevision = await AssuranceDirectorySchema.ReportRevisions.GetAsync(
+            Transaction, revisionKey, ct).ConfigureAwait(false);
+        if (retainedRevision is not null && !Same(retainedRevision, view))
+            throw new InvalidOperationException("An assurance report revision cannot replace retained content.");
         var current = await AssuranceDirectorySchema.Reports.GetAsync(Transaction, view.ReportId, ct).ConfigureAwait(false);
         if (current is not null && current.Revision >= view.Revision)
         {
             // A replayed revision is idempotent only when it matches the retained current or a superseded fact.
             if (current.Revision == view.Revision && !Same(current, view))
                 throw new InvalidOperationException("An assurance report revision cannot replace retained content.");
+            if (retainedRevision is null)
+                await AssuranceDirectorySchema.ReportRevisions.InsertAsync(Transaction, view, ct)
+                    .ConfigureAwait(false);
             return;
         }
         if (current is null ? view.Revision != 1 : current.TenantId != view.TenantId ||
@@ -89,6 +109,9 @@ sealed class FitzAssuranceDirectory(IKvClient client)
             await AssuranceDirectorySchema.Reports.InsertAsync(Transaction, view, ct).ConfigureAwait(false);
         else
             await AssuranceDirectorySchema.Reports.ReplaceAsync(Transaction, current, view, ct).ConfigureAwait(false);
+        if (retainedRevision is null)
+            await AssuranceDirectorySchema.ReportRevisions.InsertAsync(Transaction, view, ct)
+                .ConfigureAwait(false);
     }
 
     async ValueTask ApplyReviewAsync(ProviderReviewView view, CancellationToken ct)

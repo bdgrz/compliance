@@ -9,8 +9,9 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Reads the program's selected edition, mapping ledger, and mapped controls, evaluates the
-///     current readiness rules as of the requested time, and records the exact inputs and results.
+///     Reads the program's criteria edition selected at the requested time, mapping ledger, and
+///     mapped controls, evaluates the current readiness rules as of that time, and records the
+///     exact inputs and results.
 ///     A missing input is recorded as an acknowledged gap; it never blocks the run.
 /// </summary>
 public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
@@ -32,7 +33,7 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
         if (!program.IsCreated)
             return Result<ReadinessAssessmentRegistration>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The program was not found."));
-        var editionId = program.CriteriaEditionId is { } selected &&
+        var editionId = program.CriteriaEditionAt(asOf) is { } selected &&
                         catalog.GetEdition(selected) is not null
             ? selected
             : (Uuid?)null;
@@ -55,10 +56,12 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
                 ? control.EffectiveVersion(effectiveOn)
                 : null;
         }
-        var sourceSet = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)
+        var sourceResult = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)
             .ConfigureAwait(false);
+        if (!sourceResult.IsSuccess)
+            return Result<ReadinessAssessmentRegistration>.Failure(sourceResult.Error);
         var evaluation = ReadinessRules.Evaluate(request.ProgramId, asOf, editionId, criteria,
-            mappings, controls, sourceSet);
+            mappings, controls, sourceResult.Value);
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");

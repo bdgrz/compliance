@@ -8,7 +8,7 @@ A Provider has a stable opaque identity owned by its tenant. Its governed name i
 
 Materiality is `material` or `not_material`, with `materiality_basis` drawn from `customer_data` and `critical_path`. Either exposure makes a provider material. Spend is not a basis. Missing classification, basis or rationale remains explicitly unresolved. A non-material classification cannot declare either exposure.
 
-Subservice treatment defaults to `carve_out`. An explicit `inclusive` declaration requires a rationale. Carved-out subservices retain an unresolved `csocs` fact: this slice does not create or verify CSOC commitments, reviews, reports or coverage. #231 and #489 own the remaining diligence and readiness rules.
+Subservice treatment defaults to `carve_out`. An explicit `inclusive` declaration requires a rationale. The provider register retains an unresolved `csocs` fact; creating a linked CSOC draft through #540 does not turn that registration fact into an approval or coverage claim. CSOCs are canonical `subservice_responsibility` commitments linked to the provider. Reviews, reports and readiness coverage remain separate, with readiness owned by #489.
 
 An accountable owner is an explicitly selected same-tenant canonical Person, including a Person without membership or login. Source-only owner text stays unresolved. The recording member is retained separately; an owner reference does not imply employment eligibility or grant access.
 

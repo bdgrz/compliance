@@ -5,6 +5,10 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance;
 
+[JsonSerializable(typeof(CriteriaTextOverlayEntryRevised))]
+[JsonSerializable(typeof(CriteriaTextOverlayRevision))]
+[JsonSerializable(typeof(CriteriaTextOverlayRegistration))]
+[JsonSerializable(typeof(SetCriteriaTextOverlay))]
 [PortiaJsonContext]
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,
@@ -27,6 +31,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ListProviderAssuranceReports))]
 [JsonSerializable(typeof(ListProviderReviews))]
 [JsonSerializable(typeof(GetProviderAssuranceCoverage))]
+[JsonSerializable(typeof(PreviewProviderChange))]
 [JsonSerializable(typeof(AssuranceReportRegistration))]
 [JsonSerializable(typeof(ProviderReviewRegistration))]
 [JsonSerializable(typeof(Page<AssuranceReportView>))]
@@ -39,6 +44,9 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(AssuranceReportContent))]
 [JsonSerializable(typeof(ProviderReviewContent))]
 [JsonSerializable(typeof(ProviderAssuranceCoverageView))]
+[JsonSerializable(typeof(ProviderChangeImpactPreview))]
+[JsonSerializable(typeof(ProviderChangeImpactSection))]
+[JsonSerializable(typeof(ProviderChangeAffectedRecord))]
 [JsonSerializable(typeof(ContinueWithDeveloperIdentity))]
 [JsonSerializable(typeof(DateTimeOffset))]
 [JsonSerializable(typeof(DeclareApplication))]
@@ -110,6 +118,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(SystemInstanceRegistered))]
 [JsonSerializable(typeof(CreateProgram))]
 [JsonSerializable(typeof(ListCriteriaCatalogEditions))]
+[JsonSerializable(typeof(ExportCriteriaCatalogEntries))]
 [JsonSerializable(typeof(GetCriteriaCatalogEdition))]
 [JsonSerializable(typeof(ListCriteriaCatalogEntries))]
 [JsonSerializable(typeof(GetCriteriaCatalogEntry))]
@@ -975,6 +984,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(RiskControlTreatmentRetired))]
 [JsonSerializable(typeof(RiskReassessmentTriggered))]
 [JsonSerializable(typeof(AddRiskTreatmentAction))]
+[JsonSerializable(typeof(ReviseRiskTreatmentAction))]
+[JsonSerializable(typeof(CancelRiskTreatmentAction))]
 [JsonSerializable(typeof(SubmitRiskTreatmentActionCompletion))]
 [JsonSerializable(typeof(ReviewRiskTreatmentActionCompletion))]
 [JsonSerializable(typeof(RiskTreatmentActionRegistration))]
@@ -982,6 +993,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(RiskTreatmentActionView))]
 [JsonSerializable(typeof(RiskTreatmentActionCompletionView))]
 [JsonSerializable(typeof(RiskTreatmentActionAdded))]
+[JsonSerializable(typeof(RiskTreatmentActionRevised))]
+[JsonSerializable(typeof(RiskTreatmentActionCancelled))]
 [JsonSerializable(typeof(RiskTreatmentActionCompletionSubmitted))]
 [JsonSerializable(typeof(RiskTreatmentActionCompletionReviewed))]
 [JsonSerializable(typeof(DesignateControlOwnerPerson))]

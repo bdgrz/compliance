@@ -40,13 +40,36 @@ public sealed class ProviderReadConsistency(IProviderReader directory, IAggregat
 
     public async ValueTask<Result> EnsureListCaughtUpAsync(Uuid tenantId, CancellationToken ct)
     {
+        var fence = await CaptureListFenceAsync(tenantId, ct).ConfigureAwait(false);
+        return fence.IsSuccess ? Result.Success : Result.Failure(fence.Error);
+    }
+
+    public async ValueTask<Result<ProjectionCheckpoint>> CaptureListFenceAsync(Uuid tenantId,
+        CancellationToken ct)
+    {
         var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct).ConfigureAwait(false);
-        await using var pending = events.ReadAsync(EventStreamPattern.ForPattern(tenantId.ToString(),
-            ProviderRegister.Area), checkpoint.Cursor, ct).GetAsyncEnumerator(ct);
-        return await pending.MoveNextAsync().ConfigureAwait(false)
-            ? Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The provider list projection has not reached the source.", isTransient: true))
+        return await HasPendingSourceAsync(tenantId, checkpoint, ct).ConfigureAwait(false)
+            ? Result<ProjectionCheckpoint>.Failure(BehindSourceError())
+            : Result<ProjectionCheckpoint>.Success(checkpoint);
+    }
+
+    public async ValueTask<Result> EnsureFenceHeldAsync(Uuid tenantId,
+        ProjectionCheckpoint fence, CancellationToken ct)
+    {
+        var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct).ConfigureAwait(false);
+        return checkpoint != fence ||
+               await HasPendingSourceAsync(tenantId, checkpoint, ct).ConfigureAwait(false)
+            ? Result.Failure(BehindSourceError())
             : Result.Success;
+    }
+
+    async ValueTask<bool> HasPendingSourceAsync(Uuid tenantId,
+        ProjectionCheckpoint checkpoint, CancellationToken ct)
+    {
+        await using var pending = events.ReadAsync(EventStreamPattern.ForPattern(
+            tenantId.ToString(), ProviderRegister.Area), checkpoint.Cursor, ct)
+            .GetAsyncEnumerator(ct);
+        return await pending.MoveNextAsync().ConfigureAwait(false);
     }
 
     static bool Matches(ProviderView? view, Uuid tenantId, Uuid providerId) =>
@@ -54,4 +77,8 @@ public sealed class ProviderReadConsistency(IProviderReader directory, IAggregat
 
     static Result<ProviderView> Failure(RequestErrorKind kind, string message) =>
         Result<ProviderView>.Failure(new RequestError(kind, message, isTransient: kind == RequestErrorKind.Conflict));
+
+    static RequestError BehindSourceError() => new(RequestErrorKind.Conflict,
+        "The provider projection changed or has not reached the source. Retry the query.",
+        isTransient: true);
 }

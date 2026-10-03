@@ -5823,7 +5823,7 @@ export type ListCriteriaCatalogEntriesError_500 = {
 
 export type GetCriteriaCatalogEntryPath = {
   "edition_id": string;
-  "identifier": string | null;
+  "identifier": string;
   "tenant_id": string;
 };
 
@@ -5886,6 +5886,176 @@ export type GetCriteriaCatalogEntryError_415 = {
 };
 
 export type GetCriteriaCatalogEntryError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesPath = {
+  "edition_id": string;
+  "tenant_id": string;
+};
+
+export type ExportCriteriaCatalogEntriesQuery = {
+  "category"?: string | null;
+  "cursor"?: string | null;
+  "kind"?: string | null;
+  "limit"?: number | string;
+  "parent_identifier"?: string | null;
+};
+
+export type ExportCriteriaCatalogEntriesResponse200 = PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738;
+
+export type ExportCriteriaCatalogEntriesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_401 = undefined;
+
+export type ExportCriteriaCatalogEntriesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayPath = {
+  "edition_id": string;
+  "identifier": string;
+  "tenant_id": string;
+};
+
+export type SetCriteriaTextOverlayBody = {
+  "expected_revision": number | string | null;
+  "content": {
+    "text": string;
+    "supplier": string;
+    "license_reference": string;
+    "usage_flags": {
+      "display": boolean;
+      "export": boolean;
+    };
+  };
+};
+
+export type SetCriteriaTextOverlayResponse200 = {
+  "edition_id": string;
+  "identifier": string;
+  "revision": number | string;
+} | null;
+
+export type SetCriteriaTextOverlayError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_401 = undefined;
+
+export type SetCriteriaTextOverlayError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_500 = {
   "type": string;
   "title": string;
   "status": number;
@@ -10168,6 +10338,7 @@ export type CreateCommitmentDraftBody = {
   "statement": string | null;
   "context": string | null;
   "source_reference": string | null;
+  "provider_id"?: string | null;
 };
 
 export type CreateCommitmentDraftResponse200 = PortiaB40D0675C1B674F43BFBDCE25F20837F7CF28C29B2067DF1534D10FA9DE94F05;
@@ -20113,6 +20284,112 @@ export type AddRiskTreatmentActionError_500 = {
   "instance": string;
   "transient"?: boolean;
 };
+
+export type CancelRiskTreatmentActionPath = {
+  "action_id": string;
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type CancelRiskTreatmentActionBody = {
+  "expected_revision": number | string;
+  "rationale": string | null;
+};
+
+export type CancelRiskTreatmentActionResponse204 = undefined;
+
+export type CancelRiskTreatmentActionError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_401 = undefined;
+
+export type CancelRiskTreatmentActionError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type CancelRiskTreatmentActionError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ReviseRiskTreatmentActionPath = {
+  "action_id": string;
+  "program_id": string;
+  "risk_id": string;
+  "tenant_id": string;
+};
+
+export type ReviseRiskTreatmentActionBody = {
+  "expected_revision": number | string;
+  "title": string | null;
+  "target_state": string | null;
+  "expected_evidence": string | null;
+  "due_on": string;
+  "accountable_member_id": string;
+  "evidence_request_ids"?: Portia0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D;
+};
+
+export type ReviseRiskTreatmentActionResponse204 = undefined;
+export type ReviseRiskTreatmentActionError_400 = CancelRiskTreatmentActionError_400;
+export type ReviseRiskTreatmentActionError_401 = CancelRiskTreatmentActionError_401;
+export type ReviseRiskTreatmentActionError_403 = CancelRiskTreatmentActionError_403;
+export type ReviseRiskTreatmentActionError_404 = CancelRiskTreatmentActionError_404;
+export type ReviseRiskTreatmentActionError_409 = CancelRiskTreatmentActionError_409;
+export type ReviseRiskTreatmentActionError_413 = CancelRiskTreatmentActionError_413;
+export type ReviseRiskTreatmentActionError_415 = CancelRiskTreatmentActionError_415;
+export type ReviseRiskTreatmentActionError_500 = CancelRiskTreatmentActionError_500;
 
 export type ReviewRiskTreatmentActionCompletionPath = {
   "action_id": string;

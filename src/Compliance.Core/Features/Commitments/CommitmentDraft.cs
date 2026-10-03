@@ -20,6 +20,7 @@ public sealed class CommitmentDraft : Aggregate
     bool _created;
     long _revision;
     Uuid _createRequestId;
+    Uuid? _providerId;
     string? _initialStatement;
     string? _initialContext;
     string? _initialSourceReference;
@@ -38,6 +39,7 @@ public sealed class CommitmentDraft : Aggregate
     public long Revision => _revision;
     public Uuid ProgramId { get; private set; }
     public Uuid ServiceId { get; private set; }
+    public Uuid? ProviderId => _providerId;
     public string? Kind { get; private set; }
     public string? Identifier { get; private set; }
     public long EffectiveVersionCount => _versions.Count;
@@ -63,6 +65,7 @@ public sealed class CommitmentDraft : Aggregate
             _revision = 1;
             ProgramId = ev.ProgramId;
             ServiceId = ev.ServiceId;
+            _providerId = ev.ProviderId;
             Kind = ev.Kind;
             Identifier = ev.Identifier;
             _createRequestId = ev.CreateRequestId;
@@ -119,12 +122,12 @@ public sealed class CommitmentDraft : Aggregate
     public Result<CommitmentDraftRegistration> Create(Uuid programId, Uuid createRequestId,
         Uuid serviceId, string kind, string identifier, string statement, string context,
         string sourceReference, Uuid actorMemberId, string actorDisplay,
-        DateTimeOffset changedAt)
+        DateTimeOffset changedAt, Uuid? providerId = null)
     {
         var normalizedKind = NormalizeKind(kind);
         var normalizedIdentifier = NormalizeIdentifier(identifier);
         var error = Validate(normalizedKind, normalizedIdentifier, statement, context,
-            sourceReference);
+            sourceReference, providerId);
         if (error is not null)
             return Result<CommitmentDraftRegistration>.Failure(error);
         if (serviceId == Uuid.Empty)
@@ -140,7 +143,8 @@ public sealed class CommitmentDraft : Aggregate
                    StringComparer.Ordinal.Equals(Identifier, normalizedIdentifier) &&
                    StringComparer.Ordinal.Equals(_initialStatement, cleanStatement) &&
                    StringComparer.Ordinal.Equals(_initialContext, cleanContext) &&
-                   StringComparer.Ordinal.Equals(_initialSourceReference, cleanSourceReference)
+                   StringComparer.Ordinal.Equals(_initialSourceReference, cleanSourceReference) &&
+                   _providerId == providerId
                 ? Result<CommitmentDraftRegistration>.Success(new CommitmentDraftRegistration(
                     Id, normalizedKind, normalizedIdentifier, 1))
                 : Result<CommitmentDraftRegistration>.Failure(new RequestError(
@@ -150,6 +154,7 @@ public sealed class CommitmentDraft : Aggregate
             cleanSourceReference, actorMemberId, actorDisplay, changedAt)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
+            ProviderId = providerId,
         };
         if (JsonSerializer.SerializeToUtf8Bytes(created,
                 ComplianceCoreJsonContext.Default.CommitmentDraftCreated).Length >
@@ -434,11 +439,15 @@ public sealed class CommitmentDraft : Aggregate
         DateTimeOffset At, Uuid? WaiverId);
 
     static RequestError? Validate(string kind, string identifier, string statement,
-        string context, string sourceReference)
+        string context, string sourceReference, Uuid? providerId = null)
     {
         if (!AllowedKinds.Contains(kind))
             return new RequestError(RequestErrorKind.Validation,
                 "The draft kind is unsupported.");
+        if (providerId == Uuid.Empty ||
+            kind != "subservice_responsibility" && providerId is not null)
+            return new RequestError(RequestErrorKind.Validation,
+                "Only a subservice responsibility can reference a nonempty provider.");
         if (identifier.Length is < 1 or > 80 ||
             !identifier.All(static c => char.IsAsciiLetterUpper(c) ||
                 char.IsAsciiDigit(c) || c is '-' or '_' or '.'))

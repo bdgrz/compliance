@@ -25994,6 +25994,13 @@
                       "null",
                       "string"
                     ]
+                  },
+                  "provider_id": {
+                    "type": [
+                      "null",
+                      "string"
+                    ],
+                    "format": "uuid"
                   }
                 }
               }
@@ -51632,6 +51639,873 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}": {
+      "put": {
+        "tags": [
+          "Risks"
+        ],
+        "operationId": "reviseRiskTreatmentAction",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "title",
+                  "target_state",
+                  "expected_evidence",
+                  "due_on",
+                  "accountable_member_id"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "target_state": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "expected_evidence": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "due_on": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "accountable_member_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "evidence_request_ids": {
+                    "$ref": "#/components/schemas/Portia_0B8DD226C90BCDBE54774D138909CEACAC410368E2CA21791FD1B5EC3FCB4C2D"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revise an open risk treatment action",
+        "description": "Edits an open treatment action using the expected risk governance revision. The accountable member must be active and referenced evidence requests must remain uncancelled in the program. Submitted, completed, and cancelled actions cannot be edited."
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/programs/{program_id}/risks/{risk_id}/treatment-actions/{action_id}/cancellations": {
+      "post": {
+        "tags": [
+          "Risks"
+        ],
+        "operationId": "cancelRiskTreatmentAction",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "program_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "risk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "rationale"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "rationale": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
           },
           "400": {
             "description": "Error",
@@ -98766,6 +99640,135 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/providers/{provider_id}/change-impact-previews": {
+      "post": {
+        "tags": [
+          "Providers"
+        ],
+        "operationId": "previewProviderChange",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "change_kind",
+                  "effective_on",
+                  "change_summary"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "change_kind": {
+                    "type": "string"
+                  },
+                  "effective_on": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "change_summary": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "required": [
+                    "tenant_id",
+                    "provider_id",
+                    "provider_revision",
+                    "change_kind",
+                    "effective_on",
+                    "change_summary",
+                    "contexts",
+                    "pending_contexts",
+                    "complete",
+                    "digest"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "tenant_id": { "type": "string", "format": "uuid" },
+                    "provider_id": { "type": "string", "format": "uuid" },
+                    "provider_revision": { "type": ["integer", "string"] },
+                    "change_kind": { "type": "string" },
+                    "effective_on": { "type": "string", "format": "date" },
+                    "change_summary": { "type": "string" },
+                    "contexts": {
+                      "type": "array",
+                      "items": {
+                        "required": ["context", "records", "complete", "incomplete_reason"],
+                        "type": "object",
+                        "properties": {
+                          "context": { "type": "string" },
+                          "records": {
+                            "type": "array",
+                            "items": {
+                              "required": ["record_type", "record_id", "parent_record_id", "revision", "relationship"],
+                              "type": "object",
+                              "properties": {
+                                "record_type": { "type": "string" },
+                                "record_id": { "type": "string", "format": "uuid" },
+                                "parent_record_id": { "type": ["null", "string"], "format": "uuid" },
+                                "revision": { "type": ["null", "integer", "string"] },
+                                "relationship": { "type": "string" }
+                              }
+                            }
+                          },
+                          "complete": { "type": "boolean" },
+                          "incomplete_reason": { "type": ["null", "string"] }
+                        }
+                      }
+                    },
+                    "pending_contexts": { "type": "array", "items": { "type": "string" } },
+                    "complete": { "type": "boolean" },
+                    "digest": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Provider not found" },
+          "409": { "description": "Stale revision or projections have not caught up" },
+          "500": { "description": "Unexpected error" }
         }
       }
     },
@@ -146541,6 +147544,906 @@
           }
         }
       }
+    },
+    "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/export": {
+      "get": {
+        "tags": [
+          "Criteria"
+        ],
+        "operationId": "exportCriteriaCatalogEntries",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "parent_identifier",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Portia_DF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}/overlay": {
+      "put": {
+        "tags": [
+          "Criteria"
+        ],
+        "operationId": "setCriteriaTextOverlay",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "required": [
+                  "expected_revision",
+                  "content"
+                ],
+                "type": "object",
+                "properties": {
+                  "expected_revision": {
+                    "pattern": "^-?(?:0|[1-9]\\d*)$",
+                    "type": [
+                      "null",
+                      "integer",
+                      "string"
+                    ]
+                  },
+                  "content": {
+                    "required": [
+                      "text",
+                      "supplier",
+                      "license_reference",
+                      "usage_flags"
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "supplier": {
+                        "type": "string"
+                      },
+                      "license_reference": {
+                        "type": "string"
+                      },
+                      "usage_flags": {
+                        "required": [
+                          "display",
+                          "export"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "display": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "required": [
+                    "edition_id",
+                    "identifier",
+                    "revision"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "edition_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "identifier": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "pattern": "^-?(?:0|[1-9]\\d*)$",
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Portia-Transient": {
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "headers": {
+              "Portia-Transient": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "instance"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string",
+                      "format": "uri-reference"
+                    },
+                    "transient": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -146737,14 +148640,14 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "effective_from": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "impact_digest": {
@@ -146925,14 +148828,14 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "effective_from": {
                       "type": [
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "impact_digest": {
@@ -147049,7 +148952,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -147223,7 +149126,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "department": {
@@ -147370,7 +149273,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "status": {
@@ -147426,7 +149329,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -147822,7 +149725,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_i_as_of_date": {
@@ -147830,7 +149733,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_start_date": {
@@ -147838,7 +149741,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_end_date": {
@@ -147846,7 +149749,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "readiness_advisor": {
@@ -148894,7 +150797,7 @@
                               "null",
                               "string"
                             ],
-                            "items": { },
+                            "items": {},
                             "format": "date-time",
                             "default": null
                           },
@@ -148951,7 +150854,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           },
                           "program_revision": {
                             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -148960,7 +150863,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           },
                           "application_revision": {
                             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -148969,7 +150872,7 @@
                               "integer",
                               "string"
                             ],
-                            "items": { }
+                            "items": {}
                           }
                         }
                       },
@@ -149021,7 +150924,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     }
                   }
                 },
@@ -149140,7 +151043,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "approved_by": {
@@ -149272,7 +151175,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_i_as_of_date": {
@@ -149280,7 +151183,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_start_date": {
@@ -149288,7 +151191,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_end_date": {
@@ -149296,7 +151199,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "readiness_advisor": {
@@ -149408,7 +151311,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -149572,7 +151475,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "reassessment_interval": {
             "type": "string"
@@ -149620,7 +151523,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -149830,7 +151733,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date-time"
                         }
                       }
@@ -149862,7 +151765,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -150079,7 +151982,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "status": {
@@ -150135,7 +152038,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "separation_of_duties_waiver_id": {
@@ -150315,7 +152218,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "accepted_review_decision_id": {
             "type": [
@@ -150331,14 +152234,14 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "current_effective_from": {
             "type": [
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "last_reviewed_on": {
@@ -150346,7 +152249,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "next_review_due_on": {
@@ -150354,7 +152257,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "review_overdue": {
@@ -150580,14 +152483,14 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "current_effective_from": {
                   "type": [
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "next_review_due_on": {
@@ -150595,7 +152498,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "review_overdue": {
@@ -150710,7 +152613,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "active_control_version_id": {
             "type": [
@@ -150827,7 +152730,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -150870,7 +152773,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -151156,7 +153059,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -151337,7 +153240,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "acknowledged": {
@@ -151623,7 +153526,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 }
               }
@@ -151749,7 +153652,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "lifecycle": {
                   "type": "string"
@@ -151902,7 +153805,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "overdue": {
@@ -152432,6 +154335,13 @@
           },
           "service_id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "kind": {
@@ -153195,7 +155105,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date"
                         },
                         "department": {
@@ -153261,7 +155171,7 @@
                             "null",
                             "string"
                           ],
-                          "items": { },
+                          "items": {},
                           "format": "date"
                         }
                       },
@@ -153359,7 +155269,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "default": null
                 },
                 "accepted_for_current_revision": {
@@ -153367,7 +155277,7 @@
                     "null",
                     "boolean"
                   ],
-                  "items": { },
+                  "items": {},
                   "default": null
                 }
               }
@@ -153484,7 +155394,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "status": {
@@ -153642,7 +155552,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -154106,7 +156016,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -154240,7 +156150,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "overdue": {
@@ -155425,7 +157335,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "version": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -155434,7 +157344,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "rationale": {
                   "type": "string"
@@ -155606,7 +157516,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "author_member_id": {
@@ -155716,50 +157626,125 @@
         }
       },
       "Portia_4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C": {
-        "required": [
-          "edition_id",
-          "identifier",
-          "source_identifier",
-          "category",
-          "kind",
-          "parent_identifier",
-          "summary"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "edition_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "identifier": {
-            "type": "string"
-          },
-          "source_identifier": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "category": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "parent_identifier": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "summary": {
-            "type": "string"
+          "required": [
+            "edition_id",
+            "identifier",
+            "source_identifier",
+            "category",
+            "kind",
+            "parent_identifier",
+            "summary",
+            "licensed_text",
+            "overlay"
+          ],
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "edition_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "identifier": {
+              "type": "string"
+            },
+            "source_identifier": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "category": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "parent_identifier": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "type": "string"
+            },
+            "licensed_text": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "overlay": {
+              "required": [
+                "revision",
+                "supplier",
+                "license_reference",
+                "allowed_uses",
+                "actor",
+                "recorded_at"
+              ],
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "revision": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
+                },
+                "supplier": {
+                  "type": "string"
+                },
+                "license_reference": {
+                  "type": "string"
+                },
+                "allowed_uses": {
+                  "required": [
+                    "display",
+                    "export"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "display": {
+                      "type": "boolean"
+                    },
+                    "export": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "actor": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "recorded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
           }
-        }
-      },
+        },
       "Portia_50C70F44CE8894CF7231272888D6062DE18FA19BF04DAC0834A26B9130C165A1": {
         "required": [
           "annotation_id",
@@ -156230,7 +158215,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_i_as_of_date": {
@@ -156238,7 +158223,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_start_date": {
@@ -156246,7 +158231,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "target_type_ii_end_date": {
@@ -156254,7 +158239,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "readiness_advisor": {
@@ -156917,7 +158902,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "cancellation_rationale": {
@@ -156953,7 +158938,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -157069,7 +159054,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -157114,6 +159099,13 @@
           },
           "service_id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "kind": {
@@ -157291,7 +159283,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -157299,7 +159291,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "due_on": {
@@ -157307,7 +159299,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "trigger": {
@@ -157381,7 +159373,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "covered_until": {
@@ -157389,7 +159381,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "notes": {
@@ -157424,7 +159416,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -157726,7 +159718,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time",
               "default": null
             }
@@ -158697,7 +160689,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date"
                   },
                   "department": {
@@ -158763,7 +160755,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date"
                   }
                 },
@@ -158861,7 +160853,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "accepted_for_current_revision": {
@@ -158869,7 +160861,7 @@
               "null",
               "boolean"
             ],
-            "items": { },
+            "items": {},
             "default": null
           }
         }
@@ -159116,7 +161108,7 @@
                               "null",
                               "string"
                             ],
-                            "items": { },
+                            "items": {},
                             "format": "date-time"
                           }
                         }
@@ -159127,7 +161119,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -159419,7 +161411,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -159879,7 +161871,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_i_as_of_date": {
@@ -159887,7 +161879,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_start_date": {
@@ -159895,7 +161887,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "target_type_ii_end_date": {
@@ -159903,7 +161895,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "readiness_advisor": {
@@ -160015,7 +162007,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -160069,7 +162061,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "version": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -160078,7 +162070,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "rationale": {
             "type": "string"
@@ -160311,7 +162303,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "lifecycle": {
                 "type": "string"
@@ -160710,7 +162702,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -160772,7 +162764,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time",
                         "default": null
                       }
@@ -161017,7 +163009,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "kind": {
             "type": "string"
@@ -161425,7 +163417,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "lifecycle": {
                       "type": "string"
@@ -161597,7 +163589,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "department": {
@@ -161663,7 +163655,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               }
             },
@@ -162251,7 +164243,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -162262,7 +164254,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -162461,7 +164453,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "acknowledged": {
@@ -162552,7 +164544,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -162580,7 +164572,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -162721,7 +164713,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time"
               },
               "approved_by": {
@@ -162824,7 +164816,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "approved_by": {
@@ -162945,7 +164937,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "management_source": {
                 "type": [
@@ -163138,7 +165130,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "author_member_id": {
@@ -163207,7 +165199,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "author_member_id": {
@@ -164793,7 +166785,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     }
                   }
@@ -164825,7 +166817,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -165215,7 +167207,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -165461,7 +167453,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "predecessor_version": {
@@ -165471,7 +167463,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "approval_decision_id": {
                   "type": "string",
@@ -165895,7 +167887,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "approver_member_id": {
             "type": "string",
@@ -166089,7 +168081,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "versions": {
                   "type": "array",
@@ -166190,7 +168182,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -166233,7 +168225,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -166391,7 +168383,7 @@
                       "null",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "format": "date",
                     "default": null
                   },
@@ -166402,7 +168394,7 @@
                       "integer",
                       "string"
                     ],
-                    "items": { },
+                    "items": {},
                     "default": null
                   },
                   "trigger": {
@@ -166435,7 +168427,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "rationale": {
@@ -166504,7 +168496,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time",
                 "default": null
               },
@@ -166663,7 +168655,7 @@
                 "type": "string"
               },
               "expected_evidence": {
-                "items": { },
+                "items": {},
                 "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_4"
               },
               "effective_from": {
@@ -166675,7 +168667,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "rationale": {
@@ -166709,7 +168701,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date-time",
                 "default": null
               },
@@ -166729,7 +168721,7 @@
                 "default": null
               },
               "reassignments": {
-                "items": { },
+                "items": {},
                 "default": null,
                 "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_7"
               }
@@ -166811,7 +168803,7 @@
                   "type": "string"
                 },
                 "expected_evidence": {
-                  "items": { },
+                  "items": {},
                   "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_4"
                 },
                 "effective_from": {
@@ -166823,7 +168815,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "rationale": {
@@ -166857,7 +168849,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -166877,7 +168869,7 @@
                   "default": null
                 },
                 "reassignments": {
-                  "items": { },
+                  "items": {},
                   "default": null,
                   "$ref": "#/components/schemas/Portia_9065D279549CE38EF784C0EDC609B94880345498852BE7465233B097BA2F7869_7"
                 }
@@ -166942,7 +168934,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -166953,7 +168945,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "trigger": {
@@ -167242,7 +169234,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "changes": {
             "type": "array",
@@ -167411,7 +169403,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date",
                       "default": null
                     },
@@ -167722,7 +169714,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time"
             },
             "revoked_at": {
@@ -167730,7 +169722,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date-time"
             },
             "revoked_by_member_id": {
@@ -167806,6 +169798,13 @@
           },
           "service_id": {
             "type": "string",
+            "format": "uuid"
+          },
+          "provider_id": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "uuid"
           },
           "kind": {
@@ -167945,14 +169944,14 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "effective_from": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "impact_digest": {
@@ -168133,14 +170132,14 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               },
               "effective_from": {
                 "type": [
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date"
               },
               "impact_digest": {
@@ -168464,7 +170463,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date",
             "default": null
           },
@@ -168475,7 +170474,7 @@
               "integer",
               "string"
             ],
-            "items": { },
+            "items": {},
             "default": null
           },
           "trigger": {
@@ -168672,7 +170671,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time",
                       "default": null
                     }
@@ -168776,7 +170775,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -168787,7 +170786,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -168865,7 +170864,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -169008,7 +171007,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "author_member_id": {
@@ -169159,7 +171158,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_i_as_of_date": {
@@ -169167,7 +171166,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_ii_start_date": {
@@ -169175,7 +171174,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "target_type_ii_end_date": {
@@ -169183,7 +171182,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "readiness_advisor": {
@@ -169412,7 +171411,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -169420,7 +171419,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "due_on": {
@@ -169428,7 +171427,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "trigger": {
@@ -169502,7 +171501,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "covered_until": {
@@ -169510,7 +171509,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date"
                       },
                       "notes": {
@@ -169545,7 +171544,7 @@
                                 "integer",
                                 "string"
                               ],
-                              "items": { }
+                              "items": {}
                             },
                             "kind": {
                               "type": "string"
@@ -169945,7 +171944,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "next_review_due": {
@@ -169953,7 +171952,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "latest_conclusion": {
@@ -170008,7 +172007,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "period_end": {
@@ -170040,7 +172039,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "currency": {
@@ -170384,7 +172383,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "predecessor_version": {
@@ -170394,7 +172393,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "approval_decision_id": {
             "type": "string",
@@ -170528,7 +172527,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -171219,7 +173218,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "approver_member_id": {
                   "type": "string",
@@ -171277,7 +173276,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "last_changed_by": {
@@ -171307,7 +173306,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "open_reassessment_triggers": {
@@ -171378,7 +173377,7 @@
                 "integer",
                 "string"
               ],
-              "items": { }
+              "items": {}
             },
             "kind": {
               "type": "string"
@@ -171659,7 +173658,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "revoked_at": {
@@ -171667,7 +173666,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "revoked_by_member_id": {
@@ -171757,7 +173756,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "versions": {
             "type": "array",
@@ -171858,7 +173857,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -171901,7 +173900,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -172190,7 +174189,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "approver_member_id": {
                       "type": "string",
@@ -172691,7 +174690,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date",
                   "default": null
                 },
@@ -172891,7 +174890,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -172902,7 +174901,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -173011,14 +175010,14 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "effective_from": {
                   "type": [
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "impact_digest": {
@@ -173393,7 +175392,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -173538,7 +175537,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "kind": {
@@ -173738,7 +175737,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "lifecycle": {
                   "type": "string"
@@ -174058,7 +176057,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -174086,7 +176085,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -174261,7 +176260,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "reviewed_by": {
                   "required": [
@@ -174758,7 +176757,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "acknowledged": {
@@ -175361,7 +177360,7 @@
                           "integer",
                           "string"
                         ],
-                        "items": { }
+                        "items": {}
                       },
                       "kind": {
                         "type": "string"
@@ -175423,7 +177422,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 }
@@ -175659,7 +177658,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "kind": {
             "type": "string"
@@ -175900,7 +177899,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "lifecycle": {
             "type": "string"
@@ -176247,7 +178246,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "cancellation_rationale": {
@@ -176283,7 +178282,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -176488,7 +178487,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "exception": {
@@ -176623,7 +178622,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "department": {
@@ -176888,7 +178887,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           }
         }
@@ -177203,7 +179202,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "author_member_id": {
@@ -177272,7 +179271,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date"
                     },
                     "author_member_id": {
@@ -177647,7 +179646,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date",
                   "default": null
                 },
@@ -177727,7 +179726,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "department": {
@@ -177813,7 +179812,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "approved_by": {
@@ -178040,7 +180039,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 },
                 "separation_of_duties_waiver_id": {
@@ -178083,7 +180082,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time"
                 }
               }
@@ -178317,7 +180316,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -178329,6 +180328,42 @@
                       }
                     }
                   }
+                },
+                "cancellation_rationale": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "cancelled_by": {
+                  "required": [
+                    "kind",
+                    "id",
+                    "display"
+                  ],
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "cancelled_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "items": {},
+                  "format": "date-time"
                 }
               }
             }
@@ -178362,71 +180397,146 @@
         }
       },
       "Portia_DF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738": {
-        "required": [
-          "items",
-          "next_cursor"
-        ],
-        "type": [
-          "null",
-          "object"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
+          "required": [
+            "items",
+            "next_cursor"
+          ],
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
             "items": {
-              "required": [
-                "edition_id",
-                "identifier",
-                "source_identifier",
-                "category",
-                "kind",
-                "parent_identifier",
-                "summary"
-              ],
-              "type": [
-                "null",
-                "object"
-              ],
-              "properties": {
-                "edition_id": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "identifier": {
-                  "type": "string"
-                },
-                "source_identifier": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "category": {
-                  "type": "string"
-                },
-                "kind": {
-                  "type": "string"
-                },
-                "parent_identifier": {
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "summary": {
-                  "type": "string"
+              "type": "array",
+              "items": {
+                "required": [
+                  "edition_id",
+                  "identifier",
+                  "source_identifier",
+                  "category",
+                  "kind",
+                  "parent_identifier",
+                  "summary",
+                  "licensed_text",
+                  "overlay"
+                ],
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "edition_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "identifier": {
+                    "type": "string"
+                  },
+                  "source_identifier": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "parent_identifier": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "licensed_text": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "overlay": {
+                    "required": [
+                      "revision",
+                      "supplier",
+                      "license_reference",
+                      "allowed_uses",
+                      "actor",
+                      "recorded_at"
+                    ],
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "revision": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                          "integer",
+                          "string"
+                        ]
+                      },
+                      "supplier": {
+                        "type": "string"
+                      },
+                      "license_reference": {
+                        "type": "string"
+                      },
+                      "allowed_uses": {
+                        "required": [
+                          "display",
+                          "export"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "display": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "actor": {
+                        "required": [
+                          "kind",
+                          "id",
+                          "display"
+                        ],
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "display": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "recorded_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
                 }
               }
+            },
+            "next_cursor": {
+              "type": [
+                "null",
+                "string"
+              ]
             }
-          },
-          "next_cursor": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
-        }
-      },
+        },
       "Portia_E2F70B587A599F2A92FE1BC5C9941D3194A8ABA84334EB2D1BFDB23F21AF2C00": {
         "required": [
           "tenant_id",
@@ -178710,7 +180820,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -178811,7 +180921,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time"
                     },
                     "approved_by": {
@@ -178899,7 +181009,7 @@
                 "null",
                 "string"
               ],
-              "items": { },
+              "items": {},
               "format": "date"
             },
             "days_overdue": {
@@ -179032,7 +181142,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "roster_snapshot_id": {
@@ -179236,7 +181346,7 @@
                         "null",
                         "string"
                       ],
-                      "items": { },
+                      "items": {},
                       "format": "date-time",
                       "default": null
                     },
@@ -179293,7 +181403,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "program_revision": {
                       "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -179302,7 +181412,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "application_revision": {
                       "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -179311,7 +181421,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     }
                   }
                 },
@@ -179363,7 +181473,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { }
+                "items": {}
               }
             }
           },
@@ -179470,7 +181580,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "cadence_description": {
@@ -179526,7 +181636,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "overdue": {
@@ -179711,7 +181821,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "kind": {
@@ -180056,7 +182166,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "period_end": {
@@ -180064,7 +182174,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "due_on": {
@@ -180072,7 +182182,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "trigger": {
@@ -180146,7 +182256,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "covered_until": {
@@ -180154,7 +182264,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date"
                 },
                 "notes": {
@@ -180189,7 +182299,7 @@
                           "integer",
                           "string"
                         ],
-                        "items": { }
+                        "items": {}
                       },
                       "kind": {
                         "type": "string"
@@ -180702,7 +182812,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           },
           "changed_fields": {
             "type": "array",
@@ -180887,7 +182997,7 @@
                         "integer",
                         "string"
                       ],
-                      "items": { }
+                      "items": {}
                     },
                     "management_source": {
                       "type": [
@@ -181314,7 +183424,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "active_control_version_id": {
                   "type": [
@@ -181431,7 +183541,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       },
                       "separation_of_duties_waiver_id": {
@@ -181474,7 +183584,7 @@
                           "null",
                           "string"
                         ],
-                        "items": { },
+                        "items": {},
                         "format": "date-time"
                       }
                     }
@@ -181608,7 +183718,7 @@
                   "null",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "format": "date",
                 "default": null
               },
@@ -181619,7 +183729,7 @@
                   "integer",
                   "string"
                 ],
-                "items": { },
+                "items": {},
                 "default": null
               },
               "trigger": {
@@ -181652,7 +183762,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date"
           },
           "rationale": {
@@ -181721,7 +183831,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time",
             "default": null
           },
@@ -181937,7 +184047,7 @@
                     "null",
                     "string"
                   ],
-                  "items": { },
+                  "items": {},
                   "format": "date-time",
                   "default": null
                 },
@@ -181994,7 +184104,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "program_revision": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -182003,7 +184113,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 },
                 "application_revision": {
                   "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -182012,7 +184122,7 @@
                     "integer",
                     "string"
                   ],
-                  "items": { }
+                  "items": {}
                 }
               }
             },
@@ -182064,7 +184174,7 @@
               "integer",
               "string"
             ],
-            "items": { }
+            "items": {}
           }
         }
       },
@@ -182355,7 +184465,7 @@
               "null",
               "string"
             ],
-            "items": { },
+            "items": {},
             "format": "date-time"
           },
           "closing_totals": {

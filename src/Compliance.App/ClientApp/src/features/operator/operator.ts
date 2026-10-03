@@ -73,9 +73,6 @@ export async function inviteFirmStaff(tenantId: string, emailAddress: string): P
   if (!result.ok) throw failure(result, 'invite firm staff');
 }
 
-export const slugRule =
-  'Use 4 to 63 characters: lowercase letters, digits, and single hyphens, starting with a letter.';
-
 // Platform operators by user id. Operator status covers organization metadata and lifecycle only.
 export async function listPlatformOperators(): Promise<string[]> {
   const result = await client.listPlatformOperators();

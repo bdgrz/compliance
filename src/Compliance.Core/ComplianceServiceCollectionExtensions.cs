@@ -32,6 +32,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
+        services.AddScoped<CriteriaTextOverlayReader>();
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
@@ -202,6 +203,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IProviderProjection>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<IProviderReader>(provider => provider.GetRequiredService<FitzProviderDirectory>());
         services.AddScoped<ProviderReadConsistency>();
+        services.AddScoped<ProviderChangeImpactService>();
         services.AddScoped<AssuranceReferences>();
         services.AddScoped<AssuranceDisclosure>();
         services.AddScoped<FitzAssuranceDirectory>();
@@ -348,6 +350,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, EvidenceControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, WorkControlImpactContributor>();
+        services.AddScoped<ReadinessProjectionReadConsistency>();
         services.AddScoped<IReadinessSourceReader, DirectoryReadinessSourceReader>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();
@@ -458,6 +461,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListProviderAssuranceReportsHandler>()
             .AddRequestHandler<ListProviderReviewsHandler>()
             .AddRequestHandler<GetProviderAssuranceCoverageHandler>()
+            .AddRequestHandler<PreviewProviderChangeHandler>()
             .AddRequestAuthorizer<ProviderAuthorizer>()
             .AddRequestHandler<RecordPersonHandler>()
             .AddRequestHandler<RevisePersonHandler>()
@@ -511,7 +515,9 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
             .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
             .AddRequestHandler<ListCriteriaCatalogEntriesHandler>()
+            .AddRequestHandler<ExportCriteriaCatalogEntriesHandler>()
             .AddRequestHandler<GetCriteriaCatalogEntryHandler>()
+            .AddRequestHandler<SetCriteriaTextOverlayHandler>()
             .AddRequestHandler<CreateControlDraftHandler>()
             .AddRequestHandler<ReviseControlDraftHandler>()
             .AddRequestHandler<DiscardControlDraftHandler>()
@@ -690,6 +696,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RetireRiskControlTreatmentHandler>()
             .AddRequestHandler<GetRiskGovernanceHandler>()
             .AddRequestHandler<AddRiskTreatmentActionHandler>()
+            .AddRequestHandler<ReviseRiskTreatmentActionHandler>()
+            .AddRequestHandler<CancelRiskTreatmentActionHandler>()
             .AddRequestHandler<SubmitRiskTreatmentActionCompletionHandler>()
             .AddRequestHandler<ReviewRiskTreatmentActionCompletionHandler>()
             .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()
@@ -764,6 +772,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListTenantsHandler>()
             .AddRequestHandler<ListTenantMembersHandler>()
             .AddRequestHandler<ChangeTenantSlugHandler>()
+            .AddRequestAuthorizer<PlatformOperatorOrTenantAdminAuthorizer>()
             .AddRequestHandler<ResolveMyTenantSlugHandler>()
             .AddRequestAuthorizer<ResolveMyTenantSlugAuthorizer>()
             .AddRequestAuthorizer<AcceptTenantInvitationAuthorizer>()

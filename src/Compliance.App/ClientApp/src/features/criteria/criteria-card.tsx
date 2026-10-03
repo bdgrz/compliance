@@ -75,7 +75,12 @@ function CriteriaBrowser({ edition }: { edition: CriteriaEdition }) {
                 {categoryLabel(entry.category)} · {entry.kind === 'criterion' ? 'Criterion' : `Point of focus for ${entry.parentIdentifier ?? 'criterion'}`}
                 {entry.sourceIdentifier ? ` · source ${entry.sourceIdentifier}` : ''}
               </span>
-              <p>{entry.summary}</p>
+              <p>{entry.licensedText ?? entry.summary}</p>
+              {entry.licensedText && entry.overlay ? (
+                <p className="muted-text">
+                  Licensed text supplied by {entry.overlay.supplier} ({entry.overlay.licenseReference}).
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>

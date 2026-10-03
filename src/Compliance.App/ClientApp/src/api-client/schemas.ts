@@ -1696,6 +1696,10 @@ export type Portia4D86519FCC16F02548C3E29E580EC003867A07CF26D256F57E4B3D9A40816F
   "category": string;
   "parent_identifier": string | null;
   "summary": string;
+  "licensed_text": string | null;
+  "overlay": { "revision": number | string; "supplier": string; "license_reference": string;
+    "allowed_uses": { "display": boolean; "export": boolean };
+    "actor": { "kind": string; "id": string; "display": string }; "recorded_at": string } | null;
   "coverage_state": string;
   "mapped_controls": Array<{
   "mapping_id": string;
@@ -1792,6 +1796,10 @@ export type Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF
   "kind": string;
   "parent_identifier": string | null;
   "summary": string;
+  "licensed_text": string | null;
+  "overlay": { "revision": number | string; "supplier": string; "license_reference": string;
+    "allowed_uses": { "display": boolean; "export": boolean };
+    "actor": { "kind": string; "id": string; "display": string }; "recorded_at": string } | null;
 } | null;
 
 export type Portia50C70F44CE8894CF7231272888D6062DE18FA19BF04DAC0834A26B9130C165A1 = {
@@ -6183,6 +6191,13 @@ export type PortiaDDE2C5FB36C4E3ADE4BC29962E3FA4DF30C07A0D10F0B3C8F1FCB6F5B34DFA
   "reviewed_at": string | null;
   "separation_of_duties_waiver_id": string | null;
 } | null>;
+  "cancellation_rationale"?: string | null;
+  "cancelled_by"?: {
+  "kind": string;
+  "id": string;
+  "display": string;
+} | null;
+  "cancelled_at"?: string | null;
 } | null>;
   "treatment_action_status": string;
 } | null;
@@ -6201,6 +6216,10 @@ export type PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A57
   "kind": string;
   "parent_identifier": string | null;
   "summary": string;
+  "licensed_text": string | null;
+  "overlay": { "revision": number | string; "supplier": string; "license_reference": string;
+    "allowed_uses": { "display": boolean; "export": boolean };
+    "actor": { "kind": string; "id": string; "display": string }; "recorded_at": string } | null;
 } | null>;
   "next_cursor": string | null;
 } | null;

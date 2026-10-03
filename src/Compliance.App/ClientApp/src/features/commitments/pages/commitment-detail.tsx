@@ -38,9 +38,23 @@ function inputValue(event: Event): string {
   return (event.target as HTMLInputElement | HTMLTextAreaElement).value;
 }
 
+function ProviderLink({ providerId }: { providerId: string | null }) {
+  return providerId ? (
+    <a href={organizationPath(`/providers/${providerId}`)}>{providerId}</a>
+  ) : (
+    <span>Not linked to a provider</span>
+  );
+}
+
 function VersionSummary({ version }: { version: CommitmentVersion }) {
   return (
     <dl className="commitment-version">
+      {version.providerId ? (
+        <>
+          <dt>Subservice provider</dt>
+          <dd><ProviderLink providerId={version.providerId} /></dd>
+        </>
+      ) : null}
       <dt>Statement</dt>
       <dd>{version.statement}</dd>
       <dt>Owner</dt>
@@ -192,6 +206,11 @@ export function CommitmentDetailPage({ programId, draftId }: { programId: string
             Performed outside the service organization. It is never counted as an internally performed control.
           </p>
         )}
+        {current.kind === 'subservice_responsibility' ? (
+          <p>
+            Subservice provider: <ProviderLink providerId={current.providerId} />
+          </p>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Edit revision {current.revision}</CardTitle>
@@ -312,6 +331,7 @@ export function CommitmentDetailPage({ programId, draftId }: { programId: string
                   <li>
                     Version {item.version} · revision {item.revision} · effective {item.effectiveFrom} · source{' '}
                     {label(item.sourceResolution)}
+                    {item.providerId ? <> · Subservice provider <ProviderLink providerId={item.providerId} /></> : null}
                   </li>
                 ))}
               </ol>
@@ -346,6 +366,7 @@ export function CommitmentDetailPage({ programId, draftId }: { programId: string
                       </Button>{' '}
                       <span className="commitment-meta">
                         by {item.changedBy} on {new Date(item.changedAt).toLocaleDateString()}
+                        {item.providerId ? <> · Subservice provider <ProviderLink providerId={item.providerId} /></> : null}
                       </span>
                     </li>
                   ))}
@@ -356,6 +377,9 @@ export function CommitmentDetailPage({ programId, draftId }: { programId: string
                     <p>{selected.statement}</p>
                     {selected.context ? <p>{selected.context}</p> : null}
                     <p>Source: {selected.sourceReference}</p>
+                    {current.kind === 'subservice_responsibility' ? (
+                      <p>Subservice provider: <ProviderLink providerId={selected.providerId} /></p>
+                    ) : null}
                   </section>
                 ) : null}
               </Stack>

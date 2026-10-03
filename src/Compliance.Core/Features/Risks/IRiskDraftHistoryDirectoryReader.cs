@@ -4,6 +4,8 @@ namespace Bdgrz.Compliance.Features.Risks;
 
 public interface IRiskDraftHistoryDirectoryReader
 {
+    ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default);
     ValueTask<RiskDraftRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid riskId,
         long revision, CancellationToken ct = default);
     ValueTask<Page<RiskDraftRevisionView>> ListRevisionsAsync(Uuid tenantId, Uuid riskId,

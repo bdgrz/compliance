@@ -14,7 +14,7 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 ///     criterion is satisfied.
 /// </summary>
 public sealed class ListCriteriaCoverageHandler(IAggregateReader reader, ICriteriaCatalog catalog,
-    CriteriaCoverageReadConsistency coverage)
+    CriteriaCoverageReadConsistency coverage, CriteriaTextOverlayReader overlays)
     : IRequestHandler<ListCriteriaCoverage, Page<CriterionCoverageView>>
 {
     public async ValueTask<Result<Page<CriterionCoverageView>>> HandleAsync(
@@ -61,14 +61,17 @@ public sealed class ListCriteriaCoverageHandler(IAggregateReader reader, ICriter
                 decision.Status == "not_applicable")
             .ToDictionary(static decision => decision.CriterionIdentifier,
                 static decision => decision.DecisionId, StringComparer.Ordinal);
-        var items = catalog.ListEntries(editionId, request.Category, request.Kind, null)
-            .Select(entry => Coverage(entry, mappings[entry.Identifier].ToArray(), current,
-                notApplicable.TryGetValue(entry.Identifier, out var decisionId)
-                    ? decisionId
-                    : null))
-            .Where(item => request.CoverageState is null ||
-                item.CoverageState == request.CoverageState)
-            .ToArray();
+        var entries = catalog.ListEntries(editionId, request.Category, request.Kind, null);
+        var displayEntries = await overlays.ApplyPageAsync(request.TenantId, entries, false, ct)
+            .ConfigureAwait(false);
+        var items = new List<CriterionCoverageView>();
+        foreach (var entry in displayEntries)
+        {
+            var item = Coverage(entry, mappings[entry.Identifier].ToArray(), current,
+                notApplicable.TryGetValue(entry.Identifier, out var decisionId) ? decisionId : null);
+            if (request.CoverageState is null || item.CoverageState == request.CoverageState)
+                items.Add(item);
+        }
         return ControlActivationSource.Paginate(items, request.Limit, request.Cursor,
             "criteria coverage");
     }
@@ -98,6 +101,8 @@ public sealed class ListCriteriaCoverageHandler(IAggregateReader reader, ICriter
             mappings.Count(static mapping => mapping.Status == "pending"))
         {
             NotApplicableDecisionId = notApplicableDecisionId,
+            LicensedText = entry.LicensedText,
+            Overlay = entry.Overlay,
         };
     }
 

@@ -1,4 +1,5 @@
 using Cntryl.Fitz;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Risks;
@@ -8,6 +9,11 @@ sealed class FitzRiskDraftHistoryDirectoryV1(IKvClient client)
             "RiskDraftHistoryDirectoryV1"),
         IRiskDraftHistoryDirectoryReader, IRiskDraftHistoryDirectoryProjection
 {
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("RiskDraftHistoryDirectoryV1",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "risks")), ct);
+
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
         switch (domainEvent)

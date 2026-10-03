@@ -29,6 +29,8 @@ export interface CriteriaEntry {
   kind: string;
   parentIdentifier: string | null;
   summary: string;
+  licensedText: string | null;
+  overlay: { supplier: string; licenseReference: string } | null;
 }
 
 export interface CriteriaFilter {
@@ -102,6 +104,10 @@ export async function listCriteriaEntries(editionId: string, filter: CriteriaFil
           kind: item.kind,
           parentIdentifier: item.parent_identifier,
           summary: item.summary,
+          licensedText: item.licensed_text,
+          overlay: item.overlay
+            ? { supplier: item.overlay.supplier, licenseReference: item.overlay.license_reference }
+            : null,
         });
       }
     }

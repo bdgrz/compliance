@@ -8,6 +8,7 @@ import {
   PageHeader,
 } from '@askrjs/themes/components';
 
+import { OrganizationAddressCard } from '../features/tenants/organization-address-card.js';
 import { currentTenant } from '../features/tenants/tenants.js';
 
 export function HomePage() {
@@ -30,6 +31,7 @@ export function HomePage() {
           losing the context behind each control.
         </CardContent>
       </Card>
+      <OrganizationAddressCard />
     </Page>
   );
 }

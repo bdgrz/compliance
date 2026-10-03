@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
@@ -15,6 +16,8 @@ public sealed class Tenant : Aggregate
     Uuid _ownerUserId;
     Uuid _operatorUserId;
     string? _pendingSlug;
+    ActorReference? _pendingSlugChangeRequester;
+    DateTimeOffset? _pendingSlugChangeRequestedAt;
     readonly HashSet<string> _previousSlugs = new(StringComparer.Ordinal);
 
     public Tenant(Uuid id)
@@ -29,14 +32,26 @@ public sealed class Tenant : Aggregate
         On<TenantSuspended>(_ => _suspended = true);
         On<TenantReactivated>(_ => _suspended = false);
         On<TenantActivated>(_ => _activated = true);
-        On<TenantSlugChangeRequested>(ev => _pendingSlug = ev.NewSlug);
+        On<TenantSlugChangeRequested>(ev =>
+        {
+            _pendingSlug = ev.NewSlug;
+            _pendingSlugChangeRequester = ev.RequestedBy;
+            _pendingSlugChangeRequestedAt = ev.RequestedAt;
+        });
         On<TenantSlugChanged>(ev =>
         {
             _previousSlugs.Add(ev.OldSlug);
             _slug = ev.NewSlug;
             _pendingSlug = null;
+            _pendingSlugChangeRequester = null;
+            _pendingSlugChangeRequestedAt = null;
         });
-        On<TenantSlugChangeRejected>(_ => _pendingSlug = null);
+        On<TenantSlugChangeRejected>(_ =>
+        {
+            _pendingSlug = null;
+            _pendingSlugChangeRequester = null;
+            _pendingSlugChangeRequestedAt = null;
+        });
     }
 
     public bool IsActive => _slugState == TenantSlugState.Confirmed && !_suspended &&
@@ -108,7 +123,11 @@ public sealed class Tenant : Aggregate
             return Result.Success;
         if (_pendingSlug is not null && MatchesPendingChange(slug))
         {
-            RaiseEvent(new TenantSlugChanged(Id, _slug!, _pendingSlug));
+            RaiseEvent(new TenantSlugChanged(Id, _slug!, _pendingSlug)
+            {
+                RequestedBy = _pendingSlugChangeRequester,
+                RequestedAt = _pendingSlugChangeRequestedAt,
+            });
             return Result.Success;
         }
         if (!MatchesPending(slug))
@@ -130,7 +149,8 @@ public sealed class Tenant : Aggregate
         return Result.Success;
     }
 
-    public Result RequestSlugChange(string slug)
+    public Result RequestSlugChange(string slug, ActorReference? requestedBy = null,
+        DateTimeOffset? requestedAt = null)
     {
         if (!IsActive)
             return Failure(RequestErrorKind.Conflict, "The tenant is not active.");
@@ -140,7 +160,11 @@ public sealed class Tenant : Aggregate
             return Result.Success;
         if (_pendingSlug is not null)
             return Failure(RequestErrorKind.Conflict, "A slug change is already pending.");
-        RaiseEvent(new TenantSlugChangeRequested(Id, _slug!, normalized));
+        RaiseEvent(new TenantSlugChangeRequested(Id, _slug!, normalized)
+        {
+            RequestedBy = requestedBy,
+            RequestedAt = requestedAt,
+        });
         return Result.Success;
     }
 

@@ -14,6 +14,8 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
+    static readonly string[] CustomerDataBasis = ["customer_data"];
+
     [Fact]
     public async Task ShouldPreserveFourDraftKindsAndDenyDisclosureGivenStandaloneHost()
     {
@@ -26,6 +28,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         await TenantInvitationE2ETests.LoginAsync(outsider,
             $"commitment-outsider-{Guid.NewGuid():N}@example.com");
         var (tenantId, programId, serviceId) = await CreateServiceAsync(owner);
+        var providerId = await CreateSubserviceProviderAsync(owner, tenantId);
         var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/commitment-drafts";
         using var empty = await owner.GetAsync(path);
 
@@ -126,7 +129,7 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
             foreach (var kind in new[] { "system_requirement", "user_entity_responsibility",
                          "subservice_responsibility" })
             {
-                _ = await mcp.When("bdgrz.commitment.draft.create", new Dictionary<string, object?>
+                var arguments = new Dictionary<string, object?>
                 {
                     ["tenant_id"] = tenantId,
                     ["program_id"] = programId,
@@ -136,7 +139,10 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
                     ["statement"] = $"Draft {kind}",
                     ["context"] = "Not reviewed",
                     ["source_reference"] = "Management note",
-                }).ExpectSuccess();
+                };
+                if (kind == "subservice_responsibility")
+                    arguments["provider_id"] = providerId;
+                _ = await mcp.When("bdgrz.commitment.draft.create", arguments).ExpectSuccess();
             }
             _ = await mcp.When("bdgrz.commitment.draft.revise", new Dictionary<string, object?>
             {
@@ -533,6 +539,35 @@ public sealed class CommitmentDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.OK, service.StatusCode);
         var serviceId = Guid.Parse((await ReadAsync(service)).GetProperty("service_id").GetString()!);
         return (tenantId, programId, serviceId);
+    }
+
+    static async Task<Guid> CreateSubserviceProviderAsync(HttpClient owner, Guid tenantId)
+    {
+        var path = $"/api/v1/tenants/{tenantId}/providers";
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var provider = await owner.PostAsJsonAsync(path, new
+            {
+                content = new
+                {
+                    name = "Commitment subservice provider",
+                    provider_kind = "vendor",
+                    materiality = "material",
+                    materiality_basis = CustomerDataBasis,
+                    materiality_rationale = "Processes customer data",
+                    subservice = true,
+                    boundary_treatment = "carve_out",
+                },
+            });
+            if (provider.StatusCode == HttpStatusCode.OK)
+                return Guid.Parse((await ReadAsync(provider)).GetProperty("provider_id")
+                    .GetString()!);
+            Assert.True(provider.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await provider.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The subservice provider was not available to the CSOC draft.");
     }
 
     static async Task<Guid> CreateProgramAsync(HttpClient owner, Guid tenantId)

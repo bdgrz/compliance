@@ -11,12 +11,24 @@ public sealed class ComplianceProgram : Aggregate
     long _revision;
     Uuid? _criteriaEditionId;
     bool _lastChangeWasSelection;
+    readonly List<(long Revision, Uuid EditionId, DateTimeOffset ChangedAt)> _criteriaEditionHistory = [];
     string? _initialName;
     ProgramPlan? _initialPlan;
 
     public bool IsCreated => _created;
     public long Revision => _revision;
     public Uuid? CriteriaEditionId => _criteriaEditionId;
+
+    /// <summary>The most recent criteria selection recorded at or before the requested time.</summary>
+    public Uuid? CriteriaEditionAt(DateTimeOffset asOf)
+    {
+        var selected = _criteriaEditionHistory
+            .Where(selection => selection.ChangedAt <= asOf)
+            .OrderByDescending(static selection => selection.ChangedAt)
+            .ThenByDescending(static selection => selection.Revision)
+            .FirstOrDefault();
+        return selected.Revision > 0 ? selected.EditionId : null;
+    }
 
     public ComplianceProgram(Uuid tenantId, Uuid programId)
         : base(programId, new EventStreamAddress(tenantId.ToString(), "programs", programId.ToString()))
@@ -38,6 +50,7 @@ public sealed class ComplianceProgram : Aggregate
         {
             _revision = ev.Revision;
             _criteriaEditionId = ev.EditionId;
+            _criteriaEditionHistory.Add((ev.Revision, ev.EditionId, ev.ChangedAt));
             _lastChangeWasSelection = true;
         });
     }

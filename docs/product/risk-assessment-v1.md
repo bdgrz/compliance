@@ -87,14 +87,18 @@ identifies each action, submission, and decision.
   Acceptance re-reads the evidence requests and fails if a cited request is no longer fulfilled.
   Rejection returns the action to `open`; completions keep their history.
 - `GET .../risks/{risk_id}/governance` lists `treatment_actions` with status (`open`,
-  `completion_submitted`, `completed`), read-time `overdue`, and each completion with its review,
-  plus `treatment_action_status`: `none`, `in_progress`, `overdue`, or `completed`. Treatment
+  `completion_submitted`, `completed`, `cancelled`), read-time `overdue`, and each completion with
+  its review, plus `treatment_action_status`: `none`, `in_progress`, `overdue`, or `completed`. Treatment
   reads `completed` only when every action has an independently accepted completion.
 - An open action appears in the accountable member's work queue as `risk_treatment_action`.
+- `PUT .../risks/{risk_id}/treatment-actions/{action_id}` revises an open action using its
+  expected governance revision. The edit records its request ID, actor, and time for replay-safe
+  history. The accountable member must be active and each evidence request must remain in the
+  program and uncancelled. Submitted, completed, and cancelled actions cannot be edited.
 
 ## Deferred
 
-- Cancelling or editing a treatment action, and a distinct work item for completion review.
+- A distinct work item for completion review.
 - A treatment-action readiness rule and an evaluation status that depends on completion; the
   readiness rules belong to R1-08.
 

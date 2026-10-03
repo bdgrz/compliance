@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Criteria;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.ControlMappings;
@@ -14,4 +15,10 @@ public sealed record CriterionCoverageView(Uuid EditionId, string Identifier, st
 {
     /// <summary>The accepted not-applicable decision in force, if any.</summary>
     public Uuid? NotApplicableDecisionId { get; init; }
+
+    /// <summary>Tenant-supplied licensed text when the supplier permits display.</summary>
+    public string? LicensedText { get; init; }
+
+    /// <summary>Attribution and use permissions for the current tenant overlay.</summary>
+    public CriteriaTextOverlayMetadata? Overlay { get; init; }
 }
