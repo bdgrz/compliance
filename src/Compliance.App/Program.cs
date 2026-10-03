@@ -353,23 +353,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     });
     app.UseExceptionHandler();
     app.UseStatusCodePages();
-    app.Use(async (context, next) =>
-    {
-        if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method)) &&
-            !Path.HasExtension(context.Request.Path.Value) &&
-            !context.Request.Path.StartsWithSegments("/api") &&
-            context.Request.Path != "/auth/config" &&
-            context.Request.Path != "/auth/session" &&
-            !context.Request.Path.StartsWithSegments("/health") &&
-            !context.Request.Path.StartsWithSegments("/openapi"))
-        {
-            context.Request.Path = "/index.html";
-        }
-
-        await next(context);
-    });
     app.UseRouting();
-    app.MapStaticAssets().AllowAnonymous();
 
     app.UseAuthentication();
     app.UseAuthorization();
