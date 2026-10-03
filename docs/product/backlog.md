@@ -35,7 +35,7 @@ A story that contains several independently valuable outcomes may be divided int
 
 Each backend child owns its authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and backend behavior. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has backend children, depend on the applicable backend child or children rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and consumes the delivered API contract. It depends on all applicable backend children and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
 
-Close each child when its own behavior and unit-test evidence are complete. This applies even when older story text names workflow-wide, deployment-mode, or browser-level proof; that proof is deferred with the product parent. The product parent tracks the full cross-client outcome, with end-to-end validation deferred until its backend and frontend features work independently. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
+Close each child when its own behavior and focused plus full unit-test evidence are complete. Backend and frontend children use the same red-to-green unit-test loop. Broker, split-host, browser, and other integration-test evidence is not a child, PR, or merge requirement. The product parent tracks the full cross-client outcome; its later end-to-end validation starts after backend and frontend features work independently. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
 
 Bundle dependent backend children into a PR when they form one reviewable capability and share contracts or domain records. List every covered child and its unit-test evidence in the PR. During implementation, use focused Release unit tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the backend unit-test suite once when the bundle is ready and require exact-head CI. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
 
@@ -1366,7 +1366,7 @@ Implementation subtasks:
 - Define program identity, stage-transition rules, date semantics, and traceable plan revisions in the shared domain model.
 - Deliver authorized create, view, and revise behavior through the API, persistence, and browser workflow, including all required failure states.
 - Project unresolved setup work from real downstream records rather than a second checklist or manually assigned completion status.
-- Prove the complete flow, denied behavior, revision history, and standalone/split-host parity with focused acceptance tests.
+- Focused unit tests cover program creation, authorization, revision history, and setup-work projection rules.
 
 ### R1-02 Define the system boundary and intended audit scope
 
@@ -1410,7 +1410,7 @@ Implementation subtasks:
 - Define boundary versions, structured scope relationships, review decisions, and impact-analysis invariants without reducing the boundary to an unversioned document.
 - Deliver authorized author, review, approve, and revise behavior through the API and accessible browser workflow.
 - Connect boundary changes to affected controls, evidence, risks, vendors, readiness, and engagement snapshots before approval.
-- Prove version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior end to end.
+- Focused unit tests in the owning repository cover version selection, impact preview, denied review, concurrent revision, and historical snapshot behavior.
 
 Backend delivery is split between the [R1-02a boundary baseline](https://github.com/bdgrz/compliance/issues/162)
 and [R1-02b downstream impact completion](https://github.com/bdgrz/compliance/issues/246).
@@ -1465,7 +1465,7 @@ Implementation subtasks:
 - Define catalog-edition identity, criterion identity, import validation, permitted-use metadata, explicit selection, and product-support gap rules.
 - Deliver authorized import or selection, preview, browse, and scope behavior through the API and browser, including incompatible-revision failures.
 - Bind mappings and engagement snapshots to exact catalog editions while keeping organization guidance separate from source text.
-- Prove duplicate and missing identifier handling, edition stability, authorization, filtering, and snapshot preservation end to end.
+- Focused unit tests in the owning repository cover duplicate and missing identifier handling, edition stability, authorization, filtering, and snapshot preservation.
 
 ### R1-04 Invite the compliance team and assign responsibilities
 
@@ -1515,7 +1515,7 @@ Implementation subtasks:
 - Define member and identity-binding lifecycles, platform-team membership, access grants, revocation, actor attribution, and responsibility boundaries.
 - Deliver provider-authenticated activation, member/team administration, scoped authorization, reassignment warnings, and access explanations through the API and browser.
 - Enforce every allow and deny decision on the server, including direct grants, team grants, removed team memberships, suspension, deprovisioning, and separation-of-duties conflicts.
-- Prove identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -1652,7 +1652,7 @@ Implementation subtasks:
 - Deliver authorized create, review, activate, supersede, retire, browse, and inspect behavior through the API and browser.
 - Deliver authorized successor proposal, relationship editing, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
 - Connect control versions to applications, reviewed systems, scope, risks, mappings, responsibilities, occurrences, evidence, readiness, and frozen engagements without duplicating those records.
-- Prove lifecycle transitions, identifier conflicts, template provenance, forbidden actions, historical relationships, and accessible failure recovery end to end.
+- Focused unit tests in the owning repository cover lifecycle transitions, identifier conflicts, template provenance, forbidden actions, historical relationships, and accessible failure recovery.
 
 ### R1-06 Map controls to criteria and explain applicability
 
@@ -1691,7 +1691,7 @@ Implementation subtasks:
 - Define mapping identity, many-to-many uniqueness, applicability rationale, review-state transitions, and version compatibility.
 - Deliver authorized propose, review, approve, supersede, browse, and explain behavior through the API and browser.
 - Integrate mappings with coverage, gaps, advisor feedback, imports, and engagement snapshots while keeping draft and reviewed assertions distinct.
-- Prove duplicate resistance, not-applicable approval, forbidden review, edition changes, coverage reconciliation, and historical preservation end to end.
+- Focused unit tests in the owning repository cover duplicate resistance, not-applicable approval, forbidden review, edition changes, coverage reconciliation, and historical preservation.
 
 ### R1-07 Assess scoped risks and choose treatment
 
@@ -1754,7 +1754,7 @@ Implementation subtasks:
 - Define risk identity, assessment versions, method version, inherent and residual semantics, treatment, acceptance, reassessment triggers, review, and expiry invariants.
 - Deliver authorized identify, assess, relate, treat, accept, review, reassess, browse, and compare behavior through the API and browser.
 - Connect risks to boundary, commitments, assets, providers, controls, evidence, findings, accountable work, readiness, management review, and snapshots without duplicating those records.
-- Prove changed methods, incomplete assessments, unauthorized or expired acceptance, treatment verification, concurrent reassessment, history, and readiness reconciliation end to end.
+- Focused unit tests in the owning repository cover changed methods, incomplete assessments, unauthorized or expired acceptance, treatment verification, concurrent reassessment, history, and readiness reconciliation.
 
 ### R1-08 Complete the readiness assessment and own the gap plan
 
@@ -1804,7 +1804,7 @@ Implementation subtasks:
 - Define assessment inputs, explainable rules, as-of semantics, gap identity, severity and ownership, and explicit unknown or draft treatment.
 - Deliver authorized assessment, drill-down, filtering, gap assignment, advisor annotation, and recalculation behavior through the API and browser.
 - Reconcile every readiness result to source records and route new or resolved gaps through the shared finding, remediation, evidence, and review workflows.
-- Prove stale, missing, draft, rejected, unresolved, corrected, and unauthorized cases plus historical assessment reproducibility end to end.
+- Focused unit tests in the owning repository cover stale, missing, draft, rejected, unresolved, corrected, and unauthorized cases plus historical assessment reproducibility.
 
 ### R1-09 Bring existing readiness work into the program
 
@@ -1860,7 +1860,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D04 and define source identifiers, normalization, member matching, external-author treatment, conflicts, and atomic acceptance rules.
 - Deliver authorized upload, parse, preview, correct, accept, cancel, and retry behavior through the API, any required worker processing, and browser.
 - Route accepted items through the owning contexts, including identity and responsibility resolution, lifecycle checks, provenance, evidence content identity, and readiness recalculation.
-- Prove replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability end to end.
+- Focused unit tests in the owning repository cover replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -1993,7 +1993,7 @@ Implementation subtasks:
 - Define stable application and reviewed-system identity, source-aware import and reconciliation, explicit inclusion or exclusion, relationship, impact, retirement, and narrowly permitted unused-draft deletion semantics.
 - Deliver authorized add, import, preview, match, reconcile, classify, own, scope, relate, revise, retire, browse, and inspect behavior through the API and browser.
 - Connect applications to boundary, vendors, controls, policies, evidence, external access governance, work, readiness, automation, and engagement snapshots without creating duplicate system records.
-- Prove duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -2120,7 +2120,7 @@ Implementation subtasks:
 - Define person and source identity, lifecycle observations, manager and owner relationships, correlation, reconciliation, conflict, freshness, snapshot, and retention rules.
 - Deliver authorized manual entry, import, preview, match, reconcile, classify, own, browse, freeze, and inspect behavior through the API, bounded processing where needed, and browser.
 - Connect workforce context to platform responsibility without merging identities and to policy, training, access, evidence, control, readiness, population, and snapshot workflows.
-- Prove conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and end-to-end reconciliation.
+- Focused unit tests in the owning repository cover conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and reconciliation.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -2242,7 +2242,7 @@ Implementation subtasks:
 - Define stable identities, source matching, ownership, classification, lifecycle, flow versioning, scope decisions, reconciliation, retirement, and impact rules.
 - Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
 - Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
-- Prove missing and partial sources, aliases, conflicting classification, restricted visibility, flow revision, retirement, replay, historical engagement use, and end-to-end readiness reconciliation.
+- Focused unit tests in the owning repository cover missing and partial sources, aliases, conflicting classification, restricted visibility, flow revision, retirement, replay, historical engagement use, and readiness reconciliation.
 
 ### R1-13 Record service commitments, system requirements, and user responsibilities
 
@@ -2302,7 +2302,7 @@ Implementation subtasks:
 - Define stable identities, source and version provenance, applicability, interpretation, conflict, review, effective-date, supersession, withdrawal, and impact rules.
 - Deliver authorized capture or import, relate, review, approve, revise, supersede, browse, and inspect behavior through the API and browser.
 - Connect approved records to boundary, inventories, providers, criteria, controls, policies, risks, readiness, system description, assertions, packages, and snapshots.
-- Prove conflicting sources, expired and unmapped records, forbidden approval, concurrent revision, impact preview, historical retrieval, and package stability end to end.
+- Focused unit tests in the owning repository cover conflicting sources, expired and unmapped records, forbidden approval, concurrent revision, impact preview, historical retrieval, and package stability.
 
 ### R1-14 Evaluate vendors and subservice organizations
 
@@ -2367,7 +2367,7 @@ Implementation subtasks:
 - Define provider identity, service relationships, assessment versions, evidence coverage, exception, boundary treatment, review, renewal, termination, and acceptance rules.
 - Deliver authorized record, import, classify, assess, review, relate, remediate, accept risk, renew, terminate, browse, and inspect behavior through the API and browser.
 - Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
-- Prove stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and end-to-end readiness reconciliation.
+- Focused unit tests in the owning repository cover stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and readiness reconciliation.
 
 ### R1-15 Provision a client organization and its first administrators
 
@@ -2425,7 +2425,7 @@ Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25, M0-D28, and M0-A07 and define canonical organization, platform-user, membership, identity, lifecycle, operator-authority, bootstrap, and affiliation rules from approved public references.
 - Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
-- Prove cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions.
 
 ### EN-01 Provide shared authorization and actor-reference foundations
 
@@ -2458,7 +2458,7 @@ Acceptance criteria:
 - A platform user with memberships in several organizations acts in exactly one tenant per operation. Each owning backend child proves its current HTTP/MCP surfaces; future surfaces add the same proof in their backend child.
 - Cross-organization access is denied and cannot be distinguished from a missing resource; restricted rows are filtered before lists, pagination, or counts.
 - Current member actions record an immutable ActorReference with a stable member ID and display snapshot; named process actions remain distinct.
-- Shared authorization and tenant-context behavior is proved in standalone and split API/worker modes.
+- Shared authorization and tenant-context rules have focused unit coverage for allowed and denied requests and tenant isolation.
 - The foundation has end-to-end consumers.
 
 Implementation subtasks:
@@ -2467,8 +2467,8 @@ Implementation subtasks:
 - Implement the request context and evaluation pipeline.
 - Implement ActorReference persistence and display snapshots.
 - Add allow/deny test helpers and the architecture test.
-- Prove the pipeline through the current R1-15 and R1-01 program flows.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Focused unit tests cover the authorization pipeline and its tenant-scoped allow/deny rules.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
 
 
 First consumers: R1-15 and R1-01.
@@ -2513,8 +2513,8 @@ Implementation subtasks:
 - Implement the version and effective-interval primitives from M0-A01.
 - Implement the concurrency and conflict contract.
 - Implement the impact-preview contribution contract.
-- Prove it through R1-02's boundary versioning flow.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Focused unit tests cover the shared behavior.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
 
 First consumer: R1-02
 
@@ -2555,8 +2555,8 @@ Implementation subtasks:
 
 - Implement snapshot and amendment primitives from M0-A02.
 - Implement the canonical hashing and verification.
-- Prove it through R1-11's workforce snapshot slice.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Focused unit tests cover the shared behavior.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
 
 First consumer: R1-11d workforce snapshot
 
@@ -2601,8 +2601,8 @@ Implementation subtasks:
 
 - Implement the decision primitive and separation-of-duties evaluation.
 - Integrate with EN-01 authorization and EN-02 versions.
-- Prove it through R1-02 boundary approval.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Focused unit tests cover the shared behavior.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
 
 First consumer: R1-02
 
@@ -2648,9 +2648,9 @@ Implementation subtasks:
 - Implement batch, staging, and preview primitives.
 - Implement replay and reconciliation classification.
 - Implement worker execution and progress.
-- Prove it through R1-10b application import.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
-- Prove the ADR 0005 barrier in standalone and split API/worker hosts, including a worker crash and restart mid-accept (roll forward) and a cancellation before commit (nothing visible).
+- Focused unit tests cover the shared behavior.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
+- Focused unit tests cover the import visibility barrier, replay, cancellation, and recovery rules.
 
 First consumer: R1-10b application import
 
@@ -2697,8 +2697,8 @@ Implementation subtasks:
 - Implement the storage adapter and content identity.
 - Implement validation, inspection, and quarantine.
 - Implement authorized download.
-- Prove it through R2-03 evidence upload.
-- Prove allowed and denied behavior, failure states, history, and standalone/split-host parity with focused tests.
+- Focused unit tests cover the shared behavior.
+- Focused unit tests in the owning repository cover allowed and denied behavior, failure states, history.
 
 First consumer: R2-03
 
@@ -2748,7 +2748,7 @@ Implementation subtasks:
 - Define owner, backup, reviewer, cadence, effective-interval, team-assignment, conflict, and orphaned-work invariants.
 - Deliver authorized assignment and cadence preview, approval, revision, and work-view behavior through the API and browser.
 - Connect approved cadence to occurrences and responsibilities to the shared work queue, authorization decisions, evidence expectations, and readiness blockers.
-- Prove reassignment, team membership change, deprovisioning, schedule revision, retirement, conflicts, history, and denied behavior end to end.
+- Focused unit tests in the owning repository cover reassignment, team membership change, deprovisioning, schedule revision, retirement, conflicts, history, and denied behavior.
 
 ### R2-02 Maintain approved policies and review cycles
 
@@ -2804,7 +2804,7 @@ Implementation subtasks:
 - Deliver authorized draft, upload or author, review, approve, publish, supersede, retire, and retrieve-by-date behavior through the API and browser.
 - Deliver authorized relationship editing, successor proposal, impact preview, approval, and unused-draft deletion through the same API and browser workflow.
 - Connect policies to applications, reviewed systems, controls, criteria, risks, vendors, processes, evidence, work queues, readiness, requests, and frozen snapshots while keeping policy state separate from control coverage and performance.
-- Prove exact-version approval, overdue review, concurrent edits, rejected documents, historical retrieval, forbidden actions, and downstream readiness effects end to end.
+- Focused unit tests in the owning repository cover exact-version approval, overdue review, concurrent edits, rejected documents, historical retrieval, forbidden actions, and downstream readiness effects.
 
 ### R2-03 Request and capture trustworthy evidence
 
@@ -2844,7 +2844,7 @@ Implementation subtasks:
 - Define artifact identity, content hashing, provenance, sensitivity, covered-period, request, reuse, correction, and support-relationship rules.
 - Deliver authorized request, upload or link, validate, inspect, relate, correct, reuse, and retrieve behavior through the API, any bounded background processing, and browser.
 - Apply artifact and relationship authorization everywhere evidence appears; record source, collector or system actor, failures, review context, and sharing history.
-- Prove duplicate, oversized, interrupted, unauthorized, stale, outside-period, corrected, and reused evidence behavior plus package retrievability end to end.
+- Focused unit tests in the owning repository cover duplicate, oversized, interrupted, unauthorized, stale, outside-period, corrected, and reused evidence behavior plus package retrievability.
 
 ### R2-04 Perform a control and attest to the result
 
@@ -2884,7 +2884,7 @@ Implementation subtasks:
 - Define occurrence identity, expected-versus-ad-hoc semantics, result states, required rationale and support, submission, correction, and performer rules.
 - Deliver authorized view, perform, attach support, attest, submit, and correct behavior through the API and accessible browser workflow.
 - Route submissions into independent review and failed, skipped, missing, or not-applicable outcomes into the shared gap or exception path and readiness model.
-- Prove exact control and evidence versions, self-action restrictions, concurrent submission, correction history, population reconciliation, and denied behavior end to end.
+- Focused unit tests in the owning repository cover exact control and evidence versions, self-action restrictions, concurrent submission, correction history, population reconciliation, and denied behavior.
 
 ### R2-05 Review control design, implementation, and evidence
 
@@ -2946,7 +2946,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D13 and M0-D03 and define plan versions, assertion and procedure results, applicable populations or inspected items, conclusions, deviations, retest, review assignment, and independence rules.
 - Deliver authorized plan, assign, perform, document, submit, inspect, comment, accept, reject, request-change, remediate, and retest behavior through the API and browser.
 - Bind evaluations to exact scope, inventory, commitment, risk, criterion, control, policy, provider, and evidence versions and connect decisions to work, findings, readiness, descriptions, and snapshots.
-- Prove insufficient and conflicting evidence, failed procedures, deviation handling, design-versus-operation distinctions, self-review denial, concurrent revisions, rework, retest, small-team exceptions, and historical reproducibility end to end.
+- Focused unit tests in the owning repository cover insufficient and conflicting evidence, failed procedures, deviation handling, design-versus-operation distinctions, self-review denial, concurrent revisions, rework, retest, small-team exceptions, and historical reproducibility.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -3107,7 +3107,7 @@ Implementation subtasks:
 - Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
 - Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
 - Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
-- Prove employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history end to end.
+- Focused unit tests in the owning repository cover employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -3219,7 +3219,7 @@ Implementation subtasks:
 - Define source, severity, lifecycle, ownership, due date, root cause, corrective action, verification, reopening, closure, and expiring risk-acceptance rules.
 - Deliver authorized create or convert, relate, assign, investigate, remediate, accept risk, verify, close, reopen, and inspect behavior through the API and browser.
 - Connect corrective work to the shared work queue, evidence and review workflows, readiness, engagement findings, and next-period commitments.
-- Prove expired exceptions, missing closure evidence, source-text protection, reassignment, unauthorized approval, reopening, history, and downstream status reconciliation end to end.
+- Focused unit tests in the owning repository cover expired exceptions, missing closure evidence, source-text protection, reassignment, unauthorized approval, reopening, history, and downstream status reconciliation.
 
 ### R2-08 Collaborate with a readiness advisor on work in progress
 
@@ -3312,7 +3312,7 @@ Implementation subtasks:
 - Define readiness-snapshot contents, calculation identity, blocker rules, acknowledgement, required approvers, and approve/defer/approve-with-exceptions transitions.
 - Deliver authorized preview, drill-down, sign-off, defer, and exception acknowledgement through the API and accessible browser workflow.
 - Bind the decision to exact source versions and route deferrals or conditions into the shared finding, responsibility, and work model while preserving later changes separately.
-- Prove incomplete and stale inputs, unresolved acknowledgements, separation of duties, concurrent changes, denied approval, immutable history, and transition effects end to end.
+- Focused unit tests in the owning repository cover incomplete and stale inputs, unresolved acknowledgements, separation of duties, concurrent changes, denied approval, immutable history, and transition effects.
 
 ### R2-10 Publish policies and verify acknowledgement and training
 
@@ -3375,7 +3375,7 @@ Implementation subtasks:
 - Define campaign identity, version binding, audience rules and freeze, delivery, acknowledgement, completion observation, reminder, exception, reconciliation, and successor rules.
 - Deliver authorized assemble, preview, launch, deliver or import, acknowledge, remind, reconcile, review, close, and inspect behavior through the API, bounded processing where needed, and browser.
 - Connect campaigns to workforce, policies, training sources, evidence, controls, work queues, findings, readiness, populations, packages, and snapshots without duplicate person or policy records.
-- Prove audience changes, wrong versions, missing and partial sources, duplicate completion, failed delivery, overdue and exception states, authorization, replay, and population reconciliation end to end.
+- Focused unit tests in the owning repository cover audience changes, wrong versions, missing and partial sources, duplicate completion, failed delivery, overdue and exception states, authorization, replay, and population reconciliation.
 
 ### R2-11 Manage accountable compliance work
 
@@ -3434,7 +3434,7 @@ Implementation subtasks:
 - Define projection identity, source-state mapping, assignment and delegation, orphaning, due and blocked semantics, notification preference, delivery, deduplication, and reconciliation rules.
 - Deliver authorized personal and team queues, filters, assignment actions, source navigation, reminder preferences, digest, acknowledgement, and escalation through the API, bounded processing, and browser.
 - Integrate source workflows through stable identities and explicit allowed actions; derive counts and measures from those records without introducing generic completion state.
-- Prove stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
@@ -3536,7 +3536,7 @@ Implementation subtasks:
 - Define policy and assignment versions, artifact-level authorization, hold precedence, derivative identity, quarantine, disposition, delivery, availability, and historical-reliance rules.
 - Deliver authorized classify, restrict, hold, release, derive, review, disclose, revoke where possible, preview-disposition, dispose, and inspect-history behavior through the API, bounded processing, and browser.
 - Apply the same decisions to evidence, imports, provider reports, workforce snapshots, responses, exports, and packages and expose availability to readiness and validation without duplicating artifacts.
-- Prove malicious or invalid content, restricted metadata, stale policy, active holds, redaction errors, partial disposition, downloaded-copy warnings, denied sharing, package validation, and historical traceability end to end.
+- Focused unit tests in the owning repository cover malicious or invalid content, restricted metadata, stale policy, active holds, redaction errors, partial disposition, downloaded-copy warnings, denied sharing, package validation, and historical traceability.
 
 ## T1 - SOC 2 Type I supported
 
@@ -3588,7 +3588,7 @@ Implementation subtasks:
 - Define engagement identity, Type I date, baseline contents, blocker and scope-difference rules, confirmation, and amendment impact semantics.
 - Deliver authorized engagement setup, baseline preview, drill-down, confirmation, and amendment behavior through the API and browser.
 - Resolve baseline items to exact source versions and reuse the shared snapshot model for every downstream Type I workflow without cloning mutable alternatives.
-- Prove incomplete previews, concurrent source changes, denied confirmation, amendments, package impact, historical stability, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover incomplete previews, concurrent source changes, denied confirmation, amendments, package impact, historical stability.
 
 ### T1-02 Author, approve, and maintain the system description
 
@@ -3642,7 +3642,7 @@ Implementation subtasks:
 - Define version, section completeness, source binding, contradiction and staleness, not-applicable, review, approval, Type I baseline, Type II period, assertion, and close-snapshot rules.
 - Deliver authorized authoring, source linking and refresh, section status, review, approval, version comparison, period-change view, and export through the API and browser.
 - Reuse platform responsibilities and review decisions, preserve governed source relationships, and feed the exact approved version into assertions, requests, populations, packages, and snapshots.
-- Prove incomplete and contradictory sections, source-version changes, significant period changes, forbidden approval, concurrent edits, exact-version comments, export failure, and delivered-package stability end to end.
+- Focused unit tests in the owning repository cover incomplete and contradictory sections, source-version changes, significant period changes, forbidden approval, concurrent edits, exact-version comments, export failure, and delivered-package stability.
 
 ### T1-03 Give the auditor least-privilege engagement access
 
@@ -3683,7 +3683,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D17 and define scope, draft-sharing, time-bound grant, download, comment, and revocation rules.
 - Deliver provider-authenticated auditor activation and engagement-scoped sharing through the existing membership and authorization API and browser experience.
 - Enforce read, download, request, and comment permissions server-side on every referenced artifact while preserving visibility and actor history after revocation.
-- Prove cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states end to end.
+- Focused unit tests in the owning repository cover cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states.
 
 ### T1-04 Respond to auditor requests and samples
 
@@ -3723,7 +3723,7 @@ Implementation subtasks:
 - Define request source, lifecycle, assignment, response version, evidence linking, internal-review policy, external delivery, reopen, and due-date rules.
 - Deliver authorized create or receive, assign, discuss, assemble, review, deliver, reopen, and filter behavior through the API and browser.
 - Reuse evidence identity, support relationships, work queues, scoped external access, review decisions, and delivery history rather than creating audit-only copies.
-- Prove missing and unauthorized evidence, rejected responses, late and reopened requests, concurrent edits, exact delivery visibility, reporting reconciliation, and history end to end.
+- Focused unit tests in the owning repository cover missing and unauthorized evidence, rejected responses, late and reopened requests, concurrent edits, exact delivery visibility, reporting reconciliation, and history.
 
 ### T1-05 Produce and validate the Type I package
 
@@ -3779,7 +3779,7 @@ Implementation subtasks:
 - Define manifest identity, output schemas, deterministic ordering, content identity, source authorship, authorization filtering, validation, override, generation, retention, amendment, and delivery rules.
 - Deliver authorized preview, validate, generate, monitor, download, deliver, amend, and retrieve behavior through the API, bounded worker processing, and browser.
 - Resolve every manifest entry to the shared record or artifact identity and record the member or system actor for each attempt and delivery.
-- Prove missing, stale, rejected, unauthorized, inconsistent tables, interrupted, retried, and partially generated cases; equivalent regeneration; least privilege; attribution distinctions; amendments; and exact retrieval end to end.
+- Focused unit tests in the owning repository cover missing, stale, rejected, unauthorized, inconsistent tables, interrupted, retried, and partially generated cases; equivalent regeneration; least privilege; attribution distinctions; amendments; and exact retrieval.
 
 ### T1-06 Track Type I observations and audit findings
 
@@ -3818,7 +3818,7 @@ Implementation subtasks:
 - Define Type I source and baseline references, classification, external wording, response, corrective-action, closure, and roll-forward rules within the shared finding model.
 - Deliver authorized capture or import, inspect, relate, assign, respond, remediate, review, close, and reopen behavior through the API and browser.
 - Preserve auditor authorship and reuse evidence, responsibilities, work queues, review, readiness, and next-period planning without duplicating findings.
-- Prove immutable source wording, denied edits and closure, missing evidence, reopen history, baseline traceability, and Type II plan continuity end to end.
+- Focused unit tests in the owning repository cover immutable source wording, denied edits and closure, missing evidence, reopen history, baseline traceability, and Type II plan continuity.
 
 ### T1-07 Record the Type I outcome and approve the Type II plan
 
@@ -3868,7 +3868,7 @@ Implementation subtasks:
 - Define assertion-version binding, representation-letter provenance and signed artifact, outcome-source provenance, report reference, management review, operating-plan contents, completeness, approval, and transition rules.
 - Deliver authorized assertion review and approval, representation-letter retention, outcome recording, plan assembly, gap drill-down, review, approval, and transition preview through the API and browser.
 - Resolve every plan entry to shared controls, responsibilities, cadence, evidence expectations, findings, and approved changes without copying them into an unrelated planning model.
-- Prove changed assertion inputs, hidden exceptions, wrong or missing signers, external-source protection, inconsistent plans, missing ownership or cadence, denied approval, outcome-source distinction, open-remediation continuity, and immutable Type I history end to end.
+- Focused unit tests in the owning repository cover changed assertion inputs, hidden exceptions, wrong or missing signers, external-source protection, inconsistent plans, missing ownership or cadence, denied approval, outcome-source distinction, open-remediation continuity, and immutable Type I history.
 
 ## T2 - SOC 2 Type II period operated
 
@@ -3920,7 +3920,7 @@ Implementation subtasks:
 - Define period identity, boundaries, opening snapshot, expected population, overlap, planned-change, effective-date, approval, and amendment rules.
 - Deliver authorized period preview, blocker drill-down, start, inspect, and controlled-change behavior through the API and browser.
 - Resolve the opening plan to shared records and establish one period identity consumed by scheduling, evidence, access reviews, readiness, close, and packages.
-- Prove overlaps, missing ownership or cadence, unresolved acknowledgement, denied start, later changes, historical occurrences, and standalone/split-host parity end to end.
+- Focused unit tests in the owning repository cover overlaps, missing ownership or cadence, unresolved acknowledgement, denied start, later changes, historical occurrences.
 
 ### T2-02 Operate a recurring control calendar
 
@@ -3960,7 +3960,7 @@ Implementation subtasks:
 - Define deterministic occurrence identity, recurring/event/ad-hoc generation, due and covered-period semantics, effective changes, cancellation, and replay rules.
 - Deliver authorized calendar and work-queue queries, schedule-change preview and approval, and occurrence navigation through the API, bounded scheduler work, and browser.
 - Reuse control occurrences, responsibilities, performance, evidence, review, gaps, and readiness rather than introducing independent calendar completion state.
-- Prove duplicate prevention across retries and restarts, time boundaries, schedule edits, team and owner changes, historical separation, failed generation, and host-mode parity end to end.
+- Focused unit tests in the owning repository cover duplicate prevention across retries and restarts, time boundaries, schedule edits, team and owner changes, historical separation, failed generation.
 
 ### T2-03 Collect and review evidence for every required occurrence
 
@@ -4000,7 +4000,7 @@ Implementation subtasks:
 - Define completeness and period-applicability rules, accepted terminal states, reused-evidence explanation, correction behavior, and population reconciliation.
 - Deliver authorized occurrence support and review workflows plus population drill-down through the shared APIs and connected browser experience.
 - Feed missing, rejected, stale, or exception-backed occurrences into shared work, findings, and readiness while retaining all submissions and decisions.
-- Prove every terminal state, outside-period and reused evidence, corrections, review priority, denied access, exact totals, and immutable history end to end.
+- Focused unit tests in the owning repository cover every terminal state, outside-period and reused evidence, corrections, review priority, denied access, exact totals, and immutable history.
 
 ### T2-04 Monitor readiness and intervene before gaps age
 
@@ -4041,7 +4041,7 @@ Implementation subtasks:
 - Define each measure, status, forecast, as-of time, authorization filter, materiality rule, and source-record reconciliation.
 - Deliver authorized overview, filtering, drill-down, work navigation, and stale-data or calculation-failure states through the API and browser.
 - Build the work experience as a projection over domain-owned responsibilities and activities, never as a second independently editable task system.
-- Prove counts and filters against underlying records, per-member and team visibility, unassigned work, status transitions, forecast changes, denied drill-down, and calculation failures end to end.
+- Focused unit tests in the owning repository cover counts and filters against underlying records, per-member and team visibility, unassigned work, status transitions, forecast changes, denied drill-down, and calculation failures.
 
 ### T2-05 Run recurring application access reviews
 
@@ -4086,7 +4086,7 @@ Implementation subtasks:
 - Define campaign-template reuse, application-scope reconciliation, new snapshot identity, human and NHI subject correlation, principal and grant-path correlation, expectation comparison, cadence, and non-inheritance of decisions.
 - Deliver authorized repeat-import preview, campaign creation, population comparison, assignment, decision, remediation, verification, and completion through the shared API and browser workflows.
 - Preserve external-versus-platform identity boundaries and connect each campaign to shared evidence, control occurrences, work, findings, exceptions, readiness, and period snapshots.
-- Prove added, removed, changed, missing, prohibited, expired, and ambiguous grants; provider identifier continuity; human and NHI ownership changes; missing system snapshots; prior-history isolation; unverified remediation; and exact period contribution end to end.
+- Focused unit tests in the owning repository cover added, removed, changed, missing, prohibited, expired, and ambiguous grants; provider identifier continuity; human and NHI ownership changes; missing system snapshots; prior-history isolation; unverified remediation; and exact period contribution.
 
 ### T2-06 Complete periodic policy, risk, and vendor reviews
 
@@ -4131,7 +4131,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D19 and define subject-specific decision and material-change rules.
 - Deliver authorized scheduling, work queue, exact-version review, evidence, decision, next-date, and exception behavior through shared APIs and the browser.
 - Route material decisions into control and scope impact analysis, corrective work, evidence expectations, and readiness while preserving prior versions and decisions.
-- Prove due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status end to end.
+- Focused unit tests in the owning repository cover due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status.
 
 ### T2-07 Assess system changes and incidents for compliance impact
 
@@ -4176,7 +4176,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D21 before finalizing this story's rules.
 - Deliver authorized capture or import, relate, assess, restrict, share conclusions, create follow-up work, and close behavior through the API and browser.
 - Reuse shared source provenance, responsibilities, evidence, reviews, findings, scope impact, readiness, period history, and package selection.
-- Prove planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility end to end.
+- Focused unit tests in the owning repository cover planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility.
 
 ### T2-08 Automate selected inventory, access, and evidence collection
 
@@ -4257,7 +4257,7 @@ Implementation subtasks:
 - Define least-privilege scopes, credential custody, source and raw-snapshot identity, collection boundaries, pagination, normalization, reconciliation, freshness, disable, and revocation rules.
 - Deliver authorized connection consent, test, scope and schedule configuration, run status, disable, and revoke behavior through the API, bounded worker execution, and browser.
 - Normalize results into existing workforce, inventory, external-access, population, or evidence primitives with provider identifiers, system-actor attribution, idempotency, partial-failure detail, preview, and ordinary human review.
-- Prove denied and revoked credentials, pagination gaps, rate limiting, partial and stale results, tombstones, ambiguous matches, retries, duplicate snapshots, secret non-disclosure, cross-organization isolation, reconciliation history, and manual-workflow parity end to end.
+- Focused unit tests in the owning repository cover denied and revoked credentials, pagination gaps, rate limiting, partial and stale results, tombstones, ambiguous matches, retries, duplicate snapshots, secret non-disclosure, cross-organization isolation, reconciliation history, and manual-workflow parity.
 
 Delivery slices: this story is delivered through the following outcome slices,
 tracked as GitHub sub-issues. The parent's requirements, domain slice, and
@@ -4354,7 +4354,7 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D19 and define snapshot, agenda, quorum or approver, decision, action, and deferral rules.
 - Deliver authorized assemble, preview, conduct, decide, approve, assign, and inspect behavior through shared APIs and the browser.
 - Bind the review to exact source records and route actions through shared responsibilities, findings or corrective work, evidence, and readiness.
-- Prove incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion end to end.
+- Focused unit tests in the owning repository cover incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion.
 
 ## T3 - SOC 2 Type II examination supported
 
@@ -4406,7 +4406,7 @@ Implementation subtasks:
 - Define close contents, expected-versus-actual reconciliation, blockers, acknowledgements, approval, immutable identity, and amendment impact rules.
 - Deliver authorized close preview, drill-down, approval, freeze, inspect, and amend behavior through the API, bounded snapshot processing, and browser.
 - Resolve all entries to shared source identities and versions and make the close snapshot the only source for downstream examination workflows.
-- Prove missing and duplicate populations, concurrent changes, unresolved acknowledgements, denied approval, partial freeze failure, amendments, later source changes, and host-mode parity end to end.
+- Focused unit tests in the owning repository cover missing and duplicate populations, concurrent changes, unresolved acknowledgements, denied approval, partial freeze failure, amendments, later source changes.
 
 ### T3-02 Demonstrate complete audit populations
 
@@ -4465,7 +4465,7 @@ Implementation subtasks:
 - Define source universe, definition version, inclusion, exclusion, reconciliation, effective-date, row identity, missing and duplicate classification, source snapshot, completeness, calculation time, amendment, freeze, and export rules.
 - Deliver authorized population define or import, generate, inspect, filter, reconcile, export, amend, and freeze-for-sample behavior through the API, bounded processing, and browser.
 - Resolve population rows to exact source facts and shared occurrence, performance, workforce, inventory, access, decision, evidence, and exception records where applicable while enforcing field and artifact authorization.
-- Prove source and pagination gaps, changed definitions, every row classification, exact totals, restricted fields and evidence, export failure, source amendments, sample binding, and historical stability end to end.
+- Focused unit tests in the owning repository cover source and pagination gaps, changed definitions, every row classification, exact totals, restricted fields and evidence, export failure, source amendments, sample binding, and historical stability.
 
 ### T3-03 Fulfill Type II sample and evidence requests
 
@@ -4506,7 +4506,7 @@ Implementation subtasks:
 - Define sample-selection source, frozen item reference, request lifecycle, ownership, supplemental evidence, review policy, delivery, reopen, and timing rules.
 - Deliver authorized sample capture or import, request assignment, response assembly, review, delivery, follow-up, reopen, and reporting through shared APIs and the browser.
 - Reuse platform responsibilities, scoped external visibility, evidence identity, support relationships, review decisions, work queues, and delivery records.
-- Prove invalid or amended population references, missing support, denied visibility, rejected and reopened responses, concurrent edits, exact delivery history, and metric reconciliation end to end.
+- Focused unit tests in the owning repository cover invalid or amended population references, missing support, denied visibility, rejected and reopened responses, concurrent edits, exact delivery history, and metric reconciliation.
 
 ### T3-04 Resolve examination exceptions and remediation commitments
 
@@ -4548,7 +4548,7 @@ Implementation subtasks:
 - Define examination source, immutable wording, affected-record references, management response, root cause, corrective action, risk acceptance, closure, and roll-forward rules.
 - Deliver authorized capture or import, inspect, relate, respond, assign, remediate, accept risk, review, close, and reopen behavior through shared APIs and the browser.
 - Preserve auditor authorship and reuse work queues, evidence, review, readiness, package, and roll-forward relationships rather than creating an audit-only exception store.
-- Prove source-text protection, frozen-record references, denied closure, missing evidence, risk-versus-remediation distinctions, reopen history, package accuracy, and next-period continuity end to end.
+- Focused unit tests in the owning repository cover source-text protection, frozen-record references, denied closure, missing evidence, risk-versus-remediation distinctions, reopen history, package accuracy, and next-period continuity.
 
 ### T3-05 Produce and validate the Type II package
 
@@ -4605,7 +4605,7 @@ Implementation subtasks:
 - Extend the shared package definition and output schemas for period, source inventories, population, sample, request, response, exception, management-response, assertion input, and amendment content while preserving deterministic identity, authorship, and authorization rules.
 - Deliver authorized preview, validate, generate, monitor, override, download, deliver, and retrieve behavior through shared APIs, bounded worker processing, and browser.
 - Resolve every manifest entry to exact shared records and artifacts, enforce their sharing policy, and record member or system actors for attempts and delivery.
-- Prove completeness, period applicability, table reconciliation, attribution distinctions, restricted content, partial and interrupted generation, retry, equivalent regeneration, least privilege, amendments, and exact retained retrieval end to end.
+- Focused unit tests in the owning repository cover completeness, period applicability, table reconciliation, attribution distinctions, restricted content, partial and interrupted generation, retry, equivalent regeneration, least privilege, amendments, and exact retained retrieval.
 
 ### T3-06 Record management sign-off and the Type II outcome
 
@@ -4654,7 +4654,7 @@ Implementation subtasks:
 - Define required approvers, assertion version and exact input binding, representation-letter provenance and signed artifact, management decision, outcome provenance, report reference, commitment, and historical-supersession rules.
 - Deliver authorized sign-off preview, assertion review and approval, representation-letter retention, drill-down, decision, comments, outcome recording, report linking, and commitment assignment through the API and browser.
 - Reuse platform actors, responsibilities, findings, risk acceptance, work queues, packages, and snapshot history while preserving the three distinct conclusion sources.
-- Prove changed assertion inputs, hidden or unresolved item prevention, wrong or missing signers, denied approval, external-source protection, source attribution, concurrent amendment, immutable sign-off, final commitments, and downstream rollover end to end.
+- Focused unit tests in the owning repository cover changed assertion inputs, hidden or unresolved item prevention, wrong or missing signers, denied approval, external-source protection, source attribution, concurrent amendment, immutable sign-off, final commitments, and downstream rollover.
 
 ### T3-07 Roll the program into continuous compliance and the next period
 
@@ -4695,7 +4695,7 @@ Implementation subtasks:
 - Define eligible carry-forward records, change classification, open-commitment continuity, schedule boundary, comparison measures, approval, and safe replay rules.
 - Deliver authorized roll-forward preview, inspect, select, revise, approve, create-next-period, and compare behavior through the API, bounded processing, and browser.
 - Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
-- Prove carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability end to end.
+- Focused unit tests in the owning repository cover carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability.
 
 ## F1 - Multi-client firm operations
 
@@ -4740,7 +4740,7 @@ Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25, M0-D16, and M0-D27 and define lifecycle, export contents, firm-retained material, and disposition rules.
 - Deliver authorized onboard, suspend, reactivate, export, offboard, and dispose behavior through the API, bounded worker processing, and browser.
-- Prove export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions end to end.
+- Focused unit tests in the owning repository cover export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions.
 
 ### F1-02 See the client portfolio across organizations
 
@@ -4776,7 +4776,7 @@ Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25 and M0-A05 and define portfolio measures, authorization, and as-of semantics.
 - Deliver the portfolio overview, filters, drill-down, and organization switch through the API and browser.
-- Prove per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant leak tests end to end.
+- Focused unit tests in the owning repository cover per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant isolation.
 
 ### F1-03 Plan firm staff assignments and capacity across clients
 
@@ -4809,7 +4809,7 @@ Implementation subtasks:
 
 - Before scheduling this P2 story, confirm with firm leadership that capacity planning belongs in the platform rather than an existing resource tool.
 - Deliver authorized assignment overview, proposal, approval, and workload drill-down through the API and browser.
-- Prove independence blocks, reconciliation, and restricted visibility end to end.
+- Focused unit tests in the owning repository cover independence blocks, reconciliation, and restricted visibility.
 
 ### F1-04 Maintain a reusable template library and apply it to clients
 
@@ -4846,7 +4846,7 @@ Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25 and M0-D02 and define template scope, versioning, application, successor proposals, and contribution rules.
 - Deliver authorized template authoring, approval, application, change impact, and client adoption through the API and browser.
-- Prove provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation end to end.
+- Focused unit tests in the owning repository cover provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation.
 
 ### F1-05 Work one queue across all my client organizations
 
@@ -4880,7 +4880,7 @@ Implementation subtasks:
 
 - Define cross-organization aggregation, authorization, ordering, and digest grouping rules.
 - Deliver the cross-client queue, filters, and source navigation through the API and browser.
-- Prove revocation, reconciliation, restricted work, and cross-tenant leak tests end to end.
+- Focused unit tests in the owning repository cover revocation, reconciliation, restricted work, and cross-tenant isolation.
 
 ### F1-06 Let client users sign in through their own identity providers
 
@@ -4915,7 +4915,7 @@ Implementation subtasks:
 
 - Incorporate the decision recorded in M0-A07 and define connection, discovery, mapping, and rotation rules.
 - Deliver authorized connection setup, test, disable, rotation, and sign-in routing through the API and browser.
-- Prove wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure, and host-mode parity end to end.
+- Focused unit tests in the owning repository cover wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure.
 
 ### F1-07 Record client engagements and accept them after independence checks
 
@@ -4952,7 +4952,7 @@ Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25, M0-D26, and M0-D27 and define engagement types, acceptance, assignment-based access, amendment, and closure rules.
 - Deliver authorized create, evaluate, accept, assign, amend, and close behavior through the API and browser.
-- Prove assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval end to end.
+- Focused unit tests in the owning repository cover assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval.
 
 ### F1-08 Enforce independence walls between advisory and attest work
 
@@ -4991,7 +4991,7 @@ Implementation subtasks:
 
 - Incorporate the decision recorded in M0-D26 and define rule-set versions, service classification, cooling-off periods, compartments, exceptions, and re-evaluation.
 - Deliver authorized service recording, evaluation, exception approval, compartment administration, and evaluation history through the API and browser.
-- Prove blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history end to end.
+- Focused unit tests in the owning repository cover blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history.
 
 ## GitHub issue index
 
