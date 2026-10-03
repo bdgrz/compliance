@@ -196,7 +196,10 @@ export function OrganizationLayout({ children }: { children?: unknown }) {
     <Container size="xl" width="full" paddingY="0" grow>
       <Grid
         class="app-shell-layout"
-        columns={{ base: '1fr', md: '13rem minmax(0, 1fr)' }}
+        columns={{
+          base: '1fr',
+          md: 'var(--ak-layout-sidebar-width) minmax(0, 1fr)',
+        }}
         gap="md"
         align="start"
       >
