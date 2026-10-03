@@ -1,8 +1,8 @@
 # Compliance SPA
 
-The Compliance UI is a client-rendered AskrJS single-page application built by
-Vite+. ASP.NET Core serves the production bundle and remains the API and
-authorization boundary.
+The Compliance UI is an independent client-rendered AskrJS single-page
+application built by Vite+. It is developed and delivered separately from the
+.NET API; the API remains the authorization boundary.
 
 ## Structure
 

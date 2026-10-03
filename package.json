@@ -3,7 +3,7 @@
   "private": true,
   "license": "Apache-2.0",
   "workspaces": [
-    "src/Compliance.App/ClientApp"
+    "ui"
   ],
   "scripts": {
     "client:dev": "npm run dev --workspace @bdgrz/compliance-app",

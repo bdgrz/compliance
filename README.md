@@ -1,6 +1,6 @@
 # Compliance
 
-Compliance is a Native AOT ASP.NET Core application built on Portia, with an AskrJS single-page application. This repository intentionally contains foundation code only; compliance domain behavior will be added behind the established boundaries.
+Compliance is a Native AOT ASP.NET Core backend built on Portia, with a separate AskrJS single-page application. This repository intentionally contains foundation code only; compliance domain behavior will be added behind the established boundaries.
 
 ## Repository layout
 
@@ -8,13 +8,15 @@ Compliance is a Native AOT ASP.NET Core application built on Portia, with an Ask
 | --- | --- |
 | `src/Compliance.Common` | Contracts and primitives shared across process boundaries |
 | `src/Compliance.Core` | Application composition and Portia/Fitz infrastructure |
-| `src/Compliance.App` | ASP.NET Core API, worker host, and bundled SPA |
+| `src/Compliance.App` | ASP.NET Core API and worker host |
+| `ui` | Independent AskrJS single-page application |
 | `test/Compliance.Tests` | Unit, HTTP, broker, and architecture-level tests |
 
 Dependencies point inward: App references Core and Common; Core references Common; Common does not reference either host layer. All code uses the `Bdgrz.Compliance` root namespace and `Bdgrz.Compliance.*` assembly names.
 
 The SPA follows a thin-page, vertical-feature layout documented in
-[`src/Compliance.App/ClientApp/README.md`](src/Compliance.App/ClientApp/README.md).
+[`ui/README.md`](ui/README.md). It is outside the .NET solution, project graph,
+and build/test flow.
 
 Product discovery and delivery are governed by the
 [product brief](docs/product/product-brief.md),
@@ -32,14 +34,19 @@ contract.
 - Docker with Compose
 - A GitHub token that can read the Cntryl package registry
 
-Copy `.env.example` to `.env`, set `GITHUB_ACTOR` and `GITHUB_TOKEN`, then install and validate the repository:
+Copy `.env.example` to `.env` and set `GITHUB_ACTOR` and `GITHUB_TOKEN` for .NET package restore. Run the backend checks independently:
+
+```console
+dotnet restore Compliance.slnx --locked-mode
+dotnet build Compliance.slnx --configuration Release --no-restore
+dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+```
+
+Run the UI checks separately from the .NET build and test flow:
 
 ```console
 npm ci
-dotnet restore Compliance.slnx --locked-mode
 npm run client:check
-dotnet build Compliance.slnx --configuration Release --no-restore
-dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
 ```
 
 ## Running locally
@@ -89,7 +96,7 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 ## HTTP boundaries and operations
 
 - Application APIs live under `/api/v1`.
-- Unknown `/api/*` routes return an API error and never fall through to the SPA.
+- Unknown `/api/*` routes return an API error. The backend does not serve SPA assets or client-side routes.
 - OpenAPI 3.1 is exposed at `/openapi/v1.json` and `/openapi/v1.yml`.
 - `/health/live` reports that the process can answer HTTP.
 - `/health/ready` and the compatibility alias `/healthz` become healthy after hosted startup, including the initial Fitz connection and worker startup.
@@ -123,8 +130,6 @@ worker and must be reissued. Development and
 tests use `MockTenantInvitationDelivery` in the worker that sent the invitation. Invitation
 acceptance and email verification are human HTTP flows and have no MCP tools; operator invitation
 management, organization queries, lifecycle, and slug operations use both HTTP and MCP.
-
-ASP.NET Core's optimized static-asset endpoints serve the Vite output with build-time metadata and compression. A small pre-routing rewrite supplies `index.html` for client-owned, extensionless paths while reserving `/api`, `/auth`, `/health`, and `/openapi` for the server.
 
 ## Tests and containers
 

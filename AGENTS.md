@@ -2,17 +2,16 @@
 
 ## Project Structure & Module Organization
 
-`Compliance.slnx` contains three application projects: `src/Compliance.Common` holds shared contracts, `src/Compliance.Core` owns domain behavior and Portia/Fitz integration, and `src/Compliance.App` hosts the API, worker, and bundled SPA. Dependencies point inward: App → Core → Common. Put product code under `Features/<FeatureName>` and keep namespaces aligned with folders. The SPA lives in `src/Compliance.App/ClientApp`; its `src/pages` are thin routes and `src/features/<capability>` owns feature UI and tests. .NET tests live in `test/Compliance.Tests`; product and architecture decisions live in `docs/`. Brand assets are in `assets/` and `src/Compliance.App/ClientApp/public/brand/`.
+`Compliance.slnx` contains the .NET projects: `src/Compliance.Common` holds shared contracts, `src/Compliance.Core` owns domain behavior and Portia/Fitz integration, and `src/Compliance.App` hosts the API and worker. Dependencies point inward: App → Core → Common. The separate SPA lives in `ui/`; its `src/pages` are thin routes and `src/features/<capability>` owns feature UI and tests. .NET tests live in `test/Compliance.Tests`; product and architecture decisions live in `docs/`. Brand assets are in `assets/` and `ui/public/brand/`.
 
 ## Build, Test, and Development Commands
 
-Use the SDK selected by `global.json`, Node 24/npm 12, and Docker Compose. Copy `.env.example` to `.env` and configure package-registry credentials before restoring.
+Use the SDK selected by `global.json`, Node 24/npm 12 for the separate UI, and Docker Compose. Copy `.env.example` to `.env` and configure package-registry credentials before restoring .NET packages.
 
-- `npm ci` and `dotnet restore Compliance.slnx --locked-mode`: install locked dependencies.
-- `npm run client:check`: type-check, lint, test, and build the SPA.
+- `dotnet restore Compliance.slnx --locked-mode`: restore .NET dependencies.
 - `dotnet build Compliance.slnx -c Release --no-restore`: compile with analyzers and warnings as errors.
-- `./scripts/check-backend.sh focused 'FullyQualifiedName~ShouldReject...'`: run a focused .NET test with the AOT analyzer.
-- `./scripts/check-backend.sh full`: run the local client, formatting, build, ordinary-test, and broker-test gates.
+- `dotnet test Compliance.slnx -c Release --no-restore`: run .NET tests.
+- `npm ci && npm run client:check`: independently type-check, lint, test, and build the SPA; this is outside the .NET build and test flow.
 - `docker compose up --build`: start the standalone app and its dependencies at `http://127.0.0.1:8080`.
 
 ## Coding Style & Naming Conventions
