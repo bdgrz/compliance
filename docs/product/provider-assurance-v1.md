@@ -1,6 +1,6 @@
 # Provider due diligence and assurance reports V1
 
-Implements the due-diligence and assurance-report slice of [#231](https://github.com/bdgrz/compliance/issues/231) on top of the [manual provider register](provider-register-v1.md), using M0-D11 and M0-D23. CSOC linkage (#540), coverage-gap resolution (#541) and reassessment, renewal and termination impact (#542) are separate work. Nothing here is an approval, an audit conclusion or a readiness gap (#489 owns readiness rules). Readiness rules v3 acknowledges the provider family as `not_assessed` with an explicit gap until its historical provider, review and CSOC rules are delivered under #489; that status makes no claim about provider coverage.
+Implements the due-diligence and assurance-report slice of [#231](https://github.com/bdgrz/compliance/issues/231) on top of the [manual provider register](provider-register-v1.md), using M0-D11 and M0-D23. CSOC linkage (#540), coverage-gap resolution (#541) and reassessment, renewal and termination impact (#542) are separate work. Nothing here is an approval, an audit conclusion or a readiness gap (#489 owns readiness rules). Readiness rules v4 acknowledges the provider family as `not_assessed` with an explicit gap until its historical provider, review and CSOC rules are delivered under #489; that status makes no claim about provider coverage. Readiness assessments also resolve the criteria edition selected at their requested as-of time.
 
 ## Records
 

@@ -11,17 +11,19 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 2 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 4 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
-///     Version 2 adds boundary, commitment, risk, and scope-snapshot rules. Risk rule is the
+///     Version 2 added boundary, commitment, risk, and scope-snapshot rules. Version 3
+///     acknowledged providers as not assessed. Version 4 selects the criteria edition that was
+///     in force at the requested as-of time. Risk rule is the
 ///     conservative provisional R1-08 choice (#492): every program risk must be residual
 ///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/3";
+    public const string Version = "readiness-rules/4";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
