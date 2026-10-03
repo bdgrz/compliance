@@ -167,7 +167,7 @@ not before all product work.
 | M0-D21 | P1 | T2-07 | Compliance-facing change and incident facts must not replace operational systems. Decided 2026-09-22 ([record](decisions/m0-d21-significant-change.md)). |
 | M0-D22 | P0 | R1-02, R1-05, R1-07, R1-10, R1-11, R1-12, R2-06 | Resolves double-owned and missing identity and inventory concepts. |
 | M0-D23 | P0 | EN-04, R1-07, R1-08, R1-14, R2-05, R2-07, R2-09, T2-04, T2-09 | Resolves overlapping gap, finding, exception, risk-acceptance, review, and readiness ownership. |
-| M0-D24 | P0 | Every scheduled frontend child, delivery story, and first delivery slice | Defines the release-wide accessibility and supported-browser acceptance baseline; backend children omit this blocker. |
+| M0-D24 | P0 | Every scheduled frontend child, delivery story, and first delivery slice | Defines accessible behavior and supported-browser requirements; client unit tests verify component accessibility, while manual browser review is deferred to the later end-to-end phase. Backend children omit this blocker. |
 | M0-D25 | P0 | EN-01, R1-15, M0-D26, F1-01, F1-04, F1-07 | Defines the tenant boundary, firm-staff affiliation, firm-owned material, organization creation authority, and tenant vocabulary. |
 | M0-D26 | P1 | F1-07, F1-08 | Independence rules for a firm that both advises and examines require professional review. Decided 2026-09-22 ([record](decisions/m0-d26-independence.md)). |
 | M0-D27 | P1 | T1-03, F1-01 | Decides whether the firm's own attest workpapers belong in the platform. Decided 2026-09-22 ([record](decisions/m0-d27-attest-scope.md)). |

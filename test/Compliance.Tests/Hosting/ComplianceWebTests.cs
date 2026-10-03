@@ -14,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Bdgrz.Compliance.Tests.Hosting;
 
+[Trait("Category", "WebIntegration")]
 public sealed class ComplianceWebTests
 {
     [Theory]

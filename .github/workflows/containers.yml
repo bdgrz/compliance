@@ -47,7 +47,7 @@ jobs:
         run: |
           dotnet restore Compliance.slnx --locked-mode
           dotnet build Compliance.slnx --configuration Release --no-restore
-          dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+          dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
 
   version:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'

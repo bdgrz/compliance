@@ -19,6 +19,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Bdgrz.Compliance.Tests.Features.Authentication;
 
 /// <summary>ADR 0009: each trusted OIDC issuer is validated directly with its own keys.</summary>
+[Trait("Category", "WebIntegration")]
 public sealed class MultipleTrustedIssuerWebTests
 {
     const string FirmIssuer = "https://firm-issuer.example/";

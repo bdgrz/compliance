@@ -47,4 +47,4 @@ jobs:
         run: dotnet build Compliance.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration"
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"

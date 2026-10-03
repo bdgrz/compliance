@@ -19,9 +19,13 @@ statement until fixed.
 The normative standard is the [W3C Web Content Accessibility Guidelines
 (WCAG) 2.2 Recommendation](https://www.w3.org/TR/WCAG22/).
 
-## Test strategy
+## Validation strategy
 
-Every frontend child needs both kinds of evidence before it is done.
+Frontend feature work follows TDD with focused unit tests in the owning client
+repository. Unit tests are the current feature and PR test gate. The client
+unit suite can render a page in jsdom for axe-core checks; browser and manual
+accessibility checks are deferred until the later end-to-end validation phase,
+after frontend features work independently.
 
 ### Automated
 
@@ -31,19 +35,17 @@ WCAG 2.2 AA rule tags (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`,
 (`html-has-lang`, `html-lang-valid`, `document-title`, `meta-viewport`)
 against `index.html`. Each new page or workflow adds a case to
 `accessibility.test.tsx` that renders it through `@askrjs/askr/testing` and
-asserts zero violations. A fixture test keeps the check honest by proving
-that it reports an injected violation. The suite runs in CI through
-`npm run client:check`.
+asserts zero violations. A fixture test proves that the check reports an
+injected violation. This runs as part of the client unit suite.
 
 jsdom has no layout engine, so the `color-contrast` and `target-size` rules
-are disabled in the automated run, and results axe reports as incomplete are
-not failures. The page-level check runs inside the render container, so it
-cannot see the per-route document title. The manual pass covers all of
-these.
+are disabled in the automated unit check, and results axe reports as
+incomplete are not failures. A later manual pass can cover these and per-route
+document titles.
 
-### Manual
+### Later manual review
 
-The frontend PR links a short record of:
+The later end-to-end validation phase can record:
 
 - keyboard-only operation of every action, with no traps and a logical focus
   order;
