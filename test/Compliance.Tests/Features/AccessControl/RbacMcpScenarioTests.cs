@@ -314,14 +314,12 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.workforce.person.get",
             "bdgrz.workforce.person.list",
             "bdgrz.workforce.observation.list",
-            "bdgrz.workforce.observation.resolve",
             "bdgrz.workforce.person.correlate-membership",
             "bdgrz.workforce.reconciliation.list",
             "bdgrz.workforce.source.record",
             "bdgrz.workforce.source.get",
             "bdgrz.workforce.source.list",
             "bdgrz.workforce.source.preview",
-            "bdgrz.workforce.source.reconcile",
             "bdgrz.workforce.service-identity.record",
             "bdgrz.workforce.service-identity.revise",
             "bdgrz.workforce.service-identity.get",
@@ -331,7 +329,8 @@ public sealed class RbacMcpScenarioTests
         Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.list").ReadOnly);
         Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.record").Idempotent);
-        Assert.True(Assert.Single(tools, tool => tool.Name == "bdgrz.workforce.source.reconcile").Idempotent);
+        Assert.DoesNotContain(tools, tool => tool.Name == "bdgrz.workforce.observation.resolve");
+        Assert.DoesNotContain(tools, tool => tool.Name == "bdgrz.workforce.source.reconcile");
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application.revision.get").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
