@@ -1,14 +1,3 @@
-FROM node:26.10-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS client-build
-
-WORKDIR /source
-
-COPY package.json package-lock.json ./
-COPY src/Compliance.App/ClientApp/package.json src/Compliance.App/ClientApp/
-RUN --mount=type=cache,target=/root/.npm npm ci
-
-COPY src/Compliance.App/ClientApp/ src/Compliance.App/ClientApp/
-RUN npm run client:build
-
 FROM mcr.microsoft.com/dotnet/sdk:10.0.401-noble-aot@sha256:96f3b7d45f53eb05990f05b89ce61c4e23d07a5098521c2f20b018630e34f298 AS build
 
 WORKDIR /source
@@ -20,9 +9,6 @@ COPY src/Directory.Build.props src/
 COPY src/Compliance.Common/Compliance.Common.csproj src/Compliance.Common/packages.lock.json src/Compliance.Common/
 COPY src/Compliance.Core/Compliance.Core.csproj src/Compliance.Core/packages.lock.json src/Compliance.Core/
 COPY src/Compliance.App/Compliance.App.csproj src/Compliance.App/packages.lock.json src/Compliance.App/
-COPY src/Compliance.App/ClientApp/Compliance.App.Client.esproj \
-    src/Compliance.App/ClientApp/package.json \
-    src/Compliance.App/ClientApp/
 
 ARG GITHUB_ACTOR
 RUN --mount=type=secret,id=github_token,required=true \
@@ -40,8 +26,6 @@ RUN --mount=type=secret,id=github_token,required=true \
       /p:RestorePackagesWithLockFile=true'
 
 COPY src/ src/
-COPY --from=client-build /source/src/Compliance.App/ClientApp/dist \
-    src/Compliance.App/ClientApp/dist
 
 RUN case "$TARGETARCH" in \
       amd64) compliance_rid=linux-x64 ;; \
@@ -54,10 +38,7 @@ RUN case "$TARGETARCH" in \
       --runtime "$compliance_rid" \
       --self-contained true \
       --output /app/publish \
-      /p:PublishAot=true \
-      /p:ShouldRunNpmInstall=false \
-      /p:BuildCommand=true \
-      /p:PublishCommand=true
+      /p:PublishAot=true
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0.12-noble-chiseled-extra@sha256:9a3e4e315a3eae3be20b73739ae84fa7e4ffb2a47a234f3bef30825f0543fe1b AS runtime
 
