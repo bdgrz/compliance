@@ -7,14 +7,27 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-/// Fences readiness reads against the source cursors of the projections that are consulted
-/// outside the core readiness directories.
+/// Fences readiness assessments against their directory checkpoint and each source projection
+/// consulted while calculating them.
 /// </summary>
 sealed class ReadinessProjectionReadConsistency(IInventoryRegisterReader inventoryRegister,
     IAccessReviewScopeDirectoryReader accessReviewScopes, ISnapshotDirectoryReader snapshots,
     IPopulationSnapshotDirectoryReader populationSnapshots,
-    IRiskDraftHistoryDirectoryReader riskHistory, IDomainEventReader events)
+    IRiskDraftHistoryDirectoryReader riskHistory,
+    IReadinessDirectoryReader readinessDirectory, IDomainEventReader events)
 {
+    public ValueTask<Result<ProjectionCheckpoint>> CaptureReadinessDirectoryAsync(Uuid tenantId,
+        CancellationToken ct) => CaptureAsync(
+        token => readinessDirectory.LoadCheckpointAsync(tenantId, token),
+        EventStreamPattern.ForPattern(tenantId.ToString(), ReadinessLedger.Area),
+        "readiness directory", ct);
+
+    public ValueTask<Result> ConfirmReadinessDirectoryUnchangedAndCaughtUpAsync(Uuid tenantId,
+        ProjectionCheckpoint fence, CancellationToken ct) => ConfirmAsync(
+        token => readinessDirectory.LoadCheckpointAsync(tenantId, token),
+        EventStreamPattern.ForPattern(tenantId.ToString(), ReadinessLedger.Area), fence,
+        "readiness directory", ct);
+
     public ValueTask<Result<ProjectionCheckpoint>> CaptureRiskHistoryAsync(Uuid tenantId,
         CancellationToken ct) => CaptureAsync(
         token => riskHistory.LoadCheckpointAsync(tenantId, token),
