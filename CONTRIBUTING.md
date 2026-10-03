@@ -37,34 +37,35 @@ API-to-UI outcome passes. A backend dependency points to the upstream backend
 capability, not an open product parent waiting for UI. A frontend issue depends
 on the contracts it consumes and the accepted accessibility/browser baseline.
 
-Close a backend child only after linking its merged PR, focused and full
-applicable test results, broker and split-host evidence, and exact-head CI
-checks. A previously merged PR can satisfy part of a child's criteria, but
-record the remaining gaps explicitly. Close a frontend child only after its
-accessible browser workflow, API integration, required UI states, focused
-browser tests, and applicable repository checks are evidenced by a merged PR.
-The frontend consumes backend contracts; it does not redefine authorization or
-domain policy.
+Close a backend child only after linking its merged PR, focused and unit-only
+test results, and exact-head CI checks. Broker integration evidence is a
+separate acceptance gate only when an issue or release requirement explicitly
+requires it; it is not a routine PR or merge gate. A previously merged PR can
+satisfy part of a child's criteria, but record the remaining gaps explicitly.
+Client issues are completed in their owning web or mobile repositories after
+their contract, accessible workflow, required UI states, and client checks are
+evidenced. Clients consume backend contracts; they do not redefine
+authorization or domain policy.
 
-1. Take the lowest Run order item marked Ready, move its capability bundle to Active, and open a branch for that reviewable outcome. Bundle dependent child issues when they share contracts, canonical records, or acceptance tests. Keep domain code within the ownership boundaries documented in `README.md`.
-2. For behavioral changes, first add a focused test that demonstrates the failure, then make the smallest correction that turns it green.
+1. Take the lowest Run order item marked Ready, move its capability bundle to Active, and open a branch for that reviewable backend outcome. Link related client issues in their separate repositories; do not combine cross-repository code in one PR. Keep domain code within the ownership boundaries documented in `README.md`.
+2. Follow the fast TDD loop: add a focused failing unit test (red), make the smallest correction that passes it (green), and run the full unit-only suite before opening the PR. Do not run broker integration tests during red/green work.
    Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
 3. During development, run the focused test through the framework. Its build runs Portia generation, Cntryl.Conventions, and the .NET AOT analyzer with warnings-as-errors, without publishing a native image. Native publish still checks trimming and architecture-specific runtime behavior:
 
    ```console
    dotnet restore Compliance.slnx --locked-mode # once per dependency change or fresh checkout
-   ./scripts/check-backend.sh focused 'FullyQualifiedName~ShouldRejectChangedCreateGivenExistingProgramAndPreserveReplay'
+   dotnet test test/Compliance.Tests/Compliance.Tests.csproj --configuration Release --no-restore --filter 'FullyQualifiedName~ShouldRejectChangedCreateGivenExistingProgramAndPreserveReplay&Category!=BrokerIntegration'
    ```
 
-   Add a broker-focused filter when changing persistence, projections, reactors, or split-host behavior. Those tests start their own isolated Compose stack. Keep working on the same branch and commit related slices together. Do not push each red/green correction.
+   Keep working on the same branch and commit related slices together. Do not push each red/green correction.
 
-4. Run the full local gate once when the bundle is ready for review:
+4. Open a PR after the unit-only suite passes. Adversarially review the exact PR head, then refine or refactor in response to findings. Rerun the focused test and unit-only suite after changes, and repeat review until the final head is clear.
 
    ```console
-   ./scripts/check-backend.sh full
+   dotnet test Compliance.slnx --configuration Release --no-restore --filter "Category!=BrokerIntegration"
    ```
 
-5. Push the reviewed bundle and require green CI on its final head. CI is one five-minute job: format, build, and unit tests. Run the broker suite locally (`./scripts/check-backend.sh full`) when persistence, projections, reactors, or split hosts change. Native AOT images are built by `containers.yml`, not CI.
+5. Squash-merge after exact-head CI and adversarial review pass. CI is one five-minute job: format, build, and unit tests; the test filter excludes `BrokerIntegration`. Broker integration is a separate, opt-in acceptance activity when explicitly required. Native AOT images are built by `containers.yml`, not CI.
 6. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
 7. After merge, read back each covered issue against its own acceptance evidence. Close satisfied children, leave explicit gaps on partial children, update the parent only when the integrated outcome is proven, and refresh project queue and Run order before selecting another capability.
 
