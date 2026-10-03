@@ -42,4 +42,5 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(BrowserSession))]
 [JsonSerializable(typeof(ProblemDetails))]
 [JsonSerializable(typeof(PersonalContactDetails))]
+[JsonSerializable(typeof(Bdgrz.Compliance.Features.Criteria.CriteriaTextOverlayContent))]
 sealed partial class ComplianceJsonContext : JsonSerializerContext;
