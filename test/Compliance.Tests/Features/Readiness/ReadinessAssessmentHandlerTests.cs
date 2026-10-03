@@ -503,8 +503,8 @@ public sealed class ReadinessAssessmentHandlerTests
 
     sealed class EmptyReadinessSources : IReadinessSourceReader
     {
-        public ValueTask<ReadinessSourceSet> ReadAsync(Uuid tenantId, Uuid programId,
+        public ValueTask<Result<ReadinessSourceSet>> ReadAsync(Uuid tenantId, Uuid programId,
             DateTimeOffset asOf, CancellationToken ct = default) =>
-            ValueTask.FromResult(ReadinessSourceSet.Empty);
+            ValueTask.FromResult(Result<ReadinessSourceSet>.Success(ReadinessSourceSet.Empty));
     }
 }

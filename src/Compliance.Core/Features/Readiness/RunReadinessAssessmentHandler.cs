@@ -56,10 +56,12 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
                 ? control.EffectiveVersion(effectiveOn)
                 : null;
         }
-        var sourceSet = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)
+        var sourceResult = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)
             .ConfigureAwait(false);
+        if (!sourceResult.IsSuccess)
+            return Result<ReadinessAssessmentRegistration>.Failure(sourceResult.Error);
         var evaluation = ReadinessRules.Evaluate(request.ProgramId, asOf, editionId, criteria,
-            mappings, controls, sourceSet);
+            mappings, controls, sourceResult.Value);
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");

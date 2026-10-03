@@ -350,6 +350,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, EvidenceControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, WorkControlImpactContributor>();
+        services.AddScoped<ReadinessProjectionReadConsistency>();
         services.AddScoped<IReadinessSourceReader, DirectoryReadinessSourceReader>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
         services.AddScoped<BoundaryImpactService>();

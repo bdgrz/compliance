@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Providers;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Snapshots;
@@ -19,18 +20,67 @@ namespace Bdgrz.Compliance.Features.Readiness;
 /// </summary>
 sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
     ICommitmentDraftDirectoryReader commitments, IRiskDraftDirectoryReader risks,
-    IRiskDraftHistoryDirectoryReader riskHistory, IRiskEvaluationDirectoryReader evaluations,
+    IRiskDraftHistoryDirectoryReader riskHistory,
+    RiskEvaluationReadConsistency evaluationConsistency,
     ISnapshotDirectoryReader snapshots, IProviderReader providers, IAssuranceReader assurance,
     IAccessReviewScopeDirectoryReader accessReviewScopes,
-    ITechnologyInventoryReader technology, IInventoryRegisterReader inventoryRegister)
+    ITechnologyInventoryReader technology, IInventoryRegisterReader inventoryRegister,
+    ProgramSetupWorkReadConsistency programBoundaryConsistency,
+    CommitmentDraftListReadConsistency commitmentConsistency,
+    RiskDraftListReadConsistency riskConsistency,
+    ProviderReadConsistency providerConsistency,
+    AssuranceReadConsistency assuranceConsistency,
+    TechnologyInventoryReadConsistency technologyConsistency,
+    ReadinessProjectionReadConsistency projectionConsistency)
     : IReadinessSourceReader
 {
     public const int MaximumRecordsPerFamily = 500;
     const int PageSize = 200;
 
-    public async ValueTask<ReadinessSourceSet> ReadAsync(Uuid tenantId, Uuid programId,
+    public async ValueTask<Result<ReadinessSourceSet>> ReadAsync(Uuid tenantId, Uuid programId,
         DateTimeOffset asOf, CancellationToken ct = default)
     {
+        var programBoundaryFence = await programBoundaryConsistency.CaptureAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!programBoundaryFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(programBoundaryFence.Error);
+        var snapshotFence = await projectionConsistency.CaptureSnapshotsAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!snapshotFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(snapshotFence.Error);
+        var commitmentFence = await commitmentConsistency.CaptureFenceAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!commitmentFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(commitmentFence.Error);
+        var riskFence = await riskConsistency.CaptureFenceAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!riskFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(riskFence.Error);
+        var riskHistoryFence = await projectionConsistency.CaptureRiskHistoryAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!riskHistoryFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(riskHistoryFence.Error);
+        var providerFence = await providerConsistency.CaptureListFenceAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!providerFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(providerFence.Error);
+        var assuranceFence = await assuranceConsistency.CaptureFenceAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!assuranceFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(assuranceFence.Error);
+        var technologyFence = await technologyConsistency.CaptureAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (!technologyFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(technologyFence.Error);
+        var inventoryRegisterFence = await projectionConsistency.CaptureInventoryRegisterAsync(
+            tenantId, ct).ConfigureAwait(false);
+        if (!inventoryRegisterFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(inventoryRegisterFence.Error);
+        var accessReviewScopeFence = await projectionConsistency.CaptureAccessReviewScopesAsync(
+            tenantId, ct).ConfigureAwait(false);
+        if (!accessReviewScopeFence.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(accessReviewScopeFence.Error);
+
         var truncated = new List<string>();
         var boundaryViews = await ScanAsync("boundaries", truncated, (cursor, token) =>
             boundaries.ListProgramAsync(tenantId, programId, PageSize, cursor, token), ct)
@@ -90,20 +140,71 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
                 : revisions.Min(static revision => revision.ChangedAt);
             var revisionAt = revisions.Where(revision => revision.ChangedAt <= asOf)
                 .Select(static revision => revision.Revision).DefaultIfEmpty(0).Max();
-            var evaluation = await evaluations.GetAsync(tenantId, risk.RiskId, ct)
+            var evaluation = await evaluationConsistency.GetAsync(tenantId, programId,
+                risk.RiskId, null, ct)
                 .ConfigureAwait(false);
+            if (!evaluation.IsSuccess)
+                return Result<ReadinessSourceSet>.Failure(evaluation.Error);
             riskInputs.Add(new ReadinessRiskInput(risk.RiskId, risk.Identifier, createdAt,
-                revisionAt, EvaluationStatusAt(evaluation, asOf)));
+                revisionAt, EvaluationStatusAt(evaluation.Value, asOf)));
         }
 
-        return new ReadinessSourceSet(boundaryInputs, commitmentInputs, riskInputs,
+        var programBoundaryConfirmed = await programBoundaryConsistency
+            .ConfirmUnchangedAndCaughtUpAsync(tenantId, programBoundaryFence.Value, ct)
+            .ConfigureAwait(false);
+        if (!programBoundaryConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(programBoundaryConfirmed.Error);
+        var snapshotsConfirmed = await projectionConsistency
+            .ConfirmSnapshotsUnchangedAndCaughtUpAsync(tenantId, snapshotFence.Value, ct)
+            .ConfigureAwait(false);
+        if (!snapshotsConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(snapshotsConfirmed.Error);
+        var commitmentsConfirmed = await commitmentConsistency.ConfirmUnchangedAndCaughtUpAsync(
+            tenantId, commitmentFence.Value, ct).ConfigureAwait(false);
+        if (!commitmentsConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(commitmentsConfirmed.Error);
+        var risksConfirmed = await riskConsistency.ConfirmUnchangedAndCaughtUpAsync(tenantId,
+            riskFence.Value, ct).ConfigureAwait(false);
+        if (!risksConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(risksConfirmed.Error);
+        var riskHistoryConfirmed = await projectionConsistency
+            .ConfirmRiskHistoryUnchangedAndCaughtUpAsync(tenantId, riskHistoryFence.Value, ct)
+            .ConfigureAwait(false);
+        if (!riskHistoryConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(riskHistoryConfirmed.Error);
+        var providersConfirmed = await providerConsistency.EnsureFenceHeldAsync(tenantId,
+            providerFence.Value, ct).ConfigureAwait(false);
+        if (!providersConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(providersConfirmed.Error);
+        var assuranceConfirmed = await assuranceConsistency.ConfirmUnchangedAndCaughtUpAsync(
+            tenantId, assuranceFence.Value, ct).ConfigureAwait(false);
+        if (!assuranceConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(assuranceConfirmed.Error);
+        var technologyConfirmed = await technologyConsistency
+            .ConfirmUnchangedAndCaughtUpAsync(tenantId, technologyFence.Value, ct)
+            .ConfigureAwait(false);
+        if (!technologyConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(technologyConfirmed.Error);
+        var inventoryRegisterConfirmed = await projectionConsistency
+            .ConfirmInventoryRegisterUnchangedAndCaughtUpAsync(tenantId,
+                inventoryRegisterFence.Value, ct).ConfigureAwait(false);
+        if (!inventoryRegisterConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(inventoryRegisterConfirmed.Error);
+        var accessReviewScopesConfirmed = await projectionConsistency
+            .ConfirmAccessReviewScopesUnchangedAndCaughtUpAsync(tenantId,
+                accessReviewScopeFence.Value, ct).ConfigureAwait(false);
+        if (!accessReviewScopesConfirmed.IsSuccess)
+            return Result<ReadinessSourceSet>.Failure(accessReviewScopesConfirmed.Error);
+
+        return Result<ReadinessSourceSet>.Success(new ReadinessSourceSet(boundaryInputs,
+            commitmentInputs, riskInputs,
             snapshotViews)
         {
             AccessReviewScopes = accessReviewScopeInputs,
             Providers = providerInputs,
             TechnologyInventory = technologyInputs,
             TruncatedFamilies = truncated,
-        };
+        });
     }
 
     async ValueTask<IReadOnlyList<ReadinessTechnologyInventoryInput>> ReadTechnologyInventoryAsync(
@@ -122,6 +223,7 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
         var inputs = new List<ReadinessTechnologyInventoryInput>();
         var recordReads = 0;
         var historyReads = 0;
+        var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
         await AddRevisionsAsync("component", targets.GetValueOrDefault("component", []),
             (id, cursor, token) => technology.ListComponentRevisionsAsync(tenantId, id,
                 PageSize, cursor, token), static view => view.TenantId,
@@ -138,7 +240,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             (id, cursor, token) => technology.ListFlowRevisionsAsync(tenantId, id,
                 PageSize, cursor, token), static view => view.TenantId,
             static view => view.DataFlowId, static view => view.Revision,
-            static view => view.LastChangedAt, static view => view.Content.Lifecycle)
+            static view => view.LastChangedAt, static view => view.Content.Lifecycle,
+            static view => view.Content.EffectiveFrom)
             .ConfigureAwait(false);
         await AddRevisionsAsync("location", targets.GetValueOrDefault("location", []),
             (id, cursor, token) => inventoryRegister.ListLocationRevisionsAsync(tenantId, id,
@@ -158,7 +261,8 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             Func<Uuid, string?, CancellationToken, ValueTask<Page<T>>> read,
             Func<T, Uuid> getTenantId, Func<T, Uuid> getRecordId,
             Func<T, long> getRevision, Func<T, DateTimeOffset> getChangedAt,
-            Func<T, string> getLifecycle) where T : class
+            Func<T, string> getLifecycle,
+            Func<T, DateOnly?>? getEffectiveFrom = null) where T : class
         {
             if (recordIds.Count > MaximumRecordsPerFamily &&
                 !truncated.Contains("technology_inventory", StringComparer.Ordinal))
@@ -188,13 +292,17 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
                 var selected = revisions.Items
                     .Where(view => getTenantId(view) == tenantId &&
                                    getRecordId(view) == recordId &&
-                                   getChangedAt(view) <= asOf)
+                                   getChangedAt(view) <= asOf &&
+                                   (getEffectiveFrom is null ||
+                                    getEffectiveFrom(view) is not { } effectiveFrom ||
+                                    effectiveFrom <= asOfDate))
                     .MaxBy(getRevision);
                 inputs.Add(selected is null
                     ? new ReadinessTechnologyInventoryInput(subjectType, recordId,
                         null, null, null)
                     : new ReadinessTechnologyInventoryInput(subjectType, recordId,
-                        getRevision(selected), getLifecycle(selected), getChangedAt(selected)));
+                        getRevision(selected), getLifecycle(selected), getChangedAt(selected),
+                        getEffectiveFrom?.Invoke(selected)));
                 recordReads++;
                 if (revisions.Truncated)
                     return;

@@ -1,4 +1,5 @@
 using Cntryl.Fitz;
+using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Snapshots;
@@ -19,6 +20,11 @@ sealed class FitzSnapshotDirectory(IKvClient client)
                 frozen.AmendmentReason, frozen.ActorMemberId, frozen.ActorDisplay,
                 frozen.FrozenAt), ct);
     }
+
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) =>
+        base.LoadCheckpointAsync(new CheckpointIdentity("SnapshotDirectory",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "snapshots")), ct);
 
     public async ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
         CancellationToken ct = default)

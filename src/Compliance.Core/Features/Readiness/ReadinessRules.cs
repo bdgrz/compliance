@@ -14,7 +14,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 7 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 8 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
@@ -22,13 +22,14 @@ namespace Bdgrz.Compliance.Features.Readiness;
 ///     acknowledged providers as not assessed. Version 4 selects the criteria edition that was
 ///     in force at the requested as-of time. Version 5 adds provider review and CSOC rules.
 ///     Version 6 adds effective as-of access-review scope rules. Version 7 selects
-///     technology inventory revisions referenced by the as-of boundary. Risk rule is the
+///     technology inventory revisions referenced by the as-of boundary; data flows also respect
+///     their effective date. Risk rule is the
 ///     conservative provisional R1-08 choice (#492): every program risk must be residual
 ///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/7";
+    public const string Version = "readiness-rules/8";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -457,6 +458,8 @@ public static class ReadinessRules
             fingerprint.Append("technology-inventory|").Append(record.SubjectType).Append('|')
                 .Append(record.RecordId).Append('|').Append(record.Revision).Append('|')
                 .Append(record.Lifecycle).Append('|')
+                .Append(record.EffectiveFrom?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+                .Append('|')
                 .Append(record.LastChangedAt?.ToString("O", CultureInfo.InvariantCulture))
                 .Append('\n');
             var source = new ReadinessSourceReference(record.SubjectType, record.RecordId,
@@ -467,7 +470,7 @@ public static class ReadinessRules
                         $"{record.SubjectType}|{record.RecordId}"),
                     "technology_inventory_revision_missing_at_as_of",
                     record.RecordId.ToString(), TechnologyInventoryRevisionAt,
-                    $"No {record.SubjectType} revision was recorded by the as-of time for a record referenced by the program boundary.",
+                    $"No {record.SubjectType} revision was recorded and effective by the as-of time for a record referenced by the program boundary.",
                     [source]));
             else if (record.Lifecycle != TechnologyInventoryRules.Active)
                 gaps.Add(new ReadinessGapView(GapIdFor(programId,
