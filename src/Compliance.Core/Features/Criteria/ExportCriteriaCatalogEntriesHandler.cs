@@ -4,7 +4,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Criteria;
 
 public sealed class ExportCriteriaCatalogEntriesHandler(ICriteriaCatalog catalog,
-    CriteriaTextOverlayReader overlays)
+    ICriteriaTextOverlayReader overlays)
     : IRequestHandler<ExportCriteriaCatalogEntries, Page<Criterion>>
 {
     public ValueTask<Result<Page<Criterion>>> HandleAsync(

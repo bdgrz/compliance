@@ -5,6 +5,7 @@ using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Tests.Features.Criteria;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
@@ -349,7 +350,7 @@ public sealed class ControlCriterionMappingHandlerTests
                     .AddRequestHandler<GetCriterionApplicabilityHandler>()
                     .AddRequestHandler<ListCriterionApplicabilityHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(TestCatalog())
-                    .AddScoped<CriteriaTextOverlayReader>()
+                    .AddScoped<ICriteriaTextOverlayReader, EmptyCriteriaTextOverlayReader>()
                     .AddScoped<ControlActivationSource>()
                     .AddCoverageProjections());
             var fixture = new Fixture { Provider = provider };

@@ -32,7 +32,13 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
-        services.AddScoped<CriteriaTextOverlayReader>();
+        services.AddScoped<FitzCriteriaTextOverlayDirectory>();
+        services.AddScoped<ICriteriaTextOverlayDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzCriteriaTextOverlayDirectory>());
+        services.AddScoped<ICriteriaTextOverlayDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzCriteriaTextOverlayDirectory>());
+        services.AddScoped<CriteriaTextOverlayReadConsistency>();
+        services.AddScoped<ICriteriaTextOverlayReader, FitzCriteriaTextOverlayReader>();
         services.AddSingleton<IReactorPrincipalProvider, ComplianceReactorPrincipalProvider>();
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
@@ -921,6 +927,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<ReadinessDirectoryProjector>(FitzReadinessDirectory.ProjectorName,
                 WorkloadScope.PerTenant)
+            .AddProjector<CriteriaTextOverlayDirectoryProjector>(
+                FitzCriteriaTextOverlayDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),
                 fitz => fitz.UseKvCheckpoints("kv://bdgrz/reactors/checkpoints"))

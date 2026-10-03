@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Features.Criteria;
 static class CriteriaCatalogEntriesPage
 {
     public static async ValueTask<Result<Page<Criterion>>> ReadAsync(ICriteriaCatalog catalog,
-        CriteriaTextOverlayReader overlays, Uuid tenantId, Uuid editionId, string? category,
+        ICriteriaTextOverlayReader overlays, Uuid tenantId, Uuid editionId, string? category,
         string? kind, string? parentIdentifier, int? limit, string? cursor,
         CriteriaTextOverlayPurpose purpose, CancellationToken ct)
     {
@@ -27,7 +27,11 @@ static class CriteriaCatalogEntriesPage
             return Failure(RequestErrorKind.Validation, "The criteria list cursor is invalid.");
         var page = entries.Skip(start).Take(limit ?? 50).ToArray();
         var export = purpose == CriteriaTextOverlayPurpose.Export;
-        var items = await overlays.ApplyPageAsync(tenantId, page, export, ct).ConfigureAwait(false);
+        var projected = await overlays.ApplyPageAsync(tenantId, page, export, ct)
+            .ConfigureAwait(false);
+        if (!projected.IsSuccess)
+            return Result<Page<Criterion>>.Failure(projected.Error);
+        var items = projected.Value;
         var next = start + items.Count < entries.Count
             ? CriteriaPageCursor.Write(tenantId, editionId, category, kind, parentIdentifier,
                 purpose, start + items.Count)
