@@ -82,6 +82,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetCriteriaCatalogEdition>(tool => tool.ReadOnly())
         .AddMcpTool<ListCriteriaCatalogEntries>(tool => tool.ReadOnly())
         .AddMcpTool<GetCriteriaCatalogEntry>(tool => tool.ReadOnly())
+        .AddMcpTool<ExportCriteriaCatalogEntries>(tool => tool.ReadOnly())
         .AddMcpTool<SetCriteriaTextOverlay>(tool => tool.Idempotent())
         .AddMcpTool<SelectProgramCriteriaEdition>(tool => tool.Idempotent())
         .AddMcpTool<CreateControlDraft>()
@@ -522,6 +523,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Criteria");
     app.MapPortiaGet<ListCriteriaCatalogEntries, Page<Criterion>>(
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Criteria");
+    app.MapPortiaGet<ExportCriteriaCatalogEntries, Page<Criterion>>(
+            "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/export")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Criteria");
     app.MapPortiaGet<GetCriteriaCatalogEntry, Criterion>(

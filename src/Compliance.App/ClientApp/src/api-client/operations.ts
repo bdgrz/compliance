@@ -5752,7 +5752,6 @@ export type ListCriteriaCatalogEntriesQuery = {
   "kind"?: string | null;
   "limit"?: number | string;
   "parent_identifier"?: string | null;
-  "purpose"?: string | null;
 };
 
 export type ListCriteriaCatalogEntriesResponse200 = PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738;
@@ -5824,12 +5823,8 @@ export type ListCriteriaCatalogEntriesError_500 = {
 
 export type GetCriteriaCatalogEntryPath = {
   "edition_id": string;
-  "identifier": string | null;
+  "identifier": string;
   "tenant_id": string;
-};
-
-export type GetCriteriaCatalogEntryQuery = {
-  "purpose"?: string | null;
 };
 
 export type GetCriteriaCatalogEntryResponse200 = Portia4FFF06F1347F0DF9A617B1AA79C57C4BE787E4DE34BC7EED6A0E8052C8F5EF7C;
@@ -5891,6 +5886,176 @@ export type GetCriteriaCatalogEntryError_415 = {
 };
 
 export type GetCriteriaCatalogEntryError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesPath = {
+  "edition_id": string;
+  "tenant_id": string;
+};
+
+export type ExportCriteriaCatalogEntriesQuery = {
+  "category"?: string | null;
+  "cursor"?: string | null;
+  "kind"?: string | null;
+  "limit"?: number | string;
+  "parent_identifier"?: string | null;
+};
+
+export type ExportCriteriaCatalogEntriesResponse200 = PortiaDF9CF8F410540161933C37D2952A4754D8E575F091E0F87B7AFD038C972A5738;
+
+export type ExportCriteriaCatalogEntriesError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_401 = undefined;
+
+export type ExportCriteriaCatalogEntriesError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type ExportCriteriaCatalogEntriesError_500 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayPath = {
+  "edition_id": string;
+  "identifier": string;
+  "tenant_id": string;
+};
+
+export type SetCriteriaTextOverlayBody = {
+  "expected_revision": number | string | null;
+  "content": {
+    "text": string;
+    "supplier": string;
+    "license_reference": string;
+    "usage_flags": {
+      "display": boolean;
+      "export": boolean;
+    };
+  };
+};
+
+export type SetCriteriaTextOverlayResponse200 = {
+  "edition_id": string;
+  "identifier": string;
+  "revision": number | string;
+} | null;
+
+export type SetCriteriaTextOverlayError_400 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_401 = undefined;
+
+export type SetCriteriaTextOverlayError_403 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_404 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_409 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_413 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_415 = {
+  "type": string;
+  "title": string;
+  "status": number;
+  "detail": string;
+  "instance": string;
+  "transient"?: boolean;
+};
+
+export type SetCriteriaTextOverlayError_500 = {
   "type": string;
   "title": string;
   "status": number;

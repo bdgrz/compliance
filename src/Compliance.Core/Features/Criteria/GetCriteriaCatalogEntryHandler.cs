@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -17,10 +15,7 @@ public sealed class GetCriteriaCatalogEntryHandler(ICriteriaCatalog catalog,
         if (entry is null)
             return Result<Criterion>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The criterion was not found."));
-        if (!CriteriaTextOverlayPurpose.TryGetExport(request.Purpose, out var export))
-            return Result<Criterion>.Failure(new RequestError(RequestErrorKind.Validation,
-                "Criteria purpose must be display or export."));
         return Result<Criterion>.Success(await overlays.ApplyAsync(request.TenantId, entry,
-            export, ct).ConfigureAwait(false));
+            export: false, ct).ConfigureAwait(false));
     }
 }

@@ -41,19 +41,23 @@ All routes are tenant scoped and require tenant access. Names are snake_case.
 | `GET /api/v1/tenants/{tenant_id}/criteria-editions` | `bdgrz.criteria.editions.list` | Read only |
 | `GET .../criteria-editions/{edition_id}` | `bdgrz.criteria.edition.get` | 404 for unknown edition |
 | `GET .../criteria-editions/{edition_id}/entries` | `bdgrz.criteria.entries.list` | `category`, `kind`, `parent_identifier`, `limit` (1–200, default 50), `cursor` |
+| `GET .../criteria-editions/{edition_id}/entries/export` | `bdgrz.criteria.entries.export` | Same bounded filters and paging as the display list; export use is selected by the server |
 | `GET .../criteria-editions/{edition_id}/entries/{identifier}` | `bdgrz.criteria.entry.get` | 404 for unknown identifier |
 | `PUT .../criteria-editions/{edition_id}/entries/{identifier}/overlay` | `bdgrz.criteria.overlay.set` | `expected_revision`, `content`; requires organization-wide `program.manage` |
 | `PUT .../programs/{program_id}/criteria-edition` | `bdgrz.program.criteria.select` (idempotent) | Body `expected_revision`, `edition_id`; requires `program.manage` |
 
-Entry reads accept `purpose=display` (default) or `purpose=export`. They return
-overlay text only when the corresponding usage flag allows it; otherwise they
-return the platform-written summary. The `purpose` is part of the list cursor
-scope. Overlay writes are tenant-owned, version-checked and attributed; each
-accepted revision is retained as an immutable event. Platform catalog data
-continues to contain only identifiers and original summaries.
+Entry reads use the operation to select their purpose; callers do not provide a
+purpose discriminator. The entries list and single-entry read are display
+operations. The separate entries export operation is server-selected for
+export use. Each operation returns overlay text only when its corresponding
+usage flag allows it; otherwise it returns the platform-written summary.
+Overlay writes are tenant-owned, version-checked and attributed; each accepted
+revision is retained as an immutable event. Platform catalog data continues to
+contain only identifiers and original summaries.
 
-- Entry cursors are bound to the tenant, edition, and filters; a cursor used
-  elsewhere returns 400 / `Validation`.
+- Entry cursors are bound to the tenant, edition, filters, and operation. A
+  display cursor cannot be used for export, or vice versa; a cursor used outside
+  its scope returns 400 / `Validation`.
 - Selection appends `ProgramCriteriaEditionSelected` to the program stream and
   advances the program revision. An unknown edition returns 400; an incomplete
   edition returns 409; a stale `expected_revision` returns 409 with the current

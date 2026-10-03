@@ -7,36 +7,35 @@ namespace Bdgrz.Compliance.Features.Criteria;
 
 static class CriteriaPageCursor
 {
-    public static string Write(ListCriteriaCatalogEntries request, int nextIndex)
+    public static string Write(Uuid tenantId, Uuid editionId, string? category, string? kind,
+        string? parentIdentifier, CriteriaTextOverlayPurpose purpose, int nextIndex)
     {
-        var content = string.Join('\n', request.TenantId.ToString(), request.EditionId.ToString(),
-            request.Category ?? "", request.Kind ?? "", request.ParentIdentifier ?? "",
-            request.Purpose ?? CriteriaTextOverlayPurpose.Display,
+        var content = string.Join('\n', tenantId.ToString(), editionId.ToString(),
+            category ?? "", kind ?? "", parentIdentifier ?? "", PurposeName(purpose),
             nextIndex.ToString(CultureInfo.InvariantCulture));
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(content))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
-    public static bool TryRead(ListCriteriaCatalogEntries request, out int index)
+    public static bool TryRead(Uuid tenantId, Uuid editionId, string? category, string? kind,
+        string? parentIdentifier, string? cursor, CriteriaTextOverlayPurpose purpose, out int index)
     {
         index = 0;
         try
         {
-            var cursor = request.Cursor!;
-            var base64 = cursor.Replace('-', '+').Replace('_', '/');
+            var base64 = cursor!.Replace('-', '+').Replace('_', '/');
             base64 = base64.PadRight((base64.Length + 3) / 4 * 4, '=');
             var parts = Encoding.UTF8.GetString(Convert.FromBase64String(base64)).Split('\n');
             var common = parts.Length >= 6 &&
-                         parts[0] == request.TenantId.ToString() &&
-                         parts[1] == request.EditionId.ToString() &&
-                         parts[2] == (request.Category ?? "") &&
-                         parts[3] == (request.Kind ?? "") &&
-                         parts[4] == (request.ParentIdentifier ?? "");
+                         parts[0] == tenantId.ToString() &&
+                         parts[1] == editionId.ToString() &&
+                         parts[2] == (category ?? "") &&
+                         parts[3] == (kind ?? "") &&
+                         parts[4] == (parentIdentifier ?? "");
             var legacyDisplayCursor = parts.Length == 6 &&
-                                      (request.Purpose ?? CriteriaTextOverlayPurpose.Display) ==
-                                      CriteriaTextOverlayPurpose.Display;
+                                      purpose == CriteriaTextOverlayPurpose.Display;
             var purposeBoundCursor = parts.Length == 7 &&
-                                     parts[5] == (request.Purpose ?? CriteriaTextOverlayPurpose.Display);
+                                     parts[5] == PurposeName(purpose);
             var indexPart = purposeBoundCursor ? parts[6] : legacyDisplayCursor ? parts[5] : null;
             return common && indexPart is not null &&
                    int.TryParse(indexPart, NumberStyles.None, CultureInfo.InvariantCulture,
@@ -47,4 +46,7 @@ static class CriteriaPageCursor
             return false;
         }
     }
+
+    static string PurposeName(CriteriaTextOverlayPurpose purpose) =>
+        purpose == CriteriaTextOverlayPurpose.Export ? "export" : "display";
 }

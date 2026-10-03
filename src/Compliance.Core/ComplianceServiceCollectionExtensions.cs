@@ -514,6 +514,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListCriteriaCatalogEditionsHandler>()
             .AddRequestHandler<GetCriteriaCatalogEditionHandler>()
             .AddRequestHandler<ListCriteriaCatalogEntriesHandler>()
+            .AddRequestHandler<ExportCriteriaCatalogEntriesHandler>()
             .AddRequestHandler<GetCriteriaCatalogEntryHandler>()
             .AddRequestHandler<SetCriteriaTextOverlayHandler>()
             .AddRequestHandler<CreateControlDraftHandler>()
