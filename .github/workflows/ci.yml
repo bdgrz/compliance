@@ -40,7 +40,7 @@ jobs:
         run: dotnet restore
 
       - name: Format
-        run: dotnet format Compliance.slnx --verify-no-changes
+        run: dotnet format Compliance.slnx --verify-no-changes --no-restore
 
       - name: Build
         run: dotnet build Compliance.slnx --configuration Release --no-restore
