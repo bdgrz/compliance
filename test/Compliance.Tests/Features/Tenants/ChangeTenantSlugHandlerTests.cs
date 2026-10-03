@@ -75,6 +75,25 @@ public sealed class ChangeTenantSlugHandlerTests
         Assert.Empty(requests);
     }
 
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("ac--me")]
+    public async Task ShouldRejectMalformedSlugGivenOrgAdminRequest(string slug)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+
+        // Act
+        var result = await scenario.Handler.HandleAsync(scenario.Context(slug),
+            CancellationToken.None);
+        var requests = (await scenario.TenantEventsAsync()).Select(static record => record.Event)
+            .OfType<TenantSlugChangeRequested>().ToArray();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, result.Error?.Kind);
+        Assert.Empty(requests);
+    }
+
     sealed class Scenario : IAsyncDisposable
     {
         readonly ServiceProvider _provider;
