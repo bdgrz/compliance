@@ -64,6 +64,16 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
         var graceMissing = Items(reconciled).Single(item => Kind(item) == "missing");
         var observationId = graceMissing.GetProperty("observation_id").GetString();
         var resolutionPath = $"{root}/workforce-observations/{observationId}/resolution";
+        await using var mcp = await McpScenario.ConnectAsync(owner,
+            new Uri(owner.BaseAddress!, "/mcp"));
+        await Assert.ThrowsAsync<ModelContextProtocol.McpProtocolException>(async () =>
+            await mcp.When("bdgrz.workforce.observation.resolve", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = tenantId,
+                ["observation_id"] = observationId,
+                ["resolution"] = "dismissed",
+                ["note"] = "Grace is tracked by the parent company.",
+            }).ExpectSuccess());
         using var resolved = await owner.PutAsJsonAsync(resolutionPath,
             new { resolution = "dismissed", note = "Grace is tracked by the parent company." });
         using var replay = await owner.PutAsJsonAsync(resolutionPath,
@@ -109,8 +119,6 @@ public sealed class WorkforceReconciliationE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, outsiderList.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderResolve.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, outsiderCorrelate.StatusCode);
-        await using var mcp = await McpScenario.ConnectAsync(owner,
-            new Uri(owner.BaseAddress!, "/mcp"));
         _ = await mcp.When("bdgrz.workforce.reconciliation.list", new Dictionary<string, object?>
         {
             ["tenant_id"] = tenantId,

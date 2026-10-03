@@ -18,11 +18,21 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
         // Arrange
         await using var factory = E2EAppFactory.Create(broker);
         using var owner = factory.CreateClient();
-        using var outsider = factory.CreateClient();
+        using var otherTenantOwner = factory.CreateClient();
         await TenantInvitationE2ETests.LoginAsync(owner, $"source-owner-{Guid.NewGuid():N}@example.com");
-        await TenantInvitationE2ETests.LoginAsync(outsider, $"source-outsider-{Guid.NewGuid():N}@example.com");
+        await TenantInvitationE2ETests.LoginAsync(otherTenantOwner,
+            $"source-other-tenant-{Guid.NewGuid():N}@example.com");
         var root = await CreateTenantRootAsync(owner);
         var personId = await RecordPersonAsync(owner, root);
+        var otherTenantRoot = await CreateTenantRootAsync(otherTenantOwner);
+        var otherTenantPersonId = await RecordPersonAsync(otherTenantOwner, otherTenantRoot);
+        using var otherTenantRecorded = await otherTenantOwner.PostAsJsonAsync(
+            $"{otherTenantRoot}/workforce-source-observations", Source(otherTenantPersonId));
+        Assert.Equal(HttpStatusCode.OK, otherTenantRecorded.StatusCode);
+        var otherTenantObservationId = (await ReadAsync(otherTenantRecorded))
+            .GetProperty("observation_id").GetString();
+        var otherTenantPath = $"{otherTenantRoot}/workforce-source-observations/{otherTenantObservationId}";
+        _ = await WaitAsync(otherTenantOwner, $"{otherTenantPath}?minimum_revision=1");
         using var recorded = await owner.PostAsJsonAsync($"{root}/workforce-source-observations", Source(personId));
         Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
         var observationId = (await ReadAsync(recorded)).GetProperty("observation_id").GetString();
@@ -30,13 +40,25 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
         _ = await WaitAsync(owner, $"{path}?minimum_revision=1");
 
         // Act
+        await using var mcp = await McpScenario.ConnectAsync(owner, new Uri(owner.BaseAddress!, "/mcp"));
         using var previewResponse = await owner.GetAsync($"{path}/preview");
         var preview = await ReadAsync(previewResponse);
-        using var accepted = await owner.PutAsJsonAsync($"{path}/decision", Decision());
-        using var retry = await owner.PutAsJsonAsync($"{path}/decision", Decision());
+        await Assert.ThrowsAsync<ModelContextProtocol.McpProtocolException>(async () =>
+            await mcp.When("bdgrz.workforce.source.reconcile", new Dictionary<string, object?>
+            {
+                ["tenant_id"] = root.Split('/')[4],
+                ["observation_id"] = observationId,
+                ["expected_revision"] = 1,
+                ["expected_target_revision"] = 1,
+                ["outcome"] = "accepted",
+                ["note"] = "HRIS source checked",
+            }).ExpectSuccess());
+        await AssertConcurrentDecisionReplayAsync(owner, path);
         var reconciled = await WaitAsync(owner, $"{path}?minimum_revision=2");
-        using var denied = await outsider.GetAsync(path);
-        await using var mcp = await McpScenario.ConnectAsync(owner, new Uri(owner.BaseAddress!, "/mcp"));
+        using var crossTenantRead = await owner.GetAsync(otherTenantPath);
+        using var crossTenantPreview = await owner.GetAsync($"{otherTenantPath}/preview");
+        using var crossTenantDecision = await owner.PutAsJsonAsync($"{otherTenantPath}/decision", Decision());
+        using var otherTenantRead = await otherTenantOwner.GetAsync(otherTenantPath);
         _ = await mcp.When("bdgrz.workforce.source.preview", new Dictionary<string, object?>
         {
             ["tenant_id"] = root.Split('/')[4],
@@ -47,12 +69,13 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
         Assert.Equal(HttpStatusCode.OK, previewResponse.StatusCode);
         Assert.Equal("authoritative", preview.GetProperty("source_authority").GetString());
         Assert.True(preview.GetProperty("can_accept").GetBoolean());
-        Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, retry.StatusCode);
         Assert.True(reconciled.GetProperty("accepted_for_current_revision").GetBoolean());
         Assert.Equal("member", reconciled.GetProperty("decision").GetProperty("actor").GetProperty("kind").GetString());
         Assert.Equal("hris", reconciled.GetProperty("source").GetProperty("source_kind").GetString());
-        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantRead.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantPreview.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, crossTenantDecision.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, otherTenantRead.StatusCode);
     }
 
     [Fact]
@@ -78,6 +101,11 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
         await TenantInvitationE2ETests.LoginAsync(owner, $"source-split-{Guid.NewGuid():N}@example.com");
         var root = await CreateTenantRootAsync(owner);
         var personId = await RecordPersonAsync(owner, root);
+        using var otherTenantOwner = factory.CreateClient();
+        await TenantInvitationE2ETests.LoginAsync(otherTenantOwner,
+            $"source-split-other-{Guid.NewGuid():N}@example.com");
+        var otherTenantRoot = await CreateTenantRootAsync(otherTenantOwner);
+        var otherTenantPersonId = await RecordPersonAsync(otherTenantOwner, otherTenantRoot);
         await worker.StopAsync();
 
         // Act
@@ -91,15 +119,29 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
         try
         {
             _ = await WaitAsync(owner, $"{path}?minimum_revision=1");
-            using var accepted = await owner.PutAsJsonAsync($"{path}/decision", Decision());
+            await AssertConcurrentDecisionReplayAsync(owner, path);
+            using var otherTenantRecorded = await otherTenantOwner.PostAsJsonAsync(
+                $"{otherTenantRoot}/workforce-source-observations", Source(otherTenantPersonId));
+            Assert.Equal(HttpStatusCode.OK, otherTenantRecorded.StatusCode);
+            var otherTenantObservationId = (await ReadAsync(otherTenantRecorded))
+                .GetProperty("observation_id").GetString();
+            var otherTenantPath = $"{otherTenantRoot}/workforce-source-observations/{otherTenantObservationId}";
+            _ = await WaitAsync(otherTenantOwner, $"{otherTenantPath}?minimum_revision=1");
+            using var crossTenantRead = await owner.GetAsync(otherTenantPath);
+            using var crossTenantPreview = await owner.GetAsync($"{otherTenantPath}/preview");
+            using var crossTenantDecision = await owner.PutAsJsonAsync($"{otherTenantPath}/decision", Decision());
+            using var otherTenantRead = await otherTenantOwner.GetAsync(otherTenantPath);
             var recovered = await WaitAsync(owner, $"{path}?minimum_revision=2");
 
             // Assert
             Assert.Equal(HttpStatusCode.Conflict, lagged.StatusCode);
             Assert.Equal("true", lagged.Headers.GetValues("Portia-Transient").Single());
-            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
             Assert.True(recovered.GetProperty("accepted_for_current_revision").GetBoolean());
             Assert.Equal(1, recovered.GetProperty("decision").GetProperty("target_revision").GetInt64());
+            Assert.Equal(HttpStatusCode.NotFound, crossTenantRead.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, crossTenantPreview.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, crossTenantDecision.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, otherTenantRead.StatusCode);
         }
         finally
         {
@@ -118,6 +160,27 @@ public sealed class WorkforceSourceE2ETests(BrokerStackFixture broker) : IClassF
     };
 
     static object Decision() => new { expected_revision = 1, expected_target_revision = 1, outcome = "accepted", note = "HRIS source checked" };
+
+    static async Task AssertConcurrentDecisionReplayAsync(HttpClient owner, string path)
+    {
+        var decisions = await Task.WhenAll(Enumerable.Range(0, 2)
+            .Select(_ => owner.PutAsJsonAsync($"{path}/decision", Decision())));
+        try
+        {
+            Assert.Contains(decisions, response => response.StatusCode == HttpStatusCode.NoContent);
+            Assert.All(decisions, response => Assert.True(
+                response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.Conflict,
+                $"Unexpected concurrent decision status: {response.StatusCode}"));
+        }
+        finally
+        {
+            foreach (var decision in decisions)
+                decision.Dispose();
+        }
+
+        using var replay = await owner.PutAsJsonAsync($"{path}/decision", Decision());
+        Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode);
+    }
 
     static async Task<string> CreateTenantRootAsync(HttpClient client)
     {
