@@ -350,6 +350,12 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IControlImpactContributor, ReadinessControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, EvidenceControlImpactContributor>();
         services.AddScoped<IControlImpactContributor, WorkControlImpactContributor>();
+        services.AddScoped<FitzReadinessDirectory>();
+        services.AddScoped<IReadinessDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzReadinessDirectory>());
+        services.AddScoped<IReadinessDirectoryProjection>(provider =>
+            provider.GetRequiredService<FitzReadinessDirectory>());
+        services.AddScoped<IReadinessReadModel, FitzReadinessReadModel>();
         services.AddScoped<ReadinessProjectionReadConsistency>();
         services.AddScoped<IReadinessSourceReader, DirectoryReadinessSourceReader>();
         services.AddScoped<IResponsibilityScopeValidator, SourceRecordResponsibilityScopeValidator>();
@@ -912,6 +918,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
             .AddProjector<SnapshotDirectoryProjector>("SnapshotDirectory", WorkloadScope.PerTenant)
             .AddProjector<PopulationSnapshotDirectoryProjector>("PopulationSnapshotDirectoryV2",
+                WorkloadScope.PerTenant)
+            .AddProjector<ReadinessDirectoryProjector>(FitzReadinessDirectory.ProjectorName,
                 WorkloadScope.PerTenant)
             .AddFitz(
                 configuration.GetSection("Fitz"),

@@ -410,7 +410,10 @@ public sealed class ReadinessAssessmentHandlerTests
                     .AddRequestHandler<DecideReadinessHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(
                         ControlCriterionMappingHandlerTests.TestCatalog())
-                    .AddSingleton<IReadinessSourceReader>(new EmptyReadinessSources()));
+                    .AddSingleton<IReadinessSourceReader>(new EmptyReadinessSources())
+                    .AddScoped<IReadinessReadModel>(provider =>
+                        new EventSourcedReadinessReadModel(
+                            provider.GetRequiredService<IAggregateReader>())));
             var fixture = new Fixture { Provider = provider };
             var now = DateTimeOffset.UtcNow.AddDays(-1);
             var admin = Uuid.CreateVersion4();
@@ -507,4 +510,74 @@ public sealed class ReadinessAssessmentHandlerTests
             DateTimeOffset asOf, CancellationToken ct = default) =>
             ValueTask.FromResult(Result<ReadinessSourceSet>.Success(ReadinessSourceSet.Empty));
     }
+}
+
+sealed class EventSourcedReadinessReadModel(IAggregateReader reader) : IReadinessReadModel
+{
+    public async ValueTask<Result<ReadinessAssessmentView>> GetAssessmentAsync(
+        GetReadinessAssessment request, CancellationToken ct)
+    {
+        var ledger = await LoadAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        return ledger.Read(request.AssessmentId) is { } assessment
+            ? Result<ReadinessAssessmentView>.Success(assessment)
+            : Result<ReadinessAssessmentView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The readiness assessment was not found."));
+    }
+
+    public async ValueTask<Result<Page<ReadinessAssessmentSummaryView>>> ListAssessmentsAsync(
+        ListReadinessAssessments request, CancellationToken ct)
+    {
+        var ledger = await LoadAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        return ControlActivationSource.Paginate(ledger.Summaries(), request.Limit,
+            request.Cursor, "readiness assessments");
+    }
+
+    public async ValueTask<Result<Page<ReadinessGapView>>> ListGapsAsync(
+        ListReadinessGaps request, CancellationToken ct)
+    {
+        if (request.PlanState is not (null or "planned" or "unplanned"))
+            return Result<Page<ReadinessGapView>>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The plan state filter must be planned or unplanned."));
+        var ledger = await LoadAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        if (ledger.ReadGaps(request.AssessmentId) is not { } gaps)
+            return Result<Page<ReadinessGapView>>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The readiness assessment was not found."));
+        var items = gaps.Where(gap =>
+            (request.PlanState is null ||
+             (gap.Plan is not null) == (request.PlanState == "planned")) &&
+            (request.OwnerMemberId is not { } owner || gap.Plan?.OwnerMemberId == owner) &&
+            (request.Kind is null || gap.Kind == request.Kind) &&
+            (request.RuleId is null || gap.RuleId == request.RuleId) &&
+            (request.Subject is null || gap.Subject == request.Subject)).ToArray();
+        return ControlActivationSource.Paginate(items, request.Limit, request.Cursor,
+            "readiness gaps");
+    }
+
+    public async ValueTask<Result<Page<ReadinessAnnotationView>>> ListAnnotationsAsync(
+        ListReadinessAnnotations request, CancellationToken ct)
+    {
+        var ledger = await LoadAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        if (ledger.Annotations(request.AssessmentId) is not { } annotations)
+            return Result<Page<ReadinessAnnotationView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The readiness assessment was not found."));
+        return ControlActivationSource.Paginate(annotations, request.Limit, request.Cursor,
+            "readiness annotations");
+    }
+
+    public async ValueTask<Result<Page<TypeIEntryDecisionView>>> ListTypeIEntryDecisionsAsync(
+        ListTypeIEntryDecisions request, CancellationToken ct)
+    {
+        var ledger = await LoadAsync(request.TenantId, request.ProgramId, ct)
+            .ConfigureAwait(false);
+        return ControlActivationSource.Paginate(ledger.TypeIEntryDecisions(), request.Limit,
+            request.Cursor, "Type I entry decisions");
+    }
+
+    ValueTask<ReadinessLedger> LoadAsync(Uuid tenantId, Uuid programId,
+        CancellationToken ct) => reader.HydrateAsync(new ReadinessLedger(tenantId, programId), ct);
 }

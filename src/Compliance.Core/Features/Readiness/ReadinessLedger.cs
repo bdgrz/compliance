@@ -11,6 +11,7 @@ namespace Bdgrz.Compliance.Features.Readiness;
 /// </summary>
 public sealed class ReadinessLedger : Aggregate
 {
+    public const string Area = "readiness";
     public const string Proceed = "proceed";
     public const string DoNotProceed = "do_not_proceed";
     public const string Approve = "approve";
@@ -25,7 +26,7 @@ public sealed class ReadinessLedger : Aggregate
     readonly List<ReadinessAnnotationView> _annotations = [];
 
     public ReadinessLedger(Uuid tenantId, Uuid programId)
-        : base(programId, new EventStreamAddress(tenantId.ToString(), "readiness",
+        : base(programId, new EventStreamAddress(tenantId.ToString(), Area,
             programId.ToString()))
     {
         _tenantId = tenantId;
