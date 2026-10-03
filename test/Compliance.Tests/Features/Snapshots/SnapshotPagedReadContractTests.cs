@@ -62,6 +62,10 @@ public sealed class SnapshotPagedReadContractTests
     {
         public bool RejectCursor { get; init; }
 
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(default(ProjectionCheckpoint));
+
         public ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
             CancellationToken ct = default) => ValueTask.FromResult<SnapshotView?>(null);
 

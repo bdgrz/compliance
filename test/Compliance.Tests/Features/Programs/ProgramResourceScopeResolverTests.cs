@@ -231,6 +231,10 @@ public sealed class ProgramResourceScopeResolverTests
 
     sealed class MissingSnapshotDirectory : ISnapshotDirectoryReader
     {
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(default(ProjectionCheckpoint));
+
         public ValueTask<SnapshotView?> GetAsync(Uuid tenantId, Uuid snapshotId,
             CancellationToken ct = default) => ValueTask.FromResult<SnapshotView?>(null);
 
