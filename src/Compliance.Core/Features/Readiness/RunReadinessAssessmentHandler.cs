@@ -33,10 +33,9 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
         if (!program.IsCreated)
             return Result<ReadinessAssessmentRegistration>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The program was not found."));
-        var editionId = program.CriteriaEditionAt(asOf) is { } selected &&
-                        catalog.GetEdition(selected) is not null
-            ? selected
-            : (Uuid?)null;
+        var selectedEditionId = program.CriteriaEditionAt(asOf);
+        var catalogEdition = selectedEditionId is { } selected ? catalog.GetEdition(selected) : null;
+        var editionId = catalogEdition is not null ? selectedEditionId : null;
         var criteria = editionId is { } edition
             ? catalog.ListEntries(edition, null, "criterion", null)
             : [];
@@ -61,7 +60,7 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
         if (!sourceResult.IsSuccess)
             return Result<ReadinessAssessmentRegistration>.Failure(sourceResult.Error);
         var evaluation = ReadinessRules.Evaluate(request.ProgramId, asOf, editionId, criteria,
-            mappings, controls, sourceResult.Value);
+            mappings, controls, sourceResult.Value, catalogEdition);
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : throw new InvalidOperationException("ProgramManagementAuthorizer must reject this actor.");

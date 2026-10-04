@@ -14,7 +14,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 10 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 11 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
@@ -26,13 +26,15 @@ namespace Bdgrz.Compliance.Features.Readiness;
 ///     their effective date. Version 8 fences source projections. Version 9 binds the latest
 ///     integrity-verified workforce roster snapshot available by the assessment time without
 ///     assessing workforce completeness. Version 10 links unresolved provider coverage gaps to
-///     distinct readiness gaps. Risk rule is the conservative provisional R1-08
-///     choice (#492): every program risk must be residual assessed or accepted with an active
-///     acceptance; any other status is a gap.
+///     distinct readiness gaps. Version 11 records declared catalog support limitations for
+///     the explicit categories of approved, effective as-of boundaries. Risk rule is the
+///     conservative provisional R1-08 choice (#492): every program risk must be residual
+///     assessed or accepted with an active acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/10";
+    public const string Version = "readiness-rules/11";
+    public const string CatalogSupportDeclared = "catalog_support_declared";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -78,12 +80,15 @@ public static class ReadinessRules
         Uuid? editionId, IReadOnlyList<Criterion> criteria,
         IReadOnlyList<ControlCriterionMappingView> mappings,
         IReadOnlyDictionary<Uuid, ControlVersionView?> effectiveControls,
-        ReadinessSourceSet? sources = null)
+        ReadinessSourceSet? sources = null, CriteriaCatalogEdition? catalogEdition = null)
     {
         sources ??= ReadinessSourceSet.Empty;
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(mappings);
         ArgumentNullException.ThrowIfNull(effectiveControls);
+        if (catalogEdition is not null && catalogEdition.EditionId != editionId)
+            throw new ArgumentException("Catalog metadata must belong to the selected criteria edition.",
+                nameof(catalogEdition));
         var findings = new List<ReadinessFindingView>();
         var gaps = new List<ReadinessGapView>();
         var fingerprint = new StringBuilder()
@@ -160,7 +165,7 @@ public static class ReadinessRules
         inputs.Add(new ReadinessInputView("controls", "assessed",
             effectiveControls.Values.Count(static control => control is not null),
             "Approved control versions effective on the as-of date for mapped controls."));
-        EvaluateSources(programId, asOf, sources, inputs, gaps, fingerprint);
+        EvaluateSources(programId, asOf, sources, catalogEdition, inputs, gaps, fingerprint);
         foreach (var family in UnassessedFamilies)
         {
             inputs.Add(new ReadinessInputView(family, "not_assessed", 0,
@@ -175,7 +180,45 @@ public static class ReadinessRules
             Convert.ToHexStringLower(hash));
     }
 
+    static void EvaluateCatalogSupport(Uuid programId, CriteriaCatalogEdition edition,
+        IReadOnlyList<BoundaryVersionView> approved, List<ReadinessGapView> gaps,
+        StringBuilder fingerprint)
+    {
+        var categories = approved.SelectMany(static version => version.Content.TrustServicesCategories)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var applicable = edition.SupportGaps
+            .Where(gap => categories.Contains(gap.Category, StringComparer.Ordinal))
+            .OrderBy(static gap => gap.Category, StringComparer.Ordinal)
+            .ThenBy(static gap => gap.Code, StringComparer.Ordinal)
+            .ThenBy(static gap => gap.Note, StringComparer.Ordinal)
+            .ToArray();
+        fingerprint.Append("catalog_support\n");
+        AppendCatalogField(fingerprint, edition.EditionId.ToString());
+        AppendCatalogField(fingerprint, edition.EditionLabel);
+        fingerprint.Append(categories.Length.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        foreach (var category in categories)
+            AppendCatalogField(fingerprint, category);
+        fingerprint.Append(applicable.Length.ToString(CultureInfo.InvariantCulture)).Append('\n');
+        foreach (var declared in applicable)
+        {
+            AppendCatalogField(fingerprint, declared.Category);
+            AppendCatalogField(fingerprint, declared.Code);
+            AppendCatalogField(fingerprint, declared.Note);
+            var subject = declared.Category + "|" + declared.Code;
+            gaps.Add(new ReadinessGapView(
+                GapIdFor(programId, CatalogSupportDeclared, edition.EditionId + "|" + subject),
+                "catalog_support_gap", subject, CatalogSupportDeclared, declared.Note,
+                [new ReadinessSourceReference("criteria_catalog_edition", edition.EditionId, edition.EditionLabel)]));
+        }
+    }
+
+    // Length framing preserves exact declarations, including separators and newlines.
+    static void AppendCatalogField(StringBuilder fingerprint, string value) =>
+        fingerprint.Append(value.Length.ToString(CultureInfo.InvariantCulture)).Append(':')
+            .Append(value).Append('\n');
+
     static void EvaluateSources(Uuid programId, DateTimeOffset asOf, ReadinessSourceSet sources,
+        CriteriaCatalogEdition? catalogEdition,
         List<ReadinessInputView> inputs, List<ReadinessGapView> gaps, StringBuilder fingerprint)
     {
         var asOfDate = DateOnly.FromDateTime(asOf.UtcDateTime);
@@ -188,6 +231,8 @@ public static class ReadinessRules
         foreach (var version in approved)
             fingerprint.Append("boundary|").Append(version.BoundaryId).Append('|')
                 .Append(version.VersionId).Append('\n');
+        if (catalogEdition is not null)
+            EvaluateCatalogSupport(programId, catalogEdition, approved, gaps, fingerprint);
         inputs.Add(new ReadinessInputView("boundaries", "assessed", approved.Length,
             "Boundary versions approved by the as-of time and effective on the as-of date; drafts and pending reviews do not count."));
         if (approved.Length == 0)

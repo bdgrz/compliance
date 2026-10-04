@@ -42,6 +42,16 @@ public sealed partial class CriteriaCatalog : ICriteriaCatalog
                 !byEdition.TryAdd(edition.EditionId, edition) ||
                 !labels.Add(edition.EditionLabel))
                 throw new ArgumentException("The criteria catalog has invalid or duplicate editions.");
+            var supportIdentities = new HashSet<(string Category, string Code)>();
+            foreach (var gap in edition.SupportGaps)
+            {
+                if (gap is null ||
+                    gap.Category is not ("security" or "availability" or "confidentiality" or
+                        "processing_integrity" or "privacy") ||
+                    string.IsNullOrWhiteSpace(gap.Code) || string.IsNullOrWhiteSpace(gap.Note) ||
+                    !supportIdentities.Add((gap.Category, gap.Code)))
+                    throw new ArgumentException("The criteria edition contains invalid or duplicate support declarations.");
+            }
         }
 
         var byId = new Dictionary<(Uuid, string), Criterion>();

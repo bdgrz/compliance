@@ -33,7 +33,13 @@ supplier must still have the permitted-use authority described in M0-D02.
 - Catalog construction rejects duplicate editions or identifiers, a criterion
   identifier that does not match its category's pattern (for example `CC` for
   `security`, `PI1.` for `processing_integrity`), orphan points of focus, and
-  an edition without content rights or gap metadata.
+  an edition without content rights or gap metadata. Each support gap needs a
+  supported category, a nonblank code and note, and a unique category/code key
+  within its edition.
+- [Readiness assessments](readiness-catalog-support-gaps-v1.md) disclose the
+  selected edition's applicable support gaps for the categories in the
+  approved scope at the assessment time. They retain the exact declared note,
+  edition provenance and historical result.
 
 ## Contract
 
