@@ -83,7 +83,7 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
             await TenantInvitationE2ETests.LoginAsync(sourceClient, email);
             var tenantId = await CreateTenantAsync(sourceClient, "Recovery source tenant");
             var secondTenantId = await CreateTenantAsync(sourceClient, "Recovery other tenant");
-            var (programId, programPath) = await CreateProgramAsync(sourceClient, tenantId);
+            var (programId, programPath) = await CreateProgramAsync(sourceClient, tenantId, sourceFactory.Services);
             await ReviseProgramAsync(sourceClient, programPath);
             var sourceCurrent = await WaitForProgramAsync(sourceClient, programPath, 2);
             var sourceHistory = await WaitForHistoryAsync(sourceClient, programPath, 2);
@@ -185,9 +185,38 @@ public sealed class ProgramRecoveryE2ETests(RestartableBrokerStackFixture broker
     }
 
     static async Task<(string ProgramId, string Path)> CreateProgramAsync(HttpClient client,
-        string tenantId)
+        string tenantId, IServiceProvider services)
     {
-        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenantId);
+        try
+        {
+            await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(client, tenantId);
+        }
+        catch (Xunit.Sdk.XunitException failure)
+        {
+            using var session = await client.GetAsync("/auth/session");
+            var identity = await ReadObjectAsync(session);
+            var userId = Uuid.Parse(identity["id"]!.GetValue<string>(), CultureInfo.InvariantCulture);
+            var tenant = Uuid.Parse(tenantId, CultureInfo.InvariantCulture);
+            await using var scope = services.CreateAsyncScope();
+            var member = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                .HydrateAsync(new Member(tenant, userId));
+            var access = await scope.ServiceProvider.GetRequiredService<IMemberAccessReader>()
+                .ReadAsync(tenant, RbacIds.Member(tenant, userId));
+            var source = new List<string>();
+            await foreach (var record in scope.ServiceProvider.GetRequiredService<IDomainEventReader>()
+                               .ReadAsync(EventStreamPattern.ForPattern(tenantId), ProjectionCheckpoint.Start.Cursor,
+                                   CancellationToken.None))
+                source.Add(record.Event switch
+                {
+                    RolePermissionAssigned permission => $"{permission.GetType().Name}:{permission.RoleId}:{permission.Permission}",
+                    TeamMemberAssigned assigned => $"{assigned.GetType().Name}:{assigned.TeamId}:{assigned.MemberId}",
+                    _ => record.Event.GetType().Name,
+                });
+            throw new Xunit.Sdk.XunitException($"{failure.Message}\n" +
+                $"Source member registered={member.IsRegistered}, affiliation={member.Affiliation}, suspended={member.IsSuspended}\n" +
+                $"Projected paths={string.Join(';', access.Select(edge => $"{edge.TeamId}:{edge.RoleId}:{string.Join(',', edge.Permissions)}"))}\n" +
+                $"Tenant source={string.Join(',', source)}");
+        }
         var path = $"/api/v1/tenants/{tenantId}/programs";
         var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
         while (DateTimeOffset.UtcNow < deadline)
