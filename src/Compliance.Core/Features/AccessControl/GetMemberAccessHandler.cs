@@ -26,12 +26,14 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             membership.UserId != request.UserId)
             return Result<MemberAccessView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The member was not found."));
-        var memberIsActive = !membership.IsSuspended &&
+        var memberIsActive = !membership.IsSuspended && !membership.IsDeprovisioned &&
             membership.Affiliation == "client_personnel" &&
             await sourceMember.IsEligibleAsync(request.TenantId, request.UserId, ct)
                 .ConfigureAwait(false);
 
         var memberId = RbacIds.Member(request.TenantId, request.UserId);
+        var membershipEpisodeId = await sourceMember.GetMembershipEpisodeIdAsync(request.TenantId,
+            memberId, ct).ConfigureAwait(false);
         var edges = await access.ReadAsync(request.TenantId, memberId, ct).ConfigureAwait(false);
         if (request.ExpectedBuiltInRole is { } role &&
             BuiltInRbac.RoleIdForRole(request.TenantId, role) is { } roleId &&
@@ -58,7 +60,8 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             .Where(grant => grant.TenantId == request.TenantId &&
                 grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Team)
             .Select(grant => grant.Terms.Principal.Id).Distinct().ToArray();
-        var memberTeams = await FindCurrentTeamsAsync(request.TenantId, memberId, teamGrantIds, ct)
+        var memberTeams = await FindCurrentTeamsAsync(request.TenantId, memberId, teamGrantIds,
+            membershipEpisodeId, ct)
             .ConfigureAwait(false);
         var memberGrants = grantSet.Grants.Where(grant => grant.TenantId == request.TenantId &&
             (grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Member &&
@@ -76,14 +79,15 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 "The access grant projection is still catching up."));
         // Team removal may project while the grant event tail is scanned. Use this final
         // membership state to decide which team paths still belong to the member.
+        var currentEpisodeForTeams = await sourceMember.GetMembershipEpisodeIdAsync(
+            request.TenantId, memberId, ct).ConfigureAwait(false);
         var currentMemberTeams = await FindCurrentTeamsAsync(request.TenantId, memberId,
-            teamGrantIds, ct).ConfigureAwait(false);
+            teamGrantIds, currentEpisodeForTeams, ct).ConfigureAwait(false);
         memberGrants = memberGrants.Where(grant =>
             grant.Terms.Principal.Kind != AccessGrantPrincipalKind.Team ||
             currentMemberTeams.Contains(grant.Terms.Principal.Id)).ToArray();
         var now = clock.GetUtcNow();
         var grantPaths = new List<MemberAccessGrantPath>(memberGrants.Length);
-        var organizationGrantPermissions = new List<string>();
         foreach (var originalGrant in memberGrants)
         {
             var currentGrant = currentGrantSet.Grants.SingleOrDefault(item =>
@@ -113,7 +117,16 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 AccessGrantScopeKind.SystemInstance => scope.Id != Uuid.Empty,
                 _ => false,
             };
+            var memberEpisodeMatches = true;
+            if (grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Member &&
+                membershipEpisodeId is { } episodeId && episodeId != Uuid.Empty)
+            {
+                var grantEpisodeId = await grants.GetMembershipEpisodeIdAsync(request.TenantId,
+                    grant.GrantId, ct).ConfigureAwait(false);
+                memberEpisodeMatches = grantEpisodeId == episodeId;
+            }
             var isEffective = memberIsActive &&
+                memberEpisodeMatches &&
                 currentGrant is not null && currentGrant.Terms == originalGrant.Terms &&
                 grant.RevokedAt is null && !pendingRevocations.Contains(grant.GrantId) &&
                 grant.Terms.EffectiveFrom <= now &&
@@ -121,15 +134,13 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 scopeIsEffective && sourceRole.IsActive && teamIsActive && permissionSet.Count > 0;
             grantPaths.Add(new MemberAccessGrantPath(grant,
                 roleView?.Name ?? grant.Terms.RoleId.ToString(), permissionSet, isEffective));
-            if (isEffective && scope.Kind == AccessGrantScopeKind.Organization &&
-                scope.Id == request.TenantId)
-                organizationGrantPermissions.AddRange(permissionSet);
         }
 
         // Paths retain the projected assignment history for review. Compute effective standing
         // permissions from source relationships so removals outrun their projection safely.
         var standingPermissions = memberIsActive
-            ? await ReadCurrentStandingPermissionsAsync(request.TenantId, memberId, edges, ct)
+            ? await ReadCurrentStandingPermissionsAsync(request.TenantId, memberId, edges,
+                membershipEpisodeId, ct)
                 .ConfigureAwait(false)
             : [];
         // A suspension can commit while source relationships are read. Keep the historical
@@ -137,10 +148,38 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
         var currentlyActive = memberIsActive &&
             await sourceMember.IsEligibleAsync(request.TenantId, request.UserId, ct)
                 .ConfigureAwait(false);
+        if (currentlyActive)
+        {
+            var currentEpisodeId = await sourceMember.GetMembershipEpisodeIdAsync(request.TenantId,
+                memberId, ct).ConfigureAwait(false);
+            if (currentEpisodeId is { } episodeId && episodeId != Uuid.Empty)
+            {
+                standingPermissions = await ReadCurrentStandingPermissionsAsync(request.TenantId,
+                    memberId, edges, episodeId, ct).ConfigureAwait(false);
+                for (var index = 0; index < grantPaths.Count; index++)
+                {
+                    var path = grantPaths[index];
+                    if (path.Grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Member &&
+                        await grants.GetMembershipEpisodeIdAsync(request.TenantId,
+                            path.Grant.GrantId, ct).ConfigureAwait(false) != episodeId)
+                        grantPaths[index] = path with { IsEffective = false };
+                    else if (path.Grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Team)
+                    {
+                        var assignment = await reader.HydrateAsync(new TeamMember(request.TenantId,
+                            path.Grant.Terms.Principal.Id, memberId), ct).ConfigureAwait(false);
+                        if (!assignment.IsAssigned || assignment.MembershipEpisodeId != episodeId)
+                            grantPaths[index] = path with { IsEffective = false };
+                    }
+                }
+            }
+        }
         if (!currentlyActive)
             grantPaths = grantPaths.Select(path => path with { IsEffective = false }).ToList();
         var permissions = currentlyActive
-            ? standingPermissions.Concat(organizationGrantPermissions)
+            ? standingPermissions.Concat(grantPaths.Where(path => path.IsEffective &&
+                    path.Grant.Terms.Scope.Kind == AccessGrantScopeKind.Organization &&
+                    path.Grant.Terms.Scope.Id == request.TenantId)
+                .SelectMany(path => path.Permissions))
                 .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()
             : [];
         return Result<MemberAccessView>.Success(new MemberAccessView(request.TenantId,
@@ -148,7 +187,8 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
     }
 
     async ValueTask<IReadOnlyList<string>> ReadCurrentStandingPermissionsAsync(Uuid tenantId,
-        Uuid memberId, IReadOnlyList<MemberAccessEdge> edges, CancellationToken ct)
+        Uuid memberId, IReadOnlyList<MemberAccessEdge> edges, Uuid? membershipEpisodeId,
+        CancellationToken ct)
     {
         var effective = new HashSet<string>(StringComparer.Ordinal);
         foreach (var edge in edges)
@@ -159,7 +199,8 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 continue;
             var member = await reader.HydrateAsync(new TeamMember(tenantId, edge.TeamId,
                     memberId), ct).ConfigureAwait(false);
-            if (!member.IsAssigned)
+            if (!member.IsAssigned || membershipEpisodeId is { } episodeId &&
+                member.MembershipEpisodeId != episodeId)
                 continue;
             var teamRole = await reader.HydrateAsync(new TeamRole(tenantId, edge.TeamId,
                     edge.RoleId), ct).ConfigureAwait(false);
@@ -181,7 +222,8 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
     }
 
     async ValueTask<HashSet<Uuid>> FindCurrentTeamsAsync(Uuid tenantId, Uuid memberId,
-        IReadOnlyCollection<Uuid> candidateTeamIds, CancellationToken ct)
+        IReadOnlyCollection<Uuid> candidateTeamIds, Uuid? membershipEpisodeId,
+        CancellationToken ct)
     {
         var memberTeams = new HashSet<Uuid>();
         foreach (var teamId in candidateTeamIds)
@@ -193,7 +235,17 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 // The member removal can project before the tail scan begins.
                 await HasProjectedTeamMemberAsync(tenantId, teamId, memberId, ct)
                     .ConfigureAwait(false))
-                memberTeams.Add(teamId);
+            {
+                if (membershipEpisodeId is not { } episodeId || episodeId == Uuid.Empty)
+                {
+                    memberTeams.Add(teamId);
+                    continue;
+                }
+                var assignment = await reader.HydrateAsync(new TeamMember(tenantId, teamId,
+                    memberId), ct).ConfigureAwait(false);
+                if (assignment.IsAssigned && assignment.MembershipEpisodeId == episodeId)
+                    memberTeams.Add(teamId);
+            }
         }
         return memberTeams;
     }

@@ -6,17 +6,25 @@ public sealed class AccessGrant : Aggregate
 {
     readonly Uuid _tenantId;
     AccessGrantTerms? _terms;
+    Uuid? _membershipEpisodeId;
     bool _isRevoked;
+
+    public bool IsRevoked => _isRevoked;
+    public Uuid? MembershipEpisodeId => _membershipEpisodeId;
 
     public AccessGrant(Uuid tenantId, Uuid grantId)
         : base(grantId, new EventStreamAddress(tenantId.ToString(), "access-grants", grantId.ToString()))
     {
         _tenantId = tenantId;
-        On<AccessGrantIssued>(ev => _terms = ev.Terms);
+        On<AccessGrantIssued>(ev =>
+        {
+            _terms = ev.Terms;
+            _membershipEpisodeId = ev.MembershipEpisodeId;
+        });
         On<AccessGrantRevoked>(_ => _isRevoked = true);
     }
 
-    public Result Issue(AccessGrantTerms terms)
+    public Result Issue(AccessGrantTerms terms, Uuid? membershipEpisodeId = null)
     {
         var validation = Validate(terms);
         if (validation is not null)
@@ -26,12 +34,12 @@ public sealed class AccessGrant : Aggregate
             return _isRevoked
                 ? Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "A revoked access grant cannot be reissued."))
-                : _terms == terms
+                : _terms == terms && _membershipEpisodeId == membershipEpisodeId
                 ? Result.Success
                 : Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The access grant already has different terms."));
 
-        RaiseEvent(new AccessGrantIssued(_tenantId, Id, terms));
+        RaiseEvent(new AccessGrantIssued(_tenantId, Id, terms, membershipEpisodeId));
         return Result.Success;
     }
 

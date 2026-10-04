@@ -34,12 +34,13 @@ public sealed class ProviderAuthorizationTests
             [RbacPermissions.TenantAccess, RbacPermissions.ProviderInventoryManage];
         var services = new ServiceCollection();
         var store = new InMemoryEventStore();
+        var grants = new Grants(tenantId, userId, roleId, condition == "program");
         services.AddSingleton<IEventStore>(store);
         services.AddSingleton<IDomainEventReader>(store);
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ITenantMembershipDirectoryReader>(new FixedMembershipDirectory(condition != "missing",
             condition == "firm_staff" ? "firm_staff" : "client_personnel", condition == "suspended"));
-        services.AddSingleton<IAccessGrantDirectory>(new Grants(tenantId, userId, roleId, condition == "program"));
+        services.AddSingleton<IAccessGrantDirectory>(grants);
         services.AddSingleton<ITeamMemberDirectoryReader, NoTeams>();
         services.AddSingleton<IRolePermissionDirectoryReader>(new RolePermissions(allowed));
         services.AddScoped<IMemberAccessEligibility, EventSourcedMemberAccessEligibility>();
@@ -65,6 +66,11 @@ public sealed class ProviderAuthorizationTests
                 Assert.True(member.Suspend(RbacIds.Member(tenantId, userId), "Admin", DateTimeOffset.UtcNow, "Review").IsSuccess);
             return Result.Success;
         });
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            grants.MembershipEpisodeId = (await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+                .HydrateAsync(new Member(tenantId, userId))).MembershipEpisodeId;
+        }
         await ProgramManagementServices.SeedAsync(provider, new Role(tenantId, roleId), role => role.Define("Authored role"));
         foreach (var permission in allowed)
             await ProgramManagementServices.SeedAsync(provider, new RolePermission(tenantId, roleId, permission), item => item.Assign());
@@ -114,6 +120,7 @@ public sealed class ProviderAuthorizationTests
 
     sealed class Grants(Uuid tenantId, Uuid userId, Uuid roleId, bool programOnly) : IAccessGrantDirectory
     {
+        public Uuid? MembershipEpisodeId { get; set; }
         readonly AccessGrantView _grant = new(tenantId, Uuid.CreateVersion4(), new AccessGrantTerms(
             new AccessGrantPrincipal(AccessGrantPrincipalKind.Member, RbacIds.Member(tenantId, userId)), roleId,
             new AccessGrantScope(programOnly ? AccessGrantScopeKind.Program : AccessGrantScopeKind.Organization,
@@ -124,6 +131,8 @@ public sealed class ProviderAuthorizationTests
             ValueTask.FromResult(new AccessGrantSetView(requestedTenantId, 1, [_grant]));
         public ValueTask<AccessGrantView?> GetAsync(Uuid requestedTenantId, Uuid grantId, CancellationToken ct = default) =>
             ValueTask.FromResult<AccessGrantView?>(grantId == _grant.GrantId ? _grant : null);
+        public ValueTask<Uuid?> GetMembershipEpisodeIdAsync(Uuid requestedTenantId, Uuid grantId,
+            CancellationToken ct = default) => ValueTask.FromResult(MembershipEpisodeId);
         public ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid requestedTenantId, IReadOnlySet<Uuid> ids,
             CancellationToken ct = default) => ValueTask.FromResult<IReadOnlySet<Uuid>>(new HashSet<Uuid>());
     }

@@ -8,11 +8,25 @@ public sealed class Member : Aggregate
     readonly Uuid _userId;
     bool _isRegistered;
     string? _affiliation;
+    Uuid _membershipEpisodeId;
     bool _isSuspended;
+    bool _isDeprovisioned;
+    bool _isDeprovisionCleanupComplete;
+    Uuid _deprovisionedByMemberId;
+    string? _deprovisionedByDisplay;
+    DateTimeOffset? _deprovisionedAt;
+    string? _deprovisionReason;
 
     public bool IsRegistered => _isRegistered;
     public string? Affiliation => _affiliation;
+    public Uuid MembershipEpisodeId => _membershipEpisodeId;
     public bool IsSuspended => _isSuspended;
+    public bool IsDeprovisioned => _isDeprovisioned;
+    public bool IsDeprovisionCleanupComplete => _isDeprovisionCleanupComplete;
+    public Uuid DeprovisionedByMemberId => _deprovisionedByMemberId;
+    public string? DeprovisionedByDisplay => _deprovisionedByDisplay;
+    public DateTimeOffset? DeprovisionedAt => _deprovisionedAt;
+    public string? DeprovisionReason => _deprovisionReason;
 
     public Member(Uuid tenantId, Uuid userId)
         : this(tenantId, RbacIds.Member(tenantId, userId), userId)
@@ -36,9 +50,25 @@ public sealed class Member : Aggregate
         {
             _isRegistered = true;
             _affiliation = registered.Affiliation;
+            _membershipEpisodeId = registered.MembershipEpisodeId;
+            _isSuspended = false;
+            _isDeprovisioned = false;
+            _isDeprovisionCleanupComplete = false;
         });
         On<MemberSuspended>(_ => _isSuspended = true);
         On<MemberReinstated>(_ => _isSuspended = false);
+        On<MemberDeprovisioned>(deprovisioned =>
+        {
+            _isRegistered = false;
+            _isSuspended = false;
+            _isDeprovisioned = true;
+            _isDeprovisionCleanupComplete = false;
+            _deprovisionedByMemberId = deprovisioned.DeprovisionedByMemberId;
+            _deprovisionedByDisplay = deprovisioned.DeprovisionedByDisplay;
+            _deprovisionedAt = deprovisioned.DeprovisionedAt;
+            _deprovisionReason = deprovisioned.Reason;
+        });
+        On<MemberDeprovisionCleanupCompleted>(_ => _isDeprovisionCleanupComplete = true);
     }
 
     public Result Register(string affiliation = "client_personnel")
@@ -46,8 +76,12 @@ public sealed class Member : Aggregate
         EnsureUserIdentity();
         if (affiliation is not ("client_personnel" or "firm_staff"))
             return Result.Failure(new RequestError(RequestErrorKind.Validation, "Invalid membership affiliation."));
+        if (_isDeprovisioned && !_isDeprovisionCleanupComplete)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "Membership authority cleanup must finish before a new invitation can take effect."));
         if (!_isRegistered)
-            RaiseEvent(new MemberRegistered(_tenantId, Id, _userId, affiliation));
+            RaiseEvent(new MemberRegistered(_tenantId, Id, _userId, affiliation,
+                Uuid.CreateVersion4()));
         else if (_affiliation != affiliation)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "This membership has a different affiliation."));
@@ -89,6 +123,46 @@ public sealed class Member : Aggregate
 
         RaiseEvent(new MemberReinstated(_tenantId, Id, _userId, _affiliation!, actorMemberId,
             actorDisplay.Trim(), reinstatedAt));
+        return Result.Success;
+    }
+
+    public Result Deprovision(Uuid actorMemberId, string actorDisplay, DateTimeOffset deprovisionedAt,
+        string reason)
+    {
+        EnsureUserIdentity();
+        if (_isDeprovisioned)
+            return Result.Success;
+        if (!_isRegistered)
+            return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The tenant member was not found."));
+        if (actorMemberId == Uuid.Empty || string.IsNullOrWhiteSpace(actorDisplay))
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "A member identity is required for the deprovision history."));
+        if (deprovisionedAt == default)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "A deprovision timestamp is required."));
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 1000)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "Enter a deprovision reason of at most 1000 characters."));
+
+        RaiseEvent(new MemberDeprovisioned(_tenantId, Id, _userId, actorMemberId,
+            actorDisplay.Trim(), deprovisionedAt, reason.Trim()));
+        return Result.Success;
+    }
+
+    public Result CompleteDeprovisionCleanup(DateTimeOffset completedAt)
+    {
+        EnsureUserIdentity();
+        if (!_isDeprovisioned)
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "Membership authority cleanup requires a deprovisioned member."));
+        if (_isDeprovisionCleanupComplete)
+            return Result.Success;
+        if (completedAt == default)
+            return Result.Failure(new RequestError(RequestErrorKind.Validation,
+                "A cleanup completion timestamp is required."));
+
+        RaiseEvent(new MemberDeprovisionCleanupCompleted(_tenantId, Id, completedAt));
         return Result.Success;
     }
 

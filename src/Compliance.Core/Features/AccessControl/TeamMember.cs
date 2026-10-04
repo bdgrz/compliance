@@ -8,8 +8,10 @@ public sealed class TeamMember : Aggregate
     readonly Uuid _teamId;
     readonly Uuid _memberId;
     bool _isAssigned;
+    Uuid _membershipEpisodeId;
 
     public bool IsAssigned => _isAssigned;
+    public Uuid MembershipEpisodeId => _membershipEpisodeId;
 
     public TeamMember(Uuid tenantId, Uuid teamId, Uuid memberId)
         : base(
@@ -22,14 +24,22 @@ public sealed class TeamMember : Aggregate
         _tenantId = tenantId;
         _teamId = teamId;
         _memberId = memberId;
-        On<TeamMemberAssigned>(_ => _isAssigned = true);
-        On<TeamMemberRemoved>(_ => _isAssigned = false);
+        On<TeamMemberAssigned>(assigned =>
+        {
+            _isAssigned = true;
+            _membershipEpisodeId = assigned.MembershipEpisodeId;
+        });
+        On<TeamMemberRemoved>(_ =>
+        {
+            _isAssigned = false;
+            _membershipEpisodeId = Uuid.Empty;
+        });
     }
 
-    public Result Assign()
+    public Result Assign(Uuid membershipEpisodeId = default)
     {
-        if (!_isAssigned)
-            RaiseEvent(new TeamMemberAssigned(_tenantId, _teamId, _memberId));
+        if (!_isAssigned || _membershipEpisodeId != membershipEpisodeId)
+            RaiseEvent(new TeamMemberAssigned(_tenantId, _teamId, _memberId, membershipEpisodeId));
         return Result.Success;
     }
 

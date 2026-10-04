@@ -9,6 +9,7 @@ sealed class PermissionProjectionState
     public HashSet<RolePermissionEdge> RolePermissions { get; init; } = [];
     public HashSet<Uuid> Teams { get; init; } = [];
     public HashSet<TeamMemberEdge> TeamMembers { get; init; } = [];
+    public HashSet<MemberMembershipEpisode> MembershipEpisodes { get; init; } = [];
     public HashSet<TeamRoleEdge> TeamRoles { get; init; } = [];
 
     public void Apply(DomainEvent domainEvent)
@@ -17,13 +18,23 @@ sealed class PermissionProjectionState
         {
             case MemberRegistered member:
                 // Tenant team placement cannot grant standing permissions to firm staff.
+                MembershipEpisodes.RemoveWhere(item => item.MemberId == member.MemberId);
                 if (member.Affiliation == "firm_staff")
                     Members.Remove(member.MemberId);
                 else
+                {
                     Members.Add(member.MemberId);
+                    MembershipEpisodes.Add(new MemberMembershipEpisode(member.MemberId,
+                        member.MembershipEpisodeId));
+                }
                 break;
             case MemberSuspended member:
                 Members.Remove(member.MemberId);
+                break;
+            case MemberDeprovisioned member:
+                Members.Remove(member.MemberId);
+                TeamMembers.RemoveWhere(item => item.MemberId == member.MemberId);
+                MembershipEpisodes.RemoveWhere(item => item.MemberId == member.MemberId);
                 break;
             case MemberReinstated member:
                 if (member.Affiliation == "client_personnel")
@@ -38,10 +49,14 @@ sealed class PermissionProjectionState
                 Teams.Remove(team.TeamId);
                 break;
             case TeamMemberAssigned teamMember:
-                TeamMembers.Add(new TeamMemberEdge(teamMember.TeamId, teamMember.MemberId));
+                TeamMembers.RemoveWhere(item => item.TeamId == teamMember.TeamId &&
+                    item.MemberId == teamMember.MemberId);
+                TeamMembers.Add(new TeamMemberEdge(teamMember.TeamId, teamMember.MemberId,
+                    teamMember.MembershipEpisodeId));
                 break;
             case TeamMemberRemoved teamMember:
-                TeamMembers.Remove(new TeamMemberEdge(teamMember.TeamId, teamMember.MemberId));
+                TeamMembers.RemoveWhere(item => item.TeamId == teamMember.TeamId &&
+                    item.MemberId == teamMember.MemberId);
                 break;
             case RoleDefined role:
                 Roles.Add(role.RoleId);
@@ -67,7 +82,8 @@ sealed class PermissionProjectionState
     public IReadOnlySet<PermissionGrant> Materialize()
     {
         var activeTeamMembers = TeamMembers
-            .Where(item => Members.Contains(item.MemberId) && Teams.Contains(item.TeamId));
+            .Where(item => Members.Contains(item.MemberId) && Teams.Contains(item.TeamId) &&
+                GetMembershipEpisodeId(item.MemberId) == item.MembershipEpisodeId);
         var activeTeamRoles = TeamRoles
             .Where(item => Teams.Contains(item.TeamId) && Roles.Contains(item.RoleId))
             .ToLookup(item => item.TeamId);
@@ -93,7 +109,8 @@ sealed class PermissionProjectionState
                 Roles.Contains(item.RoleId))
             .ToLookup(item => item.TeamId);
         var permissionsByRole = RolePermissions.ToLookup(item => item.RoleId);
-        return TeamMembers.Where(item => item.MemberId == memberId && Teams.Contains(item.TeamId))
+        return TeamMembers.Where(item => item.MemberId == memberId && Teams.Contains(item.TeamId) &&
+                GetMembershipEpisodeId(memberId) == item.MembershipEpisodeId)
             .SelectMany(item => rolesByTeam[item.TeamId].Select(role => new MemberAccessEdge(
                 item.TeamId, role.RoleId, permissionsByRole[role.RoleId]
                     .Select(permission => permission.Permission)
@@ -102,4 +119,11 @@ sealed class PermissionProjectionState
             .ThenBy(item => item.RoleId.ToString(), StringComparer.Ordinal)
             .ToArray();
     }
+
+    Uuid GetMembershipEpisodeId(Uuid memberId) => MembershipEpisodes
+        .Where(item => item.MemberId == memberId)
+        .Select(item => item.MembershipEpisodeId)
+        .FirstOrDefault();
 }
+
+readonly record struct MemberMembershipEpisode(Uuid MemberId, Uuid MembershipEpisodeId);

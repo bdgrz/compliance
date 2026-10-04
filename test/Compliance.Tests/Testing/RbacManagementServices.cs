@@ -21,6 +21,10 @@ static class RbacManagementServices
         services.AddSingleton<ITenantActivity, ActiveTenant>();
         services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
         services.AddSingleton<ITeamMemberDirectoryReader, EmptyTeamMemberDirectory>();
+        services.AddSingleton<ITeamDirectoryReader, EmptyTeamDirectory>();
+        services.AddSingleton<IAccessGrantDirectory, EmptyAccessGrantDirectory>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<MemberAuthorityCleanup>();
         services.AddScoped<TenantManagerInvariant>();
         handlers(services.AddPortia().AddRequestAuthorizer<RbacManagementAuthorizer>());
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
@@ -45,5 +49,28 @@ static class RbacManagementServices
         public ValueTask<Page<TeamMemberView>> ListAsync(Uuid tenantId, Uuid teamId, int? limit,
             string? cursor, string? search, bool descending, CancellationToken ct = default) =>
             ValueTask.FromResult(new Page<TeamMemberView>([], null));
+    }
+
+    sealed class EmptyTeamDirectory : ITeamDirectoryReader
+    {
+        public ValueTask<TeamView?> GetAsync(Uuid tenantId, Uuid teamId, CancellationToken ct = default) =>
+            ValueTask.FromResult<TeamView?>(null);
+
+        public ValueTask<Page<TeamView>> ListAsync(Uuid tenantId, int? limit, string? cursor,
+            string? search, bool descending, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<TeamView>([], null));
+    }
+
+    sealed class EmptyAccessGrantDirectory : IAccessGrantDirectory
+    {
+        public ValueTask<AccessGrantSetView> ListAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(new AccessGrantSetView(tenantId, 0, []));
+
+        public ValueTask<AccessGrantView?> GetAsync(Uuid tenantId, Uuid grantId, CancellationToken ct = default) =>
+            ValueTask.FromResult<AccessGrantView?>(null);
+
+        public ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId,
+            IReadOnlySet<Uuid> grantIds, CancellationToken ct = default) =>
+            ValueTask.FromResult<IReadOnlySet<Uuid>>(new HashSet<Uuid>());
     }
 }

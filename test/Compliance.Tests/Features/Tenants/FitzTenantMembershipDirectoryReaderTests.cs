@@ -72,6 +72,75 @@ public sealed class FitzTenantMembershipDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldRetainDeprovisionHistoryButNotCountDeprovisionedMemberGivenTermination()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var reader = new FitzTenantMembershipDirectoryReader(client);
+        var memberId = Uuid.CreateVersion4();
+        var actorMemberId = Uuid.CreateVersion4();
+        var deprovisionedAt = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("TenantMembership",
+            EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using (var batch = await reader.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await reader.ApplyAsync(new MemberRegistered(TenantId, memberId, UserId));
+            await reader.ApplyAsync(new MemberDeprovisioned(TenantId, memberId, UserId, actorMemberId,
+                "Alex Admin", deprovisionedAt, "Access is no longer required."));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Act
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId);
+        var membership = await reader.GetAsync(TenantId.ToString(), UserId);
+
+        // Assert
+        Assert.False(isMember);
+        Assert.NotNull(membership);
+        Assert.True(membership.IsDeprovisioned);
+        Assert.Equal(deprovisionedAt, membership.DeprovisionedAt);
+        Assert.Equal(actorMemberId, membership.DeprovisionedByMemberId);
+        Assert.Equal("Alex Admin", membership.DeprovisionedByDisplay);
+        Assert.Equal("Access is no longer required.", membership.DeprovisionReason);
+    }
+
+    [Fact]
+    public async Task ShouldRetainDeprovisionHistoryGivenFreshMembershipEpisode()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var reader = new FitzTenantMembershipDirectoryReader(client);
+        var memberId = Uuid.CreateVersion4();
+        var actorMemberId = Uuid.CreateVersion4();
+        var deprovisionedAt = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("TenantMembership",
+            EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using (var batch = await reader.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await reader.ApplyAsync(new MemberRegistered(TenantId, memberId, UserId));
+            await reader.ApplyAsync(new MemberDeprovisioned(TenantId, memberId, UserId, actorMemberId,
+                "Alex Admin", deprovisionedAt, "Access is no longer required."));
+            await reader.ApplyAsync(new MemberRegistered(TenantId, memberId, UserId, "firm_staff"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Act
+        var isMember = await reader.IsMemberAsync(TenantId.ToString(), UserId);
+        var membership = await reader.GetAsync(TenantId.ToString(), UserId);
+
+        // Assert
+        Assert.True(isMember);
+        Assert.NotNull(membership);
+        Assert.False(membership.IsDeprovisioned);
+        Assert.Equal("firm_staff", membership.Affiliation);
+        Assert.Equal(deprovisionedAt, membership.DeprovisionedAt);
+        Assert.Equal(actorMemberId, membership.DeprovisionedByMemberId);
+        Assert.Equal("Access is no longer required.", membership.DeprovisionReason);
+    }
+
+    [Fact]
     public async Task ShouldHideMembershipGivenDifferentTenant()
     {
         // Arrange

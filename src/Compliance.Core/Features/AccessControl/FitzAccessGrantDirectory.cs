@@ -34,6 +34,20 @@ sealed class FitzAccessGrantDirectory(IKvClient client, IDomainEventReader event
         return state.ToView(tenantId).Grants.SingleOrDefault(item => item.GrantId == grantId);
     }
 
+    public async ValueTask<Uuid?> GetMembershipEpisodeIdAsync(Uuid tenantId, Uuid grantId,
+        CancellationToken ct = default)
+    {
+        await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
+        var stored = await tx.GetAsync(AccessGrantProjectionKeys.State, ct).ConfigureAwait(false);
+        if (!stored.Found)
+            return null;
+        var state = JsonSerializer.Deserialize(stored.Value!.Value.Span,
+            ComplianceCoreJsonContext.Default.AccessGrantProjectionState);
+        if (state is null)
+            throw new InvalidOperationException("The access grant projection state could not be read.");
+        return state.GetMembershipEpisodeId(grantId);
+    }
+
     public async ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId,
         IReadOnlySet<Uuid> grantIds, CancellationToken ct = default)
     {

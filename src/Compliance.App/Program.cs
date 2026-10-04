@@ -466,6 +466,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Access control");
+    app.MapPortiaPost<DeprovisionMember>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/deprovisioning")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
     app.MapPortiaGet<GetTenantMember, TenantMembershipView>(
             "/api/v1/tenants/{tenant_id}/members/{user_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

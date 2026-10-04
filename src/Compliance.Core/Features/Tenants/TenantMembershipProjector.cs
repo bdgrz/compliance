@@ -6,7 +6,8 @@ public sealed partial class TenantMembershipProjector(ITenantMembershipDirectory
     : Projector(projection, EventStreamPattern.ForTenant("rbac-members"), "TenantMembership"),
       IProjectorHandler<MemberRegistered>,
       IProjectorHandler<MemberSuspended>,
-      IProjectorHandler<MemberReinstated>
+      IProjectorHandler<MemberReinstated>,
+      IProjectorHandler<MemberDeprovisioned>
 {
     public ValueTask HandleAsync(MemberRegistered ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
@@ -15,5 +16,8 @@ public sealed partial class TenantMembershipProjector(ITenantMembershipDirectory
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(MemberReinstated ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(MemberDeprovisioned ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 }

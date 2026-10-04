@@ -4,4 +4,4 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 
 [Discriminator("bdgrz.rbac.member.registered", 1)]
 public sealed record MemberRegistered(Uuid TenantId, Uuid MemberId, Uuid UserId,
-    string Affiliation = "client_personnel") : DomainEvent;
+    string Affiliation = "client_personnel", Uuid MembershipEpisodeId = default) : DomainEvent;

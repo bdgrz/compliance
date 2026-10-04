@@ -30,6 +30,27 @@ public sealed class AccessGrantProposalValidatorTests
     }
 
     [Fact]
+    public async Task ShouldRejectDeprovisionedMemberGivenDirectGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel", isDeprovisioned: true),
+            new TeamDirectory(), new RoleDirectory(roleId), ResourceScopes(tenantId),
+            new SourceReader());
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId))));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
     public async Task ShouldAllowOrganizationMemberGivenKnownRoleAndProgramScope()
     {
         // Arrange
@@ -341,7 +362,7 @@ public sealed class AccessGrantProposalValidatorTests
         new AccessGrantSource("manual", "request-1"), DateTimeOffset.UnixEpoch, null);
 
     sealed class MembershipReader(Uuid memberUserId, Uuid membershipTenantId, string affiliation,
-        Uuid? returnedTenantId = null)
+        Uuid? returnedTenantId = null, bool isDeprovisioned = false)
         : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId,
@@ -355,7 +376,7 @@ public sealed class AccessGrantProposalValidatorTests
             ValueTask.FromResult(new Page<TenantMembershipView>(
                 tenantId == membershipTenantId
                     ? [new TenantMembershipView(memberUserId, returnedTenantId ?? tenantId,
-                        affiliation)]
+                        affiliation, IsDeprovisioned: isDeprovisioned)]
                     : [], null));
     }
 

@@ -13,7 +13,8 @@ public sealed class RecordSeparationOfDutiesWaiverHandler(IAggregateExecutor exe
         var request = context.Request;
         var beneficiary = await memberships.GetAsync(request.TenantId.ToString(),
             request.BeneficiaryUserId, ct).ConfigureAwait(false);
-        if (beneficiary is null || beneficiary.Affiliation == "firm_staff")
+        if (beneficiary is null || beneficiary.IsSuspended || beneficiary.IsDeprovisioned ||
+            beneficiary.Affiliation == "firm_staff")
             return Result<SeparationOfDutiesWaiverView>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The waiver beneficiary must be an active tenant member."));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var requesterUserId))

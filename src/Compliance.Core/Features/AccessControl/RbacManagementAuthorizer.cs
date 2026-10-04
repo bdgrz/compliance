@@ -32,7 +32,7 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenant
                 "RBAC management requires a Bdgrz user identity."));
 
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
-        if (membership is null || membership.IsSuspended)
+        if (membership is null || membership.IsSuspended || membership.IsDeprovisioned)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));
         if (membership.Affiliation == "firm_staff")
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,

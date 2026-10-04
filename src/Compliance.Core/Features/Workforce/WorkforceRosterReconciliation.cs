@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Features.Workforce;
 ///     Reconciles the governed manual roster with tenant platform memberships (M0-D06). Findings are
 ///     shown for an attributable decision and never silently resolved, and nothing here grants or
 ///     revokes access. Firm staff access comes from engagements, not the roster, so firm staff and
-///     suspended members are never access-only. The manager chain is not consulted.
+///     suspended or deprovisioned members are never access-only. The manager chain is not consulted.
 /// </summary>
 public static class WorkforceRosterReconciliation
 {
@@ -43,7 +43,7 @@ public static class WorkforceRosterReconciliation
             if (!members.TryGetValue(userId, out var member))
                 Add("stale", "correlated_member_missing", $"{person.PersonId}:{userId}",
                     [person.PersonId], [], [userId]);
-            else if (!member.IsSuspended && personJobs.Count > 0 &&
+            else if (!member.IsSuspended && !member.IsDeprovisioned && personJobs.Count > 0 &&
                      personJobs.All(static job => job.LifecycleStatus == "ended"))
                 Add("conflicting", "ended_worker_retains_access",
                     $"{person.PersonId}:{userId}:{Versions(personJobs)}", [person.PersonId],
@@ -80,6 +80,7 @@ public static class WorkforceRosterReconciliation
         var correlated = roster.Select(static person => person.CorrelatedUserId)
             .OfType<Uuid>().ToHashSet();
         foreach (var member in members.Values.Where(member => !member.IsSuspended &&
+                     !member.IsDeprovisioned &&
                      member.Affiliation != "firm_staff" && !correlated.Contains(member.UserId)))
             Add("access_only", "member_not_on_roster", member.UserId.ToString(), [], [],
                 [member.UserId]);

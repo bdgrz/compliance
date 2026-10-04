@@ -28,6 +28,7 @@ public sealed class ActivateTenantHandler(IAggregateExecutor executor, IAggregat
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The first administrator must be client personnel."));
         if (!member.IsRegistered || !assignment.IsAssigned ||
+            assignment.MembershipEpisodeId != member.MembershipEpisodeId ||
             !await memberships.IsMemberAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false) ||
             !await permissions.IsAllowedAsync(tenantId, userId, memberId,
                 RbacPermissions.TenantAccess, ct)

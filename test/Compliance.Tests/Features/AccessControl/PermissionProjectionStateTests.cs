@@ -131,6 +131,41 @@ public sealed class PermissionProjectionStateTests
     }
 
     [Fact]
+    public void ShouldNotRestoreOldTeamPermissionGivenFreshMembershipEpisode()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var teamId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var actorMemberId = Uuid.CreateVersion4();
+        var oldEpisodeId = Uuid.CreateVersion4();
+        var newEpisodeId = Uuid.CreateVersion4();
+        var at = DateTimeOffset.UtcNow;
+        var state = new PermissionProjectionState();
+        state.Apply(new MemberRegistered(tenantId, memberId, userId,
+            MembershipEpisodeId: oldEpisodeId));
+        state.Apply(new TeamDefined(tenantId, teamId, "Reviewers"));
+        state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId, oldEpisodeId));
+        state.Apply(new RoleDefined(tenantId, roleId, "Reviewer"));
+        state.Apply(new TeamRoleAssigned(tenantId, teamId, roleId));
+        state.Apply(new RolePermissionAssigned(tenantId, roleId, "program:read"));
+
+        // Act
+        state.Apply(new MemberDeprovisioned(tenantId, memberId, userId, actorMemberId,
+            "Alex Admin", at, "Access is no longer required."));
+        state.Apply(new MemberRegistered(tenantId, memberId, userId,
+            MembershipEpisodeId: newEpisodeId));
+        // A team assignment that was already in flight can project after the fresh invitation.
+        state.Apply(new TeamMemberAssigned(tenantId, teamId, memberId, oldEpisodeId));
+
+        // Assert
+        Assert.Empty(state.Materialize());
+        Assert.Empty(state.Explain(memberId));
+    }
+
+    [Fact]
     public void ShouldRemovePermissionGivenTeamMemberRemoval()
     {
         // Arrange

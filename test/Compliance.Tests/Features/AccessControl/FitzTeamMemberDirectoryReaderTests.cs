@@ -61,6 +61,42 @@ public sealed class FitzTeamMemberDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldReturnCurrentAssignmentsGivenProjectionAndEventTail()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var events = new InMemoryEventStore();
+        var memberId = Uuid.CreateVersion4();
+        var nextTeamId = Uuid.CreateVersion4();
+        var reader = new FitzTeamMemberDirectoryReader(client, events);
+        var pattern = EventStreamPattern.ForPattern(TenantId.ToString());
+        var identity = new CheckpointIdentity("TeamMemberDirectory", pattern);
+        await using (var batch = await reader.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await reader.ApplyAsync(new TeamMemberAssigned(TenantId, TeamId, memberId));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var removed = new TeamMemberRemoved(TenantId, TeamId, memberId);
+        removed.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(),
+            RbacIds.TeamMember(TenantId, TeamId, memberId), 1, DateTimeOffset.UtcNow));
+        var assigned = new TeamMemberAssigned(TenantId, nextTeamId, memberId);
+        assigned.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(),
+            RbacIds.TeamMember(TenantId, nextTeamId, memberId), 1, DateTimeOffset.UtcNow));
+        await events.AppendAsync(new EventStreamAddress(TenantId.ToString(), "rbac-team-members",
+            RbacIds.TeamMember(TenantId, TeamId, memberId).ToString()), 0, [removed]);
+        await events.AppendAsync(new EventStreamAddress(TenantId.ToString(), "rbac-team-members",
+            RbacIds.TeamMember(TenantId, nextTeamId, memberId).ToString()), 0, [assigned]);
+
+        // Act
+        var assignments = await reader.ListMemberAssignmentsAsync(TenantId, memberId);
+
+        // Assert
+        var assignment = Assert.Single(assignments);
+        Assert.Equal(nextTeamId, assignment.TeamId);
+    }
+
+    [Fact]
     public async Task ShouldHonorLaterAssignmentGivenRemovalAndReassignmentBeforeProjectionCatchesUp()
     {
         // Arrange
