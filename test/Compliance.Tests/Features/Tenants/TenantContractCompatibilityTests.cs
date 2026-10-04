@@ -84,7 +84,7 @@ public sealed class TenantContractCompatibilityTests
     }
 
     [Fact]
-    public void ShouldReadLegacySuspensionGivenReasonAndOccurrenceTimeWereNotStored()
+    public void ShouldReadLegacyLifecycleEventsGivenReasonAndOccurrenceTimeWereNotStored()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -93,11 +93,15 @@ public sealed class TenantContractCompatibilityTests
 
         // Act
         var suspended = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.TenantSuspended);
+        var reactivated = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.TenantReactivated);
 
         // Assert
         Assert.NotNull(suspended);
         Assert.Null(suspended.Reason);
         Assert.Equal(default, suspended.OccurredAt);
+        Assert.NotNull(reactivated);
+        Assert.Null(reactivated.Reason);
+        Assert.Equal(default, reactivated.OccurredAt);
     }
 
     [Fact]
