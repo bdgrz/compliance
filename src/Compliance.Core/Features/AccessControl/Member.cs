@@ -5,7 +5,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 public sealed class Member : Aggregate
 {
     readonly Uuid _tenantId;
-    readonly Uuid _userId;
+    Uuid _userId;
     bool _isRegistered;
     string? _affiliation;
     Uuid _membershipEpisodeId;
@@ -19,6 +19,7 @@ public sealed class Member : Aggregate
 
     public bool IsRegistered => _isRegistered;
     public string? Affiliation => _affiliation;
+    public Uuid UserId => _userId;
     public Uuid MembershipEpisodeId => _membershipEpisodeId;
     public bool IsSuspended => _isSuspended;
     public bool IsDeprovisioned => _isDeprovisioned;
@@ -50,6 +51,7 @@ public sealed class Member : Aggregate
         {
             _isRegistered = true;
             _affiliation = registered.Affiliation;
+            _userId = registered.UserId;
             _membershipEpisodeId = registered.MembershipEpisodeId;
             _isSuspended = false;
             _isDeprovisioned = false;
