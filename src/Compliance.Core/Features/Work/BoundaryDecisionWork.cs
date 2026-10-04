@@ -27,13 +27,11 @@ static class BoundaryDecisionWork
                     boundary.BoundaryId), ct).ConfigureAwait(false);
                 if (!aggregate.IsCreated || aggregate.ProgramId != programId)
                     continue;
-                if (aggregate.Revision > boundary.Revision)
+                if (aggregate.Revision != boundary.Revision)
                     return Result<IReadOnlyList<WorkCandidate>>.Failure(new RequestError(
                         RequestErrorKind.Conflict,
-                        "The boundary work projection has not reached the source. Retry the query.",
+                        "The boundary source and work projection revisions differ. Retry the query.",
                         isTransient: true));
-                if (aggregate.Revision != boundary.Revision)
-                    continue;
 
                 var draft = boundary.Draft;
                 if (draft is null || draft.TenantId != tenantId ||
