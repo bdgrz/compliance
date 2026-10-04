@@ -1,4 +1,5 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Programs;
 
 namespace Bdgrz.Compliance.Features.Operations;
 
@@ -18,6 +19,18 @@ public sealed class OperatingAuthority(IAggregateReader reader,
     internal ValueTask<bool> ManagesProgramAsync(Uuid tenantId, OperationsActor actor,
         Uuid programId, CancellationToken ct) => permissions.IsAllowedAsync(tenantId, actor.UserId,
         actor.MemberId, programId, IProgramScopedRequest.ManagementPermission, ct);
+
+    /// <summary>Whether a current client member may perform a program-management decision.</summary>
+    public async ValueTask<bool> HasProgramManagementPermissionAsync(Uuid tenantId,
+        Uuid programId, Uuid memberId, CancellationToken ct)
+    {
+        var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+            .ConfigureAwait(false);
+        return member.IsRegistered && !member.IsSuspended && !member.IsDeprovisioned &&
+               member.Affiliation == "client_personnel" && member.UserId != Uuid.Empty &&
+               await permissions.IsAllowedAsync(tenantId, member.UserId, memberId, programId,
+                   IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false);
+    }
 
     /// <summary>Whether the member holds the responsibility directly or through current team membership.</summary>
     public async ValueTask<bool> HoldsAsync(Uuid tenantId, OperatingHolder? holder, Uuid memberId,

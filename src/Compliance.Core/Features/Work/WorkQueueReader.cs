@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Policies;
 using Cntryl.Portia;
@@ -19,7 +20,11 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     IPolicyDirectoryReader? policies = null,
     PolicyDirectoryReadConsistency? policyConsistency = null,
     ICommitmentDraftDirectoryReader? commitments = null,
-    CommitmentDraftListReadConsistency? commitmentConsistency = null)
+    CommitmentDraftListReadConsistency? commitmentConsistency = null,
+    IControlDraftDirectoryReader? controls = null,
+    ControlDraftListReadConsistency? controlConsistency = null,
+    ControlActivationReleaseGate? controlActivationGate = null,
+    ControlLifecycleReleaseGate? controlLifecycleGate = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -75,6 +80,16 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             var decisions = await CommitmentDecisionWork.LoadAsync(reader, commitments,
                 commitmentConsistency, tenantId, programId, now, workItemId, ct)
                 .ConfigureAwait(false);
+            if (!decisions.IsSuccess)
+                return Result<WorkQueueSnapshot>.Failure(decisions.Error);
+            candidates.AddRange(decisions.Value);
+        }
+        if (controls is not null)
+        {
+            var decisions = await ControlDecisionWork.LoadAsync(reader, controls,
+                controlConsistency, authority, tenantId, programId, now, workItemId,
+                controlActivationGate?.IsEnabled == true,
+                controlLifecycleGate?.IsEnabled == true, ct).ConfigureAwait(false);
             if (!decisions.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(decisions.Error);
             candidates.AddRange(decisions.Value);

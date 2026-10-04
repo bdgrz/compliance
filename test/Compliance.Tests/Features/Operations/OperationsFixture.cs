@@ -111,6 +111,8 @@ sealed class OperationsFixture
             {
                 services.AddScoped<OperatingAuthority>();
                 services.AddScoped<WorkQueueReader>();
+                services.AddSingleton(new ControlActivationReleaseGate(true));
+                services.AddSingleton(new ControlLifecycleReleaseGate(true));
                 services.AddSingleton<IControlDraftDirectoryReader, ProgramControls>();
                 services.AddSingleton<IBoundaryDirectoryReader>(boundaries);
                 services.AddSingleton<ProgramPolicies>();
@@ -190,6 +192,10 @@ sealed class OperationsFixture
     public Task SuspendAsync(Uuid userId) => ProgramManagementServices.SeedAsync(Provider,
         new Member(TenantId, userId), member => member.Suspend(LeadMemberId, "Lead",
             DateTimeOffset.UtcNow, "Left the company."));
+
+    public void IncludeControlInDirectory(Uuid controlId) =>
+        ((ProgramControls)Provider.GetRequiredService<IControlDraftDirectoryReader>())
+        .Add(TenantId, ProgramId, controlId);
 
     public async Task AddToTeamAsync(Uuid userId)
     {

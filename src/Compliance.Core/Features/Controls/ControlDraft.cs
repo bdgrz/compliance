@@ -27,7 +27,9 @@ public sealed class ControlDraft : Aggregate
     bool _everReviewed;
     bool _responsibilityEverAssigned;
     Uuid _acceptedReviewDecisionId;
+    Uuid? _acceptedReviewerMemberId;
     Uuid? _latestReviewDecisionId;
+    DateTimeOffset? _pendingDecisionChangedAt;
     Uuid? _draftVersionId;
     Uuid? _draftPredecessorVersionId;
     PendingRetirement? _pendingRetirement;
@@ -53,6 +55,14 @@ public sealed class ControlDraft : Aggregate
     public Uuid? PendingRetirementId => _pendingRetirement?.RetirementId;
     public DateOnly? PendingRetirementEffectiveUntil => _pendingRetirement?.EffectiveUntil;
     public ControlDraftContent? CurrentContent => _currentContent;
+    public Uuid? PendingAuthorMemberId => PendingTargetId is null ? null : _draftAuthorMemberId;
+    public Uuid? AcceptedReviewDecisionId => _acceptedReviewDecisionId == Uuid.Empty
+        ? null : _acceptedReviewDecisionId;
+    public Uuid? AcceptedReviewerMemberId => AcceptedReviewDecisionId is null
+        ? null : _acceptedReviewerMemberId;
+    public Uuid? LatestReviewDecisionId => _latestReviewDecisionId;
+    public DateTimeOffset? PendingDecisionChangedAt => PendingTargetId is null
+        ? null : _pendingDecisionChangedAt;
 
     /// <summary>The latest approved version, including a superseding or retired one.</summary>
     public ControlVersionView? ApprovedVersion => _versions.LastOrDefault();
@@ -88,6 +98,7 @@ public sealed class ControlDraft : Aggregate
             _currentContent = ev.Content;
             _draftAuthorMemberId = ev.ActorMemberId;
             _draftVersionId = ControlVersionIds.Initial(Id);
+            _pendingDecisionChangedAt = ev.ChangedAt;
         });
         On<ControlSuccessorProposed>(ev =>
         {
@@ -96,7 +107,9 @@ public sealed class ControlDraft : Aggregate
             _draftAuthorMemberId = ev.ActorMemberId;
             _pendingRetirement = null;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
             _latestReviewDecisionId = null;
+            _pendingDecisionChangedAt = ev.ChangedAt;
         });
         On<ControlDraftRevised>(ev =>
         {
@@ -104,13 +117,17 @@ public sealed class ControlDraft : Aggregate
             _currentContent = ev.Content;
             _draftAuthorMemberId = ev.ActorMemberId;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
             _latestReviewDecisionId = null;
+            _pendingDecisionChangedAt = ev.ChangedAt;
         });
         On<ControlReviewed>(ev =>
         {
             _everReviewed = true;
             _acceptedReviewDecisionId = ev.Outcome == "accept" ? ev.DecisionId : Uuid.Empty;
+            _acceptedReviewerMemberId = ev.Outcome == "accept" ? ev.ActorMemberId : null;
             _latestReviewDecisionId = ev.DecisionId;
+            _pendingDecisionChangedAt = ev.DecidedAt;
             _decisions.Add(new ControlDecisionView(ev.TenantId, ev.ProgramId, ev.ControlId,
                 ev.DecisionId, ev.VersionId, ev.Revision, "review", ev.Outcome, ev.Actor,
                 ev.Rationale, ev.DecidedAt, ev.SupersedesDecisionId, null,
@@ -147,6 +164,7 @@ public sealed class ControlDraft : Aggregate
                 OwnerPersonId = ev.OwnerPersonId,
             });
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
             _draftVersionId = null;
             _draftPredecessorVersionId = null;
         });
@@ -156,7 +174,9 @@ public sealed class ControlDraft : Aggregate
                 ev.EffectiveUntil);
             _draftAuthorMemberId = ev.ActorMemberId;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
             _latestReviewDecisionId = null;
+            _pendingDecisionChangedAt = ev.ChangedAt;
         });
         On<ControlRetired>(ev =>
         {
@@ -176,6 +196,7 @@ public sealed class ControlDraft : Aggregate
             _retired = true;
             _pendingRetirement = null;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
         });
         On<ControlOwnerPersonDesignated>(ev =>
         {
@@ -195,7 +216,9 @@ public sealed class ControlDraft : Aggregate
             _draftPredecessorVersionId = null;
             _pendingRetirement = null;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _acceptedReviewerMemberId = null;
             _latestReviewDecisionId = null;
+            _pendingDecisionChangedAt = ev.WithdrawnAt;
         });
         On<ResponsibilityAssigned>(ev =>
         {
