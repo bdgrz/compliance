@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Risks;
 using Cntryl.Portia;
@@ -22,7 +23,7 @@ static class WorkSource
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
         Uuid tenantId, Uuid programId, DateOnly today, DateOnly horizon, DateTimeOffset now,
-        Uuid? workItemId, CancellationToken ct)
+        Uuid? workItemId, IBoundaryDirectoryReader? boundaries, CancellationToken ct)
     {
         bool Wanted(Uuid sourceId, string kind) =>
             workItemId is not { } wanted || WorkCandidate.IdFor(sourceId, kind) == wanted;
@@ -130,6 +131,9 @@ static class WorkSource
                 $"{prefix}/evidence-requests/{request.EvidenceRequestId}/fulfilments",
                 new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
                 new HashSet<Uuid>(), request.OpenedAt));
+        if (boundaries is not null)
+            candidates.AddRange(await BoundaryDecisionWork.LoadAsync(reader, boundaries, tenantId,
+                programId, now, workItemId, ct).ConfigureAwait(false));
         return candidates;
     }
 }

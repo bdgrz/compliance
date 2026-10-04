@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Cntryl.Portia;
 
@@ -11,7 +12,8 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     membership, and eligibility answers so each is hydrated at most once.
 /// </summary>
 public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority authority,
-    TimeProvider clock, ICampaignDirectoryReader? campaigns = null)
+    TimeProvider clock, ICampaignDirectoryReader? campaigns = null,
+    IBoundaryDirectoryReader? boundaries = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -42,7 +44,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var candidates = (await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, ct).ConfigureAwait(false)).ToList();
+            today.AddDays(horizonDays), now, workItemId, boundaries, ct).ConfigureAwait(false)).ToList();
         if (campaigns is not null)
             candidates.AddRange((await PolicyCampaignWork.LoadAsync(reader, campaigns, tenantId, programId,
                     today, ct).ConfigureAwait(false))

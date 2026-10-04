@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Operations;
@@ -24,6 +25,7 @@ sealed class OperationsFixture
 {
     public required ServiceProvider Provider { get; init; }
     public required ManagerPermissions Permissions { get; init; }
+    public required ProgramBoundaries Boundaries { get; init; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
     public Uuid ProgramId { get; } = Uuid.CreateVersion4();
     public Uuid LeadUserId { get; } = Uuid.CreateVersion4();
@@ -51,6 +53,7 @@ sealed class OperationsFixture
     public static async Task<OperationsFixture> CreateAsync()
     {
         var permissions = new ManagerPermissions();
+        var boundaries = new ProgramBoundaries();
         var provider = ProgramManagementServices.Build(
             permissions,
             portia => portia.AddRequestHandler<ProposeControlOperatingPlanHandler>()
@@ -105,8 +108,14 @@ sealed class OperationsFixture
                 services.AddScoped<OperatingAuthority>();
                 services.AddScoped<WorkQueueReader>();
                 services.AddSingleton<IControlDraftDirectoryReader, ProgramControls>();
+                services.AddSingleton<IBoundaryDirectoryReader>(boundaries);
             });
-        var fixture = new OperationsFixture { Provider = provider, Permissions = permissions };
+        var fixture = new OperationsFixture
+        {
+            Provider = provider,
+            Permissions = permissions,
+            Boundaries = boundaries,
+        };
         permissions.Managers.Add(fixture.LeadMemberId);
         permissions.Managers.Add(fixture.ApproverMemberId);
         ((ProgramControls)provider.GetRequiredService<IControlDraftDirectoryReader>()).Add(
@@ -313,5 +322,51 @@ sealed class OperationsFixture
         public ValueTask<ControlDraftRevisionView?> GetRevisionAsync(Uuid tenantId,
             Uuid controlId, long revision, CancellationToken ct = default) =>
             throw new NotSupportedException();
+    }
+
+    public sealed class ProgramBoundaries : IBoundaryDirectoryReader
+    {
+        readonly List<BoundaryView> _boundaries = [];
+
+        public void Add(BoundaryView boundary)
+        {
+            var index = _boundaries.FindIndex(existing => existing.BoundaryId == boundary.BoundaryId);
+            if (index < 0)
+                _boundaries.Add(boundary);
+            else
+                _boundaries[index] = boundary;
+        }
+
+        public ValueTask<BoundaryView?> GetAsync(Uuid tenantId, Uuid boundaryId,
+            CancellationToken ct = default) => ValueTask.FromResult(_boundaries.FirstOrDefault(
+            boundary => boundary.TenantId == tenantId && boundary.BoundaryId == boundaryId));
+
+        public ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<BoundaryView>(_boundaries
+                .Where(boundary => boundary.TenantId == tenantId && boundary.ProgramId == programId)
+                .Take(limit).ToArray(), null));
+
+        public ValueTask<BoundaryVersionView?> GetVersionAsync(Uuid tenantId, Uuid boundaryId,
+            Uuid versionId, CancellationToken ct = default) => ValueTask.FromResult<BoundaryVersionView?>(null);
+
+        public ValueTask<Page<BoundaryVersionView>?> ListVersionsAsync(Uuid tenantId,
+            Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult<Page<BoundaryVersionView>?>(new Page<BoundaryVersionView>([], null));
+
+        public ValueTask<BoundaryVersionView?> GetEffectiveVersionAsync(Uuid tenantId,
+            Uuid boundaryId, DateOnly effectiveOn, CancellationToken ct = default) =>
+            ValueTask.FromResult<BoundaryVersionView?>(null);
+
+        public ValueTask<BoundaryDecisionView?> GetDecisionAsync(Uuid tenantId, Uuid boundaryId,
+            Uuid decisionId, CancellationToken ct = default) =>
+            ValueTask.FromResult<BoundaryDecisionView?>(null);
+
+        public ValueTask<Page<BoundaryDecisionView>?> ListDecisionsAsync(Uuid tenantId,
+            Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult<Page<BoundaryDecisionView>?>(new Page<BoundaryDecisionView>([], null));
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => throw new NotSupportedException();
     }
 }

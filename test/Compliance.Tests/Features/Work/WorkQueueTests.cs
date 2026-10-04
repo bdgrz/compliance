@@ -1,7 +1,9 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Remediation;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Tests.Features.Operations;
@@ -38,6 +40,251 @@ public sealed class WorkQueueTests
         Assert.EndsWith($"/evidence-requests/{request.EvidenceRequestId}/fulfilments", item.ActionPath,
             StringComparison.Ordinal);
         Assert.DoesNotContain(after.Items, item => item.Kind == "evidence_request");
+    }
+
+    [Fact]
+    public async Task ShouldListAssignedBoundaryReviewForReviewerGivenCurrentUnreviewedDraft()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.BackupMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.LeadMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.ApproverMemberId, "Approver", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 1));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        var item = Assert.Single(queue.Items);
+        Assert.Equal("boundary_review", item.Kind);
+        Assert.Equal(draftVersionId, item.SourceId);
+        Assert.Equal("review", item.NextAction);
+        Assert.Equal(fixture.ReviewerMemberId, item.AssigneeMemberId);
+        Assert.EndsWith($"/boundaries/{boundaryId}/drafts/{draftVersionId}/reviews",
+            item.ActionPath, StringComparison.Ordinal);
+        var backupQueue = await fixture.AsAsync(fixture.BackupUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        Assert.NotEqual(item.WorkItemId, Assert.Single(backupQueue.Items).WorkItemId);
+        var authorQueue = await fixture.AsAsync(fixture.LeadUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        Assert.Empty(authorQueue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldRouteAcceptedBoundaryDraftToAssignedApproverGivenAcceptedReviewUntilApproval()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var reviewDecisionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-10)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-9), now.AddMinutes(-9), null, []));
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ApproverMemberId, ResponsibilityType.PolicyApprover,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-8), now.AddMinutes(-8), null, []));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.Null(boundary.Review(draftVersionId, 1, reviewDecisionId, "accept",
+                    "Reviewed independently.", fixture.ReviewerMemberId, "Reviewer",
+                    now.AddMinutes(-5)));
+                return Result.Success;
+            });
+        var draft = new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+            now.AddMinutes(-10));
+        var review = new BoundaryDecisionView(fixture.TenantId, boundaryId, reviewDecisionId,
+            draftVersionId, 1, "accept", fixture.ReviewerMemberId, "Reviewer",
+            "Reviewed independently.", now.AddMinutes(-5), null, null, null);
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            draft, null, review, 2));
+
+        // Act
+        var reviewerQueue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        var approverQueue = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(reviewerQueue.Items);
+        var item = Assert.Single(approverQueue.Items);
+        Assert.Equal("boundary_approval", item.Kind);
+        Assert.Equal(draftVersionId, item.SourceId);
+        Assert.Equal("approve", item.NextAction);
+        Assert.Equal(fixture.ApproverMemberId, item.AssigneeMemberId);
+        Assert.EndsWith($"/boundaries/{boundaryId}/drafts/{draftVersionId}/approvals",
+            item.ActionPath, StringComparison.Ordinal);
+
+        // Act
+        var approvalDecisionId = Uuid.CreateVersion4();
+        var approvedEffectiveFrom = DateOnly.FromDateTime(now.UtcDateTime).AddDays(1);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.Null(boundary.Approve(draftVersionId, 1, approvalDecisionId,
+                    reviewDecisionId, approvedEffectiveFrom, "Approved.", "impact-digest",
+                    fixture.ApproverMemberId, "Approver", now.AddMinutes(-2)));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            null, draft with { Status = "approved", EffectiveFrom = approvedEffectiveFrom },
+            review with { DecisionId = approvalDecisionId, Outcome = "approve" }, 3));
+        var completedQueue = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(completedQueue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldOmitBoundaryReviewGivenExpiredResponsibility()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4),
+                    now.AddMinutes(-1), []));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 1));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(queue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldOmitBoundaryReviewGivenStaleDecisionProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.Null(boundary.Review(draftVersionId, 1, Uuid.CreateVersion4(), "accept",
+                    "Reviewed independently.", fixture.ReviewerMemberId, "Reviewer",
+                    now.AddMinutes(-2)));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 1));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(queue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldOmitBoundaryApprovalGivenForeignProjectedDecision()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ApproverMemberId, ResponsibilityType.PolicyApprover,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+        var draft = new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+            now.AddMinutes(-5));
+        var foreignDecision = new BoundaryDecisionView(fixture.TenantId,
+            Uuid.CreateVersion4(), Uuid.CreateVersion4(), draftVersionId, 1, "accept",
+            fixture.ReviewerMemberId, "Reviewer", "Reviewed independently.",
+            now.AddMinutes(-2), null, null, null);
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            draft, null, foreignDecision, 1));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(queue.Items);
     }
 
     [Fact]
