@@ -100,4 +100,32 @@ public sealed class DeclaredApplicationTests
             ev => Assert.Equal("Internal", Assert.IsType<ApplicationDeclared>(ev).Classification),
             ev => Assert.Equal("Restricted", Assert.IsType<ApplicationRevised>(ev).Classification));
     }
+
+    [Fact]
+    public void ShouldRetainExplicitRestrictionGivenApplicationDeclarationAndRevision()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var application = new DeclaredApplication(tenantId, applicationId);
+
+        // Act
+        var declared = application.Declare("Payroll", "Run payroll", null, actorId,
+            "Manager", now, isRestricted: true);
+        var replay = application.Declare("Payroll", "Run payroll", null, actorId,
+            "Manager", now, isRestricted: true);
+        var revised = application.Revise(1, "Payroll", "Run payroll", null, actorId,
+            "Manager", now.AddMinutes(1), isRestricted: false);
+
+        // Assert
+        Assert.True(declared.IsSuccess);
+        Assert.True(replay.IsSuccess);
+        Assert.Null(revised);
+        Assert.False(application.IsRestricted);
+        Assert.Collection(new AggregateScenario<DeclaredApplication>(application).PendingEvents,
+            ev => Assert.True(Assert.IsType<ApplicationDeclared>(ev).IsRestricted),
+            ev => Assert.False(Assert.IsType<ApplicationRevised>(ev).IsRestricted));
+    }
 }

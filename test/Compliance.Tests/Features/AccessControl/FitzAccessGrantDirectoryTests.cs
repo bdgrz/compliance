@@ -18,6 +18,7 @@ public sealed class FitzAccessGrantDirectoryTests
         var tenantId = Uuid.CreateVersion4();
         var grantId = Uuid.CreateVersion4();
         var memberId = Uuid.CreateVersion4();
+        var membershipEpisodeId = Uuid.CreateVersion4();
         var terms = new AccessGrantTerms(
             new AccessGrantPrincipal(AccessGrantPrincipalKind.Member, memberId),
             Uuid.CreateVersion4(),
@@ -26,7 +27,7 @@ public sealed class FitzAccessGrantDirectoryTests
             ActorReference.ForMember(memberId, "Organization Admin"),
             EffectiveFrom,
             null);
-        var issued = new AccessGrantIssued(tenantId, grantId, terms);
+        var issued = new AccessGrantIssued(tenantId, grantId, terms, membershipEpisodeId);
         var revoked = new AccessGrantRevoked(tenantId, grantId,
             ActorReference.ForMember(memberId, "Organization Admin"), EffectiveFrom.AddMinutes(1));
         var identity = new CheckpointIdentity(AccessGrantProjectionKeys.Projector,
@@ -50,6 +51,8 @@ public sealed class FitzAccessGrantDirectoryTests
         Assert.Equal(terms, grant.Terms);
         Assert.Equal(ActorReference.ForMember(memberId, "Organization Admin"), grant.RevokedBy);
         Assert.Equal(revoked.RevokedAt, grant.RevokedAt);
+        Assert.Equal(membershipEpisodeId,
+            await directory.GetMembershipEpisodeIdAsync(tenantId, grantId));
         Assert.Null(await directory.GetAsync(tenantId, Uuid.CreateVersion4()));
     }
 

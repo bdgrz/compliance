@@ -2,7 +2,7 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Tenants;
 
-public sealed class ReactivateTenantHandler(IAggregateExecutor executor) : IRequestHandler<ReactivateTenant>
+public sealed class ReactivateTenantHandler(IAggregateExecutor executor, TimeProvider clock) : IRequestHandler<ReactivateTenant>
 {
     public ValueTask<Result> HandleAsync(IRequestContext<ReactivateTenant> context, CancellationToken ct)
     {
@@ -10,6 +10,7 @@ public sealed class ReactivateTenantHandler(IAggregateExecutor executor) : IRequ
             ? userId
             : throw new InvalidOperationException("PlatformOperatorAuthorizer must reject this actor.");
         return executor.ExecuteAsync(new Tenant(context.Request.TenantId),
-            tenant => AggregateOutcome.CommitOnSuccess(tenant.Reactivate(operatorUserId)), context, ct);
+            tenant => AggregateOutcome.CommitOnSuccess(
+                tenant.Reactivate(operatorUserId, context.Request.Reason, clock.GetUtcNow())), context, ct);
     }
 }

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
@@ -18,9 +19,11 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario();
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Legacy, scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -42,9 +45,11 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario();
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Legacy, scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -66,9 +71,11 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario(rejectCursor: true);
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Legacy, scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
 
         // Act
         var applicationResult = await application.HandleAsync(Context(
@@ -89,9 +96,11 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario();
         var application = new ListApplicationBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
         var instance = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Legacy, scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
         scenario.Directory.Page = new Page<ApplicationBoundaryReferenceView>([
             Reference(Uuid.CreateVersion4(), "application", scenario.ApplicationId),
         ], null);
@@ -118,7 +127,8 @@ public sealed class ApplicationBoundaryReferencePagedReadContractTests
         // Arrange
         var scenario = CreateScenario();
         var handler = new ListSystemInstanceBoundaryReferencesHandler(scenario.Reader,
-            scenario.Legacy, scenario.Directory, scenario.Consistency);
+            scenario.Legacy, scenario.Directory, scenario.Consistency,
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
 
         // Act
         var result = await handler.HandleAsync(Context(new ListSystemInstanceBoundaryReferences(

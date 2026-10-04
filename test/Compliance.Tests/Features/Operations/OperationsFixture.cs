@@ -170,8 +170,15 @@ sealed class OperationsFixture
         new Member(TenantId, userId), member => member.Suspend(LeadMemberId, "Lead",
             DateTimeOffset.UtcNow, "Left the company."));
 
-    public Task AddToTeamAsync(Uuid userId) => ProgramManagementServices.SeedAsync(Provider,
-        new TeamMember(TenantId, TeamId, Member(userId)), membership => membership.Assign());
+    public async Task AddToTeamAsync(Uuid userId)
+    {
+        await using var scope = Provider.CreateAsyncScope();
+        var member = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new Member(TenantId, userId));
+        await ProgramManagementServices.SeedAsync(Provider,
+            new TeamMember(TenantId, TeamId, Member(userId)),
+            assignment => assignment.Assign(member.MembershipEpisodeId));
+    }
 
     public Task RemoveFromTeamAsync(Uuid userId) => ProgramManagementServices.SeedAsync(Provider,
         new TeamMember(TenantId, TeamId, Member(userId)), membership => membership.Remove());

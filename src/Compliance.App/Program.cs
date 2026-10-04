@@ -65,6 +65,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<RegisterTenant>()
         .AddMcpTool<SuspendTenant>(tool => tool.Destructive())
         .AddMcpTool<ReactivateTenant>(tool => tool.Idempotent())
+        .AddMcpTool<OffboardTenant>(tool => tool.Destructive())
         .AddMcpTool<GrantPlatformOperator>()
         .AddMcpTool<RevokePlatformOperator>(tool => tool.Destructive())
         .AddMcpTool<ListPlatformOperators>(tool => tool.ReadOnly())
@@ -208,6 +209,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ReviseAssuranceReport>(tool => tool.Idempotent())
         .AddMcpTool<ListProviderAssuranceReports>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<ListProviderReviews>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<RecordProviderCoverageGap>()
+        .AddMcpTool<GetProviderCoverageGap>(tool => tool.ReadOnly().Idempotent())
+        .AddMcpTool<ListProviderCoverageGaps>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<GetProviderAssuranceCoverage>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<PreviewProviderChange>(tool => tool.ReadOnly().Idempotent())
         .AddMcpTool<RecordTechnologyComponent>()
@@ -435,6 +439,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaDelete<ReactivateTenant>("/api/v1/tenants/{tenant_id}/suspensions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Tenants");
+    app.MapPortiaPost<OffboardTenant>("/api/v1/tenants/{tenant_id}/offboarding")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Tenants");
     app.MapPortiaPost<GrantPlatformOperator>("/api/v1/platform/operator-grants")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Platform operators");
@@ -464,6 +471,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Access control");
     app.MapPortiaDelete<ReinstateMember>(
             "/api/v1/tenants/{tenant_id}/members/{user_id}/suspensions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Access control");
+    app.MapPortiaPost<DeprovisionMember>(
+            "/api/v1/tenants/{tenant_id}/members/{user_id}/deprovisioning")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Access control");
     app.MapPortiaGet<GetTenantMember, TenantMembershipView>(
@@ -1390,6 +1401,28 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Providers");
     app.MapPortiaGet<ListProviderReviews, Page<ProviderReviewView>>(
             "/api/v1/tenants/{tenant_id}/providers/{provider_id}/reviews")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaPost<RecordProviderCoverageGap, ProviderCoverageGapRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    // Coverage-restored closure is an attributed decision and remains HTTP-only.
+    app.MapPortiaPut<CloseProviderCoverageGap, ProviderCoverageGapRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps/{gap_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    // Linking a personal R1-07 acceptance is an authenticated HTTP decision.
+    app.MapPortiaPut<LinkProviderCoverageGapRiskAcceptance, ProviderCoverageGapRegistration>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps/{gap_id}/risk-acceptances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<GetProviderCoverageGap, ProviderCoverageGapView>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps/{gap_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Providers");
+    app.MapPortiaGet<ListProviderCoverageGaps, Page<ProviderCoverageGapView>>(
+            "/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Providers");
     app.MapPortiaGet<GetProviderAssuranceCoverage, ProviderAssuranceCoverageView>(

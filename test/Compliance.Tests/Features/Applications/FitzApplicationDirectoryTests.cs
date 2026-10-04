@@ -8,6 +8,40 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class FitzApplicationDirectoryTests
 {
     [Fact]
+    public async Task ShouldRetainRestrictionFlagGivenApplicationHistoryProjection()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, actorId, "Org Admin", now,
+                IsRestricted: true));
+            await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId, 2,
+                "Payroll", "Run payroll", null, actorId, "Org Admin", now.AddMinutes(1),
+                IsRestricted: false));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var current = await directory.GetAsync(tenantId, applicationId);
+        var restrictedRevision = await directory.GetRevisionAsync(tenantId, applicationId, 1);
+        var publicRevision = await directory.GetRevisionAsync(tenantId, applicationId, 2);
+
+        // Assert
+        Assert.False(current?.IsRestricted);
+        Assert.True(restrictedRevision?.IsRestricted);
+        Assert.False(publicRevision?.IsRestricted);
+    }
+
+    [Fact]
     public async Task ShouldKeepApplicationHistoryGivenLegacyAndNewInstanceStreamReplay()
     {
         // Arrange

@@ -62,6 +62,78 @@ public sealed class MemberLifecycleTests
     }
 
     [Fact]
+    public void ShouldTerminateMembershipEpisodeGivenRegisteredMember()
+    {
+        // Arrange
+        var member = new Member(TenantId, UserId);
+        var scenario = new AggregateScenario<Member>(member)
+            .Given(DomainEventSeed.Attach(new MemberRegistered(TenantId, member.Id, UserId), member.Id, 1));
+
+        // Act
+        var result = scenario.Aggregate.Deprovision(ActorMemberId, "Alex Admin", ActionAt,
+            "Access is no longer required.");
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(scenario.Aggregate.IsRegistered);
+        Assert.True(scenario.Aggregate.IsDeprovisioned);
+        var deprovisioned = Assert.IsType<MemberDeprovisioned>(Assert.Single(scenario.PendingEvents));
+        Assert.Equal(TenantId, deprovisioned.TenantId);
+        Assert.Equal(member.Id, deprovisioned.MemberId);
+        Assert.Equal(UserId, deprovisioned.UserId);
+        Assert.Equal(ActorMemberId, deprovisioned.DeprovisionedByMemberId);
+        Assert.Equal("Alex Admin", deprovisioned.DeprovisionedByDisplay);
+        Assert.Equal(ActionAt, deprovisioned.DeprovisionedAt);
+        Assert.Equal("Access is no longer required.", deprovisioned.Reason);
+    }
+
+    [Fact]
+    public void ShouldStartFreshMembershipEpisodeGivenDeprovisionedMember()
+    {
+        // Arrange
+        var member = new Member(TenantId, UserId);
+        var priorEpisodeId = Uuid.CreateVersion4();
+        var scenario = new AggregateScenario<Member>(member).Given(
+            DomainEventSeed.Attach(new MemberRegistered(TenantId, member.Id, UserId,
+                "client_personnel", priorEpisodeId), member.Id, 1),
+            DomainEventSeed.Attach(new MemberDeprovisioned(TenantId, member.Id, UserId,
+                ActorMemberId, "Alex Admin", ActionAt, "Access is no longer required."), member.Id, 2),
+            DomainEventSeed.Attach(new MemberDeprovisionCleanupCompleted(TenantId, member.Id,
+                ActionAt.AddMinutes(1)), member.Id, 3));
+
+        // Act
+        var result = scenario.Aggregate.Register("firm_staff");
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(scenario.Aggregate.IsRegistered);
+        Assert.False(scenario.Aggregate.IsSuspended);
+        Assert.False(scenario.Aggregate.IsDeprovisioned);
+        Assert.Equal("firm_staff", scenario.Aggregate.Affiliation);
+        Assert.NotEqual(priorEpisodeId, scenario.Aggregate.MembershipEpisodeId);
+        Assert.IsType<MemberRegistered>(Assert.Single(scenario.PendingEvents));
+    }
+
+    [Fact]
+    public void ShouldNotReinstateGivenDeprovisionedMember()
+    {
+        // Arrange
+        var member = new Member(TenantId, UserId);
+        var scenario = new AggregateScenario<Member>(member).Given(
+            DomainEventSeed.Attach(new MemberRegistered(TenantId, member.Id, UserId), member.Id, 1),
+            DomainEventSeed.Attach(new MemberDeprovisioned(TenantId, member.Id, UserId,
+                ActorMemberId, "Alex Admin", ActionAt, "Access is no longer required."), member.Id, 2));
+
+        // Act
+        var result = scenario.Aggregate.Reinstate(ActorMemberId, "Alex Admin", ActionAt.AddHours(1));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(scenario.PendingEvents);
+    }
+
+    [Fact]
     public async Task ShouldRetainEveryAttributedLifecycleEventGivenRepeatedSuspensionCycles()
     {
         // Arrange

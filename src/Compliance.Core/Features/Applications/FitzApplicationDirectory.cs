@@ -21,6 +21,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     declared.ActorMemberId, declared.ActorDisplay, declared.ChangedAt)
                 {
                     Classification = declared.Classification,
+                    IsRestricted = declared.IsRestricted,
                     SystemOwnerPersonId = declared.SystemOwnerPersonId,
                     AccessOwnerPersonId = declared.AccessOwnerPersonId,
                     LastChangedBy = declared.Actor,
@@ -40,6 +41,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     Purpose = revised.Purpose,
                     OwnerReference = revised.OwnerReference,
                     Classification = revised.Classification,
+                    IsRestricted = revised.IsRestricted,
                     SystemOwnerPersonId = revised.SystemOwnerPersonId,
                     AccessOwnerPersonId = revised.AccessOwnerPersonId,
                     Unresolved = Gaps(revised.OwnerReference, revised.Classification,
@@ -189,6 +191,7 @@ sealed class FitzApplicationDirectory(IKvClient client)
                     changeKind, systemInstance?.SystemInstanceId, systemInstance)
                 {
                     Classification = view.Classification,
+                    IsRestricted = view.IsRestricted,
                     SystemOwnerPersonId = view.SystemOwnerPersonId,
                     AccessOwnerPersonId = view.AccessOwnerPersonId,
                     Actor = view.LastChangedBy,

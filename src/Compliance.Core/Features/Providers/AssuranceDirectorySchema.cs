@@ -26,4 +26,16 @@ static class AssuranceDirectorySchema
     public static readonly KvDirectory<ProviderReviewView, Uuid> Reviews = new("provider_reviews",
         ComplianceCoreJsonContext.Default.ProviderReviewView, static view => view.ReviewId,
         static id => [id.ToString()], [ReviewsByProvider]);
+
+    public static readonly KvDirectoryIndex<ProviderCoverageGapView> CoverageGapsByProvider =
+        new("coverage_gaps_by_provider", 1, static view =>
+        [
+            view.ProviderId.ToString(),
+            view.RecordedAt.UtcTicks.ToString("D20", CultureInfo.InvariantCulture),
+            view.GapId.ToString(),
+        ]);
+
+    public static readonly KvDirectory<ProviderCoverageGapView, Uuid> CoverageGaps =
+        new("provider_coverage_gaps", ComplianceCoreJsonContext.Default.ProviderCoverageGapView,
+            static view => view.GapId, static id => [id.ToString()], [CoverageGapsByProvider]);
 }

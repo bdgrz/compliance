@@ -25,6 +25,11 @@ import {
 } from '../operator.js';
 import { PlatformOperatorsCard } from './platform-operators-card.js';
 import { TenantActionsPanel, type TenantAction } from './tenant-actions-panel.js';
+import { TenantLifecyclePanel, type TenantLifecycleAction } from './tenant-lifecycle-panel.js';
+
+function isLifecycleAction(action: TenantAction | TenantLifecycleAction): action is TenantLifecycleAction {
+  return action === 'suspend' || action === 'reactivate';
+}
 
 export function TenantInventoryPage() {
   const [cursors, setCursors] = state<(string | null)[]>([null]);
@@ -32,25 +37,33 @@ export function TenantInventoryPage() {
   const [actionError, setActionError] = state<string | null>(null);
   const [notice, setNotice] = state<string | null>(null);
   const [version, setVersion] = state(0);
-  const [selected, setSelected] = state<{ item: TenantInventoryItem; action: TenantAction } | null>(null);
+  const [selected, setSelected] = state<{
+    item: TenantInventoryItem;
+    action: TenantAction | TenantLifecycleAction;
+  } | null>(null);
 
   const cursor = cursors()[cursors().length - 1] ?? null;
   const page = resource(() => listTenantInventory(cursor), [cursor, version()]);
 
-  async function change(item: TenantInventoryItem, suspend: boolean) {
+  async function change(item: TenantInventoryItem, action: TenantLifecycleAction, reason: string): Promise<boolean> {
     setActionError(null);
     setNotice(null);
     setPending(item.tenantId);
     try {
-      await (suspend ? suspendTenant(item.tenantId) : reactivateTenant(item.tenantId));
+      await (action === 'suspend'
+        ? suspendTenant(item.tenantId, reason)
+        : reactivateTenant(item.tenantId, reason));
       setNotice(
-        suspend
+        action === 'suspend'
           ? `${item.name} is suspended. Its members cannot sign in to it until it is reactivated.`
           : `${item.name} is reactivated.`
       );
       setVersion(version() + 1);
+      setSelected(null);
+      return true;
     } catch (failure) {
       setActionError(failure instanceof Error ? failure.message : 'The change could not be saved.');
+      return false;
     } finally {
       setPending(null);
     }
@@ -69,6 +82,9 @@ export function TenantInventoryPage() {
   }
 
   const items = page.value?.items ?? [];
+  const selection = selected();
+  const lifecycleAction = selection && isLifecycleAction(selection.action) ? selection.action : null;
+  const tenantAction = selection && !isLifecycleAction(selection.action) ? selection.action : null;
 
   return (
     <Page>
@@ -151,7 +167,7 @@ export function TenantInventoryPage() {
                             size="sm"
                             disabled={pending() !== null}
                             aria-label={`Reactivate ${item.name}`}
-                            onPress={() => void change(item, false)}
+                            onPress={() => setSelected({ item, action: 'reactivate' })}
                           >
                             Reactivate
                           </Button>
@@ -161,7 +177,7 @@ export function TenantInventoryPage() {
                             size="sm"
                             disabled={pending() !== null}
                             aria-label={`Suspend ${item.name}`}
-                            onPress={() => void change(item, true)}
+                            onPress={() => setSelected({ item, action: 'suspend' })}
                           >
                             Suspend
                           </Button>
@@ -191,14 +207,23 @@ export function TenantInventoryPage() {
           </Stack>
         </CardContent>
       </Card>
-      {selected() ? (
-        <TenantActionsPanel
-          key={`${selected()!.item.tenantId}:${selected()!.action}`}
-          item={selected()!.item}
-          action={selected()!.action}
-          onClose={() => setSelected(null)}
-          onChanged={() => setVersion(version() + 1)}
-        />
+      {selection && lifecycleAction ? (
+          <TenantLifecyclePanel
+            key={`${selection.item.tenantId}:${lifecycleAction}`}
+            item={selection.item}
+            action={lifecycleAction}
+            submitting={pending() === selection.item.tenantId}
+            onClose={() => setSelected(null)}
+            onSubmit={(reason) => change(selection.item, lifecycleAction, reason)}
+          />
+      ) : selection && tenantAction ? (
+          <TenantActionsPanel
+            key={`${selection.item.tenantId}:${tenantAction}`}
+            item={selection.item}
+            action={tenantAction}
+            onClose={() => setSelected(null)}
+            onChanged={() => setVersion(version() + 1)}
+          />
       ) : null}
       <PlatformOperatorsCard />
     </Page>

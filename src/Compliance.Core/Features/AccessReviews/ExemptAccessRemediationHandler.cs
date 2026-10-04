@@ -1,10 +1,11 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Applications;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Records the acting member's personal remediation exception approval; HTTP-only.</summary>
 public sealed class ExemptAccessRemediationHandler(IAggregateExecutor executor,
-    TimeProvider clock)
+    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<ExemptAccessRemediation, AccessRemediationExceptionView>
 {
     public async ValueTask<Result<AccessRemediationExceptionView>> HandleAsync(
@@ -12,6 +13,13 @@ public sealed class ExemptAccessRemediationHandler(IAggregateExecutor executor,
     {
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
+        var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
+            request.CampaignId), ct).ConfigureAwait(false);
+        if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                request.TenantId, actor.UserId, campaign, [request.ItemId], ct)
+            .ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessRemediationExceptionView>(
+                RequestErrorKind.NotFound, "The review item was not found.");
         return await executor.ExecuteAsync(new AccessReviewCampaign(request.TenantId,
                 request.CampaignId),
             campaign => AccessReviewOutcome.From(campaign.RecordException(request.ItemId,

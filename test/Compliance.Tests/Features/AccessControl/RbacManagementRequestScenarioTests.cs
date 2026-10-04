@@ -63,4 +63,20 @@ public sealed class RbacManagementRequestScenarioTests
             .ExpectHandled()
             .ExpectSuccess();
     }
+
+    [Fact]
+    public async Task ShouldDenyDeprovisionGivenMissingTenantRbacManagePermission()
+    {
+        // Arrange
+        await using var provider = RbacManagementServices.Build(allowed: false,
+            portia => portia.AddRequestHandler<DeprovisionMemberHandler>());
+
+        await RequestScenario.For(provider)
+            .GivenActor(RbacManagementServices.Actor())
+            // Act
+            .When(new DeprovisionMember(TenantId, Uuid.CreateVersion4(), "Access review complete."))
+            // Assert
+            .ExpectDenied(RequestErrorKind.Forbidden)
+            .ExpectNotHandled();
+    }
 }

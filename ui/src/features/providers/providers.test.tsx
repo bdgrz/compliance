@@ -10,6 +10,8 @@ import { ProvidersPage } from './pages/providers-list.js';
 
 const tenantId = '0190a1b2-0000-7000-8000-000000000001';
 const providerId = '0190a1b2-0000-7000-8000-0000000000b1';
+const reportId = '0190a1b2-0000-7000-8000-0000000000b2';
+const coverageGapId = '0190a1b2-0000-7000-8000-0000000000b3';
 const ownerId = '0190a1b2-0000-7000-8000-0000000000e1';
 const applicationId = '0190a1b2-0000-7000-8000-0000000000a1';
 const instanceId = '0190a1b2-0000-7000-8000-0000000000c1';
@@ -118,6 +120,140 @@ function detailAnswers(revision = 2) {
     items: [providerBody(1, { materiality: null, materiality_basis: [], materiality_rationale: null }, ['materiality', 'csocs']), providerBody(2)],
     next_cursor: null,
   });
+  emptyAssuranceAnswers();
+}
+
+function assuranceAnswers(redactGapDescription = false) {
+  api.reply(`${providerPath}/assurance-reports`, 200, {
+    items: [
+      {
+        tenant_id: tenantId,
+        report_id: reportId,
+        provider_id: providerId,
+        revision: 2,
+        content: {
+          report_kind: 'soc2_type2',
+          issuer: 'Acme Independent Audit',
+          scope: 'Payroll hosting and billing operations',
+          covered_services: ['Payroll processing', 'Payroll reporting'],
+          period_start: '2025-01-01',
+          period_end: '2025-12-31',
+          opinion: 'unmodified',
+        },
+        provider_revision: 2,
+        exception_count: 1,
+        complementary_control_count: 0,
+        coverage_gap_count: 1,
+        recorded_by: { kind: 'member', id: 'm1', display: 'Casey Lead' },
+        recorded_at: '2026-01-04T00:00:00Z',
+      },
+    ],
+    next_cursor: null,
+  });
+  api.reply(`${providerPath}/reviews`, 200, {
+    items: [
+      {
+        tenant_id: tenantId,
+        review_id: '0190a1b2-0000-7000-8000-0000000000b4',
+        provider_id: providerId,
+        content: {
+          reviewed_at: '2026-01-03',
+          next_review_due: '2026-09-20',
+          evidence_kind: 'soc2_type2',
+          conclusion: 'accepted_with_exceptions',
+          rationale: 'The exception has an owner and remediation plan.',
+          assurance_report_id: reportId,
+        },
+        provider_revision: 2,
+        assurance_report_revision: 2,
+        reviewed_by: { kind: 'member', id: 'm2', display: 'Morgan Reviewer' },
+        recorded_at: '2026-01-03T00:00:00Z',
+      },
+    ],
+    next_cursor: null,
+  });
+  api.reply(`${providerPath}/assurance-coverage`, 200, {
+    tenant_id: tenantId,
+    provider_id: providerId,
+    provider_revision: 2,
+    as_of: '2026-10-01',
+    materiality: 'material',
+    status: 'review_overdue',
+    complete: false,
+    reasons: ['evidence_stale'],
+    latest_review_id: '0190a1b2-0000-7000-8000-0000000000b4',
+    latest_reviewed_at: '2026-01-03',
+    next_review_due: '2026-09-20',
+    latest_conclusion: 'accepted_with_exceptions',
+    reports: [
+      {
+        report_id: reportId,
+        revision: 2,
+        report_kind: 'soc2_type2',
+        issuer: 'Acme Independent Audit',
+        period_start: '2025-01-01',
+        period_end: '2025-12-31',
+        opinion: 'unmodified',
+        exception_count: 1,
+        coverage_gap_count: 1,
+        bridge_covers_through: null,
+        currency: 'stale',
+        period_coverage: 'uncovered_after_period',
+        complete: false,
+        incomplete_reasons: ['evidence_stale'],
+      },
+    ],
+  });
+  api.reply(`${providerPath}/coverage-gaps`, 200, {
+    items: [
+      {
+        tenant_id: tenantId,
+        gap_id: coverageGapId,
+        provider_id: providerId,
+        provider_revision: 2,
+        revision: 1,
+        content: {
+          service_id: '0190a1b2-0000-7000-8000-0000000000c2',
+          service: 'Payroll service',
+          assertion: 'Encryption at rest is independently reviewed.',
+          period_start: '2025-01-01',
+          period_end: '2025-12-31',
+          source_kind: 'assurance_report',
+          source_id: reportId,
+          source_revision: 2,
+          description: redactGapDescription ? 'Restricted remediation details.' : 'The report does not cover the service assertion.',
+        },
+        status: 'open',
+        redacted: redactGapDescription,
+        recorded_by: { kind: 'member', id: 'm1', display: 'Casey Lead' },
+        recorded_at: '2026-01-04T00:00:00Z',
+        closure: null,
+        risk_acceptances: [],
+      },
+    ],
+    next_cursor: null,
+  });
+}
+
+function emptyAssuranceAnswers() {
+  api.reply(`${providerPath}/assurance-reports`, 200, { items: [], next_cursor: null });
+  api.reply(`${providerPath}/reviews`, 200, { items: [], next_cursor: null });
+  api.reply(`${providerPath}/assurance-coverage`, 200, {
+    tenant_id: tenantId,
+    provider_id: providerId,
+    provider_revision: 2,
+    as_of: '2026-10-01',
+    materiality: 'material',
+    status: 'no_review',
+    complete: false,
+    reasons: ['no_review'],
+    latest_review_id: null,
+    latest_reviewed_at: null,
+    next_review_due: null,
+    latest_conclusion: null,
+    reports: [],
+  });
+  api.reply(`${providerPath}/coverage-gaps`, 200, { items: [], next_cursor: null });
 }
 
 function field(container: HTMLElement, label: string): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
@@ -371,6 +507,163 @@ describe('provider detail, revisions and provenance (R1-14 frontend #232)', () =
     expect(container.textContent).toContain('Reporting service (not yet registered)');
     expect(container.querySelector('.provider-history > li')?.textContent).toContain('Revision 2');
     expect(container.querySelector('a[href="https://trust.acmecloud.example/soc2"]')).toBeNull();
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldShowDueDiligenceCoverageAndReassessmentWithoutCallingStaleEvidenceCurrent', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers();
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.textContent).toContain('Payroll service'));
+
+    // Assert
+    expect(container.textContent).toContain('Subservice organization, Carved out');
+    expect(container.textContent).toContain('CSOCs unresolved');
+    expect(container.textContent).toContain('Acme Independent Audit');
+    expect(container.textContent).toContain('Payroll hosting and billing operations');
+    expect(container.textContent).toContain('Payroll processing, Payroll reporting');
+    expect(container.textContent).toContain('2025-01-01 – 2025-12-31');
+    expect(container.textContent).toContain('Morgan Reviewer');
+    expect(container.textContent).toContain('Accepted with exceptions');
+    expect(container.textContent).toContain('Stale evidence');
+    expect(container.textContent).toContain('Review overdue');
+    expect(container.textContent).toContain('Next review due: 2026-09-20');
+    expect(container.textContent).toContain('Provider owner: Riley Owner');
+    expect(container.textContent).not.toContain('Coverage current');
+    expect(container.textContent).not.toContain('Current review');
+    expect(container.textContent).not.toContain('Current evidence');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldNotAttributeCurrentReportScopeToAnOlderReviewRevision', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers();
+    api.reply(`${providerPath}/reviews`, 200, {
+      items: [
+        {
+          tenant_id: tenantId,
+          review_id: '0190a1b2-0000-7000-8000-0000000000b4',
+          provider_id: providerId,
+          content: {
+            reviewed_at: '2025-01-03',
+            next_review_due: '2025-09-20',
+            evidence_kind: 'soc2_type2',
+            conclusion: 'accepted_with_exceptions',
+            rationale: 'The exception has an owner and remediation plan.',
+            assurance_report_id: reportId,
+          },
+          provider_revision: 1,
+          assurance_report_revision: 1,
+          reviewed_by: { kind: 'member', id: 'm2', display: 'Morgan Reviewer' },
+          recorded_at: '2025-01-03T00:00:00Z',
+        },
+      ],
+      next_cursor: null,
+    });
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.querySelector('section[aria-label="Due-diligence reviews"]')?.textContent).toContain('Historical review'));
+    const reviews = container.querySelector('section[aria-label="Due-diligence reviews"]')!;
+
+    // Assert
+    expect(reviews.textContent).not.toContain('Evidence scope: Payroll hosting and billing operations');
+    expect(reviews.textContent).not.toContain('Covered period: 2025-01-01 – 2025-12-31');
+    expect(reviews.textContent).toContain('Linked report revision 1 differs from current report revision 2');
+    expect(reviews.textContent).toContain('current report details are not attributed to this review');
+  });
+
+  it('ShouldNotRenderCoverageGapDescriptionWhenTheServerMarksItRedacted', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers(true);
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.textContent).toContain('Payroll service'));
+
+    // Assert
+    expect(container.textContent).not.toContain('Restricted remediation details.');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldRenderAccessibleLoadingStateWhileAssuranceReadsArePending', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers();
+    const request = globalThis.fetch;
+    let finishReportRead: ((response: Response) => void) | undefined;
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input), 'http://app.test');
+      if (url.pathname === `${providerPath}/assurance-reports`) {
+        return new Promise<Response>((resolve) => {
+          finishReportRead = resolve;
+        });
+      }
+      return request(input, init);
+    });
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.querySelector('[aria-label="Loading provider assurance"]')).not.toBeNull());
+
+    // Assert
+    expect(await accessibilityViolations(container)).toEqual([]);
+    finishReportRead!(new Response(JSON.stringify({ items: [], next_cursor: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await vi.waitFor(() => expect(container.textContent).toContain('No assurance reports recorded.'));
+  });
+
+  it('ShouldShowAccessibleEmptyStatesWhenNoAssuranceRecordsExist', async () => {
+    // Arrange
+    detailAnswers();
+    emptyAssuranceAnswers();
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.textContent).toContain('No unresolved coverage gaps.'));
+
+    // Assert
+    expect(container.textContent).toContain('No assurance reports recorded.');
+    expect(container.textContent).toContain('No due-diligence assessments recorded.');
+    expect(container.textContent).toContain('No review recorded');
+    expect(container.textContent).toContain('Next review due: Not scheduled');
+    expect(await accessibilityViolations(container)).toEqual([]);
+  });
+
+  it('ShouldOfferAccessibleRetryWhenAssuranceReadsFail', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers();
+    api.reply(`${providerPath}/assurance-reports`, 500, problem(500, 'Report read failed.'));
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')?.textContent).toContain('Report read failed.'));
+
+    // Assert
+    expect([...container.querySelectorAll('button')].some((button) => button.textContent === 'Try again')).toBe(true);
+    expect(await accessibilityViolations(container)).toEqual([]);
+    api.reply(`${providerPath}/assurance-reports`, 200, { items: [], next_cursor: null });
+    [...container.querySelectorAll('button')].find((button) => button.textContent === 'Try again')!.click();
+    await vi.waitFor(() => expect(container.textContent).toContain('No assurance reports recorded.'));
+  });
+
+  it('ShouldExplainForbiddenAssuranceReadsWithoutOfferingRetry', async () => {
+    // Arrange
+    detailAnswers();
+    assuranceAnswers();
+    api.reply(`${providerPath}/assurance-reports`, 403, problem(403, 'Forbidden'));
+
+    // Act
+    const container = mount(() => <ProviderDetailPage providerId={providerId} />);
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')?.textContent).toContain('You do not have permission to load assurance reports'));
+
+    // Assert
+    expect([...container.querySelectorAll('button')].some((button) => button.textContent === 'Try again')).toBe(false);
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 

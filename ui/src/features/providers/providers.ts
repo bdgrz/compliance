@@ -1,7 +1,62 @@
+import { createClient, defineApi, empty, get, json } from '@askrjs/fetch';
+
 import { createApiClient } from '../../api-client/index.js';
 import { requireActiveTenantId } from '../tenants/tenants.js';
 
 const client = createApiClient();
+
+interface ProviderCoverageGapResponse {
+  gap_id: string;
+  revision: number | string;
+  content: {
+    service: string;
+    assertion: string;
+    period_start: string;
+    period_end: string;
+    description: string;
+  };
+  status: string;
+  redacted?: boolean;
+}
+
+interface ProviderCoverageGapPage {
+  items: (ProviderCoverageGapResponse | null)[] | null;
+  next_cursor: string | null;
+}
+
+interface ProblemDetails {
+  type: string;
+  title: string;
+  status: number;
+  detail: string;
+  instance: string;
+  transient?: boolean;
+}
+
+// The server already exposes this read route, but the checked-in generated API client predates
+// it. Keep the local descriptor typed and use the same fetch contract until that client is refreshed.
+const coverageGapClient = createClient(
+  defineApi({
+    listProviderCoverageGaps: get('/api/v1/tenants/{tenant_id}/providers/{provider_id}/coverage-gaps')
+      .params<{ tenant_id: string; provider_id: string }>({
+        tenant_id: { style: 'simple', explode: false },
+        provider_id: { style: 'simple', explode: false },
+      })
+      .query<{ cursor?: string; limit?: number }>({
+        cursor: { style: 'form', explode: true },
+        limit: { style: 'form', explode: true },
+      })
+      .returns(json<ProviderCoverageGapPage>())
+      .errors({
+        400: json<ProblemDetails>(),
+        401: empty(),
+        403: json<ProblemDetails>(),
+        404: json<ProblemDetails>(),
+        409: json<ProblemDetails>(),
+        500: json<ProblemDetails>(),
+      }),
+  })
+);
 
 export type Materiality = 'material' | 'not_material';
 export type MaterialityBasis = 'customer_data' | 'critical_path';
@@ -90,6 +145,71 @@ export interface ClientServiceChoice {
   serviceId: string;
   programId: string | null;
   name: string;
+}
+
+export interface ProviderAssuranceReport {
+  reportId: string;
+  revision: number;
+  providerRevision: number;
+  reportKind: string;
+  issuer: string;
+  scope: string;
+  coveredServices: string[];
+  periodStart: string | null;
+  periodEnd: string;
+  opinion: string | null;
+}
+
+export interface ProviderReview {
+  reviewId: string;
+  reviewedAt: string;
+  nextReviewDue: string;
+  evidenceKind: string;
+  conclusion: string;
+  rationale: string;
+  assuranceReportId: string | null;
+  providerRevision: number;
+  assuranceReportRevision: number | null;
+  reviewedBy: string;
+}
+
+export interface ProviderReportCoverage {
+  reportId: string;
+  revision: number;
+  currency: string;
+  periodCoverage: string;
+  complete: boolean;
+  incompleteReasons: string[];
+}
+
+export interface ProviderAssuranceCoverage {
+  providerRevision: number;
+  asOf: string;
+  status: string;
+  complete: boolean;
+  reasons: string[];
+  latestReviewedAt: string | null;
+  nextReviewDue: string | null;
+  latestConclusion: string | null;
+  reports: ProviderReportCoverage[];
+}
+
+export interface ProviderCoverageGap {
+  gapId: string;
+  revision: number;
+  status: string;
+  service: string;
+  assertion: string;
+  periodStart: string;
+  periodEnd: string;
+  description: string | null;
+}
+
+export interface ProviderAssuranceData {
+  reports: ProviderAssuranceReport[];
+  reviews: ProviderReview[];
+  coverage: ProviderAssuranceCoverage;
+  coverageGaps: ProviderCoverageGap[];
 }
 
 // Keeps the HTTP status and the server's transient flag so pages can tell forbidden, not found,
@@ -319,6 +439,128 @@ export async function listProviderRevisions(providerId: string): Promise<Provide
     cursor = result.data?.next_cursor ?? undefined;
   } while (cursor !== undefined);
   return revisions.sort((a, b) => b.revision - a.revision);
+}
+
+async function listAssuranceReports(tenantId: string, providerId: string): Promise<ProviderAssuranceReport[]> {
+  const reports: ProviderAssuranceReport[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listProviderAssuranceReports({
+      params: { tenant_id: tenantId, provider_id: providerId },
+      query: { cursor },
+    });
+    if (!result.ok) throw failure(result, 'load assurance reports');
+    for (const item of result.data?.items ?? []) {
+      if (!item) continue;
+      reports.push({
+        reportId: item.report_id,
+        revision: Number(item.revision),
+        providerRevision: Number(item.provider_revision),
+        reportKind: item.content.report_kind,
+        issuer: item.content.issuer,
+        scope: item.content.scope,
+        coveredServices: (item.content.covered_services ?? []).filter((service): service is string => service !== null),
+        periodStart: item.content.period_start ?? null,
+        periodEnd: item.content.period_end,
+        opinion: item.content.opinion ?? null,
+      });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return reports;
+}
+
+async function listReviews(tenantId: string, providerId: string): Promise<ProviderReview[]> {
+  const reviews: ProviderReview[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await client.listProviderReviews({
+      params: { tenant_id: tenantId, provider_id: providerId },
+      query: { cursor },
+    });
+    if (!result.ok) throw failure(result, 'load due-diligence reviews');
+    for (const item of result.data?.items ?? []) {
+      if (!item) continue;
+      reviews.push({
+        reviewId: item.review_id,
+        reviewedAt: item.content.reviewed_at,
+        nextReviewDue: item.content.next_review_due,
+        evidenceKind: item.content.evidence_kind,
+        conclusion: item.content.conclusion,
+        rationale: item.content.rationale,
+        assuranceReportId: item.content.assurance_report_id ?? null,
+        providerRevision: Number(item.provider_revision),
+        assuranceReportRevision: item.assurance_report_revision === null ? null : Number(item.assurance_report_revision),
+        reviewedBy: item.reviewed_by.display,
+      });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return reviews.sort((a, b) => b.reviewedAt.localeCompare(a.reviewedAt));
+}
+
+async function assuranceCoverage(tenantId: string, providerId: string): Promise<ProviderAssuranceCoverage> {
+  const result = await client.getProviderAssuranceCoverage({ params: { tenant_id: tenantId, provider_id: providerId }, query: {} });
+  if (!result.ok) throw failure(result, 'load assurance coverage');
+  if (!result.data) throw new ProviderRequestError('The assurance coverage response was empty.', null, false);
+  return {
+    providerRevision: Number(result.data.provider_revision),
+    asOf: result.data.as_of,
+    status: result.data.status,
+    complete: result.data.complete,
+    reasons: (result.data.reasons ?? []).filter((reason): reason is string => reason !== null),
+    latestReviewedAt: result.data.latest_reviewed_at,
+    nextReviewDue: result.data.next_review_due,
+    latestConclusion: result.data.latest_conclusion,
+    reports: (result.data.reports ?? [])
+      .filter((report): report is NonNullable<typeof report> => report !== null)
+      .map((report) => ({
+        reportId: report.report_id,
+        revision: Number(report.revision),
+        currency: report.currency,
+        periodCoverage: report.period_coverage,
+        complete: report.complete,
+        incompleteReasons: (report.incomplete_reasons ?? []).filter((reason): reason is string => reason !== null),
+      })),
+  };
+}
+
+async function listCoverageGaps(tenantId: string, providerId: string): Promise<ProviderCoverageGap[]> {
+  const gaps: ProviderCoverageGap[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await coverageGapClient.listProviderCoverageGaps({
+      params: { tenant_id: tenantId, provider_id: providerId },
+      query: { cursor },
+    });
+    if (!result.ok) throw failure(result, 'load provider coverage gaps');
+    for (const item of result.data?.items ?? []) {
+      if (!item) continue;
+      gaps.push({
+        gapId: item.gap_id,
+        revision: Number(item.revision),
+        status: item.status,
+        service: item.content.service,
+        assertion: item.content.assertion,
+        periodStart: item.content.period_start,
+        periodEnd: item.content.period_end,
+        description: item.redacted ? null : item.content.description,
+      });
+    }
+    cursor = result.data?.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return gaps;
+}
+
+export async function getProviderAssurance(providerId: string): Promise<ProviderAssuranceData> {
+  const tenantId = requireActiveTenantId();
+  const [reports, reviews, coverage, coverageGaps] = await Promise.all([
+    listAssuranceReports(tenantId, providerId),
+    listReviews(tenantId, providerId),
+    assuranceCoverage(tenantId, providerId),
+    listCoverageGaps(tenantId, providerId),
+  ]);
+  return { reports, reviews, coverage, coverageGaps };
 }
 
 export async function recordProvider(content: ProviderContent): Promise<string> {

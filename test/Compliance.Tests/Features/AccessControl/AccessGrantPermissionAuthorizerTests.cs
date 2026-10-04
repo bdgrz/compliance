@@ -13,6 +13,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
     static readonly Uuid MemberId = RbacIds.Member(TenantId, UserId);
     static readonly Uuid RoleId = Uuid.Parse("5b66f817-415a-44e8-b809-503cf44b1537", CultureInfo.InvariantCulture);
     static readonly Uuid ProgramId = Uuid.Parse("e9a858f1-25e1-4594-87d2-814a73fc87ec", CultureInfo.InvariantCulture);
+    static readonly Uuid ApplicationId = Uuid.CreateVersion4();
+    static readonly Uuid SystemInstanceId = Uuid.CreateVersion4();
     static readonly DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -29,6 +31,107 @@ public sealed class AccessGrantPermissionAuthorizerTests
 
         // Assert
         Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyOldMemberGrantGivenFreshMembershipEpisode()
+    {
+        // Arrange
+        var currentEpisodeId = Uuid.CreateVersion4();
+        var oldGrant = Grant(new AccessGrantScope(AccessGrantScopeKind.Program, ProgramId));
+        var directory = new GrantDirectory(oldGrant);
+        var authorizer = new AccessGrantPermissionAuthorizer(directory,
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true)
+            {
+                MembershipEpisodeId = currentEpisodeId,
+            });
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldAllowApplicationScopedGrantGivenRestrictedReadRolePermission()
+    {
+        // Arrange
+        var directory = new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Application, ApplicationId)));
+        var authorizer = Authorizer(directory, "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId, MemberId,
+            [new AccessGrantScope(AccessGrantScopeKind.Application, ApplicationId)],
+            RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldAllowExactSystemInstanceGrantGivenRestrictedReadRolePermission()
+    {
+        // Arrange
+        var directory = new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.SystemInstance, SystemInstanceId)));
+        var authorizer = Authorizer(directory, "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId, MemberId,
+            [new AccessGrantScope(AccessGrantScopeKind.SystemInstance, SystemInstanceId)],
+            RbacPermissions.ApplicationRestrictedRead);
+        var siblingAllowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId,
+            MemberId, [new AccessGrantScope(AccessGrantScopeKind.SystemInstance,
+                Uuid.CreateVersion4())], RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+        Assert.False(siblingAllowed);
+    }
+
+    [Theory]
+    [InlineData(AccessGrantScopeKind.Organization)]
+    [InlineData(AccessGrantScopeKind.Application)]
+    [InlineData(AccessGrantScopeKind.SystemInstance)]
+    public async Task ShouldFindAnyInventoryGrantGivenRestrictedReadPermission(
+        AccessGrantScopeKind scopeKind)
+    {
+        // Arrange
+        var scopeId = scopeKind == AccessGrantScopeKind.Organization
+            ? TenantId
+            : scopeKind == AccessGrantScopeKind.Application ? ApplicationId : SystemInstanceId;
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(scopeKind,
+            scopeId))), "client_personnel", [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyApplicationInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldIgnoreProgramGrantGivenRestrictedInventoryReadPermission()
+    {
+        // Arrange
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Program, ProgramId))), "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyApplicationInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.False(allowed);
     }
 
     [Fact]
@@ -58,6 +161,32 @@ public sealed class AccessGrantPermissionAuthorizerTests
             new MembershipDirectory("firm_staff"), new TeamMemberDirectory(MemberId),
             new RolePermissions([RbacPermissions.ProgramManage]), new RbacSourceReader(),
             new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true));
+
+        // Act
+        var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
+            RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldDenyTeamGrantGivenAssignmentFromPriorMembershipEpisode()
+    {
+        // Arrange
+        var teamId = Uuid.CreateVersion4();
+        var currentEpisodeId = Uuid.CreateVersion4();
+        var oldEpisodeId = Uuid.CreateVersion4();
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Team, teamId));
+        var source = new RbacSourceReader { TeamMemberEpisodeId = oldEpisodeId };
+        var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
+            new MembershipDirectory("client_personnel"), new TeamMemberDirectory(MemberId),
+            new RolePermissions([RbacPermissions.ProgramManage]), source,
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true)
+            {
+                MembershipEpisodeId = currentEpisodeId,
+            });
 
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
@@ -393,6 +522,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         readonly Uuid? _pendingRevocationId;
         public IReadOnlySet<Uuid> CheckedGrantIds { get; private set; } = new HashSet<Uuid>();
         public bool ProjectRevocationOnPendingScan { get; init; }
+        public Uuid? MembershipEpisodeId { get; init; }
         public Action? OnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _revocationProjected;
@@ -421,6 +551,9 @@ public sealed class AccessGrantPermissionAuthorizerTests
         public ValueTask<AccessGrantView?> GetAsync(Uuid tenantId, Uuid grantId,
             CancellationToken ct = default) => ValueTask.FromResult<AccessGrantView?>(
             _grants.SingleOrDefault(item => item.GrantId == grantId));
+
+        public ValueTask<Uuid?> GetMembershipEpisodeIdAsync(Uuid tenantId, Uuid grantId,
+            CancellationToken ct = default) => ValueTask.FromResult(MembershipEpisodeId);
 
         public ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId,
             IReadOnlySet<Uuid> grantIds,
@@ -490,6 +623,7 @@ public sealed class AccessGrantPermissionAuthorizerTests
         public bool RoleDeleted { get; init; }
         public bool TeamDeleted { get; set; }
         public bool PermissionRemoved { get; set; }
+        public Uuid? TeamMemberEpisodeId { get; init; }
 
         public void DeleteTeam() => TeamDeleted = true;
         public void RemovePermission() => PermissionRemoved = true;
@@ -513,6 +647,9 @@ public sealed class AccessGrantPermissionAuthorizerTests
                     Assert.True(rolePermission.Assign().IsSuccess);
                     if (PermissionRemoved)
                         Assert.True(rolePermission.Remove().IsSuccess);
+                    break;
+                case TeamMember teamMember when TeamMemberEpisodeId is { } episodeId:
+                    Assert.True(teamMember.Assign(episodeId).IsSuccess);
                     break;
             }
             return ValueTask.FromResult(aggregate);

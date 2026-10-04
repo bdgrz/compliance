@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
@@ -8,7 +9,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     attestation. A retried request replays both steps instead of freezing twice.
 /// </summary>
 public sealed class AcceptAccessPopulationHandler(IAggregateReader reader,
-    IAggregateExecutor executor, PopulationSnapshotFreezer freezer, TimeProvider clock)
+    IAggregateExecutor executor, PopulationSnapshotFreezer freezer, TimeProvider clock,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<AcceptAccessPopulation, AccessPopulationAcceptance>
 {
     public async ValueTask<Result<AccessPopulationAcceptance>> HandleAsync(
@@ -18,6 +20,11 @@ public sealed class AcceptAccessPopulationHandler(IAggregateReader reader,
         var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
             request.PopulationId), ct).ConfigureAwait(false);
         if (population.Opened is not { } opened)
+            return AccessReviewOutcome.Failure<AccessPopulationAcceptance>(RequestErrorKind.NotFound,
+                "The population was not found.");
+        var actor = AccessReviewActor.From(context);
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
+                opened.ApplicationId, opened.SystemInstanceId, ct).ConfigureAwait(false))
             return AccessReviewOutcome.Failure<AccessPopulationAcceptance>(RequestErrorKind.NotFound,
                 "The population was not found.");
         if (population.Acceptance is { } accepted)
@@ -36,7 +43,6 @@ public sealed class AcceptAccessPopulationHandler(IAggregateReader reader,
             return AccessReviewOutcome.Failure<AccessPopulationAcceptance>(RequestErrorKind.Validation,
                 "Acceptance requires an attestation of at most 4000 characters.");
 
-        var actor = AccessReviewActor.From(context);
         var header = new AccessPopulationHeader(population.Id, opened.ApplicationId,
             opened.SystemInstanceId, opened.SystemInstanceRevision, opened.ObservedAt,
             opened.SourceKind, opened.Source, request.Attestation.Trim());

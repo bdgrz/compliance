@@ -17,6 +17,7 @@ static class WorkSource
     public const string CorrectiveAction = "corrective_action";
     public const string EvidenceRequest = "evidence_request";
     public const string RiskTreatmentAction = "risk_treatment_action";
+    public const string RiskTreatmentActionReview = "risk_treatment_action_review";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
@@ -98,6 +99,26 @@ static class WorkSource
                 $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completions",
                 new OperatingHolder(OperatingAuthority.MemberHolder, action.AccountableMemberId),
                 null, new HashSet<Uuid>(), action.CreatedAt));
+        foreach (var action in governance.Actions().Where(action =>
+                     action.Status == RiskGovernanceLedger.ActionSubmitted))
+        {
+            var completion = action.Completions.LastOrDefault(static item =>
+                item.ReviewOutcome is null);
+            if (completion is null || !Wanted(completion.SubmissionId, RiskTreatmentActionReview))
+                continue;
+            var excluded = new HashSet<Uuid> { action.AccountableMemberId };
+            if (governance.SubmitterMemberId(action.RiskId, completion.SubmissionId) is { } submitter)
+                excluded.Add(submitter);
+            candidates.Add(new WorkCandidate(
+                WorkCandidate.IdFor(completion.SubmissionId, RiskTreatmentActionReview),
+                RiskTreatmentActionReview, completion.SubmissionId, null, null,
+                $"Review completion for {action.Title}",
+                "A risk treatment action completion is awaiting independent review.", action.DueOn,
+                null, "review",
+                $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completion-reviews",
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                excluded, completion.SubmittedAt));
+        }
         var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         foreach (var request in evidence.ReadAll().Where(request =>

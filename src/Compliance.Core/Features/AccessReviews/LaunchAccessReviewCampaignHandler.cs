@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 
@@ -12,7 +13,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 /// </summary>
 public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
     IAggregateExecutor executor, PopulationSnapshotFreezer freezer, IAccessReviewSources sources,
-    TimeProvider clock)
+    TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<LaunchAccessReviewCampaign, AccessReviewCampaignRegistration>
 {
     public async ValueTask<Result<AccessReviewCampaignRegistration>> HandleAsync(
@@ -36,6 +37,7 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
             return Failure(RequestErrorKind.Validation,
                 "A campaign requires a name, instructions, and a future deadline.");
 
+        var actor = AccessReviewActor.From(context);
         var reviewers = new List<AccessReviewerView>();
         var items = new List<AccessReviewItemView>();
         var correlated = new Dictionary<Uuid, Uuid?>();
@@ -43,6 +45,12 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
         {
             if (assignment.ReviewerMemberId == Uuid.Empty)
                 return Failure(RequestErrorKind.Validation, "Each assignment names a reviewer.");
+            var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
+                assignment.PopulationId), ct).ConfigureAwait(false);
+            if (population.Opened is not { } opened ||
+                !await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
+                    opened.ApplicationId, opened.SystemInstanceId, ct).ConfigureAwait(false))
+                return Failure(RequestErrorKind.NotFound, "The population was not found.");
             var loaded = await AcceptedAccessPopulation.LoadAsync(reader, request.TenantId,
                 assignment.PopulationId, ct).ConfigureAwait(false);
             if (!loaded.IsSuccess)
@@ -96,7 +104,6 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
             return Failure(RequestErrorKind.Validation,
                 "The assigned populations have no effective access to review.");
 
-        var actor = AccessReviewActor.From(context);
         var header = new AccessReviewCampaignHeader(campaignId, request.Name.Trim(),
             request.Instructions.Trim(), request.Deadline);
         var frozen = await freezer.FreezeAsync(context, request.TenantId,

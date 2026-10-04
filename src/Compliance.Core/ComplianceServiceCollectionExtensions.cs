@@ -83,6 +83,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPermissionAuthorizer>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IMemberAccessReader>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IMemberAccessEligibility, EventSourcedMemberAccessEligibility>();
+        services.AddScoped<MemberAuthorityCleanup>();
         services.AddScoped<FitzTeamDirectoryReader>();
         services.AddScoped<ITeamDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
         services.AddScoped<ITeamDirectoryReader>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
@@ -340,7 +341,12 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzAccessGrantDirectory>());
         services.AddScoped<IAccessGrantProjection>(provider =>
             provider.GetRequiredService<FitzAccessGrantDirectory>());
-        services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
+        services.AddScoped<AccessGrantPermissionAuthorizer>();
+        services.AddScoped<IAccessGrantPermissionAuthorizer>(provider =>
+            provider.GetRequiredService<AccessGrantPermissionAuthorizer>());
+        services.AddScoped<IAccessGrantScopePermissionAuthorizer>(provider =>
+            provider.GetRequiredService<AccessGrantPermissionAuthorizer>());
+        services.AddScoped<RestrictedApplicationVisibility>();
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
@@ -411,6 +417,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RegisterMemberHandler>()
             .AddRequestHandler<SuspendMemberHandler>()
             .AddRequestHandler<ReinstateMemberHandler>()
+            .AddRequestHandler<DeprovisionMemberHandler>()
             .AddRequestHandler<GetTenantMemberHandler>()
             .AddRequestHandler<DefineTeamHandler>()
             .AddRequestHandler<DeleteTeamHandler>()
@@ -472,6 +479,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RecordProviderReviewHandler>()
             .AddRequestHandler<ListProviderAssuranceReportsHandler>()
             .AddRequestHandler<ListProviderReviewsHandler>()
+            .AddRequestHandler<RecordProviderCoverageGapHandler>()
+            .AddRequestHandler<CloseProviderCoverageGapHandler>()
+            .AddRequestHandler<LinkProviderCoverageGapRiskAcceptanceHandler>()
+            .AddRequestHandler<GetProviderCoverageGapHandler>()
+            .AddRequestHandler<ListProviderCoverageGapsHandler>()
             .AddRequestHandler<GetProviderAssuranceCoverageHandler>()
             .AddRequestHandler<PreviewProviderChangeHandler>()
             .AddRequestAuthorizer<ProviderAuthorizer>()
@@ -774,6 +786,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListPlatformOperatorsHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
+            .AddRequestHandler<OffboardTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
             .AddRequestHandler<InviteOrganizationMemberHandler>()
             .AddRequestHandler<ListTenantInvitationsHandler>()

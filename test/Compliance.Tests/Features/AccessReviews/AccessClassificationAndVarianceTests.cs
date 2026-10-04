@@ -8,6 +8,63 @@ namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
 public sealed class AccessClassificationAndVarianceTests
 {
     [Fact]
+    public async Task ShouldHidePrincipalDataGivenRestrictedInstanceWithoutReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync(
+            applicationRestricted: true);
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+
+        // Act
+        var hidden = await fixture.FailAsync(fixture.ManagerUserId,
+            new ListAccessPrincipals(fixture.TenantId, populationId), RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.NotNull(hidden);
+    }
+
+    [Fact]
+    public async Task ShouldHideDraftPopulationGivenRestrictedInstanceWithoutReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync(
+            applicationRestricted: true);
+        fixture.AllowManagerRestrictedRead();
+        var opened = await fixture.SendAsync(fixture.ManagerUserId, new OpenAccessPopulation(
+            fixture.TenantId, fixture.ApplicationId, fixture.InstanceId, 1,
+            AccessReviewFixture.Observed, "Manual export"));
+        fixture.DenyManagerRestrictedRead();
+
+        // Act
+        var principals = await fixture.FailAsync(fixture.ManagerUserId,
+            new ListAccessPrincipals(fixture.TenantId, opened.PopulationId),
+            RequestErrorKind.NotFound);
+        var variance = await fixture.FailAsync(fixture.ManagerUserId,
+            new GetAccessVariance(fixture.TenantId, opened.PopulationId), RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.NotNull(principals);
+        Assert.NotNull(variance);
+    }
+
+    [Fact]
+    public async Task ShouldDenyClassificationGivenRestrictedPopulationWithoutReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync(
+            applicationRestricted: true);
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+
+        // Act
+        var denied = await fixture.FailAsync(fixture.ManagerUserId,
+            new ClassifyAccessPrincipal(fixture.TenantId, populationId, "ada", 0,
+                AccessReviewVocabulary.Unclassified, "Reviewed."), RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.NotNull(denied);
+    }
+
+    [Fact]
     public async Task ShouldRetainGovernedServiceIdentityCorrelationGivenProviderPrincipalClassification()
     {
         // Arrange

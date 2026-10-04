@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed record StageApplicationImport(Uuid TenantId, Uuid SubmissionId,
     string SourceKey, string SourceNamespace, string Coverage,
     IReadOnlyList<ApplicationImportInputRow> Rows)
-    : IRequest<ApplicationImportRegistration>, IApplicationInventoryRequest, ICallable;
+    : IRequest<ApplicationImportRegistration>, IApplicationInventoryWriteRequest, ICallable;

@@ -158,9 +158,11 @@ public sealed class TenantManagerInvariantTests
             foreach (var user in users)
             {
                 await tenant.SeedAsync(new Member(tenant.TenantId, user), member => member.Register());
+                var membershipEpisodeId = (await provider.GetRequiredService<IAggregateReader>()
+                    .HydrateAsync(new Member(tenant.TenantId, user))).MembershipEpisodeId;
                 await tenant.SeedAsync(new TeamMember(tenant.TenantId,
                     BuiltInRbac.AdministratorsTeamId(tenant.TenantId), RbacIds.Member(tenant.TenantId, user)),
-                    member => member.Assign());
+                    member => member.Assign(membershipEpisodeId));
             }
             return tenant;
         }
@@ -197,7 +199,7 @@ public sealed class TenantManagerInvariantTests
                 RemoveTeamMember remove => await new RemoveTeamMemberHandler(executor, managers)
                     .HandleAsync(new RequestContext<RemoveTeamMember>(remove, Actor(actor)),
                         CancellationToken.None),
-                AssignTeamMember assign => await new AssignTeamMemberHandler(executor, managers)
+                AssignTeamMember assign => await new AssignTeamMemberHandler(executor, managers, _reader)
                     .HandleAsync(new RequestContext<AssignTeamMember>(assign, Actor(actor)),
                         CancellationToken.None),
                 RemoveTeamRole role => await new RemoveTeamRoleHandler(executor).HandleAsync(

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Workforce;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -20,7 +21,7 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
         await using var scenario = await Scenario.CreateAsync(registrantId: Uuid.CreateVersion4());
         var decide = scenario.DecideHandler();
         var get = new GetAccessReviewScopeHandler(scenario.Reader, scenario.Events,
-            TimeProvider.System);
+            TimeProvider.System, RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
 
         // Act
         var decided = await decide.HandleAsync(scenario.DecideContext(Uuid.CreateVersion4()),

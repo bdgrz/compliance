@@ -14,7 +14,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Readiness;
 
 /// <summary>
-///     Version 9 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
+///     Version 10 of the readiness rules (M0-D23: R1-08 owns rule definitions). Rules
 ///     evaluate only recorded inputs as of an exact time. A met rule never states that a
 ///     criterion is satisfied, that controls operate, or that an audit would succeed; source
 ///     families the rules do not yet assess are recorded as explicit gaps, never as positives.
@@ -25,13 +25,14 @@ namespace Bdgrz.Compliance.Features.Readiness;
 ///     technology inventory revisions referenced by the as-of boundary; data flows also respect
 ///     their effective date. Version 8 fences source projections. Version 9 binds the latest
 ///     integrity-verified workforce roster snapshot available by the assessment time without
-///     assessing workforce completeness. Risk rule is the conservative provisional R1-08
+///     assessing workforce completeness. Version 10 links unresolved provider coverage gaps to
+///     distinct readiness gaps. Risk rule is the conservative provisional R1-08
 ///     choice (#492): every program risk must be residual assessed or accepted with an active
 ///     acceptance; any other status is a gap.
 /// </summary>
 public static class ReadinessRules
 {
-    public const string Version = "readiness-rules/9";
+    public const string Version = "readiness-rules/10";
     public const string CriterionMapped = "criterion_has_accepted_mapping";
     public const string MappedControlEffective = "mapped_control_has_effective_version";
     public const string SourceFamilyAssessed = "source_family_assessed";
@@ -42,6 +43,7 @@ public static class ReadinessRules
     public const string ProviderMaterialityResolved = "provider_materiality_resolved";
     public const string ProviderReviewCurrent = "material_provider_has_current_review";
     public const string ProviderCsocLinked = "carved_out_subservice_has_csoc";
+    public const string ProviderCoverageGapUnresolved = "provider_coverage_gap_unresolved";
     public const string AccessReviewScopeResolved = "application_access_review_scope_decided";
     public const string AccessReviewScopeCurrent = "application_access_review_scope_current";
     public const string TechnologyInventoryRevisionAt = "technology_inventory_revision_at_as_of";
@@ -309,6 +311,52 @@ public static class ReadinessRules
                     .Append(review.Content.ReviewedAt.ToString("O", CultureInfo.InvariantCulture))
                     .Append('|').Append(review.Content.NextReviewDue.ToString("O", CultureInfo.InvariantCulture))
                     .Append('|').Append(review.Content.Conclusion).Append('\n');
+
+            foreach (var coverageGap in (input.CoverageGaps ?? [])
+                         .OrderBy(static item => item.GapId.ToString(), StringComparer.Ordinal))
+            {
+                if (coverageGap.TenantId != provider.TenantId ||
+                    coverageGap.ProviderId != provider.ProviderId ||
+                    coverageGap.ProviderRevision > provider.Revision ||
+                    coverageGap.RecordedAt > asOf)
+                    continue;
+
+                var linkedAcceptances = (coverageGap.RiskAcceptances ?? [])
+                    .Where(link => link.LinkedAt <= asOf)
+                    .OrderBy(static link => link.Revision).ToArray();
+                var revisionAtAsOf = linkedAcceptances.Select(static link => link.Revision)
+                    .Append(1).Max();
+                var closedAtAsOf = coverageGap.Closure is { ClosedAt: var closedAt } &&
+                                   closedAt <= asOf;
+                if (closedAtAsOf && coverageGap.Closure is { } closure)
+                    revisionAtAsOf = Math.Max(revisionAtAsOf, closure.Revision);
+                fingerprint.Append("provider-coverage-gap|").Append(coverageGap.GapId).Append('|')
+                    .Append(revisionAtAsOf).Append('|')
+                    .Append(closedAtAsOf ? "closed" : "open").Append('|')
+                    .Append(coverageGap.RecordedAt.ToString("O", CultureInfo.InvariantCulture))
+                    .Append('|').Append(closedAtAsOf
+                        ? coverageGap.Closure!.ClosedAt.ToString("O", CultureInfo.InvariantCulture)
+                        : "-").Append('\n');
+                foreach (var link in linkedAcceptances)
+                    fingerprint.Append("provider-gap-risk-acceptance|").Append(link.ProgramId)
+                        .Append('|').Append(link.RiskId).Append('|').Append(link.AcceptanceId)
+                        .Append('|').Append(link.Revision).Append('|')
+                        .Append(link.ExpiresAt.ToString("O", CultureInfo.InvariantCulture)).Append('\n');
+                if (closedAtAsOf)
+                    continue;
+
+                var source = new ReadinessSourceReference("provider_coverage_gap",
+                    coverageGap.GapId,
+                    revisionAtAsOf.ToString(CultureInfo.InvariantCulture));
+                var sourcesForGap = new List<ReadinessSourceReference> { providerReference, source };
+                var explanation = $"{coverageGap.Content.Assertion} for {coverageGap.Content.Service} " +
+                                  $"({coverageGap.Content.PeriodStart:O} to {coverageGap.Content.PeriodEnd:O}) " +
+                                  $"remains uncovered; see provider coverage gap {coverageGap.GapId} for details.";
+                gaps.Add(new ReadinessGapView(GapIdFor(programId,
+                        ProviderCoverageGapUnresolved, coverageGap.GapId.ToString()),
+                    "provider_coverage_gap_unresolved", coverageGap.GapId.ToString(),
+                    ProviderCoverageGapUnresolved, explanation, sourcesForGap));
+            }
 
             if (unresolvedMateriality)
                 gaps.Add(new ReadinessGapView(GapIdFor(programId,

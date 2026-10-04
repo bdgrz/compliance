@@ -71,6 +71,82 @@ public sealed class ReadinessSourceRulesTests
     }
 
     [Fact]
+    public void ShouldLinkUnresolvedProviderCoverageGapToReadinessGapGivenAssessmentAsOfTime()
+    {
+        // Arrange
+        var providerId = Uuid.CreateVersion4();
+        var sourceGapId = Uuid.CreateVersion4();
+        var resolvedGapId = Uuid.CreateVersion4();
+        var provider = new ProviderView(Tenant, providerId, 2,
+            new ProviderContent("Cloud hosting", "hosting", Materiality: "material"), "manual", "active", [],
+            ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), AsOf.AddDays(-2));
+        var sources = ReadinessSourceSet.Empty with
+        {
+            Providers = [new ReadinessProviderInput(provider, [], [],
+            [
+                CoverageGap(providerId, sourceGapId, 2, "closed", AsOf.AddDays(-1), AsOf.AddDays(1)),
+                CoverageGap(providerId, resolvedGapId, 2, "closed", AsOf.AddDays(-2), AsOf.AddHours(-1)),
+            ])],
+        };
+
+        // Act
+        var evaluation = Evaluate(sources);
+
+        // Assert
+        var linkedGap = Assert.Single(evaluation.Gaps, gap => gap.Kind == "provider_coverage_gap_unresolved");
+        Assert.Equal(ReadinessRules.GapIdFor(Program, ReadinessRules.ProviderCoverageGapUnresolved,
+            sourceGapId.ToString()), linkedGap.GapId);
+        Assert.Contains(linkedGap.Sources, source => source.Kind == "provider_coverage_gap" &&
+            source.Id == sourceGapId && source.Version == "1");
+        Assert.DoesNotContain(evaluation.Gaps, gap => gap.Subject == resolvedGapId.ToString());
+    }
+
+    [Fact]
+    public void ShouldKeepProviderGapOpenAndRedactRestrictedDetailsGivenAcceptedExposure()
+    {
+        // Arrange
+        var providerId = Uuid.CreateVersion4();
+        var sourceGapId = Uuid.CreateVersion4();
+        var riskId = Uuid.CreateVersion4();
+        var acceptanceId = Uuid.CreateVersion4();
+        var acceptedUntil = AsOf.AddDays(30);
+        const string restrictedDescription = "Private audit detail about the provider control gap.";
+        var provider = new ProviderView(Tenant, providerId, 1,
+            new ProviderContent("Cloud hosting", "hosting", Materiality: "material"), "manual", "active", [],
+            ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), AsOf.AddDays(-2));
+        var acceptance = new ProviderCoverageGapRiskAcceptanceView(Program, riskId,
+            acceptanceId, acceptedUntil, ActorReference.ForMember(Uuid.CreateVersion4(), "Jordan Approver"),
+            AsOf.AddDays(-1))
+        { Revision = 2 };
+        var sourceGap = CoverageGap(providerId, sourceGapId, 2, "open", AsOf.AddDays(-2), null);
+        var gap = sourceGap with
+        {
+            Content = sourceGap.Content with
+            {
+                Description = restrictedDescription,
+            },
+            RiskAcceptances = [acceptance],
+        };
+        var sources = ReadinessSourceSet.Empty with
+        {
+            Providers = [new ReadinessProviderInput(provider, [], [], [gap])],
+        };
+
+        // Act
+        var evaluation = Evaluate(sources);
+
+        // Assert
+        var linkedGap = Assert.Single(evaluation.Gaps, item => item.Kind == "provider_coverage_gap_unresolved");
+        Assert.Contains(linkedGap.Sources, source => source.Kind == "provider_coverage_gap" &&
+            source.Id == sourceGapId && source.Version == "2");
+        Assert.DoesNotContain(linkedGap.Sources, source => source.Kind is "risk" or "risk_acceptance");
+        Assert.DoesNotContain(acceptanceId.ToString(), linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.DoesNotContain(riskId.ToString(), linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.DoesNotContain(restrictedDescription, linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.Contains("remains uncovered", linkedGap.Explanation, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ShouldMeetFamilyRulesGivenApprovedBoundaryEffectiveCommitmentTreatedRiskAndSnapshot()
     {
         // Arrange
@@ -220,6 +296,22 @@ public sealed class ReadinessSourceRulesTests
 
     static ReadinessRiskInput Risk(DateTimeOffset createdAt, string status) =>
         new(Uuid.CreateVersion4(), "R-1", createdAt, 1, status);
+
+    static ProviderCoverageGapView CoverageGap(Uuid providerId, Uuid gapId, long revision,
+        string status, DateTimeOffset recordedAt, DateTimeOffset? closedAt) => new(Tenant,
+        gapId, providerId, 1, revision,
+        new ProviderCoverageGapContent(Uuid.CreateVersion4(), "Payroll processing", "Availability",
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), "assurance_report",
+            Uuid.CreateVersion4(), 1, "Coverage does not meet the period."), status,
+        ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), recordedAt,
+        closedAt is { } at
+            ? new ProviderCoverageGapClosureView(new ProviderCoverageGapClosureContent(
+                "coverage_restored", "assurance_report", Uuid.CreateVersion4(), 2,
+                "Later report restores coverage."), ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), at)
+            {
+                Revision = revision,
+            }
+            : null, []);
 
     static SnapshotView Snapshot(DateTimeOffset frozenAt)
     {

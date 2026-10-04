@@ -20,16 +20,21 @@ sealed class AccessReviewFixture : IAsyncDisposable
     public static readonly DateTimeOffset Observed = DateTimeOffset.UtcNow.AddDays(-2);
 
     AccessReviewFixture(ServiceProvider provider, MemberPermissions permissions,
-        FakeAccessReviewSources sources)
+        FakeAccessReviewSources sources, FakeApplicationDirectory applications,
+        bool applicationRestricted)
     {
         Provider = provider;
         Permissions = permissions;
         Sources = sources;
+        Applications = applications;
+        ApplicationRestricted = applicationRestricted;
     }
 
     public ServiceProvider Provider { get; }
     public MemberPermissions Permissions { get; }
     public FakeAccessReviewSources Sources { get; }
+    public FakeApplicationDirectory Applications { get; }
+    public bool ApplicationRestricted { get; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
     public Uuid ApplicationId { get; } = Uuid.CreateVersion4();
     public Uuid InstanceId { get; } = Uuid.CreateVersion4();
@@ -43,10 +48,11 @@ sealed class AccessReviewFixture : IAsyncDisposable
     public Uuid ReviewerPersonId { get; } = Uuid.CreateVersion4();
     public Uuid BotIdentityId { get; } = Uuid.CreateVersion4();
 
-    public static async Task<AccessReviewFixture> CreateAsync()
+    public static async Task<AccessReviewFixture> CreateAsync(bool applicationRestricted = false)
     {
         var permissions = new MemberPermissions();
         var sources = new FakeAccessReviewSources();
+        var applications = new FakeApplicationDirectory();
         var provider = ProgramManagementServices.Build(permissions,
             portia => portia.AddRequestAuthorizer<AccessReviewAuthorizer>()
                 .AddRequestHandler<OpenAccessPopulationHandler>()
@@ -78,16 +84,32 @@ sealed class AccessReviewFixture : IAsyncDisposable
                 services.AddSingleton<IEventStore>(store);
                 services.AddSingleton<IDomainEventReader>(store);
                 services.AddScoped<PopulationSnapshotFreezer>();
+                services.AddScoped(provider => RestrictedApplicationVisibilityFixture.Create(
+                    provider.GetRequiredService<IAggregateReader>(),
+                    provider.GetRequiredService<IPermissionAuthorizer>(),
+                    provider.GetRequiredService<IApplicationDirectoryReader>()));
                 services.AddSingleton<IAccessReviewSources>(sources);
+                services.AddSingleton<IApplicationDirectoryReader>(applications);
                 services.AddSingleton<IAccessPopulationDirectoryReader>(
                     new FitzAccessPopulationDirectory(new InMemoryKvClient()));
             });
-        var fixture = new AccessReviewFixture(provider, permissions, sources);
+        var fixture = new AccessReviewFixture(provider, permissions, sources, applications,
+            applicationRestricted);
         permissions.Allow(fixture.ManagerUserId);
         permissions.Allow(fixture.ApproverUserId);
         sources.AccessOwner = fixture.ReviewerMemberId;
         var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Seeder");
         var now = DateTimeOffset.UtcNow.AddDays(-10);
+        applications.Instance = new SystemInstanceView(fixture.TenantId, fixture.ApplicationId,
+            fixture.InstanceId, "Production", "aws_account", null, "manual", null, [],
+            fixture.ManagerMemberId, "Manager", now)
+        {
+            Revision = 1,
+        };
+        await ProgramManagementServices.SeedAsync<DeclaredApplication, ApplicationRegistration>(
+            provider, new DeclaredApplication(fixture.TenantId, fixture.ApplicationId),
+            application => application.Declare("Payroll", "Run payroll", null,
+                fixture.ManagerMemberId, "Manager", now, isRestricted: applicationRestricted));
         await ProgramManagementServices.SeedAsync(provider,
             new DeclaredSystemInstance(fixture.TenantId, fixture.InstanceId), instance =>
                 instance.Declare(fixture.ApplicationId, "Production", "aws_account", null, null,
@@ -179,6 +201,8 @@ sealed class AccessReviewFixture : IAsyncDisposable
     public async Task<(Uuid PopulationId, AccessPopulationAcceptance Acceptance)> AcceptAsync(
         AccessPopulationFacts facts, DateTimeOffset? observedAt = null)
     {
+        if (ApplicationRestricted)
+            Permissions.AllowRestrictedRead(ManagerUserId);
         var opened = await SendAsync(ManagerUserId, new OpenAccessPopulation(TenantId,
             ApplicationId, InstanceId, 1, observedAt ?? Observed, "AWS console export, attested"));
         var recorded = await SendAsync(ManagerUserId, new RecordAccessPopulationFacts(TenantId,
@@ -186,8 +210,14 @@ sealed class AccessReviewFixture : IAsyncDisposable
             facts.Assignments));
         var accepted = await SendAsync(ManagerUserId, new AcceptAccessPopulation(TenantId,
             opened.PopulationId, recorded.Revision, "I attest this is the observed population."));
+        if (ApplicationRestricted)
+            Permissions.DenyRestrictedRead(ManagerUserId);
         return (opened.PopulationId, accepted);
     }
+
+    public void AllowManagerRestrictedRead() => Permissions.AllowRestrictedRead(ManagerUserId);
+
+    public void DenyManagerRestrictedRead() => Permissions.DenyRestrictedRead(ManagerUserId);
 
     public Task<AccessPrincipalClassificationView> ClassifyAsync(Uuid populationId, string subject,
         string classification, Uuid? personId = null, Uuid? serviceIdentityId = null, long count = 0) =>
@@ -225,4 +255,36 @@ sealed class AccessReviewFixture : IAsyncDisposable
         SendAsync(userId ?? ManagerUserId, new GetAccessReviewCampaign(TenantId, campaignId));
 
     public ValueTask DisposeAsync() => Provider.DisposeAsync();
+
+    public sealed class FakeApplicationDirectory : IApplicationDirectoryReader
+    {
+        public SystemInstanceView? Instance { get; set; }
+
+        public ValueTask<SystemInstanceView?> GetInstanceAsync(Uuid tenantId, Uuid instanceId,
+            CancellationToken ct = default) => ValueTask.FromResult(Instance is { } instance &&
+                instance.TenantId == tenantId && instance.SystemInstanceId == instanceId
+                ? instance
+                : null);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => throw new NotSupportedException();
+
+        public ValueTask<ApplicationView?> GetAsync(Uuid tenantId, Uuid applicationId,
+            CancellationToken ct = default) => throw new NotSupportedException();
+
+        public ValueTask<Page<ApplicationView>> ListAsync(Uuid tenantId, int limit,
+            string? cursor, CancellationToken ct = default) => throw new NotSupportedException();
+
+        public ValueTask<ApplicationRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid applicationId, long revision, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public ValueTask<Page<ApplicationRevisionView>?> ListRevisionsAsync(Uuid tenantId,
+            Uuid applicationId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public ValueTask<Page<SystemInstanceView>> ListInstancesAsync(Uuid tenantId,
+            Uuid applicationId, int limit, string? cursor, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+    }
 }

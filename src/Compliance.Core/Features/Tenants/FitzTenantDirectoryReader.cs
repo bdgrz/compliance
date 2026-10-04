@@ -44,14 +44,15 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                         old with { Slug = changed.NewSlug }, ct).ConfigureAwait(false);
                 return;
             }
-            var (tenantId, status) = domainEvent switch
+            var tenantId = domainEvent switch
             {
-                TenantSlugConfirmed ev => (ev.TenantId, "active"),
-                TenantSlugRejected ev => (ev.TenantId, "rejected"),
-                TenantSuspended ev => (ev.TenantId, "suspended"),
-                TenantReactivated ev => (ev.TenantId, "active"),
-                TenantActivated ev => (ev.TenantId, "active"),
-                _ => (Uuid.Empty, string.Empty),
+                TenantSlugConfirmed ev => ev.TenantId,
+                TenantSlugRejected ev => ev.TenantId,
+                TenantSuspended ev => ev.TenantId,
+                TenantReactivated ev => ev.TenantId,
+                TenantOffboardingStarted ev => ev.TenantId,
+                TenantActivated ev => ev.TenantId,
+                _ => Uuid.Empty,
             };
             if (tenantId != Uuid.Empty)
             {
@@ -59,12 +60,10 @@ sealed class FitzTenantDirectoryReader(IKvClient client)
                     .ConfigureAwait(false);
                 if (current is not null)
                 {
-                    if (domainEvent is TenantSlugConfirmed && current.RequiresActivation)
-                        status = "provisioning";
-                    if (domainEvent is TenantActivated && current.Status == "suspended")
-                        status = "suspended";
-                    await TenantDirectorySchema.Directory.ReplaceAsync(
-                        Transaction, current, current with { Status = status }, ct).ConfigureAwait(false);
+                    var status = TenantDirectoryStatus.After(current, domainEvent);
+                    if (status is not null)
+                        await TenantDirectorySchema.Directory.ReplaceAsync(
+                            Transaction, current, current with { Status = status }, ct).ConfigureAwait(false);
                 }
             }
         }

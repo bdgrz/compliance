@@ -51,6 +51,36 @@ afterEach(() => {
 });
 
 describe('organization address management (R1-15 frontend #539)', () => {
+  it('ShouldAnnouncePermissionLoadingGivenTheOrganizationAddressIsBeingChecked', async () => {
+    // Arrange
+    const fallbackFetch = globalThis.fetch;
+    let resolveAccess!: (response: Response) => void;
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input), 'http://app.test');
+      if (url.pathname === `${base}/members/${userId}/access`) {
+        return new Promise<Response>((resolve) => {
+          resolveAccess = resolve;
+        });
+      }
+      return fallbackFetch(input, init);
+    });
+
+    // Act
+    const container = mount();
+
+    // Assert
+    expect(container.querySelector('[role="status"]')?.textContent)
+      .toContain('Loading organization address settings');
+    expect(await accessibilityViolations(container)).toEqual([]);
+
+    resolveAccess(new Response(JSON.stringify({
+      tenant_id: tenantId,
+      user_id: userId,
+      effective_permissions: ['tenant.rbac.manage'],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await vi.waitFor(() => expect(container.querySelector('input[name="slug"]')).not.toBeNull());
+  });
+
   it('ShouldChangeTheOrganizationSlugAndWaitForItsRedirectGivenAnOrgAdmin', async () => {
     // Arrange
     api.reply(`GET ${base}/members/${userId}/access`, 200, {
@@ -99,6 +129,7 @@ describe('organization address management (R1-15 frontend #539)', () => {
     const container = mount();
     await vi.waitFor(() => expect(api.requested).toContain(`${base}/members/${userId}/access`));
     await vi.waitFor(() => expect(container.querySelector('form')).toBeNull());
+    await vi.waitFor(() => expect(container.textContent).toBe(''));
 
     // Assert
     expect(api.bodies.some((body) => body.method === 'POST' && body.path === `${base}/slug-changes`)).toBe(false);
@@ -117,6 +148,7 @@ describe('organization address management (R1-15 frontend #539)', () => {
     // Act
     const container = mount();
     await vi.waitFor(() => expect(api.requested).toContain(`${base}/members/${userId}/access`));
+    await vi.waitFor(() => expect(container.textContent).toBe(''));
     await vi.waitFor(() => expect(container.querySelector('form')).toBeNull());
 
     // Assert

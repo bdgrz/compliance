@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed class ListApplicationRevisionsHandler(IApplicationDirectoryReader directory,
-    ApplicationHistoryReadConsistency consistency)
+    ApplicationHistoryReadConsistency consistency, RestrictedApplicationVisibility visibility)
     : IRequestHandler<ListApplicationRevisions, Page<ApplicationRevisionView>>
 {
     public async ValueTask<Result<Page<ApplicationRevisionView>>> HandleAsync(
@@ -14,6 +14,16 @@ public sealed class ListApplicationRevisionsHandler(IApplicationDirectoryReader 
             return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
                 RequestErrorKind.Validation,
                 "The application revision list limit must be between 1 and 200."));
+        if (request.MinimumApplicationRevision is < 1)
+            return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.Validation, "The minimum application revision must be positive."));
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                request.ApplicationId, ct).ConfigureAwait(false))
+            return Result<Page<ApplicationRevisionView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The application was not found."));
         var freshness = await consistency.EnsureAsync(request.TenantId,
                 request.ApplicationId, request.MinimumApplicationRevision, ct)
             .ConfigureAwait(false);

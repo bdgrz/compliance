@@ -28,6 +28,25 @@ public sealed class WorkforceRosterReconciliationTests
     }
 
     [Fact]
+    public void ShouldReportNothingGivenDeprovisionedCorrelatedAndUnrosteredMembers()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var departedUser = Uuid.CreateVersion4();
+        var unrosteredUser = Uuid.CreateVersion4();
+        var departed = Person(tenantId, "Ada", null, departedUser);
+
+        // Act
+        var observations = WorkforceRosterReconciliation.Evaluate(tenantId, [departed],
+            [Relationship(tenantId, departed.PersonId, "E-1", "ended")],
+            [Member(tenantId, departedUser) with { IsDeprovisioned = true },
+             Member(tenantId, unrosteredUser) with { IsDeprovisioned = true }], Today);
+
+        // Assert
+        Assert.Empty(observations);
+    }
+
+    [Fact]
     public void ShouldReportMissingDuplicateConflictingStaleAndAccessOnlyGivenManualRoster()
     {
         // Arrange

@@ -7,6 +7,7 @@ sealed class AccessGrantProjectionState
     public Uuid TenantId { get; set; }
     public long Revision { get; set; }
     public List<AccessGrantView> Grants { get; init; } = [];
+    public List<AccessGrantMembershipEpisode> MembershipEpisodes { get; init; } = [];
 
     public void Apply(DomainEvent domainEvent)
     {
@@ -18,13 +19,18 @@ sealed class AccessGrantProjectionState
                 if (existingIndex >= 0)
                 {
                     var prior = Grants[existingIndex];
-                    if (prior.TenantId == issued.TenantId && prior.Terms == issued.Terms)
+                    var priorEpisodeId = MembershipEpisodes.SingleOrDefault(item =>
+                        item.GrantId == issued.GrantId)?.MembershipEpisodeId;
+                    if (prior.TenantId == issued.TenantId && prior.Terms == issued.Terms &&
+                        priorEpisodeId == issued.MembershipEpisodeId)
                         return;
                     throw new InvalidOperationException(
                         "An access grant issue event was replayed with different terms.");
                 }
                 Grants.Add(new AccessGrantView(issued.TenantId, issued.GrantId,
                     issued.Terms, null, null));
+                MembershipEpisodes.Add(new AccessGrantMembershipEpisode(issued.GrantId,
+                    issued.MembershipEpisodeId));
                 Revision = checked(Revision + 1);
                 break;
             case AccessGrantRevoked revoked:
@@ -58,6 +64,9 @@ sealed class AccessGrantProjectionState
         return new AccessGrantSetView(tenantId, Revision, Grants
             .OrderBy(item => item.GrantId.ToString(), StringComparer.Ordinal).ToArray());
     }
+
+    public Uuid? GetMembershipEpisodeId(Uuid grantId) =>
+        MembershipEpisodes.SingleOrDefault(item => item.GrantId == grantId)?.MembershipEpisodeId;
 
     void EnsureTenant(Uuid tenantId)
     {

@@ -35,6 +35,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(TenantMembershipView))]
 [JsonSerializable(typeof(SuspendMember))]
 [JsonSerializable(typeof(ReinstateMember))]
+[JsonSerializable(typeof(DeprovisionMember))]
 [JsonSerializable(typeof(GetTenantMember))]
 [JsonSerializable(typeof(ListMemberResponsibilities))]
 [JsonSerializable(typeof(IReadOnlyList<ResponsibilityAssignmentView>))]

@@ -4,7 +4,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader memberships,
-    ITenantActivity tenants, IPermissionAuthorizer permissions)
+    ITenantActivity tenants, IPermissionAuthorizer permissions,
+    IAccessGrantScopePermissionAuthorizer scopedPermissions)
     : IRequestAuthorizer<IApplicationInventoryRequest>
 {
     // A narrow V1 grant-backfill checkpoint replays TenantRegistered without replaying broader
@@ -18,7 +19,7 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
         var tenantId = context.Request.TenantId;
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct)
             .ConfigureAwait(false);
-        if (membership is null || membership.IsSuspended)
+        if (membership is null || membership.IsSuspended || membership.IsDeprovisioned)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant was not found."));
         if (membership.Affiliation == "firm_staff")
@@ -27,11 +28,16 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
-        return await permissions.IsAllowedAsync(tenantId, userId,
-                RbacIds.Member(tenantId, userId), RbacPermissions.ApplicationInventoryManage, ct)
-            .ConfigureAwait(false)
-            ? Result.Success
-            : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                "The actor may not inspect or manage this inventory."));
+        var memberId = RbacIds.Member(tenantId, userId);
+        if (await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.ApplicationInventoryManage, ct).ConfigureAwait(false))
+            return Result.Success;
+        if (context.Request is IRestrictedApplicationResourceReadRequest &&
+            await scopedPermissions.IsAllowedAtAnyApplicationInventoryScopeAsync(tenantId,
+                userId, memberId, RbacPermissions.ApplicationRestrictedRead, ct)
+                .ConfigureAwait(false))
+            return Result.Success;
+        return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+            "The actor may not inspect or manage this inventory."));
     }
 }

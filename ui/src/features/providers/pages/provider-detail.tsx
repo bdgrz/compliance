@@ -17,6 +17,7 @@ import {
 import { listApplications, type ApplicationSummary } from '../../applications/applications.js';
 import { organizationPath } from '../../tenants/tenants.js';
 import { listPeople, type Person } from '../../workforce/workforce.js';
+import { ProviderAssurance } from '../components/provider-assurance.js';
 import { CitationView, DependencyList, formatDate, ProviderFacts, UnresolvedList } from '../components/provider-facts.js';
 import { cleanContent, ProviderFields } from '../components/provider-fields.js';
 import {
@@ -310,6 +311,7 @@ export function ProviderDetailPage({ providerId }: { providerId: string }) {
             <DependencyList dependencies={facts.dependencies} applicationNames={applicationNames} />
           </CardContent>
         </Card>
+        <ProviderAssurance provider={current} ownerName={ownerName} />
         <ProviderChangeImpactCard provider={current} />
         {provider.pending ? (
           <Spinner label="Refreshing provider" />

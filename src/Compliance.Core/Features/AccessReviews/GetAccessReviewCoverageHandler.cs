@@ -11,7 +11,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed class GetAccessReviewCoverageHandler(IApplicationDirectoryReader applications,
     SystemInstanceReadConsistency consistency, IAccessReviewScopeDirectoryReader scopes,
     IAccessPopulationDirectoryReader populations, IAggregateReader reader,
-    IDomainEventReader events, TimeProvider clock)
+    IDomainEventReader events, TimeProvider clock,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<GetAccessReviewCoverage, AccessReviewCoverageView>
 {
     const int MaximumInstances = 1000;
@@ -20,6 +21,13 @@ public sealed class GetAccessReviewCoverageHandler(IApplicationDirectoryReader a
         IRequestContext<GetAccessReviewCoverage> context, CancellationToken ct)
     {
         var request = context.Request;
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                request.ApplicationId, ct).ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessReviewCoverageView>(RequestErrorKind.NotFound,
+                "The application was not found.");
         var fresh = await consistency.EnsureAsync(request.TenantId, request.ApplicationId, null,
             null, null, ct).ConfigureAwait(false);
         if (!fresh.IsSuccess)

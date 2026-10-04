@@ -4,6 +4,7 @@ using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Versioning;
+using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
@@ -156,6 +157,25 @@ public sealed class RiskGovernanceHandlerTests
         await fixture.Scenario(worker.UserId)
             .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
             .ExpectFailure(RequestErrorKind.Forbidden);
+        var unassignedReviewer = Uuid.CreateVersion4();
+        await fixture.Scenario(unassignedReviewer)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        var reviewWorkItemId = WorkCandidate.IdFor(submitted.Value.SubmissionId,
+            "risk_treatment_action_review");
+        var assessor = RbacIds.Member(fixture.TenantId, fixture.AssessorUserId);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new WorkAssignmentLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AssignTo(reviewWorkItemId, 0, WorkAssignmentLedger.Assign,
+                    RbacIds.Member(fixture.TenantId, fixture.ApproverUserId), null,
+                    "Independent completion review.",
+                    ActorReference.ForMember(assessor, "Assessor"), DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
         await fixture.Scenario(fixture.ApproverUserId)
             .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
         var done = await fixture.GovernanceAsync();

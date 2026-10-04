@@ -20,7 +20,8 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor,
             app => CommandFailureRequestAdapter.ToOutcome(app.Revise(request.ExpectedRevision,
                 request.Name, request.Purpose, request.OwnerReference,
                 memberId, display, clock.GetUtcNow(), request.Classification,
-                request.SystemOwnerPersonId, request.AccessOwnerPersonId)), context, ct)
+                request.SystemOwnerPersonId, request.AccessOwnerPersonId,
+                request.IsRestricted)), context, ct)
             .ConfigureAwait(false);
     }
 }

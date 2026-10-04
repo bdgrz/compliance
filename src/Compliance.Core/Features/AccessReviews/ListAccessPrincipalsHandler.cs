@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -11,13 +12,26 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     groups and roles report <c>nested_group</c> when they contain another access structure.
 /// </summary>
 public sealed class ListAccessPrincipalsHandler(IAggregateReader reader,
-    IAccessReviewSources sources)
+    IAccessReviewSources sources, RestrictedApplicationVisibility visibility)
     : IRequestHandler<ListAccessPrincipals, Page<AccessPrincipalView>>
 {
     public async ValueTask<Result<Page<AccessPrincipalView>>> HandleAsync(
         IRequestContext<ListAccessPrincipals> context, CancellationToken ct)
     {
         var request = context.Request;
+        var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
+            request.PopulationId), ct).ConfigureAwait(false);
+        if (population.Opened is not { } opened)
+            return AccessReviewOutcome.Failure<Page<AccessPrincipalView>>(
+                RequestErrorKind.NotFound, "The population was not found.");
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, userId,
+                opened.ApplicationId, opened.SystemInstanceId, ct)
+            .ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<Page<AccessPrincipalView>>(
+                RequestErrorKind.NotFound, "The population was not found.");
         var loaded = await AcceptedAccessPopulation.LoadAsync(reader, request.TenantId,
             request.PopulationId, ct).ConfigureAwait(false);
         if (!loaded.IsSuccess)

@@ -111,7 +111,8 @@ public sealed class AccessGrantProjectionTests
     {
         // Arrange
         var state = new AccessGrantProjectionState();
-        state.Apply(new AccessGrantIssued(TenantId, GrantId, Terms()));
+        var episodeId = Uuid.CreateVersion4();
+        state.Apply(new AccessGrantIssued(TenantId, GrantId, Terms(), episodeId));
         state.Apply(new AccessGrantRevoked(TenantId, GrantId,
             ActorReference.ForMember(MemberId, "Organization Admin"), EffectiveFrom.AddDays(1)));
         var json = JsonSerializer.SerializeToUtf8Bytes(state,
@@ -128,6 +129,7 @@ public sealed class AccessGrantProjectionTests
         var grant = Assert.Single(view.Grants);
         Assert.Equal(Terms(), grant.Terms);
         Assert.Equal(EffectiveFrom.AddDays(1), grant.RevokedAt);
+        Assert.Equal(episodeId, restored.GetMembershipEpisodeId(GrantId));
     }
 
     [Fact]

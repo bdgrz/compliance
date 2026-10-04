@@ -23,6 +23,9 @@ public sealed record ApplicationView(Uuid TenantId, Uuid ApplicationId, long Rev
 
     public string? Classification { get; init; }
 
+    /// <summary>Whether this application's inventory requires restricted-read authority.</summary>
+    public bool IsRestricted { get; init; }
+
     /// <summary>The workforce person accountable for the system (M0-D05).</summary>
     public Uuid? SystemOwnerPersonId { get; init; }
 

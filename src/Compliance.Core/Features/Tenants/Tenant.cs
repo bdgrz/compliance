@@ -8,6 +8,7 @@ public sealed class Tenant : Aggregate
     string? _slug;
     TenantSlugState _slugState;
     bool _suspended;
+    bool _offboarding;
     bool _requiresInvitation;
     bool _requiresActivation;
     bool _creatorIsAdministrator;
@@ -31,6 +32,7 @@ public sealed class Tenant : Aggregate
         On<TenantSlugSurrenderFailed>(Apply);
         On<TenantSuspended>(_ => _suspended = true);
         On<TenantReactivated>(_ => _suspended = false);
+        On<TenantOffboardingStarted>(_ => _offboarding = true);
         On<TenantActivated>(_ => _activated = true);
         On<TenantSlugChangeRequested>(ev =>
         {
@@ -54,7 +56,7 @@ public sealed class Tenant : Aggregate
         });
     }
 
-    public bool IsActive => _slugState == TenantSlugState.Confirmed && !_suspended &&
+    public bool IsActive => _slugState == TenantSlugState.Confirmed && !_suspended && !_offboarding &&
                             (!_requiresActivation || _activated);
     public bool IsRegistered => _slug is not null && _slugState != TenantSlugState.Rejected;
     public bool IsRegistrationRejected => _slugState == TenantSlugState.Rejected;
@@ -67,6 +69,7 @@ public sealed class Tenant : Aggregate
     public bool NeedsCreatorActivation => _creatorIsAdministrator && _requiresActivation && !_activated;
     public Uuid OperatorUserId => _operatorUserId;
     public bool IsSuspended => _suspended;
+    public bool IsOffboarding => _offboarding;
 
     public Result<TenantRegistration> Register(Uuid ownerUserId, string name, string slug,
         string? legalName = null, string? firstAdministratorEmail = null,
@@ -96,6 +99,8 @@ public sealed class Tenant : Aggregate
 
     public Result Activate(Uuid firstAdministratorUserId, string? firstAdministratorEmail)
     {
+        if (_offboarding)
+            return Failure(RequestErrorKind.Conflict, "The tenant is being offboarded.");
         if (!_requiresActivation)
             return Failure(RequestErrorKind.Conflict, "The tenant is not ready to activate.");
         if (_slugState != TenantSlugState.Confirmed)
@@ -170,33 +175,64 @@ public sealed class Tenant : Aggregate
 
     public Result RequestSlugSurrender(string slug)
     {
+        if (_offboarding)
+            return Failure(RequestErrorKind.Conflict, "The tenant is being offboarded.");
         if (_slugState != TenantSlugState.Confirmed || !Matches(slug))
             return Failure(RequestErrorKind.Conflict, "The tenant does not own that slug.");
         RaiseEvent(new TenantSlugSurrenderRequested(Id, _slug!));
         return Result.Success;
     }
 
-    public Result Suspend(Uuid operatorUserId)
+    public Result Suspend(Uuid operatorUserId, string reason, DateTimeOffset occurredAt)
     {
+        if (!TryNormalizeReason(reason, out var normalizedReason))
+            return Failure(RequestErrorKind.Validation, "A reason of at most 500 characters is required.");
         if (_slug is null || _slugState == TenantSlugState.Rejected)
             return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
+        if (_offboarding)
+            return Failure(RequestErrorKind.Conflict, "The tenant is being offboarded.");
         if (_suspended)
             return Result.Success;
         if (!IsActive)
             return Failure(RequestErrorKind.Conflict, "The tenant is not active.");
-        RaiseEvent(new TenantSuspended(Id, operatorUserId));
+        RaiseEvent(new TenantSuspended(Id, operatorUserId)
+        {
+            Reason = normalizedReason,
+            OccurredAt = occurredAt,
+        });
         return Result.Success;
     }
 
-    public Result Reactivate(Uuid operatorUserId)
+    public Result Reactivate(Uuid operatorUserId, string reason, DateTimeOffset occurredAt)
     {
+        if (!TryNormalizeReason(reason, out var normalizedReason))
+            return Failure(RequestErrorKind.Validation, "A reason of at most 500 characters is required.");
         if (_slug is null || _slugState == TenantSlugState.Rejected)
             return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
+        if (_offboarding)
+            return Failure(RequestErrorKind.Conflict, "The tenant is being offboarded.");
         if (_slugState != TenantSlugState.Confirmed ||
             _requiresActivation && !_activated)
             return Failure(RequestErrorKind.Conflict, "The tenant is not ready to reactivate.");
         if (_suspended)
-            RaiseEvent(new TenantReactivated(Id, operatorUserId));
+            RaiseEvent(new TenantReactivated(Id, operatorUserId)
+            {
+                Reason = normalizedReason,
+                OccurredAt = occurredAt,
+            });
+        return Result.Success;
+    }
+
+    public Result StartOffboarding(Uuid operatorUserId, string reason, DateTimeOffset startedAt)
+    {
+        if (!TryNormalizeReason(reason, out var normalizedReason))
+            return Failure(RequestErrorKind.Validation, "A reason of at most 500 characters is required.");
+        if (_slug is null || _slugState == TenantSlugState.Rejected)
+            return Failure(RequestErrorKind.NotFound, "The tenant does not exist.");
+        if (_offboarding)
+            return Result.Success;
+
+        RaiseEvent(new TenantOffboardingStarted(Id, operatorUserId, normalizedReason, startedAt));
         return Result.Success;
     }
 
@@ -243,6 +279,12 @@ public sealed class Tenant : Aggregate
 
     static Result Failure(RequestErrorKind kind, string message) => Result.Failure(new RequestError(kind, message));
     static Result<T> Failure<T>(RequestErrorKind kind, string message) => Result<T>.Failure(new RequestError(kind, message));
+
+    static bool TryNormalizeReason(string? reason, out string normalized)
+    {
+        normalized = reason?.Trim() ?? string.Empty;
+        return normalized.Length is > 0 and <= 500;
+    }
 
     enum TenantSlugState { None, Pending, Confirmed, Rejected, Surrendering }
 }

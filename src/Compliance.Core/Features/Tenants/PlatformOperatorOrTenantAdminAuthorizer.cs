@@ -32,7 +32,7 @@ sealed class PlatformOperatorOrTenantAdminAuthorizer(
         if (membership is null)
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "Only an active Org Admin or platform operator may change this organization address."));
-        if (membership.IsSuspended)
+        if (membership.IsSuspended || membership.IsDeprovisioned)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The tenant was not found."));
         if (membership.Affiliation == "firm_staff")

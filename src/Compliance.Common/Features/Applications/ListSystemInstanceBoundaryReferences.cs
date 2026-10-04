@@ -7,4 +7,5 @@ namespace Bdgrz.Compliance.Features.Applications;
 /// <summary>Lists current draft and current or historical approved references, after source catchup.</summary>
 public sealed record ListSystemInstanceBoundaryReferences(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, int? Limit = null, string? Cursor = null)
-    : IRequest<Page<ApplicationBoundaryReferenceView>>, IApplicationInventoryRequest, ICallable;
+    : IRequest<Page<ApplicationBoundaryReferenceView>>, IRestrictedApplicationResourceReadRequest,
+        ICallable;

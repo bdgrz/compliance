@@ -57,7 +57,8 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
         // membership before consulting that key so every direct consumer fails closed.
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct)
             .ConfigureAwait(false);
-        if (membership is not { Affiliation: "client_personnel", IsSuspended: false } ||
+        if (membership is not
+            { Affiliation: "client_personnel", IsSuspended: false, IsDeprovisioned: false } ||
             membership.TenantId != tenantId || membership.UserId != userId)
             return false;
 

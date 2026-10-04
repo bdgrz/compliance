@@ -8,7 +8,8 @@ public sealed class PreviewApplicationChangeHandler(
     IApplicationBoundaryReferenceDirectory references,
     ApplicationBoundaryReferenceReadConsistency boundaryConsistency,
     IApplicationControlDraftReferenceDirectory controls,
-    ApplicationControlDraftReferenceReadConsistency controlConsistency)
+    ApplicationControlDraftReferenceReadConsistency controlConsistency,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>
 {
     static readonly string[] MissingContexts =
@@ -27,6 +28,13 @@ public sealed class PreviewApplicationChangeHandler(
         var source = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
         if (!source.IsCreated)
+            return Result<ApplicationChangePreview>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The application was not found."));
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                request.ApplicationId, ct).ConfigureAwait(false))
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
         if (source.IsRetired)
