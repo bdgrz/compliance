@@ -24,6 +24,7 @@ public sealed class EvidenceArtifactTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(EvidenceArtifactStates.PendingInspection, artifact.State);
+        Assert.Equal(4, artifact.ContentLength);
         var registered = Assert.IsType<EvidenceArtifactRegistered>(Assert.Single(
             new AggregateScenario<EvidenceArtifact>(artifact).PendingEvents));
         Assert.Equal("Quarterly access review export", registered.Content.Title);

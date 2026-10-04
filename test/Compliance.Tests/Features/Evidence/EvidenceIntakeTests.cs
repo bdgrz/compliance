@@ -275,6 +275,30 @@ public sealed class EvidenceIntakeTests : IDisposable
     }
 
     [Fact]
+    public async Task ShouldUseCurrentAvailableStateGivenReleaseCommittedBeforeStorageDecision()
+    {
+        // Arrange
+        _inspector.State = ArtifactInspectionState.Quarantined;
+        var reader = _scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = new ReleaseBeforeReconciliationWriter(
+            _scope.ServiceProvider.GetRequiredService<IAggregateWriter>(), reader, _store, _tenantId);
+        var intake = new EvidenceIntake(_store, _inspector, reader, writer, TimeProvider.System);
+
+        // Act
+        var captured = await intake.CaptureAsync(_tenantId, new MemoryStream("infected"u8.ToArray()),
+            Metadata("Quarterly export"), Collector, Dispatch(), CancellationToken.None);
+
+        // Assert
+        Assert.True(captured.IsSuccess);
+        Assert.Equal(EvidenceArtifactStates.Available, captured.Value.State);
+        Assert.Equal(EvidenceArtifactStates.Available, (await LoadAsync(captured.Value.ArtifactId)).State);
+        Assert.Null(captured.Value.Reason);
+        await using var available = await _store.OpenVerifiedAsync(_inspector.Last!);
+        Assert.NotNull(available);
+        Assert.Null(await _store.OpenQuarantinedAsync(_inspector.Last!));
+    }
+
+    [Fact]
     public async Task ShouldPreserveWinningVerdictGivenConcurrentPendingInspection()
     {
         // Arrange
@@ -586,6 +610,25 @@ public sealed class EvidenceIntakeTests : IDisposable
                 FailInspection && events.Any(ev => ev is EvidenceArtifactInspected))
                 throw new IOException("The event append was interrupted.");
             return inner.AppendAsync(stream, expectedStreamPosition, events, ct);
+        }
+    }
+
+    sealed class ReleaseBeforeReconciliationWriter(IAggregateWriter inner, IAggregateReader reader,
+        IArtifactContentStore store, Uuid tenantId) : IAggregateWriter
+    {
+        public async ValueTask SaveAsync<TAggregate>(TAggregate aggregate, IExecutionContext context,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            await inner.SaveAsync(aggregate, context, ct);
+            if (aggregate is not EvidenceArtifact { State: EvidenceArtifactStates.Quarantined } inspected)
+                return;
+            var current = await reader.HydrateAsync(new EvidenceArtifact(tenantId, inspected.Id), ct);
+            Assert.NotNull(current.ContentLength);
+            var reference = new ArtifactContentReference(tenantId, current.ContentSha256!, current.ContentLength.Value);
+            Assert.True(await store.QuarantineAsync(reference, ct));
+            Assert.True(await store.ReleaseQuarantineAsync(reference, ct));
+            Assert.Null(current.ReleaseQuarantine("False positive cleared.", Collector, DateTimeOffset.UtcNow));
+            await inner.SaveAsync(current, context, ct);
         }
     }
 }
