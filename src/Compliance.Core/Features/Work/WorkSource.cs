@@ -23,6 +23,7 @@ static class WorkSource
     public const string EvidenceRequest = "evidence_request";
     public const string RiskTreatmentAction = "risk_treatment_action";
     public const string RiskTreatmentActionReview = "risk_treatment_action_review";
+    public const string RiskControlTreatmentReview = "risk_control_treatment_review";
     public const string ControlEvaluationReview = "control_evaluation_review";
     public const string ControlOperatingPlanApproval = "control_operating_plan_approval";
     public const string ControlCriterionMappingReview = "control_criterion_mapping_review";
@@ -128,6 +129,25 @@ static class WorkSource
                 $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completion-reviews",
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 excluded, completion.SubmittedAt));
+        }
+        foreach (var treatment in governance.PendingControlTreatments())
+        {
+            var identity = Uuid.CreateVersion5(treatment.RiskId,
+                $"risk-control-treatment-review\n{treatment.TreatmentId}");
+            var candidateId = WorkCandidate.IdFor(identity, RiskControlTreatmentReview);
+            if (workItemId is { } wantedTreatment && candidateId != wantedTreatment)
+                continue;
+            var proposerMemberId = Uuid.Parse(treatment.ProposedBy.Id,
+                CultureInfo.InvariantCulture);
+            candidates.Add(new WorkCandidate(candidateId, RiskControlTreatmentReview,
+                treatment.TreatmentId, treatment.ControlId, null,
+                $"Review control treatment for risk {treatment.RiskId}",
+                "A risk control-treatment assertion is awaiting independent review.", null, null,
+                "review",
+                $"{prefix}/risks/{treatment.RiskId}/control-treatments/" +
+                $"{treatment.TreatmentId}/reviews",
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
         }
         var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
