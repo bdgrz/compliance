@@ -17,6 +17,8 @@ public sealed class EvidenceArtifact : Aggregate
     public bool IsCreated => _registration is not null;
     public EvidenceArtifactContent? Content => _registration?.Content;
     public string? ContentSha256 => _registration?.ContentSha256;
+    public long? ContentLength => _registration?.ContentLength;
+    internal EvidenceArtifactRegistered? Registration => _registration;
     public string? State { get; private set; }
     public string? StateReason { get; private set; }
 

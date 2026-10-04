@@ -59,26 +59,17 @@ public sealed class EvidenceIntake(IArtifactContentStore store, IArtifactInspect
                 await writer.SaveAsync(artifact, dispatch, ct).ConfigureAwait(false);
             }
         }
-        if (artifact.State == EvidenceArtifactStates.Quarantined &&
-            !await store.QuarantineAsync(reference, ct).ConfigureAwait(false))
-        {
-            await using var quarantined = await store.OpenQuarantinedAsync(reference, ct).ConfigureAwait(false);
-            if (quarantined is null)
-                return Conflict("The evidence content could not be quarantined.");
-        }
-        else if (artifact.State == EvidenceArtifactStates.Rejected &&
-                 !await PurgeAsync(reference, ct).ConfigureAwait(false))
-            return Conflict("The rejected evidence content could not be purged.");
-        return Result<EvidenceCapture>.Success(new EvidenceCapture(artifact.Id, artifact.State!,
-            artifact.StateReason, duplicate));
+        var reconciled = await new EvidenceArtifactStorageReconciler(store, reader)
+            .ReconcileAsync(tenantId, artifact.Id, ct).ConfigureAwait(false);
+        if (!reconciled.IsSuccess)
+            return Result<EvidenceCapture>.Failure(reconciled.Error);
+        var current = reconciled.Value;
+        return Result<EvidenceCapture>.Success(new EvidenceCapture(current.Id, current.State!,
+            current.StateReason, duplicate));
     }
 
     public static Uuid IdFor(Uuid tenantId, string sha256) =>
         Uuid.CreateVersion5(tenantId, "evidence-content:" + sha256);
-
-    async ValueTask<bool> PurgeAsync(ArtifactContentReference content, CancellationToken ct) =>
-        await store.DeleteAsync(content, ct).ConfigureAwait(false) is
-            ArtifactDeletionResult.Deleted or ArtifactDeletionResult.NotFound;
 
     static Result<EvidenceCapture> Conflict(string message) =>
         Result<EvidenceCapture>.Failure(new RequestError(RequestErrorKind.Conflict, message));

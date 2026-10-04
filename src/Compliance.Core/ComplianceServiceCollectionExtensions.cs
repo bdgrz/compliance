@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +44,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ArtifactContentStoreOptions.FromConfiguration(configuration));
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
         services.AddSingleton<IArtifactInspector, UninspectedArtifactInspector>();
+        services.AddScoped<EvidenceArtifactStorageReconciler>();
         var emailDeliverySettings = EmailChallengeDeliverySettings.FromConfiguration(configuration,
             requireRealEmailDelivery);
         services.AddSingleton(emailDeliverySettings);
@@ -831,6 +833,8 @@ public static class ComplianceServiceCollectionExtensions
             })
             .AddReactor<TenantInvitationDeliveryReactor>("TenantInvitationDeliveryV1",
                 WorkloadScope.PerTenant)
+            .AddReactor<EvidenceArtifactInspectionEffectsReactor>(
+                EvidenceArtifactInspectionEffectsReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddReactor<EmailReservationReactor>("EmailReservation", WorkloadScope.Global)
             .AddReactor<EmailChallengeDeliveryReactor>("EmailChallengeDeliveryV1", WorkloadScope.Global)
             .AddReactor<IdentityRecoveryNoticeReactor>("IdentityRecoveryNoticeV1", WorkloadScope.Global)
