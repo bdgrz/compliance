@@ -201,6 +201,11 @@ public sealed class RiskGovernanceLedger : Aggregate
             .Where(treatment => treatment.ControlId == controlId &&
                 treatment.Status is "proposed" or "accepted")];
 
+    /// <summary>Every control-treatment assertion currently awaiting independent review.</summary>
+    public IReadOnlyList<RiskControlTreatmentView> PendingControlTreatments() =>
+        [.. _risks.Values.SelectMany(static risk => risk.Treatments)
+            .Where(static treatment => treatment.Status == "proposed")];
+
     public RiskGovernanceView View(Uuid riskId, IReadOnlyList<RiskAssessmentView> assessments,
         DateOnly today)
     {
