@@ -153,6 +153,32 @@ public sealed class GetMemberAccessHandlerTests
     }
 
     [Fact]
+    public async Task ShouldKeepOldMemberGrantIneffectiveGivenFreshMembershipEpisode()
+    {
+        // Arrange
+        var currentEpisodeId = Uuid.CreateVersion4();
+        var oldGrant = Grant(new AccessGrantScope(AccessGrantScopeKind.Organization, TenantId),
+            Now.AddDays(-1), null);
+        var directory = new GrantDirectory(oldGrant);
+        var handler = new GetMemberAccessHandler(new MembershipDirectory("client_personnel"),
+            new EmptyAccessReader(), new TeamDirectory(), new RoleDirectory(),
+            directory, new TeamMemberDirectory(), new RolePermissionDirectory(),
+            new RbacSourceReader(), new FixedTimeProvider(Now), new FixedMemberAccessEligibility(true)
+            {
+                MembershipEpisodeId = currentEpisodeId,
+            });
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(Assert.Single(result.Value.GrantPaths).IsEffective);
+        Assert.Empty(result.Value.EffectivePermissions);
+    }
+
+    [Fact]
     public async Task ShouldMarkGrantIneffectiveGivenRevocationProjectsBetweenListAndPendingScan()
     {
         // Arrange
@@ -453,6 +479,7 @@ public sealed class GetMemberAccessHandlerTests
     sealed class GrantDirectory(params AccessGrantView[] grants) : IAccessGrantDirectory
     {
         public bool ProjectRevocationOnPendingScan { get; init; }
+        public Uuid? MembershipEpisodeId { get; init; }
         public Action? OnPendingScan { get; init; }
         public int ListCount { get; private set; }
         bool _revocationProjected;
@@ -473,6 +500,9 @@ public sealed class GetMemberAccessHandlerTests
         public ValueTask<AccessGrantView?> GetAsync(Uuid tenantId, Uuid grantId,
             CancellationToken ct = default) => ValueTask.FromResult<AccessGrantView?>(
             grants.SingleOrDefault(grant => grant.TenantId == tenantId && grant.GrantId == grantId));
+
+        public ValueTask<Uuid?> GetMembershipEpisodeIdAsync(Uuid tenantId, Uuid grantId,
+            CancellationToken ct = default) => ValueTask.FromResult(MembershipEpisodeId);
 
         public ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId,
             IReadOnlySet<Uuid> grantIds, CancellationToken ct = default)

@@ -21,10 +21,31 @@ sealed class FitzTenantMembershipDirectoryReader
     {
         if (domainEvent is MemberRegistered registered)
         {
-            await TenantMembershipDirectorySchema.Directory.InsertAsync(
-                Transaction,
-                new TenantMembershipView(registered.UserId, registered.TenantId, registered.Affiliation),
-                ct).ConfigureAwait(false);
+            var current = await TenantMembershipDirectorySchema.Directory.GetAsync(Transaction,
+                registered.UserId, ct).ConfigureAwait(false);
+            if (current is null)
+            {
+                await TenantMembershipDirectorySchema.Directory.InsertAsync(Transaction,
+                    new TenantMembershipView(registered.UserId, registered.TenantId, registered.Affiliation),
+                    ct).ConfigureAwait(false);
+            }
+            else if (current.IsDeprovisioned)
+            {
+                await TenantMembershipDirectorySchema.Directory.ReplaceAsync(Transaction, current,
+                    current with
+                    {
+                        Affiliation = registered.Affiliation,
+                        IsSuspended = false,
+                        IsDeprovisioned = false,
+                        SuspendedAt = null,
+                        SuspendedByMemberId = Uuid.Empty,
+                        SuspendedByDisplay = null,
+                        SuspensionReason = null,
+                        ReinstatedAt = null,
+                        ReinstatedByMemberId = Uuid.Empty,
+                        ReinstatedByDisplay = null,
+                    }, ct).ConfigureAwait(false);
+            }
             return;
         }
 
@@ -62,6 +83,22 @@ sealed class FitzTenantMembershipDirectoryReader
                         ReinstatedByDisplay = reinstated.ReinstatedByDisplay,
                     }, ct).ConfigureAwait(false);
                 break;
+            case MemberDeprovisioned deprovisioned:
+                var active = await TenantMembershipDirectorySchema.Directory.GetAsync(Transaction,
+                    deprovisioned.UserId, ct).ConfigureAwait(false);
+                if (active is null)
+                    throw new InvalidOperationException("A member deprovision cannot project before registration.");
+                await TenantMembershipDirectorySchema.Directory.ReplaceAsync(Transaction, active,
+                    active with
+                    {
+                        IsSuspended = false,
+                        IsDeprovisioned = true,
+                        DeprovisionedAt = deprovisioned.DeprovisionedAt,
+                        DeprovisionedByMemberId = deprovisioned.DeprovisionedByMemberId,
+                        DeprovisionedByDisplay = deprovisioned.DeprovisionedByDisplay,
+                        DeprovisionReason = deprovisioned.Reason,
+                    }, ct).ConfigureAwait(false);
+                break;
         }
     }
 
@@ -73,7 +110,8 @@ sealed class FitzTenantMembershipDirectoryReader
     }
 
     public async ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-        await GetAsync(tenantId, userId, ct).ConfigureAwait(false) is { IsSuspended: false };
+        await GetAsync(tenantId, userId, ct).ConfigureAwait(false) is
+        { IsSuspended: false, IsDeprovisioned: false };
 
     public async ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
         CancellationToken ct = default)

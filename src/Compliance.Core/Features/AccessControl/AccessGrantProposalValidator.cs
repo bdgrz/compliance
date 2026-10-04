@@ -123,6 +123,9 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
                 if (membership.TenantId != tenantId ||
                     RbacIds.Member(tenantId, membership.UserId) != principal.Id)
                     continue;
+                if (membership.IsDeprovisioned)
+                    return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                        "The access grant member was not found in this organization."));
                 return membership.Affiliation == "client_personnel"
                     ? Result.Success
                     : Result.Failure(new RequestError(RequestErrorKind.Forbidden,

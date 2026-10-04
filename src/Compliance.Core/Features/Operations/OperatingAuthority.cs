@@ -33,7 +33,10 @@ public sealed class OperatingAuthority(IAggregateReader reader,
             return false;
         var membership = await reader.HydrateAsync(new TeamMember(tenantId, holder.Id, memberId), ct)
             .ConfigureAwait(false);
-        return membership.IsAssigned;
+        var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+            .ConfigureAwait(false);
+        return membership.IsAssigned && member.IsRegistered && !member.IsSuspended &&
+               membership.MembershipEpisodeId == member.MembershipEpisodeId;
     }
 
     /// <summary>Whether the holder still exists and, for a member, is active client personnel.</summary>

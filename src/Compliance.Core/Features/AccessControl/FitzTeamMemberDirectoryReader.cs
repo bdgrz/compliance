@@ -14,6 +14,8 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client, IDomainEventReader 
       ITeamMemberDirectoryProjection,
       ITeamMemberDirectoryReader
 {
+    readonly IKvClient _client = client;
+
     public const int DefaultLimit = 50;
     public const int MaxLimit = 200;
 
@@ -89,6 +91,60 @@ sealed class FitzTeamMemberDirectoryReader(IKvClient client, IDomainEventReader 
             }
         }
         return !isMember;
+    }
+
+    public async ValueTask<IReadOnlyList<TeamMemberView>> ListMemberAssignmentsAsync(
+        Uuid tenantId, Uuid memberId, CancellationToken ct = default)
+    {
+        string route;
+        await using (var routeTx = await BeginReadAsync(tenantId.ToString(), ct)
+                         .ConfigureAwait(false))
+            route = routeTx.Route;
+        string? backfillCursor = null;
+        do
+        {
+            var batch = await TeamMemberDirectorySchema.Directory.BackfillAsync(_client, route,
+                TeamMemberDirectorySchema.ByMember, 200, backfillCursor, ct).ConfigureAwait(false);
+            backfillCursor = batch.NextCursor;
+        } while (backfillCursor is not null);
+
+        var assignments = new Dictionary<Uuid, TeamMemberView>();
+        await using (var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false))
+        {
+            string? cursor = null;
+            do
+            {
+                var page = await TeamMemberDirectorySchema.Directory.QueryAsync(tx,
+                    TeamMemberDirectorySchema.ByMember.Query()
+                        .WithPrefix(memberId.ToString()).Take(200).After(cursor), ct)
+                    .ConfigureAwait(false);
+                foreach (var item in page.Items)
+                    assignments[item.TeamId] = item;
+                cursor = page.NextCursor;
+            } while (cursor is not null);
+        }
+
+        var pattern = EventStreamPattern.ForPattern(tenantId.ToString());
+        var checkpoint = await base.LoadCheckpointAsync(new CheckpointIdentity(
+                "TeamMemberDirectory", pattern), ct).ConfigureAwait(false);
+        await foreach (var record in events.ReadAsync(pattern, checkpoint.Cursor, ct)
+                           .ConfigureAwait(false))
+        {
+            switch (record.Event)
+            {
+                case TeamMemberAssigned assigned when assigned.TenantId == tenantId &&
+                    assigned.MemberId == memberId:
+                    assignments[assigned.TeamId] = new TeamMemberView(assigned.TeamId,
+                        assigned.MemberId);
+                    break;
+                case TeamMemberRemoved removed when removed.TenantId == tenantId &&
+                    removed.MemberId == memberId:
+                    assignments.Remove(removed.TeamId);
+                    break;
+            }
+        }
+        return assignments.Values.OrderBy(static item => item.TeamId.ToString(),
+            StringComparer.Ordinal).ToArray();
     }
 
     // Same reasoning as FitzTeamDirectoryReader.SearchAsync: the by_team index prefix only bounds

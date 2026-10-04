@@ -78,12 +78,17 @@ public sealed class AccessReviewInfrastructureTests
                 new ActiveTenant(), permissions)
             .AuthorizeAsync(new RequestContext<IAccessReviewRequest>(
                 new GetAccessReviewCampaign(tenantId, Uuid.CreateVersion4()), actor), CancellationToken.None);
+        var deprovisioned = await new AccessReviewAuthorizer(new FixedMembershipDirectory(true,
+                isDeprovisioned: true), new ActiveTenant(), permissions)
+            .AuthorizeAsync(new RequestContext<IAccessReviewRequest>(
+                new GetAccessReviewCampaign(tenantId, Uuid.CreateVersion4()), actor), CancellationToken.None);
 
         // Assert
         Assert.True(participant.IsSuccess);
         Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(management.Error).Kind);
         Assert.Equal(RbacPermissions.AccessReviewManage, Assert.Single(permissions.Permissions));
         Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(firmStaff.Error).Kind);
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(deprovisioned.Error).Kind);
     }
 
     [Fact]

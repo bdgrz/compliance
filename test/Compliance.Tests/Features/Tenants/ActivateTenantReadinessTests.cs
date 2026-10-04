@@ -143,7 +143,7 @@ public sealed class ActivateTenantReadinessTests
         Assert.True(member.Register().IsSuccess);
         await writer.SaveAsync(member, new RequestDispatchContext(RequestActor.System));
         var teamMember = new TeamMember(tenantId, BuiltInRbac.AdministratorsTeamId(tenantId), memberId);
-        Assert.True(teamMember.Assign().IsSuccess);
+        Assert.True(teamMember.Assign(member.MembershipEpisodeId).IsSuccess);
         await writer.SaveAsync(teamMember, new RequestDispatchContext(RequestActor.System));
 
         // Act: event streams exist, but the two authorization projections have not caught up.

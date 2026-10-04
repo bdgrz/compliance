@@ -83,6 +83,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IPermissionAuthorizer>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IMemberAccessReader>(provider => provider.GetRequiredService<FitzPermissionAuthorizer>());
         services.AddScoped<IMemberAccessEligibility, EventSourcedMemberAccessEligibility>();
+        services.AddScoped<MemberAuthorityCleanup>();
         services.AddScoped<FitzTeamDirectoryReader>();
         services.AddScoped<ITeamDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
         services.AddScoped<ITeamDirectoryReader>(provider => provider.GetRequiredService<FitzTeamDirectoryReader>());
@@ -416,6 +417,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RegisterMemberHandler>()
             .AddRequestHandler<SuspendMemberHandler>()
             .AddRequestHandler<ReinstateMemberHandler>()
+            .AddRequestHandler<DeprovisionMemberHandler>()
             .AddRequestHandler<GetTenantMemberHandler>()
             .AddRequestHandler<DefineTeamHandler>()
             .AddRequestHandler<DeleteTeamHandler>()

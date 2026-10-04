@@ -12,7 +12,8 @@ sealed class ProviderAuthorizer(ITenantMembershipDirectoryReader memberships,
             return Deny(RequestErrorKind.Unauthorized, "Provider inventory requires a Bdgrz user identity.");
         var tenantId = context.Request.TenantId;
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
-        if (membership is null || membership.IsSuspended || membership.TenantId != tenantId || membership.UserId != userId)
+        if (membership is null || membership.IsSuspended || membership.IsDeprovisioned ||
+            membership.TenantId != tenantId || membership.UserId != userId)
             return Deny(RequestErrorKind.NotFound, "The tenant was not found.");
         if (membership.Affiliation != "client_personnel")
             return Deny(RequestErrorKind.Forbidden, "The actor has no organization provider authority.");

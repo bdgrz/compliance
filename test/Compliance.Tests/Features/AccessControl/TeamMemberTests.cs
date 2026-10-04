@@ -96,4 +96,25 @@ public sealed class TeamMemberTests
         var rejoined = Assert.Single(scenario.PendingEvents);
         Assert.Equal("TeamMemberAssigned", rejoined.GetType().Name);
     }
+
+    [Fact]
+    public void ShouldRecordNewEpisodeGivenAssignmentFromPriorMembershipEpisode()
+    {
+        // Arrange
+        var firstEpisodeId = Uuid.CreateVersion4();
+        var nextEpisodeId = Uuid.CreateVersion4();
+        var teamMember = new TeamMember(TenantId, TeamId, MemberId);
+        var scenario = new AggregateScenario<TeamMember>(teamMember)
+            .Given(DomainEventSeed.Attach(new TeamMemberAssigned(TenantId, TeamId, MemberId,
+                firstEpisodeId), teamMember.Id, 1));
+
+        // Act
+        var result = scenario.Aggregate.Assign(nextEpisodeId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var reassigned = Assert.IsType<TeamMemberAssigned>(Assert.Single(scenario.PendingEvents));
+        Assert.Equal(nextEpisodeId, reassigned.MembershipEpisodeId);
+        Assert.Equal(nextEpisodeId, scenario.Aggregate.MembershipEpisodeId);
+    }
 }

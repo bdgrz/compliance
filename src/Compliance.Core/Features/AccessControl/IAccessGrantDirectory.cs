@@ -8,6 +8,10 @@ public interface IAccessGrantDirectory
 
     ValueTask<AccessGrantView?> GetAsync(Uuid tenantId, Uuid grantId, CancellationToken ct = default);
 
+    /// <summary>Returns the member episode bound to a direct grant, or null for legacy or team grants.</summary>
+    ValueTask<Uuid?> GetMembershipEpisodeIdAsync(Uuid tenantId, Uuid grantId,
+        CancellationToken ct = default) => ValueTask.FromResult<Uuid?>(null);
+
     ValueTask<IReadOnlySet<Uuid>> FindPendingRevocationsAsync(Uuid tenantId, IReadOnlySet<Uuid> grantIds,
         CancellationToken ct = default);
 }

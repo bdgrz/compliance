@@ -12,4 +12,6 @@ public sealed record TenantMembershipView(Uuid UserId, Uuid TenantId,
     string? SuspendedByDisplay = null, string? SuspensionReason = null,
     DateTimeOffset? ReinstatedAt = null, Uuid ReinstatedByMemberId = default,
     string? ReinstatedByDisplay = null, string? VerifiedEmailAddress = null,
-    string? DisplayName = null);
+    string? DisplayName = null, bool IsDeprovisioned = false,
+    DateTimeOffset? DeprovisionedAt = null, Uuid DeprovisionedByMemberId = default,
+    string? DeprovisionedByDisplay = null, string? DeprovisionReason = null);

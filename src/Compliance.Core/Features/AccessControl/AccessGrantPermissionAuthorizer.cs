@@ -93,10 +93,12 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
 
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct)
             .ConfigureAwait(false);
-        if (membership is not { Affiliation: "client_personnel", IsSuspended: false } ||
+        if (membership is not { Affiliation: "client_personnel", IsSuspended: false, IsDeprovisioned: false } ||
             membership.TenantId != tenantId || membership.UserId != userId ||
             !await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false))
             return [];
+        var membershipEpisodeId = await sourceMember.GetMembershipEpisodeIdAsync(tenantId,
+            memberId, ct).ConfigureAwait(false);
 
         var access = await grants.ListAsync(tenantId, ct).ConfigureAwait(false);
         if (access.TenantId != tenantId)
@@ -117,11 +119,19 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
             if (!principalMatches.TryGetValue(grant.Terms.Principal, out var includesMember))
             {
                 includesMember = await IncludesPrincipalAsync(tenantId, memberId,
-                    grant.Terms.Principal, ct).ConfigureAwait(false);
+                    grant.Terms.Principal, membershipEpisodeId, ct).ConfigureAwait(false);
                 principalMatches[grant.Terms.Principal] = includesMember;
             }
             if (!includesMember)
                 continue;
+            if (grant.Terms.Principal.Kind == AccessGrantPrincipalKind.Member &&
+                membershipEpisodeId is { } episodeId && episodeId != Uuid.Empty)
+            {
+                var grantEpisodeId = await grants.GetMembershipEpisodeIdAsync(tenantId,
+                    grant.GrantId, ct).ConfigureAwait(false);
+                if (grantEpisodeId != episodeId)
+                    continue;
+            }
 
             if (!rolePermissions.TryGetValue(grant.Terms.RoleId, out var hasPermission))
             {
@@ -130,7 +140,7 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 rolePermissions[grant.Terms.RoleId] = hasPermission;
             }
             if (hasPermission)
-                eligibleGrants[grant.GrantId] = new EffectiveGrant(scope,
+                eligibleGrants[grant.GrantId] = new EffectiveGrant(grant.GrantId, scope,
                     grant.Terms.Principal, grant.Terms.RoleId);
         }
 
@@ -154,7 +164,8 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 continue;
             // The team projector may also catch up while the grant tail is scanned.
             if (candidate.Principal.Kind == AccessGrantPrincipalKind.Team &&
-                !await IncludesPrincipalAsync(tenantId, memberId, candidate.Principal, ct)
+                !await IncludesPrincipalAsync(tenantId, memberId, candidate.Principal,
+                    membershipEpisodeId, ct)
                     .ConfigureAwait(false))
                 continue;
             // Role, permission, and team deletion facts can precede their directories and the
@@ -174,14 +185,35 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
         }
         // A suspension can commit during the grant, team, or role reads. Hydrate the
         // member again at the final positive decision point.
-        if (effective.Count != 0 &&
-            !await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false))
-            return [];
+        if (effective.Count != 0)
+        {
+            if (!await sourceMember.IsEligibleAsync(tenantId, userId, ct).ConfigureAwait(false))
+                return [];
+            var currentEpisodeId = await sourceMember.GetMembershipEpisodeIdAsync(tenantId,
+                memberId, ct).ConfigureAwait(false);
+            if (currentEpisodeId is { } current && current != Uuid.Empty)
+            {
+                foreach (var grant in effective.Where(item =>
+                             item.Principal.Kind == AccessGrantPrincipalKind.Member).ToArray())
+                {
+                    if (await grants.GetMembershipEpisodeIdAsync(tenantId, grant.GrantId, ct)
+                            .ConfigureAwait(false) != current)
+                        effective.Remove(grant);
+                }
+                foreach (var grant in effective.Where(item =>
+                             item.Principal.Kind == AccessGrantPrincipalKind.Team).ToArray())
+                {
+                    if (!await IncludesPrincipalAsync(tenantId, memberId, grant.Principal,
+                            current, ct).ConfigureAwait(false))
+                        effective.Remove(grant);
+                }
+            }
+        }
         return effective;
     }
 
     async ValueTask<bool> IncludesPrincipalAsync(Uuid tenantId, Uuid memberId,
-        AccessGrantPrincipal principal, CancellationToken ct)
+        AccessGrantPrincipal principal, Uuid? membershipEpisodeId, CancellationToken ct)
     {
         if (principal.Kind == AccessGrantPrincipalKind.Member)
             return principal.Id == memberId;
@@ -208,15 +240,25 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
 
         // A removal can project after the first list and before the tail scan's checkpoint.
         cursor = null;
+        isProjectedMember = false;
         do
         {
             var page = await teamMembers.ListAsync(tenantId, principal.Id, PageSize, cursor,
                 memberId.ToString(), descending: false, ct).ConfigureAwait(false);
             if (page.Items.Any(item => item.TeamId == principal.Id && item.MemberId == memberId))
-                return true;
+            {
+                isProjectedMember = true;
+                break;
+            }
             cursor = page.NextCursor;
         } while (cursor is not null);
-        return false;
+        if (!isProjectedMember)
+            return false;
+        if (membershipEpisodeId is not { } episodeId || episodeId == Uuid.Empty)
+            return true;
+        var assignment = await reader.HydrateAsync(new TeamMember(tenantId, principal.Id,
+            memberId), ct).ConfigureAwait(false);
+        return assignment.IsAssigned && assignment.MembershipEpisodeId == episodeId;
     }
 
     async ValueTask<bool> RoleHasPermissionAsync(Uuid tenantId, Uuid roleId, string permission,
@@ -259,6 +301,6 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
             _ => false,
         };
 
-    sealed record EffectiveGrant(AccessGrantScope Scope, AccessGrantPrincipal Principal,
-        Uuid RoleId);
+    sealed record EffectiveGrant(Uuid GrantId, AccessGrantScope Scope,
+        AccessGrantPrincipal Principal, Uuid RoleId);
 }

@@ -11,13 +11,14 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 ///     through the guard and need another active administrator as a witness, read from source
 ///     streams rather than lagging projections. Reinstatement and reassignment restore the
 ///     member in the guard first. Removing that role from the team or those permissions from the
-///     role is refused outright. There is no member deprovisioning command; one must withdraw
-///     through this invariant before it changes membership.
+///     role is refused outright. Suspension and deprovisioning withdraw a member through this
+///     invariant before changing membership.
 /// </summary>
 public sealed class TenantManagerInvariant(IAggregateReader reader, IAggregateExecutor executor,
     ITeamMemberDirectoryReader teamMembers)
 {
     public const string Suspended = "suspended";
+    public const string Deprovisioned = "deprovisioned";
     public const string RemovedFromAdministrators = "administrators_team_removed";
     const int MaximumAttempts = 8;
 
@@ -111,6 +112,7 @@ public sealed class TenantManagerInvariant(IAggregateReader reader, IAggregateEx
             return false;
         var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
             .ConfigureAwait(false);
-        return member.IsRegistered && !member.IsSuspended;
+        return member.IsRegistered && !member.IsSuspended &&
+               assignment.MembershipEpisodeId == member.MembershipEpisodeId;
     }
 }

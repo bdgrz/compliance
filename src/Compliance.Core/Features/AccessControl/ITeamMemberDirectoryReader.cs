@@ -19,4 +19,9 @@ public interface ITeamMemberDirectoryReader
     /// <summary>Checks event history after this directory's checkpoint for a removal not yet projected.</summary>
     ValueTask<bool> HasPendingRemovalAsync(Uuid tenantId, Uuid teamId, Uuid memberId,
         CancellationToken ct = default) => ValueTask.FromResult(false);
+
+    /// <summary>Returns every current team assignment for one member, including unprojected events.</summary>
+    ValueTask<IReadOnlyList<TeamMemberView>> ListMemberAssignmentsAsync(Uuid tenantId,
+        Uuid memberId, CancellationToken ct = default) =>
+        ValueTask.FromResult<IReadOnlyList<TeamMemberView>>([]);
 }

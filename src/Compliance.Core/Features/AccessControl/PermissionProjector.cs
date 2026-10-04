@@ -7,6 +7,7 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
       IProjectorHandler<MemberRegistered>,
       IProjectorHandler<MemberSuspended>,
       IProjectorHandler<MemberReinstated>,
+      IProjectorHandler<MemberDeprovisioned>,
       IProjectorHandler<TeamDefined>,
       IProjectorHandler<TeamDeleted>,
       IProjectorHandler<TeamMemberAssigned>,
@@ -23,6 +24,7 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
         MemberRegistered registered => registered.MemberId == memberId &&
             !string.Equals(registered.Affiliation, "client_personnel", StringComparison.Ordinal),
         MemberSuspended suspended => suspended.MemberId == memberId,
+        MemberDeprovisioned deprovisioned => deprovisioned.MemberId == memberId,
         _ => false,
     };
 
@@ -47,6 +49,9 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(MemberReinstated ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(MemberDeprovisioned ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(TeamDefined ev, IProjectorContext context, CancellationToken ct) =>
