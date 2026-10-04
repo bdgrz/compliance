@@ -7,8 +7,8 @@ sealed class TechnologyInventoryAuthorizer(ITenantMembershipDirectoryReader memb
     ITenantActivity tenants, IPermissionAuthorizer permissions)
     : IRequestAuthorizer<ITechnologyInventoryRequest>
 {
-    // The governed technology inventory shares the application inventory grant until a
-    // distinct permission and restricted-visibility policy are decided.
+    // Technology inventory has its own permission so its scoped authorization can evolve
+    // independently from the application inventory.
     public async ValueTask<Result> AuthorizeAsync(
         IRequestContext<ITechnologyInventoryRequest> context, CancellationToken ct)
     {
@@ -28,7 +28,7 @@ sealed class TechnologyInventoryAuthorizer(ITenantMembershipDirectoryReader memb
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
         return await permissions.IsAllowedAsync(tenantId, userId,
-                RbacIds.Member(tenantId, userId), RbacPermissions.ApplicationInventoryManage, ct)
+                RbacIds.Member(tenantId, userId), RbacPermissions.TechnologyInventoryManage, ct)
             .ConfigureAwait(false)
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Forbidden,

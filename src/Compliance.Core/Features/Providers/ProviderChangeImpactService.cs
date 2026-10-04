@@ -19,6 +19,7 @@ namespace Bdgrz.Compliance.Features.Providers;
 public sealed class ProviderChangeImpactService(IAggregateReader reader,
     ProviderReferences references, ITechnologyInventoryReader inventory,
     TechnologyInventoryReadConsistency inventoryConsistency,
+    TechnologyInventoryRestrictedVisibility inventoryVisibility,
     IControlDraftDirectoryReader controls, ControlDraftListReadConsistency controlConsistency,
     IBoundaryDirectoryReader boundaries, IProgramDirectoryReader programs,
     ProgramSetupWorkReadConsistency programConsistency)
@@ -29,7 +30,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
     static readonly string[] ContextNames = ["systems", "data", "controls", "evidence", "scope"];
 
     public async ValueTask<Result<ProviderChangeImpactPreview>> PreviewAsync(
-        PreviewProviderChange request, CancellationToken ct)
+        PreviewProviderChange request, Uuid userId, CancellationToken ct)
     {
         if (request.ExpectedRevision < 1 || request.EffectiveOn == default ||
             request.ChangeKind is not ("renewal" or "material_change" or "termination") ||
@@ -154,7 +155,7 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                     return Result<ProviderChangeImpactPreview>.Failure(captured.Error);
                 inventoryFence = captured.Value;
             }
-            await AddTechnologyImpactAsync(request.TenantId, instanceIds, records["data"],
+            await AddTechnologyImpactAsync(request.TenantId, userId, instanceIds, records["data"],
                 impactedComponentIds, impactedInformationIds, impactedDataFlowIds,
                 incomplete, ct).ConfigureAwait(false);
 
@@ -314,7 +315,8 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
         return result;
     }
 
-    async ValueTask AddTechnologyImpactAsync(Uuid tenantId, HashSet<Uuid> instanceIds,
+    async ValueTask AddTechnologyImpactAsync(Uuid tenantId, Uuid userId,
+        HashSet<Uuid> instanceIds,
         List<ProviderChangeAffectedRecord> records, HashSet<Uuid> impactedComponentIds,
         HashSet<Uuid> impactedInformationIds, HashSet<Uuid> impactedDataFlowIds,
         Dictionary<string, string?> incomplete, CancellationToken ct)
@@ -369,22 +371,34 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
         var componentIds = components.Keys.ToHashSet();
         scanned = 0;
         cursor = null;
+        var flowScanLimitReached = false;
         do
         {
             var page = await inventory.ListFlowsAsync(tenantId, PageSize, cursor, ct)
                 .ConfigureAwait(false);
             foreach (var item in page.Items)
             {
-                if (scanned++ >= MaximumScannedRecords)
-                {
-                    incomplete["data"] ??= "inventory_scan_limit";
-                    cursor = null;
-                    break;
-                }
                 if (item.TenantId != tenantId || item.DataFlowId == Uuid.Empty)
                 {
                     incomplete["data"] ??= "inventory_projection_inconsistent";
                     continue;
+                }
+                var sourceFlow = await reader.HydrateAsync(new DataFlow(tenantId,
+                    item.DataFlowId), ct).ConfigureAwait(false);
+                if (!sourceFlow.IsCreated || sourceFlow.Id != item.DataFlowId)
+                {
+                    incomplete["data"] ??= "inventory_source_projection_mismatch";
+                    continue;
+                }
+                if (!await inventoryVisibility.CanReadFlowAsync(tenantId, userId,
+                        sourceFlow.Id, sourceFlow.Content?.Classification, ct)
+                        .ConfigureAwait(false))
+                    continue;
+                if (scanned++ >= MaximumScannedRecords)
+                {
+                    incomplete["data"] ??= "inventory_scan_limit";
+                    flowScanLimitReached = true;
+                    break;
                 }
                 var sourceMatches = item.Content.SourceType == TechnologyInventoryRules.SystemInstanceReference
                     ? instanceIds.Contains(item.Content.SourceId)
@@ -399,6 +413,9 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                     item.DataFlowId, item.Revision, ct).ConfigureAwait(false);
                 if (!current.IsSuccess)
                     throw new ProviderImpactReadException(current.Error);
+                if (!await inventoryVisibility.CanReadFlowAsync(tenantId, userId,
+                        current.Value, ct).ConfigureAwait(false))
+                    continue;
                 var currentContent = current.Value.Content;
                 var currentSourceMatches = currentContent.SourceType == TechnologyInventoryRules.SystemInstanceReference
                     ? instanceIds.Contains(currentContent.SourceId)
@@ -414,6 +431,17 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                     "data_flow_touches_affected_system");
                 foreach (var assetId in current.Value.Content.InformationAssetIds)
                 {
+                    var sourceAsset = await reader.HydrateAsync(new InformationAsset(tenantId,
+                        assetId), ct).ConfigureAwait(false);
+                    if (!sourceAsset.IsCreated || sourceAsset.Id != assetId)
+                    {
+                        incomplete["data"] ??= "information_asset_reference_unavailable";
+                        continue;
+                    }
+                    if (!await inventoryVisibility.CanReadAssetAsync(tenantId, userId,
+                            sourceAsset.Id, sourceAsset.Content?.Classification, ct)
+                            .ConfigureAwait(false))
+                        continue;
                     var asset = await inventoryConsistency.GetAssetAsync(tenantId, assetId,
                         null, ct).ConfigureAwait(false);
                     if (!asset.IsSuccess)
@@ -421,20 +449,17 @@ public sealed class ProviderChangeImpactService(IAggregateReader reader,
                         incomplete["data"] ??= "information_asset_reference_unavailable";
                         continue;
                     }
+                    if (!await inventoryVisibility.CanReadAssetAsync(tenantId, userId,
+                            asset.Value, ct).ConfigureAwait(false))
+                        continue;
                     AddScopeId(impactedInformationIds, asset.Value.InformationAssetId);
                     Add("information_asset", asset.Value.InformationAssetId,
                         current.Value.DataFlowId, asset.Value.Revision,
                         "carried_by_affected_data_flow");
                 }
             }
-            if (scanned >= MaximumScannedRecords && page.NextCursor is not null)
-            {
-                incomplete["data"] ??= "inventory_scan_limit";
-                cursor = null;
-            }
-            else
-                cursor = page.NextCursor;
-        } while (cursor is not null);
+            cursor = flowScanLimitReached ? null : page.NextCursor;
+        } while (cursor is not null && !flowScanLimitReached);
 
         void Add(string recordType, Uuid recordId, Uuid? parentId, long? revision,
             string relationship)

@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 
@@ -37,6 +38,46 @@ public sealed class GetMemberAccessHandlerTests
         Assert.Contains(result.Value.GrantPaths, path => path.Grant.GrantId == expired.GrantId &&
             !path.IsEffective && path.Grant.Terms.Source.Id == "request-123");
         Assert.Contains(RbacPermissions.ProgramManage, result.Value.EffectivePermissions);
+    }
+
+    [Fact]
+    public async Task ShouldTreatExactSharedResourceGrantAsEffectiveGivenExistingInformationAsset()
+    {
+        // Arrange
+        var assetId = Uuid.CreateVersion4();
+        var asset = new InformationAsset(TenantId, assetId);
+        Assert.True(asset.Record(new InformationAssetContent("Payroll", "restricted", "RET-1",
+            Uuid.CreateVersion4(), null, "active"),
+            ActorReference.ForMember(MemberId, "Organization Admin"), Now).IsSuccess);
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.SharedResource, assetId,
+            TechnologyInventoryResourceTypes.InformationAsset), Now.AddDays(-1), null);
+        var handler = Handler("client_personnel", new RbacSourceReader { SharedResource = asset }, grant);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(Assert.Single(result.Value.GrantPaths).IsEffective);
+    }
+
+    [Fact]
+    public async Task ShouldTreatMissingSharedResourceAsIneffectiveGivenMemberAccess()
+    {
+        // Arrange
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.SharedResource,
+            Uuid.CreateVersion4(), TechnologyInventoryResourceTypes.InformationAsset),
+            Now.AddDays(-1), null);
+        var handler = Handler("client_personnel", grant);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetMemberAccess>(
+            new GetMemberAccess(TenantId, UserId), RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(Assert.Single(result.Value.GrantPaths).IsEffective);
     }
 
     [Fact]
@@ -552,6 +593,7 @@ public sealed class GetMemberAccessHandlerTests
 
     sealed class RbacSourceReader : IAggregateReader
     {
+        public Aggregate? SharedResource { get; init; }
         public bool RoleDeleted { get; init; }
         public bool TeamDeleted { get; init; }
         public bool PermissionRemoved { get; init; }
@@ -561,6 +603,9 @@ public sealed class GetMemberAccessHandlerTests
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate
         {
+            if (SharedResource is not null && aggregate.GetType() == SharedResource.GetType() &&
+                aggregate.Stream == SharedResource.Stream)
+                return ValueTask.FromResult((TAggregate)SharedResource);
             switch (aggregate)
             {
                 case Role role:

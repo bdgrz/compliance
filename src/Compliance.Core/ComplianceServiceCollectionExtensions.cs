@@ -347,6 +347,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IAccessGrantScopePermissionAuthorizer>(provider =>
             provider.GetRequiredService<AccessGrantPermissionAuthorizer>());
         services.AddScoped<RestrictedApplicationVisibility>();
+        services.AddScoped<TechnologyInventoryRestrictedVisibility>();
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
@@ -848,6 +849,8 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<TechnologyInventoryGrantBackfillReactor>(
+                "TechnologyInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<ProviderInventoryGrantBackfillReactor>(
                 "ProviderInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<WorkforceGrantBackfillReactor>(

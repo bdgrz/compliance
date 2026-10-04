@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -18,8 +19,13 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
         if (tenantId == Uuid.Empty || proposal is null || proposal.Principal is null ||
             proposal.Scope is null || proposal.Source is null || !Enum.IsDefined(proposal.Scope.Kind))
             return Invalid("The access grant proposal is incomplete.");
-        if (proposal.Scope.ResourceType is not null)
+        if (proposal.Scope.ResourceType is not null &&
+            proposal.Scope.Kind != AccessGrantScopeKind.SharedResource)
             return Invalid("Only a shared-resource scope may specify a resource type.");
+        if (proposal.Scope.Kind == AccessGrantScopeKind.SharedResource &&
+            proposal.Scope.ResourceType is not (TechnologyInventoryResourceTypes.InformationAsset or
+                TechnologyInventoryResourceTypes.DataFlow))
+            return Invalid("This shared-resource access grant type is not supported.");
 
         var role = await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false);
         if (role is null || role.RoleId != proposal.RoleId)
@@ -62,6 +68,22 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
                     .ConfigureAwait(false))
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The SystemInstance scope was not found in this organization."));
+        }
+        else if (proposal.Scope.Kind == AccessGrantScopeKind.SharedResource)
+        {
+            var exists = proposal.Scope.ResourceType switch
+            {
+                TechnologyInventoryResourceTypes.InformationAsset =>
+                    (await reader.HydrateAsync(new InformationAsset(tenantId, proposal.Scope.Id), ct)
+                        .ConfigureAwait(false)).IsCreated,
+                TechnologyInventoryResourceTypes.DataFlow =>
+                    (await reader.HydrateAsync(new DataFlow(tenantId, proposal.Scope.Id), ct)
+                        .ConfigureAwait(false)).IsCreated,
+                _ => false,
+            };
+            if (!exists)
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The shared technology inventory resource was not found in this organization."));
         }
         else if (proposal.Scope.Kind != AccessGrantScopeKind.Organization)
             return Invalid("This access grant scope is not supported.");

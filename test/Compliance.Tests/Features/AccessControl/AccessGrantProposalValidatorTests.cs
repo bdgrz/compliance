@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -194,6 +195,99 @@ public sealed class AccessGrantProposalValidatorTests
 
         // Assert
         Assert.True(result.IsSuccess);
+    }
+
+    [Theory]
+    [InlineData(TechnologyInventoryResourceTypes.InformationAsset)]
+    [InlineData(TechnologyInventoryResourceTypes.DataFlow)]
+    public async Task ShouldAllowExistingTechnologyInventoryRecordGivenExactSharedResourceScope(
+        string resourceType)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var resourceId = Uuid.CreateVersion4();
+        var ownerId = Uuid.CreateVersion4();
+        var source = new ScopeSourceReader();
+        if (resourceType == TechnologyInventoryResourceTypes.InformationAsset)
+        {
+            var asset = new InformationAsset(tenantId, resourceId);
+            Assert.True(asset.Record(new InformationAssetContent("Payroll", "restricted",
+                "RET-1", ownerId, null, "active"),
+                ActorReference.ForMember(Uuid.CreateVersion4(), "Admin"), DateTimeOffset.UtcNow)
+                .IsSuccess);
+            source = new ScopeSourceReader(asset: asset);
+        }
+        else
+        {
+            var flow = new DataFlow(tenantId, resourceId);
+            Assert.True(flow.Record(new DataFlowContent("technology_component", Uuid.CreateVersion4(),
+                "external_party", null, "Payroll provider", [Uuid.CreateVersion4()], "Payroll", true,
+                true, null, new DateOnly(2026, 1, 1), ownerId, "active", "restricted"),
+                ActorReference.ForMember(Uuid.CreateVersion4(), "Admin"), DateTimeOffset.UtcNow)
+                .IsSuccess);
+            source = new ScopeSourceReader(flow: flow);
+        }
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
+            new RoleDirectory(roleId), ResourceScopes(tenantId), source);
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId)), new AccessGrantScope(
+                AccessGrantScopeKind.SharedResource, resourceId, resourceType)));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+    }
+
+    [Theory]
+    [InlineData(TechnologyInventoryResourceTypes.InformationAsset)]
+    [InlineData(TechnologyInventoryResourceTypes.DataFlow)]
+    public async Task ShouldRejectForeignTechnologyInventoryRecordGivenSharedResourceScope(
+        string resourceType)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var foreignTenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var roleId = Uuid.CreateVersion4();
+        var resourceId = Uuid.CreateVersion4();
+        var ownerId = Uuid.CreateVersion4();
+        var source = new ScopeSourceReader();
+        if (resourceType == TechnologyInventoryResourceTypes.InformationAsset)
+        {
+            var asset = new InformationAsset(foreignTenantId, resourceId);
+            Assert.True(asset.Record(new InformationAssetContent("Payroll", "restricted",
+                "RET-1", ownerId, null, "active"),
+                ActorReference.ForMember(Uuid.CreateVersion4(), "Admin"), DateTimeOffset.UtcNow)
+                .IsSuccess);
+            source = new ScopeSourceReader(asset: asset);
+        }
+        else
+        {
+            var flow = new DataFlow(foreignTenantId, resourceId);
+            Assert.True(flow.Record(new DataFlowContent("technology_component", Uuid.CreateVersion4(),
+                "external_party", null, "Payroll provider", [Uuid.CreateVersion4()], "Payroll", true,
+                true, null, new DateOnly(2026, 1, 1), ownerId, "active", "restricted"),
+                ActorReference.ForMember(Uuid.CreateVersion4(), "Admin"), DateTimeOffset.UtcNow)
+                .IsSuccess);
+            source = new ScopeSourceReader(flow: flow);
+        }
+        var validator = new AccessGrantProposalValidator(
+            new MembershipReader(userId, tenantId, "client_personnel"), new TeamDirectory(),
+            new RoleDirectory(roleId), ResourceScopes(tenantId), source);
+
+        // Act
+        var result = await validator.ValidateAsync(tenantId, Proposal(tenantId, roleId,
+            new AccessGrantPrincipal(AccessGrantPrincipalKind.Member,
+                RbacIds.Member(tenantId, userId)), new AccessGrantScope(
+                AccessGrantScopeKind.SharedResource, resourceId, resourceType)));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
     }
 
     [Fact]
@@ -453,7 +547,8 @@ public sealed class AccessGrantProposalValidatorTests
     }
 
     sealed class ScopeSourceReader(DeclaredApplication? application = null,
-        DeclaredSystemInstance? instance = null) : IAggregateReader
+        DeclaredSystemInstance? instance = null, InformationAsset? asset = null,
+        DataFlow? flow = null) : IAggregateReader
     {
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate
@@ -466,6 +561,12 @@ public sealed class AccessGrantProposalValidatorTests
             if (instance is not null && aggregate is DeclaredSystemInstance requestedInstance &&
                 requestedInstance.Stream == instance.Stream)
                 return ValueTask.FromResult((TAggregate)(Aggregate)instance);
+            if (asset is not null && aggregate is InformationAsset requestedAsset &&
+                requestedAsset.Stream == asset.Stream)
+                return ValueTask.FromResult((TAggregate)(Aggregate)asset);
+            if (flow is not null && aggregate is DataFlow requestedFlow &&
+                requestedFlow.Stream == flow.Stream)
+                return ValueTask.FromResult((TAggregate)(Aggregate)flow);
             return ValueTask.FromResult(aggregate);
         }
     }

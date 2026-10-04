@@ -39,7 +39,7 @@ public sealed class InventoryBoundaryReferenceReadTests
         var scenario = CreateScenario();
         scenario.Directory.Page = new([Reference(scenario.TenantId, "information", scenario.AssetId)], null);
         var handler = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency, Visibility());
 
         // Act
         var result = await handler.HandleAsync(Context(new ListInformationAssetBoundaryReferences(
@@ -51,6 +51,27 @@ public sealed class InventoryBoundaryReferenceReadTests
     }
 
     [Fact]
+    public async Task ShouldHideRestrictedAssetReferencesGivenMemberWithoutRestrictedPermission()
+    {
+        // Arrange
+        var scenario = CreateScenario("restricted");
+        var handler = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
+            scenario.Directory, scenario.Consistency, Visibility());
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListInformationAssetBoundaryReferences>(
+            new ListInformationAssetBoundaryReferences(scenario.TenantId, scenario.AssetId), actor),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, result.Error!.Kind);
+        Assert.Equal(0, scenario.Directory.ListCalls);
+    }
+
+    [Fact]
     public async Task ShouldHideUnknownRecordsWithoutReadingTheIndexGivenNoSuchComponentOrAsset()
     {
         // Arrange
@@ -58,7 +79,7 @@ public sealed class InventoryBoundaryReferenceReadTests
         var components = new ListTechnologyComponentBoundaryReferencesHandler(scenario.Reader,
             scenario.Directory, scenario.Consistency);
         var assets = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency, Visibility());
 
         // Act
         var component = await components.HandleAsync(Context(new ListTechnologyComponentBoundaryReferences(
@@ -115,7 +136,7 @@ public sealed class InventoryBoundaryReferenceReadTests
         var scenario = CreateScenario();
         scenario.Directory.RejectCursor = true;
         var handler = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
-            scenario.Directory, scenario.Consistency);
+            scenario.Directory, scenario.Consistency, Visibility());
 
         // Act
         var result = await handler.HandleAsync(Context(new ListInformationAssetBoundaryReferences(
@@ -152,7 +173,10 @@ public sealed class InventoryBoundaryReferenceReadTests
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
 
-    static Scenario CreateScenario()
+    static TechnologyInventoryRestrictedVisibility Visibility() =>
+        new(new DenyAll(), new DenyAllScopes());
+
+    static Scenario CreateScenario(string assetClassification = "confidential")
     {
         var tenantId = Uuid.CreateVersion4();
         var component = new TechnologyComponent(tenantId, Uuid.CreateVersion4());
@@ -160,7 +184,7 @@ public sealed class InventoryBoundaryReferenceReadTests
             Uuid.CreateVersion4(), null, null, null, null, null, "active"), Author,
             DateTimeOffset.UtcNow).IsSuccess);
         var asset = new InformationAsset(tenantId, Uuid.CreateVersion4());
-        Assert.True(asset.Record(new InformationAssetContent("Customer PII", "confidential",
+        Assert.True(asset.Record(new InformationAssetContent("Customer PII", assetClassification,
             "RET-1", Uuid.CreateVersion4(), null, "active"), Author, DateTimeOffset.UtcNow).IsSuccess);
         var directory = new Directory();
         return new Scenario(tenantId, component.Id, asset.Id, directory,
@@ -234,5 +258,16 @@ public sealed class InventoryBoundaryReferenceReadTests
     {
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default) => ValueTask.FromResult(false);
+    }
+
+    sealed class DenyAllScopes : IAccessGrantScopePermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAtAnyScopeAsync(Uuid tenantId, Uuid userId,
+            Uuid memberId, IReadOnlyCollection<AccessGrantScope> scopes, string permission,
+            CancellationToken ct = default) => ValueTask.FromResult(false);
+
+        public ValueTask<bool> IsAllowedAtAnyApplicationInventoryScopeAsync(Uuid tenantId,
+            Uuid userId, Uuid memberId, string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(false);
     }
 }

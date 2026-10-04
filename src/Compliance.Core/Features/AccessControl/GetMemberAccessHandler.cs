@@ -1,5 +1,6 @@
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
@@ -115,6 +116,9 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
                 AccessGrantScopeKind.Program => scope.Id != Uuid.Empty,
                 AccessGrantScopeKind.Application => scope.Id != Uuid.Empty,
                 AccessGrantScopeKind.SystemInstance => scope.Id != Uuid.Empty,
+                AccessGrantScopeKind.SharedResource =>
+                    await IsEffectiveSharedResourceScopeAsync(request.TenantId, scope, ct)
+                        .ConfigureAwait(false),
                 _ => false,
             };
             var memberEpisodeMatches = true;
@@ -184,6 +188,23 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             : [];
         return Result<MemberAccessView>.Success(new MemberAccessView(request.TenantId,
             request.UserId, memberId, paths, grantPaths, permissions));
+    }
+
+    async ValueTask<bool> IsEffectiveSharedResourceScopeAsync(Uuid tenantId,
+        AccessGrantScope scope, CancellationToken ct)
+    {
+        if (scope.Id == Uuid.Empty)
+            return false;
+        return scope.ResourceType switch
+        {
+            TechnologyInventoryResourceTypes.InformationAsset =>
+                (await reader.HydrateAsync(new InformationAsset(tenantId, scope.Id), ct)
+                    .ConfigureAwait(false)).IsCreated,
+            TechnologyInventoryResourceTypes.DataFlow =>
+                (await reader.HydrateAsync(new DataFlow(tenantId, scope.Id), ct)
+                    .ConfigureAwait(false)).IsCreated,
+            _ => false,
+        };
     }
 
     async ValueTask<IReadOnlyList<string>> ReadCurrentStandingPermissionsAsync(Uuid tenantId,

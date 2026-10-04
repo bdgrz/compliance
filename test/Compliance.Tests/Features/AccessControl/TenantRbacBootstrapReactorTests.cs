@@ -34,6 +34,16 @@ public sealed class TenantRbacBootstrapReactorTests
             RoleId: var roleId,
             Permission: RbacPermissions.ApplicationRestrictedRead,
         } && roleId == BuiltInRbac.ComplianceManagementRoleId(tenantId));
+        Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
+        {
+            RoleId: var roleId,
+            Permission: RbacPermissions.TechnologyInventoryRestrictedRead,
+        } && roleId == BuiltInRbac.TenantAdministrationRoleId(tenantId));
+        Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
+        {
+            RoleId: var roleId,
+            Permission: RbacPermissions.TechnologyInventoryRestrictedRead,
+        } && roleId == BuiltInRbac.ComplianceManagementRoleId(tenantId));
     }
 
     [Fact]
