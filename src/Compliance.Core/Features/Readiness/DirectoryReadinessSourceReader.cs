@@ -483,6 +483,23 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
             }
             var retainedReviews = reviews.Items
                 .Where(review => review.RecordedAt <= asOf).ToArray();
+            var coverageGaps = await ReadBoundedAsync((cursor, token) =>
+                    assurance.ListCoverageGapsAsync(tenantId, provider.ProviderId, PageSize,
+                        cursor, token), ProviderAssuranceRegister.MaximumRecordsPerProvider, ct)
+                .ConfigureAwait(false);
+            if (coverageGaps.Truncated && !truncated.Contains("providers", StringComparer.Ordinal))
+                truncated.Add("providers");
+            var programServices = (provider.Content.Dependencies ?? [])
+                .Where(dependency => dependency.SubjectKind == "client_service" &&
+                                     dependency.ProgramId == programId &&
+                                     dependency.SubjectId is not null &&
+                                     dependency.EffectiveFrom <= asOf &&
+                                     (dependency.EffectiveUntilExclusive is not { } until || asOf < until))
+                .Select(static dependency => dependency.SubjectId!.Value).ToHashSet();
+            var retainedCoverageGaps = coverageGaps.Items.Where(gap =>
+                gap.TenantId == tenantId && gap.ProviderId == provider.ProviderId &&
+                gap.RecordedAt <= asOf && gap.ProviderRevision <= provider.Revision &&
+                programServices.Contains(gap.Content.ServiceId)).ToArray();
             var reports = new Dictionary<(Uuid ReportId, long Revision), AssuranceReportView>();
             foreach (var review in retainedReviews)
             {
@@ -496,7 +513,7 @@ sealed class DirectoryReadinessSourceReader(IBoundaryDirectoryReader boundaries,
                     reports[(reportId, revision)] = retained;
             }
             inputs.Add(new ReadinessProviderInput(provider,
-                reports.Values.ToArray(), retainedReviews));
+                reports.Values.ToArray(), retainedReviews, retainedCoverageGaps));
         }
         if (historyTruncated && !truncated.Contains("providers", StringComparer.Ordinal))
             truncated.Add("providers");
