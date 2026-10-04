@@ -73,7 +73,7 @@ public sealed class WorkQueueTests
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
             new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
                 draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
-                now.AddMinutes(-5)), null, null));
+                now.AddMinutes(-5)), null, null, 1));
 
         // Act
         var queue = await fixture.AsAsync(fixture.ReviewerUserId,
@@ -135,7 +135,7 @@ public sealed class WorkQueueTests
             draftVersionId, 1, "accept", fixture.ReviewerMemberId, "Reviewer",
             "Reviewed independently.", now.AddMinutes(-5), null, null, null);
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
-            draft, null, review));
+            draft, null, review, 2));
 
         // Act
         var reviewerQueue = await fixture.AsAsync(fixture.ReviewerUserId,
@@ -166,7 +166,7 @@ public sealed class WorkQueueTests
             });
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
             null, draft with { Status = "approved", EffectiveFrom = approvedEffectiveFrom },
-            review with { DecisionId = approvalDecisionId, Outcome = "approve" }));
+            review with { DecisionId = approvalDecisionId, Outcome = "approve" }, 3));
         var completedQueue = await fixture.AsAsync(fixture.ApproverUserId,
             new ListWork(fixture.TenantId, fixture.ProgramId));
 
@@ -198,7 +198,48 @@ public sealed class WorkQueueTests
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
             new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
                 draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
-                now.AddMinutes(-5)), null, null));
+                now.AddMinutes(-5)), null, null, 1));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Empty(queue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldOmitBoundaryReviewGivenStaleDecisionProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.Null(boundary.Review(draftVersionId, 1, Uuid.CreateVersion4(), "accept",
+                    "Reviewed independently.", fixture.ReviewerMemberId, "Reviewer",
+                    now.AddMinutes(-2)));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 1));
 
         // Act
         var queue = await fixture.AsAsync(fixture.ReviewerUserId,
@@ -236,7 +277,7 @@ public sealed class WorkQueueTests
             fixture.ReviewerMemberId, "Reviewer", "Reviewed independently.",
             now.AddMinutes(-2), null, null, null);
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
-            draft, null, foreignDecision));
+            draft, null, foreignDecision, 1));
 
         // Act
         var queue = await fixture.AsAsync(fixture.ApproverUserId,

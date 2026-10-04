@@ -30,6 +30,7 @@ static class BoundaryDecisionWork
                 var aggregate = await reader.HydrateAsync(new SystemBoundary(tenantId,
                     boundary.BoundaryId), ct).ConfigureAwait(false);
                 if (!aggregate.IsCreated || aggregate.ProgramId != programId ||
+                    aggregate.Revision != boundary.Revision ||
                     aggregate.DraftVersionId != draft.VersionId ||
                     aggregate.DraftRevision != draft.Revision)
                     continue;
