@@ -84,6 +84,27 @@ public sealed class TenantContractCompatibilityTests
     }
 
     [Fact]
+    public void ShouldReadLegacyLifecycleEventsGivenReasonAndOccurrenceTimeWereNotStored()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var operatorId = Uuid.CreateVersion4();
+        var json = $$"""{"tenant_id":"{{tenantId}}","operator_user_id":"{{operatorId}}"}""";
+
+        // Act
+        var suspended = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.TenantSuspended);
+        var reactivated = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.TenantReactivated);
+
+        // Assert
+        Assert.NotNull(suspended);
+        Assert.Null(suspended.Reason);
+        Assert.Equal(default, suspended.OccurredAt);
+        Assert.NotNull(reactivated);
+        Assert.Null(reactivated.Reason);
+        Assert.Equal(default, reactivated.OccurredAt);
+    }
+
+    [Fact]
     public void ShouldDefaultToClientPersonnelGivenLegacyMembershipEvent()
     {
         // Arrange

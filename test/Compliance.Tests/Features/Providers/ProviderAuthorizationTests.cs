@@ -56,7 +56,7 @@ public sealed class ProviderAuthorizationTests
             if (condition != "inactive")
                 Assert.True(tenant.ConfirmSlug("provider-test").IsSuccess);
             if (condition == "tenant_suspended")
-                Assert.True(tenant.Suspend(userId).IsSuccess);
+                Assert.True(tenant.Suspend(userId, "Provider authorization test", DateTimeOffset.UnixEpoch).IsSuccess);
             return Result.Success;
         });
         await ProgramManagementServices.SeedAsync(provider, new Member(tenantId, userId), member =>

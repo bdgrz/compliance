@@ -781,6 +781,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListPlatformOperatorsHandler>()
             .AddRequestHandler<SuspendTenantHandler>()
             .AddRequestHandler<ReactivateTenantHandler>()
+            .AddRequestHandler<OffboardTenantHandler>()
             .AddRequestHandler<InviteTenantMemberHandler>()
             .AddRequestHandler<InviteOrganizationMemberHandler>()
             .AddRequestHandler<ListTenantInvitationsHandler>()

@@ -82,11 +82,64 @@ describe('operator organization inventory (R1-15a frontend #239)', () => {
 
     // Act
     (container.querySelector('button[aria-label="Suspend Acme Corp"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+    expect(await accessibilityViolations(container)).toEqual([]);
+    expect(api.bodies.some((b) => b.path === '/api/v1/tenants/t1/suspensions')).toBe(false);
+    const reason = container.querySelector('textarea[name="reason"]') as HTMLTextAreaElement;
+    reason.value = 'Client requested an access pause.';
+    reason.dispatchEvent(new Event('input', { bubbles: true }));
+    (container.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
     await vi.waitFor(() => expect(container.querySelector('[role="status"]')).not.toBeNull());
 
     // Assert
-    expect(api.bodies.some((b) => b.method === 'POST' && b.path === '/api/v1/tenants/t1/suspensions')).toBe(true);
+    const sent = api.bodies.find((b) => b.method === 'POST' && b.path === '/api/v1/tenants/t1/suspensions');
+    expect(sent?.body).toEqual({ reason: 'Client requested an access pause.' });
     expect(container.querySelector('[role="status"]')?.textContent).toContain('cannot sign in to it');
+  });
+
+  it('ShouldRequireALifecycleReasonBeforeCallingTheServer', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp')], next_cursor: null });
+    const container = mount(TenantInventoryPage);
+    await vi.waitFor(() => expect(container.querySelector('button[aria-label="Suspend Acme Corp"]')).not.toBeNull());
+
+    // Act
+    (container.querySelector('button[aria-label="Suspend Acme Corp"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+    (container.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
+    await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+
+    // Assert
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Enter a reason with at most 500 characters.');
+    expect(api.bodies.some((b) => b.path === '/api/v1/tenants/t1/suspensions')).toBe(false);
+  });
+
+  it('ShouldReactivateAnOrganizationWithAnAttributedReason', async () => {
+    // Arrange
+    api.reply(inventory, 200, { items: [tenant('t1', 'Acme Corp', { status: 'suspended' })], next_cursor: null });
+    api.reply('DELETE /api/v1/tenants/t1/suspensions', 204);
+    const container = mount(TenantInventoryPage);
+    await vi.waitFor(() => expect(container.querySelector('button[aria-label="Reactivate Acme Corp"]')).not.toBeNull());
+
+    // Act
+    (container.querySelector('button[aria-label="Reactivate Acme Corp"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+    const reason = container.querySelector('textarea[name="reason"]') as HTMLTextAreaElement;
+    reason.value = 'The access review is complete.';
+    reason.dispatchEvent(new Event('input', { bubbles: true }));
+    (container.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
+    await vi.waitFor(() => expect(container.querySelector('[role="status"]')).not.toBeNull());
+
+    // Assert
+    const sent = api.bodies.find((b) => b.method === 'DELETE' && b.path === '/api/v1/tenants/t1/suspensions');
+    expect(sent?.body).toEqual({ reason: 'The access review is complete.' });
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('is reactivated');
   });
 
   it('ShouldShowOperatorOnlyGivenAForbiddenViewer', async () => {
@@ -113,6 +166,13 @@ describe('operator organization inventory (R1-15a frontend #239)', () => {
 
     // Act
     (container.querySelector('button[aria-label="Suspend Acme Corp"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(container.querySelector('form')).not.toBeNull());
+    const reason = container.querySelector('textarea[name="reason"]') as HTMLTextAreaElement;
+    reason.value = 'Temporary incident response.';
+    reason.dispatchEvent(new Event('input', { bubbles: true }));
+    (container.querySelector('form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true })
+    );
     await vi.waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
 
     // Assert
