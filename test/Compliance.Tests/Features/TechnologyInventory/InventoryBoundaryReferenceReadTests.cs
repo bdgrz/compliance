@@ -100,6 +100,34 @@ public sealed class InventoryBoundaryReferenceReadTests
     }
 
     [Fact]
+    public async Task ShouldRejectAssetBoundaryReferencesGivenVisibleRevisionChangeDuringIndexRead()
+    {
+        // Arrange
+        var scenario = CreateScenario("public");
+        var asset = await scenario.Reader.HydrateAsync(new InformationAsset(scenario.TenantId,
+            scenario.AssetId));
+        scenario.Directory.Page = new([Reference(scenario.TenantId, "information", scenario.AssetId)], null);
+        scenario.Directory.OnList = () => Assert.Null(asset.Revise(1,
+            current => current with { Classification = "confidential" }, Author,
+            DateTimeOffset.UtcNow));
+        var handler = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
+            scenario.Directory, scenario.Consistency, Visibility());
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListInformationAssetBoundaryReferences>(
+            new ListInformationAssetBoundaryReferences(scenario.TenantId, scenario.AssetId), actor),
+            CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
     public async Task ShouldHideUnknownRecordsWithoutReadingTheIndexGivenNoSuchComponentOrAsset()
     {
         // Arrange
@@ -199,10 +227,11 @@ public sealed class InventoryBoundaryReferenceReadTests
     }
 
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
-        new(request, new ClaimsPrincipal());
+        new(request, new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "test")));
 
     static TechnologyInventoryRestrictedVisibility Visibility() =>
-        new(new DenyAll(), new DenyAllScopes());
+        new(new ManagePermission(), new DenyAllScopes());
 
     static Scenario CreateScenario(string assetClassification = "confidential")
     {
@@ -288,6 +317,13 @@ public sealed class InventoryBoundaryReferenceReadTests
     {
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default) => ValueTask.FromResult(false);
+    }
+
+    sealed class ManagePermission : IPermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(permission == RbacPermissions.TechnologyInventoryManage);
     }
 
     sealed class DenyAllScopes : IAccessGrantScopePermissionAuthorizer

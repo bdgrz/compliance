@@ -4,7 +4,7 @@ This document specifies the backend behavior for [restricted technology inventor
 
 ## Authorization
 
-All technology inventory operations first require active tenant membership and `technology_inventory.manage`. The restricted-read check is an additional read rule for only these records:
+All technology inventory operations first require active tenant membership and `technology_inventory.manage`. An organization-wide permission permits the ordinary request family. An exact resource grant can supply this permission for reads of that information asset or data flow; it does not authorize mutations, inventory components, or unrelated records. List and history reads enforce the permission on each record before returning it. The restricted-read check is an additional read rule for only these records:
 
 | Record | Restricted when | Resource type for a record grant |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ All technology inventory operations first require active tenant membership and `
 
 `confidential` continues to require encryption in transit and at rest under M0-D08. It does not make a record restricted for read authorization.
 
-An organization-wide `technology_inventory.restricted.read` permission permits reading every restricted technology inventory record in the tenant. Org Admin and Compliance Lead receive this permission through recorded role assignments; their existing role IDs remain stable. Other callers need an active access grant for the exact tenant-local resource. The granting role must hold `technology_inventory.restricted.read`.
+An organization-wide `technology_inventory.restricted.read` permission permits reading every restricted technology inventory record in the tenant when the caller also has its base inventory authority. Org Admin and Compliance Lead receive both permissions through recorded role assignments; their existing role IDs remain stable. Other callers need an active access grant for the exact tenant-local resource. The granting role must hold `technology_inventory.manage` and, for a restricted record, `technology_inventory.restricted.read`.
 
 The grant is issued through `POST /api/v1/tenants/{tenant_id}/access-grants/{grant_id}` with a `GrantAccess` request. The scope has `kind: "shared_resource"`, the record's `id`, and `resource_type` set to `information_asset` or `data_flow`. The API validates that the source aggregate exists in that tenant before recording the grant. Existing `principal`, `role_id`, `source`, and effective-time requirements continue to apply.
 
@@ -31,6 +31,11 @@ An information asset grant does not cover a flow that carries the asset. A data-
 
 ## Read operations
 
+The request authorizer first enforces tenant membership and base inventory
+authority. A caller with neither standing authority nor an eligible resource
+grant is denied before the handler runs. After admission, an unauthorized
+record has the following behavior:
+
 | Operation | Behavior for an unauthorized restricted record |
 | --- | --- |
 | `GET /api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}` | Returns NotFound. |
@@ -42,6 +47,11 @@ An information asset grant does not cover a flow that carries the asset. A data-
 | `GET /api/v1/tenants/{tenant_id}/data-flows/{data_flow_id}` | Returns NotFound. |
 | `GET /api/v1/tenants/{tenant_id}/data-flows` | Omits the record before filling the requested page. |
 | `GET /api/v1/tenants/{tenant_id}/data-flows/{data_flow_id}/revisions` | Returns NotFound when the current flow is restricted; otherwise omits each restricted historical revision before filling the page. |
+
+For a caller admitted through an exact resource grant, these operations also
+omit unrelated ordinary records or return NotFound for a direct read. Grant
+expiration, revocation, and current membership eligibility are checked through
+the same authoritative access-grant readers used by other scoped operations.
 
 List page limits apply to visible rows. The server can scan additional projection pages to fill a page after filtering. A cursor advances past rows consumed during that scan, and does not provide a total count of hidden records. Technology-inventory list and history reads return a transient conflict if their projection changes while the filtered page is being read.
 

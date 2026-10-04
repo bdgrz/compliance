@@ -26,9 +26,7 @@ public sealed class GetDataFlowHandler(IAggregateReader aggregates,
                 "The data flow was not found."));
         var flow = await consistency.GetFlowAsync(request.TenantId, request.DataFlowId,
             request.MinimumRevision, ct).ConfigureAwait(false);
-        if (!flow.IsSuccess)
-            return flow;
-        if (!await visibility.CanReadFlowAsync(request.TenantId, userId, flow.Value, ct)
+        if (flow.IsSuccess && !await visibility.CanReadFlowAsync(request.TenantId, userId, flow.Value, ct)
                 .ConfigureAwait(false))
             return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The data flow was not found."));
@@ -38,6 +36,8 @@ public sealed class GetDataFlowHandler(IAggregateReader aggregates,
                 current.Id, current.Content?.Classification, ct).ConfigureAwait(false))
             return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The data flow was not found."));
+        if (!flow.IsSuccess)
+            return flow;
         if (current.Revision != flow.Value.Revision)
             return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The data flow changed while it was being read. Retry the query.",

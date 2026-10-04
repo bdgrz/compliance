@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.TechnologyInventory;
 [Discriminator("bdgrz.inventory.information_asset.change.preview", 1)]
 public sealed record PreviewInformationAssetChange(Uuid TenantId, Uuid InformationAssetId,
     long ExpectedRevision, string? Classification = null, string? Lifecycle = null)
-    : IRequest<InformationAssetChangePreview>, ITechnologyInventoryRequest, ICallable;
+    : IRequest<InformationAssetChangePreview>, ITechnologyInventoryReadRequest, ICallable;
