@@ -9,4 +9,8 @@ public interface IAssuranceReader
         long revision, CancellationToken ct = default);
     ValueTask<Page<AssuranceReportView>> ListReportsAsync(Uuid tenantId, Uuid providerId, int limit, string? cursor, CancellationToken ct = default);
     ValueTask<Page<ProviderReviewView>> ListReviewsAsync(Uuid tenantId, Uuid providerId, int limit, string? cursor, CancellationToken ct = default);
+    ValueTask<ProviderCoverageGapView?> GetCoverageGapAsync(Uuid tenantId, Uuid gapId,
+        CancellationToken ct = default);
+    ValueTask<Page<ProviderCoverageGapView>> ListCoverageGapsAsync(Uuid tenantId, Uuid providerId,
+        int limit, string? cursor, CancellationToken ct = default);
 }

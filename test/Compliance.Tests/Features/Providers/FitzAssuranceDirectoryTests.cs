@@ -8,6 +8,76 @@ namespace Bdgrz.Compliance.Tests.Features.Providers;
 public sealed class FitzAssuranceDirectoryTests
 {
     [Fact]
+    public async Task ShouldProjectProviderCoverageGapAndClosureGivenTenantScopedReads()
+    {
+        // Arrange
+        var directory = new FitzAssuranceDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var otherTenantId = Uuid.CreateVersion4();
+        var providerId = Uuid.CreateVersion4();
+        var gapId = Uuid.CreateVersion4();
+        var content = new ProviderCoverageGapContent(Uuid.CreateVersion4(), "Payroll service",
+            "Availability assertion", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30),
+            "assurance_report", Uuid.CreateVersion4(), 2, "The period is only partly covered.");
+        var recorded = new ProviderCoverageGapRecorded(tenantId, gapId, providerId,
+            Uuid.CreateVersion4(), 3, content, Author, Now);
+        var acceptance = new ProviderCoverageGapRiskAcceptanceLinked(tenantId, gapId,
+            providerId, Uuid.CreateVersion4(), 2,
+            new ProviderCoverageGapRiskAcceptanceView(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                Uuid.CreateVersion4(), Now.AddMonths(2), Author, Now.AddHours(1))
+            { Revision = 2 });
+        var closed = new ProviderCoverageGapClosed(tenantId, gapId, providerId,
+            Uuid.CreateVersion4(), 3,
+            new ProviderCoverageGapClosureContent("coverage_restored", "assurance_report",
+                Uuid.CreateVersion4(), 3, "A newer report covers the period."), Author,
+            Now.AddDays(1));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(recorded);
+            await directory.ApplyAsync(acceptance);
+            await directory.ApplyAsync(closed);
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        await using (var replay = await directory.BeginAsync(new ProjectionBatchContext(
+                         Identity(tenantId), ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(recorded);
+            await directory.ApplyAsync(acceptance);
+            await directory.ApplyAsync(closed);
+            await replay.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var gap = await directory.GetCoverageGapAsync(tenantId, gapId);
+        var listed = await directory.ListCoverageGapsAsync(tenantId, providerId, 10, null);
+        var foreign = await directory.GetCoverageGapAsync(otherTenantId, gapId);
+        var foreignList = await directory.ListCoverageGapsAsync(otherTenantId, providerId, 10, null);
+
+        // Assert
+        Assert.Equal(content, gap!.Content);
+        Assert.Equal(3, gap.ProviderRevision);
+        Assert.Equal(3, gap.Revision);
+        Assert.Equal("closed", gap.Status);
+        Assert.Single(gap.RiskAcceptances!);
+        Assert.Equal(acceptance.Acceptance, Assert.Single(gap.RiskAcceptances!));
+        Assert.Equal("coverage_restored", gap.Closure!.Content.Resolution);
+        Assert.Single(listed.Items);
+        Assert.Null(foreign);
+        Assert.Empty(foreignList.Items);
+        await using var changed = await directory.BeginAsync(new ProjectionBatchContext(
+            Identity(tenantId), ProjectionCheckpoint.Start));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await directory.ApplyAsync(acceptance with
+            {
+                Acceptance = acceptance.Acceptance with
+                {
+                    ExpiresAt = acceptance.Acceptance.ExpiresAt.AddDays(1),
+                },
+            }));
+    }
+
+    [Fact]
     public async Task ShouldExhaustScopedPagesGivenTwoTenantsAndRetainedReportsAndReviews()
     {
         // Arrange
