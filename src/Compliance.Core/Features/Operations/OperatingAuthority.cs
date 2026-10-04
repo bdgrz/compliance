@@ -13,6 +13,7 @@ public sealed class OperatingAuthority(IAggregateReader reader,
     public const string MemberHolder = "member";
     public const string PersonHolder = "person";
     public const string TeamHolder = "team";
+    public const string ProgramReviewerHolder = "program_reviewer";
 
     internal ValueTask<bool> ManagesProgramAsync(Uuid tenantId, OperationsActor actor,
         Uuid programId, CancellationToken ct) => permissions.IsAllowedAsync(tenantId, actor.UserId,
@@ -26,6 +27,15 @@ public sealed class OperatingAuthority(IAggregateReader reader,
             return false;
         if (holder.Kind == MemberHolder)
             return holder.Id == memberId;
+        if (holder.Kind == ProgramReviewerHolder)
+        {
+            var programMember = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+                .ConfigureAwait(false);
+            return programMember.IsRegistered && !programMember.IsSuspended && !programMember.IsDeprovisioned &&
+                   programMember.Affiliation == "client_personnel" && programMember.UserId != Uuid.Empty &&
+                   await permissions.IsAllowedAsync(tenantId, programMember.UserId, memberId, holder.Id,
+                       IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false);
+        }
         if (holder.Kind != TeamHolder)
             return false;
         var team = await reader.HydrateAsync(new Team(tenantId, holder.Id), ct).ConfigureAwait(false);

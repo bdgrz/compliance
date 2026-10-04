@@ -1,6 +1,9 @@
+using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Operations;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Tests.Features.Operations;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -64,6 +67,89 @@ public sealed class WorkAssignmentTests
         await fixture.Scenario(fixture.ReviewerUserId).When(new AssignWorkItem(fixture.TenantId,
                 fixture.ProgramId, review.WorkItemId, 0, fixture.ReviewerMemberId))
             .ExpectFailure(RequestErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task ShouldAssignRiskCompletionReviewToEligibleReviewerGivenSubmittedCompletion()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var riskId = Uuid.CreateVersion4();
+        var actionId = Uuid.CreateVersion4();
+        var evidenceId = Uuid.CreateVersion4();
+        var submissionId = Uuid.CreateVersion4();
+        var lead = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        var now = DateTimeOffset.UtcNow;
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new EvidenceRequestLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.OpenRequest(evidenceId, "MFA export", "Upload the policy.",
+                    fixture.OwnerMemberId, fixture.Today.AddDays(5), null, lead, now));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new EvidenceRequestLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Fulfil(evidenceId, 1, Uuid.CreateVersion4(), lead, now));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(riskId, 0, actionId, "mitigate",
+                    "Enforce MFA", "MFA is required for every administrator.",
+                    "Identity provider policy export.", fixture.Today.AddDays(9),
+                    fixture.OwnerMemberId, [evidenceId], lead, now));
+                Assert.Null(ledger.SubmitActionCompletion(riskId, actionId, 1, submissionId,
+                    "MFA enforced on all administrators.", [evidenceId], new HashSet<Uuid>
+                    {
+                        evidenceId,
+                    }, fixture.LeadMemberId, lead, now));
+                return Result.Success;
+            });
+        var managerQueue = await fixture.AsAsync(fixture.LeadUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId, "all"));
+        var review = Assert.Single(managerQueue.Items,
+            item => item.Kind == "risk_treatment_action_review");
+
+        // Act
+        await fixture.Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId,
+                fixture.ProgramId, review.WorkItemId, 0, fixture.OwnerMemberId,
+                "Action owner cannot review own work."))
+            .ExpectFailure(RequestErrorKind.Validation);
+        await fixture.Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId,
+                fixture.ProgramId, review.WorkItemId, 0, fixture.ReviewerMemberId,
+                "Reviewer has no scoped program-management grant."))
+            .ExpectFailure(RequestErrorKind.Validation);
+        var assigned = await fixture.AsAsync(fixture.LeadUserId, new AssignWorkItem(
+            fixture.TenantId, fixture.ProgramId, review.WorkItemId, 0,
+            fixture.ApproverMemberId, "Independent completion review."));
+        var reviewerQueue = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.ReviewActionCompletion(riskId, actionId, 2,
+                    Uuid.CreateVersion4(), "accept", "Evidence proves the target state.",
+                    fixture.ApproverMemberId,
+                    ActorReference.ForMember(fixture.ApproverMemberId, "Approver"),
+                    DateTimeOffset.UtcNow, new HashSet<Uuid> { evidenceId }));
+                return Result.Success;
+            });
+        var afterReview = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Equal(submissionId, review.SourceId);
+        Assert.Equal("review", review.NextAction);
+        Assert.EndsWith($"/risks/{riskId}/treatment-actions/{actionId}/completion-reviews",
+            review.ActionPath, StringComparison.Ordinal);
+        Assert.Null(review.AssigneeMemberId);
+        Assert.Equal(fixture.ApproverMemberId, assigned.Item.AssigneeMemberId);
+        Assert.Contains(reviewerQueue.Items,
+            item => item.WorkItemId == review.WorkItemId &&
+                    item.AssigneeMemberId == fixture.ApproverMemberId);
+        Assert.DoesNotContain(afterReview.Items, item => item.WorkItemId == review.WorkItemId);
     }
 
     [Fact]

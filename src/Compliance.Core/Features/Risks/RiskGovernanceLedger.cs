@@ -223,6 +223,12 @@ public sealed class RiskGovernanceLedger : Aggregate
             ? risk.Actions.Find(item => item.ActionId == actionId)
             : null;
 
+    internal Uuid? SubmitterMemberId(Uuid riskId, Uuid submissionId) =>
+        _risks.TryGetValue(riskId, out var risk) &&
+        risk.Submitters.TryGetValue(submissionId, out var memberId)
+            ? memberId
+            : null;
+
     static bool IsOverdue(RiskTreatmentActionView action, DateOnly today) =>
         action.Status is not (ActionCompleted or ActionCancelled) && action.DueOn < today;
 
