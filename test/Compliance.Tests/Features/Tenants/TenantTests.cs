@@ -12,6 +12,7 @@ public sealed class TenantTests
     static readonly Uuid OwnerUserId = Uuid.Parse(
         "0862062f-97e9-45de-a312-0f884c48180d",
         CultureInfo.InvariantCulture);
+    static readonly DateTimeOffset RecordedAt = new(2026, 10, 3, 16, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void ShouldRequestSlugRegistrationGivenTenantRegistration()
@@ -113,15 +114,81 @@ public sealed class TenantTests
         _ = tenant.ConfirmSlug("acme");
         Assert.True(tenant.IsActive);
 
-        Assert.True(tenant.Suspend(OwnerUserId).IsSuccess);
+        Assert.True(tenant.Suspend(OwnerUserId, "Security review", RecordedAt).IsSuccess);
         Assert.True(tenant.IsSuspended);
         Assert.False(tenant.IsActive);
-        Assert.True(tenant.Suspend(OwnerUserId).IsSuccess);
-        Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantSuspended>());
+        Assert.True(tenant.Suspend(OwnerUserId, "Repeated request", RecordedAt.AddMinutes(1)).IsSuccess);
+        var suspended = Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantSuspended>());
+        Assert.Equal("Security review", suspended.Reason);
+        Assert.Equal(RecordedAt, suspended.OccurredAt);
 
-        Assert.True(tenant.Reactivate(OwnerUserId).IsSuccess);
+        Assert.True(tenant.Reactivate(OwnerUserId, "Review complete", RecordedAt.AddHours(1)).IsSuccess);
         Assert.True(tenant.IsActive);
-        Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantReactivated>());
+        var reactivated = Assert.Single(new AggregateScenario<Tenant>(tenant).PendingEvents.OfType<TenantReactivated>());
+        Assert.Equal("Review complete", reactivated.Reason);
+        Assert.Equal(RecordedAt.AddHours(1), reactivated.OccurredAt);
+    }
+
+    [Fact]
+    public void ShouldRequireReasonGivenTenantLifecycleDecision()
+    {
+        // Arrange
+        var tenant = new Tenant(TenantId);
+        _ = tenant.Register(OwnerUserId, "Acme", "acme");
+        _ = tenant.ConfirmSlug("acme");
+        var scenario = new AggregateScenario<Tenant>(tenant);
+
+        // Act
+        var suspend = tenant.Suspend(OwnerUserId, " ", RecordedAt);
+        var offboard = tenant.StartOffboarding(OwnerUserId, new string('x', 501), RecordedAt);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, suspend.Error?.Kind);
+        Assert.Equal(RequestErrorKind.Validation, offboard.Error?.Kind);
+        Assert.Empty(scenario.PendingEvents.OfType<TenantSuspended>());
+        Assert.Empty(scenario.PendingEvents.OfType<TenantOffboardingStarted>());
+    }
+
+    [Fact]
+    public void ShouldRequirePlatformOperatorGivenOffboardingRequest()
+    {
+        // Arrange
+        var request = new OffboardTenant(TenantId, "Client requested offboarding.");
+
+        // Act
+        var platformRequest = Assert.IsAssignableFrom<IPlatformOperatorRequest>(request);
+
+        // Assert
+        Assert.Equal(TenantId, request.TenantId);
+        Assert.Equal("Client requested offboarding.", request.Reason);
+        Assert.NotNull(platformRequest);
+    }
+
+    [Fact]
+    public void ShouldRevokeTenantAccessGivenOffboarding()
+    {
+        // Arrange
+        var tenant = new Tenant(TenantId);
+        _ = tenant.Register(OwnerUserId, "Acme", "acme");
+        _ = tenant.ConfirmSlug("acme");
+        var scenario = new AggregateScenario<Tenant>(tenant);
+        var startedAt = RecordedAt;
+
+        // Act
+        var result = tenant.StartOffboarding(OwnerUserId, "Client requested offboarding", startedAt);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(tenant.IsOffboarding);
+        Assert.False(tenant.IsActive);
+        var offboarding = Assert.Single(scenario.PendingEvents.OfType<TenantOffboardingStarted>());
+        Assert.Equal(OwnerUserId, offboarding.OperatorUserId);
+        Assert.Equal("Client requested offboarding", offboarding.Reason);
+        Assert.Equal(startedAt, offboarding.StartedAt);
+        Assert.True(tenant.StartOffboarding(OwnerUserId, "Repeated request", startedAt.AddMinutes(1)).IsSuccess);
+        Assert.Single(scenario.PendingEvents.OfType<TenantOffboardingStarted>());
+        var reactivate = tenant.Reactivate(OwnerUserId, "Cancel offboarding", startedAt.AddMinutes(1));
+        Assert.Equal(RequestErrorKind.Conflict, reactivate.Error?.Kind);
     }
 
     [Fact]
@@ -138,7 +205,7 @@ public sealed class TenantTests
         _ = tenant.ConfirmSlug("acme");
 
         Assert.False(tenant.IsActive);
-        Assert.False(tenant.Suspend(OwnerUserId).IsSuccess);
+        Assert.False(tenant.Suspend(OwnerUserId, "Provisioning not complete", RecordedAt).IsSuccess);
         Assert.False(tenant.Activate(Uuid.CreateVersion4(), "other@example.com").IsSuccess);
         Assert.True(tenant.Activate(Uuid.CreateVersion4(), "admin@example.com").IsSuccess);
         Assert.True(tenant.IsActive);

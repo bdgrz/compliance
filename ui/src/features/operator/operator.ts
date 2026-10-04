@@ -46,13 +46,13 @@ export async function listTenantInventory(cursor: string | null): Promise<Tenant
   };
 }
 
-export async function suspendTenant(tenantId: string): Promise<void> {
-  const result = await client.suspendTenant({ params: { tenant_id: tenantId } });
+export async function suspendTenant(tenantId: string, reason: string): Promise<void> {
+  const result = await client.suspendTenant({ params: { tenant_id: tenantId }, body: { reason } });
   if (!result.ok) throw failure(result, 'suspend this organization');
 }
 
-export async function reactivateTenant(tenantId: string): Promise<void> {
-  const result = await client.reactivateTenant({ params: { tenant_id: tenantId } });
+export async function reactivateTenant(tenantId: string, reason: string): Promise<void> {
+  const result = await client.reactivateTenant({ params: { tenant_id: tenantId }, body: { reason } });
   if (!result.ok) throw failure(result, 'reactivate this organization');
 }
 

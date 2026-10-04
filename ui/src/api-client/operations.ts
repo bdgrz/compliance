@@ -861,6 +861,10 @@ export type RevokeAccessGrantError_500 = {
   "transient"?: boolean;
 };
 
+export type OffboardTenantPath = {
+  "tenant_id": string;
+};
+
 export type OpenAccessPopulationPath = {
   "tenant_id": string;
 };
