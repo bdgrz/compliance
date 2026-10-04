@@ -13,7 +13,7 @@ All technology inventory operations first require active tenant membership and `
 
 `confidential` continues to require encryption in transit and at rest under M0-D08. It does not make a record restricted for read authorization.
 
-An organization-wide `technology_inventory.restricted.read` permission permits reading every restricted technology inventory record in the tenant. Tenant Administration and Compliance Management receive this permission through recorded role assignments. Other callers need an active access grant for the exact tenant-local resource. The granting role must hold `technology_inventory.restricted.read`.
+An organization-wide `technology_inventory.restricted.read` permission permits reading every restricted technology inventory record in the tenant. Org Admin and Compliance Lead receive this permission through recorded role assignments; their existing role IDs remain stable. Other callers need an active access grant for the exact tenant-local resource. The granting role must hold `technology_inventory.restricted.read`.
 
 The grant is issued through `POST /api/v1/tenants/{tenant_id}/access-grants/{grant_id}` with a `GrantAccess` request. The scope has `kind: "shared_resource"`, the record's `id`, and `resource_type` set to `information_asset` or `data_flow`. The API validates that the source aggregate exists in that tenant before recording the grant. Existing `principal`, `role_id`, `source`, and effective-time requirements continue to apply.
 

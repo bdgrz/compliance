@@ -66,6 +66,7 @@ delay core organization creation or administration.
 | Criteria and commitments | [Criteria catalog](criteria-catalog-v1.md), [commitment drafts](commitment-drafts-v1.md) |
 | Workforce and identity context | [Workforce person](workforce-person-v1.md), [source governance](workforce-source-governance.md) |
 | Applications and concrete systems | [Application change preview](application-change-preview-v1.md), [optional application import](application-import-v1.md), [system-instance aggregate](system-instance-aggregate.md), [restricted visibility](decisions/restricted-application-visibility.md) |
+| Technology and information visibility | [Restricted inventory decision](decisions/restricted-technology-inventory-visibility.md), [restricted read contract](technology-inventory-restricted-reads-v1.md) |
 | Controls | [Control definition](control-draft-v1.md), [operation](control-operation-v1.md), [evaluation](control-evaluation-v1.md) |
 | Risks and provider oversight | [Risk drafts](risk-draft-v1.md), [risk assessment](risk-assessment-v1.md), [provider register](provider-register-v1.md), [provider assurance](provider-assurance-v1.md) |
 | Evidence and membership lifecycle | [Evidence intake/recovery](evidence-intake-recovery-v1.md), [member deprovisioning](decisions/member-deprovisioning.md) |
