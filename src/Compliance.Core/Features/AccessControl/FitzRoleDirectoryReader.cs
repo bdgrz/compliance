@@ -24,6 +24,12 @@ sealed class FitzRoleDirectoryReader(IKvClient client)
                 await RoleDirectorySchema.Directory.InsertAsync(
                     Transaction, new RoleView(defined.RoleId, defined.Name), ct).ConfigureAwait(false);
                 break;
+            case RoleRenamed renamed:
+                await RoleDirectorySchema.Directory.DeleteAsync(Transaction, renamed.RoleId, ct)
+                    .ConfigureAwait(false);
+                await RoleDirectorySchema.Directory.InsertAsync(
+                    Transaction, new RoleView(renamed.RoleId, renamed.Name), ct).ConfigureAwait(false);
+                break;
             case RoleDeleted deleted:
                 await RoleDirectorySchema.Directory.DeleteAsync(Transaction, deleted.RoleId, ct).ConfigureAwait(false);
                 break;

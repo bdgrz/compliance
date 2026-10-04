@@ -13,6 +13,7 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
       IProjectorHandler<TeamMemberAssigned>,
       IProjectorHandler<TeamMemberRemoved>,
       IProjectorHandler<RoleDefined>,
+      IProjectorHandler<RoleRenamed>,
       IProjectorHandler<RoleDeleted>,
       IProjectorHandler<RolePermissionAssigned>,
       IProjectorHandler<RolePermissionRemoved>,
@@ -67,6 +68,9 @@ public sealed partial class PermissionProjector(IPermissionProjection projection
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(RoleDefined ev, IProjectorContext context, CancellationToken ct) =>
+        projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(RoleRenamed ev, IProjectorContext context, CancellationToken ct) =>
         projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(RoleDeleted ev, IProjectorContext context, CancellationToken ct) =>

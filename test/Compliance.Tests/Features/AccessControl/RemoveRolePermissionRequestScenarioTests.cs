@@ -12,7 +12,7 @@ public sealed class RemoveRolePermissionRequestScenarioTests
     const string Permission = "controls.read";
 
     [Fact]
-    public async Task ShouldRemoveAnAssignedPermissionGivenTenantRbacManagePermission()
+    public async Task ShouldRejectUserPermissionMutationGivenTheFixedRoleCatalog()
     {
         // Arrange
         await using var provider = RbacManagementServices.Build(allowed: true,
@@ -24,9 +24,8 @@ public sealed class RemoveRolePermissionRequestScenarioTests
             // Act
             .When(new RemoveRolePermission(TenantId, RoleId, Permission))
             // Assert
-            .ExpectAuthorized()
-            .ExpectHandled()
-            .ExpectSuccess();
+            .ExpectDenied(RequestErrorKind.Forbidden)
+            .ExpectNotHandled();
     }
 
     [Fact]

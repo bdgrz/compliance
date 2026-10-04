@@ -21,6 +21,14 @@ sealed class RbacManagementAuthorizer(IPermissionAuthorizer permissions, ITenant
                     "Access grant changes require an authenticated member."))
                 : Result.Success;
 
+        if (context.Request is DefineRole or RenameRole or AssignRolePermission or RemoveRolePermission)
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The role catalog and permissions are fixed by the system."));
+        if (context.Request is AssignTeamRole teamRole &&
+            !BuiltInRbac.IsBuiltInRole(teamRole.TenantId, teamRole.RoleId))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Only built-in roles may be assigned to teams."));
+
         return await AuthorizeTenantAsync(context.Actor, context.Request.TenantId, ct).ConfigureAwait(false);
     }
 

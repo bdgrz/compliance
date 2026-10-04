@@ -74,7 +74,8 @@ sealed class FitzPermissionAuthorizer(IKvClient client, ITenantMembershipDirecto
                 return false;
             var state = JsonSerializer.Deserialize(stored.Value!.Value.Span,
                 ComplianceCoreJsonContext.Default.PermissionProjectionState);
-            currentAccess = state?.Explain(memberId) ?? [];
+            currentAccess = state?.Explain(memberId)
+                .Where(edge => BuiltInRbac.IsBuiltInRole(tenantId, edge.RoleId)).ToArray() ?? [];
         }
 
         // Older projections can retain a grant key without an explainable active path.

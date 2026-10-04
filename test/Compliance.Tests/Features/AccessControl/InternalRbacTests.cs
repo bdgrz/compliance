@@ -9,7 +9,7 @@ public sealed class InternalRbacTests
     static readonly Uuid TenantId = Id("11f455d2-fb10-4f28-a157-23e18e706e70");
     static readonly Uuid UserId = Id("0862062f-97e9-45de-a312-0f884c48180d");
     static readonly Uuid TeamId = Id("2cc8e854-a49a-42a1-9581-d0622de3d5c3");
-    static readonly Uuid RoleId = Id("c1b1b99d-2c52-46c6-ad58-55fe90bf53b3");
+    static readonly Uuid RoleId = BuiltInRbac.ComplianceManagementRoleId(TenantId);
 
     [Fact]
     public void ShouldGrantAdditivePermissionsGivenTeamRolePath()

@@ -43,6 +43,30 @@ public sealed class FitzRoleDirectoryReaderTests
     }
 
     [Fact]
+    public async Task ShouldReplaceDisplayNameGivenRoleRenameEvent()
+    {
+        // Arrange
+        var client = new InMemoryKvClient();
+        var roleId = Uuid.CreateVersion4();
+        await SeedAsync(client, roleId, "Tenant Administration");
+        var reader = new FitzRoleDirectoryReader(client);
+        var identity = new CheckpointIdentity("RoleDirectory", EventStreamPattern.ForPattern(TenantId.ToString()));
+        await using (var batch = await reader.BeginAsync(
+                         new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await reader.ApplyAsync(new RoleRenamed(TenantId, roleId, "Org Admin"));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+
+        // Act
+        var role = await reader.GetAsync(TenantId, roleId, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(role);
+        Assert.Equal("Org Admin", role.Name);
+    }
+
+    [Fact]
     public async Task ShouldReturnRolesInNameOrderGivenTenantQuery()
     {
         // Arrange

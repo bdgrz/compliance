@@ -314,7 +314,7 @@ public sealed class FitzPermissionAuthorizerTests
         var userId = Uuid.CreateVersion4();
         var memberId = RbacIds.Member(tenantId, userId);
         var teamId = Uuid.CreateVersion4();
-        var roleId = Uuid.CreateVersion4();
+        var roleId = BuiltInRbac.TenantAdministrationRoleId(tenantId);
         var memberships = new FitzTenantMembershipDirectoryReader(client);
         var permissions = new FitzPermissionAuthorizer(client, memberships, new InMemoryEventStore(),
             new FixedMemberAccessEligibility(true));

@@ -20,6 +20,11 @@ public sealed class TenantRbacBootstrapReactorTests
 
         // Assert
         Assert.Contains(scenario.SentRequests, request => request is DefineTeam);
+        Assert.Contains(scenario.SentRequests, request => request is DefineRole
+        {
+            RoleId: var roleId,
+            Name: BuiltInRbac.ViewerRoleName,
+        } && roleId == BuiltInRbac.ViewerRoleId(tenantId));
         Assert.DoesNotContain(scenario.SentRequests, request => request is AssignRolePermission
         {
             Permission: RbacPermissions.ApplicationInventoryManage,

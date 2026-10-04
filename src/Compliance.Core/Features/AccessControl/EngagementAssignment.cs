@@ -6,5 +6,6 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 public sealed record EngagementAssignment(
     Uuid ClientTenantId,
     Uuid EngagementId,
+    Uuid FirmStaffMemberId,
     Uuid UserId,
     EngagementPractice Practice);

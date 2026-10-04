@@ -8,22 +8,35 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 /// </summary>
 public static class IndependenceCompartments
 {
-    const int LookBackMonths = 12;
+    const int MaximumDateOnlyMonthOffset = 120_000;
 
     /// <summary>One person may never hold both an advisory and an attest assignment for the same client.</summary>
-    public static Result CanAssign(IEnumerable<EngagementAssignment> clientAssignments,
+    public static IndependenceDecision CanAssign(IEnumerable<EngagementAssignment> clientAssignments,
         EngagementAssignment candidate)
     {
         ArgumentNullException.ThrowIfNull(clientAssignments);
         ArgumentNullException.ThrowIfNull(candidate);
-        var crossesWall = clientAssignments.Any(existing =>
+        if (candidate.ClientTenantId == Uuid.Empty || candidate.EngagementId == Uuid.Empty ||
+            candidate.FirmStaffMemberId == Uuid.Empty || candidate.UserId == Uuid.Empty ||
+            !Enum.IsDefined(candidate.Practice))
+            return new IndependenceDecision(IndependenceDecisionCode.AssignmentInvalid);
+
+        var assignmentHistory = clientAssignments.ToArray();
+        if (assignmentHistory.Any(assignment => assignment is null || assignment.ClientTenantId == Uuid.Empty))
+            return new IndependenceDecision(IndependenceDecisionCode.AssignmentInvalid);
+        var clientHistory = assignmentHistory.Where(assignment =>
+            assignment.ClientTenantId == candidate.ClientTenantId).ToArray();
+        if (clientHistory.Any(assignment => assignment.EngagementId == Uuid.Empty ||
+                assignment.FirmStaffMemberId == Uuid.Empty || assignment.UserId == Uuid.Empty ||
+                !Enum.IsDefined(assignment.Practice)))
+            return new IndependenceDecision(IndependenceDecisionCode.AssignmentInvalid);
+        var crossesWall = clientHistory.Any(existing =>
             existing.ClientTenantId == candidate.ClientTenantId &&
-            existing.UserId == candidate.UserId &&
+            existing.FirmStaffMemberId == candidate.FirmStaffMemberId &&
             existing.Practice != candidate.Practice);
         return crossesWall
-            ? Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "A person cannot hold both advisory and attest assignments for the same client."))
-            : Result.Success;
+            ? new IndependenceDecision(IndependenceDecisionCode.PersonPracticeConflict)
+            : IndependenceDecision.Allow;
     }
 
     /// <summary>
@@ -44,24 +57,85 @@ public static class IndependenceCompartments
 
     /// <summary>
     ///     An attest engagement cannot be accepted for a client that received control design,
-    ///     implementation, or operation from the firm within the last twelve months, including
-    ///     ongoing work. A readiness assessment in the same window requires a recorded partner evaluation.
+    ///     implementation, or operation from the firm within the rule-set look-back, including
+    ///     ongoing work. A conditionally compatible service in the same window requires a recorded
+    ///     partner evaluation.
     /// </summary>
-    public static Result CanAcceptAttestEngagement(Uuid clientTenantId,
-        IEnumerable<AdvisoryEngagementRecord> advisoryHistory, DateOnly acceptedOn, bool partnerEvaluationRecorded)
+    public static IndependenceDecision CanAcceptAttestEngagement(Uuid clientTenantId,
+        IndependenceRuleSet ruleSet, IEnumerable<NonattestServiceRecord> serviceHistory,
+        DateOnly examinationPeriodStart, bool partnerEvaluationRecorded)
     {
-        ArgumentNullException.ThrowIfNull(advisoryHistory);
-        var windowStart = acceptedOn.AddMonths(-LookBackMonths);
-        var recent = advisoryHistory
-            .Where(record => record.ClientTenantId == clientTenantId)
+        ArgumentNullException.ThrowIfNull(ruleSet);
+        ArgumentNullException.ThrowIfNull(serviceHistory);
+        if (clientTenantId == Uuid.Empty || examinationPeriodStart == DateOnly.MinValue)
+            return new IndependenceDecision(IndependenceDecisionCode.EvaluationInputInvalid);
+        if (!ruleSet.IsValid)
+            return new IndependenceDecision(IndependenceDecisionCode.RuleSetInvalid);
+        if (ruleSet.LookBackMonths > MaximumDateOnlyMonthOffset)
+            return new IndependenceDecision(IndependenceDecisionCode.RuleSetInvalid);
+
+        var history = serviceHistory.ToArray();
+        if (history.Any(service => service is null || service.ClientTenantId == Uuid.Empty))
+            return new IndependenceDecision(IndependenceDecisionCode.ServiceHistoryInvalid);
+        var clientHistory = history.Where(service => service.ClientTenantId == clientTenantId).ToArray();
+        if (clientHistory.Any(service => service.ServiceEngagementId == Uuid.Empty ||
+                string.IsNullOrWhiteSpace(service.ServiceType) ||
+                service.StartedOn == DateOnly.MinValue ||
+                service.EndedOn is { } endedOn && endedOn < service.StartedOn ||
+                service.FirmStaffMemberIds is null || service.FirmStaffMemberIds.Count == 0 ||
+                service.FirmStaffMemberIds.Contains(Uuid.Empty) ||
+                service.FirmStaffMemberIds.Distinct().Count() != service.FirmStaffMemberIds.Count))
+            return new IndependenceDecision(IndependenceDecisionCode.ServiceHistoryInvalid, ruleSet.Version,
+                partnerEvaluationRecorded, examinationPeriodStart, ruleSet.LookBackMonths);
+
+        DateOnly windowStart;
+        try
+        {
+            windowStart = examinationPeriodStart.AddMonths(-ruleSet.LookBackMonths);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return new IndependenceDecision(IndependenceDecisionCode.EvaluationInputInvalid);
+        }
+        var recent = clientHistory
+            .Where(record => record.StartedOn <= examinationPeriodStart)
             .Where(record => record.EndedOn is null || record.EndedOn.Value >= windowStart)
             .ToArray();
-        if (recent.Any(record => record.Service is not AdvisoryService.ReadinessAssessment))
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The firm designed, implemented, or operated this client's controls within the look-back period."));
-        if (recent.Length > 0 && !partnerEvaluationRecorded)
-            return Result.Failure(new RequestError(RequestErrorKind.Validation,
-                "A recent readiness assessment requires a documented partner independence evaluation."));
-        return Result.Success;
+
+        var assessments = new List<IndependenceServiceAssessment>(recent.Length);
+        var hasUnclassifiedService = false;
+        var hasImpairingService = false;
+        var hasConditionalService = false;
+        foreach (var service in recent)
+        {
+            if (!ruleSet.TryGetClassification(service.ServiceType, service.InvolvedManagementFunctions,
+                    out var classification))
+            {
+                assessments.Add(new IndependenceServiceAssessment(service, null));
+                hasUnclassifiedService = true;
+                continue;
+            }
+
+            assessments.Add(new IndependenceServiceAssessment(service, classification));
+            hasImpairingService |= classification == IndependenceServiceClassification.Impairing;
+            hasConditionalService |= classification == IndependenceServiceClassification.ConditionallyCompatible;
+        }
+
+        var outcome = hasUnclassifiedService
+            ? (IndependenceEvaluationOutcome?)null
+            : hasImpairingService
+                ? IndependenceEvaluationOutcome.Impaired
+                : hasConditionalService
+                    ? IndependenceEvaluationOutcome.ConditionallyCompatible
+                    : IndependenceEvaluationOutcome.Compatible;
+        var code = hasUnclassifiedService
+            ? IndependenceDecisionCode.ServiceNotClassified
+            : hasImpairingService
+                ? IndependenceDecisionCode.RecentImpairingService
+                : hasConditionalService && !partnerEvaluationRecorded
+                    ? IndependenceDecisionCode.PartnerEvaluationRequired
+                    : IndependenceDecisionCode.Allowed;
+        return new IndependenceDecision(code, ruleSet.Version, partnerEvaluationRecorded,
+            examinationPeriodStart, ruleSet.LookBackMonths, outcome, assessments);
     }
 }

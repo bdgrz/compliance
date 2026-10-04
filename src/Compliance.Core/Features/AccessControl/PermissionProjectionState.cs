@@ -11,9 +11,31 @@ sealed class PermissionProjectionState
     public HashSet<TeamMemberEdge> TeamMembers { get; init; } = [];
     public HashSet<MemberMembershipEpisode> MembershipEpisodes { get; init; } = [];
     public HashSet<TeamRoleEdge> TeamRoles { get; init; } = [];
+    public Uuid TenantId { get; set; }
+    // The tenant-local count of applied RBAC events, committed atomically with the projection checkpoint.
+    public long Revision { get; set; }
 
     public void Apply(DomainEvent domainEvent)
     {
+        TenantId = domainEvent switch
+        {
+            MemberRegistered ev => ev.TenantId,
+            MemberSuspended ev => ev.TenantId,
+            MemberReinstated ev => ev.TenantId,
+            MemberDeprovisioned ev => ev.TenantId,
+            TeamDefined ev => ev.TenantId,
+            TeamDeleted ev => ev.TenantId,
+            TeamMemberAssigned ev => ev.TenantId,
+            TeamMemberRemoved ev => ev.TenantId,
+            RoleDefined ev => ev.TenantId,
+            RoleRenamed ev => ev.TenantId,
+            RoleDeleted ev => ev.TenantId,
+            RolePermissionAssigned ev => ev.TenantId,
+            RolePermissionRemoved ev => ev.TenantId,
+            TeamRoleAssigned ev => ev.TenantId,
+            TeamRoleRemoved ev => ev.TenantId,
+            _ => TenantId,
+        };
         switch (domainEvent)
         {
             case MemberRegistered member:
@@ -77,6 +99,7 @@ sealed class PermissionProjectionState
                 TeamRoles.Remove(new TeamRoleEdge(teamRole.TeamId, teamRole.RoleId));
                 break;
         }
+        Revision = checked(Revision + 1);
     }
 
     public IReadOnlySet<PermissionGrant> Materialize()
@@ -85,7 +108,8 @@ sealed class PermissionProjectionState
             .Where(item => Members.Contains(item.MemberId) && Teams.Contains(item.TeamId) &&
                 GetMembershipEpisodeId(item.MemberId) == item.MembershipEpisodeId);
         var activeTeamRoles = TeamRoles
-            .Where(item => Teams.Contains(item.TeamId) && Roles.Contains(item.RoleId))
+            .Where(item => Teams.Contains(item.TeamId) && Roles.Contains(item.RoleId) &&
+                           BuiltInRbac.IsBuiltInRole(TenantId, item.RoleId))
             .ToLookup(item => item.TeamId);
         var rolePermissions = RolePermissions.ToLookup(item => item.RoleId);
         var grants = new HashSet<PermissionGrant>();
