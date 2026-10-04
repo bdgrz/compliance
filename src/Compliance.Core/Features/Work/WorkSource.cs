@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Risks;
 using Cntryl.Portia;
@@ -7,9 +8,10 @@ namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
 ///     Derives open work from the authoritative source ledgers at read time (M0-D15): control
-///     occurrences to perform, attestations awaiting review, open corrective actions, open risk treatment actions, and open evidence requests. Nothing
-///     here is stored, so completing source work removes the item and a projection-only change can
-///     never complete it.
+///     occurrences to perform, control attestation and evaluation reviews, corrective actions,
+///     risk treatment actions and reviews, evidence requests, and boundary decisions. Nothing here
+///     is stored, so completing source work removes the item and a projection-only change can never
+///     complete it.
 /// </summary>
 static class WorkSource
 {
@@ -19,6 +21,7 @@ static class WorkSource
     public const string EvidenceRequest = "evidence_request";
     public const string RiskTreatmentAction = "risk_treatment_action";
     public const string RiskTreatmentActionReview = "risk_treatment_action_review";
+    public const string ControlEvaluationReview = "control_evaluation_review";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
@@ -132,6 +135,25 @@ static class WorkSource
                 $"{prefix}/evidence-requests/{request.EvidenceRequestId}/fulfilments",
                 new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
                 new HashSet<Uuid>(), request.OpenedAt));
+        var evaluations = await reader.HydrateAsync(new ControlEvaluationLedger(tenantId, programId), ct)
+            .ConfigureAwait(false);
+        foreach (var evaluation in evaluations.ReadAwaitingReview())
+        {
+            var identity = Uuid.CreateVersion5(evaluation.EvaluationId,
+                $"control-evaluation-review\n{evaluation.Round}");
+            var candidateId = WorkCandidate.IdFor(identity, ControlEvaluationReview);
+            if (workItemId is { } wanted && candidateId != wanted)
+                continue;
+            var submission = evaluation.Submissions[^1];
+            candidates.Add(new WorkCandidate(candidateId, ControlEvaluationReview,
+                evaluation.EvaluationId, evaluation.ControlId, null,
+                "Review control evaluation",
+                $"Control evaluation round {evaluation.Round} is awaiting independent review.",
+                null, null, "review",
+                $"{prefix}/controls/{evaluation.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                new HashSet<Uuid> { evaluation.EvaluatorMemberId }, submission.SubmittedAt));
+        }
         if (boundaries is not null)
         {
             var boundaryWork = await BoundaryDecisionWork.LoadAsync(reader, boundaries, tenantId,
