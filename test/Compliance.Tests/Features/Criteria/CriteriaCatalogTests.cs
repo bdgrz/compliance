@@ -31,6 +31,60 @@ public sealed class CriteriaCatalogTests
         Assert.Throws<ArgumentException>(() => new CriteriaCatalog(edition, [criterion, orphan]));
     }
 
+    [Theory]
+    [InlineData("unsupported", "declared", "Declared note.")]
+    [InlineData("security", "", "Declared note.")]
+    [InlineData("security", " ", "Declared note.")]
+    [InlineData("security", "declared", "")]
+    [InlineData("security", "declared", " \n ")]
+    public void ShouldRejectInvalidSupportMetadataGivenUnsupportedCategoryOrBlankDeclaration(
+        string category, string code, string note)
+    {
+        // Arrange
+        var platform = CriteriaCatalog.Platform;
+        var edition = platform.Edition with
+        {
+            SupportGaps = [new CriteriaSupportGap(category, code, note)],
+        };
+
+        // Act
+        // Assert
+        Assert.Throws<ArgumentException>(() => new CriteriaCatalog(edition, platform.Entries));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ShouldRejectDuplicateSupportIdentityGivenIdenticalOrConflictingNotes(bool conflicting)
+    {
+        // Arrange
+        var platform = CriteriaCatalog.Platform;
+        var gap = new CriteriaSupportGap("security", "declared", "Declared note.");
+        var edition = platform.Edition with
+        {
+            SupportGaps = [gap, gap with { Note = conflicting ? "Conflicting note." : gap.Note }],
+        };
+
+        // Act
+        // Assert
+        Assert.Throws<ArgumentException>(() => new CriteriaCatalog(edition, platform.Entries));
+    }
+
+    [Fact]
+    public void ShouldPreserveExactSupportMetadataGivenSeparatorsAndNewlines()
+    {
+        // Arrange
+        var platform = CriteriaCatalog.Platform;
+        var gap = new CriteriaSupportGap("security", "declared|code", "Declared|note\ncontinued.");
+        var edition = platform.Edition with { SupportGaps = [gap] };
+
+        // Act
+        var catalog = new CriteriaCatalog(edition, platform.Entries);
+
+        // Assert
+        Assert.Equal(gap, Assert.Single(catalog.Edition.SupportGaps));
+    }
+
     [Fact]
     public void ShouldKeepIdentifierUniquenessGivenTwoCompleteEditions()
     {

@@ -377,6 +377,183 @@ public sealed class ReadinessAssessmentHandlerTests
         Assert.Equal("risks", Assert.Single(byKind.Items).Subject);
     }
 
+    [Fact]
+    public async Task ShouldRecordDeclaredCatalogLimitationsGivenApprovedFiveCategoryScope()
+    {
+        // Arrange
+        var catalog = CriteriaCatalog.Platform;
+        var fixture = await Fixture.CreateAsync(catalog: catalog,
+            selectedEdition: catalog.Edition.EditionId,
+            sourceFactory: (tenant, program, asOf) => ReadinessSourceSet.Empty with
+            {
+                Boundaries = [ReadinessCatalogSupportGapTests.Boundary(tenant, program,
+                    ["security", "availability", "processing_integrity", "confidentiality", "privacy"], asOf)],
+            });
+
+        // Act
+        var assessment = await fixture.RunAsync(0);
+        var gaps = await fixture.QueryAsync<ListReadinessGaps, Page<ReadinessGapView>>(
+            new ListReadinessGaps(fixture.TenantId, fixture.ProgramId, assessment.AssessmentId,
+                Kind: "catalog_support_gap", RuleId: "catalog_support_declared"));
+
+        // Assert
+        Assert.Equal("readiness-rules/11", assessment.RuleVersion);
+        Assert.Equal(6, gaps.Items.Count);
+        Assert.Equal(assessment.Gaps.Count, assessment.GapCount);
+        foreach (var gap in gaps.Items)
+        {
+            var declared = Assert.Single(catalog.Edition.SupportGaps,
+                item => item.Category + "|" + item.Code == gap.Subject);
+            Assert.Equal(declared.Note, gap.Explanation);
+            Assert.Equal(new ReadinessSourceReference("criteria_catalog_edition",
+                catalog.Edition.EditionId, catalog.Edition.EditionLabel), Assert.Single(gap.Sources));
+        }
+    }
+
+    [Fact]
+    public async Task ShouldUseExactAsOfEditionMetadataGivenLaterProgramRemap()
+    {
+        // Arrange
+        var baseline = ControlCriterionMappingHandlerTests.TestCatalog();
+        var first = baseline.GetEdition(Edition)! with
+        {
+            SupportGaps = [new CriteriaSupportGap("security", "test_support", "Earlier declared note.")],
+        };
+        var second = baseline.Editions.Single(item => item.EditionId != Edition) with
+        {
+            SupportGaps = [new CriteriaSupportGap("security", "test_support", "Later declared note.")],
+        };
+        var catalog = new CriteriaCatalog([first, second], baseline.Entries);
+        ReadinessBoundaryInput? boundary = null;
+        var fixture = await Fixture.CreateAsync(catalog: catalog,
+            sourceFactory: (tenant, program, _) => ReadinessSourceSet.Empty with
+            {
+                Boundaries = [boundary ??= ReadinessCatalogSupportGapTests.Boundary(tenant,
+                    program, ["security"], DateTimeOffset.UtcNow.AddHours(-4))],
+            });
+        var remappedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
+                Command(program.SelectCriteriaEdition(2, second.EditionId, Uuid.CreateVersion4(),
+                    "Admin", remappedAt)));
+
+        // Act
+        var earlier = await fixture.RunAsync(0, remappedAt.AddMinutes(-1));
+        var earlierGap = Assert.Single(earlier.Gaps, gap => gap.Kind == "catalog_support_gap");
+        await fixture.Scenario(fixture.RunnerUserId)
+            .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId, earlierGap.GapId, 1,
+                fixture.OwnerMemberId, new DateOnly(2027, 3, 31), "Track the earlier edition."))
+            .ExpectSuccess();
+        var later = await fixture.RunAsync(2, remappedAt.AddMinutes(1));
+        var recordedEarlier = await fixture.GetAsync(earlier.AssessmentId);
+
+        // Assert
+        var laterGap = Assert.Single(later.Gaps, gap => gap.Kind == "catalog_support_gap");
+        Assert.Equal(first.EditionId, earlier.EditionId);
+        Assert.Equal(second.EditionId, later.EditionId);
+        Assert.Equal("Earlier declared note.", earlierGap.Explanation);
+        Assert.Equal("Later declared note.", laterGap.Explanation);
+        Assert.NotEqual(earlierGap.GapId, laterGap.GapId);
+        Assert.Null(laterGap.Plan);
+        Assert.Equal(earlier.InputFingerprint, recordedEarlier.InputFingerprint);
+        var storedEarlierGap = Assert.Single(recordedEarlier.Gaps, gap => gap.Kind == "catalog_support_gap");
+        Assert.Equal(earlierGap.GapId, storedEarlierGap.GapId);
+        Assert.Equal(earlierGap.Explanation, storedEarlierGap.Explanation);
+        Assert.Equal(fixture.OwnerMemberId, storedEarlierGap.Plan?.OwnerMemberId);
+    }
+
+    [Fact]
+    public async Task ShouldRetainDeclaredGapAndPlanGivenAnnotationAndEquivalentReassessment()
+    {
+        // Arrange
+        var baseline = ControlCriterionMappingHandlerTests.TestCatalog();
+        var edition = baseline.GetEdition(Edition)! with
+        {
+            SupportGaps = [new CriteriaSupportGap("security", "test_support", "Declared limitation remains.")],
+        };
+        var catalog = new CriteriaCatalog(edition, baseline.ListEntries(Edition, null, null, null));
+        ReadinessBoundaryInput? boundary = null;
+        var fixture = await Fixture.CreateAsync(catalog: catalog,
+            sourceFactory: (tenant, program, _) => ReadinessSourceSet.Empty with
+            {
+                Boundaries = [boundary ??= ReadinessCatalogSupportGapTests.Boundary(tenant,
+                    program, ["security"], DateTimeOffset.UtcNow.AddHours(-4))],
+            });
+        var asOf = DateTimeOffset.UtcNow.AddHours(-2);
+        var first = await fixture.RunAsync(0, asOf);
+        var gap = Assert.Single(first.Gaps, item => item.Kind == "catalog_support_gap");
+        await fixture.Scenario(fixture.RunnerUserId)
+            .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId, gap.GapId, 1,
+                fixture.OwnerMemberId, new DateOnly(2027, 3, 31), "Track the limitation."))
+            .ExpectSuccess();
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                first.AssessmentId, gap.GapId, 2, "Acknowledged; declaration remains."))
+            .ExpectSuccess();
+
+        // Act
+        var repeated = await fixture.RunAsync(3, asOf);
+        var retained = Assert.Single(repeated.Gaps, item => item.Kind == "catalog_support_gap");
+
+        // Assert
+        Assert.Equal(gap.GapId, retained.GapId);
+        Assert.Equal(gap.Explanation, retained.Explanation);
+        Assert.NotNull(retained.Plan);
+        Assert.Equal(fixture.OwnerMemberId, retained.Plan.OwnerMemberId);
+        Assert.Equal(first.InputFingerprint, repeated.InputFingerprint);
+        Assert.DoesNotContain(repeated.Findings, finding => finding.RuleId == "catalog_support_declared");
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new DecideReadiness(fixture.TenantId, fixture.ProgramId, repeated.AssessmentId,
+                4, "proceed", "Other gaps remain unplanned."))
+            .ExpectFailure(RequestErrorKind.Conflict);
+    }
+
+    [Fact]
+    public async Task ShouldKeepCatalogGapGivenMetMappingRulesAndManagementAcknowledgment()
+    {
+        // Arrange
+        var baseline = ControlCriterionMappingHandlerTests.TestCatalog();
+        var edition = baseline.GetEdition(Edition)! with
+        {
+            SupportGaps = [new CriteriaSupportGap("security", "test_support", "Declared limitation remains.")],
+        };
+        var catalog = new CriteriaCatalog(edition, baseline.ListEntries(Edition, null, null, null));
+        ReadinessBoundaryInput? boundary = null;
+        var fixture = await Fixture.CreateAsync(catalog: catalog,
+            sourceFactory: (tenant, program, _) => ReadinessSourceSet.Empty with
+            {
+                Boundaries = [boundary ??= ReadinessCatalogSupportGapTests.Boundary(tenant,
+                    program, ["security"], DateTimeOffset.UtcNow.AddHours(-4))],
+            });
+        await fixture.MapAsync("CC6.1", fixture.ReviewedAt);
+        await fixture.MapAsync("CC6.2", fixture.ReviewedAt);
+        var asOf = DateTimeOffset.UtcNow;
+        var assessment = await fixture.RunAsync(0, asOf);
+        var gap = Assert.Single(assessment.Gaps, item => item.Kind == "catalog_support_gap");
+        await fixture.Scenario(fixture.DeciderUserId)
+            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, gap.GapId, 1, "Acknowledged limitation."))
+            .ExpectSuccess();
+
+        // Act
+        var revision = await fixture.PlanAllAndProceedAsync(await fixture.GetAsync(assessment.AssessmentId));
+        var acknowledged = await fixture.GetAsync(assessment.AssessmentId);
+        var reassessed = await fixture.RunAsync(revision, asOf);
+
+        // Assert
+        Assert.Equal(4, assessment.Findings.Count);
+        Assert.All(assessment.Findings, finding => Assert.Equal(ReadinessRules.RuleMet, finding.Outcome));
+        Assert.Equal("proceed", acknowledged.Decision?.Outcome);
+        foreach (var recorded in new[] { acknowledged, reassessed })
+        {
+            var retained = Assert.Single(recorded.Gaps, item => item.Kind == "catalog_support_gap");
+            Assert.Equal(gap.GapId, retained.GapId);
+            Assert.Equal(gap.Explanation, retained.Explanation);
+            Assert.NotNull(retained.Plan);
+            Assert.DoesNotContain(recorded.Findings, finding => finding.RuleId == "catalog_support_declared");
+        }
+    }
+
     static Result Command(CommandFailure? failure) => failure is null
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
@@ -394,7 +571,8 @@ public sealed class ReadinessAssessmentHandlerTests
         public Uuid ControlVersionId => ControlVersionIds.Initial(ControlId);
 
         public static async Task<Fixture> CreateAsync(DateOnly? effectiveFrom = null,
-            bool selectEdition = true)
+            bool selectEdition = true, ICriteriaCatalog? catalog = null, Uuid? selectedEdition = null,
+            Func<Uuid, Uuid, DateTimeOffset, ReadinessSourceSet>? sourceFactory = null)
         {
             var provider = ProgramManagementServices.Build(
                 new RecordingPermissionAuthorizer(allowed: true),
@@ -409,8 +587,8 @@ public sealed class ReadinessAssessmentHandlerTests
                     .AddRequestHandler<PlanReadinessGapHandler>()
                     .AddRequestHandler<DecideReadinessHandler>(),
                 services => services.AddSingleton<ICriteriaCatalog>(
-                        ControlCriterionMappingHandlerTests.TestCatalog())
-                    .AddSingleton<IReadinessSourceReader>(new EmptyReadinessSources())
+                        catalog ?? ControlCriterionMappingHandlerTests.TestCatalog())
+                    .AddSingleton<IReadinessSourceReader>(new EmptyReadinessSources(sourceFactory))
                     .AddScoped<IReadinessReadModel>(provider =>
                         new EventSourcedReadinessReadModel(
                             provider.GetRequiredService<IAggregateReader>())));
@@ -424,7 +602,8 @@ public sealed class ReadinessAssessmentHandlerTests
             if (selectEdition)
                 await ProgramManagementServices.SeedAsync(provider,
                     new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
-                        Command(program.SelectCriteriaEdition(1, Edition, admin, "Admin", now)));
+                        Command(program.SelectCriteriaEdition(1, selectedEdition ?? Edition,
+                            admin, "Admin", now)));
             var owner = Uuid.CreateVersion4();
             var reviewId = Uuid.CreateVersion4();
             await ProgramManagementServices.SeedAsync(provider,
@@ -504,11 +683,13 @@ public sealed class ReadinessAssessmentHandlerTests
         }
     }
 
-    sealed class EmptyReadinessSources : IReadinessSourceReader
+    sealed class EmptyReadinessSources(
+        Func<Uuid, Uuid, DateTimeOffset, ReadinessSourceSet>? sourceFactory = null) : IReadinessSourceReader
     {
         public ValueTask<Result<ReadinessSourceSet>> ReadAsync(Uuid tenantId, Uuid programId,
             DateTimeOffset asOf, CancellationToken ct = default) =>
-            ValueTask.FromResult(Result<ReadinessSourceSet>.Success(ReadinessSourceSet.Empty));
+            ValueTask.FromResult(Result<ReadinessSourceSet>.Success(
+                sourceFactory?.Invoke(tenantId, programId, asOf) ?? ReadinessSourceSet.Empty));
     }
 }
 

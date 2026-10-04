@@ -16,10 +16,10 @@ to the linked issues.
 ## Readiness contribution
 
 R1-08 [#489](https://github.com/bdgrz/compliance/issues/489) owns readiness
-rules and their versions. `readiness-rules/10` selects provider revisions at the
-assessment's as-of time, requires a current review for each material provider
-revision, requires an effective linked CSOC for each carved-out subservice
-provider, and links unresolved provider coverage gaps to distinct readiness
+rules and their versions. Rules `readiness-rules/10` and later select provider
+revisions at the assessment's as-of time, require a current review for each
+material provider revision, require an effective linked CSOC for each carved-out
+subservice provider, and link unresolved provider coverage gaps to distinct readiness
 gaps. Source changes preserve prior assessment inputs and outcomes.
 
 Related readiness rules select the as-of criteria edition, access-review scope
