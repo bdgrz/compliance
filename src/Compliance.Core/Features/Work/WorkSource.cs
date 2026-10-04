@@ -21,7 +21,8 @@ static class WorkSource
     public const string RiskTreatmentActionReview = "risk_treatment_action_review";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
-    public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
+    public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
+        IAggregateReader reader,
         Uuid tenantId, Uuid programId, DateOnly today, DateOnly horizon, DateTimeOffset now,
         Uuid? workItemId, IBoundaryDirectoryReader? boundaries, CancellationToken ct)
     {
@@ -132,8 +133,13 @@ static class WorkSource
                 new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
                 new HashSet<Uuid>(), request.OpenedAt));
         if (boundaries is not null)
-            candidates.AddRange(await BoundaryDecisionWork.LoadAsync(reader, boundaries, tenantId,
-                programId, now, workItemId, ct).ConfigureAwait(false));
-        return candidates;
+        {
+            var boundaryWork = await BoundaryDecisionWork.LoadAsync(reader, boundaries, tenantId,
+                programId, now, workItemId, ct).ConfigureAwait(false);
+            if (!boundaryWork.IsSuccess)
+                return Result<IReadOnlyList<WorkCandidate>>.Failure(boundaryWork.Error);
+            candidates.AddRange(boundaryWork.Value);
+        }
+        return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }
 }

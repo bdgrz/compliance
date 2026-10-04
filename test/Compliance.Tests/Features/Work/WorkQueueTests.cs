@@ -209,7 +209,7 @@ public sealed class WorkQueueTests
     }
 
     [Fact]
-    public async Task ShouldOmitBoundaryReviewGivenStaleDecisionProjection()
+    public async Task ShouldReturnTransientConflictGivenStaleBoundaryDecisionProjection()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -242,11 +242,12 @@ public sealed class WorkQueueTests
                 now.AddMinutes(-5)), null, null, 1));
 
         // Act
-        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
-            new ListWork(fixture.TenantId, fixture.ProgramId));
+        var stale = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
 
         // Assert
-        Assert.Empty(queue.Items);
+        Assert.True(stale.Error!.IsTransient);
     }
 
     [Fact]

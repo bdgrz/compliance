@@ -17,8 +17,11 @@ public sealed class ListWorkRemindersHandler(WorkQueueReader queue)
     {
         var request = context.Request;
         var actor = OperationsActor.From(context.Actor, request.TenantId);
-        var snapshot = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
+        var read = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
             WorkQueueReader.DefaultHorizonDays, ct).ConfigureAwait(false);
+        if (!read.IsSuccess)
+            return Result<IReadOnlyList<WorkReminderView>>.Failure(read.Error);
+        var snapshot = read.Value;
         var today = snapshot.Today;
         var reminders = new List<WorkReminderView>();
         foreach (var item in snapshot.Entries.Select(static entry => entry.Item))
