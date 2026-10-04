@@ -25,7 +25,19 @@ export function OrganizationAddressCard() {
   const userId = currentAuth().principal?.id ?? '';
   const access = resource(() => (userId ? getMemberAccess(userId) : Promise.resolve(null)), [userId]);
 
-  if (access.pending) return null;
+  if (access.pending) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Organization address</CardTitle>
+          <CardDescription>Checking your organization address permissions.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p role="status">Loading organization address settings…</p>
+        </CardContent>
+      </Card>
+    );
+  }
   if (access.error) {
     if (access.error instanceof MemberRequestError && access.error.status === 403) return null;
     return (
