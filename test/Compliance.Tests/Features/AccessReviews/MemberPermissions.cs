@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
@@ -6,10 +7,15 @@ namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
 sealed class MemberPermissions : IPermissionAuthorizer
 {
     readonly HashSet<Uuid> _allowed = [];
+    readonly HashSet<Uuid> _restrictedReadAllowed = [];
 
     public void Allow(Uuid userId) => _allowed.Add(userId);
+    public void AllowRestrictedRead(Uuid userId) => _restrictedReadAllowed.Add(userId);
+    public void DenyRestrictedRead(Uuid userId) => _restrictedReadAllowed.Remove(userId);
 
     public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
         string permission, CancellationToken ct = default) =>
-        ValueTask.FromResult(_allowed.Contains(userId));
+        ValueTask.FromResult(permission == RbacPermissions.ApplicationRestrictedRead
+            ? _restrictedReadAllowed.Contains(userId)
+            : _allowed.Contains(userId));
 }

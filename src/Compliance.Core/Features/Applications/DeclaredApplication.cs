@@ -16,13 +16,16 @@ public sealed class DeclaredApplication : Aggregate
     string? _initialClassification;
     Uuid? _initialSystemOwner;
     Uuid? _initialAccessOwner;
+    bool _initialIsRestricted;
 
     bool _retired;
+    bool _isRestricted;
 
     public bool IsCreated => _created;
     public bool IsRetired => _retired;
     public long Revision => _revision;
     public Uuid? AccessOwnerPersonId { get; private set; }
+    public bool IsRestricted => _isRestricted;
 
     public DeclaredApplication(Uuid tenantId, Uuid applicationId)
         : base(applicationId, new EventStreamAddress(tenantId.ToString(), "applications",
@@ -39,12 +42,15 @@ public sealed class DeclaredApplication : Aggregate
             _initialClassification = ev.Classification;
             _initialSystemOwner = ev.SystemOwnerPersonId;
             _initialAccessOwner = ev.AccessOwnerPersonId;
+            _initialIsRestricted = ev.IsRestricted;
+            _isRestricted = ev.IsRestricted;
             AccessOwnerPersonId = ev.AccessOwnerPersonId;
         });
         On<ApplicationRevised>(ev =>
         {
             _revision = ev.Revision;
             AccessOwnerPersonId = ev.AccessOwnerPersonId;
+            _isRestricted = ev.IsRestricted;
         });
         On<ApplicationRetired>(ev =>
         {
@@ -59,7 +65,8 @@ public sealed class DeclaredApplication : Aggregate
     public Result<ApplicationRegistration> Declare(string name, string purpose,
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt, string? classification = null,
-        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null)
+        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null,
+        bool isRestricted = false)
     {
         var normalizedOwner = NormalizeOptional(ownerReference);
         var normalizedClassification = NormalizeOptional(classification);
@@ -68,7 +75,8 @@ public sealed class DeclaredApplication : Aggregate
                    _initialOwnerReference == normalizedOwner &&
                    _initialClassification == normalizedClassification &&
                    _initialSystemOwner == systemOwnerPersonId &&
-                   _initialAccessOwner == accessOwnerPersonId
+                   _initialAccessOwner == accessOwnerPersonId &&
+                   _initialIsRestricted == isRestricted
                 ? Result<ApplicationRegistration>.Success(new ApplicationRegistration(Id))
                 : Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The application already exists with different content."));
@@ -77,7 +85,7 @@ public sealed class DeclaredApplication : Aggregate
             return Result<ApplicationRegistration>.Failure(validation);
         RaiseEvent(new ApplicationDeclared(_tenantId, Id, name.Trim(), purpose.Trim(),
             normalizedOwner, actorMemberId, actorDisplay, changedAt, normalizedClassification,
-            systemOwnerPersonId, accessOwnerPersonId)
+            systemOwnerPersonId, accessOwnerPersonId, isRestricted)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
@@ -87,7 +95,8 @@ public sealed class DeclaredApplication : Aggregate
     public CommandFailure? Revise(long expectedRevision, string name, string purpose,
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt, string? classification = null,
-        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null)
+        Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null,
+        bool? isRestricted = null)
     {
         var check = CheckChange(expectedRevision);
         if (check is not null)
@@ -98,7 +107,7 @@ public sealed class DeclaredApplication : Aggregate
         RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, name.Trim(),
             purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
             actorDisplay, changedAt, NormalizeOptional(classification), systemOwnerPersonId,
-            accessOwnerPersonId)
+            accessOwnerPersonId, isRestricted ?? _isRestricted)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });

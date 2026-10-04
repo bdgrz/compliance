@@ -1,4 +1,5 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Applications;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
@@ -8,7 +9,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     differently. A ticket or provider change alone is never verification (M0-D07).
 /// </summary>
 public sealed class VerifyAccessRemediationHandler(IAggregateExecutor executor,
-    IAggregateReader reader, TimeProvider clock)
+    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<VerifyAccessRemediation, AccessRemediationVerificationView>
 {
     public async ValueTask<Result<AccessRemediationVerificationView>> HandleAsync(
@@ -17,7 +18,14 @@ public sealed class VerifyAccessRemediationHandler(IAggregateExecutor executor,
         var request = context.Request;
         var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
             request.CampaignId), ct).ConfigureAwait(false);
+        var actor = AccessReviewActor.From(context);
         if (campaign.FindItem(request.ItemId) is not { } item)
+            return Failure(RequestErrorKind.NotFound, "The review item was not found.");
+        if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                request.TenantId, actor.UserId, campaign, [request.ItemId], ct)
+            .ConfigureAwait(false) ||
+            !await RestrictedAccessReviewVisibility.CanReadPopulationAsync(reader, visibility,
+                request.TenantId, actor.UserId, request.PopulationId, ct).ConfigureAwait(false))
             return Failure(RequestErrorKind.NotFound, "The review item was not found.");
         if (campaign.CurrentDecision(request.ItemId) is not { } decision ||
             !AccessReviewVocabulary.RequiresRemediation(decision.Decision))
@@ -45,7 +53,6 @@ public sealed class VerifyAccessRemediationHandler(IAggregateExecutor executor,
         else
             return Failure(RequestErrorKind.Conflict,
                 "The later population still shows the access unchanged.");
-        var actor = AccessReviewActor.From(context);
         var verification = new AccessRemediationVerificationView(later.Population.Id,
             later.Snapshot.Id, later.CalculationId, later.Header.ObservedAt, outcome,
             actor.Reference, clock.GetUtcNow());

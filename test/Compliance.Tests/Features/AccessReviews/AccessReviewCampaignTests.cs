@@ -8,6 +8,25 @@ namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
 public sealed class AccessReviewCampaignTests
 {
     [Fact]
+    public async Task ShouldHideRestrictedPopulationGivenCampaignLaunchWithoutReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync(
+            applicationRestricted: true);
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+
+        // Act
+        var denied = await fixture.FailAsync(fixture.ManagerUserId,
+            new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 review", "Review access.",
+                DateTimeOffset.UtcNow.AddDays(14),
+                [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)]),
+            RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.NotNull(denied);
+    }
+
+    [Fact]
     public async Task ShouldFreezePopulationReviewersInstructionsAndDeadlineGivenLaunch()
     {
         // Arrange

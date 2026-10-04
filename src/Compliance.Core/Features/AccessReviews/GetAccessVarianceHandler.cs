@@ -3,13 +3,27 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Explains an accepted population with the expectations effective when it was observed.</summary>
-public sealed class GetAccessVarianceHandler(IAggregateReader reader)
+public sealed class GetAccessVarianceHandler(IAggregateReader reader,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<GetAccessVariance, AccessVarianceView>
 {
     public async ValueTask<Result<AccessVarianceView>> HandleAsync(
         IRequestContext<GetAccessVariance> context, CancellationToken ct)
     {
         var request = context.Request;
+        var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
+            request.PopulationId), ct).ConfigureAwait(false);
+        if (population.Opened is not { } opened)
+            return AccessReviewOutcome.Failure<AccessVarianceView>(RequestErrorKind.NotFound,
+                "The population was not found.");
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, userId,
+                opened.ApplicationId, opened.SystemInstanceId, ct)
+            .ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessVarianceView>(RequestErrorKind.NotFound,
+                "The population was not found.");
         var loaded = await AcceptedAccessPopulation.LoadAsync(reader, request.TenantId,
             request.PopulationId, ct).ConfigureAwait(false);
         if (!loaded.IsSuccess)

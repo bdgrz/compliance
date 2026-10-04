@@ -3,7 +3,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
-    IAggregateReader reader) : IRequestHandler<GetApplication, ApplicationView>
+    IAggregateReader reader, RestrictedApplicationVisibility visibility)
+    : IRequestHandler<GetApplication, ApplicationView>
 {
     public async ValueTask<Result<ApplicationView>> HandleAsync(
         IRequestContext<GetApplication> context, CancellationToken ct)
@@ -12,6 +13,13 @@ public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
         if (request.MinimumRevision is < 1)
             return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The minimum application revision must be positive."));
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                request.ApplicationId, ct).ConfigureAwait(false))
+            return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The application was not found."));
         var view = await directory.GetAsync(request.TenantId, request.ApplicationId, ct)
             .ConfigureAwait(false);
         if (view is not null && (view.TenantId != request.TenantId ||

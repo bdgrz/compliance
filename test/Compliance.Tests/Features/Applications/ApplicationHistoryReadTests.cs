@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 
@@ -22,13 +23,14 @@ public sealed class ApplicationHistoryReadTests
         var directory = new FitzApplicationDirectory(new InMemoryKvClient());
         var consistency = new ApplicationHistoryReadConsistency(directory,
             new SourceReader(source));
+        var visibility = RestrictedApplicationVisibilityFixture.Create(new SourceReader(source));
 
         // Act
-        var exact = await new GetApplicationRevisionHandler(directory, consistency).HandleAsync(
+        var exact = await new GetApplicationRevisionHandler(directory, consistency, visibility).HandleAsync(
             new RequestContext<GetApplicationRevision>(new GetApplicationRevision(
                 tenantId, applicationId, requestedRevision), new ClaimsPrincipal()),
             CancellationToken.None);
-        var listed = await new ListApplicationRevisionsHandler(directory, consistency)
+        var listed = await new ListApplicationRevisionsHandler(directory, consistency, visibility)
             .HandleAsync(new RequestContext<ListApplicationRevisions>(
                 new ListApplicationRevisions(tenantId, applicationId,
                     MinimumApplicationRevision: requestedRevision), new ClaimsPrincipal()),
@@ -52,7 +54,9 @@ public sealed class ApplicationHistoryReadTests
         var directory = new FitzApplicationDirectory(new InMemoryKvClient());
         var consistency = new ApplicationHistoryReadConsistency(directory,
             new SourceReader(new DeclaredApplication(tenantId, applicationId)));
-        var handler = new GetApplicationRevisionHandler(directory, consistency);
+        var visibility = RestrictedApplicationVisibilityFixture.Create(
+            new SourceReader(new DeclaredApplication(tenantId, applicationId)));
+        var handler = new GetApplicationRevisionHandler(directory, consistency, visibility);
 
         // Act
         var invalid = await handler.HandleAsync(new RequestContext<GetApplicationRevision>(

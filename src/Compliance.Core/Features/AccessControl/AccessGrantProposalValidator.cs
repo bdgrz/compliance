@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Fitz.Extensions;
@@ -7,7 +8,8 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 
 sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader memberships,
     ITeamDirectoryReader teams, IRoleDirectoryReader roles,
-    IProgramResourceScopeResolver resourceScopes, IAggregateReader reader)
+    IProgramResourceScopeResolver resourceScopes, IAggregateReader reader,
+    IApplicationDirectoryReader? applications = null, IDomainEventReader? events = null)
     : IAccessGrantProposalValidator
 {
     public async ValueTask<Result> ValidateAsync(Uuid tenantId, AccessGrantProposal proposal,
@@ -16,6 +18,8 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
         if (tenantId == Uuid.Empty || proposal is null || proposal.Principal is null ||
             proposal.Scope is null || proposal.Source is null || !Enum.IsDefined(proposal.Scope.Kind))
             return Invalid("The access grant proposal is incomplete.");
+        if (proposal.Scope.ResourceType is not null)
+            return Invalid("Only a shared-resource scope may specify a resource type.");
 
         var role = await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false);
         if (role is null || role.RoleId != proposal.RoleId)
@@ -41,10 +45,54 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The program scope was not found in this organization."));
         }
+        else if (proposal.Scope.Kind == AccessGrantScopeKind.Application)
+        {
+            var application = await reader.HydrateAsync(new DeclaredApplication(tenantId,
+                proposal.Scope.Id), ct).ConfigureAwait(false);
+            if (!application.IsCreated)
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The application scope was not found in this organization."));
+        }
+        else if (proposal.Scope.Kind == AccessGrantScopeKind.SystemInstance)
+        {
+            var instance = await reader.HydrateAsync(new DeclaredSystemInstance(tenantId,
+                proposal.Scope.Id), ct).ConfigureAwait(false);
+            if (!instance.IsCreated &&
+                !await IsLegacySystemInstanceAsync(tenantId, proposal.Scope.Id, ct)
+                    .ConfigureAwait(false))
+                return Result.Failure(new RequestError(RequestErrorKind.NotFound,
+                    "The SystemInstance scope was not found in this organization."));
+        }
         else if (proposal.Scope.Kind != AccessGrantScopeKind.Organization)
             return Invalid("This access grant scope is not supported.");
 
         return Result.Success;
+    }
+
+    async ValueTask<bool> IsLegacySystemInstanceAsync(Uuid tenantId, Uuid instanceId,
+        CancellationToken ct)
+    {
+        if (applications is null || events is null)
+            return false;
+        var projected = await applications.GetInstanceAsync(tenantId, instanceId, ct)
+            .ConfigureAwait(false);
+        if (projected is { } instance)
+        {
+            if (instance.TenantId != tenantId || instance.SystemInstanceId != instanceId ||
+                instance.LegacyApplicationRevision is null ||
+                !(await reader.HydrateAsync(new DeclaredApplication(tenantId,
+                    instance.ApplicationId), ct).ConfigureAwait(false)).IsCreated)
+                return false;
+            return await ScopedSystemInstanceSource.FindAsync(reader, events, tenantId,
+                instance.ApplicationId, instanceId, ct).ConfigureAwait(false) is not null;
+        }
+
+        var pending = await new LegacySystemInstanceSource(applications, events)
+            .FindPendingAsync(tenantId, instanceId, ct).ConfigureAwait(false);
+        if (pending.Match is not SystemInstanceDeclared declaration)
+            return false;
+        return (await reader.HydrateAsync(new DeclaredApplication(tenantId,
+            declaration.ApplicationId), ct).ConfigureAwait(false)).IsCreated;
     }
 
     async ValueTask<Result> ValidatePrincipalAsync(Uuid tenantId, AccessGrantPrincipal principal,

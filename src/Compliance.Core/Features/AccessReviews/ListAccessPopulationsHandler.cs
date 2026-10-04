@@ -5,7 +5,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Lists from the Fitz population directory once it has reached the source.</summary>
 public sealed class ListAccessPopulationsHandler(IAccessPopulationDirectoryReader directory,
-    IDomainEventReader events)
+    IDomainEventReader events, IApplicationDirectoryReader applications,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<ListAccessPopulations, Page<AccessPopulationSummaryView>>
 {
     public async ValueTask<Result<Page<AccessPopulationSummaryView>>> HandleAsync(
@@ -15,6 +16,16 @@ public sealed class ListAccessPopulationsHandler(IAccessPopulationDirectoryReade
         if (request.Limit is < 1 or > 200)
             return AccessReviewOutcome.Failure<Page<AccessPopulationSummaryView>>(
                 RequestErrorKind.Validation, "The population list limit must be between 1 and 200.");
+        var instance = await applications.GetInstanceAsync(request.TenantId,
+            request.SystemInstanceId, ct).ConfigureAwait(false);
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (instance is null || !await visibility.CanReadSystemInstanceAsync(request.TenantId,
+                userId, instance.ApplicationId, request.SystemInstanceId, ct)
+            .ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<Page<AccessPopulationSummaryView>>(
+                RequestErrorKind.NotFound, "The populations were not found.");
         var checkpoint = await directory.LoadCheckpointAsync(request.TenantId, ct).ConfigureAwait(false);
         if (!await AccessReviewOutcome.IsCaughtUpAsync(events,
                 AccessReviewDirectorySchema.PopulationPattern(request.TenantId), checkpoint, ct)

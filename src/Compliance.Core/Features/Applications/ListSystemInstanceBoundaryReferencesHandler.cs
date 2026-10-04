@@ -5,7 +5,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed class ListSystemInstanceBoundaryReferencesHandler(
     IAggregateReader aggregates, LegacySystemInstanceSource legacy,
     IApplicationBoundaryReferenceDirectory directory,
-    ApplicationBoundaryReferenceReadConsistency consistency)
+    ApplicationBoundaryReferenceReadConsistency consistency,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<ListSystemInstanceBoundaryReferences,
         Page<ApplicationBoundaryReferenceView>>
 {
@@ -29,6 +30,13 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
             : await legacy.ExistsAsync(request.TenantId, request.ApplicationId,
                 request.SystemInstanceId, ct).ConfigureAwait(false);
         if (!exists)
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The system instance was not found."));
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, userId,
+                request.ApplicationId, request.SystemInstanceId, ct).ConfigureAwait(false))
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The system instance was not found."));
         var ready = await consistency.EnsureCaughtUpAsync(request.TenantId, ct)

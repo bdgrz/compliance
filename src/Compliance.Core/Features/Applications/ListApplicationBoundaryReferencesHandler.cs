@@ -4,7 +4,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed class ListApplicationBoundaryReferencesHandler(
     IAggregateReader aggregates, IApplicationBoundaryReferenceDirectory directory,
-    ApplicationBoundaryReferenceReadConsistency consistency)
+    ApplicationBoundaryReferenceReadConsistency consistency,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<ListApplicationBoundaryReferences,
         Page<ApplicationBoundaryReferenceView>>
 {
@@ -19,6 +20,13 @@ public sealed class ListApplicationBoundaryReferencesHandler(
         var application = await aggregates.HydrateAsync(new DeclaredApplication(
             request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
         if (!application.IsCreated)
+            return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The application was not found."));
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                request.ApplicationId, ct).ConfigureAwait(false))
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
         var ready = await consistency.EnsureCaughtUpAsync(request.TenantId, ct)

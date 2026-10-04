@@ -3,7 +3,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Reads a draft from its stream, or an accepted population from its verified snapshot.</summary>
-public sealed class GetAccessPopulationHandler(IAggregateReader reader)
+public sealed class GetAccessPopulationHandler(IAggregateReader reader,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<GetAccessPopulation, AccessPopulationView>
 {
     public async ValueTask<Result<AccessPopulationView>> HandleAsync(
@@ -13,6 +14,13 @@ public sealed class GetAccessPopulationHandler(IAggregateReader reader)
         var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
             request.PopulationId), ct).ConfigureAwait(false);
         if (population.Opened is not { } opened)
+            return AccessReviewOutcome.Failure<AccessPopulationView>(RequestErrorKind.NotFound,
+                "The population was not found.");
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, userId,
+                opened.ApplicationId, opened.SystemInstanceId, ct).ConfigureAwait(false))
             return AccessReviewOutcome.Failure<AccessPopulationView>(RequestErrorKind.NotFound,
                 "The population was not found.");
         var facts = population.Facts;

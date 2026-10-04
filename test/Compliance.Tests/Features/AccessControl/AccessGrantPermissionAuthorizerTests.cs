@@ -13,6 +13,8 @@ public sealed class AccessGrantPermissionAuthorizerTests
     static readonly Uuid MemberId = RbacIds.Member(TenantId, UserId);
     static readonly Uuid RoleId = Uuid.Parse("5b66f817-415a-44e8-b809-503cf44b1537", CultureInfo.InvariantCulture);
     static readonly Uuid ProgramId = Uuid.Parse("e9a858f1-25e1-4594-87d2-814a73fc87ec", CultureInfo.InvariantCulture);
+    static readonly Uuid ApplicationId = Uuid.CreateVersion4();
+    static readonly Uuid SystemInstanceId = Uuid.CreateVersion4();
     static readonly DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
@@ -29,6 +31,84 @@ public sealed class AccessGrantPermissionAuthorizerTests
 
         // Assert
         Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldAllowApplicationScopedGrantGivenRestrictedReadRolePermission()
+    {
+        // Arrange
+        var directory = new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Application, ApplicationId)));
+        var authorizer = Authorizer(directory, "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId, MemberId,
+            [new AccessGrantScope(AccessGrantScopeKind.Application, ApplicationId)],
+            RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldAllowExactSystemInstanceGrantGivenRestrictedReadRolePermission()
+    {
+        // Arrange
+        var directory = new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.SystemInstance, SystemInstanceId)));
+        var authorizer = Authorizer(directory, "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId, MemberId,
+            [new AccessGrantScope(AccessGrantScopeKind.SystemInstance, SystemInstanceId)],
+            RbacPermissions.ApplicationRestrictedRead);
+        var siblingAllowed = await authorizer.IsAllowedAtAnyScopeAsync(TenantId, UserId,
+            MemberId, [new AccessGrantScope(AccessGrantScopeKind.SystemInstance,
+                Uuid.CreateVersion4())], RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+        Assert.False(siblingAllowed);
+    }
+
+    [Theory]
+    [InlineData(AccessGrantScopeKind.Organization)]
+    [InlineData(AccessGrantScopeKind.Application)]
+    [InlineData(AccessGrantScopeKind.SystemInstance)]
+    public async Task ShouldFindAnyInventoryGrantGivenRestrictedReadPermission(
+        AccessGrantScopeKind scopeKind)
+    {
+        // Arrange
+        var scopeId = scopeKind == AccessGrantScopeKind.Organization
+            ? TenantId
+            : scopeKind == AccessGrantScopeKind.Application ? ApplicationId : SystemInstanceId;
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(scopeKind,
+            scopeId))), "client_personnel", [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyApplicationInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public async Task ShouldIgnoreProgramGrantGivenRestrictedInventoryReadPermission()
+    {
+        // Arrange
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.Program, ProgramId))), "client_personnel",
+            [RbacPermissions.ApplicationRestrictedRead]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyApplicationInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.ApplicationRestrictedRead);
+
+        // Assert
+        Assert.False(allowed);
     }
 
     [Fact]

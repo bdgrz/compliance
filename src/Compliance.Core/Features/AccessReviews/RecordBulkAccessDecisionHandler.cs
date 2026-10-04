@@ -1,4 +1,5 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Applications;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
@@ -7,15 +8,21 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     eligible items and presents the preview token for the current campaign revision. HTTP-only.
 /// </summary>
 public sealed class RecordBulkAccessDecisionHandler(IAggregateExecutor executor,
-    TimeProvider clock)
+    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<RecordBulkAccessDecision, BulkAccessDecisionResult>
 {
     public async ValueTask<Result<BulkAccessDecisionResult>> HandleAsync(
         IRequestContext<RecordBulkAccessDecision> context, CancellationToken ct)
     {
         var request = context.Request;
-        var actor = AccessReviewActor.From(context);
         var itemIds = request.ItemIds ?? [];
+        var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
+            request.CampaignId), ct).ConfigureAwait(false);
+        var actor = AccessReviewActor.From(context);
+        if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                request.TenantId, actor.UserId, campaign, itemIds, ct).ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<BulkAccessDecisionResult>(RequestErrorKind.NotFound,
+                "The review items were not found.");
         var result = await executor.ExecuteAsync(new AccessReviewCampaign(request.TenantId,
                 request.CampaignId),
             campaign =>

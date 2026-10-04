@@ -10,4 +10,5 @@ namespace Bdgrz.Compliance.Features.Applications;
 [Discriminator("bdgrz.application.access_review_scopes.list", 1)]
 public sealed record ListAccessReviewScopes(Uuid TenantId, Uuid ApplicationId,
     DateTimeOffset? AsOf = null, int? Limit = null, string? Cursor = null)
-    : IRequest<Page<AccessReviewScopeStatusView>>, IApplicationInventoryRequest, ICallable;
+    : IRequest<Page<AccessReviewScopeStatusView>>, IRestrictedApplicationResourceReadRequest,
+        ICallable;
