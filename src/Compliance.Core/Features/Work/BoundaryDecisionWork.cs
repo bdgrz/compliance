@@ -10,9 +10,9 @@ static class BoundaryDecisionWork
     public const string Review = "boundary_review";
     public const string Approval = "boundary_approval";
 
-    public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
-        IBoundaryDirectoryReader directory, Uuid tenantId, Uuid programId, DateTimeOffset now,
-        Uuid? workItemId, CancellationToken ct)
+    public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
+        IAggregateReader reader, IBoundaryDirectoryReader directory, Uuid tenantId,
+        Uuid programId, DateTimeOffset now, Uuid? workItemId, CancellationToken ct)
     {
         var candidates = new List<WorkCandidate>();
         string? cursor = null;
@@ -21,17 +21,22 @@ static class BoundaryDecisionWork
             var page = await directory.ListProgramAsync(tenantId, programId, 200, cursor, ct)
                 .ConfigureAwait(false);
             foreach (var boundary in page.Items.Where(boundary => boundary.TenantId == tenantId &&
-                         boundary.ProgramId == programId && boundary.Draft is not null))
+                         boundary.ProgramId == programId))
             {
-                var draft = boundary.Draft!;
-                if (draft.TenantId != tenantId || draft.BoundaryId != boundary.BoundaryId ||
-                    draft.ProgramId != programId || draft.Status != "draft")
-                    continue;
                 var aggregate = await reader.HydrateAsync(new SystemBoundary(tenantId,
                     boundary.BoundaryId), ct).ConfigureAwait(false);
-                if (!aggregate.IsCreated || aggregate.ProgramId != programId ||
-                    aggregate.Revision != boundary.Revision ||
-                    aggregate.DraftVersionId != draft.VersionId ||
+                if (!aggregate.IsCreated || aggregate.ProgramId != programId)
+                    continue;
+                if (aggregate.Revision != boundary.Revision)
+                    return Result<IReadOnlyList<WorkCandidate>>.Failure(new RequestError(
+                        RequestErrorKind.Conflict,
+                        "The boundary source and work projection revisions differ. Retry the query.",
+                        isTransient: true));
+
+                var draft = boundary.Draft;
+                if (draft is null || draft.TenantId != tenantId ||
+                    draft.BoundaryId != boundary.BoundaryId || draft.ProgramId != programId ||
+                    draft.Status != "draft" || aggregate.DraftVersionId != draft.VersionId ||
                     aggregate.DraftRevision != draft.Revision)
                     continue;
 
@@ -88,6 +93,6 @@ static class BoundaryDecisionWork
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
-        return candidates;
+        return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }
 }

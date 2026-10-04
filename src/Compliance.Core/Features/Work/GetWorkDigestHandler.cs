@@ -18,8 +18,11 @@ public sealed class GetWorkDigestHandler(WorkQueueReader queue, IAggregateReader
     {
         var request = context.Request;
         var actor = OperationsActor.From(context.Actor, request.TenantId);
-        var snapshot = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
+        var read = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
             DueSoonDays, ct).ConfigureAwait(false);
+        if (!read.IsSuccess)
+            return Result<WorkDigestView>.Failure(read.Error);
+        var snapshot = read.Value;
         var today = snapshot.Today;
         var mine = snapshot.Entries.Select(static entry => entry.Item)
             .Where(item => item.AssigneeMemberId == actor.MemberId && item.DueOn is not null)

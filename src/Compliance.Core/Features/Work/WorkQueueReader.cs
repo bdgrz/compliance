@@ -22,7 +22,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     readonly Dictionary<Uuid, bool> _active = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
 
-    internal ValueTask<WorkQueueSnapshot> ReadAsync(Uuid tenantId, Uuid programId,
+    internal ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
         OperationsActor actor, int horizonDays, CancellationToken ct) =>
         ReadAsync(tenantId, programId, actor, horizonDays, null, ct);
 
@@ -31,20 +31,26 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         Uuid tenantId, Uuid programId, OperationsActor actor, Uuid workItemId,
         CancellationToken ct)
     {
-        var snapshot = await ReadAsync(tenantId, programId, actor,
+        var result = await ReadAsync(tenantId, programId, actor,
             ControlCadenceSchedule.MaximumDueWithinDays, workItemId, ct).ConfigureAwait(false);
+        if (!result.IsSuccess)
+            return Result<(WorkQueueSnapshot, WorkQueueEntry)>.Failure(result.Error);
+        var snapshot = result.Value;
         return snapshot.Entries.Count == 1
             ? Result<(WorkQueueSnapshot, WorkQueueEntry)>.Success((snapshot, snapshot.Entries[0]))
             : Result<(WorkQueueSnapshot, WorkQueueEntry)>.Failure(WorkQueueSnapshot.NotFound());
     }
 
-    async ValueTask<WorkQueueSnapshot> ReadAsync(Uuid tenantId, Uuid programId,
+    async ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
         OperationsActor actor, int horizonDays, Uuid? workItemId, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
-        var candidates = (await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, boundaries, ct).ConfigureAwait(false)).ToList();
+        var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,
+            today.AddDays(horizonDays), now, workItemId, boundaries, ct).ConfigureAwait(false);
+        if (!work.IsSuccess)
+            return Result<WorkQueueSnapshot>.Failure(work.Error);
+        var candidates = work.Value.ToList();
         if (campaigns is not null)
             candidates.AddRange((await PolicyCampaignWork.LoadAsync(reader, campaigns, tenantId, programId,
                     today, ct).ConfigureAwait(false))
@@ -73,7 +79,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             .ThenBy(static entry => entry.Item.CreatedAt)
             .ThenBy(static entry => entry.Item.WorkItemId.ToString(), StringComparer.Ordinal)
             .ToArray();
-        return new WorkQueueSnapshot(today, manages, ordered);
+        return Result<WorkQueueSnapshot>.Success(new WorkQueueSnapshot(today, manages, ordered));
     }
 
     /// <summary>

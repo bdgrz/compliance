@@ -209,7 +209,7 @@ public sealed class WorkQueueTests
     }
 
     [Fact]
-    public async Task ShouldOmitBoundaryReviewGivenStaleDecisionProjection()
+    public async Task ShouldReturnTransientConflictGivenStaleBoundaryDecisionProjection()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -242,11 +242,42 @@ public sealed class WorkQueueTests
                 now.AddMinutes(-5)), null, null, 1));
 
         // Act
-        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
-            new ListWork(fixture.TenantId, fixture.ProgramId));
+        var stale = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
 
         // Assert
-        Assert.Empty(queue.Items);
+        Assert.True(stale.Error!.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenBoundaryProjectionAheadOfSource()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 2));
+
+        // Act
+        var stale = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
+
+        // Assert
+        Assert.True(stale.Error!.IsTransient);
     }
 
     [Fact]

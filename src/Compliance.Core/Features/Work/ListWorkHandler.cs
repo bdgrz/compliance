@@ -26,8 +26,11 @@ public sealed class ListWorkHandler(WorkQueueReader queue) : IRequestHandler<Lis
             return Result<WorkQueueView>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The horizon must be between 0 and 365 days."));
         var actor = OperationsActor.From(context.Actor, request.TenantId);
-        var snapshot = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
+        var read = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
             request.HorizonDays ?? WorkQueueReader.DefaultHorizonDays, ct).ConfigureAwait(false);
+        if (!read.IsSuccess)
+            return Result<WorkQueueView>.Failure(read.Error);
+        var snapshot = read.Value;
         var items = snapshot.Entries.Where(entry => scope switch
             {
                 Mine => entry.Item.AssigneeMemberId == actor.MemberId,
