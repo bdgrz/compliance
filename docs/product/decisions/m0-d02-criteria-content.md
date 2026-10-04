@@ -5,7 +5,7 @@ Status: decided, 2026-09-22. Decision owner: Jeff Repanich, product owner.
 | Question | Decision and rationale |
 | --- | --- |
 | Edition | The first platform edition is the 2017 Trust Services Criteria with the 2022 revised points of focus. |
-| Permitted use | The product ships **no licensed AICPA text**. It ships criterion and point-of-focus identifiers (for example `CC6.1`) plus short, original product-written summaries. Full criteria text is available only from a catalog file that a firm or client supplies under its own AICPA license. This avoids depending on redistribution terms in an Apache-2.0 product. |
+| Permitted use | The product ships **no licensed AICPA text**. It ships criterion identifiers (for example `CC6.1`), locally assigned point-of-focus identifiers, and short, original product-written summaries. Licensed criteria text may be supplied through a tenant-owned overlay under the supplier's own AICPA license. The platform does not assume redistribution permission. |
 | Points of focus | Points of focus are modeled as first-class catalog entries and are mappable, not reference-only. |
 | Initial catalog | The platform catalog (IDs plus original summaries) is platform-level content. A licensed text overlay is supplied per tenant or firm template; the supplier and license scope are confirmed in [#351](https://github.com/bdgrz/compliance/issues/351). |
 | Later editions | A new edition is added side by side as a new immutable catalog edition. Existing programs and engagements keep the edition they selected; migration is an explicit, attributed remapping, never a mutation of an existing edition. |
@@ -27,10 +27,14 @@ Status: decided, 2026-09-22. Decision owner: Jeff Repanich, product owner.
 
 ## Repository check
 
-No criteria catalog or fixture is seeded in the repository today, so there is
-no shipped text to test. When R1-03 seeds the platform catalog, it must add a
-test asserting that the seed contains only identifiers, edition metadata, and
-original summaries.
+The platform seed and tenant-overlay contracts are described in
+[criteria-catalog-v1.md](../criteria-catalog-v1.md). The seed contains criterion
+identifiers, locally assigned point-of-focus identifiers, edition metadata,
+and original summaries. `PlatformCriteriaCatalogTests` guards the authored
+summary boundary. Partial point-of-focus coverage and unsupported Privacy
+lifecycle behavior remain explicit support gaps; a complete numbered-criterion
+catalog does not prove complete framework support. Current delivery evidence
+belongs to the linked implementation issues.
 
 ## Follow-up discovery
 

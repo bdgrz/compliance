@@ -1,26 +1,27 @@
-# Application import v1 contract draft
+# Application import v1: bounded staging and deferred batch acceptance
 
-Status: staging and read contract for EN-05 / R1-10b, revised 2026-09-22 after
-ADR 0005 was accepted. The bounded stage HTTP route and three
-batch/row/preview HTTP and read-only MCP queries are implemented as a first
-slice. The stage MCP tool is pending
-[Portia #61](https://github.com/cntryl/portia/issues/61) for nested-array
-binding. Batch acceptance and reconciliation follow ADR 0005 and are
-unscheduled. Pre-acceptance cancellation is implemented as an HTTP-only
-terminal transition. This
-contract covers bounded tenant-supplied rows only; it grants no source
-authority or reviewed scope.
+Status: bounded staging, read, and pre-acceptance cancellation contract for
+EN-05 / R1-10b. HTTP and MCP expose staging; batch, row, and preview queries
+are read-only MCP tools. Whole-batch acceptance and reconciliation follow
+ADR 0005 and remain separate delivery scope in
+[EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195).
+Pre-acceptance cancellation is an HTTP-only terminal transition. This optional
+import path covers bounded tenant-supplied rows; it grants no source authority
+or reviewed scope and is not required to author or operate the application
+inventory manually. Current delivery and acceptance evidence belong to the
+linked issues.
 The technical decision is
 [ADR 0005](../architecture/decisions/0005-import-reconciliation-and-background-processing.md).
 
 Accepted ADR 0005 (2026-09-22) makes acceptance all-or-nothing behind a
-durable batch visibility barrier. The per-row acceptance candidate below
-(`AcceptApplicationImportRow`, `partially_accepted`, `needs_resolution`) is
-**rejected** and kept only as design history. A person with inventory
-management accepts or cancels the whole batch; a Contributor may stage and
-preview. [EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195)
-redefines the batch acceptance and cancellation contract when import work is
-scheduled. Staging and read contracts are unchanged.
+durable batch visibility barrier. `AcceptApplicationImportRow`,
+`partially_accepted`, and per-row effect acceptance are rejected design
+alternatives, not supported operations. Their earlier description is retained
+in repository history. The target role policy allows Contributors to stage
+and preview, while Compliance Leads or Org Admins accept or cancel a whole
+batch (M0-D03). EN-05 owns the additional staging grant and acceptance
+contract; the bounded staging slice currently uses inventory-management
+authority.
 
 ## Common rules
 
@@ -35,11 +36,13 @@ scheduled. Staging and read contracts are unchanged.
   declarations, not verified external authority. A source claim is identified
   by tenant, source key, namespace, object kind `application`, and exact source
   record ID. Names are never match keys.
-- Initial authorization uses the existing Application inventory boundary:
-  active tenant membership and `program.manage`. A nonmember or wrong-tenant
+- Authorization uses the Application inventory boundary:
+  active tenant membership and `application_inventory.manage`. A nonmember or
+  wrong-tenant
   batch returns 404 before metadata or row counts are read; an active member
-  without the grant receives 403. `program.manage` is an interim grant, not a
-  final restricted-inventory policy. ADR 0005 decision 5 (from the M0-D03 role
+  without the grant receives 403. Import management authority does not grant
+  access to restricted governed Application content. ADR 0005 decision 5 (from
+  the M0-D03 role
   decision, 2026-09-22) adds an import-staging grant so Contributors can stage
   and preview, while acceptance and cancellation keep inventory-management
   authority. EN-05 delivers that grant; until then this slice is unchanged.
@@ -101,10 +104,9 @@ event's serialized snake_case payload must also fit 48 KiB, leaving more than
 11 KiB for Portia's envelope, metadata, stream address and Fitz framing under
 Fitz's 61,247-byte event limit. A 200-row submission of individually legal
 but long values can therefore return 400. Raw
-rows and rejected-row reports are retained for seven years, the evidence
-retention period the product owner directed for M0-D16
-([#73](https://github.com/bdgrz/compliance/issues/73)); M0-D16 governs if it
-records otherwise. Staging does not yet implement disposition. The server computes
+rows and rejected-row reports follow the seven-year evidence retention policy
+in the accepted [M0-D16 decision](decisions/m0-d16-evidence-handling.md).
+Staging does not yet implement disposition. The server computes
 `content_sha256`; a client cannot
 assert it. Repeating the same tenant/source/namespace/submission ID with identical
 canonical content returns the original registration. Different content with
@@ -118,69 +120,13 @@ that ID returns 409. The response is:
 }
 ```
 
-The rest of this section is the rejected per-row candidate, retained as
-design history. It is not a contract.
-
-`AcceptApplicationImportRow` body (rejected):
-
-```json
-{
-  "expected_batch_revision": 4,
-  "resolution": "link_existing",
-  "target_application_id": "018f0ed4-5d29-7e91-86bb-31a137fd6a6f",
-  "expected_application_revision": 2,
-  "supersedes_decision_id": null,
-  "rationale": "Same operated application under an older label"
-}
-```
-
-`resolution` is `create`, `link_existing`, or `skip`. `skip` records a decision
-without a source-claim reservation or Application effect; a later submission
-may resolve that source ID. `target_application_id`
-and `expected_application_revision` are required only for `link_existing`;
-they are forbidden for the other resolutions. `rationale` is required for
-`link_existing` and `skip`. `create` uses a deterministic application ID from
-the exact source-claim tuple, stable across batches; it cannot overwrite
-another tenant's record. A source-claim binding serializes competing
-correlations before an Application effect is attempted. A stale batch
-or Application revision returns 409 with the current revision in the detail.
-Once a source claim is bound, another batch cannot `create` it again; its
-preview reports the existing binding and any changed source fields.
-`link_existing` only attaches an attributed source observation to the exact
-target; it does not replace the governed Application's name, purpose, owner,
-classification, or scope. Adopting changed source fields requires a separate
-authorized, reviewed Application revision with its own expected revision.
-Which fields and source authority can support that adoption remains a product
-decision under M0-D28 and M0-D05. A pending source-claim reservation tied to
-another target is a visible conflict, not an automatic rematch.
-Invalid, duplicate, already applied, or ambiguously matched rows cannot be
-applied. An outstanding effect cannot be replaced. A row in `needs_resolution`
-may receive a new decision only with `supersedes_decision_id` identifying its
-exact prior decision, current `expected_batch_revision`, a new target and
-expected target revision when applicable, and a rationale. The prior decision
-and failure remain in immutable history. The worker may mark
-`needs_resolution` only after an authoritative target Application stream read
-finds no prior effect ID and a current revision strictly beyond the prior
-expected revision. A timeout or lagging projection cannot prove this. The
-source-claim reservation transitions to the new decision only after that
-terminal nonapplied proof. Supersession by `skip` records a reviewed
-release/unbound source-claim transition, retaining the old reservation in
-history. Otherwise the old intent remains pending. A
-repeated identical decision returns the same receipt. The receipt
-contains `decision_id`, `batch_id`, `row_id`, `revision`, and `state` (`pending`,
-`applied`, or `skipped`); it does not claim an Application is active while its
-reactor intent remains pending. The row status query supplies the eventual
-`application_id` and any recoverable failure. Decision IDs and effect IDs are
-stable across reactor replay, independent of Portia reaction request IDs.
-
-`CancelApplicationImport` body has `expected_batch_revision` and a nonblank
-`reason`. The authoritative batch aggregate rejects cancellation with 409
-after **any** accepted row intent, including a pending effect. Cancellation
-before acceptance leaves no active Application. A terminal `failed` batch
-also has zero accepted intents. A row failure after earlier accepted effects
-keeps the batch `partially_accepted` with a retryable or `needs_resolution`
-row. ADR 0005 rejected that outcome: under the accepted barrier, cancellation
-is allowed until the batch commits and rolls back every pending effect.
+`CancelApplicationImport` takes `expected_batch_revision` and a nonblank
+`reason`. The bounded staging implementation permits cancellation before
+acceptance and retains the batch, rows, and attributed terminal decision.
+The accepted whole-batch target additionally permits cancellation during
+acceptance until commit, rolling back pending effects behind the visibility
+barrier; after commit cancellation returns 409. EN-05 must prove that barrier
+before adding acceptance operations.
 
 ## Read operations and MCP
 
@@ -204,9 +150,10 @@ calls must be denied before projection data is read.
 `source_key`, `source_namespace`, `coverage`, `content_sha256`, `revision`, `state`, `submitted_by_member_id`,
 `submitted_by_display`, `submitted_at`, `row_count`, `invalid_count`,
 `pending_count`, `applied_count`, `skipped_count`, `failed_count`, and
-`last_progress_at`. The first slice emits only `preview_ready`, with zero
-processing counts. Under ADR 0005, EN-05 adds `accepting`, `committed`,
-`canceled`, and `failed`; `partially_accepted` is rejected.
+`last_progress_at`. The bounded staging slice emits `preview_ready` and terminal
+`canceled`,
+with zero processing counts. Under ADR 0005, EN-05 adds `accepting`,
+`committed`, and `failed`; `partially_accepted` is rejected.
 Counts are scoped to that batch and never published before authorization or a
 freshness check.
 
@@ -216,8 +163,9 @@ freshness check.
 `application_id`. The first slice reports only `processing_state: staged`,
 with a null `application_id`, and retains the attributable submission time on
 its batch.
-Attributable acceptance, cancellation, and pre-acceptance correlation
-decisions, with their history, are EN-05 additions under ADR 0005.
+Cancellation retains the original staged rows and its attributed batch
+decision. Acceptance and pre-acceptance correlation decisions, with their
+history, are EN-05 additions under ADR 0005.
 `ApplicationImportPreviewRow` adds `match_state` (`unmatched`, `unchanged`,
 `changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
 candidate Application IDs, changed field names, and `acceptance_blockers`.

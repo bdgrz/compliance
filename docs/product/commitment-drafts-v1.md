@@ -1,10 +1,16 @@
 # R1-13 management-authored draft register
 
-This is partial backend delivery for [#229](https://github.com/bdgrz/compliance/issues/229).
-The source commitments and approval authority for the first engagement remain
-an organization decision in [M0-D09 #66](https://github.com/bdgrz/compliance/issues/66).
-The register cannot assert an approved commitment, a legal interpretation,
-readiness, control operation, or an auditor conclusion.
+Status: bounded backend contract for
+[#229](https://github.com/bdgrz/compliance/issues/229), including the review and
+effective-version increments [#450](https://github.com/bdgrz/compliance/issues/450)
+and [#466](https://github.com/bdgrz/compliance/issues/466). The register supports
+manual authoring, review, and management approval under the accepted
+[M0-D09 decision](decisions/m0-d09-commitments.md). First-client source artifacts
+and approver assignments remain organization facts in
+[#354](https://github.com/bdgrz/compliance/issues/354). A draft remains unverified;
+an approved version records management's decision and does not assert readiness,
+control operation, a legal opinion, or an auditor conclusion. Current delivery
+and acceptance evidence belong to the linked issues.
 
 ## Contract
 
@@ -37,10 +43,11 @@ readiness, control operation, or an auditor conclusion.
   keys, JSON properties, and tool arguments use snake_case.
 
 All operations require active tenant membership and the existing
-`program.manage` permission. This narrow interim grant restricts potentially
-sensitive contract references while [M0-D03 #60](https://github.com/bdgrz/compliance/issues/60)
-and scoped access [#186](https://github.com/bdgrz/compliance/issues/186)
-remain open. Other tenant and program references are not disclosed.
+`program.manage` permission at the applicable program or organization scope.
+The role and responsibility policy is defined by the accepted
+[M0-D03 decision](decisions/m0-d03-roles-and-separation-of-duties.md);
+[#186](https://github.com/bdgrz/compliance/issues/186) owns scoped-access delivery.
+Other tenant and program references are not disclosed.
 
 The normalized identifier is unique within tenant, program, and kind and
 selects the authoritative stream. A duplicate HTTP `POST` conflicts even if

@@ -3,8 +3,8 @@
 Status: accepted product default, 2026-09-22. Decision owner: Jeff Repanich
 (product owner). Closes [M0-D17 #74](https://github.com/bdgrz/compliance/issues/74).
 
-No audit firm is engaged yet. These are common-format defaults that the
-product builds to. Confirming them with the actual firm is follow-up
+At the decision date, no audit firm had been engaged. These are common-format
+defaults that the product builds to. Confirming them with the actual firm is follow-up
 [#339](https://github.com/bdgrz/compliance/issues/339), which blocks the Type I
 package and outcome backends.
 

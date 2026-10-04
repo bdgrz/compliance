@@ -44,7 +44,8 @@ decision kind, actor, role/scope, time, rationale, separation-of-duties result,
 and any policy exception reference. Each workflow owns the request, permitted
 outcomes, state transition, and decision history. R1-02 owns boundary review
 and approval decisions; R1-05 owns control approval; R1-06 owns mapping review;
-R1-13 owns import acceptance; R2-02 owns evidence review; R2-05 owns control
+R1-13 owns commitment review and approval; EN-05 owns batch import acceptance;
+R2-02 owns policy review and approval; R2-03 owns evidence review; R2-05 owns control
 evaluation reviews. There is no universal `Review` aggregate or approval that
 confers validity on unrelated records. Human approvals and personal sign-offs
 remain HTTP-only; machine operations may author drafts and read decisions when
@@ -73,10 +74,13 @@ The firm's client-service `ServiceEngagement` in F1-07 and the client's
 `AuditEngagement` in Type I/II workflows are different records. References
 must name the kind and tenant; neither implies the other's authorization.
 
-## Remaining policy inputs
+## Policy inputs and follow-up
 
-The thresholds, severity rubric, approved waiver authorities, small-team
-exceptions, and any firm or auditor terminology commitments require the
-respective M0-D03, M0-D13, and engagement decisions. This decision does not
-choose those facts. Affected stories must carry these terms and links before
-their backend child is closed.
+M0-D03 defines waiver authority and small-team separation-of-duties rules;
+M0-D13 defines evaluation results and minor/material deviations. M0-D10 owns
+risk appetite, M0-D26 owns independence rules, and engagement decisions own
+auditor-specific commitments. A severity rubric or workflow default not covered
+by those records must be named as a delivery limitation with its owning story,
+rather than described as an undecided M0 question. Affected stories must carry
+these terms, decision links, and any remaining policy inputs before their
+backend child is closed.

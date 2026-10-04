@@ -54,8 +54,10 @@ Preview and decision also require caught-up correlated canonical projections.
 ## Authority and reconciliation
 
 M0-D06 makes HRIS authoritative for people and employment facts, with IdP facts
-corroborating it and a manual roster as the fallback. Provider observations
-corroborate NHI identity facts. A preview labels that authority, returns current
+corroborating it. The workforce feature remains operable through manual entry
+when neither source is connected; a manually maintained roster is authoritative
+when no HRIS exists. Provider observations corroborate NHI identity facts. A
+preview labels that authority, returns current
 and observed canonical revisions, and names differing public fields without
 applying values. Restricted discrepancies are a boolean; their names and values
 are not returned.
@@ -132,4 +134,7 @@ resolution and NHI expiry views remain available. HRIS parsing/import and source
 shape decisions remain #347; provider account classification/correlation UI
 belongs to #115/#273; integrated browser acceptance remains #453. No automatic
 inter-source arbitration, import connector, account query, or access mutation is
-added by this slice, so #484 remains open for those outstanding criteria.
+added by this slice. Current delivery status and acceptance for
+[#484](https://github.com/bdgrz/compliance/issues/484) belong to that issue;
+the exclusions here do not add an import or connector prerequisite to the
+manual workforce workflow.

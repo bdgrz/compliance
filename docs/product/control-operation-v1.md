@@ -4,6 +4,12 @@ Backend contract for [R2-01 #270](https://github.com/bdgrz/compliance/issues/270
 [R2-04 #278](https://github.com/bdgrz/compliance/issues/278), and
 [R2-07 #274](https://github.com/bdgrz/compliance/issues/274). It applies M0-D03,
 M0-D13, M0-D15, M0-D19, and M0-D23. It does not change readiness rules (R1-08).
+Owners and reviewers can open work, record performance, supply support, and
+resolve findings through user actions without an external integration or
+optional collection automation. Native cadence calculations and governed
+reactors still run. Current delivery and acceptance evidence belong to the
+linked issues; unresolved evidence-content references below limit what this
+increment proves.
 
 ## Records and streams
 
@@ -88,4 +94,7 @@ the ledger already plans is always evaluated, even when the directory lags.
 
 Reactor-raised findings default to `medium` severity and are due in 30 days. They
 are owned by the control owner (or the reviewer or recorder when the owner is not
-a member). A Compliance Lead revises them. These defaults are not an M0 decision.
+a member). A Compliance Lead revises them. These implementation defaults are
+not an M0 decision. R2-07 owner [#274](https://github.com/bdgrz/compliance/issues/274)
+must record product confirmation or replacement of the severity, deadline, and
+fallback owner before they are treated as accepted program policy.

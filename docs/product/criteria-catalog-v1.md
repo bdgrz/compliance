@@ -7,6 +7,9 @@ following [M0-D02](decisions/m0-d02-criteria-content.md) and
 overlays are implemented in [#448](https://github.com/bdgrz/compliance/issues/448).
 Supplier and license facts still come from [#351](https://github.com/bdgrz/compliance/issues/351);
 they inform overlay content without blocking its data shape.
+Catalog selection, mapping, and tenant-overlay entry are usable through product
+actions without a licensed catalog import or external integration. An overlay's
+supplier must still have the permitted-use authority described in M0-D02.
 
 ## Catalog content
 
@@ -68,7 +71,11 @@ contain only identifiers and original summaries.
   program and on every revision row, so history shows which edition applied at
   each revision. `minimum_revision` distinguishes projection lag as usual.
 
-## Evidence
+## Validation coverage
+
+The following test sources describe intended and retained verification coverage.
+This documentation update does not execute them; current run results and release
+acceptance belong to the linked implementation issues and CI at the reviewed head.
 
 - Unit: `PlatformCriteriaCatalogTests`, `CriteriaCatalogTests`,
   `CriteriaCatalogHandlerTests`, `ProgramCriteriaProjectionTests` (projection

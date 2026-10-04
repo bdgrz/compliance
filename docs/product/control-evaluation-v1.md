@@ -4,6 +4,9 @@ Backend contract for [R2-05b #289](https://github.com/bdgrz/compliance/issues/28
 [R2-05c #294](https://github.com/bdgrz/compliance/issues/294), and
 [R2-05d #296](https://github.com/bdgrz/compliance/issues/296). It applies M0-D13 and
 M0-D03 and reuses the R2-07 finding path. It does not change readiness rules (R1-08).
+Evaluators author procedures and record results through the product; no
+consultant-library import, source connector, or optional automation is required.
+Current delivery and acceptance evidence belong to the linked issues.
 
 ## Records and streams
 
@@ -65,7 +68,10 @@ Reads hydrate the program stream, so they never lag. A deviation's
 
 - Deviation findings use the occurrence-finding defaults: `medium` severity,
   due in 30 days, owned by the control version's owner member (or the
-  evaluator).
+  evaluator). The implementation records these defaults, but the accepted M0
+  decisions do not ratify them as a severity or due-date policy. R2-05 owner
+  [#279](https://github.com/bdgrz/compliance/issues/279) must record product
+  confirmation or a replacement before that broader policy is claimed.
 - Readiness does not consume evaluation results yet. That is a separate R1-08
   change.
 - The plan is authored inline when an evaluation starts. Independent

@@ -1,5 +1,11 @@
 # System instance aggregate cutover
 
+Scope: backend storage and API compatibility contract for the R1-10
+application and system-instance inventory. It describes the record boundary
+used by manual declaration and later source enhancements. Current delivery,
+rollout, and acceptance evidence belong to R1-10's linked backend stories in
+[backlog.md](backlog.md); this document is not a deployment readback.
+
 An Application owns metadata revisions. Each SystemInstance now owns a tenant-scoped
 `system-instances/{systemInstanceId}` stream, an immutable `ApplicationId`, and its own
 revision. Declaring a second instance or revising application metadata does not use

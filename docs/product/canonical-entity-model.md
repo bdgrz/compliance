@@ -5,6 +5,10 @@ Status: approved domain contract, 2026-09-22. Decision owner: Jeff Repanich
 [M0-D28 #139](https://github.com/bdgrz/compliance/issues/139); see
 [Approval record](#approval-record).
 
+Reconciled 2026-10-04 with accepted decisions and the confirmed organization
+management and commercial model. The original approval and source register
+remain recorded below.
+
 This document defines a provider-neutral vocabulary for people, organizations,
 workforce relationships, identities, accounts, applications, and access. It is
 a conceptual and interoperability model, not a database schema. It does not
@@ -61,11 +65,13 @@ schema, standard prose, or test corpus is copied into this catalog.
    the domain. Adapters preserve the source payload and map it to canonical
    records with attributable decisions.
 9. Manual entry alone must be sufficient to establish and maintain the
-   canonical records needed for the product's intended workflows. Discovery,
-   ingestion, and connectors are optional ways to add source observations, not
-   prerequisites or alternate domain models. The model retains observations
-   alongside governed facts and supports future correlation and reconciliation
-   without requiring a conflict-resolution policy in advance.
+   canonical records needed for every intended product workflow. Discovery,
+   ingestion, imports, and connectors are optional ways to add source
+   observations and reduce user effort, not prerequisites or alternate domain
+   models. The model retains observations alongside governed facts and supports
+   future correlation and reconciliation without requiring a conflict-resolution
+   policy in advance. See the [manual-first product contract](backlog.md#manual-first-product-contract)
+   for feature-level acceptance.
 
 ## Canonical entity families
 
@@ -73,7 +79,7 @@ schema, standard prose, or test corpus is copied into this catalog.
 
 | Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
 | --- | --- | --- | --- |
-| `Organization` | A legal, business, or administrative organization. A client organization may also be the product tenant. | immutable ID, legal/display name, type, status, parent organization, alternate identifiers | SCIM enterprise `organization`; W3C PROV `Organization` |
+| `Organization` | A legal, business, or administrative organization. Each client workspace organization is the product tenant. | immutable ID, legal/display name, type, status, parent organization, alternate identifiers | SCIM enterprise `organization`; W3C PROV `Organization` |
 | `OrganizationalUnit` | A department, division, cost center, team-like business unit, or other node in an organization structure. It is not an access-control group. | organization, type, name, parent unit, effective interval, source identifiers | SCIM enterprise `organization`, `division`, `department`, and `costCenter`, normalized into governed records |
 | `Person` | A natural person, independent of employment, login, or account status. | names, contact points, locale/time zone, status, alternate identifiers | SCIM User name/contact shapes; W3C PROV `Person` |
 | `WorkRelationship` | A person's effective-dated employment, contract, internship, advisory, or other relationship with an organization. “Employee” is a person with an active employment relationship, not a subtype or duplicate person. | person, organization, worker type, employee number, start/end dates, status, manager relationship, organization units, job profile | SCIM EnterpriseUser attributes and manager relationship |
@@ -93,6 +99,11 @@ system exists, the manually governed roster is authoritative. Personal
 contact points, employment-status reason, and the manager chain are restricted
 workforce fields; their visibility is decided
 by the authorization field-restriction mechanism (M0-A04), not by this catalog.
+
+HR-authoritative facts can be entered and maintained manually with their source
+and capture attribution. Authority does not require an enabled HRIS connector;
+the [workforce source contract](workforce-source-governance.md) governs corrections
+and reconciliation in either path.
 
 A `Responsibility` may be held by a `Person` who never signs in. Work that
 person performs outside the platform is recorded by a signed-in member acting
@@ -124,18 +135,28 @@ Platform roles authorize actions in Compliance. They must not be reused for job
 profiles, provider roles observed during an access review, or responsibilities
 such as control owner and policy approver.
 
-The first-release built-in `AccessRole` catalog (M0-D03) is Org Admin,
+The accepted built-in `AccessRole` catalog (M0-D03) is Org Admin,
 Compliance Lead, Contributor, and Viewer for client personnel, plus the
 firm-staff practice roles Advisor and Attest. Stable role codes and permission
 sets belong to the authorization decision (M0-A04, ADR 0002), not this catalog.
-The existing `tenant_administration`, `compliance_management`, and
-`compliance_participation` implementation roles predate this catalog; mapping
-them to it, including Viewer, which has no current counterpart, is part of
-M0-A04. A practice role is effective
+The pre-catalog `tenant_administration`, `compliance_management`, and
+`compliance_participation` role names are historical implementation vocabulary.
+The accepted M0-A04/ADR 0002 contract defines role and permission mappings;
+current delivery status belongs to the owning backlog issues. A practice role is effective
 only through an active `EngagementAssignment`; it is never granted as a
 standing tenant `RoleAssignment`. Review, approval, and ownership duties are
-`Responsibility` records held by members whose role permits the action; they
-are not additional access roles. Custom roles are out of first-release scope.
+`Responsibility` records with their own governed assignee; they are not
+additional access roles. A signed-in actor needs the appropriate permission
+to record or perform the consequential action, even when the responsible
+person does not sign in. Custom roles are out of first-release scope.
+
+Core organization administration is granted through explicit client-role
+assignments, including administration performed for a client. It does not
+create Advisor or Attest access. Professional practice access requires an
+accepted engagement and eligible assignment in F1. Organization management,
+delegation, and hosted commercial scope are defined in
+[business operations](business-operations.md); subscription and billing
+representations are delivery decisions rather than standards-derived entities.
 
 ### Applications, systems, and resources
 
@@ -198,7 +219,7 @@ valid but are not required for a first-boundary completeness claim.
 | --- | --- | --- | --- |
 | `InformationAsset` | A governed class or collection of information handled by the client service system, separate from a file used as evidence. | tenant, name, classification (`public`, `internal`, `confidential`, or `restricted`), owner, origin, permitted uses, retention reference, lifecycle | Original product decision; source-specific classifications remain observations |
 | `Provider` | A vendor or subservice organization on which a client service depends. It is distinct from a source-system adapter and from the firm serving the client. | tenant, legal/display name, services supplied, owner, criticality, materiality, boundary treatment (subservice organizations default to `carve_out`), lifecycle | Original product decision; provider reports retain their own source wording and scope |
-| `DataFlow` | A governed, versioned description of material information movement between typed system, process, provider, or location endpoints. It is distinct from a network connection or a file transfer observation. | tenant, exact version, source and destination at service-to-store granularity, information asset, purpose, protection expectation (encryption in transit and at rest), effective interval, boundary relevance | Original product decision for [R1-12](https://github.com/bdgrz/compliance/issues/50) |
+| `DataFlow` | A governed, versioned description of material information movement between typed system, process, provider, or location endpoints. It is distinct from a network connection or a file transfer observation. | tenant, exact version, source and destination at service-to-store granularity, one or more carried information assets, purpose, protection expectation (encryption in transit and at rest), effective interval, boundary relevance | Original product decision for [R1-12](https://github.com/bdgrz/compliance/issues/50) and M0-D08 |
 
 ### External identity and access
 
@@ -239,6 +260,24 @@ placed inside a `Group` aggregate is deliberately unspecified here.
 | `IncidentReference` | An attributable reference to a source incident used for risk reassessment before the governed operating-period incident workflow exists. | tenant, source system and ID, occurrence time, summary, observation time, attribution | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 | `ControlRiskTreatment` | A reviewed assertion that an exact control version addresses a specific risk and treatment decision. | tenant, risk, control version, rationale, reviewer, effective interval | Original product decision in [M0-D22](https://github.com/bdgrz/compliance/issues/79) |
 
+### Operating-period change and incident oversight
+
+These T2-07 records govern compliance assessment and examination support. They
+do not replace operational tickets or incident-response systems. Their minimum
+facts and significance rules are defined by
+[M0-D21](decisions/m0-d21-significant-change.md).
+
+| Entity | Canonical meaning | Important attributes and relationships | Standards alignment |
+| --- | --- | --- | --- |
+| `SignificantChange` | A compliance-facing change record with an attributed significance and impact assessment. | tenant, title, occurrence time or effective interval, significance and rationale, handling class, affected records, assessor and assessment time, optional external source locator | Original product decision in M0-D21 |
+| `ComplianceIncident` | A governed compliance-facing incident record that can be entered manually without an external incident tool. It is distinct from R1-07's `IncidentReference`. | tenant, title, detection/resolution times, significance and rationale, handling class, customer-data/SLA impact, affected records, assessor and assessment time, supporting evidence, optional external source locator and earlier incident-reference links | Original product decision in M0-D21 and T2-07 |
+
+A native incident may correlate earlier `IncidentReference` records without
+rewriting their source identifiers, observations, or risk-assessment history.
+Missing external provenance is explicit; manual entry never fabricates an
+external incident ID. These are conceptual names; physical representations and
+any adaptation of existing types belong to the owning delivery slice.
+
 All records use both transaction and valid-time concepts where the distinction
 matters:
 
@@ -269,6 +308,10 @@ unresolved, and redacted references are distinct states. An imported source
 may report an unresolved target, but no governed relationship is asserted
 until the target is resolved. Labels and contact values are mutable display
 attributes and cannot be foreign keys.
+
+One platform account may administer multiple tenant organizations, but their
+records and billing remain separate. A business organization hierarchy never
+grants administrative access, shares a subscription, or changes tenant scope.
 
 For all tenant-owned governed records, `id`, `tenant_id`, `created_at`, and
 lifecycle state are required. Creation and retirement retain actor, time, and
@@ -329,7 +372,7 @@ display name or a provider-wide identifier guessed from another tenant.
 | `OperationalProcess` | governed name, purpose, owner reference | inputs, outputs, source |
 | `InformationAsset` | governed name, information kind, classification | owner, origin, uses, retention reference |
 | `Provider` | legal or governed name, provider kind | services, owner, criticality, boundary treatment |
-| `DataFlow` | stable flow ID and exact version, typed source and destination, information asset, purpose, effective start | end, protection expectation, scope decision, source |
+| `DataFlow` | stable flow ID and exact version, typed source and destination, one or more information assets, purpose, effective start | end, protection expectation, scope decision, source |
 | `Account` | system instance, source account ID, account kind | username, enabled state, subject correlation |
 | `ServiceIdentity` | identity kind, purpose, accountable owner | environment, review date (required before the identity is scope-ready), expiry date |
 | `Group` | system instance, source group ID, group kind | display name |
@@ -344,8 +387,15 @@ display name or a provider-wide identifier guessed from another tenant.
 | `Observation` | source system, source record ID, observed time, payload identity | source version, normalized assertions |
 | `Correlation` | two typed records, method, decision status, actor or source, recorded time | confidence, effective interval |
 | `Snapshot` | definition, cutoff, content identity, source completeness | rows, amendment parent |
-| `IncidentReference` | source system, source incident ID, occurrence time or explicit unknown, observed time | summary, severity |
+| `IncidentReference` | source system, source incident ID, summary, occurrence time or explicit unknown, observed time | severity |
 | `ControlRiskTreatment` | risk, exact control version, treatment kind, rationale, reviewer, effective start | end, review evidence |
+| `SignificantChange` | title, occurrence time or effective interval, significance and rationale, handling class, affected-record references, assessor and assessment time | external source locator, evidence |
+| `ComplianceIncident` | title, detected time, significance and rationale, handling class, customer-data/SLA impact, affected-record references, assessor and assessment time | resolved time, external source locator, incident-reference links, evidence |
+
+For `SignificantChange` and `ComplianceIncident`, significance, rationale,
+assessor, and assessment time describe a completed assessment under M0-D21.
+Initial capture or draft rules belong to T2-07; a record lacking that assessment
+cannot be counted as an assessed significant or non-significant item.
 
 These minimums allow a draft or unresolved inventory record to exist without
 invented ownership or classification. An active record asserted to be in a
@@ -383,7 +433,7 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `SeparationOfDutyConstraint` | Per tenant: constraint kind and scope |
 | `SeparationOfDutyException` | Per tenant: constraint and record type with overlapping interval |
 | `TrustedIssuer` | Per tenant: exact issuer identifier |
-| `PlatformOperatorGrant` | Platform realm: one active in-app grant per platform user; a configuration bootstrap entry is a separate source |
+| `PlatformOperatorGrant` | Platform realm: one active grant per platform user; configuration is a bootstrap source only and never restores a revoked grant |
 | `FirmStaffMember` | Platform realm: each platform user is bound to at most one active entry |
 | `ServiceEngagement` | None beyond platform ID |
 | `EngagementAssignment` | Per engagement: one active assignment per platform user; per tenant, the assignments of all platform users bound to one `FirmStaffMember`, over all history, never span both the `advisory` and `attest` practices |
@@ -416,6 +466,8 @@ lifecycle is not retired and whose effective intervals overlap. A key scoped
 | `Snapshot` | Per definition: content identity |
 | `IncidentReference` | Per source system: source incident ID |
 | `ControlRiskTreatment` | Per tenant: risk and exact control version with overlapping interval |
+| `SignificantChange` | None beyond platform ID; an external locator is provenance, not an implicit merge key |
+| `ComplianceIncident` | None beyond platform ID; an external locator is provenance, not an implicit merge key |
 
 The accepted persistence decision,
 [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md),
@@ -447,9 +499,9 @@ distinct relationships or separately attributed, conflicting observations.
 | Tenant membership | `Membership` 1 `PlatformUser`, 1 `Organization`; each endpoint 0..* over history | At most one active membership for the same user and organization; suspension revokes effective access immediately. |
 | Team membership | `Team` 1 organization, 0..* memberships; member 1 `Membership` | Team and membership belong to the same tenant; membership intervals cannot outlive the tenant affiliation. |
 | Firm-staff affiliation | `FirmStaffMember` 1..* `PlatformUser`; user 0..1 active entry | Only platform operators maintain the directory. A `firm_staff` `Membership` exists only for a platform user bound to an active entry, and a client Org Admin cannot assign that affiliation. |
-| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Firm staff reach a tenant's business records only through an active assignment to an accepted engagement whose practice their directory entry permits, while they also hold an active `firm_staff` `Membership` in that tenant; ending either revokes that access. The independence wall is evaluated per `FirmStaffMember`, so every platform user of one human counts: a person who has ever held an `advisory` assignment for a client never holds an `attest` assignment for it, and the reverse. |
-| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 grant source; user 0..* grants over history | Platform realm. The first operators come from deployment configuration (ADR 0001); later grants and revocations are made in-app by an existing operator (M0-D25). A user is an operator while either source is active. In-app revocation ends only in-app grants; a configuration-bootstrapped operator is removed by changing deployment configuration. Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
-| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user may create a tenant organization and receives its first `Membership`, with `client_personnel` affiliation, and an Org Admin assignment (M0-D25). A firm-staff directory member who creates an organization is client personnel of it and can never hold an `attest` assignment for that client. This supersedes ADR 0001's operator-provisioned production registration, as recorded by [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md); R1-15 adopts it. |
+| Engagement access | `EngagementAssignment` 1 `ServiceEngagement`, 1 `PlatformUser`; engagement 0..* assignments | Professional Advisor/Attest access requires an active assignment to an accepted engagement whose practice the directory entry permits, plus an active `firm_staff` membership; ending either revokes that practice access. Explicit client-role administration is separate and grants no practice role. The independence wall is evaluated per `FirmStaffMember`, so every platform user of one human counts: a person who has ever held an `advisory` assignment for a client never holds an `attest` assignment for it, and the reverse. |
+| Operator authority | `PlatformOperatorGrant` 1 `PlatformUser`, 1 grant source; user 0..* grants over history | Platform realm. Deployment configuration bootstraps operator authority only before the first operator is established. Thereafter, an existing operator grants and revokes in-app; configuration never restores revoked authority. The last operator cannot be revoked (M0-D25). Authorizes tenant lifecycle, administrator roster, and usage metadata only; it grants no tenant business-record access. |
+| Tenant creation | Creating `Organization` 1 creating `PlatformUser` | Any signed-in platform user with a verified email may create multiple tenant organizations, each with its own first `client_personnel` membership and Org Admin assignment (M0-D25). Management can be explicitly delegated to client personnel without changing organization identity or history. Creation grants no Advisor or Attest authority; later professional engagement and assignment eligibility follows M0-D26, including its permanent prior-practice wall and service evaluation. This supersedes ADR 0001's operator-provisioned production registration, as recorded by [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md); R1-15 adopts it. |
 | Issuer trust | `TrustedIssuer` 1 `Organization`; organization 0..* issuers | Tenant sign-in trust, including any platform-default issuer, is defined by [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md) (M0-A07); an identity never gains tenant access merely because its issuer is trusted. |
 | SoD waiver | `SeparationOfDutyException` 1 `SeparationOfDutyConstraint`, 1 approving Org Admin `Membership` | Time-bounded and reason-required. The approver holds an active Org Admin assignment when approving, and an exception never covers work where the approver is the beneficiary; that work still needs a second approver. Every exception is flagged in readiness and audit exports. |
 | Platform role assignment | `RoleAssignment` 1 subject (`PlatformUser` or `Membership` or `Team`), 1 `AccessRole`, 1 explicit scope | Scope must be inside the authorized tenant; effective tenant access requires an active membership even when the subject is a global user. |
@@ -457,7 +509,7 @@ distinct relationships or separately attributed, conflicting observations.
 | Integration connection | `IntegrationEndpoint` 1 `SystemInstance`, 1 connector type; instance 0..* endpoints | Credential reference names a secret location, never secret bytes; a connector's authority is explicit. |
 | Service boundary | `ClientService` 0..* system instances, providers, locations, processes, and information assets | Inclusion is an effective-dated scope assertion, not ownership transfer; references stay tenant-local. |
 | Provider dependency | `Provider` 0..* client services and system instances | Relationship records service supplied, scope treatment, source, and effective interval; a provider is never inferred from a connector. |
-| Information movement | `DataFlow` 1 typed source, 1 typed destination, 1 `InformationAsset`; each endpoint and asset 0..* flows | Source and destination are tenant-local `Person`, `OperationalProcess`, `Application`, `SystemInstance`, `Provider`, or `Location` references; revision creates a new exact version. |
+| Information movement | `DataFlow` 1 typed source, 1 typed destination, 1..* `InformationAsset`; each endpoint and asset 0..* flows | Source and destination are tenant-local `Person`, `OperationalProcess`, `Application`, `SystemInstance`, `Provider`, or `Location` references; revision creates a new exact version. |
 | Protected resource | `Resource` 1 `SystemInstance`, 0..1 parent `Resource`; instance 0..* resources | Parent belongs to the same instance; no cycles. |
 | Physical containment | `DeviceComponent` 1 `Device`, 0..1 parent component; device 0..* components | Parent belongs to the same device; no cycles. |
 | Compute hosting | `ComputeInstance` 0..1 host (`Device` or another `ComputeInstance`); host 0..* guests | Unknown host is explicit; no containment cycles. |
@@ -578,7 +630,7 @@ derived fact into source truth, or bypass tenant and provenance rules.
 
 ## Adoption in the existing domain model
 
-Use these replacements and clarifications when resolving M0-D22:
+The accepted M0-D22 and M0-D28 decisions use these replacements and clarifications:
 
 | Existing term | Canonical treatment |
 | --- | --- |
@@ -598,7 +650,7 @@ Use these replacements and clarifications when resolving M0-D22:
 | `ExternalIdentity`, `UserIdentity` | `FederatedIdentity` |
 | `User` | `PlatformUser` |
 | `AccessGrant` | `RoleAssignment` for tenant roles; `EngagementAssignment` for firm-staff practice access |
-| reviewer, management approver, and read-only advisor access roles | Retired from the role catalog; review and approval are `Responsibility` records, and advisory access is the Advisor practice role through `EngagementAssignment` |
+| reviewer, management approver, and read-only advisor access roles | Retired from the role catalog; review and approval are `Responsibility` records. Our firm's professional advisory access uses Advisor through `EngagementAssignment`; a client-engaged external consultant uses scoped, expiring guest membership under M0-D14. |
 
 Migration should be semantic before it is physical: update the glossary and
 acceptance criteria first, then introduce persistence/API representations. Do

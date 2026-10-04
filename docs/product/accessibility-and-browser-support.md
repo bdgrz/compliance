@@ -1,17 +1,20 @@
 # Accessibility and browser support
 
 Decision: [M0-D24](decisions/m0-d24-accessibility-and-browsers.md), 2026-09-22.
+This document defines the browser and accessibility acceptance target. It is
+not a conformance report for a released client. The owning client stories and
+their evidence record implementation progress and known limitations.
 
 ## Browser support statement
 
-Compliance supports the current and previous major versions of Chrome, Edge,
+The supported target is the current and previous major versions of Chrome, Edge,
 Firefox, and Safari on desktop. Other browsers, including mobile browsers,
-may display the product but are not supported for workflows, and they show a
+may display the product but are not supported for workflows. They must show a
 non-blocking banner naming the supported browsers.
 
 ## Accessibility target
 
-Every browser workflow conforms to WCAG 2.2 Level AA. The product owner
+Every browser workflow must meet WCAG 2.2 Level AA. The product owner
 approves any exception. A known limitation is tracked as a GitHub issue with
 the `accessibility` label, and it is listed in the in-product accessibility
 statement until fixed.

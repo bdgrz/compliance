@@ -54,7 +54,8 @@ to it explicitly.
   Compliance Lead or Org Admin role, and must not be the evaluator. Self-review
   is blocked by the separation-of-duties default the product owner set under
   M0-D03 on the same day. The only relief is a recorded, time-bound SoD
-  exception approved by an Org Admin, which is flagged in readiness and audit
+  exception approved by a different Org Admin who does not benefit from it,
+  following the M0-D03 two-person rule. It is flagged in readiness and audit
   exports.
 - **Advisors:** an assigned Advisor may add `validated` feedback on the
   evaluation (M0-D14). That feedback is additive and never counts as the

@@ -1,5 +1,10 @@
 # Program and client service revision reads
 
+Scope: bounded backend history contract for R1-01 and R1-02. Revision reads
+support the same manually authored records used by the normal program and
+service workflows; no source integration is required. Current delivery and
+acceptance evidence belong to their owning stories in [backlog.md](backlog.md).
+
 The backend exposes immutable Program and ClientService revision records through
 authorized HTTP GET and read-only MCP tools. Exact program reads use
 `/api/v1/tenants/{tenant_id}/programs/{program_id}/revisions/{revision}` and
@@ -12,5 +17,7 @@ The existing revision lists accept optional `minimum_program_revision` and `mini
 Static HTTP path segments use kebab-case, including `client-services`;
 interpolated path values and query names remain snake_case. This route migration
 replaces the prior inconsistent `client_services` exact-read path. Portia
-OpenAPI nullable UUID default generation is tracked at cntryl/portia#57. Live
-OpenAPI and broker tests cover these operations.
+OpenAPI nullable UUID default generation was tracked in
+[Portia #57](https://github.com/cntryl/portia/issues/57). Contract and broker test
+sources cover these operations; their existence does not substitute for current
+execution evidence at the reviewed implementation head.

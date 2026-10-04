@@ -56,6 +56,11 @@ reject.
   Compliance Lead, recorded as a system-actor escalation. Escalation adds
   visibility; it does not reassign the item.
 
+The in-app queue, due-date calculations, and default escalation are native
+workflow behavior available during manual operation. The user can still act
+on the source work when email delivery or an optional external automation is
+unavailable; neither changes the source workflow's authority or completion.
+
 ## Consequences
 
 [R2-11 #54](https://github.com/bdgrz/compliance/issues/54),

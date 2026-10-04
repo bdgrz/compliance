@@ -27,6 +27,10 @@ behind the M0-D26 wall. External firms receive packages (M0-D17).
 ## Separation from management's records
 
 The platform holds no attest workpaper, test conclusion, or report draft.
+It may retain an issued report and the auditor-authored outcome as received in
+the client's examination records (T1-07, T3-06); the product does not author or
+recalculate the auditor's opinion. Management's evaluations and sign-offs
+remain separate from that received outcome.
 Auditor-identified exceptions are recorded as `AuditTestException`
 (M0-D23), preserving the auditor's wording as received. They are not a test
 workpaper.

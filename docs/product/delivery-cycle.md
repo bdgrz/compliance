@@ -1,15 +1,73 @@
 # Autonomous delivery cycle
 
-Status: adopted for backlog triage on 2026-09-28. The [GitHub Project](https://github.com/orgs/bdgrz/projects/1) and issue bodies hold live delivery state; this document defines how to keep that state useful.
+Status: adopted for backlog triage on 2026-09-28, reconciled with accepted
+product direction on 2026-10-04. The [GitHub Project](https://github.com/orgs/bdgrz/projects/1)
+and issue bodies hold live priorities, dependencies, queues, and completion;
+this document defines exits and the execution rules that keep that state useful.
+The [product brief](product-brief.md) defines business outcomes, and
+[triage](triage.md) records their dependency rationale rather than a live work
+queue.
 
 ## Milestone exits
 
-- **R1.0 — Program and access foundation:** finish scoped access grants, member deprovisioning, the Program backend baseline, and the approved boundary baseline. Each child needs its own merged acceptance proof.
+- **R1.0 — Program and access foundation:** scoped access grants, member deprovisioning, the Program backend baseline, and the approved boundary baseline work with attributable history. Each child needs its own merged acceptance proof.
 - **R1.1 — Governed manual source records:** deliver the manual criteria, application, workforce, control, risk, technology, commitment, and provider records needed to describe the first program. Prove snapshots through the workforce consumer. Real client samples inform content but do not block the manual data shape.
 - **R1.2 — Integrated readiness workflow:** connect the source records to an accessible program journey, governed scope and review, reproducible readiness assessment, and owned gap plan. Imported data and optional connectors do not block the manual path. Readiness is a management decision, never an auditor opinion.
-- **R2, T1, T2, T3, F1:** retain their published product exits. Their open issues are planned work, not current iteration work.
+- **R2, T1, T2, T3, F1:** retain their published product exits. Their issue prefixes describe product horizons; current queue fields and verified prerequisites determine whether a specific capability is selected for delivery.
 
-M0 design decisions are accepted and its milestone is closed. A later fact-gathering issue remains in Discovery until the named customer, advisor, or auditor evidence exists. A milestone does not imply that every issue with its old story prefix must finish in the same PR.
+Every milestone inherits the [manual-first product contract](backlog.md#manual-first-product-contract):
+users can complete its primary workflows without external integrations or
+optional source-collection automation. Later automation may reduce setup,
+maintenance, or operating effort, but it does not become a prerequisite for an
+existing feature.
+
+Native validation, calculations, projections, review rules, and workflow
+transitions continue to work on manually supplied records. Optional automation
+uses the same governed acceptance and review rules; disabling it cannot remove
+the user's equivalent operation.
+
+M0 design decisions are the accepted baseline. A later fact-gathering issue
+remains in Discovery until the named customer, advisor, or auditor evidence
+exists. It gates only its recorded consuming acceptance, rather than reopening
+all of M0. A milestone does not imply that every issue with its old story
+prefix must finish in the same PR.
+
+Periodic policy, risk, provider, and management reviews use ordinary recurring
+control occurrences, frozen evidence, attributed sign-off, and findings for
+requested corrective action ([M0-D19](decisions/m0-d19-periodic-reviews.md)).
+Attest collaboration includes requests, responses, populations, samples, and
+delivered evidence; workpapers and auditor test conclusions remain in audit
+software ([M0-D27](decisions/m0-d27-attest-scope.md)). Closing an attest
+engagement or offboarding its organization requires its record package and an
+attributed delivery decision before the engagement hold can clear.
+
+## Organization and commercial delivery gates
+
+One verified account can create and manage several organizations and delegate
+organization administration to client personnel. Each organization keeps its
+own data boundary and hosted billing configuration. These core responsibilities
+use explicit organization grants; professional Advisor/Attest work continues
+to require accepted service-engagement assignments and independence checks.
+
+The [business operations scope](business-operations.md) supplies three
+actionable outcomes alongside the SOC 2 journey:
+
+- **BO-01 — Delegated organization management:** extend the R1-04/R1-15
+  organization foundations with clear delegation and handover while preserving
+  authorization, attribution, and the organization's records.
+- **BO-02 — Hosted organization billing:** complete billing acceptance before
+  onboarding a paying SaaS organization. Self-hosting is free; the hosted base
+  fee applies to each organization, and the client or authorized MSP manages
+  its billing.
+- **BO-03 — Organization add-ons:** complete selection, authority, entitlement,
+  and billing acceptance before selling the respective integration, service,
+  or additional automation.
+
+These scope IDs are documentation groupings. Their owning issues must record
+the required policies, acceptance, dependencies, and selected delivery queue;
+the IDs do not create a new live milestone. The complete manual SOC 2 workflow
+has its product acceptance gates, while paid SaaS has its additional commercial
+gates. Free self-hosted use does not require a hosted billing workflow.
 
 ## Project fields
 
@@ -19,10 +77,10 @@ Every open issue belongs to the project and has a priority and one **Delivery qu
 | --- | --- | --- |
 | Active | An independent capability bundle is being implemented or verified in its own branch/worktree. Multiple bundles may be Active concurrently. | Keep each lane isolated; start another Ready bundle when a lane has capacity and its dependencies are closed. |
 | Ready | An implementation issue with known inputs and no open prerequisite. | Select the lowest Run order when a lane opens. |
-| Blocked | A current R1 implementation issue waiting on a named upstream issue or external platform capability. | Move to Ready only after checking the actual dependency and remaining acceptance. |
+| Blocked | An implementation issue waiting on a named upstream issue or external platform capability. | Move to Ready only after checking the actual dependency and remaining acceptance. |
 | Later | Approved future-stage backend work or frontend work parked during the backend-first pass. | Re-triage when its consuming workflow enters the near horizon. |
 | Discovery | A real-world fact, professional decision, measurement, or unvalidated P2 hypothesis. | Record who or what supplies the evidence; do not treat it as implementation-ready. |
-| Outcome | Product or enabler parent that tracks the complete cross-client outcome. | Keep open until its children are complete; end-to-end validation belongs to a later phase. |
+| Outcome | Product or enabler parent that tracks the complete user outcome across owning repositories. | Keep open until its children are complete; end-to-end validation belongs to a later phase. |
 
 **Status** is Todo, In Progress, or Done. Every Active capability is In Progress; other queues remain Todo until their work starts. **Run order** is a short, dependency-aware launch order sized to keep available lanes fed, not a fixed roadmap; update it after each merge or material discovery. Priority is urgency for the product release, not permission to bypass a blocker.
 

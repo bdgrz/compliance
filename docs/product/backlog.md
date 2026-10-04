@@ -6,6 +6,33 @@ This backlog carries a small compliance team through SOC 2 readiness, a Type I e
 
 The platform is also tenant-ready for a small SOC 2 firm that provides advisory and attest services to many client organizations. Each client organization is a tenant; the tenancy foundations are P0 in M0 and R1, and firm operations are planned in F1.
 
+One account can create and manage several organizations for itself or clients,
+and can delegate most organization management to client personnel. This core
+organization model is distinct from F1's professional service engagements,
+portfolio tools, and independence rules. Self-hosting is free; hosted SaaS is
+monetized per organization through a fixed base fee and optional integrations,
+services, and additional automations. The proposed BO scope below makes
+organization delegation and hosted commercial operations actionable without
+claiming implementation, GitHub scheduling, or a new SOC 2 milestone.
+
+## Objective alignment
+
+The [product objectives](product-brief.md#product-objectives) explain why each
+capability exists. The stories below define who benefits and the evidence that
+proves the outcome; GitHub supplies delivery status.
+
+| Product objective | Owning story scope |
+| --- | --- |
+| O1 — Governed program and system scope | R1-01 through R1-07 and R1-10 through R1-14 establish the program, scope, and source records; R1-09 makes later adoption easier. |
+| O2 — Owned and evidenced work | R2-01 through R2-08 and R2-10 through R2-12; recurring use continues in T2. |
+| O3 — Explainable management readiness decision | R1-08, R2-09, and T2-04. |
+| O4 — Examination support and continuity | T1, T2, and T3; F1-01 and F1-07 retain professional collaboration records at closure. |
+| O5 — Complete manual operation | Every story and delivery slice; imports and T2-08 enhance the same workflow. |
+| O6 — Tenant trust, authorization, and provenance | Every story and delivery slice, with shared foundations proven by their consumers. |
+| O7 — Professional firm services with independence | F1, including the explicit boundary around external attest workpapers. |
+| O8 — Several organizations and delegated client administration | R1-04, R1-15, and proposed BO-01. |
+| O9 — Free self-hosting and organization-level hosted value | Proposed BO-02 and BO-03; the complete manually operated base remains available without optional add-ons. |
+
 The shared language, identity boundaries, record relationships, and
 cross-story invariants are defined in [domain-model.md](domain-model.md). That
 model is part of every issue created from this backlog.
@@ -31,11 +58,31 @@ Three kinds of non-story issue are explicit exceptions:
 - Architecture decision issues (`M0-A..`) record an accepted ADR and a thin technical spike for a concern the domain model depends on.
 - Enablers (`EN-..`) deliver a shared platform primitive that several stories would otherwise define inconsistently or too late. An enabler is not independently releasable; it is done only when its first consuming story uses it end to end, and consuming stories must not build feature-local substitutes. New enablers require the same product-owner approval as the six listed below.
 
+## Manual-first product contract
+
+The product is fully usable when external integrations, import pipelines, and
+optional automated source collection are unconfigured, disabled, or unavailable.
+Every user-facing feature must let authorized users reach its primary outcome
+through the product using direct entry, file upload, explicit decisions, or
+other documented user actions. This applies to initial setup, routine operation,
+review, exception handling, and ongoing maintenance. A feature must not require
+a connected source or background collection job to create or maintain the
+governed records it owns.
+
+Imports, integrations, and optional automation are enhancements that make the
+program easier to start, maintain, and operate. They add source material to the
+same governed workflow and preserve its authority, validation, authorization,
+provenance, review, and history rules. Disabling them cannot make the equivalent
+manual workflow unavailable or change the meaning of existing records. Native
+Compliance behavior—including validation, calculations, projections, and
+workflow transitions—remains part of the product and need not be repeated
+manually.
+
 A story that contains several independently valuable outcomes may be divided into delivery slices tracked as GitHub sub-issues. Each product slice retains an API-to-UI outcome whose acceptance criteria come from the parent story. Create a child only when it can be accepted and closed independently or breaks a real dependency cycle. Existing backend and frontend children remain acceptance records; new stories do not automatically require a pair. Give each child the milestone of the outcome it actually completes and record applicable dependencies explicitly, because sub-issues do not inherit dependency relationships. Do not schedule implementation for an unvalidated P2 hypothesis.
 
 Each backend child owns its authorized HTTP API and machine-appropriate MCP surface, Portia handlers and guards, event-sourced domain behavior, Fitz projections and reactors, and backend behavior. It inherits domain, security, and product-decision dependencies; omit UI-only M0-D24. When an upstream feature or enabler has backend children, depend on the applicable backend child or children rather than its product parent so later UI work cannot block backend completion. The frontend child owns the browser workflow, accessible interaction, loading, empty, error, retry, and forbidden states, and consumes the delivered API contract. It depends on all applicable backend children and M0-D24, plus any decision that specifically changes frontend behavior and the frontend child of an upstream browser workflow. Shared enablers receive a backend child; give an enabler a frontend child only when it has its own user-facing workflow. No frontend child redefines backend policy or duplicates canonical records.
 
-Close each child when its own behavior and focused plus full unit-test evidence are complete. Backend and frontend children use the same red-to-green unit-test loop. The product parent tracks the full cross-client outcome; later end-to-end validation starts after backend and frontend features work independently. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
+Close each child when its own behavior and focused plus full unit-test evidence are complete. Backend and frontend children use the same red-to-green unit-test loop. The product parent tracks the complete backend and client outcome; later end-to-end validation starts after backend and frontend features work independently. A later product slice depends on the backend capability it consumes, not an open parent awaiting UI. The [delivery cycle](delivery-cycle.md) defines Ready, Blocked, and Active and keeps a short Run order for the next capability bundles.
 
 Bundle dependent backend children into a PR when they form one reviewable capability and share contracts or domain records. List every covered child and its unit-test evidence in the PR. During implementation, use focused Release unit tests with Portia generation, the .NET AOT analyzer, and test conventions. Run the backend unit-test suite once when the bundle is ready and require exact-head CI. Close only the children whose backend criteria passed. Do not split a capability into PRs for individual tests or layers. The separately reviewable fail-closed Portia composition slice is [EN-01a backend #324](https://github.com/bdgrz/compliance/issues/324), which is complete.
 
@@ -48,9 +95,14 @@ Every story must include:
 - a named user and valuable outcome;
 - a business objective;
 - product requirements and business rules;
-- observable acceptance criteria;
+- observable acceptance criteria, including the user-operated path that reaches
+  the primary outcome with external integrations and optional source-collection
+  automation absent or disabled;
 - server-enforced authorization;
-- scoping to exactly one client organization (tenant), with no cross-tenant disclosure;
+- scoping each client record and action to exactly one organization, with no
+  unauthorized disclosure; authorized F1 portfolio views combine permitted
+  summaries while platform-level catalogs and templates retain their explicitly
+  defined ownership boundaries;
 - usable loading, empty, error, retry, and forbidden states;
 - traceable activity and historical behavior where the action matters to an audit;
 - accessible UI that meets WCAG 2.2 AA in the supported browsers, and
@@ -102,10 +154,32 @@ policy. Every domain term must agree with [domain-model.md](domain-model.md), an
 any unresolved product decision that affects the story must be resolved or
 explicitly excluded. Concretely, every M0 discovery or architecture issue that
 blocks the story is resolved and incorporated into the story, and every enabler
-it depends on is available or delivered with its first slice.
+it depends on is available or delivered with its first slice. The story names
+the manual user actions and inputs for its primary outcome and states which
+optional imports, integrations, or collection automations can reduce that work.
 Every public reference is direct, accessible without credentials, versioned,
 checked against the standards-use register, and accompanied by any required
 copyright, attribution, patent, or redistribution decision.
+
+### Remaining validation and policy gates
+
+Accepted product policy and organization-specific evidence are different ready
+inputs. The follow-ups below are their documented owning records; GitHub supplies
+current status. These gates narrow the next relevant delivery slice rather than
+reopening every accepted M0 decision.
+
+| Input | Required result | Owning record and affected outcome |
+| --- | --- | --- |
+| Later-client import material | Representative source files, identifiers, attribution, matching examples, and a justified record-family order | #338; R1-09 source-specific imports, without blocking manual adoption |
+| First-client inventory and source facts | Known workforce, applications, access population examples, commitments, appetite, and provider facts; unknowns stay explicit | #347, #352 through #356; their respective source-specific and acceptance slices |
+| Optional-category support | A validated Privacy lifecycle backlog when Privacy remains selected; category-specific unsupported work is an explicit gap | #349 under M0-D01; required before T1-05 can claim the selected Privacy scope |
+| Actual audit-firm agreement | Accepted deliverable formats, requested signers, and sample/population expectations | #339; Type I package and outcome delivery, with the accepted defaults preserved |
+| Outcome measurement | A first-use 30-day baseline and approved targets using the four M0-D18 definitions | #340; product success measurement, without invented targets |
+| Optional connector value | Measured source effort, source authority/completeness, and ranked value | #342; readiness of P2 T2-08, never a manual-feature gate |
+| Professional independence rules | Quality-partner ratification of the versioned rule set and its enforcement examples | #343; professional F1 acceptance and assignments |
+| Reactor-created finding defaults | Product-owner confirmation or replacement of implemented severity, deadline, and fallback-owner defaults before they count as accepted program policy | [#274](https://github.com/bdgrz/compliance/issues/274) and [#279](https://github.com/bdgrz/compliance/issues/279); R2-04/R2-05 findings, R2-07 ownership, and readiness interpretation |
+| Advisory offboarding obligations | Approved retention and handover for advisory material when a client leaves | #346; F1-01, while attest documentation already remains external under M0-D27 |
+| Delegation and commercial policy | Approved administration/handover, prices, payer and financial lifecycle, and add-on effects | [Business-operations readiness decisions](business-operations.md#readiness-decisions); proposed BO-01 through BO-03 |
 
 ## Definition of done
 
@@ -113,11 +187,23 @@ A backend child is done when its authorized HTTP and machine-appropriate MCP con
 
 A frontend child is done when its accessible workflow consumes the authorized API contract, handles loading, empty, error, retry, and forbidden states, and passes focused and full unit tests in its owning repository. WCAG 2.2 AA and the supported-browser behavior remain product requirements; component-level axe checks run in the unit suite, while manual browser and assistive-technology evidence is deferred to the later end-to-end validation phase. Link the merged PR and unit-test evidence from the frontend child. The product parent tracks the complete API-to-UI outcome and remains open for that later validation.
 
+Every feature is accepted against the manual-first product contract: its primary
+outcome remains reachable with external integrations and optional source
+collection disabled, unavailable, or unconfigured. An integration story must
+also prove that connected collection enters the same governed workflow and that
+turning it off leaves the equivalent manual path usable.
+
 ## M0 - Design and discovery
 
 Business outcome: every product and architecture decision that blocks a P0 story is recorded with rationale, owner, and date; shared domain ownership conflicts are resolved; blocked stories have been refined to incorporate those decisions; and no P0 story still depends on an unresolved validation. This milestone produces decisions, ADRs, and thin technical spikes, not business implementation.
 
 Discovery and architecture issues do not deliver product behavior. Each lists the stories and enablers it blocks; those items are not ready until they incorporate the decision.
+
+The original discovery prompts below are historical questions, not a live list
+of unanswered product policy. An accepted decision record controls its scope;
+organization-specific samples, professional ratification, and measured targets
+remain open only where a named follow-up says so. `Done when` defines the
+decision's acceptance evidence and never claims its consuming feature shipped.
 
 ### M0-D01 Confirm the first engagement's scope, Trust Services categories, and target dates
 
@@ -127,11 +213,11 @@ Type: Product discovery
 
 Area: audit
 
-Decision needed: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
+Original decision question: What engagement are we preparing for first, which Trust Services categories and services are in scope, and which dates are targets versus confirmed?
 
 Decided 2026-09-22 by the product owner; see [the M0-D01 decision record](decisions/m0-d01-program-targets.md). Organization-specific facts moved to follow-up discovery #348 and #349. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Confirm the path is readiness, then Type I, then Type II, and record the target Type I as-of date and intended Type II observation period.
 - Decide which categories beyond Security are in scope (Availability, Processing Integrity, Confidentiality, Privacy) and the rationale.
@@ -160,11 +246,11 @@ Type: Product discovery
 
 Area: controls
 
-Decision needed: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
+Original decision question: Which SOC 2 criteria content can the product store, display, map, and export, and from which authorized source?
 
 Decided 2026-09-22 by the product owner; see [the M0-D02 decision record](decisions/m0-d02-criteria-content.md). Organization-specific facts moved to follow-up discovery #351. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Confirm the edition: 2017 Trust Services Criteria with 2022 revised points of focus.
 - Confirm AICPA permitted use for storing and displaying criteria text in the product, exports, and packages, or whether only identifiers plus customer-supplied text are allowed.
@@ -197,9 +283,9 @@ Type: Product discovery
 
 Area: workspace
 
-Decision needed: Which built-in roles, access scopes, and separation-of-duties exceptions does a small compliance team need, and who can hold responsibilities?
+Original decision question: Which built-in roles, access scopes, and separation-of-duties exceptions does a small compliance team need, and who can hold responsibilities?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Confirm the first built-in role catalog and the actions each role permits.
 - Define the scope hierarchy (organization, program, engagement, shared resource) for grants.
@@ -223,15 +309,21 @@ Source: R1-04 validation subtask; domain model open decisions on roles, self-rev
 
 ### M0-D04 Inventory existing readiness material and its import formats
 
+Decided 2026-09-22: [M0-D04](decisions/m0-d04-readiness-material.md)
+confirms the first client has no material to import. The complete manual
+workflow is the operating path. Representative later-client files and import
+order belong to [#338](https://github.com/bdgrz/compliance/issues/338);
+R1-09 and its import slices are P1 enhancements.
+
 Priority: P0
 
 Type: Product discovery
 
 Area: product
 
-Decision needed: What readiness material already exists, in what shape, and which record families must be imported first to adopt the product mid-engagement?
+Original decision question: What readiness material already exists, in what shape, and which record families must be imported first to adopt the product mid-engagement?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Collect sample files for controls, mappings, policies, evidence, owners, risks, vendors, gaps, and consultant findings.
 - Record each source's stable identifiers, or the lack of them.
@@ -260,11 +352,11 @@ Type: Product discovery
 
 Area: applications
 
-Decision needed: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
+Original decision question: What is the real application universe, which source is authoritative, and how do applications split into concrete reviewed systems?
 
 Decided 2026-09-22 by the product owner; see [the M0-D05 decision record](decisions/m0-d05-application-inventory.md). Organization-specific facts moved to follow-up discovery #352. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Obtain the current application list and name its authoritative, corroborating, and discovery-only sources.
 - Agree on the minimum inventory fields and ownership expectations (system owner, access owner).
@@ -286,7 +378,7 @@ Source: R1-10 validation subtask; R2-06 validation subtask (application list).
 
 ### M0-D06 Decide the authoritative workforce source and NHI ownership rules
 
-Decided 2026-09-22: see [M0-D06 workforce source](decisions/m0-d06-workforce-source.md). An HRIS export is authoritative, the IdP directory corroborates, and a manual roster is the fallback. The first client's HRIS is follow-up [#347](https://github.com/bdgrz/compliance/issues/347).
+Decided 2026-09-22: see [M0-D06 workforce source](decisions/m0-d06-workforce-source.md). An HRIS export is authoritative when available, the IdP directory corroborates, and the product's manual workflow remains usable without either connection. A manually maintained roster is authoritative when no HRIS exists. The first client's HRIS details are follow-up [#347](https://github.com/bdgrz/compliance/issues/347).
 
 Priority: P0
 
@@ -294,15 +386,15 @@ Type: Product discovery
 
 Area: workforce
 
-Decision needed: Which source is authoritative for people, employment status, and managers, and how is non-human identity (NHI) ownership governed?
+Original decision question: Which source is authoritative for people, employment status, and managers, and how is non-human identity (NHI) ownership governed?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Identify the authoritative people source (HRIS, payroll, spreadsheet) and any corroborating sources, with precedence.
 - Agree on the minimum worker attributes and the privacy boundary for sensitive fields.
 - Define joiner, mover, and leaver observation rules, including contractors and external collaborators.
 - Decide who may own an NHI (person or team), the required purpose and review date, and how ownership is reviewed.
-- Decide the accepted manual fallback when no system source exists.
+- Define the accepted manual operating path and authority when no system source exists.
 
 Involve: Compliance lead, HR or people operations, engineering leadership.
 
@@ -324,11 +416,11 @@ Type: Product discovery
 
 Area: access-review
 
-Decision needed: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
+Original decision question: What does the first real access review need to ingest, calculate, and decide so the R2-06 rules are grounded in actual provider data?
 
 Decided 2026-09-22 by the product owner; see [the M0-D07 decision record](decisions/m0-d07-access-review-population.md). Organization-specific facts moved to follow-up discovery #353. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose the first reviewed systems and collect sample exports from each provider.
 - Catalog the principal kinds (account, group, role, service principal, workload identity) and entitlement shapes present.
@@ -357,11 +449,11 @@ Type: Product discovery
 
 Area: inventory
 
-Decision needed: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
+Original decision question: What level of component, information-asset, location, classification, and data-flow detail do the first boundary and system description need?
 
 Decided 2026-09-22 by the product owner; see [the M0-D08 decision record](decisions/m0-d08-technology-inventory.md). No follow-up discovery is required. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - List the material component categories for the first boundary (cloud accounts, environments, networks, endpoint classes, repositories, data stores).
 - Define the information classification scheme and retention expectations to record.
@@ -388,11 +480,11 @@ Type: Product discovery
 
 Area: commitments
 
-Decision needed: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
+Original decision question: Which commitments, requirements, and complementary controls apply to the first engagement, from which source artifacts, and who approves them?
 
 Decided 2026-09-22 by the product owner; see [the M0-D09 decision record](decisions/m0-d09-commitments.md). Organization-specific facts moved to follow-up discovery #354. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Collect source artifacts: MSAs, SLAs, the security addendum, privacy notices, and policies.
 - Draft the first list of service commitments and system requirements with owners.
@@ -419,11 +511,11 @@ Type: Product discovery
 
 Area: risk
 
-Decision needed: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
+Original decision question: Which assessment method, scales, appetite, cadence, and acceptance authority will the first risk assessment use?
 
 Decided 2026-09-22 by the product owner; see [the M0-D10 decision record](decisions/m0-d10-risk-method.md). Organization-specific facts moved to follow-up discovery #355. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose a qualitative or quantitative method and the likelihood and impact scales.
 - Define materiality, risk appetite, and tolerance thresholds.
@@ -451,11 +543,11 @@ Type: Product discovery
 
 Area: providers
 
-Decision needed: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
+Original decision question: Which providers are material, what due diligence each needs, and how subservice organizations are treated in the boundary?
 
 Decided 2026-09-22 by the product owner; see [the M0-D11 decision record](decisions/m0-d11-vendors.md). Organization-specific facts moved to follow-up discovery #356. Closure requires each blocked story to carry a decided section referencing the record; no import or integration work is implied.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Define the material-provider threshold and classify the current vendor list against it.
 - Define the initial due-diligence evidence set and review cadence.
@@ -476,15 +568,20 @@ Source: R1-14 validation subtask.
 
 ### M0-D12 Decide policy audiences, acknowledgement, and training evidence
 
+Accepted 2026-09-22: [M0-D12](decisions/m0-d12-policy-acknowledgement-training.md)
+defines workforce audiences, immutable launch populations with attributed
+amendments, manual acknowledgement and training evidence, annual and joiner
+cadences, and time-bounded waivers. Auditor-specific formats remain in #339.
+
 Priority: P0
 
 Type: Product discovery
 
 Area: policies
 
-Decision needed: Who must acknowledge which policies and complete which training, and what evidence proves it?
+Original decision question: Who must acknowledge which policies and complete which training, and what evidence proves it?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Define the audience rule for each policy.
 - Agree on acknowledgement language and reminder cadence.
@@ -506,15 +603,20 @@ Source: R2-10 validation subtask.
 
 ### M0-D13 Define control evaluation procedures and tester independence
 
+Accepted 2026-09-22: [M0-D13](decisions/m0-d13-control-evaluation.md)
+defines authored and frozen procedures, assertion and step outcomes, material
+deviations requiring findings and retest, and independent review. A control owner
+may evaluate their control; competence remains a firm procedure.
+
 Priority: P0
 
 Type: Product discovery
 
 Area: controls
 
-Decision needed: How are control design and implementation evaluated reproducibly before Type I, and who may perform and review evaluations?
+Original decision question: How are control design and implementation evaluated reproducibly before Type I, and who may perform and review evaluations?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Collect the consultant's evaluation procedures for a representative set of controls.
 - Define the assertions, inspected items, and result vocabulary for design, implementation, and evidence sufficiency.
@@ -535,15 +637,21 @@ Source: R2-05 validation subtask.
 
 ### M0-D14 Agree on the readiness-consultant collaboration workflow
 
+Accepted 2026-09-22: [M0-D14](decisions/m0-d14-advisor-collaboration.md)
+selects in-product collaboration: assigned firm Advisors and revocable scoped
+guest memberships for consultants hired directly by a client. Drafts are shared
+through exact-version `ready_for_review` selections. No export handoff package,
+secure link, or third-party platform is built for R2.
+
 Priority: P0
 
 Type: Product discovery
 
 Area: workspace
 
-Decision needed: How do the readiness consultants want to review work in progress and return feedback?
+Original decision question: How do the readiness consultants want to review work in progress and return feedback?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Ask whether the consultants prefer indexed handoffs, secure scoped links, direct product access, or their own platform.
 - Define what 'consultant validated' means and how it differs from internal approval.
@@ -565,15 +673,21 @@ Source: R2-08 validation subtask; triage validation queue item 1.
 
 ### M0-D15 Define the daily work queue, reminders, and escalation
 
+Accepted 2026-09-22: [M0-D15](decisions/m0-d15-work-queue.md)
+defines a projection over source workflows, deterministic due/materiality
+ordering, source-authorized assignment, in-app reminders, an optional weekly
+email digest, and system escalation at seven days overdue. Email does not gate
+the operating queue.
+
 Priority: P0
 
 Type: Product discovery
 
 Area: workspace
 
-Decision needed: What does the small team need from one accountable work view on day one?
+Original decision question: What does the small team need from one accountable work view on day one?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Identify the minimum source workflows the first queue must include.
 - Define the priority and materiality ordering rules.
@@ -594,15 +708,21 @@ Source: R2-11 validation subtask.
 
 ### M0-D16 Decide evidence handling, retention, hold, and disclosure rules
 
+Accepted 2026-09-22: [M0-D16](decisions/m0-d16-evidence-handling.md)
+defines the four handling classes, seven-year default retention, engagement and
+legal holds, attributed disclosure and disposition, non-releasable rejection of
+secret-bearing uploads, and malware quarantine. Disposition is approved by an
+Org Admin and is never automatic.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: evidence
 
-Decision needed: Which handling classes, retention periods, holds, redaction, and disposition rules apply to evidence and related artifacts?
+Original decision question: Which handling classes, retention periods, holds, redaction, and disposition rules apply to evidence and related artifacts?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Define the handling classes and what may be stored at all (for example, never credentials).
 - Set retention periods and the rules for engagement holds and legal holds.
@@ -625,15 +745,21 @@ Source: R2-12 validation subtask; product brief open decision on retention, lega
 
 ### M0-D17 Confirm audit firm deliverables, formats, and auditor access
 
+Accepted product defaults, 2026-09-22:
+[M0-D17](decisions/m0-d17-audit-deliverables.md) defines XLSX/CSV tables,
+versioned populations and samples, a manifest-based ZIP package, and exact
+management sign-offs. Our attest team collaborates in-product; external auditors
+receive packages. Actual-firm formats and confirmation remain in #339.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: audit
 
-Decision needed: Which outputs, formats, and collaboration model does the audit firm require for Type I and Type II?
+Original decision question: Which outputs, formats, and collaboration model does the audit firm require for Type I and Type II?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Collect the required control matrix, evidence index, and system-description section formats.
 - Collect the population, sample, and selection formats with stable identifiers, plus the treatment of late or corrected rows.
@@ -656,15 +782,22 @@ Source: Validation subtasks in T1-02, T1-03, T1-05, T1-07, T3-02, T3-05, and T3-
 
 ### M0-D18 Establish success-measure baselines and targets
 
+Accepted 2026-09-22: [M0-D18](decisions/m0-d18-success-measures.md)
+defines time to first attributed action on attention-state work, evidence-request
+response time, outside trackers, and overdue work. The first 30-day baseline and
+numeric targets belong to #340; page views and invented targets are excluded.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: product
 
-Decision needed: What are today's baselines for the brief's candidate success measures, and which targets define product success?
+Original decision question: Which measures should define product success and how
+should their baselines and targets be established? M0-D18 answered the measures;
+observed baseline values and approved targets remain follow-up #340.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Measure the current time to identify missing, stale, rejected, or overdue audit work.
 - Measure the current median time to answer an evidence request.
@@ -685,15 +818,22 @@ Source: Product brief: 'M0 must establish baselines and targets'.
 
 ### M0-D19 Validate whether governance and management reviews fit the control workflow
 
+Accepted 2026-09-22: [M0-D19](decisions/m0-d19-periodic-reviews.md)
+keeps policy, risk, provider, and management reviews as ordinary recurring
+controls. T2-02 owns their expected occurrences; shared evidence and EN-04
+decisions retain review proof; R2-07 owns requested actions. T2-06 and T2-09 are
+historical scope covered by those stories, with no separate review surface or
+`ManagementReviewSnapshot` aggregate.
+
 Priority: P2
 
 Type: Product discovery
 
 Area: audit
 
-Decision needed: Are periodic policy, risk, vendor, and management reviews ordinary recurring controls, or do they need dedicated product surfaces?
+Original decision question: Are periodic policy, risk, vendor, and management reviews ordinary recurring controls, or do they need dedicated product surfaces?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Observe the first real policy, risk, and vendor reviews using the general control-occurrence workflow.
 - Observe one management compliance review and record what the general workflow could not support.
@@ -701,7 +841,7 @@ Questions to answer:
 
 Involve: Compliance lead, management approver.
 
-Blocks: T2-06, T2-09
+Outcome coverage: T2-02 and R2-07; historical T2-06 and T2-09 were closed by the decision.
 
 Done when:
 
@@ -713,18 +853,23 @@ Source: Validation subtasks in T2-06 and T2-09; triage validation queue item 3.
 
 ### M0-D20 Discover inventory, access, and evidence integration sources
 
+Accepted 2026-09-22: [M0-D20](decisions/m0-d20-integration-sources.md)
+keeps every manual workflow usable and postpones connectors in R1/R2.
+T2-08 remains a P2 hypothesis. Source-specific effort, value, and connector
+ranking belong to [#342](https://github.com/bdgrz/compliance/issues/342).
+
 Priority: P2
 
 Type: Product discovery
 
 Area: automation
 
-Decision needed: Which integrations would save meaningful work, and what must each source guarantee before we build a connector?
+Original decision question: Which integrations would save meaningful work, and what must each source guarantee before we build a connector?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Measure manual inventory, population, access, and evidence effort by source.
-- For each candidate source, answer the ten integration questions in gap-analysis.md (business question, authority, identifiers, completeness, matching, proposals, least privilege, freshness, retained snapshots, manual fallback).
+- For each candidate source, answer the ten integration questions in gap-analysis.md (business question, authority, identifiers, completeness, matching, proposals, least privilege, freshness, retained snapshots, and the manual operating path while it is unavailable).
 - Rank connectors by measured savings.
 
 Involve: Compliance lead, engineering.
@@ -741,15 +886,20 @@ Source: T2-08 validation subtask; gap analysis 'Next discovery: inventory data i
 
 ### M0-D21 Define compliance-facing significant change and incident facts
 
+Accepted 2026-09-22: [M0-D21](decisions/m0-d21-significant-change.md)
+defines the minimum compliance-facing references, human significance assessment,
+restricted source-detail boundary, required visibility of significant items in
+the examination, and system-description review and period-close effects.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: risk
 
-Decision needed: Which change and incident facts must Compliance hold to assess impact and describe the Type II period, without replacing source systems?
+Original decision question: Which change and incident facts must Compliance hold to assess impact and describe the Type II period, without replacing source systems?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Define the minimum change and incident fields and the source links to ITSM or the incident tool.
 - Define the materiality threshold for 'significant change'.
@@ -780,9 +930,9 @@ Type: Product discovery
 
 Area: product
 
-Decision needed: Several concepts have two owners or none. Decide one owner and delivering story for each before implementation.
+Original decision question: Several concepts have two owners or none. Decide one owner and delivering story for each before implementation.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - ReviewedSystem: domain-model.md lists it under both Application inventory and External access governance. Choose one owning context.
 - AccessSubject versus Person: R2-06 imports its own access-subject roster with employment status and manager, duplicating R1-11's workforce roster. Decide whether R2-06 uses R1-11's roster, or define the difference.
@@ -821,9 +971,9 @@ Type: Product discovery
 
 Area: audit
 
-Decision needed: Assurance terms overlap across stories. Define one vocabulary and one owner for readiness rules before building gaps, findings, reviews, or readiness.
+Original decision question: Assurance terms overlap across stories. Define one vocabulary and one owner for readiness rules before building gaps, findings, reviews, or readiness.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Gap (R1-08), Finding (R2-07), deviation (R2-05), and provider coverage gap (R1-14): decide whether these are one record with kinds or distinct records, and how they relate.
 - 'Exception' currently means both an approved waiver (access expectation, separation of duties, occurrence) and an auditor-found test exception (T3-04). Rename one.
@@ -869,22 +1019,37 @@ Accepted decisions:
 
 Involve: Product owner, design, engineering, compliance lead, and representative users or an accessibility specialist.
 
-Blocks: frontend children and their first product delivery slices. It does not block backend children. All 28 currently open frontend children are formally linked to this blocker.
+Applies to: frontend children and their first product delivery slices. It does
+not apply as a backend dependency. M0-D24 is accepted; each issue retains the
+decision relationship without this document claiming its current delivery state.
 
 Done when:
 
 - The decision, rationale, owner, and date are recorded in the decision document and the GitHub issue.
 - The product-backlog contract, unit-test strategy, browser support statement, and global frontend definition of done reflect the decision and deferred manual validation.
-- Every currently open frontend child records M0-D24 as a blocker; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
+- Every frontend child records M0-D24 as its decision dependency; backend children omit this UI-only dependency. Later product slices depend on their first frontend slice directly or transitively.
 - Remaining product-specific accessibility and browser-policy uncertainty is captured as a follow-up issue if discovered; no open decision remains here.
 
 Source: Product brief and the product owner's decision dated 2026-09-22. The normative accessibility standard is [W3C WCAG 2.2](https://www.w3.org/TR/WCAG22/).
 
 ### M0-D25 Define the client tenancy boundary, firm-staff affiliation, and data ownership
 
-Decided 2026-09-22: see [M0-D25 client tenancy](decisions/m0-d25-client-tenancy.md). Firm staff reach client records only through engagement assignment; operators see metadata only and are granted in-app by an existing operator; any verified signed-in user may create an organization. Advisory-material retention after offboarding is follow-up [#346](https://github.com/bdgrz/compliance/issues/346).
+Decided 2026-09-22 and clarified 2026-10-04: see
+[M0-D25 client tenancy](decisions/m0-d25-client-tenancy.md). Any verified
+signed-in user may create several organizations for itself or clients and
+delegate management to client personnel. Explicit organization role grants
+authorize core administration; professional Advisor and Attest privileges
+require accepted engagement assignment and obey independence rules. Operators
+see metadata only and are granted in-app by an existing operator.
+Advisory-material retention after offboarding is follow-up
+[#346](https://github.com/bdgrz/compliance/issues/346).
 
-Platform operators are super administrators for platform operations, including organization lifecycle and a paginated platform tenant portfolio. The current implementation does not automatically grant tenant membership or client business-record access. This decision settles cross-tenant authority: operators see tenant metadata only, and firm staff reach records only through engagement assignment.
+Platform operators are super administrators for platform operations, including
+organization lifecycle and a paginated platform tenant portfolio. Operator
+status grants no tenant membership or business-record access. Core organization
+management follows explicit tenant role grants; professional Advisor and Attest
+access follows engagement assignment. Neither grants authority in another
+organization.
 
 Priority: P0
 
@@ -892,19 +1057,19 @@ Type: Product discovery
 
 Area: tenancy
 
-Decision needed: Each client organization is a tenant and there is no firm entity. Decide what that means for membership, record ownership, and anything that must live outside a tenant.
+Original decision question: Each client organization is a tenant and there is no firm entity. Decide what that means for membership, record ownership, and anything that must live outside a tenant.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Confirm the client organization is the only tenant boundary and that every business record belongs to exactly one organization.
 - Define which content is platform-level rather than tenant-owned (criteria catalog editions, firm templates, the firm-staff directory) and how tenants reference it by version without copying client data back out.
 - Define membership affiliation (client personnel or firm staff) and where a firm staff member's practice designation (advisory, attest) is recorded without a firm entity.
-- Decide where firm-owned material lives inside a client organization (advisory working notes, future attest documentation), who can see it, and how it is retained when the client leaves.
-- Decide who may create, suspend, and offboard organizations (platform operators) and how each client's first administrator is bootstrapped.
-- Decide who may create an organization in the sign-in flow (select or create): only platform operators, as R1-15 currently requires, or also self-service users.
+- Decide where advisory material lives inside a client organization, who can see it, and how it is retained when the client leaves; M0-D27 separately excludes attest workpapers from the platform.
+- Decide how any verified signed-in user creates organizations and how its first administrator is bootstrapped, while platform operators govern suspension and offboarding.
+- Clarify management by one account across its own or client organizations and delegation to client personnel, without implicit professional service access.
 - Settle the vocabulary: the product proposes `tenant_id` in APIs while the domain model says organization. Choose one term, or define tenant as the technical name of a client organization everywhere.
 - Decide whether firm staff reach client records only through engagement assignment or also through standing access.
-- Record the triggers for revisiting the no-firm-entity decision, for example hosting more than one firm or firm-level retention obligations that cannot live inside client tenants.
+- Record the triggers for revisiting the no-firm-entity decision, such as firm-level retention obligations that cannot live inside client tenants; several accounts or providers administering organizations do not introduce a firm tenant.
 
 Involve: Firm leadership, product owner, tech lead.
 
@@ -920,15 +1085,22 @@ Source: Multi-client firm decision 2026-09-14: clients are the only tenant, firm
 
 ### M0-D26 Define independence rules for advisory and attest services
 
+Accepted 2026-09-22: [M0-D26](decisions/m0-d26-independence.md)
+defines person exclusivity across a client's Advisor/Attest assignment history,
+advisory and attest discussion compartments, a versioned service-classification
+rule set, a 12-month impairing-service look-back, and a partner evaluation for
+conditionally compatible readiness work. An impaired result has no override.
+Professional ratification of rule-set content remains in #343.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: tenancy
 
-Decision needed: The firm both advises and examines clients. Decide which independence requirements the platform must enforce and which remain firm quality-management procedures.
+Original decision question: The firm both advises and examines clients. Decide which independence requirements the platform must enforce and which remain firm quality-management procedures.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Identify the governing requirements with the firm's independence or quality-management partner, including the AICPA Code of Professional Conduct independence rules for nonattest services and the firm's system of quality management.
 - Classify each advisory service (readiness assessment, control design, implementation, operating controls on the client's behalf, vCISO) as compatible, conditionally compatible, or impairing for a client the firm also examines.
@@ -953,15 +1125,24 @@ Source: Multi-client firm decision 2026-09-14: advisory and attest services with
 
 ### M0-D27 Decide the scope of attest engagement support in the platform
 
+Accepted 2026-09-22: [M0-D27](decisions/m0-d27-attest-scope.md)
+limits attest support to collaboration. Planning, tests, deviations, workpapers,
+workpaper review, and report drafting stay in dedicated audit software.
+Requests, responses, frozen populations, sample selections, and delivered
+evidence remain in Compliance. Closing an attest engagement or offboarding its
+organization requires a manifest-based engagement record package and an
+attributed decision that it was delivered into the attest team's audit software;
+the engagement hold blocks disposition until that decision exists.
+
 Priority: P1
 
 Type: Product discovery
 
 Area: audit
 
-Decision needed: Should the platform support the firm's own SOC 2 examinations (planning, tests of controls, sampling, workpapers, report drafting), or should the attest team keep dedicated audit software and use the platform only to collaborate with clients?
+Original decision question: Should the platform support the firm's own SOC 2 examinations (planning, tests of controls, sampling, workpapers, report drafting), or should the attest team keep dedicated audit software and use the platform only to collaborate with clients?
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Inventory the attest team's current audit software, workpaper review, and documentation retention obligations.
 - Decide whether tests of controls, deviations, and report drafting are in product scope and how they stay separate from management's records.
@@ -1066,7 +1247,7 @@ requires stable identities, immutable approved versions, successor proposals,
 effective intervals, optimistic concurrency, and distinct occurred, effective,
 covered, and observed times.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Document what Portia and Fitz provide for durable state, event logs, queries, and transactions in [ADR 0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md).
 - Choose event-sourced rather than relational-temporal or hybrid authoritative storage, with rationale in ADR 0003.
@@ -1096,9 +1277,12 @@ Type: Architecture decision
 
 Area: architecture
 
-Context: Seven snapshot types (workforce, population, readiness, Type I baseline, period open, period close, management review) must be immutable, reproducible, and amendable through linked records.
+Context: Workforce, population, readiness, Type I baseline, period-open, and
+period-close snapshots must be immutable, reproducible, and amendable through
+linked records. Management review uses a recurring occurrence's frozen evidence
+set under M0-D19, rather than a separate snapshot aggregate.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose how snapshots are represented: references to immutable versions plus content hashes, or materialized copies.
 - Define canonical serialization and hashing for content identity.
@@ -1143,7 +1327,7 @@ Area: architecture
 
 Context: Evidence, policy files, provider reports, and packages need immutable content identity, safe handling, and per-artifact authorization.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose the blob store and content-addressed layout, with encryption at rest.
 - Set the upload size limits and resumable upload behavior.
@@ -1175,7 +1359,7 @@ Area: architecture
 
 Context: Authorization combines active membership, a scoped grant, responsibility, resource state, and separation of duties, and must filter lists, counts, search, notifications, and exports.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose the evaluation model and where it is enforced for commands and queries.
 - Define how restricted records are excluded from lists, counts, search, notifications, and exports.
@@ -1207,7 +1391,7 @@ Area: architecture
 
 Context: Readiness, the work queue, and every status count must reconcile to source records, show an as-of time, and be reproducible.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Choose the projection strategy (synchronous or asynchronous) and consistency guarantees.
 - Define as-of calculation identity and reproducibility for historical readiness.
@@ -1252,7 +1436,7 @@ Area: architecture
 
 Context: Every import or collection needs preview, explicit acceptance, partial-failure semantics, provenance, tombstones, and safe replay.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Define the staged import model: upload, parse, validate, preview, accept, cancel.
 - Define atomic versus explicitly accepted-subset semantics.
@@ -1293,9 +1477,16 @@ Type: Architecture decision
 
 Area: architecture
 
-Context: Client organizations become tenants. Firm staff hold memberships in several organizations, and client users may authenticate through their own identity providers. The application currently trusts one OIDC authority and has no tenant context. Proposed direction: after sign-in, a user selects one of their organizations (or, if authorized, creates one). Browser routes identify the organization by a unique, URL-friendly slug (for example `/acme-corp/controls`); every organization-scoped API identifies it by an opaque, immutable `tenant_id` path parameter (for example `/api/v1/tenants/{tenant_id}/controls`). The ADR confirms or amends this direction.
+Context: Organizations are tenants. One platform user may create or belong to
+several organizations for its own use or clients. After sign-in, the user chooses
+an authorized organization or creates one when its email is verified (M0-D25).
+Browser routes identify the organization by a unique, URL-friendly slug (for
+example `/acme-corp/controls`); every organization-scoped API identifies it by an
+opaque, immutable `tenant_id` path parameter (for example
+`/api/v1/tenants/{tenant_id}/controls`). The accepted ADR defines identity
+federation and context; it does not imply authority across organizations.
 
-Questions to answer:
+Original questions (historical; answered by the accepted record):
 
 - Confirm the proposed routing: slug-based browser routes and `tenant_id` path parameters on organization-scoped APIs; the server verifies membership for the `tenant_id` on every request and never trusts an organization identifier in a request body.
 - Implement the slug rules defined in R1-15 with one reserved-route registry shared by server validation and the SPA router, plus an automated check that fails when a new top-level server or client route is missing from the registry or equals an existing organization slug.
@@ -1368,6 +1559,11 @@ Implementation subtasks:
 - Project unresolved setup work from real downstream records rather than a second checklist or manually assigned completion status.
 - Focused unit tests cover program creation, authorization, revision history, and setup-work projection rules.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-02 Define the system boundary and intended audit scope
 
 Priority: P0
@@ -1396,7 +1592,9 @@ Domain slice:
 - Supplies versioned scope references to criteria selection, controls, risks,
   evidence, engagements, and impact analysis.
 - Sequencing: a boundary version may record services, people, technology, information, and providers as explicit unresolved references before their governed inventories exist. R1-10 through R1-14 replace those references with governed relationships, and each replacement goes through this story's impact preview and review.
-- Owns the client `Service` identity and uses the governed `SystemInstance`, `Person`, `ServiceIdentity`, `Location`, and operational `Process` identities assigned in M0-D22; unresolved references cannot claim a governed record exists.
+- Owns the `ClientService` identity and uses the governed `SystemInstance`,
+  `Person`, `ServiceIdentity`, `Location`, and `OperationalProcess` identities
+  assigned in M0-D22; unresolved references cannot claim a governed record exists.
 
 Acceptance criteria:
 
@@ -1421,6 +1619,11 @@ backend children use the baseline without requiring the second child first.
 The [frontend child](https://github.com/bdgrz/compliance/issues/178) depends on
 both backend slices.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-03 Select a traceable SOC 2 criteria catalog
 
 Priority: P0
@@ -1434,6 +1637,9 @@ Business objective: make coverage defensible and avoid false confidence from inc
 Requirements:
 
 - Record catalog source, edition, provenance, permitted use, stable criterion identifiers, and import time.
+- Select the platform's identifiers and original summaries without requiring
+  an import. Licensed tenant text is optional, remains license-scoped, and does
+  not gate criteria selection, mapping, or program operation (M0-D02).
 - Let the team choose the categories and criteria intended to be in scope.
 - Require an explicit support and gap review for each selected optional category;
   selecting Availability, Processing Integrity, Confidentiality, or Privacy
@@ -1446,13 +1652,18 @@ Domain slice:
 
 - Owns `CriteriaCatalogEdition`, `Criterion`, category, source provenance,
   permitted-use metadata, and program criteria selection.
-- Uses the program's intended scope and imports accepted through a provenance-aware import batch.
+- Uses the program's intended scope and the published platform catalog.
+  Optional licensed text overlays use a provenance-aware import batch when
+  their source and implementation slice are ready.
 - Supplies stable criterion identities and editions to mappings, readiness rules,
   engagement snapshots, and packages.
 
 Acceptance criteria:
 
 - An authorized user can import or select a catalog and review its provenance before using it.
+- With no import pipeline or licensed text overlay enabled, an authorized user
+  can select an exact platform edition and its criteria and original summaries;
+  the product ships no licensed AICPA text.
 - Missing identifiers, duplicate criteria, and incompatible revisions are rejected with actionable explanations.
 - A newer catalog never silently changes an existing engagement.
 - Users can browse and filter the selected criteria by identifier, category, and scope status.
@@ -1466,6 +1677,12 @@ Implementation subtasks:
 - Deliver authorized import or selection, preview, browse, and scope behavior through the API and browser, including incompatible-revision failures.
 - Bind mappings and engagement snapshots to exact catalog editions while keeping organization guidance separate from source text.
 - Focused unit tests in the owning repository cover duplicate and missing identifier handling, edition stability, authorization, filtering, and snapshot preservation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D02](decisions/m0-d02-criteria-content.md),
+[M0-D01](decisions/m0-d01-program-targets.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R1-04 Invite the compliance team and assign responsibilities
 
@@ -1487,8 +1704,10 @@ Requirements:
 
 Domain slice:
 
-- Owns platform `Member`, `ExternalIdentity`, `Team`, `TeamMembership`,
-  built-in `AccessRole`, scoped `AccessGrant`, and revocation history.
+- Owns `Membership`, `FederatedIdentity`, `Team`, `TeamMembership`, built-in
+  `AccessRole`, scoped client `RoleAssignment`, and revocation history.
+  Professional Advisor/Attest privileges use `EngagementAssignment` to accepted
+  service engagements; an organization role assignment never creates them.
 - Keeps authentication identity, platform membership, platform teams, access
   roles, and record-specific responsibilities distinct. Issuer plus subject is
   the provider identity; email and display claims are not identifiers.
@@ -1499,7 +1718,9 @@ Domain slice:
 - Supplies active actors and authorization decisions to every program workflow;
   deprovisioning blocks new access while preserving attribution and surfacing
   orphaned responsibilities.
-- `Member` is an organization-local membership of a platform user. One external identity binds to one platform user, who may hold memberships in several organizations (M0-D25, M0-A07).
+- `Membership` is an organization-local affiliation of a `PlatformUser`. One
+  `FederatedIdentity` binds to one platform user, who may hold memberships in
+  several organizations (M0-D25, M0-A07).
 
 Acceptance criteria:
 
@@ -1518,6 +1739,12 @@ Implementation subtasks:
 - Focused unit tests in the owning repository cover identity replacement, immediate revocation, historical attribution, orphaned-work recovery, forbidden UI states.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D25](decisions/m0-d25-client-tenancy.md),
+[M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R1-04a Activate provider-authenticated members and explain their access
 
@@ -1574,6 +1801,11 @@ Acceptance criteria:
 
 - Removing access takes effect immediately, preserves authorship history, and exposes work requiring reassignment.
 - A suspended or deprovisioned member's historical actions still show the correct attribution.
+- Suspension is reversible; deprovisioning permanently ends that membership
+  episode. A later invitation starts a new episode after authority cleanup and
+  does not restore old teams or direct grants. Self-deprovisioning and removing
+  the last active tenant administrator are refused under the
+  [deprovisioning decision](decisions/member-deprovisioning.md).
 
 Not in this slice:
 
@@ -1654,6 +1886,11 @@ Implementation subtasks:
 - Connect control versions to applications, reviewed systems, scope, risks, mappings, responsibilities, occurrences, evidence, readiness, and frozen engagements without duplicating those records.
 - Focused unit tests in the owning repository cover lifecycle transitions, identifier conflicts, template provenance, forbidden actions, historical relationships, and accessible failure recovery.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-06 Map controls to criteria and explain applicability
 
 Priority: P0
@@ -1693,6 +1930,11 @@ Implementation subtasks:
 - Integrate mappings with coverage, gaps, advisor feedback, imports, and engagement snapshots while keeping draft and reviewed assertions distinct.
 - Focused unit tests in the owning repository cover duplicate resistance, not-applicable approval, forbidden review, edition changes, coverage reconciliation, and historical preservation.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-07 Assess scoped risks and choose treatment
 
 > [!NOTE]
@@ -1711,8 +1953,10 @@ a consistent, reviewed risk assessment rather than an unowned list of concerns.
 
 Requirements:
 
-- Define the approved qualitative or quantitative assessment method, scales,
-  risk appetite or thresholds, approvers, and effective period.
+- Use M0-D10's approved qualitative 5×5 method, annual reassessment, and
+  versioned per-program appetite threshold. An unset appetite remains explicit
+  and requires executive authority for every risk acceptance; no default
+  threshold or alternative method is invented by this story.
 - Capture risk source, scenario, affected services, people, applications,
   components, information, providers, likelihood and impact rationale, inherent
   risk, existing controls, and assessment date.
@@ -1747,6 +1991,9 @@ Acceptance criteria:
 - Treatment cannot appear complete until required action and evidence are independently reviewed.
 - Reassessment preserves prior conclusions and identifies changed scope, controls, assumptions, and treatment.
 - Unauthorized users cannot alter assessment methods, approve acceptance, or hide material risk.
+- An unset appetite cannot allow Compliance Lead acceptance. Acceptance is
+  time-bounded to at most 12 months and requires an executive above appetite;
+  expired acceptance returns to reassessment under M0-D10.
 
 Implementation subtasks:
 
@@ -1755,6 +2002,12 @@ Implementation subtasks:
 - Deliver authorized identify, assess, relate, treat, accept, review, reassess, browse, and compare behavior through the API and browser.
 - Connect risks to boundary, commitments, assets, providers, controls, evidence, findings, accountable work, readiness, management review, and snapshots without duplicating those records.
 - Focused unit tests in the owning repository cover changed methods, incomplete assessments, unauthorized or expired acceptance, treatment verification, concurrent reassessment, history, and readiness reconciliation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D10](decisions/m0-d10-risk-method.md),
+[M0-D22](decisions/m0-d22-canonical-ownership.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R1-08 Complete the readiness assessment and own the gap plan
 
@@ -1806,6 +2059,11 @@ Implementation subtasks:
 - Reconcile every readiness result to source records and route new or resolved gaps through the shared finding, remediation, evidence, and review workflows.
 - Focused unit tests in the owning repository cover stale, missing, draft, rejected, unresolved, corrected, and unauthorized cases plus historical assessment reproducibility.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-09 Bring existing readiness work into the program
 
 Priority: P1
@@ -1822,7 +2080,8 @@ consultants, I want to bring our existing boundary, inventories, commitments,
 controls, policies, evidence, mappings, owners, risks, providers, and findings
 into Compliance so that we can adopt the product without restarting the engagement.
 
-Business objective: shorten time to value and make the live readiness engagement the proving ground for the product.
+Business objective: shorten adoption effort for a later client bringing existing
+material without changing the complete manual workflow used by the first client.
 
 Requirements:
 
@@ -1863,6 +2122,11 @@ Implementation subtasks:
 - Focused unit tests in the owning repository cover replay safety, partial and interrupted failure without partial visibility, rejected-row correction, unresolved references, duplicate prevention, denied imports, and source-to-result traceability.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D04](decisions/m0-d04-readiness-material.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R1-09a Import existing controls, mappings, and owners with preview and atomic acceptance
 
@@ -1949,7 +2213,8 @@ Requirements:
 - Capture stable application identity, name, aliases, business purpose, owner,
   access owner, vendor or internal ownership, lifecycle, criticality, data
   sensitivity, authentication method, SSO status, and known user population.
-- Support manual entry and reviewed import while preserving whether an
+- Support direct user entry as a complete path, plus reviewed import when used,
+  while preserving whether an
   application was declared, imported, or discovered, from which source, at what
   time, and with what unresolved confidence or ownership questions.
 - Represent each concrete tenant, organization, account, or environment as a
@@ -1971,7 +2236,8 @@ Requirements:
 Domain slice:
 
 - Owns `Application`, aliases, inventory provenance, lifecycle, ownership,
-  classification, access-review scope decision, and one or more `ReviewedSystem` records.
+  classification, access-review scope decision, and its `SystemInstance` records;
+  `ReviewedSystem` is a legacy name, not a second entity (M0-D22).
 - Uses the organization, program boundary, vendors, processes, controls,
   policies, evidence sources, and platform members or teams responsible for the application.
 - Supplies the reviewed-system universe to access imports, expectations,
@@ -1986,6 +2252,12 @@ Acceptance criteria:
 - A user can navigate from an application to its boundary, vendor, controls, policies, evidence sources, access populations, and campaigns subject to authorization.
 - Changing or retiring an application previews affected controls, policies, evidence collection, review campaigns, open work, readiness, and frozen engagements before approval.
 - Unauthorized users cannot discover restricted applications or change inventory, ownership, classification, or review scope.
+- Restricted discovery follows the separate `application.restricted.read`
+  grant and its organization, application, or system-instance scope, rather
+  than classification or owner text. Unauthorized records and references are
+  omitted from lists, counts, search, notifications, and exports; direct reads
+  preserve not-found semantics under the
+  [restriction decision](decisions/restricted-application-visibility.md).
 
 Implementation subtasks:
 
@@ -1996,6 +2268,12 @@ Implementation subtasks:
 - Focused unit tests in the owning repository cover duplicate and alias handling, missing source rows, ownership gaps, scope decisions, restricted visibility, relationship impact, retirement history, import replay.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md),
+[M0-D05](decisions/m0-d05-application-inventory.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R1-10a Record applications and their concrete reviewed systems with ownership and classification
 
@@ -2055,9 +2333,10 @@ Depends on: R1-10a
 
 ### R1-11 Establish the authoritative workforce and identity-owner roster
 
-Delivery order: R1-11a records an attributed manual roster first. HRIS import
-is deferred until #347 validates a real source and a separate P1 import slice
-is scheduled; it does not block the manual backend child.
+Delivery order: R1-11a records and maintains an attributed roster through the
+manual workflow. HRIS import is deferred until #347 validates a real source and
+a separate P1 import slice is scheduled; it does not block the manual backend
+child.
 
 Priority: P0
 
@@ -2077,8 +2356,9 @@ Requirements:
 - Capture stable source identity, name, worker type, lifecycle status, manager,
   organizational attributes needed for review, relevant start and end dates,
   source, observation time, and data sensitivity.
-- Support manual entry and reviewed import from one or more authoritative or
-  corroborating sources with an explicit precedence and reconciliation policy.
+- Support a complete manual entry workflow and reviewed imports from one or more
+  authoritative or corroborating sources with an explicit precedence and
+  reconciliation policy.
 - Distinguish a person from a Compliance member, external login, access subject,
   and provider directory principal; correlations are explicit and reviewable.
 - Identify joiners, movers, leavers, missing people, duplicates, conflicting
@@ -2096,11 +2376,14 @@ Requirements:
 
 Domain slice:
 
-- Owns `Person`, source references, employment or engagement lifecycle facts,
-  manager relationships, reconciliation decisions, `WorkforceSnapshot`, and
-  governed NHI-owner relationships.
-- Uses organization boundaries, source-aware imports, platform actors for
-  decisions, and existing `AccessSubject` records for explicit correlation.
+- Owns `Person`, `WorkRelationship`, `ServiceIdentity`, source references,
+  employment or engagement lifecycle facts, manager relationships,
+  reconciliation decisions, `WorkforceSnapshot`, and governed NHI-owner
+  relationships.
+- Uses organization boundaries, attributed manual declarations, optional
+  source-aware imports, and platform actors for decisions. Later observed
+  `Account` records correlate explicitly to governed people or service
+  identities; creating the roster does not require access-source collection.
 - Supplies authoritative context and frozen populations to responsibilities,
   policy acknowledgement, training, access expectations and campaigns,
   controls, evidence, readiness, audit populations, and engagement snapshots.
@@ -2123,6 +2406,12 @@ Implementation subtasks:
 - Focused unit tests in the owning repository cover conflicting and missing sources, identity replacement, ambiguous matches, stale and partial imports, NHI ownership gaps, authorization, replay, snapshot stability, and reconciliation.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md),
+[M0-D06](decisions/m0-d06-workforce-source.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R1-11a Record the workforce roster with source precedence
 
@@ -2204,7 +2493,7 @@ Requirements:
 - Describe material data flows between people, applications, components,
   providers, and locations, including protection expectations and versioned
   boundary relevance.
-- Own governed `Location` and operational `Process` identities used by scope,
+- Own governed `Location` and `OperationalProcess` identities used by scope,
   descriptions, and risk; written procedures remain policy content (M0-D22).
 - Link components, information, and flows to applications, reviewed systems,
   services, providers, risks, controls, policies, evidence sources, and scope.
@@ -2243,6 +2532,12 @@ Implementation subtasks:
 - Deliver authorized add, import, preview, match, classify, relate, scope, revise, retire, browse, and visualize behavior through the API, bounded processing where needed, and browser.
 - Connect inventory records to applications, boundary, providers, commitments, risks, controls, policies, evidence, access scope, readiness, description, populations, and snapshots without duplicate asset models.
 - Focused unit tests in the owning repository cover missing and partial sources, aliases, conflicting classification, restricted visibility, flow revision, retirement, replay, historical engagement use, and readiness reconciliation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md),
+[M0-D08](decisions/m0-d08-technology-inventory.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R1-13 Record service commitments, system requirements, and user responsibilities
 
@@ -2303,6 +2598,11 @@ Implementation subtasks:
 - Deliver authorized capture or import, relate, review, approve, revise, supersede, browse, and inspect behavior through the API and browser.
 - Connect approved records to boundary, inventories, providers, criteria, controls, policies, risks, readiness, system description, assertions, packages, and snapshots.
 - Focused unit tests in the owning repository cover conflicting sources, expired and unmapped records, forbidden approval, concurrent revision, impact preview, historical retrieval, and package stability.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D09](decisions/m0-d09-commitments.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R1-14 Evaluate vendors and subservice organizations
 
@@ -2369,21 +2669,40 @@ Implementation subtasks:
 - Connect providers to inventories, commitments, risks, controls, policies, evidence, findings, accountable work, readiness, description, management review, packages, and snapshots.
 - Focused unit tests in the owning repository cover stale and partial assurance, uncovered periods, missing CSOCs, restricted content, change impact, denied acceptance, reassessment history, and readiness reconciliation.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D11](decisions/m0-d11-vendors.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R1-15 Provision a client organization and its first administrators
 
-M0-D25 decided 2026-09-22 ([decision](decisions/m0-d25-client-tenancy.md)): organization creation is self-service for any verified signed-in user, who becomes the first Org Admin; suspension and reactivation stay operator-only; operators are granted and revoked in-app by an existing operator with an audit log, bootstrapped from configuration; operators see tenant metadata only; firm-staff memberships grant no business-record access without an engagement assignment.
+M0-D25 decided 2026-09-22 and clarified 2026-10-04
+([decision](decisions/m0-d25-client-tenancy.md)): any verified signed-in user
+can create several organizations for itself or clients and becomes each one's
+first Org Admin. Client personnel may take on most management through explicit
+grants. Suspension and reactivation stay operator-only; operators are granted
+and revoked in-app by an existing operator, bootstrapped from configuration,
+and see metadata only. Organization creation grants no implicit professional
+Advisor or Attest privileges.
 
 Priority: P0
 
 Area: tenancy
 
-User story: As a client administrator, I want to create our organization and become its first administrator, and as a firm operator, I want to govern organization lifecycle and operator access, so that each client's compliance program starts inside an isolated tenant.
+User story: As a verified account holder, I want to create organizations for my
+own use or clients and administer each through its own membership so that every
+program starts inside an isolated organization. As a platform operator, I want
+to govern organization lifecycle and operator access with attributable decisions.
 
 Business objective: make every client's records, members, and evidence isolated from the start so the platform can serve many clients without retrofitting tenancy.
 
 Requirements:
 
 - Let any signed-in platform user with a verified email create a client organization with stable identity, legal and display name, and lifecycle (provisioning, active, suspended), attributed to its creator, who becomes its first Org Admin (M0-D25).
+- Permit the same account to create several organizations and retain only the
+  memberships and responsibilities explicitly granted in each. Delegating
+  management to client personnel uses R1-04 grants; the complete administration
+  outcome is proposed BO-01, rather than an implied F1 service engagement.
 - Invite the first client administrator and add firm-staff memberships with an explicit affiliation of client personnel or firm staff.
 - Let a platform user who belongs to several organizations choose the active organization, and show it unmistakably throughout the product.
 - Suspend an organization, blocking access for its members and assigned firm staff while preserving its records.
@@ -2409,6 +2728,9 @@ Domain slice:
 Acceptance criteria:
 
 - Any signed-in platform user with a verified email can create a client organization and becomes its first Org Admin; only an authorized platform operator can suspend or reactivate one (amended by M0-D25, 2026-09-22).
+- One verified account can create two organizations and administer each through
+  its own grants. Creation never carries grants from one organization into
+  another or establishes professional Advisor/Attest access.
 - An existing operator can grant or revoke operator status in the product; every grant and revocation is audit logged, configuration seeds only the first operator, and the last operator cannot be revoked (M0-D25).
 - An operator sees tenant metadata only and cannot read an organization's business records without a membership or engagement assignment (M0-D25).
 - A new organization has exactly the administrators and firm-staff memberships that were explicitly granted.
@@ -2426,6 +2748,11 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D25, M0-D28, and M0-A07 and define canonical organization, platform-user, membership, identity, lifecycle, operator-authority, bootstrap, and affiliation rules from approved public references.
 - Deliver authorized create, invite-first-administrator, add-firm-staff, switch-organization, suspend, and reactivate behavior through the API and browser.
 - Focused unit tests in the owning repository cover cross-tenant isolation across APIs, client caches, search, counts, and notifications, plus suspension, bootstrap failure, denied operator actions.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D25](decisions/m0-d25-client-tenancy.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### EN-01 Provide shared authorization and actor-reference foundations
 
@@ -2708,7 +3035,17 @@ Blocks: R1-14, R2-02, R2-03, R2-08
 
 ## R2 - Control environment implemented
 
-Business outcome: required controls and policies are implemented and evaluated; policies are communicated and acknowledged; evidence is captured with provenance and its handling status is explicit, with any undelivered evidence-governance capability (retention, hold, redaction, disclosure) shown as an acknowledged gap; actual human and NHI access is reconciled with approved expectations; accountable work and gaps are visible; and the team can make an evidence-backed Type I entry decision.
+Business outcome: required controls and policies are implemented and evaluated;
+policies are communicated and acknowledged; evidence is captured with provenance
+and governed through retention, holds, redaction, and disclosure; actual human
+and NHI access is reconciled with approved expectations; accountable work and
+gaps are visible; and the team can make an evidence-backed Type I entry decision.
+
+The narrower P0 first-client readiness acceptance may expose and acknowledge
+undelivered R2-12 evidence-governance work in readiness and management's decision.
+That evidence records a partial delivery boundary. Full R2 completion still
+requires the P1 governance story; acknowledging missing behavior does not
+deliver it or make the milestone complete.
 
 ### R2-01 Assign control ownership and operating cadence
 
@@ -2731,8 +3068,10 @@ Domain slice:
 
 - Owns effective `Responsibility` assignments and approved `ControlCadence` for
   a specific control version and scope.
-- Uses active platform members or teams, access grants, separation-of-duties
-  rules, expected evidence, and control lifecycle.
+- Uses workforce people or teams for responsibilities, platform members and
+  access grants for product actions, separation-of-duties rules, expected
+  evidence, and control lifecycle. A person need not sign in to hold a
+  responsibility (M0-D03).
 - Produces accountable work and the expected occurrence plan without treating
   access roles as assignments or rewriting historical performers.
 
@@ -2742,6 +3081,9 @@ Acceptance criteria:
 - Owners see their current and upcoming responsibilities.
 - Changing ownership reassigns open work explicitly without changing historical authorship.
 - Retiring a control stops future work and leaves existing work and evidence readable.
+- A workforce person who never signs in can hold an ownership responsibility;
+  when their work is recorded by a member, the performer and entering member
+  remain separately attributed.
 
 Implementation subtasks:
 
@@ -2749,6 +3091,11 @@ Implementation subtasks:
 - Deliver authorized assignment and cadence preview, approval, revision, and work-view behavior through the API and browser.
 - Connect approved cadence to occurrences and responsibilities to the shared work queue, authorization decisions, evidence expectations, and readiness blockers.
 - Focused unit tests in the owning repository cover reassignment, team membership change, deprovisioning, schedule revision, retirement, conflicts, history, and denied behavior.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R2-02 Maintain approved policies and review cycles
 
@@ -2806,6 +3153,11 @@ Implementation subtasks:
 - Connect policies to applications, reviewed systems, controls, criteria, risks, vendors, processes, evidence, work queues, readiness, requests, and frozen snapshots while keeping policy state separate from control coverage and performance.
 - Focused unit tests in the owning repository cover exact-version approval, overdue review, concurrent edits, rejected documents, historical retrieval, forbidden actions, and downstream readiness effects.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R2-03 Request and capture trustworthy evidence
 
 Priority: P0
@@ -2846,6 +3198,11 @@ Implementation subtasks:
 - Apply artifact and relationship authorization everywhere evidence appears; record source, collector or system actor, failures, review context, and sharing history.
 - Focused unit tests in the owning repository cover duplicate, oversized, interrupted, unauthorized, stale, outside-period, corrected, and reused evidence behavior plus package retrievability.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R2-04 Perform a control and attest to the result
 
 Priority: P0
@@ -2859,6 +3216,9 @@ Business objective: establish attributable operating evidence for the Type I poi
 Requirements:
 
 - Capture performer, performed time, covered period, result, notes, and supporting evidence.
+- Allow an authorized member to record work performed outside the product by
+  its accountable workforce person, preserving both the performer and the
+  member who entered the record (M0-D03).
 - Support complete, failed, not applicable, and skipped results with appropriate rationale.
 - Apply the expected evidence and instructions from the control while preserving instance-specific context.
 - Correct completed attestations by revision, not silent replacement.
@@ -2886,6 +3246,11 @@ Implementation subtasks:
 - Route submissions into independent review and failed, skipped, missing, or not-applicable outcomes into the shared gap or exception path and readiness model.
 - Focused unit tests in the owning repository cover exact control and evidence versions, self-action restrictions, concurrent submission, correction history, population reconciliation, and denied behavior.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R2-05 Review control design, implementation, and evidence
 
 Priority: P0
@@ -2903,9 +3268,10 @@ over a Type II period.
 
 Requirements:
 
-- Define the evaluation objective and procedure, assertions being tested,
-  population or item inspected when applicable, expected support, and required
-  tester competence or independence.
+- Author and freeze the evaluation objective and procedure, assertions being
+  tested, population or inspected items, and expected support. Evaluator
+  competence remains a firm procedure; the platform enforces review authority
+  and independence under M0-D13 and M0-D03.
 - Evaluate design suitability, implementation as of the relevant date, and
   evidence sufficiency as distinct conclusions; do not imply Type II operating
   effectiveness from a readiness or Type I evaluation.
@@ -2917,6 +3283,9 @@ Requirements:
 - Provide a review queue with scope, owner, age, materiality, failed procedures,
   deviations, and missing support.
 - Enforce separation-of-duties rules and approved small-team exceptions.
+- A control owner may evaluate their own control. Independent review requires
+  an Org Admin or Compliance Lead who is not the evaluator, except for a valid
+  approved SoD waiver. Advisor validation remains separate from approval.
 - Preserve the evaluation plan, execution, submission, decision, and
   remediation across resubmission and retest.
 
@@ -2940,6 +3309,10 @@ Acceptance criteria:
 - Rejection reopens the correct work and never deletes the submitted evidence.
 - Unauthorized self-review is blocked by the server and explained in the UI.
 - Readiness status reflects the latest valid review without hiding prior decisions.
+- A material `not_met` procedure step creates or links a finding and requires
+  an explicitly linked retest. A minor deviation needs corrected or
+  accepted-with-waiver disposition and cannot yield an unqualified `effective`
+  result; `not_tested` remains visible (M0-D13).
 
 Implementation subtasks:
 
@@ -2950,6 +3323,12 @@ Implementation subtasks:
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D13](decisions/m0-d13-control-evaluation.md),
+[M0-D03](decisions/m0-d03-roles-and-separation-of-duties.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 #### R2-05a Plan a reproducible control design and implementation evaluation
 
 Outcome: As a compliance reviewer, I can define a versioned evaluation plan: objective, procedure, assertions, inspected items, expected support, and tester independence, all bound to exact record versions.
@@ -2957,7 +3336,9 @@ Outcome: As a compliance reviewer, I can define a versioned evaluation plan: obj
 Acceptance criteria:
 
 - An evaluation plan is versioned and bound to the exact boundary, commitment, risk, criterion, control, policy, provider, and evidence versions it evaluates.
-- Tester competence and independence requirements are recorded and checked when work is assigned.
+- The authored procedure and inspected-item references are frozen at evaluation
+  start. Competence is a firm procedure; independent reviewer authority and
+  separation of duties are enforced by the product.
 
 Not in this slice:
 
@@ -3032,9 +3413,11 @@ Requirements:
   NHIs include workloads, services, integrations, automation, and bots and
   require an accountable human or team owner, approved purpose, environment,
   lifecycle, and authentication or credential model.
-- Import the actual external accounts, groups, roles, entitlements, resources,
-  direct and nested memberships, and direct or inherited access grants for each
-  reviewed system through validated source snapshots.
+- Record and manually attest the observed external accounts, groups, roles,
+  entitlements, resources, direct memberships, and direct assignments for each
+  system instance through validated source snapshots. Optional reviewed import
+  or collection supplies the same facts when its source-specific slice is ready;
+  neither is required to launch or complete an access review.
 - Preserve every provider object identifier and grant path and surface unlinked,
   duplicate, shared, inactive, orphaned, privileged, and non-human principals
   rather than matching them silently by email or display name.
@@ -3057,10 +3440,15 @@ Requirements:
 
 Domain slice:
 
-- Uses governed `Application` and `ReviewedSystem` records and owns
-  `AccessSubject`, `DirectoryPrincipal`, external group membership, `Entitlement`,
-  `ExternalAccessGrant`, `PopulationSnapshot`, `AccessReviewCampaign`,
-  `AccessExpectation`, `AccessReviewItem`, `AccessDecision`, remediation, and verification.
+- Uses governed `Application`, `SystemInstance`, `Person`, and `ServiceIdentity`
+  records and owns observed `Account`, `Group`, `GroupMember`, `Role`,
+  `Entitlement`, and direct `AccessAssignment` records, derived `EffectiveAccess`,
+  immutable `AccessPopulationSnapshot`, `AccessReviewCampaign`, `AccessExpectation`,
+  `AccessReviewItem`, `AccessDecision`, remediation, and verification.
+- `AccessSubject`, `DirectoryPrincipal`, `ExternalAccessGrant`, and
+  `ReviewedSystem` are legacy names or descriptive groupings, not additional
+  governed identities. The canonical model and M0-D07 control their meanings;
+  any physical contract migration remains history-preserving implementation work.
 - A population item is a frozen external principal, entitlement, resource, and
   reviewed-system relationship with its direct or inherited grant path.
   Accounts, groups, roles, service principals, and workload identities use
@@ -3088,7 +3476,12 @@ Example:
 
 Acceptance criteria:
 
-- Invalid, duplicate, incomplete, or ambiguous import rows are shown before acceptance.
+- Invalid, duplicate, incomplete, or ambiguous manually recorded facts or
+  optional imported rows are shown before acceptance.
+- With no import or connector enabled, the team can record an attributed
+  point-in-time population, classify it, compare approved expectations, launch
+  the review, record decisions, and verify remediation through a later accepted
+  population snapshot. A ticket alone is never remediation verification.
 - Every in-scope application and reviewed system is reconciled to an accepted source snapshot or an explicit approved exception; missing source data never appears as zero access.
 - Every accepted account, group, role, entitlement, membership, effective grant, and grant path can be traced to its provider object and source snapshot.
 - Unlinked humans, inactive workers, shared accounts, service or workload identities, nested groups, privileged access, and ambiguous correlations remain visible for deliberate treatment.
@@ -3105,11 +3498,23 @@ Implementation subtasks:
 - Incorporate the decisions recorded in M0-D07, M0-D05, M0-D06, and M0-D28 before finalizing this story's rules; every external semantic source must be in the approved public-reference register.
 - Define person, work-relationship, account, and service-identity lifecycle and correlation; `Group` and direct `GroupMember` relationships; external roles and entitlements; direct access assignments and explainable effective-access paths; resource identity; and optional platform-membership correlation using the canonical model.
 - Define source-snapshot completeness, normalization, correlation, group expansion, effective access, expectation and prohibition, variance, frozen campaign, assignment, bulk decision, remediation, independent verification, exception, and completion invariants.
-- Deliver authorized roster and access-source import, preview, correction and acceptance, expectation authoring and approval, campaign launch, variance review, per-item and bulk decision, remediation, verification, and final snapshot through the API, bounded worker processing where needed, and browser.
+- Deliver authorized manual access-population recording and attestation,
+  preview, correction and acceptance, expectation authoring and approval,
+  campaign launch, variance review, per-item and bulk decision, remediation,
+  verification, and final snapshot through the API and browser. Optional imports
+  reuse this path after their source and delivery slice are ready.
 - Feed campaign work into the shared work experience and its accepted or unresolved result into evidence, control support, findings, readiness, and engagement snapshots.
 - Focused unit tests in the owning repository cover employee, contractor and collaborator humans; service, workload, integration, automation and bot NHIs; groups and roles; ambiguous and corrected classification; ownerless NHIs; direct, nested and inherited access; prohibited and zero-tolerance expectations; missing exports; duplicate grants; source changes; member deprovisioning; partial failure; unauthorized review; unverified remediation; and snapshot history.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md),
+[M0-D07](decisions/m0-d07-access-review-population.md),
+[M0-D05](decisions/m0-d05-application-inventory.md),
+[M0-D06](decisions/m0-d06-workforce-source.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R2-06a Record and accept a point-in-time access population for a reviewed system
 
@@ -3182,6 +3587,14 @@ Depends on: R2-06d
 
 ### R2-07 Resolve findings, exceptions, and corrective actions
 
+Ready policy input: the reactor defaults described in
+[control-operation-v1](control-operation-v1.md#product-defaults-awaiting-confirmation)
+and [control-evaluation-v1](control-evaluation-v1.md#product-defaults-awaiting-confirmation)
+are implemented behavior, not accepted severity, deadline, or fallback-owner
+policy. The product owner must confirm or replace them in #274/#279 before this
+story or readiness presents them as approved program policy. No numeric default
+is adopted by this backlog reconciliation.
+
 Priority: P0
 
 Area: remediation
@@ -3221,6 +3634,11 @@ Implementation subtasks:
 - Connect corrective work to the shared work queue, evidence and review workflows, readiness, engagement findings, and next-period commitments.
 - Focused unit tests in the owning repository cover expired exceptions, missing closure evidence, source-text protection, reassignment, unauthorized approval, reopening, history, and downstream status reconciliation.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R2-08 Collaborate with a readiness advisor on work in progress
 
 Priority: P0
@@ -3234,18 +3652,24 @@ Business objective: make the live consultant-led readiness process faster and tr
 Requirements:
 
 - Let the compliance lead assemble a bounded set of draft or approved controls, policies, evidence, gaps, and questions for consultant review.
-- Support the collaboration method selected with the consultants, such as an indexed handoff, secure scoped link, or time-bounded product access.
+- Follow M0-D14's in-product collaboration model: assigned firm Advisors and
+  scoped, revocable guest memberships for consultants hired directly by the
+  client. Guests have a required end date and no approval rights.
 - Capture consultant requests, comments, recommendations, and validation status against the affected records.
 - Distinguish consultant-provided wording from internal interpretation and decisions.
 - Record what was shared, when, by whom, through which method, and what feedback was received.
-- Firm advisors assigned to the client work as scoped platform members; the handoff workflow remains for external consultants engaged directly by the client (M0-D14).
+- A handoff is a bounded in-product selection of exact draft versions marked
+  `ready_for_review`, not an export package or secure link. Closing or revoking
+  it removes draft access while retaining history. Approved records remain
+  subject to the collaborator's explicit program grants.
 
 Domain slice:
 
 - Owns bounded `AdvisorHandoff`, content selection and manifest,
   `AdvisorFeedback`, external-author provenance, internal response, and delivery history.
 - Uses exact versions of selected controls, policies, evidence, gaps, and
-  questions plus the chosen handoff or scoped platform-access mechanism.
+  questions plus scoped platform membership and professional engagement
+  assignment where applicable.
 - Produces attributable feedback, requests, validation state, and assigned work
   without letting external text or access mutate internal source records.
 
@@ -3256,14 +3680,28 @@ Acceptance criteria:
 - Feedback becomes attributable, actionable work without letting an external collaborator silently alter source records.
 - Internal approval, consultant validation, and future auditor conclusions remain distinct.
 - Repeated handoffs identify changes instead of duplicating all previously shared material.
-- If direct product access is not validated, the story can be completed through a secure handoff and feedback-capture workflow.
+- A directly hired consultant has a program-scoped guest membership with an
+  expiry and no approval rights; expiry or revocation ends future access and
+  preserves feedback attribution.
+- Unshared drafts are invisible. `validated` feedback refers to the exact
+  reviewed version, never approves it, and becomes historical when a successor
+  replaces the validated version.
 
 Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D14 and define selection, draft visibility, external authorship, validation meaning, delivery, revocation, and change-comparison rules.
-- Deliver authorized assemble, preview, share or export, receive or record feedback, respond, assign, and revoke behavior through the API, any bounded package processing, and browser.
-- Reuse platform membership and scoped access grants if direct access is selected; otherwise preserve external-author and delivery provenance without fabricating platform actors.
+- Deliver authorized guest invitation and expiry, assemble, preview,
+  `ready_for_review` sharing, feedback, response, assignment, closure, and
+  revocation through the existing scoped membership API and browser. No export
+  handoff package, secure link, or third-party platform is delivered in R2.
+- Reuse platform membership and scoped grants and preserve the actual posting
+  member's author attribution; correction is a linked new feedback entry.
 - Connect feedback to owning records, requests, work queues, gaps, review, and readiness; prove least privilege, repeated handoffs, exact versions, failures, and history end to end.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D14](decisions/m0-d14-advisor-collaboration.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R2-09 Make and record the Type I entry decision
 
@@ -3314,6 +3752,11 @@ Implementation subtasks:
 - Bind the decision to exact source versions and route deferrals or conditions into the shared finding, responsibility, and work model while preserving later changes separately.
 - Focused unit tests in the owning repository cover incomplete and stale inputs, unresolved acknowledgements, separation of duties, concurrent changes, denied approval, immutable history, and transition effects.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### R2-10 Publish policies and verify acknowledgement and training
 
 > [!NOTE]
@@ -3343,6 +3786,9 @@ Requirements:
   missing delivery for each person.
 - Accept reviewed completion records from an external LMS or manual evidence
   without pretending Compliance delivered the training content.
+- Workforce people who never sign in remain eligible campaign participants.
+  An authorized member records their externally collected acknowledgement or
+  completion with the person, actual evidence, and entering-member attribution.
 - Prevent a later policy or course version from satisfying an earlier campaign
   silently and prevent acknowledgement from proving comprehension or unrelated
   control operation.
@@ -3364,6 +3810,9 @@ Acceptance criteria:
 
 - The team can explain why every person was included, excluded, added, or removed from a campaign and which workforce snapshot supplied that decision.
 - Each acknowledgement or completion identifies the exact policy or training version, person, source, time, and evidence.
+- With no LMS export, connector, or optional automation enabled, the owner can
+  maintain the audience, record an outside acknowledgement or completion and
+  its support, review exceptions, and close the campaign through product actions.
 - Missing delivery, overdue work, source failure, declined acknowledgement, and approved exceptions remain distinct and drillable.
 - Policy supersession does not rewrite a launched or completed campaign and can deliberately trigger a successor campaign.
 - Campaign totals reconcile to individually inspectable people and results and can supply a frozen audit population.
@@ -3376,6 +3825,12 @@ Implementation subtasks:
 - Deliver authorized assemble, preview, launch, deliver or import, acknowledge, remind, reconcile, review, close, and inspect behavior through the API, bounded processing where needed, and browser.
 - Connect campaigns to workforce, policies, training sources, evidence, controls, work queues, findings, readiness, populations, packages, and snapshots without duplicate person or policy records.
 - Focused unit tests in the owning repository cover audience changes, wrong versions, missing and partial sources, duplicate completion, failed delivery, overdue and exception states, authorization, replay, and population reconciliation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D12](decisions/m0-d12-policy-acknowledgement-training.md),
+[M0-D06](decisions/m0-d06-workforce-source.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### R2-11 Manage accountable compliance work
 
@@ -3403,9 +3858,12 @@ Requirements:
   preserving responsibility history and separation-of-duties constraints.
 - Complete or change source work only through that workflow's rules; the work
   view cannot independently mark a control, decision, request, or remediation complete.
-- Provide configurable in-product reminders and digests with deduplication,
-  quiet behavior, delivery result, and direct links; do not require email for
-  the core work queue to function.
+- Provide M0-D15's in-app reminders at the due date and overdue state, plus one
+  opt-out weekly email digest per member listing overdue items and work due in
+  the next seven days. In-app reminders cannot be opted out of; per-item email
+  is excluded. Delivery failures never gate the core queue.
+- Escalate work seven days overdue to the Compliance Lead as an attributed
+  system action; escalation adds visibility and does not reassign it.
 - Surface orphaned work immediately when membership, teams, responsibilities,
   scope, or source records change.
 - Scope the queue to the active client organization; the cross-client queue for firm staff is delivered by F1-05.
@@ -3426,6 +3884,9 @@ Acceptance criteria:
 - Assignment and escalation obey authorization and separation of duties, preserve history, and expose orphaned work.
 - Completing source work removes or advances the projected item; changing only the projection can never create false completion.
 - Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
+- Ordering is due date, source materiality, creation time, and identifier, with
+  undated items after dated ones. Weekly digest opt-out never suppresses in-app
+  attention work, and seven-day escalation preserves the assignee.
 - Restricted work is absent rather than discoverable to unauthorized users, including through counts, notifications, and search.
 
 Implementation subtasks:
@@ -3437,6 +3898,11 @@ Implementation subtasks:
 - Focused unit tests in the owning repository cover stale projections, concurrent source changes, revoked access, team changes, self-review conflicts, orphaning, duplicate and failed reminders, restricted search.
 
 Delivery slices: this story is delivered through the following outcome slices, tracked as GitHub sub-issues. The parent's requirements, domain slice, and definition of done apply to every slice, and the parent is complete only when all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D15](decisions/m0-d15-work-queue.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### R2-11a See my and my team's work projected from source workflows
 
@@ -3465,14 +3931,19 @@ Acceptance criteria:
 
 Depends on: R2-11a
 
-#### R2-11c Receive in-product reminders and digests
+#### R2-11c Receive in-app reminders, a weekly digest, and overdue escalation
 
-Outcome: As a contributor, I can receive configurable in-product reminders and digests with direct links, without email being required.
+Outcome: As a contributor, I see due and overdue in-app reminders and can opt
+out of the weekly email digest while overdue escalation remains accountable.
 
 Acceptance criteria:
 
 - Reminder retries, duplicate suppression, disabled preferences, and delivery failures do not alter the underlying due state or hide overdue work.
 - Restricted work never appears in notifications to unauthorized users.
+- In-app reminders appear at the due date and overdue state; one weekly email
+  digest lists overdue items and work due in seven days, with opt-out and
+  recorded delivery outcome. Seven-day escalation adds Compliance Lead
+  visibility without reassigning the work.
 
 Depends on: R2-11a
 
@@ -3524,11 +3995,17 @@ Domain slice:
 Acceptance criteria:
 
 - Every governed artifact has an explainable classification, effective retention rule, access policy, source identity, and current availability state.
+- Default retention is seven years after the supported period ends, or the
+  point-in-time as-of date. Disposition requires elapsed retention, no active
+  hold, and Org Admin approval; there is no automatic disposition.
 - Users who may view a control cannot infer, preview, download, export, or share a restricted artifact without separate authorization.
 - A hold blocks disposition and survives ordinary retention expiry until an authorized release is recorded.
 - Redacted derivatives and later corrections preserve their source relationships, approvals, and distinct content identities.
 - Disposition cannot remove content still required by a frozen or delivered engagement record without an explicit permitted policy and visible impact.
 - Quarantined, missing, disposed, and access-denied content cannot appear as accepted or successfully packaged evidence.
+- Secret-bearing uploads are rejected, their content is purged, and only the
+  specified tombstone remains; they can never be released. Malware quarantine
+  follows the separate rescan and authorized false-positive decision path.
 
 Implementation subtasks:
 
@@ -3537,6 +4014,11 @@ Implementation subtasks:
 - Deliver authorized classify, restrict, hold, release, derive, review, disclose, revoke where possible, preview-disposition, dispose, and inspect-history behavior through the API, bounded processing, and browser.
 - Apply the same decisions to evidence, imports, provider reports, workforce snapshots, responses, exports, and packages and expose availability to readiness and validation without duplicating artifacts.
 - Focused unit tests in the owning repository cover malicious or invalid content, restricted metadata, stale policy, active holds, redaction errors, partial disposition, downloaded-copy warnings, denied sharing, package validation, and historical traceability.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D16](decisions/m0-d16-evidence-handling.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ## T1 - SOC 2 Type I supported
 
@@ -3589,6 +4071,11 @@ Implementation subtasks:
 - Deliver authorized engagement setup, baseline preview, drill-down, confirmation, and amendment behavior through the API and browser.
 - Resolve baseline items to exact source versions and reuse the shared snapshot model for every downstream Type I workflow without cloning mutable alternatives.
 - Focused unit tests in the owning repository cover incomplete previews, concurrent source changes, denied confirmation, amendments, package impact, historical stability.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T1-02 Author, approve, and maintain the system description
 
@@ -3644,7 +4131,19 @@ Implementation subtasks:
 - Reuse platform responsibilities and review decisions, preserve governed source relationships, and feed the exact approved version into assertions, requests, populations, packages, and snapshots.
 - Focused unit tests in the owning repository cover incomplete and contradictory sections, source-version changes, significant period changes, forbidden approval, concurrent edits, exact-version comments, export failure, and delivered-package stability.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T1-03 Give the auditor least-privilege engagement access
+
+Status: P2 product hypothesis, not the accepted external-auditor operating path.
+[M0-D17](decisions/m0-d17-audit-deliverables.md) and
+[M0-D27](decisions/m0-d27-attest-scope.md) give external audit firms packages
+and our assigned attest team in-product collaboration. This story requires
+validated external-firm demand and an explicit decision revision before
+scheduling; it is not a prerequisite for T1-04, T1-05, or Type II support.
 
 Priority: P2
 
@@ -3664,7 +4163,7 @@ Requirements:
 
 Domain slice:
 
-- Uses platform `Member`, `ExternalIdentity`, scoped `AccessGrant`, and actor
+- Uses platform `Membership`, `FederatedIdentity`, scoped `RoleAssignment`, and actor
   attribution for an auditor who actually signs in; it does not create a second auditor-user model.
 - Owns engagement-scoped sharing selections, effective access interval, external
   visibility, and access activity for the Type I engagement.
@@ -3685,6 +4184,12 @@ Implementation subtasks:
 - Enforce read, download, request, and comment permissions server-side on every referenced artifact while preserving visibility and actor history after revocation.
 - Focused unit tests in the owning repository cover cross-program denial, unshared-draft denial, immediate revocation, expired grants, exact-version access, activity attribution, and safe external UI states.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md),
+[M0-D27](decisions/m0-d27-attest-scope.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T1-04 Respond to auditor requests and samples
 
 Priority: P1
@@ -3698,6 +4203,10 @@ Business objective: shorten response time and preserve exactly what was requeste
 Requirements:
 
 - Capture request, affected scope, priority, owner, due date, discussion, and status.
+- Let an authorized contributor manually record an externally received request
+  and its source, or receive it from an assigned in-product Attest collaborator.
+  External audit firms need no product account; intentional responses reach
+  them through the recorded package/delivery workflow (M0-D17, M0-D27).
 - Link existing records or submit new evidence without duplicating content.
 - Review responses internally before external delivery when policy requires it.
 - Preserve request and response versions.
@@ -3717,6 +4226,9 @@ Acceptance criteria:
 - The auditor sees only responses intentionally delivered.
 - Reopened requests preserve prior responses and explanation.
 - Overdue, blocked, submitted, accepted, and resolved states are explainable and filterable.
+- An external auditor's request can be recorded, assigned, answered, reviewed,
+  packaged, and delivered with exact history while T1-03 and every integration
+  are absent. Our assigned attest team sees only approved delivered responses.
 
 Implementation subtasks:
 
@@ -3724,6 +4236,12 @@ Implementation subtasks:
 - Deliver authorized create or receive, assign, discuss, assemble, review, deliver, reopen, and filter behavior through the API and browser.
 - Reuse evidence identity, support relationships, work queues, scoped external access, review decisions, and delivery history rather than creating audit-only copies.
 - Focused unit tests in the owning repository cover missing and unauthorized evidence, rejected responses, late and reopened requests, concurrent edits, exact delivery visibility, reporting reconciliation, and history.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md),
+[M0-D27](decisions/m0-d27-attest-scope.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T1-05 Produce and validate the Type I package
 
@@ -3773,6 +4291,14 @@ Acceptance criteria:
 - The control matrix, evidence index, and other tabular outputs reconcile to the same records as the human-readable index and manifest.
 - Management-authored, auditor-authored, and product-calculated content are labeled and cannot be mistaken for one another.
 
+Ready gates: [#339](https://github.com/bdgrz/compliance/issues/339) validates
+the actual firm's delivery expectations. With Privacy selected, the validated
+personal-information lifecycle backlog in
+[#349](https://github.com/bdgrz/compliance/issues/349) must supply the support
+needed for that scope before a Type I package claims it. An attributed boundary
+decision removing Privacy changes that gate under M0-D01; selecting a category
+or mapping its criteria alone never establishes support.
+
 Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D17 before finalizing this story's rules.
@@ -3780,6 +4306,11 @@ Implementation subtasks:
 - Deliver authorized preview, validate, generate, monitor, download, deliver, amend, and retrieve behavior through the API, bounded worker processing, and browser.
 - Resolve every manifest entry to the shared record or artifact identity and record the member or system actor for each attempt and delivery.
 - Focused unit tests in the owning repository cover missing, stale, rejected, unauthorized, inconsistent tables, interrupted, retried, and partially generated cases; equivalent regeneration; least privilege; attribution distinctions; amendments; and exact retrieval.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T1-06 Track Type I observations and audit findings
 
@@ -3819,6 +4350,11 @@ Implementation subtasks:
 - Deliver authorized capture or import, inspect, relate, assign, respond, remediate, review, close, and reopen behavior through the API and browser.
 - Preserve auditor authorship and reuse evidence, responsibilities, work queues, review, readiness, and next-period planning without duplicating findings.
 - Focused unit tests in the owning repository cover immutable source wording, denied edits and closure, missing evidence, reopen history, baseline traceability, and Type II plan continuity.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T1-07 Record the Type I outcome and approve the Type II plan
 
@@ -3869,6 +4405,11 @@ Implementation subtasks:
 - Deliver authorized assertion review and approval, representation-letter retention, outcome recording, plan assembly, gap drill-down, review, approval, and transition preview through the API and browser.
 - Resolve every plan entry to shared controls, responsibilities, cadence, evidence expectations, findings, and approved changes without copying them into an unrelated planning model.
 - Focused unit tests in the owning repository cover changed assertion inputs, hidden exceptions, wrong or missing signers, external-source protection, inconsistent plans, missing ownership or cadence, denied approval, outcome-source distinction, open-remediation continuity, and immutable Type I history.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ## T2 - SOC 2 Type II period operated
 
@@ -3922,6 +4463,11 @@ Implementation subtasks:
 - Resolve the opening plan to shared records and establish one period identity consumed by scheduling, evidence, access reviews, readiness, close, and packages.
 - Focused unit tests in the owning repository cover overlaps, missing ownership or cadence, unresolved acknowledgement, denied start, later changes, historical occurrences.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T2-02 Operate a recurring control calendar
 
 Priority: P1
@@ -3938,6 +4484,14 @@ Requirements:
 - Support recurring, event-driven, and approved ad hoc work.
 - Show upcoming, due, overdue, completed, skipped, and not-applicable states.
 - Preserve the expected population across schedule edits, retries, and restarts.
+- Use the same recurring-control workflow for periodic policy, risk, provider,
+  and management compliance reviews (M0-D19). Bind each review's evidence to
+  the exact subject versions considered and route requested changes into their
+  owning lifecycle and remediation workflows.
+- For a management review, freeze the exact readiness assessment, monitoring
+  measure versions, and agenda/minutes evidence considered. Record an EN-04
+  decision of `approved`, `action_requested`, or `deferred` with rationale, and
+  create requested actions as R2-07 findings linked to the occurrence.
 
 Domain slice:
 
@@ -3954,6 +4508,14 @@ Acceptance criteria:
 - Repeated scheduling cannot create duplicate required occurrences.
 - A cadence change previews added, retained, and removed future work before approval.
 - Historical and active occurrences remain separate and traceable.
+- Policy, risk, provider, and management review occurrences appear in the same
+  work queue with due, overdue, skipped, reviewed, or exception-backed state.
+  A completed review resolves to exact subject versions, evidence, and an
+  attributable decision; material changes expose downstream work.
+- Later source changes cannot rewrite management's frozen evidence set.
+  Requested actions retain the originating occurrence and appear in the
+  accountable queue until resolved through R2-07. No dedicated governance
+  review surface or `ManagementReviewSnapshot` aggregate is introduced.
 
 Implementation subtasks:
 
@@ -3961,6 +4523,11 @@ Implementation subtasks:
 - Deliver authorized calendar and work-queue queries, schedule-change preview and approval, and occurrence navigation through the API, bounded scheduler work, and browser.
 - Reuse control occurrences, responsibilities, performance, evidence, review, gaps, and readiness rather than introducing independent calendar completion state.
 - Focused unit tests in the owning repository cover duplicate prevention across retries and restarts, time boundaries, schedule edits, team and owner changes, historical separation, failed generation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D19](decisions/m0-d19-periodic-reviews.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T2-03 Collect and review evidence for every required occurrence
 
@@ -4001,6 +4568,11 @@ Implementation subtasks:
 - Deliver authorized occurrence support and review workflows plus population drill-down through the shared APIs and connected browser experience.
 - Feed missing, rejected, stale, or exception-backed occurrences into shared work, findings, and readiness while retaining all submissions and decisions.
 - Focused unit tests in the owning repository cover every terminal state, outside-period and reused evidence, corrections, review priority, denied access, exact totals, and immutable history.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T2-04 Monitor readiness and intervene before gaps age
 
@@ -4043,6 +4615,11 @@ Implementation subtasks:
 - Build the work experience as a projection over domain-owned responsibilities and activities, never as a second independently editable task system.
 - Focused unit tests in the owning repository cover counts and filters against underlying records, per-member and team visibility, unassigned work, status transitions, forecast changes, denied drill-down, and calculation failures.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T2-05 Run recurring application access reviews
 
 Priority: P1
@@ -4057,16 +4634,20 @@ Requirements:
 
 - Reuse application, reviewed-system, access-subject, entitlement, access-expectation, reviewer, and instruction definitions from prior campaigns.
 - Reconcile the current application inventory and require a new accepted source snapshot or approved exception for every in-scope reviewed system.
-- Import new point-in-time human and NHI principals, groups, roles, memberships, and direct or inherited grant paths without altering earlier campaigns.
+- Manually record and attest a new point-in-time population of human and NHI
+  accounts, groups, roles, direct memberships and assignments; derive effective
+  access from those source facts. Optional reviewed import or collection makes
+  this work easier without being required or altering prior campaigns.
 - Compare populations and approved expectations to highlight added, removed, changed, missing, prohibited, privileged, expired, and unresolved access.
 - Apply the complete decision, remediation, exception, and verification workflow.
 
 Domain slice:
 
-- Reuses `ReviewedSystem`, `DirectoryPrincipal`, `Entitlement`,
-  `ExternalAccessGrant`, population, campaign, decision, remediation, and verification primitives from the initial review.
-- Reuses `Application`, `AccessSubject`, external group membership, grant path,
-  and `AccessExpectation` rather than rebuilding them per campaign.
+- Reuses `SystemInstance`, `Account`, `Group`, `GroupMember`, `Role`,
+  `Entitlement`, direct `AccessAssignment`, derived `EffectiveAccess`, population,
+  campaign, decision, remediation, and verification primitives from the initial review.
+- Reuses `Application`, governed `Person` and `ServiceIdentity` correlations,
+  grant paths, and `AccessExpectation` rather than rebuilding them per campaign.
 - Owns recurring campaign cadence, new population snapshots, explicit
   cross-snapshot comparison, and period association.
 - Produces occurrence evidence and readiness effects for the Type II period
@@ -4080,13 +4661,23 @@ Acceptance criteria:
 - Population changes are informative and never pre-decide review outcomes.
 - Required remediation is tracked to verified completion or approved exception.
 - Campaign cadence and completion contribute accurately to observation-period readiness.
+- A complete recurring campaign can use a manually attested population and
+  later manually attested verification snapshot with no connector or import
+  pipeline enabled, preserving its provenance and independent review.
 
 Implementation subtasks:
 
 - Define campaign-template reuse, application-scope reconciliation, new snapshot identity, human and NHI subject correlation, principal and grant-path correlation, expectation comparison, cadence, and non-inheritance of decisions.
-- Deliver authorized repeat-import preview, campaign creation, population comparison, assignment, decision, remediation, verification, and completion through the shared API and browser workflows.
+- Deliver authorized manual population recording and attestation, optional
+  import preview, campaign creation, population comparison, assignment, decision,
+  remediation, verification, and completion through the shared API and browser.
 - Preserve external-versus-platform identity boundaries and connect each campaign to shared evidence, control occurrences, work, findings, exceptions, readiness, and period snapshots.
 - Focused unit tests in the owning repository cover added, removed, changed, missing, prohibited, expired, and ambiguous grants; provider identifier continuity; human and NHI ownership changes; missing system snapshots; prior-history isolation; unverified remediation; and exact period contribution.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T2-06 Complete periodic policy, risk, and vendor reviews
 
@@ -4096,6 +4687,10 @@ Priority: P2
 > Periodic policy, risk, and vendor reviews are ordinary recurring controls
 > covered by T2-02. The story is kept for reference; reopen it if real use
 > shows a gap.
+
+Historical acceptance below is retained as rationale. Its delivery owner is
+T2-02 with the shared policy, risk, provider, evidence, decision, and finding
+workflows; it is not a separately schedulable surface or domain owner.
 
 Area: governance reviews
 
@@ -4114,8 +4709,9 @@ Domain slice:
 
 - Reuses policy, risk, vendor, responsibility, evidence, review-decision,
   exception, and corrective-action primitives.
-- Owns expected governance review occurrences and each review's exact subject
-  version, assessment, decision, evidence, and next-review outcome.
+- T2-02 owns the expected recurring occurrences. Each subject workflow owns
+  its exact version and review result; evidence and EN-04 decisions record the
+  occurrence's support and sign-off.
 - Produces shared work and readiness effects without inventing separate policy,
   risk, and vendor task systems.
 
@@ -4133,6 +4729,11 @@ Implementation subtasks:
 - Route material decisions into control and scope impact analysis, corrective work, evidence expectations, and readiness while preserving prior versions and decisions.
 - Focused unit tests in the owning repository cover due, overdue, skipped, changed, denied, corrected, and exception-backed reviews across each subject type and reconcile them to period status.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D19](decisions/m0-d19-periodic-reviews.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T2-07 Assess system changes and incidents for compliance impact
 
 Priority: P1
@@ -4146,6 +4747,10 @@ Business objective: prevent material operational change from invalidating contro
 Requirements:
 
 - Capture source, time, description, owner, affected systems, severity, and current status.
+- Support direct product entry of a native significant change or compliance
+  incident with its recorder, evidence, and attributable significance assessment.
+  External source system, identifier, and URL are optional provenance when an
+  actual external record exists; they are never fabricated to enable manual entry.
 - Correlate earlier attributable R1-07 incident references without rewriting
   their risk-assessment history (M0-D22).
 - Assess impact on scope, risks, vendors, controls, evidence expectations, and system description.
@@ -4156,7 +4761,7 @@ Requirements:
 
 Domain slice:
 
-- Owns compliance-facing `SignificantChange` and `IncidentReference`, chronology,
+- Owns compliance-facing `SignificantChange` and `ComplianceIncident`, chronology,
   restricted details, impact assessment, and resulting decision.
 - Uses source provenance, affected systems, scope, risks, vendors, controls,
   evidence expectations, system-description versions, and period boundaries.
@@ -4170,6 +4775,16 @@ Acceptance criteria:
 - Period reporting distinguishes planned change, incident response, and unresolved exception.
 - The active Type II system description identifies evaluated significant changes and cannot remain approved with an unresolved material contradiction.
 - Restricted incident details remain protected while audit-relevant conclusions can be shared deliberately.
+- With no incident-tool integration or automation enabled, an authorized user
+  can directly record the native change or incident, attach supporting evidence,
+  assess significance and affected records, resolve description-review work,
+  and maintain its chronology. The entering member is attributed and absent
+  external provenance remains absent.
+- Every significant item's reference, dates, rationale, and affected-record
+  links remain in the complete auditor-facing period record, including when
+  its internal handling class is restricted. Source ticket detail stays in
+  the source tool. Period close fails while an affected description section's
+  `needs_review` state lacks an approved successor or a recorded no-change decision.
 
 Implementation subtasks:
 
@@ -4177,6 +4792,12 @@ Implementation subtasks:
 - Deliver authorized capture or import, relate, assess, restrict, share conclusions, create follow-up work, and close behavior through the API and browser.
 - Reuse shared source provenance, responsibilities, evidence, reviews, findings, scope impact, readiness, period history, and package selection.
 - Focused unit tests in the owning repository cover planned-change versus incident semantics, restricted-field authorization, missing impact review, denied closure, later corrections, chronology, and package visibility.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D22](decisions/m0-d22-canonical-ownership.md),
+[M0-D21](decisions/m0-d21-significant-change.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T2-08 Automate selected inventory, access, and evidence collection
 
@@ -4189,14 +4810,17 @@ technology, identity, source-control, and cloud facts collected on an approved
 schedule so that inventories, access populations, and routine evidence stay
 current without losing provenance or human oversight.
 
-Business objective: reduce repetitive collection effort only after the manual workflow and evidence expectations are trusted.
+Business objective: make repetitive collection easier after the manual workflow
+and evidence expectations are proven, without making automated collection a
+condition for program setup or operation.
 
 Requirements:
 
 - Treat automation as an optional adapter over the functional domain. Workforce,
   inventory, external-access, population, evidence, reconciliation, and review
-  workflows must operate end to end through manual entry or import before this
-  story is scheduled; no earlier story may depend on a connector runtime.
+  workflows must operate end to end through user actions before this story is
+  scheduled; import may reduce transcription but is not required. No earlier
+  story may depend on a connector runtime.
 - Choose a source only after documenting the inventory, population, or evidence
   question it answers and whether it is authoritative, corroborating, or
   discovery-only.
@@ -4210,7 +4834,8 @@ Requirements:
 - Preview new, changed, missing, duplicate, ambiguous, and rejected records and
   require an attributable reconciliation decision before changing governed inventory.
 - Require ordinary evidence, population, or inventory review before automated
-  material counts as accepted; retain a manual import fallback.
+  material counts as accepted; keep manual entry and evidence upload available
+  whether the connector or import feature is enabled or not.
 - Package each source connector as a disposable executable with a versioned,
   language-neutral process contract. A cloud worker or customer-hosted agent
   launches one executable for one collection run, provides its bounded job
@@ -4237,7 +4862,7 @@ Acceptance criteria:
 
 - The UI explains requested provider access before connection and supports test, disable, and revoke.
 - Successful collections enter the same inventory, population, evidence, reconciliation, and review workflows as equivalent manual submissions.
-- The complete manual workflow remains usable when the connector runtime is unavailable, disabled, or has never been deployed.
+- The complete user-operated workflow remains usable when the connector runtime is unavailable, disabled, or has never been deployed.
 - Permission denial, rate limiting, partial results, stale data, and provider removal are visible and cannot appear complete.
 - Repeated collection does not create duplicate evidence for the same source snapshot.
 - Missing source records require explicit tombstone or reconciliation treatment and cannot silently delete, merge, retire, or de-scope governed records.
@@ -4263,6 +4888,12 @@ Delivery slices: this story is delivered through the following outcome slices,
 tracked as GitHub sub-issues. The parent's requirements, domain slice, and
 definition of done apply to every slice, and the parent is complete only when
 all slices are done.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D20](decisions/m0-d20-integration-sources.md),
+[M0-D24](decisions/m0-d24-accessibility-and-browsers.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 #### T2-08a Collect and reconcile a selected cloud-reachable source
 
@@ -4304,7 +4935,7 @@ Acceptance criteria:
   revoked credentials, and incomplete runs remain visible and cannot create a
   completed source snapshot.
 - The customer can disable the agent and continue the equivalent workflow
-  through manual entry or import.
+  through manual entry, upload, and explicit review.
 
 Depends on: T2-08a
 
@@ -4318,6 +4949,10 @@ Priority: P2
 > its sign-off records `approved`, `action_requested`, or `deferred`, and the
 > actions it requests are R2-07 findings tracked in the work queue. The story
 > is kept for reference; reopen it if real use shows a gap.
+
+Historical acceptance below is delivered by T2-02 and R2-07. It describes an
+ordinary recurring control and its frozen evidence, not a separate management
+review product surface or readiness calculation.
 
 Area: management oversight
 
@@ -4334,8 +4969,9 @@ Requirements:
 
 Domain slice:
 
-- Owns immutable `ManagementReviewSnapshot`, agenda or discussion record,
-  `ManagementDecision`, approval, and resulting action assignments.
+- T2-02 owns the recurring `ControlOccurrence`. Its frozen evidence set binds
+  the agenda/minutes and exact source versions; EN-04 records its management
+  sign-off and R2-07 owns requested findings and corrective actions.
 - Binds exact R1-08 readiness assessment and T2-04 monitoring measure versions.
   Uses the shared readiness projection and exact underlying control, evidence,
   access, finding, risk, vendor, incident, and change records as of a known time.
@@ -4355,6 +4991,11 @@ Implementation subtasks:
 - Deliver authorized assemble, preview, conduct, decide, approve, assign, and inspect behavior through shared APIs and the browser.
 - Bind the review to exact source records and route actions through shared responsibilities, findings or corrective work, evidence, and readiness.
 - Focused unit tests in the owning repository cover incomplete and changed source data, denied approval, deferral, action tracking, later corrections, immutable review history, and period-package inclusion.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D19](decisions/m0-d19-periodic-reviews.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ## T3 - SOC 2 Type II examination supported
 
@@ -4408,6 +5049,11 @@ Implementation subtasks:
 - Resolve all entries to shared source identities and versions and make the close snapshot the only source for downstream examination workflows.
 - Focused unit tests in the owning repository cover missing and duplicate populations, concurrent changes, unresolved acknowledgements, denied approval, partial freeze failure, amendments, later source changes.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T3-02 Demonstrate complete audit populations
 
 Priority: P1
@@ -4438,6 +5084,10 @@ Requirements:
   granting broader sensitive-data or evidence access.
 - Preserve the exact population used for each request or sample; later source
   corrections require an attributable amendment or successor population.
+- Let authorized users directly record or upload source-population facts,
+  their collection boundary and evidence of completeness, then reconcile and
+  freeze them without a connector. Manual input follows the same completeness,
+  provenance, restriction, and exact-version rules as future collection.
 
 Domain slice:
 
@@ -4458,6 +5108,9 @@ Acceptance criteria:
 - Partial collection, pagination gaps, changed queries, or missing source evidence cannot appear as a complete population.
 - Later corrections do not silently alter a population already used for sampling.
 - Restricted columns and linked artifacts remain protected in inspection and export without changing population identity or totals.
+- A manually supplied population with recorded source boundary and completeness
+  evidence can be frozen, exported, and sampled while integrations and optional
+  automated collection are disabled. Missing evidence remains unresolved.
 
 Implementation subtasks:
 
@@ -4466,6 +5119,11 @@ Implementation subtasks:
 - Deliver authorized population define or import, generate, inspect, filter, reconcile, export, amend, and freeze-for-sample behavior through the API, bounded processing, and browser.
 - Resolve population rows to exact source facts and shared occurrence, performance, workforce, inventory, access, decision, evidence, and exception records where applicable while enforcing field and artifact authorization.
 - Focused unit tests in the owning repository cover source and pagination gaps, changed definitions, every row classification, exact totals, restricted fields and evidence, export failure, source amendments, sample binding, and historical stability.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T3-03 Fulfill Type II sample and evidence requests
 
@@ -4483,6 +5141,10 @@ Requirements:
 - Assign owners, due dates, internal reviewers, and external delivery status.
 - Link existing evidence without copying and allow supplemental evidence with provenance.
 - Preserve discussion and every delivered response version.
+- Manually capture externally received sample selections and request wording
+  with exact population-version references and external provenance. Our assigned
+  attest team collaborates in-product; external firms receive intentional
+  packages, with no direct product account required (M0-D17, M0-D27).
 
 Domain slice:
 
@@ -4500,6 +5162,8 @@ Acceptance criteria:
 - Only internally approved responses become externally visible when review is required.
 - Reopened requests preserve prior deliveries and reasons.
 - Request status and response-time reporting reconcile with the underlying history.
+- Requests from an external audit firm can be recorded, fulfilled, reviewed,
+  and delivered through packages without T1-03 or an external integration.
 
 Implementation subtasks:
 
@@ -4507,6 +5171,12 @@ Implementation subtasks:
 - Deliver authorized sample capture or import, request assignment, response assembly, review, delivery, follow-up, reopen, and reporting through shared APIs and the browser.
 - Reuse platform responsibilities, scoped external visibility, evidence identity, support relationships, review decisions, work queues, and delivery records.
 - Focused unit tests in the owning repository cover invalid or amended population references, missing support, denied visibility, rejected and reopened responses, concurrent edits, exact delivery history, and metric reconciliation.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md),
+[M0-D27](decisions/m0-d27-attest-scope.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T3-04 Resolve examination exceptions and remediation commitments
 
@@ -4528,7 +5198,6 @@ Requirements:
 Domain slice:
 
 - Reuses the shared finding, external-author, corrective-action, evidence,
-- Reuses the shared finding, external-author, corrective-action, evidence,
   review, R1-07 risk-acceptance, and verification model. Its distinct
   `AuditTestException` preserves auditor wording and links to those records.
 - Binds each exception to exact frozen samples, population items, control
@@ -4549,6 +5218,11 @@ Implementation subtasks:
 - Deliver authorized capture or import, inspect, relate, respond, assign, remediate, accept risk, review, close, and reopen behavior through shared APIs and the browser.
 - Preserve auditor authorship and reuse work queues, evidence, review, readiness, package, and roll-forward relationships rather than creating an audit-only exception store.
 - Focused unit tests in the owning repository cover source-text protection, frozen-record references, denied closure, missing evidence, risk-versus-remediation distinctions, reopen history, package accuracy, and next-period continuity.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T3-05 Produce and validate the Type II package
 
@@ -4607,6 +5281,11 @@ Implementation subtasks:
 - Resolve every manifest entry to exact shared records and artifacts, enforce their sharing policy, and record member or system actors for attempts and delivery.
 - Focused unit tests in the owning repository cover completeness, period applicability, table reconciliation, attribution distinctions, restricted content, partial and interrupted generation, retry, equivalent regeneration, least privilege, amendments, and exact retained retrieval.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### T3-06 Record management sign-off and the Type II outcome
 
 Priority: P1
@@ -4643,7 +5322,10 @@ Acceptance criteria:
 
 - Approvers review the exact immutable snapshot and package.
 - Management approval identifies the exact assertion wording, system description, population and exception state, package, approvers, and time.
-- The auditor-provided representation letter, tests and results, exceptions, and issued report retain external provenance and cannot be edited into platform-authored conclusions.
+- The auditor-provided representation letter, reported exceptions, and issued
+  report retain external provenance and cannot become platform-authored
+  conclusions. Attest tests, test conclusions, workpapers, and report drafts
+  remain in dedicated audit software (M0-D27).
 - Unresolved material items cannot be hidden from sign-off.
 - The recorded outcome clearly identifies its source and is not inferred by the product.
 - Later changes make the sign-off historical rather than modifying it.
@@ -4655,6 +5337,11 @@ Implementation subtasks:
 - Deliver authorized sign-off preview, assertion review and approval, representation-letter retention, drill-down, decision, comments, outcome recording, report linking, and commitment assignment through the API and browser.
 - Reuse platform actors, responsibilities, findings, risk acceptance, work queues, packages, and snapshot history while preserving the three distinct conclusion sources.
 - Focused unit tests in the owning repository cover changed assertion inputs, hidden or unresolved item prevention, wrong or missing signers, denied approval, external-source protection, source attribution, concurrent amendment, immutable sign-off, final commitments, and downstream rollover.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D17](decisions/m0-d17-audit-deliverables.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### T3-07 Roll the program into continuous compliance and the next period
 
@@ -4697,11 +5384,28 @@ Implementation subtasks:
 - Reuse stable program identities and current approved versions, preserve source engagement references, and route the proposal through ordinary period-start validation and work generation.
 - Focused unit tests in the owning repository cover carried, changed, retired, unresolved, and ineligible records; duplicate occurrence prevention; denied approval; partial failure and retry; exact trends; and completed-record immutability.
 
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ## F1 - Multi-client firm operations
 
-Business outcome: the firm onboards, operates, and offboards client organizations from one deployment; firm staff see and work their client portfolio without cross-client disclosure; reusable templates are applied with provenance; client users can sign in through their own identity providers; every client service is recorded as an accepted advisory or attest engagement; and independence walls prevent attest work where advisory services impaired independence. Attest workpaper support stays out of this milestone until M0-D27 decides its scope.
+Business outcome: the firm onboards, operates, and offboards client organizations
+from one deployment; firm staff work their authorized portfolio; reusable
+templates retain provenance; client identity federation makes authentication
+easier; accepted advisory or attest engagements govern professional work; and
+independence walls prevent impaired attest work. Attest planning, tests,
+workpapers, and report drafting remain in dedicated audit software under
+accepted M0-D27. Collaboration records are packaged and delivered there at
+engagement closure or client offboarding.
 
 These stories make the platform serve many client organizations for a firm that provides both advisory and attest services. The tenant-ready foundations they rely on (R1-15, EN-01, M0-D25, and M0-A07) are delivered in M0 and R1.
+
+Core multi-organization administration and delegation exist in the R1-04/R1-15
+scope and proposed BO-01; they do not require a professional service engagement.
+Hosted base fees and optional add-ons remain per organization, even when a firm
+administers them. BO-02/BO-03 define that commercial scope separately from F1.
 
 ### F1-01 Onboard, suspend, and offboard client organizations
 
@@ -4719,7 +5423,14 @@ Requirements:
 - Suspend and reactivate a client with a recorded reason.
 - Offboard a client through an explicit decision covering final export, access revocation, retention and hold evaluation, and scheduled disposition.
 - Produce a documented export of the client's management-owned records, evidence, history, and delivered packages.
-- Retain firm-owned material that must survive offboarding (for example attest documentation) separately from client-owned records, following M0-D25 and M0-D27.
+- Apply the decided advisory-material retention and handover rules once #346
+  settles them. Attest documentation stays in dedicated audit software and
+  is never a firm-retained platform workpaper store (M0-D25, M0-D27).
+- Before offboarding a client with an attest engagement, generate an engagement
+  record package containing every request, response, population and sample
+  version, and delivered evidence item with the M0-D17 manifest. Require an
+  attributed decision recording delivery into the attest team's audit software;
+  the engagement hold blocks disposition until that decision exists.
 - Record every lifecycle decision with actor, rationale, and effective time.
 
 Domain slice:
@@ -4735,12 +5446,26 @@ Acceptance criteria:
 - The client export reconciles to the organization's records and artifacts and lists anything withheld with the reason.
 - Records under an engagement hold, legal hold, or retention obligation are not disposed of, and the reason is visible.
 - Disposition removes the organization's content from every store, index, projection, and backup according to the approved plan and records the result.
+- Offboarding an organization with an attest engagement cannot complete without
+  its complete collaboration record package and delivery decision. Interrupted
+  generation or unrecorded delivery preserves the hold and cannot appear complete.
+- Delegating organization management to client personnel is distinct from
+  offboarding or disposition; that operation uses BO-01 and preserves the same
+  organization and its records.
 
 Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25, M0-D16, and M0-D27 and define lifecycle, export contents, firm-retained material, and disposition rules.
 - Deliver authorized onboard, suspend, reactivate, export, offboard, and dispose behavior through the API, bounded worker processing, and browser.
 - Focused unit tests in the owning repository cover export completeness, interrupted export, holds and retention carve-outs, revoked access, disposition across stores, and denied operator actions.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D25](decisions/m0-d25-client-tenancy.md),
+[M0-D27](decisions/m0-d27-attest-scope.md),
+[M0-D17](decisions/m0-d17-audit-deliverables.md),
+[M0-D16](decisions/m0-d16-evidence-handling.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### F1-02 See the client portfolio across organizations
 
@@ -4778,6 +5503,11 @@ Implementation subtasks:
 - Deliver the portfolio overview, filters, drill-down, and organization switch through the API and browser.
 - Focused unit tests in the owning repository cover per-staff visibility, revocation, reconciliation to client views, stale calculations, and cross-tenant isolation.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D25](decisions/m0-d25-client-tenancy.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### F1-03 Plan firm staff assignments and capacity across clients
 
 Priority: P2
@@ -4798,6 +5528,8 @@ Domain slice:
 
 - Owns staff assignment proposals and the capacity projection.
 - Uses service engagements (F1-07), accountable work (R2-11, F1-05), and independence rules (F1-08).
+- Produces authorized assignment proposals and explainable workload estimates,
+  without changing source workflow state or becoming a timekeeping system.
 
 Acceptance criteria:
 
@@ -4810,6 +5542,11 @@ Implementation subtasks:
 - Before scheduling this P2 story, confirm with firm leadership that capacity planning belongs in the platform rather than an existing resource tool.
 - Deliver authorized assignment overview, proposal, approval, and workload drill-down through the API and browser.
 - Focused unit tests in the owning repository cover independence blocks, reconciliation, and restricted visibility.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### F1-04 Maintain a reusable template library and apply it to clients
 
@@ -4848,6 +5585,12 @@ Implementation subtasks:
 - Deliver authorized template authoring, approval, application, change impact, and client adoption through the API and browser.
 - Focused unit tests in the owning repository cover provenance, non-propagation to existing records, contribution review, licensing restrictions, and cross-tenant isolation.
 
+Public references: No external normative source for this workflow; product
+decision in [M0-D02](decisions/m0-d02-criteria-content.md),
+[M0-D25](decisions/m0-d25-client-tenancy.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
 ### F1-05 Work one queue across all my client organizations
 
 Priority: P1
@@ -4868,6 +5611,8 @@ Domain slice:
 
 - Extends the `AccountableWorkItem` projection (R2-11) with cross-organization aggregation for the viewing user.
 - Uses memberships, engagement assignments (F1-07), and portfolio authorization (F1-02).
+- Produces authorized navigation, priority, and reminders over source-owned
+  work; completing an item still happens in its owning organization workflow.
 
 Acceptance criteria:
 
@@ -4881,6 +5626,11 @@ Implementation subtasks:
 - Define cross-organization aggregation, authorization, ordering, and digest grouping rules.
 - Deliver the cross-client queue, filters, and source navigation through the API and browser.
 - Focused unit tests in the owning repository cover revocation, reconciliation, restricted work, and cross-tenant isolation.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### F1-06 Let client users sign in through their own identity providers
 
@@ -4898,11 +5648,17 @@ Requirements:
 - Restrict which connections may authenticate into which organization; firm staff keep using the firm's identity provider.
 - Keep issuer plus subject as the identity key and never grant membership from a claim without an explicit mapping.
 - Test, disable, and rotate a connection without losing member history.
+- Per-client federation enhances the core authenticated membership workflow;
+  users can operate through the deployment's trusted configured issuer when no
+  optional client-specific identity connection is enabled. Authentication never
+  grants organization membership or professional services by itself.
 
 Domain slice:
 
 - Owns per-organization identity-provider connection configuration and lifecycle.
 - Uses platform users, external identities, memberships (R1-04), and tenant context (EN-01).
+- Supplies approved authentication routing and identity bindings while the
+  product remains the authority for membership, role grants, and attribution.
 
 Acceptance criteria:
 
@@ -4916,6 +5672,11 @@ Implementation subtasks:
 - Incorporate the decision recorded in M0-A07 and define connection, discovery, mapping, and rotation rules.
 - Deliver authorized connection setup, test, disable, rotation, and sign-in routing through the API and browser.
 - Focused unit tests in the owning repository cover wrong-tenant sign-in denial, disabled connections, identity replacement, secret non-disclosure.
+
+Public references: No external normative source for this workflow; product
+decision in [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### F1-07 Record client engagements and accept them after independence checks
 
@@ -4932,8 +5693,15 @@ Requirements:
 - Record engagement type (for example readiness advisory, continuous compliance, SOC 2 Type I examination, SOC 2 Type II examination), client organization, scope, period, engagement lead, and assigned staff.
 - Keep the firm's service engagement distinct from the client's Type I and Type II audit engagements, whose auditor may be an external firm.
 - Require an attributable acceptance decision recording the independence evaluation, conflicts, management-responsibility acknowledgement for nonattest services, and approver, following M0-D26.
-- Grant firm-staff access to client records through engagement assignment rather than standing firm membership.
+- Grant professional Advisor and Attest privileges through assignment to an
+  accepted engagement. Explicit client-role grants for core organization
+  administration remain separate and never establish professional service
+  authority or bypass independence rules.
 - Preserve engagement amendments and closure history.
+- Closing an attest engagement requires its complete M0-D27 collaboration
+  record package and an attributed decision recording delivery into the
+  attest team's dedicated audit software. Attest workpapers, test conclusions,
+  and report drafts remain outside Compliance.
 
 Domain slice:
 
@@ -4943,16 +5711,29 @@ Domain slice:
 
 Acceptance criteria:
 
-- No firm staff member can access a client's records without an active engagement assignment or an approved exception.
+- Professional Advisor/Attest access requires an active assignment to an
+  accepted engagement; organization membership or administration does not
+  create those privileges. Assignment removal ends those privileges without
+  silently changing independently granted client administration.
 - An engagement cannot start without a recorded acceptance decision and independence evaluation.
 - The approver sees every advisory and attest engagement for the client with its period and services before deciding.
 - Amending or closing an engagement preserves history and changes staff access at the effective time.
+- An attest engagement cannot close until the complete collaboration record
+  package is generated and its delivery into dedicated audit software is
+  recorded; incomplete packaging or delivery leaves its hold unresolved.
 
 Implementation subtasks:
 
 - Incorporate the decisions recorded in M0-D25, M0-D26, and M0-D27 and define engagement types, acceptance, assignment-based access, amendment, and closure rules.
 - Deliver authorized create, evaluate, accept, assign, amend, and close behavior through the API and browser.
 - Focused unit tests in the owning repository cover assignment-based access, missing acceptance, overlapping engagements, amendment, closure, and denied approval.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D26](decisions/m0-d26-independence.md),
+[M0-D27](decisions/m0-d27-attest-scope.md),
+[M0-D25](decisions/m0-d25-client-tenancy.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
 
 ### F1-08 Enforce independence walls between advisory and attest work
 
@@ -4967,8 +5748,13 @@ Business objective: turn the firm's independence policy into enforced, auditable
 Requirements:
 
 - Record the nonattest services performed for each client with period, staff, and whether they involved management functions, following M0-D26.
-- Block acceptance of an attest engagement, or a staff assignment to one, when recorded services or assignments breach the approved rules or cooling-off periods; allow only exceptions the rules permit, with documented approval.
-- Separate advisory-only and attest-only material within a client organization so each team sees only what the rules allow.
+- Enforce M0-D26's person exclusivity across the client's full Advisor/Attest
+  assignment history and the versioned 12-month impairing-service look-back.
+  An impaired evaluation blocks acceptance without an override. Conditionally
+  compatible readiness-only work needs the recorded partner evaluation.
+- Separate advisory working notes from attest-internal request discussions
+  within the client organization. Shared management records retain their ordinary
+  grants; no attest workpaper compartment is created in Compliance (M0-D27).
 - Prevent attest staff from authoring or approving the client's management records such as controls, policies, evidence, and assertions.
 - Retain an independence evaluation for each attest engagement that can be produced for firm quality review or peer review.
 - Re-evaluate affected attest engagements when services, assignments, or periods change.
@@ -4984,27 +5770,243 @@ Acceptance criteria:
 - An attest engagement or staff assignment that breaches the approved rules cannot be accepted, and the explanation cites the rule and the conflicting service or assignment.
 - Attest staff cannot create, edit, or approve client management records, enforced on the server.
 - Advisory-only and attest-only material is inaccessible to the other team, including through search, counts, exports, and notifications.
-- Every evaluation, exception, and rule-set change is attributable and retained.
+- Every evaluation, conditional partner decision, and rule-set change is
+  attributable and retained; an impaired result has no override.
 - A later change to services or assignments triggers re-evaluation of affected attest engagements.
+- A person with any Advisor assignment history for the client cannot receive
+  an Attest assignment for it. An `impaired` result cannot be bypassed by an
+  organization administrator, waiver, or ownership/delegation change.
 
 Implementation subtasks:
 
-- Incorporate the decision recorded in M0-D26 and define rule-set versions, service classification, cooling-off periods, compartments, exceptions, and re-evaluation.
-- Deliver authorized service recording, evaluation, exception approval, compartment administration, and evaluation history through the API and browser.
+- Incorporate M0-D26 and define rule-set versions, service classification,
+  look-back periods, person exclusivity, compartments, conditional partner
+  evaluation, and re-evaluation, with no generic independence waiver workflow.
+- Deliver authorized service recording, evaluation, conditional partner
+  acceptance, compartment administration, and decision history through the
+  API and browser. An impaired result remains blocked.
 - Focused unit tests in the owning repository cover blocked acceptance and assignment, compartment isolation, attest-staff write denial, rule-set changes, re-evaluation, and history.
+
+Public references: No external normative source for this workflow; product
+decision in [M0-D26](decisions/m0-d26-independence.md), and the [product objectives](product-brief.md#product-objectives).
+Canonical entity semantics and any reused public material remain governed by
+the [approved source register](source-reference-policy.md).
+
+## BO — Organization management and hosted commercial operations
+
+Business outcome: one account can administer its own and client organizations,
+delegate management to client personnel, and manage each organization's hosted
+base subscription and optional add-ons while preserving the organization as the
+tenant and monetization unit. The complete manually operated compliance program
+works on free self-hosting and through the hosted base platform.
+
+Status: proposed documentation scope, 2026-10-04. BO is a scope grouping, not a
+created or scheduled GitHub milestone. BO-01 through BO-03 have no linked
+delivery issues or priorities in this documented scope; this reconciliation
+creates and schedules none. Their acceptance and open policy inputs are defined
+in [business-operations.md](business-operations.md). Schedule them through the
+normal delivery cycle only after their ready gates are satisfied. BO-02 gates
+claims of paid SaaS onboarding, and BO-03 gates selling its respective add-ons;
+they do not silently become R1, R2, or F1 dependencies.
+
+### BO-01 Delegate organization management to client personnel
+
+Area: organization administration
+
+User story: As an account holder managing an organization for a client, I want
+to give client personnel responsibility for most organization management so
+that the client can run its program while my remaining responsibilities stay
+explicit.
+
+Business objective: support direct organization use and MSP administration
+without forcing clients into permanent provider-managed operation or rebuilding
+their organization to take on management.
+
+Requirements:
+
+- Build on R1-15 self-service organization creation and R1-04 invitations,
+  membership, scoped grants, and attribution; one account may manage several
+  organizations for itself or clients.
+- Let an authorized administrator give eligible client personnel the explicit
+  organization responsibilities they need and inspect who currently manages
+  the organization. Existing grant, invitation, and separation-of-duties rules
+  remain authoritative.
+- Preserve the same organization, program, records, history, and billing
+  configuration while management responsibilities change.
+- Record responsibilities the provider continues to hold. Management delegation
+  does not automatically transfer legal ownership, revoke provider access,
+  assign a payer, or change professional Advisor/Attest authority.
+- Keep billing administration separately explainable, as scoped by BO-02.
+
+Domain slice:
+
+- Uses `Organization`, platform accounts, memberships, invitations, and explicit
+  role/responsibility grants; no separate MSP tenant or ownership-copy model is
+  introduced.
+- Owns the coherent administration view and attributable delegation outcome
+  over those records; R1-04 remains the authority for membership and grant state.
+- Produces client-managed operation and inspectable remaining provider duties
+  within the existing organization.
+
+Acceptance criteria:
+
+- A verified account can create two organizations, appoint eligible client
+  administrators in one, and preserve its independent authority in the other.
+- An authorized client administrator can perform the delegated organization
+  actions through the product and inspect who holds the remaining responsibilities.
+- Delegation preserves organization identity, compliance history, and hosted
+  billing configuration; only explicitly granted or revoked responsibilities change.
+- The administration result does not imply an accepted professional engagement,
+  automatic ownership transfer, payer change, or unauthorized business-record access.
+- Denied or incomplete delegation is actionable and cannot appear completed;
+  prior attribution and the accepted grant history remain inspectable.
+
+Ready gates: settle any role and delegation-policy gaps listed in
+[business operations](business-operations.md) before implementation. R1-04 and
+R1-15 must provide the membership/grant behavior the slice consumes. Exact
+remaining provider responsibilities must be clear to both parties.
+
+Public references: No external normative source; product decision recorded in
+[M0-D25](decisions/m0-d25-client-tenancy.md) and
+[business operations](business-operations.md).
+
+### BO-02 Set up and administer an organization's hosted subscription and billing
+
+Area: hosted commercial operations
+
+User story: As an organization administrator or its authorized MSP administrator,
+I want to configure and manage that organization's hosted base subscription and
+billing so that the organization can use paid SaaS through either administration
+path.
+
+Business objective: monetize the organization receiving product value while
+supporting organization-led and MSP-led setup with clear billing responsibility.
+
+Requirements:
+
+- Keep self-hosting free. Hosted SaaS has a fixed base fee per organization;
+  several organizations remain separately identifiable billing units even when
+  the same account or firm administers them.
+- Let the organization set itself up and manage billing, or let its authorized
+  MSP configure that organization's billing. Client personnel may manage billing
+  while the MSP continues explicitly delegated responsibilities.
+- Show the organization, selected base offering, applicable agreed price and
+  billing terms, billing administrator, and actual billing status. Unconfigured,
+  incomplete, or failed billing remains visible.
+- Record authorized setup and administration changes with actor, time, and
+  affected organization; the subscription does not grant compliance-record access.
+- Leave fee amounts, cadence, payment-provider choice, payer authority,
+  financial terms, and failure consequences to the policy inputs in
+  [business operations](business-operations.md).
+
+Domain slice:
+
+- Owns organization-level hosted subscription and billing-administration state
+  and its attributable history, with commercial authority distinguished from
+  compliance-record authorization.
+- Uses the existing organization identity and explicit administrative grants.
+- Supplies an explainable base subscription and billing outcome without a
+  separate account-level or firm-level product subscription.
+
+Acceptance criteria:
+
+- The direct-organization and authorized-MSP setup paths configure billing for
+  the same organization-level base offering, preserving its identity and history.
+- An administrator managing two organizations can identify each one's separate
+  subscription, billing configuration, and status; changing one does not change
+  the other's subscription or grants.
+- Client personnel can administer billing under explicit granted authority;
+  changing day-to-day management alone does not reassign billing responsibility.
+- The accepted configuration displays its applicable commercial terms without
+  invented prices, an unexplained success, or implied access to client records.
+- Free self-hosted operation and the complete hosted manual base workflow do
+  not require purchasing an integration or optional automation add-on.
+
+Ready gates: approve the commercial authorization, fee/cadence, payment,
+financial-lifecycle, and customer-visible failure policies in
+[business operations](business-operations.md), and identify applicable legal and
+provider obligations before scheduling a paid SaaS delivery slice. Document the
+manual administration path and any required hosted commercial service explicitly.
+
+Public references: No external normative source; product decision recorded in
+the [commercial model](product-brief.md#commercial-model) and
+[business operations](business-operations.md).
+
+### BO-03 Select and manage organization add-ons
+
+Area: optional commercial enhancements
+
+User story: As an authorized organization or MSP administrator, I want to see
+and manage optional integrations, services, and additional automations for each
+organization so that I can choose enhancements that reduce its operating effort.
+
+Business objective: expand hosted value through optional enhancements while
+keeping the base program complete and the organization as the purchasing unit.
+
+Requirements:
+
+- Present the approved add-on catalog with each offering's purpose, supported
+  scope, applicable price/terms, availability, and the organization's selection.
+- Bind each selection and commercial change to its organization. One firm's
+  administration of several clients does not create a shared firm subscription.
+- Distinguish purchasing an add-on from configuring an integration, running an
+  automation, receiving a service, or granting data access; each uses its own
+  authorized workflow and current availability.
+- Explain the effect of adding, disabling, or ending an enhancement before the
+  change is confirmed, under the approved commercial and operational policies.
+- Keep equivalent manual entry, maintenance, review, and exception handling
+  usable. Add-on changes preserve existing governed records and their history.
+
+Domain slice:
+
+- Owns the approved commercial offering definitions, organization add-on
+  selections, and attributable selection/change history.
+- Uses BO-02 organization subscriptions and the owning integration, automation,
+  or service capability; it creates no competing compliance or connection state.
+- Produces an explainable enhancement selection and entitlement outcome for
+  exactly one organization.
+
+Acceptance criteria:
+
+- The organization and its authorized MSP can inspect its base offering and
+  selected add-ons, with applicable terms and availability before confirming a change.
+- A selection applies to the intended organization and never activates an
+  enhancement, authorizes a service engagement, or changes another client's billing
+  without the corresponding explicit authorized workflow.
+- Purchasing or selecting an offering is distinguishable from successful
+  activation or delivery; incomplete, unavailable, and failed states remain visible.
+- With no add-ons selected, or after disabling optional automation, the team
+  can still set up, maintain, and operate the full base compliance program.
+- Ending an add-on does not erase prior observations, accepted evidence,
+  decisions, or program history; any effect on future operation is explained.
+
+Ready gates: approve the specific catalog, prices, eligibility, service scope,
+activation/termination, data-access, and financial policies in
+[business operations](business-operations.md). The owning functional capability
+and its complete manual path must be proven before that enhancement is sold.
+
+Public references: No external normative source; product decision recorded in
+the [commercial model](product-brief.md#commercial-model),
+[M0-D20](decisions/m0-d20-integration-sources.md), and
+[business operations](business-operations.md).
 
 ## GitHub issue index
 
 The GitHub issue is the tracking record for each created item; its dependencies
-(`blocked by`) are maintained with GitHub issue relationships and summarized
-here. M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) remains
-a UI blocker on existing product parents and first product delivery slices.
+(`blocked by`) are maintained with GitHub issue relationships. The rows below
+are product-scope dependencies; reconcile any documented refinement to the live
+issue before scheduling its next slice. Editing this document neither changes
+GitHub relationships nor proves closure. Proposed BO-01 through BO-03 are
+documentation scope and are absent from this index because this reconciliation
+creates or schedules no GitHub items for them.
+M0-D24 ([#136](https://github.com/bdgrz/compliance/issues/136)) is the accepted
+UI decision dependency on product parents and first product delivery slices.
 Every scheduled frontend child records it directly; backend children omit it.
 That global blocker is not repeated in every row below. The parent issue index
 continues to describe product dependencies, while delivery-child tracking is
 listed separately below it.
 
-### Active feature delivery children
+### Recorded foundation delivery children
 
 | Product story | Backend children | Frontend child | Milestone |
 | --- | --- | --- | --- |
@@ -5015,7 +6017,7 @@ listed separately below it.
 
 Shared enablers EN-01, EN-02, and EN-04 retain backend children #324, #157,
 #160, and #161. Their first consuming feature supplies the browser workflow; these
-enablers have no separate frontend child. The active backend dependency chain
+enablers have no separate frontend child. The documented foundation backend dependency chain
 uses these children and #152, #158, and the #162 baseline, rather than their UI-dependent
 product parents. Frontend children #176 through #178 depend on their
 corresponding backend children and M0-D24, and record other applicable product
@@ -5085,12 +6087,12 @@ and UI dependencies directly in GitHub.
 | R1-09b | [#99](https://github.com/bdgrz/compliance/issues/99) | R1 | P1 | R1-09a, R2-02, R2-03 |
 | R1-09c | [#100](https://github.com/bdgrz/compliance/issues/100) | R1 | P1 | R1-02, R1-07, R1-09a, R1-10, R1-11, R1-12, R1-13, R1-14, R2-07 |
 | R1-09d | [#101](https://github.com/bdgrz/compliance/issues/101) | R1 | P1 | R1-08, R1-09a |
-| R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, EN-05, R1-02 |
+| R1-10 | [#48](https://github.com/bdgrz/compliance/issues/48) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, R1-02; optional R1-10b import uses EN-05 |
 | R1-10a | [#102](https://github.com/bdgrz/compliance/issues/102) | R1 | P0 | M0-D05, M0-D22, M0-D28, EN-02, R1-02 |
 | R1-10b | [#103](https://github.com/bdgrz/compliance/issues/103) | R1 | P1 | R1-10a, EN-05 |
 | R1-10c | [#104](https://github.com/bdgrz/compliance/issues/104) | R1 | P0 | R1-10a |
 | R1-10d | [#105](https://github.com/bdgrz/compliance/issues/105) | R1 | P0 | R1-10a |
-| R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, M0-D28, EN-05, R1-04 |
+| R1-11 | [#49](https://github.com/bdgrz/compliance/issues/49) | R1 | P0 | M0-D06, M0-D22, M0-D28, R1-04; optional HRIS import uses EN-05 |
 | R1-11a | [#106](https://github.com/bdgrz/compliance/issues/106) | R1 | P0 | M0-D06, M0-D22, M0-D28, R1-04 |
 | R1-11b | [#107](https://github.com/bdgrz/compliance/issues/107) | R1 | P0 | R1-11a |
 | R1-11c | [#108](https://github.com/bdgrz/compliance/issues/108) | R1 | P0 | R1-11a |
@@ -5109,7 +6111,7 @@ and UI dependencies directly in GitHub.
 | R2-05b | [#111](https://github.com/bdgrz/compliance/issues/111) | R2 | P0 | R2-05a |
 | R2-05c | [#112](https://github.com/bdgrz/compliance/issues/112) | R2 | P0 | R2-05b |
 | R2-05d | [#113](https://github.com/bdgrz/compliance/issues/113) | R2 | P0 | R2-05c, R2-07 |
-| R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, EN-05, R1-10, R1-11 |
+| R2-06 | [#20](https://github.com/bdgrz/compliance/issues/20) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, R1-10, R1-11; optional provider import uses EN-05 |
 | R2-06a | [#114](https://github.com/bdgrz/compliance/issues/114) | R2 | P0 | M0-D05, M0-D06, M0-D07, M0-D22, M0-D28, EN-03, R1-10, R1-11 |
 | R2-06b | [#115](https://github.com/bdgrz/compliance/issues/115) | R2 | P0 | R1-11, R2-06a |
 | R2-06c | [#116](https://github.com/bdgrz/compliance/issues/116) | R2 | P0 | R2-06a |
@@ -5128,11 +6130,11 @@ and UI dependencies directly in GitHub.
 | T1-02 | [#25](https://github.com/bdgrz/compliance/issues/25) | T1 | P1 | M0-D17, T1-01 |
 | T1-03 | [#26](https://github.com/bdgrz/compliance/issues/26) | T1 | P2 | M0-D17, M0-D27, T1-01 |
 | T1-04 | [#27](https://github.com/bdgrz/compliance/issues/27) | T1 | P1 | R2-03, T1-01 |
-| T1-05 | [#28](https://github.com/bdgrz/compliance/issues/28) | T1 | P1 | M0-D17, T1-01, T1-02 |
+| T1-05 | [#28](https://github.com/bdgrz/compliance/issues/28) | T1 | P1 | M0-D17, T1-01, T1-02, #339; #349 while Privacy remains selected |
 | T1-06 | [#29](https://github.com/bdgrz/compliance/issues/29) | T1 | P1 | R2-07, T1-01 |
-| T1-07 | [#30](https://github.com/bdgrz/compliance/issues/30) | T1 | P1 | M0-D17, T1-05, T1-06 |
+| T1-07 | [#30](https://github.com/bdgrz/compliance/issues/30) | T1 | P1 | M0-D17, T1-05, T1-06, #339 actual-firm outcome and sign-off agreement |
 | T2-01 | [#31](https://github.com/bdgrz/compliance/issues/31) | T2 | P1 | M0-D01, T1-07 |
-| T2-02 | [#32](https://github.com/bdgrz/compliance/issues/32) | T2 | P1 | R2-01, T2-01 |
+| T2-02 | [#32](https://github.com/bdgrz/compliance/issues/32) | T2 | P1 | M0-D19, R2-01, R2-07, T2-01; management-review evidence consumes R1-08 and T2-04 |
 | T2-03 | [#33](https://github.com/bdgrz/compliance/issues/33) | T2 | P1 | R2-05, T2-02 |
 | T2-04 | [#34](https://github.com/bdgrz/compliance/issues/34) | T2 | P1 | M0-D23, R1-08, T2-01 |
 | T2-05 | [#35](https://github.com/bdgrz/compliance/issues/35) | T2 | P1 | R2-06, T2-01 |
@@ -5149,11 +6151,11 @@ and UI dependencies directly in GitHub.
 | T3-05 | [#44](https://github.com/bdgrz/compliance/issues/44) | T3 | P1 | M0-D17, T1-05, T3-01, T3-02 |
 | T3-06 | [#45](https://github.com/bdgrz/compliance/issues/45) | T3 | P1 | M0-D17, T3-04, T3-05 |
 | T3-07 | [#46](https://github.com/bdgrz/compliance/issues/46) | T3 | P1 | T3-06 |
-| F1-01 | [#128](https://github.com/bdgrz/compliance/issues/128) | F1 | P1 | M0-D16, M0-D25, M0-D27, F1-04, F1-07, R1-15, R2-12 |
+| F1-01 | [#128](https://github.com/bdgrz/compliance/issues/128) | F1 | P1 | M0-D16, M0-D25, M0-D27, #346, F1-04, F1-07, R1-15, R2-12 |
 | F1-02 | [#129](https://github.com/bdgrz/compliance/issues/129) | F1 | P1 | M0-A05, F1-07, R1-08, R1-15, R2-11 |
 | F1-03 | [#130](https://github.com/bdgrz/compliance/issues/130) | F1 | P2 | F1-02, F1-08 |
 | F1-04 | [#131](https://github.com/bdgrz/compliance/issues/131) | F1 | P1 | M0-D02, M0-D25, EN-02, R1-05, R2-02 |
 | F1-05 | [#132](https://github.com/bdgrz/compliance/issues/132) | F1 | P1 | F1-02, R2-11 |
 | F1-06 | [#133](https://github.com/bdgrz/compliance/issues/133) | F1 | P1 | M0-A07, R1-04, R1-15 |
-| F1-07 | [#134](https://github.com/bdgrz/compliance/issues/134) | F1 | P1 | M0-D25, M0-D26, EN-04, R1-04, R1-15 |
-| F1-08 | [#135](https://github.com/bdgrz/compliance/issues/135) | F1 | P1 | M0-D26, EN-01, EN-04, F1-07 |
+| F1-07 | [#134](https://github.com/bdgrz/compliance/issues/134) | F1 | P1 | M0-D25, M0-D26, EN-04, R1-04, R1-15; #343 ratification before professional acceptance |
+| F1-08 | [#135](https://github.com/bdgrz/compliance/issues/135) | F1 | P1 | M0-D26, EN-01, EN-04, F1-07; #343 ratification before professional acceptance |

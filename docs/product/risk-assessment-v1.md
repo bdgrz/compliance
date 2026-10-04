@@ -3,6 +3,9 @@
 This slice implements the [M0-D10](decisions/m0-d10-risk-method.md) data shape
 for risks recorded by [risk-draft-v1](risk-draft-v1.md). It is partial delivery
 under [#199](https://github.com/bdgrz/compliance/issues/199).
+Users author the method, assessments, treatments, and decisions in the product.
+Imports, external sources, and optional automation are enhancements rather than
+prerequisites. Current delivery and acceptance evidence belong to the linked issues.
 
 ## Contract
 
@@ -96,12 +99,14 @@ identifies each action, submission, and decision.
   history. The accountable member must be active and each evidence request must remain in the
   program and uncancelled. Submitted, completed, and cancelled actions cannot be edited.
 
-## Deferred
+## Remaining delivery scope
 
-- A distinct work item for completion review.
+- A distinct work item for completion review, owned by R1-07
+  [#199](https://github.com/bdgrz/compliance/issues/199).
 - A treatment-action readiness rule and an evaluation status that depends on completion; the
   readiness rules belong to R1-08.
 
-- Vendor and incident reassessment triggers, which need their owning sources.
+- Vendor and incident reassessment triggers, which need their owning governed
+  records or manually entered references. They do not require a connector.
 - Program-level evaluation lists and readiness contribution; readiness rule
   definitions belong to R1-08.

@@ -33,5 +33,9 @@ alignments requested on M0-D28.
 ## Follow-up discovery
 
 [#353](https://github.com/bdgrz/compliance/issues/353) collects sanitized
-sample exports and the advisor's evidence confirmation. It blocks R2-06a
-backend [#273](https://github.com/bdgrz/compliance/issues/273).
+sample exports and the advisor's evidence confirmation. Export discovery
+informs optional import formats and validation against the actual reviewed
+systems. It does not block the manual population-entry and review workflow in
+R2-06a backend [#273](https://github.com/bdgrz/compliance/issues/273). A team must
+still declare and support the scope, observation time, and completeness of its
+manually recorded population before it can claim an audit-ready population.

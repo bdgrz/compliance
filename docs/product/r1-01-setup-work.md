@@ -1,5 +1,11 @@
 # R1-01 program setup work: backend slice
 
+Scope: bounded setup-work read contract under R1-01
+[#158](https://github.com/bdgrz/compliance/issues/158). It identifies work in the
+program's normal user-operated setup workflows without requiring an import,
+connector, or optional collection automation. Current delivery and acceptance
+evidence belong to the owning issue.
+
 The read-only `GET /api/v1/tenants/{tenant_id}/programs/{program_id}/setup-work`
 and `bdgrz.program.setup-work.get` MCP tool derive work from the current
 program and its projected boundary records. The response carries the program

@@ -1,10 +1,14 @@
-# R1-05 Control draft backend slice
+# R1-05 Control authoring and lifecycle backend contract
 
-This slice records organization-authored Control drafts in one tenant and program.
-It is partial delivery under [#197](https://github.com/bdgrz/compliance/issues/197),
-which remains open for verified owner assignment, activation, review and
-approval, successors, complete impact preview, retirement, and full in-use deletion
-rules.
+Status: cumulative bounded backend contract under
+[#197](https://github.com/bdgrz/compliance/issues/197),
+[#468](https://github.com/bdgrz/compliance/issues/468), and
+[#477](https://github.com/bdgrz/compliance/issues/477). Authorized users author,
+assign owners, review, approve, revise through successors, and retire controls
+in one organization and program. Each increment below states its limits;
+engagement impact and stronger concurrent source fences remain separate work.
+These workflows require no import, connector, or optional collection runtime.
+Current delivery and acceptance evidence belong to the linked issues.
 
 ## Contract
 
@@ -34,10 +38,10 @@ rules.
   return validation errors.
 
 All control-draft HTTP operations and their MCP counterparts require an active tenant
-membership with the existing `program.manage` grant. This deliberately limits
-draft narratives to current program administrators while
-[M0-D03 #60](https://github.com/bdgrz/compliance/issues/60) and scoped access
-[#186](https://github.com/bdgrz/compliance/issues/186) remain open. An owner or
+membership with `program.manage` at the applicable program or organization scope.
+The accepted [M0-D03 decision](decisions/m0-d03-roles-and-separation-of-duties.md)
+defines roles and duties; [#186](https://github.com/bdgrz/compliance/issues/186)
+owns scoped-access delivery. An owner or
 general tenant member has no draft read grant from this slice.
 
 The normalized identifier is unique within a tenant and program. It selects
@@ -53,20 +57,22 @@ present, the response reports `owner_resolution: declared_unverified`; it is
 not a Member, responsibility assignment, access grant, or verified identity.
 `content.applicability` is an optional collection of stable `entry_id` values:
 
-- `application` and `system_instance` entries require
+- `application`, `system_instance`, and `commitment` entries require
   `unresolved: false` plus a non-empty `governed_record_id`. The handler
   validates the canonical ID in the same tenant before append.
 - `risk` and `process` entries require `unresolved: true` and no
   `governed_record_id`, until their owning lifecycle can verify the record.
 
 Missing or unresolved applicability reports `applicability_resolution:
-unresolved`; a collection composed only of current governed application or
-system-instance entries reports `declared`. Neither state activates a control
+unresolved`; a collection composed only of validated governed Application,
+SystemInstance, or Commitment entries reports `declared`. Neither state
+activates a control
 or asserts risk treatment, criterion coverage, ownership verification,
-evidence collection, or operating effectiveness. A draft with a current
-applicability entry cannot be discarded. Review has not landed yet, so this is
-a pre-review discard rule; the eventual review lifecycle must add its own
-historical-use guard.
+evidence collection, or operating effectiveness. Discard is limited to an
+unapproved draft with no retained applicability, no prior review, and no
+responsibility ever assigned, including revoked assignments. Approved,
+superseded, or retired controls retain their history and use governed retirement
+instead of discard.
 
 The bounded Application change preview reports current direct-Application
 applicability entries through `control_draft_references` after a separate
@@ -128,8 +134,22 @@ aggregate continues to enforce expected revisions for stale edits.
 - `ControlReviewed` and `ControlApproved` are new discriminators. Production starts with
   `Compliance:Controls:ActivationEnabled=false`; enable it only after every reader understands
   them, and keep such a reader build for rollback.
-- Successors, change impact, non-signing-in Person owners (#433), retirement, and complete
-  deletion guards (#434) remain out of scope.
+- The later lifecycle and Person-owner increments below extend this initial
+  activation contract; its former exclusions do not describe current scope.
+
+## Successors and retirement
+
+`POST .../controls/{control_id}/successors` proposes new content against
+`expected_approved_version_id`. `POST .../controls/{control_id}/retirement-proposals`
+proposes an effective end and rationale against that same exact approved
+version. `GET .../controls/{control_id}/impact-preview?expected_revision=` returns
+the contributors and digest described below. Successor approval and
+`POST .../controls/{control_id}/retirements` require the complete, unchanged
+impact digest and the owning workflow's independent decision. Proposals and
+read-only previews are machine-appropriate; approval remains HTTP-only. A
+successor or retirement preserves the prior approved content, effective
+interval, decisions, and references. The
+`Compliance:Controls:LifecycleEnabled` gate applies to these writes.
 
 ## Ownership, provenance, withdrawal, and full impact (#468, #477)
 

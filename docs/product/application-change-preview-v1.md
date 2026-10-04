@@ -1,21 +1,28 @@
 # Application change preview v1
 
-Status: implemented bounded read slice for R1-10d backend #217. This is an
-advisory preview of tenant-authored Application content. It does not persist a
-proposal, approve a revision, retire an Application, or assert complete impact.
+Status: bounded backend contract for R1-10d
+[#217](https://github.com/bdgrz/compliance/issues/217), with related retirement
+and access-review scope operations below. The preview itself is an advisory
+read of tenant-authored Application content. It does not persist a proposal,
+approve a revision, retire an Application, or assert complete impact. Current
+delivery and acceptance evidence belong to the linked issues.
 
 `POST /api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews`
 uses Portia's API-user authentication and an active tenant membership. It
-requires both `application_inventory.manage` for the Application and
-`program.manage` because the response now discloses Control-draft relationship
-metadata. The machine-appropriate `bdgrz.application.change.preview` MCP tool
-is registered `ReadOnly`; all arguments are flat scalars. These tenant-wide
-grants are interim while scoped inventory access and record restrictions are
-decided in R1-04b and M0-D05.
+requires application-inventory read authority and organization-wide program
+read access (`tenant.access`) because the response can disclose relationships
+across programs. Inventory authority comes from `application_inventory.manage`
+or an applicable restricted-read grant. When the Application is restricted,
+the record guard additionally requires `application.restricted.read` at an
+organization or Application scope, as
+defined by the [restricted application visibility decision](decisions/restricted-application-visibility.md).
+The machine-appropriate `bdgrz.application.change.preview` MCP tool is
+registered `ReadOnly`; all arguments are flat scalars.
 
 The JSON body has `expected_application_revision` (positive), `change_kind`
 (`revise` or `retire`), and, for `revise`, `name`, `purpose`, and optional
-`owner_reference`. Names and descriptions use the same bounds as the existing
+`owner_reference` and `classification`. Names and descriptions use the same
+bounds as the existing
 manual Application revision. A `retire` preview rejects revised fields. The
 operation emits no event and changes no Application or boundary record.
 
@@ -58,7 +65,9 @@ The existing `ReviseApplication` command still applies a manual change
 directly. A governed successor, retirement, and in-use deletion gate require
 the M0-D05 inventory rules, scoped access, and complete contributions from the
 owning downstream contexts. Those later operations must not infer clearance
-from this preview. Backend child #217 and product parent #105 remain open.
+from this preview. Backend child #217 and product parent
+[#105](https://github.com/bdgrz/compliance/issues/105) own the remaining
+lifecycle and impact acceptance.
 
 ## Retirement and access-review scope (bundle for #215 and #217)
 
@@ -114,7 +123,7 @@ the real broker, standalone and split-host, with tenant isolation.
 Still open: general application-to-application relationships, a governed successor or
 approval gate, and complete downstream impact.
 
-## Information asset change preview (#465)
+## Information asset change preview ([#465](https://github.com/bdgrz/compliance/issues/465))
 
 `POST /api/v1/tenants/{tenant_id}/information-assets/{information_asset_id}/change-previews`
 (`bdgrz.inventory.information_asset.change.preview`, read-only) takes

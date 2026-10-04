@@ -2,8 +2,10 @@
 
 This slice records a workforce `Person` manually for one tenant. It is partial
 delivery under [#219](https://github.com/bdgrz/compliance/issues/219) and follows
-[M0-D06](decisions/m0-d06-workforce-source.md): with no HRIS integration, the
-manually maintained roster is the authoritative source, and each entry is
+[M0-D06](decisions/m0-d06-workforce-source.md): the manually maintained roster
+is authoritative when no HRIS exists. Manual entry remains usable when an HRIS
+exists but is not connected; external authority and conflicts are retained
+through explicit source observations and reconciliation. Each entry is
 attributed to the member who recorded it. A person need not be a platform member
 (M0-D03). This slice gives application owners (M0-D05) and later responsibilities
 a governed person to reference.

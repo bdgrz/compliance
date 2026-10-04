@@ -1,6 +1,6 @@
 # Compliance domain model
 
-Status: accepted product and domain contract, updated 2026-09-28
+Status: accepted product and domain contract, updated 2026-10-04
 
 This document defines the shared language and relationships used by the
 Compliance product backlog. It is a product model, not a database schema or a
@@ -33,6 +33,10 @@ information without acceptable use rights is excluded.
   auditor-authored material.
 - Use explicit domain workflows. A generic task list, activity stream, or audit
   log may summarize work, but it does not own the underlying business state.
+- Keep every user-facing workflow usable through authorized user actions when
+  external integrations and optional source-collection automation are absent or
+  disabled. These tools may reduce setup and recurring effort, but they do not
+  replace the governed domain workflow.
 - Scope every business record to exactly one client organization (tenant).
   Only explicitly platform-level content, such as criteria catalog editions and
   firm templates, exists outside a tenant, and it never contains client data.
@@ -70,6 +74,7 @@ microservices.
 | Context | Owns | Does not own |
 | --- | --- | --- |
 | Platform access | Client organizations (tenants), platform users, memberships and affiliation, teams, federated identities, access roles, role assignments, operator grants, the firm-staff directory | External accounts and entitlements being audited; engagement assignments, which Firm services owns and authorization consumes |
+| Organization commercial operations | Hosted organization subscription, billing administration, selected add-ons, charge and entitlement history | Compliance readiness, professional service acceptance, or a separate firm tenant; exact payment and lifecycle policies await the business-operations readiness decisions |
 | Firm services | Service engagements, engagement acceptance, engagement (staff) assignment, nonattest service records, independence rule sets and evaluations, advisory and attest compartments | Client management records or the firm's system of quality management |
 | Firm methodology | Platform-level templates, template versions, and template application provenance | Client-owned controls, policies, risks, or evidence created from templates |
 | Program and scope | Programs, stages, system boundaries, inclusions, exclusions, engagement plans | Criteria source content or control operation |
@@ -81,9 +86,10 @@ microservices.
 | Control environment | Controls, control versions, mappings, responsibilities, cadence, occurrences | Evidence content or external directory populations |
 | Policies | Policies, policy versions, reviews, approvals, effective periods | Proof that a control operated |
 | Evidence | Evidence artifacts, content identity, provenance, requests, support relationships, review state | The control or decision that evidence supports |
-| Risk and provider oversight | Risk assessments and treatments, vendors, subservice organizations, assurance reviews and boundary treatment | Procurement transactions or auditor opinions over providers |
-| Assurance work | Reviews, decisions, findings, exceptions, corrective actions, work projections, risk acceptance, verification | Authentication, source workflows, or provider directory state |
+| Risk and provider oversight | Risk assessments, treatments and acceptance decisions, vendors, subservice organizations, provider assurance reviews and boundary treatment | Procurement transactions or auditor opinions over providers |
+| Assurance work | Findings, governed waivers, corrective actions and verification, links to source gaps/deviations/exceptions, and work projections | Other workflows' review/approval decisions or risk-acceptance authority; authentication or provider directory state |
 | External access governance | Source accounts and groups, entitlements, access assignments, population snapshots, campaigns | Platform membership, platform authorization, or system-instance ownership |
+| Change and incident oversight | Compliance-facing `SignificantChange` and `ComplianceIncident` records, chronology, impact/significance assessment, and resulting review work | Operational incident response or change management; R1-07's externally sourced `IncidentReference` and earlier risk-assessment history |
 | Engagements and handoffs | Type I baselines, Type II periods, populations, samples, requests, packages, amendments, outcomes | Mutable source records after they have been snapshotted |
 
 Cross-context references use stable identities and explicit versions or
@@ -109,7 +115,7 @@ assigns the assurance records and readiness rules below:
 | Review and approval | EN-04 shares an immutable decision shape; each workflow owns decisions and transitions | M0-D23, EN-04 |
 | Readiness rules | R1-08 owns rules; later snapshots and views bind exact rule and result versions | M0-D23 |
 | Accessibility and browser support | Decided: WCAG 2.2 AA; current and previous major desktop Chrome, Edge, Firefox, and Safari | [M0-D24](decisions/m0-d24-accessibility-and-browsers.md) |
-| Firm-owned material inside a client tenant | Decided: advisory working notes live in the client's advisory compartment. Where attest documentation lives is M0-D27's; retention after offboarding remains open | [M0-D25](decisions/m0-d25-client-tenancy.md), M0-D27, #346 |
+| Firm-owned material inside a client tenant | Advisory working notes live in the client's advisory compartment; audit workpapers, testing documentation, and report drafts remain in attest software. Own-attest closure/offboarding requires a record package and attributed delivery there; hold remains until delivery. Offboarding retention duration remains open. | [M0-D25](decisions/m0-d25-client-tenancy.md), [M0-D27](decisions/m0-d27-attest-scope.md), #346 |
 | "Tenant" and "organization" | Decided: tenant is the technical name of a client organization; `tenant_id` in contracts, organization in product text | [M0-D25](decisions/m0-d25-client-tenancy.md) |
 | "Engagement" | `ServiceEngagement` (F1-07) differs from the client's `AuditEngagement` | M0-D23, F1-07 |
 
@@ -118,12 +124,14 @@ stories, and the issue.
 
 ## Tenancy and firm services
 
-A small SOC 2 firm uses one deployment to serve many clients. Each client
+A person or firm may create and manage many organizations for itself or its
+clients, and delegate most organization management to client personnel. Each client
 `Organization` is a tenant: the security, isolation, and ownership boundary for
 that client's program, people, inventories, evidence, decisions, and history.
-There is no firm entity. Revisit that choice if the platform must host more
-than one firm or if firm-level obligations cannot live inside client tenants
-(M0-D25).
+The hosted subscription and add-ons belong to that organization. Self-hosting
+is free. There is no separate firm tenant or subscription boundary; revisit a
+firm entity if actual firm-level records or obligations require one, rather
+than because one account manages multiple organizations (M0-D25).
 
 Platform-level content exists outside every tenant and is referenced by exact
 version: criteria catalog editions, firm templates (F1-04), and the firm-staff
@@ -141,7 +149,12 @@ its practice; an `EngagementAssignment` takes its effective Advisor or Attest
 role from its engagement (M0-D25, M0-D26).
 
 Any signed-in platform user with a verified email may create an organization
-and becomes its first Org Admin. Only platform operators suspend, reactivate,
+and becomes its first Org Admin. They may create more than one organization,
+invite client personnel, and explicitly delegate organization administration.
+Client or provider billing administration is separately authorized for that
+organization; creation and delegation preserve its identity and history. The
+requirements and remaining policy decisions are in
+[business operations](business-operations.md). Only platform operators suspend, reactivate,
 or offboard an organization. A platform operator sees tenant metadata only
 (lifecycle, administrator roster, usage) and reads business records only
 through a membership or engagement assignment of their own. An existing
@@ -149,8 +162,9 @@ operator grants or revokes operator status in the product, with an audit log.
 Deployment configuration seeds only the first operator, and the last operator
 cannot be revoked.
 
-Every request, job, message, projection, and notification resolves exactly one
-active organization. The proposed routing, confirmed or amended by M0-A07, is:
+Every organization-scoped request, job, message, projection, and notification
+resolves exactly one active organization. The accepted M0-A07 routing in
+[ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md) is:
 
 - after sign-in, a user is sent to their only organization, chooses among
   several, or sees a no-access or pending-invitation page; every verified
@@ -170,10 +184,13 @@ access produce the same not-found result.
 The firm provides advisory and attest services. A `ServiceEngagement` records a
 service the firm provides to one client organization, its type, scope, period,
 team, and acceptance decision (F1-07). It is distinct from the client's Type I
-or Type II audit engagement, whose auditor may be an external firm. Firm staff
-reach client records only through an `EngagementAssignment` to an accepted
-engagement, which carries the Advisor or Attest role; ending the assignment
-revokes access, and there is no standing firm access (M0-D25). A platform
+or Type II audit engagement, whose auditor may be an external firm. Professional
+Advisor and Attest access is granted only through an `EngagementAssignment` to
+an accepted engagement; ending the assignment revokes that practice access.
+Core organization administration uses explicitly granted client roles and does
+not require or create a professional engagement. Neither firm affiliation nor
+organization creation grants practice access, and client-role grants do not
+bypass the independence rules (M0-D03, M0-D25, M0-D26). A platform
 operator's `PlatformOperatorGrant` covers tenant lifecycle, administrator
 roster, and usage metadata only, never business records.
 
@@ -187,8 +204,11 @@ Independence walls (F1-08) are enforced platform behavior:
   team can see which material;
 - attest staff never author or approve the client's management records.
 
-The rules themselves require professional validation (M0-D26), and whether the
-firm's own attest workpapers belong in the platform is undecided (M0-D27).
+The rules themselves require professional validation (M0-D26). M0-D27 defines
+collaboration and handoff here; the firm's own audit workpapers, testing
+documentation, and report drafts remain in attest software. Own-attest closure
+or offboarding requires a record package and attributed delivery into that
+software, and retains the engagement hold until delivery is recorded.
 
 ## Identity has three planes
 
@@ -307,12 +327,14 @@ A `Person` is an organization-level subject whose employment or engagement
 facts help the team evaluate controls and access. It is not a Compliance
 `Membership`, a `FederatedIdentity`, or a provider `Account`.
 
-A person keeps a stable source-aware identity, worker type (employee,
-contractor, or external collaborator with an internal sponsor), lifecycle
-status, manager, organization attributes needed for review, relevant start or
-end dates, and observation history. An HRIS export is authoritative, the
-identity-provider directory corroborates, and a manual roster is the fallback
-([M0-D06](decisions/m0-d06-workforce-source.md)). Personal contact details,
+A `Person` keeps a stable platform identity, descriptive attributes, and
+source-scoped alternate identifiers. Its `WorkRelationship` records worker
+type (employee, contractor, or external collaborator with an internal sponsor),
+lifecycle status, manager, organization attributes needed for review, relevant
+start/end dates, and observation history. An HRIS source is authoritative, the
+identity-provider directory corroborates, and the product's manual workflow
+remains usable when neither source is connected. A manually maintained roster
+is authoritative when no HRIS exists ([M0-D06](decisions/m0-d06-workforce-source.md)). Personal contact details,
 employment status reason, and the manager chain are restricted fields,
 authorized separately. Conflicting sources remain visible until an attributable
 reconciliation decision identifies the accepted value and rationale.
@@ -436,9 +458,10 @@ relationships. A provider service principal or workload identity is an
 `Account`-like source object correlated to a governed `ServiceIdentity`. An
 account may correlate to a `Person` or a `ServiceIdentity`; a group or role is
 an access structure and does not become a human or NHI merely because members
-or assumers use it. Each observed object's identity is its system instance
-plus the source object type and immutable identifier; email and display name
-are attributes.
+or assumers use it. Each canonical record has a platform-generated immutable
+ID. Its external identity is source-scoped by system instance, object type,
+and immutable provider identifier; email and display name are attributes,
+and matching an external identifier does not by itself prove correlation.
 
 Human-versus-NHI classification is explicit, attributable, and reviewable.
 Provider hints can propose a classification but cannot silently decide it.
@@ -481,9 +504,11 @@ An application may prohibit an entire provider principal kind—for example, no
 AWS IAM user principals—while permitting federated roles used by separately
 classified human and NHI subjects.
 
-A `PopulationSnapshot` records the source, capture time, import or collection
-run, included and rejected items, normalization decisions, and content
-identity. Launching an `AccessReviewCampaign` freezes its population,
+A `PopulationSnapshot` records the source, capture time, manual capture or
+optional import/collection provenance, included and rejected items,
+normalization decisions, and content identity. Manually recording observed
+accounts and relationships does not require a connector; the same source,
+identity, and completeness rules apply. Launching an `AccessReviewCampaign` freezes its population,
 instructions, reviewers, due date, and applicable rules.
 
 Each `AccessReviewItem` receives an attributable keep, modify, revoke, or
@@ -536,7 +561,7 @@ decision recorded in M0.
 | Versions, effective intervals, and impact preview | EN-02 | M0-A01 | Drafts, immutable approved versions, successor proposals, effective history, and never-used-draft deletion |
 | Snapshots, content identity, and amendments | EN-03 | M0-A01, M0-A02 | Frozen snapshots unaffected by later changes; amendments linked to their originals |
 | Attributable decisions and separation of duties | EN-04 | — | A decision binds the exact input version, actor, time, and rationale. Each workflow keeps its own state machine; this is not a universal `Review` aggregate |
-| Import batches, reconciliation, and replay | EN-05 | M0-A06 | Preview, explicit acceptance, partial-failure semantics, provenance, tombstones, and safe replay |
+| Optional import batches, reconciliation, and replay | EN-05 | M0-A06 | Preview, explicit whole-batch acceptance, inspectable staging failures, all-or-nothing domain effects, provenance, tombstones, and safe replay |
 | Artifact storage and content identity | EN-06 | M0-A03 | Immutable content identity, quarantine, derived artifacts, and per-artifact access |
 
 Read models such as readiness and accountable work follow M0-A05: they are
@@ -655,6 +680,11 @@ projections that reconcile to source records and show their as-of time.
   hires, terminations, access changes, production changes, incidents,
   vulnerabilities, vendors, tickets, or other events. Compliance does not need
   to own the operational workflow that created them.
+- An authorized user can capture those facts manually and attach source
+  support. Native `SignificantChange` and `ComplianceIncident` records identify the recorder and event
+  times without requiring an external tool or inventing external IDs. An
+  `IncidentReference` remains a reference to a real source incident; it is
+  distinct from the native operating-period incident workflow.
 - Each row has a stable identity and an explicit included, excluded, duplicate,
   missing, or unresolved classification. A missing or partial source never
   appears complete.
@@ -689,16 +719,25 @@ its downstream impact.
 - Every organization-scoped command, query, artifact, job, message, projection,
   search, export, and notification is scoped to one organization, and automated
   cross-tenant leak tests prove it.
-- Every work assignment resolves to an active member or team and exposes
-  orphaned work after membership changes.
+- Every responsibility has a valid governed assignee, including a `Person`
+  who does not sign in. In-product action and notification recipients resolve
+  to active authorized memberships or teams; on-behalf-of recording retains
+  both recorder and responsible person. Membership changes expose orphaned work.
 - Every access campaign starts from the governed application inventory and
   accounts for every in-scope system instance. Missing or failed source data is
   unknown, never evidence of zero accounts or zero access.
 - Every observed access relationship remains distinct from the approved
   expectation and human review decision applied to it.
 - Every status and count drills into the records and calculation time behind it.
-- Every import or collection has a preview, explicit acceptance, partial-failure
-  semantics, provenance, and safe replay behavior.
+- Optional import and collection paths have explicit provenance, failure
+  reporting, and safe replay behavior. Imports preview proposed changes and
+  require explicit acceptance; partial staging results remain inspectable,
+  while accepted domain effects follow ADR 0005's all-or-nothing contract.
+  EN-05 is required by consuming import stories, not by every manual workflow.
+- Every feature can reach its primary outcome through manual entry, uploads,
+  explicit decisions, and native product workflows without a connected source or
+  collection runtime. Turning an optional source off does not disable that
+  workflow or change the meaning of its records.
 - Every source is identified as authoritative, corroborating, or discovery-only
   for a stated business question. A collected fact proposes or supports governed
   state; it never silently becomes truth outside its approved authority.
@@ -752,6 +791,7 @@ decisions.
 | Persistence, snapshots, artifact storage, authorization, projections, and imports | ADRs [0003](../architecture/decisions/0003-event-sourced-history-and-effective-versions.md) through [0008](../architecture/decisions/0008-snapshot-manifest-regeneration.md) |
 | Tenant boundary, firm-staff affiliation, firm-owned material, organization creation, and tenant vocabulary | [M0-D25](decisions/m0-d25-client-tenancy.md); offboarding retention in #346 |
 | Independence rules for advisory and attest services | [M0-D26](decisions/m0-d26-independence.md) |
-| The firm's own attest workpapers | [M0-D27](decisions/m0-d27-attest-scope.md) |
+| Attest collaboration, external workpapers, and required record delivery | [M0-D27](decisions/m0-d27-attest-scope.md) |
+| Multiple organizations per account, delegated management, and organization-level hosted billing and add-ons | [Business operations](business-operations.md); confirmed direction, 2026-10-04 |
 | Tenant resolution, slug and `tenant_id` routing, reserved routes, and identity federation | [ADR 0009](../architecture/decisions/0009-tenant-identity-federation-and-context.md) |
 | Canonical entities, relationships, public sources, and acceptable use | [Canonical entity model](canonical-entity-model.md) (M0-D28); provider-specific source mappings are delivered by the consuming story |

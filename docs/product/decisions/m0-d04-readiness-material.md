@@ -22,7 +22,7 @@ in that same canonical shape, so the shape is decided first.
 | Owner matching | The default rule, confirmed later against real files in #338: a named owner matches a workforce person only by exact normalized email. A name-only or ambiguous match stays an `unresolved_owner` reference that a person resolves. No member or workforce person is created from an import row. |
 | Consultant attribution | Consultant-authored content keeps `imported_from` provenance (source file, row, stated author text) and is never attributed to a platform actor who did not act. The accepting member is the actor of the acceptance decision only. |
 | Slice order | Deferred to #338. The ranking must come from real material, not an assumption. |
-| Manual re-entry | For the first client, all readiness content is authored in the product. |
+| Manual operation | For the first client, readiness records are authored and maintained in the product's owning workflows. This is the supported operating path; import may reduce entry effort for later clients but is not needed to use any feature. |
 
 ## Consequences
 

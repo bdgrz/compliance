@@ -3,8 +3,9 @@
 Status: accepted, 2026-09-22. Decision owner: Jeff Repanich (product owner).
 Closes [M0-D18 #75](https://github.com/bdgrz/compliance/issues/75).
 
-No measured baseline exists today, and targets are not invented. The product
-records these measures from the first client's first use. The 30-day baseline
+No measured baseline was available when this decision was accepted, and targets
+are not invented. The product is required to record these measures from the
+first client's first use. The 30-day baseline
 and the targets are set in follow-up
 [#340](https://github.com/bdgrz/compliance/issues/340).
 
@@ -15,8 +16,10 @@ and the targets are set in follow-up
 | Parallel tracking | A self-reported count of spreadsheets or drive folders used to track audit work outside the product, captured in the first 30 days and again at the R2 exit |
 | Overdue backlog | Count of overdue `AccountableWorkItem`s at each weekly digest |
 
-The first three are the product-brief candidates. The fourth needs no extra
-capture because the digest already produces it.
+These four measures are the accepted product measures. They replace the earlier
+candidate list in the product brief. The fourth uses the same overdue-work
+calculation as the weekly digest; recording its dated count must not depend on
+an email being delivered.
 
 Instrumentation derives from existing attributed domain events and
 projections: work-item state transitions and attributed actions. There is no

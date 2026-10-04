@@ -2,8 +2,11 @@
 
 This slice records an organization-authored risk scenario for one tenant and
 program. It is partial delivery under [#199](https://github.com/bdgrz/compliance/issues/199).
-The risk remains `draft_unassessed`; it cannot contribute assessment, treatment,
-coverage, readiness, or approval claims.
+This authoring operation creates a `draft_unassessed` narrative; that narrative
+alone cannot contribute assessment, treatment, coverage, readiness, or approval
+claims. The separate [assessment and governance contract](risk-assessment-v1.md)
+defines later governed outcomes. Manual authoring and governance require no
+import or external integration.
 
 ## Contract
 
@@ -21,14 +24,14 @@ coverage, readiness, or approval claims.
   checks the risk-area projector checkpoint before returning even an empty
   page. List `limit` is 1–200; malformed and cross-program cursors are rejected.
 - All five operations also have MCP tools. Both write requests use flat scalar
-  arguments so Portia can bind them without the nested-object limitation in
-  [Portia #61](https://github.com/cntryl/portia/issues/61). MCP reads are marked
+  arguments. MCP reads are marked
   read-only; revise is marked idempotent.
 
 Every operation requires an active tenant membership with `program.manage`.
-This narrow existing grant restricts risk narratives while [M0-D03 #60](https://github.com/bdgrz/compliance/issues/60)
-and scoped access [#186](https://github.com/bdgrz/compliance/issues/186) remain
-open. Tenant and program IDs are part of the authoritative aggregate identity
+This grant applies at the program or organization scope under the accepted
+[M0-D03 decision](decisions/m0-d03-roles-and-separation-of-duties.md) and scoped
+access [#186](https://github.com/bdgrz/compliance/issues/186). Tenant and program
+IDs are part of the authoritative aggregate identity
 and projection keys. Cross-tenant or cross-program data is not disclosed.
 
 The normalized ASCII identifier is unique per tenant and program through a
@@ -38,11 +41,15 @@ Events retain the acting member, display, and change time. `source_note` is
 the author's statement, not a verified source observation. Serialized domain
 events are capped at 48 KiB to fit the Fitz event frame.
 
-## Deferred decisions
+## Assessment policy and remaining links
 
-[M0-D10 #67](https://github.com/bdgrz/compliance/issues/67) must choose the
-assessment method, likelihood and impact scales, appetite, treatment vocabulary,
-acceptance authority, and cadence. Later R1-07 work will bind exact boundary,
-asset, provider, commitment, and control versions; record RiskAssessment,
-RiskTreatment, RiskAcceptance, review and reassessment; and contribute explicit
-gaps to readiness. A draft does not silently satisfy those requirements.
+[M0-D10](decisions/m0-d10-risk-method.md) defines the accepted qualitative 5×5
+method, acceptance authority, treatment vocabulary, and annual cadence.
+The first client's appetite threshold and advisor confirmation belong to
+[#355](https://github.com/bdgrz/compliance/issues/355). Risk assessments,
+treatment, acceptance, Person ownership, reviewed control treatments, and
+reassessment are described in [risk-assessment-v1.md](risk-assessment-v1.md).
+Exact boundary, asset, provider, commitment, and control-version relationships
+must be implemented by their owning R1-07 slices before they support a coverage
+claim. Readiness rule definitions remain with R1-08. A draft does not silently
+satisfy those requirements.

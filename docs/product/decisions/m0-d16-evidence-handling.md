@@ -61,6 +61,11 @@ original remains under its own retention and access rules.
 - **Secrets:** `secret_detected` is never quarantined or releasable (see
   Handling classes).
 
+Inspection is native evidence handling and applies to a user upload even when
+no external integration or optional collection automation is enabled. The
+manual operating path includes governed upload and attachment; it does not
+bypass inspection or disclosure rules.
+
 ## Backup and recovery
 
 Evidence content is in the whole-platform recovery scope accepted in M0-A01:

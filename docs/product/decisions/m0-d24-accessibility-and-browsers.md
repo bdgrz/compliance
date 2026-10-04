@@ -8,7 +8,7 @@ The normative standard is the [W3C Web Content Accessibility Guidelines
 
 | Question | Decision and rationale |
 | --- | --- |
-| Standard and conformance | **WCAG 2.2 Level AA** for every first-release browser workflow. It is the current W3C Recommendation and the common procurement bar. The product owner approves any exception. |
+| Standard and conformance | **WCAG 2.2 Level AA** is the acceptance target for every first-release browser workflow. The product owner approves any exception. This decision defines the target rather than certifying implemented conformance. |
 | Supported browsers | Current and previous major versions of Chrome, Edge, Firefox, and Safari on desktop. Mobile browsers can view the product but are not a supported workflow target. |
 | Acceptance baseline | Keyboard: every action is operable, with no traps and a logical focus order. Focus: always visible and not obscured (WCAG 2.2 2.4.11). Contrast: 4.5:1 for text, 3:1 for large text and UI components. Zoom: usable at 200% and reflow at 320 CSS px without two-dimensional scrolling. Screen readers: names, roles, states, and landmarks are exposed. Reduced motion: honored through `prefers-reduced-motion`. Errors: identified in text, associated with their field, and announced through a live region. Targets: at least 24×24 CSS px (WCAG 2.2 2.5.8). |
 | Current feature validation | Frontend feature work uses red-green TDD with focused unit tests. Component-level axe checks run in the client unit suite. Unit tests are the current feature and PR test gate. |

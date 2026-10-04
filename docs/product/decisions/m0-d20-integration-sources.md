@@ -9,8 +9,12 @@ No connectors are built in R1 or R2, and no import or integration work is
 scheduled until the canonical data shape (M0-D28) and the storage internals
 are settled. [T2-08 #38](https://github.com/bdgrz/compliance/issues/38) and
 [T2-08a #137](https://github.com/bdgrz/compliance/issues/137) stay P2
-hypotheses. Manual effort per source is measured during the first readiness
-engagement, and connectors are ranked from that data in
+hypotheses. Every feature remains operable through the product's manual path
+when no connector or optional source-collection automation is enabled. Future
+imports and integrations are enhancements to make program setup, maintenance,
+and operation easier; they do not replace or gate the user-operated workflow.
+Manual effort per source is measured during the first readiness engagement,
+and connectors are ranked from that data in
 [#342](https://github.com/bdgrz/compliance/issues/342).
 
 The first candidate sources are the first reviewed systems:
@@ -37,7 +41,9 @@ proposed. They come from the gap analysis.
    revocation models?
 8. What freshness and reconciliation cadence is required, and who owns it?
 9. Which raw snapshots and normalized facts must be retained for audit proof?
-10. Which manual path remains when the integration is unavailable?
+10. How does this integration make the existing manual workflow easier to
+    start, maintain, or operate, and how does that workflow stay usable when the
+    integration is unavailable or disabled?
 
 Any future connector writes source observations into the M0-D28 canonical shape
 through the ADR 0005 staged, all-or-nothing acceptance. A connector never writes

@@ -1,5 +1,7 @@
 # Restricted application visibility
 
+Status: accepted product decision, 2026-10-03. Decision owner: product owner.
+
 This decision records the product direction accepted in [#492](https://github.com/bdgrz/compliance/issues/492#issuecomment-5942855525) for [#449](https://github.com/bdgrz/compliance/issues/449).
 
 ## Decision
