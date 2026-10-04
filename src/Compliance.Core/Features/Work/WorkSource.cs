@@ -22,6 +22,7 @@ static class WorkSource
     public const string RiskTreatmentAction = "risk_treatment_action";
     public const string RiskTreatmentActionReview = "risk_treatment_action_review";
     public const string ControlEvaluationReview = "control_evaluation_review";
+    public const string ControlOperatingPlanApproval = "control_operating_plan_approval";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
@@ -153,6 +154,29 @@ static class WorkSource
                 $"{prefix}/controls/{evaluation.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 new HashSet<Uuid> { evaluation.EvaluatorMemberId }, submission.SubmittedAt));
+        }
+        foreach (var controlId in operations.PlannedControlIds)
+        {
+            if (operations.PendingPlan(controlId) is not { } pending ||
+                workItemId is { } wantedPlan && WorkCandidate.IdFor(pending.PlanVersionId,
+                    ControlOperatingPlanApproval) != wantedPlan)
+                continue;
+            var control = await ControlOperationsSource.LoadControlAsync(reader, tenantId,
+                programId, controlId, ct).ConfigureAwait(false);
+            if (control is null ||
+                control.ApprovedVersion is not { Status: ControlOperationsLedger.Approved } current ||
+                current.VersionId != pending.ControlVersionId)
+                continue;
+            var actionPath = $"{prefix}/controls/{controlId}/operating-plan/proposals/" +
+                             $"{pending.PlanVersionId}/approvals";
+            candidates.Add(new WorkCandidate(
+                WorkCandidate.IdFor(pending.PlanVersionId, ControlOperatingPlanApproval),
+                ControlOperatingPlanApproval, pending.PlanVersionId, controlId, null,
+                $"Approve operating plan for {current.Identifier}",
+                "A control operating plan is awaiting independent approval.", null, null,
+                "approve", actionPath,
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                new HashSet<Uuid> { pending.ProposerMemberId }, pending.ProposedAt));
         }
         if (boundaries is not null)
         {
