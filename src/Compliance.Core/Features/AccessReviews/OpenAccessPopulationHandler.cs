@@ -5,7 +5,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Opens a draft against the exact current revision of an active system instance.</summary>
 public sealed class OpenAccessPopulationHandler(IAggregateExecutor executor,
-    IAggregateReader reader, IDomainEventReader events, TimeProvider clock)
+    IAggregateReader reader, IDomainEventReader events, TimeProvider clock,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<OpenAccessPopulation, AccessPopulationRegistration>
 {
     public async ValueTask<Result<AccessPopulationRegistration>> HandleAsync(
@@ -17,6 +18,11 @@ public sealed class OpenAccessPopulationHandler(IAggregateExecutor executor,
         if (instance is null)
             return AccessReviewOutcome.Failure<AccessPopulationRegistration>(
                 RequestErrorKind.NotFound, "The system instance was not found.");
+        var actor = AccessReviewActor.From(context);
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
+                request.ApplicationId, request.SystemInstanceId, ct).ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessPopulationRegistration>(
+                RequestErrorKind.NotFound, "The system instance was not found.");
         if (instance.IsRetired)
             return AccessReviewOutcome.Failure<AccessPopulationRegistration>(
                 RequestErrorKind.Conflict, "A retired system instance cannot receive a new population.");
@@ -24,7 +30,6 @@ public sealed class OpenAccessPopulationHandler(IAggregateExecutor executor,
             return AccessReviewOutcome.Failure<AccessPopulationRegistration>(
                 RequestErrorKind.Conflict,
                 $"The system instance is at revision {instance.Revision}; the population names revision {request.ExpectedSystemInstanceRevision}.");
-        var actor = AccessReviewActor.From(context);
         return await executor.ExecuteAsync(new AccessPopulation(request.TenantId, context.RequestId),
             population => AccessReviewOutcome.From(population.Open(request.ApplicationId,
                 request.SystemInstanceId, instance.Revision, request.ObservedAt, request.Source,

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
@@ -20,7 +21,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         var userId = Uuid.CreateVersion4();
         var permissions = new RecordingPermissionAuthorizer(permitted);
         var authorizer = new ApplicationInventoryAuthorizer(
-            new FixedMembershipDirectory(member), new ActiveTenant(), permissions);
+            new FixedMembershipDirectory(member), new ActiveTenant(), permissions,
+            new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
             new ListApplications(tenantId), BdgrzActor(userId));
 
@@ -41,7 +43,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         var userId = Uuid.CreateVersion4();
         var permissions = new RecordingPermissionAuthorizer(true);
         var authorizer = new ApplicationInventoryAuthorizer(
-            new FixedMembershipDirectory(true), new ActiveTenant(), permissions);
+            new FixedMembershipDirectory(true), new ActiveTenant(), permissions,
+            new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
             new PreviewApplicationChange(tenantId, Uuid.CreateVersion4(), 1, "retire"),
             BdgrzActor(userId));
@@ -53,6 +56,72 @@ public sealed class ApplicationInventoryAuthorizerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(RbacPermissions.ApplicationInventoryManage, Assert.Single(permissions.Permissions));
         Assert.Equal(RbacIds.Member(tenantId, userId), Assert.Single(permissions.MemberIds));
+    }
+
+    [Fact]
+    public async Task ShouldAllowReadGivenActiveMemberWithRestrictedReadScopeOnly()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var scopedPermissions = new FixedScopedPermissions(true);
+        var authorizer = new ApplicationInventoryAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), permissions, scopedPermissions);
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new ListApplications(tenantId), BdgrzActor(userId));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(RbacPermissions.ApplicationInventoryManage,
+            Assert.Single(permissions.Permissions));
+        Assert.Equal(1, scopedPermissions.InventoryScopeChecks);
+    }
+
+    [Fact]
+    public async Task ShouldDenyImportReadGivenRestrictedReadScopeOnly()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var scopedPermissions = new FixedScopedPermissions(true);
+        var authorizer = new ApplicationInventoryAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), permissions, scopedPermissions);
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new GetApplicationImport(tenantId, Uuid.CreateVersion4()),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Equal(0, scopedPermissions.InventoryScopeChecks);
+    }
+
+    [Fact]
+    public async Task ShouldDenyWriteGivenRestrictedReadScopeOnly()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var permissions = new RecordingPermissionAuthorizer(false);
+        var scopedPermissions = new FixedScopedPermissions(true);
+        var authorizer = new ApplicationInventoryAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), permissions, scopedPermissions);
+        var context = new RequestContext<IApplicationInventoryRequest>(new DeclareApplication(
+            tenantId, "Payroll", "Run payroll"), BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Equal(RbacPermissions.ApplicationInventoryManage,
+            Assert.Single(permissions.Permissions));
+        Assert.Equal(0, scopedPermissions.InventoryScopeChecks);
     }
 
     [Fact]
@@ -105,7 +174,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         var tenantId = Uuid.CreateVersion4();
         var permissions = new RecordingPermissionAuthorizer(true);
         var authorizer = new ApplicationInventoryAuthorizer(
-            new FixedMembershipDirectory(true, "firm_staff"), new ActiveTenant(), permissions);
+            new FixedMembershipDirectory(true, "firm_staff"), new ActiveTenant(), permissions,
+            new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
             new ListApplications(tenantId), BdgrzActor(Uuid.CreateVersion4()));
 
@@ -123,7 +193,8 @@ public sealed class ApplicationInventoryAuthorizerTests
         // Arrange
         var permissions = new RecordingPermissionAuthorizer(true);
         var authorizer = new ApplicationInventoryAuthorizer(
-            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(), permissions);
+            new FixedMembershipDirectory(true, isSuspended: true), new ActiveTenant(), permissions,
+            new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
             new ListApplications(Uuid.CreateVersion4()), BdgrzActor(Uuid.CreateVersion4()));
 
@@ -203,4 +274,20 @@ public sealed class ApplicationInventoryAuthorizerTests
 
     static ClaimsPrincipal BdgrzActor(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
+
+    sealed class FixedScopedPermissions(bool allowed) : IAccessGrantScopePermissionAuthorizer
+    {
+        public int InventoryScopeChecks { get; private set; }
+
+        public ValueTask<bool> IsAllowedAtAnyScopeAsync(Uuid tenantId, Uuid userId,
+            Uuid memberId, IReadOnlyCollection<AccessGrantScope> scopes, string permission,
+            CancellationToken ct = default) => ValueTask.FromResult(false);
+
+        public ValueTask<bool> IsAllowedAtAnyApplicationInventoryScopeAsync(Uuid tenantId,
+            Uuid userId, Uuid memberId, string permission, CancellationToken ct = default)
+        {
+            InventoryScopeChecks++;
+            return ValueTask.FromResult(allowed);
+        }
+    }
 }

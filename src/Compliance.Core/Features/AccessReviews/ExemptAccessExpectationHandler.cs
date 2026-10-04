@@ -1,10 +1,11 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Applications;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Records the acting member's personal approval of an expiring exception; HTTP-only.</summary>
 public sealed class ExemptAccessExpectationHandler(IAggregateExecutor executor,
-    TimeProvider clock)
+    TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<ExemptAccessExpectation, AccessExpectationExceptionView>
 {
     public async ValueTask<Result<AccessExpectationExceptionView>> HandleAsync(
@@ -12,6 +13,10 @@ public sealed class ExemptAccessExpectationHandler(IAggregateExecutor executor,
     {
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
+                request.SystemInstanceId, ct).ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessExpectationExceptionView>(
+                RequestErrorKind.NotFound, "The system instance was not found.");
         return await executor.ExecuteAsync(new AccessReviewSystemLedger(request.TenantId,
                 request.SystemInstanceId),
             ledger => AccessReviewOutcome.From(ledger.RecordException(context.RequestId,

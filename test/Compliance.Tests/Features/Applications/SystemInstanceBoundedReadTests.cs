@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -45,7 +46,8 @@ public sealed class SystemInstanceBoundedReadTests
         var fixture = await Fixture.CreateAsync();
         await fixture.ProjectToHeadAsync();
         await fixture.AppendUnrelatedAsync(Backlog);
-        var handler = new ListSystemInstancesHandler(fixture.Directory, fixture.Consistency());
+        var handler = new ListSystemInstancesHandler(fixture.Directory, fixture.Consistency(),
+            fixture.Visibility());
         var request = new RequestContext<ListSystemInstances>(new ListSystemInstances(
             fixture.TenantId, fixture.ApplicationId), new ClaimsPrincipal());
 
@@ -69,7 +71,8 @@ public sealed class SystemInstanceBoundedReadTests
         await fixture.AppendLegacyAsync(legacyId);
         await fixture.ProjectToHeadAsync();
         fixture.Reader.ForbidStreamReads = true;
-        var handler = new GetSystemInstanceHandler(fixture.Directory, fixture.Consistency());
+        var handler = new GetSystemInstanceHandler(fixture.Directory, fixture.Consistency(),
+            fixture.Visibility());
 
         // Act
         var legacy = await handler.HandleAsync(new RequestContext<GetSystemInstance>(
@@ -93,7 +96,8 @@ public sealed class SystemInstanceBoundedReadTests
         var fixture = await Fixture.CreateAsync();
         await fixture.ProjectToHeadAsync();
         await fixture.AppendUnrelatedAsync(ApplicationDirectoryBacklog.ScanLimit);
-        var handler = new ListSystemInstancesHandler(fixture.Directory, fixture.Consistency());
+        var handler = new ListSystemInstancesHandler(fixture.Directory, fixture.Consistency(),
+            fixture.Visibility());
         var request = new RequestContext<ListSystemInstances>(new ListSystemInstances(
             fixture.TenantId, fixture.ApplicationId), new ClaimsPrincipal());
 
@@ -196,6 +200,9 @@ public sealed class SystemInstanceBoundedReadTests
         public SystemInstanceReadConsistency Consistency() =>
             new(Directory, new SourceReader(Source), new LegacySystemInstanceSource(Directory, Reader),
                 Reader);
+
+        public RestrictedApplicationVisibility Visibility() =>
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(Source));
 
         public Task AppendLegacyAsync(Uuid instanceId) =>
             AppendApplicationAsync(new SystemInstanceDeclared(TenantId, ApplicationId,

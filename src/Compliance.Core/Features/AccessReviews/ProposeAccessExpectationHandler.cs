@@ -4,18 +4,24 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 public sealed class ProposeAccessExpectationHandler(IAggregateExecutor executor,
-    IAggregateReader reader, IDomainEventReader events, TimeProvider clock)
+    IAggregateReader reader, IDomainEventReader events, TimeProvider clock,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<ProposeAccessExpectation, AccessExpectationView>
 {
     public async ValueTask<Result<AccessExpectationView>> HandleAsync(
         IRequestContext<ProposeAccessExpectation> context, CancellationToken ct)
     {
         var request = context.Request;
-        if (await ScopedSystemInstanceSource.FindAsync(reader, events, request.TenantId,
-                request.ApplicationId, request.SystemInstanceId, ct).ConfigureAwait(false) is null)
+        var instance = await ScopedSystemInstanceSource.FindAsync(reader, events, request.TenantId,
+            request.ApplicationId, request.SystemInstanceId, ct).ConfigureAwait(false);
+        if (instance is null)
             return AccessReviewOutcome.Failure<AccessExpectationView>(RequestErrorKind.NotFound,
                 "The system instance was not found.");
         var actor = AccessReviewActor.From(context);
+        if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
+                instance.ApplicationId, instance.Id, ct).ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessExpectationView>(RequestErrorKind.NotFound,
+                "The system instance was not found.");
         return await executor.ExecuteAsync(new AccessReviewSystemLedger(request.TenantId,
                 request.SystemInstanceId),
             ledger => AccessReviewOutcome.From(ledger.Propose(request.ExpectedLedgerRevision,

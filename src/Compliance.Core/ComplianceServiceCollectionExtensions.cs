@@ -340,7 +340,12 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzAccessGrantDirectory>());
         services.AddScoped<IAccessGrantProjection>(provider =>
             provider.GetRequiredService<FitzAccessGrantDirectory>());
-        services.AddScoped<IAccessGrantPermissionAuthorizer, AccessGrantPermissionAuthorizer>();
+        services.AddScoped<AccessGrantPermissionAuthorizer>();
+        services.AddScoped<IAccessGrantPermissionAuthorizer>(provider =>
+            provider.GetRequiredService<AccessGrantPermissionAuthorizer>());
+        services.AddScoped<IAccessGrantScopePermissionAuthorizer>(provider =>
+            provider.GetRequiredService<AccessGrantPermissionAuthorizer>());
+        services.AddScoped<RestrictedApplicationVisibility>();
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();

@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Snapshots;
+using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
@@ -8,7 +9,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     verifications, and exceptions) and records the owner's completion sign-off. HTTP-only.
 /// </summary>
 public sealed class CompleteAccessReviewCampaignHandler(IAggregateReader reader,
-    IAggregateExecutor executor, PopulationSnapshotFreezer freezer, TimeProvider clock)
+    IAggregateExecutor executor, PopulationSnapshotFreezer freezer, TimeProvider clock,
+    RestrictedApplicationVisibility visibility)
     : IRequestHandler<CompleteAccessReviewCampaign, AccessReviewCampaignCompletionView>
 {
     public async ValueTask<Result<AccessReviewCampaignCompletionView>> HandleAsync(
@@ -18,6 +20,10 @@ public sealed class CompleteAccessReviewCampaignHandler(IAggregateReader reader,
         var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
             request.CampaignId), ct).ConfigureAwait(false);
         if (campaign.Launched is not { } launched)
+            return Failure(RequestErrorKind.NotFound, "The campaign was not found.");
+        var actor = AccessReviewActor.From(context);
+        if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                request.TenantId, actor.UserId, campaign, ct: ct).ConfigureAwait(false))
             return Failure(RequestErrorKind.NotFound, "The campaign was not found.");
         if (campaign.Completion is { } completed)
             return completed.SnapshotId == context.RequestId
@@ -33,7 +39,6 @@ public sealed class CompleteAccessReviewCampaignHandler(IAggregateReader reader,
             return Failure(RequestErrorKind.Validation,
                 "Completion requires an attestation of at most 4000 characters.");
 
-        var actor = AccessReviewActor.From(context);
         var header = new AccessReviewCampaignResultHeader(campaign.Id, launched.Name,
             launched.Deadline, launched.SnapshotId, launched.ContentSha256, request.Attestation.Trim());
         var frozen = await freezer.FreezeAsync(context, request.TenantId,

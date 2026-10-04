@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed record DeclareSystemInstance(Uuid TenantId, Uuid ApplicationId,
     long ExpectedApplicationRevision, string Name, string Kind,
     string? AccessBoundaryReference = null, string? SourceIdentifier = null)
-    : IRequest<SystemInstanceRegistration>, IApplicationInventoryRequest, ICallable;
+    : IRequest<SystemInstanceRegistration>, IApplicationInventoryWriteRequest, ICallable;

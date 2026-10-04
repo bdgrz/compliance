@@ -20,6 +20,6 @@ public sealed class DeclareApplicationHandler(IAggregateExecutor executor,
             app => AggregateOutcome.CommitOnSuccess(app.Declare(request.Name, request.Purpose,
                 request.OwnerReference, memberId, display, clock.GetUtcNow(),
                 request.Classification, request.SystemOwnerPersonId,
-                request.AccessOwnerPersonId)), context, ct).ConfigureAwait(false);
+                request.AccessOwnerPersonId, request.IsRestricted)), context, ct).ConfigureAwait(false);
     }
 }

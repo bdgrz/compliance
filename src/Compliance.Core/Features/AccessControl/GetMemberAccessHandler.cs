@@ -109,6 +109,8 @@ public sealed class GetMemberAccessHandler(ITenantMembershipDirectoryReader memb
             {
                 AccessGrantScopeKind.Organization => scope.Id == request.TenantId,
                 AccessGrantScopeKind.Program => scope.Id != Uuid.Empty,
+                AccessGrantScopeKind.Application => scope.Id != Uuid.Empty,
+                AccessGrantScopeKind.SystemInstance => scope.Id != Uuid.Empty,
                 _ => false,
             };
             var isEffective = memberIsActive &&

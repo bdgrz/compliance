@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -8,6 +10,75 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 
 public sealed class ApplicationListContractTests
 {
+    [Fact]
+    public async Task ShouldHideRestrictedApplicationWithoutLeakingPaginationGivenApplicationList()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var publicFirstId = Uuid.CreateVersion4();
+        var restrictedId = Uuid.CreateVersion4();
+        var publicLastId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        DomainEvent[] events =
+        [
+            new ApplicationDeclared(tenantId, publicFirstId, "A Payroll", "Run payroll",
+                null, memberId, "Manager", now),
+            new ApplicationDeclared(tenantId, restrictedId, "B Secret", "Run secret payroll",
+                null, memberId, "Manager", now, IsRestricted: true),
+            new ApplicationDeclared(tenantId, publicLastId, "C Finance", "Close books",
+                null, memberId, "Manager", now),
+        ];
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        await ProjectAsync(directory, tenantId, events);
+        var sources = new SourceMapReader(
+            Declare(tenantId, publicFirstId, "A Payroll", false, memberId, now),
+            Declare(tenantId, restrictedId, "B Secret", true, memberId, now),
+            Declare(tenantId, publicLastId, "C Finance", false, memberId, now));
+        var handler = new ListApplicationsHandler(directory,
+            RestrictedApplicationVisibilityFixture.Create(sources));
+        var actor = Actor(userId);
+
+        // Act
+        var first = await handler.HandleAsync(new RequestContext<ListApplications>(
+            new ListApplications(tenantId, 1), actor), CancellationToken.None);
+        var second = await handler.HandleAsync(new RequestContext<ListApplications>(
+            new ListApplications(tenantId, 1, first.Value.NextCursor), actor), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(publicFirstId, Assert.Single(first.Value.Items).ApplicationId);
+        Assert.NotNull(first.Value.NextCursor);
+        Assert.Equal(publicLastId, Assert.Single(second.Value.Items).ApplicationId);
+        Assert.Null(second.Value.NextCursor);
+    }
+
+    [Fact]
+    public async Task ShouldReturnNotFoundGivenDirectRestrictedApplicationReadWithoutGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var userId = Uuid.CreateVersion4();
+        var memberId = RbacIds.Member(tenantId, userId);
+        var applicationId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var source = Declare(tenantId, applicationId, "Secrets", true, memberId, now);
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        await ProjectAsync(directory, tenantId, new ApplicationDeclared(tenantId,
+            applicationId, "Secrets", "Run secrets", null, memberId, "Manager", now,
+            IsRestricted: true));
+        var sourceReader = new SourceMapReader(source);
+        var handler = new GetApplicationHandler(directory, sourceReader,
+            RestrictedApplicationVisibilityFixture.Create(sourceReader));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetApplication>(
+            new GetApplication(tenantId, applicationId), Actor(userId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(201)]
@@ -15,15 +86,17 @@ public sealed class ApplicationListContractTests
     {
         // Arrange
         var scenario = await CreateScenarioAsync();
-        var applications = new ListApplicationsHandler(scenario.Directory);
+        var visibility = RestrictedApplicationVisibilityFixture.Create(
+            new SourceReader(scenario.Source));
+        var applications = new ListApplicationsHandler(scenario.Directory, visibility);
         var history = new ListApplicationRevisionsHandler(scenario.Directory,
             new ApplicationHistoryReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source)));
+                new SourceReader(scenario.Source)), visibility);
         var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
                 new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
-                events));
+                events), visibility);
 
         // Act
         var applicationResult = await applications.HandleAsync(Context(new ListApplications(
@@ -44,15 +117,17 @@ public sealed class ApplicationListContractTests
     {
         // Arrange
         var scenario = await CreateScenarioAsync();
-        var applications = new ListApplicationsHandler(scenario.Directory);
+        var visibility = RestrictedApplicationVisibilityFixture.Create(
+            new SourceReader(scenario.Source));
+        var applications = new ListApplicationsHandler(scenario.Directory, visibility);
         var history = new ListApplicationRevisionsHandler(scenario.Directory,
             new ApplicationHistoryReadConsistency(scenario.Directory,
-                new SourceReader(scenario.Source)));
+                new SourceReader(scenario.Source)), visibility);
         var events = new InMemoryEventStore();
         var instances = new ListSystemInstancesHandler(scenario.Directory,
             new SystemInstanceReadConsistency(scenario.Directory,
                 new SourceReader(scenario.Source), new LegacySystemInstanceSource(scenario.Directory, events),
-                events));
+                events), visibility);
 
         // Act
         var applicationResult = await applications.HandleAsync(Context(new ListApplications(
@@ -88,7 +163,9 @@ public sealed class ApplicationListContractTests
             new ApplicationDeclared(secondTenantId, Uuid.CreateVersion4(), "Finance",
                 "Close books", null, actorId, "Manager", now));
         var firstPage = await directory.ListAsync(firstTenantId, 1, null);
-        var handler = new ListApplicationsHandler(directory);
+        var visibility = RestrictedApplicationVisibilityFixture.Create(
+            new SourceReader(new DeclaredApplication(secondTenantId, Uuid.CreateVersion4())));
+        var handler = new ListApplicationsHandler(directory, visibility);
 
         // Act
         var result = await handler.HandleAsync(Context(new ListApplications(secondTenantId,
@@ -100,6 +177,9 @@ public sealed class ApplicationListContractTests
 
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal());
+
+    static ClaimsPrincipal Actor(Uuid userId) => new(new ClaimsIdentity(
+        [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
 
     static void AssertValidation(RequestError? error) =>
         Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(error).Kind);
@@ -140,6 +220,15 @@ public sealed class ApplicationListContractTests
         await batch.CommitAsync(ProjectionCheckpoint.Start);
     }
 
+    static DeclaredApplication Declare(Uuid tenantId, Uuid applicationId, string name,
+        bool isRestricted, Uuid actorId, DateTimeOffset now)
+    {
+        var application = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(application.Declare(name, "Purpose", null, actorId, "Manager", now,
+            isRestricted: isRestricted).IsSuccess);
+        return application;
+    }
+
     sealed record Scenario(Uuid TenantId, Uuid ApplicationId, DeclaredApplication Source,
         FitzApplicationDirectory Directory);
 
@@ -148,5 +237,16 @@ public sealed class ApplicationListContractTests
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate =>
             ValueTask.FromResult((TAggregate)source);
+    }
+
+    sealed class SourceMapReader(params DeclaredApplication[] applications) : IAggregateReader
+    {
+        public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate =>
+            ValueTask.FromResult(aggregate is DeclaredApplication requested &&
+                                 applications.FirstOrDefault(source => source.Id == requested.Id)
+                                     is { } source
+                ? (TAggregate)(Aggregate)source
+                : aggregate);
     }
 }

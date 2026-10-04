@@ -6,7 +6,7 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class ApplicationInventoryGrantBackfillReactorTests
 {
     [Fact]
-    public async Task ShouldBackfillOnlyInventoryGrantsGivenHistoricalTenantRegistration()
+    public async Task ShouldBackfillInventoryAndRestrictedReadPermissionsGivenHistoricalTenantRegistration()
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -18,20 +18,36 @@ public sealed class ApplicationInventoryGrantBackfillReactorTests
             new InMemoryProjectionCheckpointStore(), scenario.Requests));
 
         // Assert
-        Assert.Equal(2, scenario.SentRequests.Count);
+        Assert.Equal(4, scenario.SentRequests.Count);
         Assert.All(scenario.SentRequests, request =>
         {
             var grant = Assert.IsType<AssignRolePermission>(request);
             Assert.Equal(tenantId, grant.TenantId);
-            Assert.Equal(RbacPermissions.ApplicationInventoryManage, grant.Permission);
+            Assert.Contains(grant.Permission, new[]
+            {
+                RbacPermissions.ApplicationInventoryManage,
+                RbacPermissions.ApplicationRestrictedRead,
+            });
         });
         Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
         {
             RoleId: var roleId,
+            Permission: RbacPermissions.ApplicationInventoryManage,
         } && roleId == BuiltInRbac.TenantAdministrationRoleId(tenantId));
         Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
         {
             RoleId: var roleId,
+            Permission: RbacPermissions.ApplicationInventoryManage,
+        } && roleId == BuiltInRbac.ComplianceManagementRoleId(tenantId));
+        Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
+        {
+            RoleId: var roleId,
+            Permission: RbacPermissions.ApplicationRestrictedRead,
+        } && roleId == BuiltInRbac.TenantAdministrationRoleId(tenantId));
+        Assert.Contains(scenario.SentRequests, request => request is AssignRolePermission
+        {
+            RoleId: var roleId,
+            Permission: RbacPermissions.ApplicationRestrictedRead,
         } && roleId == BuiltInRbac.ComplianceManagementRoleId(tenantId));
     }
 }

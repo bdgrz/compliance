@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Tests.Testing;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Controls;
 using Cntryl.Fitz.Testing;
@@ -10,6 +11,34 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 
 public sealed class ApplicationChangePreviewTests
 {
+    [Fact]
+    public async Task ShouldHideRestrictedApplicationGivenChangePreviewWithoutGrant()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var source = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(source.Declare("Payroll", "Run payroll", null, Uuid.CreateVersion4(),
+            "Manager", DateTimeOffset.UtcNow, isRestricted: true).IsSuccess);
+        var applications = new FitzApplicationDirectory(new InMemoryKvClient());
+        var references = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
+        var controls = new FitzApplicationControlDraftReferenceDirectory(new InMemoryKvClient());
+        var events = new InMemoryEventStore();
+        var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
+            references, new ApplicationBoundaryReferenceReadConsistency(references, events), controls,
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
+            new PreviewApplicationChange(tenantId, applicationId, 1, "revise",
+                "Payroll", "Run monthly payroll"), new System.Security.Claims.ClaimsPrincipal()),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
     [Fact]
     public async Task ShouldReportCurrentDraftControlReferencesGivenApplicationPreview()
     {
@@ -60,7 +89,8 @@ public sealed class ApplicationChangePreviewTests
         }
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -115,7 +145,8 @@ public sealed class ApplicationChangePreviewTests
         await events.AppendAsync(stream, 0, [control]);
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             references, new ApplicationBoundaryReferenceReadConsistency(references, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
         var request = new RequestContext<PreviewApplicationChange>(
             new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
             new ClaimsPrincipal());
@@ -168,7 +199,8 @@ public sealed class ApplicationChangePreviewTests
         var boundaries = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events),
-            controls, new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            controls, new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -206,7 +238,8 @@ public sealed class ApplicationChangePreviewTests
         var boundaries = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -251,7 +284,8 @@ public sealed class ApplicationChangePreviewTests
         var boundaries = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -298,7 +332,8 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source),
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, new InMemoryEventStore()), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, new InMemoryEventStore()));
+            new ApplicationControlDraftReferenceReadConsistency(controls, new InMemoryEventStore()),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -338,7 +373,8 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source),
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
         var request = new PreviewApplicationChange(tenantId, applicationId, 1, "retire");
 
         // Act
@@ -402,7 +438,8 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source),
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, events), controls,
-            new ApplicationControlDraftReferenceReadConsistency(controls, events));
+            new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
         var request = new RequestContext<PreviewApplicationChange>(
             new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
             new ClaimsPrincipal());

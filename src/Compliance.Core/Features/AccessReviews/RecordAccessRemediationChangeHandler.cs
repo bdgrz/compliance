@@ -1,10 +1,11 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.Applications;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 /// <summary>Records a provider-side change; it never counts as platform verification.</summary>
 public sealed class RecordAccessRemediationChangeHandler(IAggregateExecutor executor,
-    TimeProvider clock)
+    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility)
     : IRequestHandler<RecordAccessRemediationChange, AccessRemediationChangeView>
 {
     public async ValueTask<Result<AccessRemediationChangeView>> HandleAsync(
@@ -12,6 +13,13 @@ public sealed class RecordAccessRemediationChangeHandler(IAggregateExecutor exec
     {
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
+        var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
+            request.CampaignId), ct).ConfigureAwait(false);
+        if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                request.TenantId, actor.UserId, campaign, [request.ItemId], ct)
+            .ConfigureAwait(false))
+            return AccessReviewOutcome.Failure<AccessRemediationChangeView>(
+                RequestErrorKind.NotFound, "The review item was not found.");
         return await executor.ExecuteAsync(new AccessReviewCampaign(request.TenantId,
                 request.CampaignId),
             campaign => AccessReviewOutcome.From(campaign.RecordChange(request.ItemId,

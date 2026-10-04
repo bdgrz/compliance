@@ -13,4 +13,8 @@ public enum AccessGrantScopeKind
     Engagement,
     [JsonStringEnumMemberName("shared_resource")]
     SharedResource,
+    [JsonStringEnumMemberName("application")]
+    Application,
+    [JsonStringEnumMemberName("system_instance")]
+    SystemInstance,
 }
