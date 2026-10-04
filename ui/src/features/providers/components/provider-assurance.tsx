@@ -188,6 +188,26 @@ export function ProviderAssurance({ provider, ownerName }: { provider: Provider;
                           <p>{gap.assertion}</p>
                           <p>Uncovered period: {gap.periodStart} – {gap.periodEnd}</p>
                           {gap.description ? <p>{gap.description}</p> : null}
+                          {gap.redacted ? (
+                            <p>Risk acceptance details are restricted.</p>
+                          ) : gap.riskAcceptances.length > 0 ? (
+                            <>
+                              <ul aria-label="Linked R1-07 risk acceptances">
+                                {gap.riskAcceptances.map((acceptance) => (
+                                  <li key={acceptance.acceptanceId}>
+                                    R1-07 risk acceptance {acceptance.acceptanceId} for risk {acceptance.riskId}. Expires at{' '}
+                                    {acceptance.expiresAt}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p>The provider coverage gap stays open; remediation remains on the readiness-gap plan.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p>No R1-07 risk acceptance linked.</p>
+                              <p>The provider coverage gap stays open; remediation remains on the readiness-gap plan.</p>
+                            </>
+                          )}
                           <p>Status: Open · Provider owner: {owner}</p>
                         </article>
                       </li>

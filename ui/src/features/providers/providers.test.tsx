@@ -12,6 +12,8 @@ const tenantId = '0190a1b2-0000-7000-8000-000000000001';
 const providerId = '0190a1b2-0000-7000-8000-0000000000b1';
 const reportId = '0190a1b2-0000-7000-8000-0000000000b2';
 const coverageGapId = '0190a1b2-0000-7000-8000-0000000000b3';
+const riskId = '0190a1b2-0000-7000-8000-0000000000d1';
+const acceptanceId = '0190a1b2-0000-7000-8000-0000000000d2';
 const ownerId = '0190a1b2-0000-7000-8000-0000000000e1';
 const applicationId = '0190a1b2-0000-7000-8000-0000000000a1';
 const instanceId = '0190a1b2-0000-7000-8000-0000000000c1';
@@ -228,7 +230,17 @@ function assuranceAnswers(redactGapDescription = false) {
         recorded_by: { kind: 'member', id: 'm1', display: 'Casey Lead' },
         recorded_at: '2026-01-04T00:00:00Z',
         closure: null,
-        risk_acceptances: [],
+        risk_acceptances: [
+          {
+            program_id: '0190a1b2-0000-7000-8000-0000000000d3',
+            risk_id: riskId,
+            acceptance_id: acceptanceId,
+            expires_at: '2026-12-31T23:59:59Z',
+            linked_by: { kind: 'member', id: 'm2', display: 'Morgan Reviewer' },
+            linked_at: '2026-10-01T00:00:00Z',
+            revision: 1,
+          },
+        ],
       },
     ],
     next_cursor: null,
@@ -532,6 +544,10 @@ describe('provider detail, revisions and provenance (R1-14 frontend #232)', () =
     expect(container.textContent).toContain('Review overdue');
     expect(container.textContent).toContain('Next review due: 2026-09-20');
     expect(container.textContent).toContain('Provider owner: Riley Owner');
+    expect(container.textContent).toContain(`R1-07 risk acceptance ${acceptanceId}`);
+    expect(container.textContent).toContain(`risk ${riskId}`);
+    expect(container.textContent).toContain('Expires at 2026-12-31T23:59:59Z');
+    expect(container.textContent).toContain('The provider coverage gap stays open; remediation remains on the readiness-gap plan.');
     expect(container.textContent).not.toContain('Coverage current');
     expect(container.textContent).not.toContain('Current review');
     expect(container.textContent).not.toContain('Current evidence');
@@ -588,6 +604,9 @@ describe('provider detail, revisions and provenance (R1-14 frontend #232)', () =
 
     // Assert
     expect(container.textContent).not.toContain('Restricted remediation details.');
+    expect(container.textContent).not.toContain(acceptanceId);
+    expect(container.textContent).not.toContain(riskId);
+    expect(container.textContent).toContain('Risk acceptance details are restricted.');
     expect(await accessibilityViolations(container)).toEqual([]);
   });
 

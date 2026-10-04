@@ -17,6 +17,11 @@ interface ProviderCoverageGapResponse {
   };
   status: string;
   redacted?: boolean;
+  risk_acceptances?: ({
+    risk_id: string;
+    acceptance_id: string;
+    expires_at: string;
+  } | null)[] | null;
 }
 
 interface ProviderCoverageGapPage {
@@ -203,6 +208,14 @@ export interface ProviderCoverageGap {
   periodStart: string;
   periodEnd: string;
   description: string | null;
+  redacted: boolean;
+  riskAcceptances: ProviderCoverageGapRiskAcceptance[];
+}
+
+export interface ProviderCoverageGapRiskAcceptance {
+  riskId: string;
+  acceptanceId: string;
+  expiresAt: string;
 }
 
 export interface ProviderAssuranceData {
@@ -545,6 +558,14 @@ async function listCoverageGaps(tenantId: string, providerId: string): Promise<P
         periodStart: item.content.period_start,
         periodEnd: item.content.period_end,
         description: item.redacted ? null : item.content.description,
+        redacted: item.redacted ?? false,
+        riskAcceptances: (item.risk_acceptances ?? [])
+          .filter((acceptance): acceptance is NonNullable<typeof acceptance> => acceptance !== null)
+          .map((acceptance) => ({
+            riskId: acceptance.risk_id,
+            acceptanceId: acceptance.acceptance_id,
+            expiresAt: acceptance.expires_at,
+          })),
       });
     }
     cursor = result.data?.next_cursor ?? undefined;
