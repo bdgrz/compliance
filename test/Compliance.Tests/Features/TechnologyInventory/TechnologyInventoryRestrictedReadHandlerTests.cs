@@ -53,6 +53,162 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
     }
 
     [Fact]
+    public async Task ShouldHideAssetGivenSourceBecomesRestrictedDuringProjectionRead()
+    {
+        // Arrange
+        var view = Asset("public");
+        var source = AssetAggregate(view);
+        var directory = new InventoryDirectory([view])
+        {
+            OnAssetGet = () => Assert.Null(source.Revise(1,
+                current => current with { Classification = "restricted" }, Author,
+                DateTimeOffset.UtcNow)),
+        };
+        var handler = new GetInformationAssetHandler(new AggregateReader(source),
+            Consistency(directory, source), Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetInformationAsset(TenantId,
+            view.InformationAssetId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldRejectAssetGivenSourceRevisionChangesDuringProjectionRead()
+    {
+        // Arrange
+        var view = Asset("public");
+        var source = AssetAggregate(view);
+        var directory = new InventoryDirectory([view])
+        {
+            OnAssetGet = () => Assert.Null(source.Revise(1,
+                current => current with { Classification = "confidential" }, Author,
+                DateTimeOffset.UtcNow)),
+        };
+        var handler = new GetInformationAssetHandler(new AggregateReader(source),
+            Consistency(directory, source), Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetInformationAsset(TenantId,
+            view.InformationAssetId)), CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldHideFlowGivenSourceBecomesRestrictedDuringProjectionRead()
+    {
+        // Arrange
+        var view = Flow("public");
+        var source = FlowAggregate(view);
+        var directory = new InventoryDirectory(flows: [view])
+        {
+            OnFlowGet = () => Assert.Null(source.Revise(1,
+                current => current with { Classification = "restricted" }, Author,
+                DateTimeOffset.UtcNow)),
+        };
+        var handler = new GetDataFlowHandler(new AggregateReader(source),
+            Consistency(directory, source), Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetDataFlow(TenantId,
+            view.DataFlowId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldRejectFlowGivenSourceRevisionChangesDuringProjectionRead()
+    {
+        // Arrange
+        var view = Flow("public");
+        var source = FlowAggregate(view);
+        var directory = new InventoryDirectory(flows: [view])
+        {
+            OnFlowGet = () => Assert.Null(source.Revise(1,
+                current => current with { Classification = "confidential" }, Author,
+                DateTimeOffset.UtcNow)),
+        };
+        var handler = new GetDataFlowHandler(new AggregateReader(source),
+            Consistency(directory, source), Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetDataFlow(TenantId,
+            view.DataFlowId)), CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldHideAssetGivenRestrictedSourceChangesBeforeLaggingProjectionRead()
+    {
+        // Arrange
+        var view = Asset("public");
+        var source = AssetAggregate(view);
+        var reader = new AggregateReader(source)
+        {
+            OnHydrate = call =>
+            {
+                if (call == 2)
+                    Assert.Null(source.Revise(1,
+                        current => current with { Classification = "restricted" }, Author,
+                        DateTimeOffset.UtcNow));
+            },
+        };
+        var directory = new InventoryDirectory([view]);
+        var handler = new GetInformationAssetHandler(reader,
+            new TechnologyInventoryReadConsistency(directory, reader, new InMemoryEventStore()),
+            Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetInformationAsset(TenantId,
+            view.InformationAssetId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
+    public async Task ShouldHideFlowGivenRestrictedSourceChangesBeforeLaggingProjectionRead()
+    {
+        // Arrange
+        var view = Flow("public");
+        var source = FlowAggregate(view);
+        var reader = new AggregateReader(source)
+        {
+            OnHydrate = call =>
+            {
+                if (call == 2)
+                    Assert.Null(source.Revise(1,
+                        current => current with { Classification = "restricted" }, Author,
+                        DateTimeOffset.UtcNow));
+            },
+        };
+        var directory = new InventoryDirectory(flows: [view]);
+        var handler = new GetDataFlowHandler(reader,
+            new TechnologyInventoryReadConsistency(directory, reader, new InMemoryEventStore()),
+            Visibility());
+
+        // Act
+        var result = await handler.HandleAsync(Context(new GetDataFlow(TenantId,
+            view.DataFlowId)), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    [Fact]
     public async Task ShouldFilterRestrictedAssetsBeforeFillingListPageGivenNoScopedGrant()
     {
         // Arrange
@@ -225,7 +381,7 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
         new InMemoryEventStore());
 
     static TechnologyInventoryRestrictedVisibility Visibility() =>
-        new(new DenyPermission(), new DenyScopedPermission());
+        new(new ManagePermission(), new DenyScopedPermission());
 
     static RequestContext<T> Context<T>(T request) where T : IRequestBase =>
         new(request, new ClaimsPrincipal(new ClaimsIdentity(
@@ -266,9 +422,14 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
 
     sealed class AggregateReader(params Aggregate[] aggregates) : IAggregateReader
     {
+        int _hydrateCalls;
+
+        public Action<int>? OnHydrate { get; init; }
+
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
             CancellationToken ct = default) where TAggregate : Aggregate
         {
+            OnHydrate?.Invoke(++_hydrateCalls);
             var source = aggregates.FirstOrDefault(item => item.GetType() == aggregate.GetType() &&
                 item.Stream == aggregate.Stream);
             return ValueTask.FromResult(source is null ? aggregate : (TAggregate)source);
@@ -287,6 +448,8 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
         public List<(int Limit, string? Cursor)> FlowListCalls { get; } = [];
         public List<(int Limit, string? Cursor)> AssetRevisionListCalls { get; } = [];
         public Func<CancellationToken, ValueTask>? OnAssetListAsync { get; init; }
+        public Action? OnAssetGet { get; init; }
+        public Action? OnFlowGet { get; init; }
 
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
@@ -303,8 +466,12 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
             ValueTask.FromResult(new Page<TechnologyComponentView>([], null));
 
         public ValueTask<InformationAssetView?> GetAssetAsync(Uuid tenantId, Uuid assetId,
-            CancellationToken ct = default) => ValueTask.FromResult(_assets.SingleOrDefault(item =>
-            item.TenantId == tenantId && item.InformationAssetId == assetId));
+            CancellationToken ct = default)
+        {
+            OnAssetGet?.Invoke();
+            return ValueTask.FromResult(_assets.SingleOrDefault(item =>
+                item.TenantId == tenantId && item.InformationAssetId == assetId));
+        }
 
         public async ValueTask<Page<InformationAssetView>> ListAssetsAsync(Uuid tenantId, int limit,
             string? cursor, CancellationToken ct = default)
@@ -324,8 +491,12 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
         }
 
         public ValueTask<DataFlowView?> GetFlowAsync(Uuid tenantId, Uuid flowId,
-            CancellationToken ct = default) => ValueTask.FromResult(_flows.SingleOrDefault(item =>
-            item.TenantId == tenantId && item.DataFlowId == flowId));
+            CancellationToken ct = default)
+        {
+            OnFlowGet?.Invoke();
+            return ValueTask.FromResult(_flows.SingleOrDefault(item =>
+                item.TenantId == tenantId && item.DataFlowId == flowId));
+        }
 
         public ValueTask<Page<DataFlowView>> ListFlowsAsync(Uuid tenantId, int limit,
             string? cursor, CancellationToken ct = default)
@@ -348,10 +519,11 @@ public sealed class TechnologyInventoryRestrictedReadHandlerTests
         }
     }
 
-    sealed class DenyPermission : IPermissionAuthorizer
+    sealed class ManagePermission : IPermissionAuthorizer
     {
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
-            string permission, CancellationToken ct = default) => ValueTask.FromResult(false);
+            string permission, CancellationToken ct = default) =>
+            ValueTask.FromResult(permission == RbacPermissions.TechnologyInventoryManage);
     }
 
     sealed class DenyScopedPermission : IAccessGrantScopePermissionAuthorizer

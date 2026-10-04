@@ -1,6 +1,7 @@
 using System.Globalization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 
@@ -486,6 +487,89 @@ public sealed class AccessGrantPermissionAuthorizerTests
         // Act
         var allowed = await authorizer.IsAllowedAsync(TenantId, UserId, MemberId, ProgramId,
             RbacPermissions.ProgramManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Theory]
+    [InlineData(TechnologyInventoryResourceTypes.InformationAsset)]
+    [InlineData(TechnologyInventoryResourceTypes.DataFlow)]
+    public async Task ShouldFindTechnologyInventoryGrantGivenSupportedExactResourceScope(
+        string resourceType)
+    {
+        // Arrange
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(
+            AccessGrantScopeKind.SharedResource, Uuid.CreateVersion4(), resourceType))),
+            "client_personnel", [RbacPermissions.TechnologyInventoryManage]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyTechnologyInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.TechnologyInventoryManage);
+
+        // Assert
+        Assert.True(allowed);
+    }
+
+    [Theory]
+    [InlineData(AccessGrantScopeKind.Organization, null)]
+    [InlineData(AccessGrantScopeKind.Program, null)]
+    [InlineData(AccessGrantScopeKind.Application, null)]
+    [InlineData(AccessGrantScopeKind.SystemInstance, null)]
+    [InlineData(AccessGrantScopeKind.SharedResource, "application")]
+    [InlineData(AccessGrantScopeKind.SharedResource, null)]
+    public async Task ShouldIgnoreUnrelatedGrantGivenTechnologyInventoryReadGate(
+        AccessGrantScopeKind scopeKind, string? resourceType)
+    {
+        // Arrange
+        var scopeId = scopeKind == AccessGrantScopeKind.Organization ? TenantId : Uuid.CreateVersion4();
+        var authorizer = Authorizer(new GrantDirectory(Grant(new AccessGrantScope(scopeKind,
+            scopeId, resourceType))), "client_personnel", [RbacPermissions.TechnologyInventoryManage]);
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyTechnologyInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.TechnologyInventoryManage);
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Theory]
+    [InlineData("firm_staff")]
+    [InlineData("source_suspension")]
+    [InlineData("old_episode")]
+    [InlineData("role_deleted")]
+    [InlineData("permission_removed")]
+    [InlineData("team_deleted")]
+    [InlineData("team_removal")]
+    public async Task ShouldDenyTechnologyInventoryGateGivenIneligibleMemberOrGrantPath(
+        string condition)
+    {
+        // Arrange
+        var teamId = Uuid.CreateVersion4();
+        var teamGrant = condition is "team_deleted" or "team_removal";
+        var principal = new AccessGrantPrincipal(teamGrant ? AccessGrantPrincipalKind.Team :
+            AccessGrantPrincipalKind.Member, teamGrant ? teamId : MemberId);
+        var grant = Grant(new AccessGrantScope(AccessGrantScopeKind.SharedResource,
+            Uuid.CreateVersion4(), TechnologyInventoryResourceTypes.InformationAsset), principal);
+        var source = new RbacSourceReader
+        {
+            RoleDeleted = condition == "role_deleted",
+            PermissionRemoved = condition == "permission_removed",
+            TeamDeleted = condition == "team_deleted",
+        };
+        var authorizer = new AccessGrantPermissionAuthorizer(new GrantDirectory(grant),
+            new MembershipDirectory(condition == "firm_staff" ? "firm_staff" : "client_personnel"),
+            new TeamMemberDirectory(MemberId) { PendingRemoval = condition == "team_removal" },
+            new RolePermissions([RbacPermissions.TechnologyInventoryManage]), source,
+            new FixedTimeProvider(Now), new FixedMemberAccessEligibility(condition != "source_suspension")
+            {
+                MembershipEpisodeId = condition == "old_episode" ? Uuid.CreateVersion4() : Uuid.Empty,
+            });
+
+        // Act
+        var allowed = await authorizer.IsAllowedAtAnyTechnologyInventoryScopeAsync(TenantId,
+            UserId, MemberId, RbacPermissions.TechnologyInventoryManage);
 
         // Assert
         Assert.False(allowed);

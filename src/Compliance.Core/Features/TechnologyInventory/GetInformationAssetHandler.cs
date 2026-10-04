@@ -26,12 +26,22 @@ public sealed class GetInformationAssetHandler(IAggregateReader aggregates,
                 "The information asset was not found."));
         var asset = await consistency.GetAssetAsync(request.TenantId, request.InformationAssetId,
             request.MinimumRevision, ct).ConfigureAwait(false);
-        if (!asset.IsSuccess)
-            return asset;
-        if (!await visibility.CanReadAssetAsync(request.TenantId, userId, asset.Value, ct)
+        if (asset.IsSuccess && !await visibility.CanReadAssetAsync(request.TenantId, userId, asset.Value, ct)
                 .ConfigureAwait(false))
             return Result<InformationAssetView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The information asset was not found."));
+        var current = await aggregates.HydrateAsync(new InformationAsset(request.TenantId,
+            request.InformationAssetId), ct).ConfigureAwait(false);
+        if (!current.IsCreated || !await visibility.CanReadAssetAsync(request.TenantId, userId,
+                current.Id, current.Content?.Classification, ct).ConfigureAwait(false))
+            return Result<InformationAssetView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The information asset was not found."));
+        if (!asset.IsSuccess)
+            return asset;
+        if (current.Revision != asset.Value.Revision)
+            return Result<InformationAssetView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The information asset changed while it was being read. Retry the query.",
+                isTransient: true));
         return asset;
     }
 }

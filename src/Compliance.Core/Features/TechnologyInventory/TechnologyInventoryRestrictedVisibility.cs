@@ -32,21 +32,23 @@ public sealed class TechnologyInventoryRestrictedVisibility(IPermissionAuthorize
     async ValueTask<bool> CanReadAsync(Uuid tenantId, Uuid userId, Uuid viewTenantId,
         Uuid resourceId, string? classification, string resourceType, CancellationToken ct)
     {
-        if (tenantId == Uuid.Empty || viewTenantId != tenantId || resourceId == Uuid.Empty ||
+        if (tenantId == Uuid.Empty || userId == Uuid.Empty || viewTenantId != tenantId || resourceId == Uuid.Empty ||
             !TechnologyInventoryRules.IsClassification(classification))
+            return false;
+        var memberId = RbacIds.Member(tenantId, userId);
+        var scope = new AccessGrantScope(AccessGrantScopeKind.SharedResource, resourceId,
+            resourceType);
+        if (!await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TechnologyInventoryManage, ct).ConfigureAwait(false) &&
+            !await scopedPermissions.IsAllowedAtAnyScopeAsync(tenantId, userId, memberId,
+                [scope], RbacPermissions.TechnologyInventoryManage, ct).ConfigureAwait(false))
             return false;
         if (classification != "restricted")
             return true;
-        if (userId == Uuid.Empty)
-            return false;
-
-        var memberId = RbacIds.Member(tenantId, userId);
         if (await permissions.IsAllowedAsync(tenantId, userId, memberId,
                 RbacPermissions.TechnologyInventoryRestrictedRead, ct).ConfigureAwait(false))
             return true;
 
-        var scope = new AccessGrantScope(AccessGrantScopeKind.SharedResource, resourceId,
-            resourceType);
         return await scopedPermissions.IsAllowedAtAnyScopeAsync(tenantId, userId, memberId,
             [scope], RbacPermissions.TechnologyInventoryRestrictedRead, ct)
             .ConfigureAwait(false);

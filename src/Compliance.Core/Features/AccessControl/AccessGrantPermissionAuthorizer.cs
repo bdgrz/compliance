@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.TechnologyInventory;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
 
@@ -21,6 +22,10 @@ public interface IAccessGrantScopePermissionAuthorizer
 
     ValueTask<bool> IsAllowedAtAnyApplicationInventoryScopeAsync(Uuid tenantId, Uuid userId,
         Uuid memberId, string permission, CancellationToken ct = default);
+
+    ValueTask<bool> IsAllowedAtAnyTechnologyInventoryScopeAsync(Uuid tenantId, Uuid userId,
+        Uuid memberId, string permission, CancellationToken ct = default) =>
+        ValueTask.FromResult(false);
 }
 
 /// <summary>Evaluates one program operation against current membership and active scoped grants.</summary>
@@ -80,6 +85,16 @@ sealed class AccessGrantPermissionAuthorizer(IAccessGrantDirectory grants,
                 (scope.Kind == AccessGrantScopeKind.Organization && scope.Id == tenantId ||
                  scope.Kind is AccessGrantScopeKind.Application or
                      AccessGrantScopeKind.SystemInstance), ct).ConfigureAwait(false);
+        return eligible.Count != 0;
+    }
+
+    public async ValueTask<bool> IsAllowedAtAnyTechnologyInventoryScopeAsync(Uuid tenantId,
+        Uuid userId, Uuid memberId, string permission, CancellationToken ct = default)
+    {
+        var eligible = await GetEligibleGrantsAsync(tenantId, userId, memberId, permission,
+            scope => scope.Kind == AccessGrantScopeKind.SharedResource && scope.Id != Uuid.Empty &&
+                scope.ResourceType is TechnologyInventoryResourceTypes.InformationAsset or
+                    TechnologyInventoryResourceTypes.DataFlow, ct).ConfigureAwait(false);
         return eligible.Count != 0;
     }
 

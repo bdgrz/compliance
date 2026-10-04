@@ -132,6 +132,45 @@ public sealed class TechnologyInventoryRestrictedVisibilityTests
         Assert.Equal(0, grants.CallCount);
     }
 
+    [Theory]
+    [InlineData("public")]
+    [InlineData("internal")]
+    [InlineData("confidential")]
+    [InlineData("restricted")]
+    public async Task ShouldHideUnrelatedRecordGivenOnlyAnExactAssetGrant(string classification)
+    {
+        // Arrange
+        var granted = new AccessGrantScope(AccessGrantScopeKind.SharedResource,
+            Uuid.CreateVersion4(), TechnologyInventoryResourceTypes.InformationAsset);
+        var visibility = Visibility(new PermissionAuthorizer(false, manageAllowed: false),
+            new ScopedPermissionAuthorizer(granted));
+
+        // Act
+        var allowed = await visibility.CanReadAssetAsync(TenantId, UserId, Asset(classification));
+
+        // Assert
+        Assert.False(allowed);
+    }
+
+    [Theory]
+    [InlineData("public")]
+    [InlineData("restricted")]
+    public async Task ShouldKeepResourceTypesDistinctGivenAnAssetGrantWithTheFlowId(
+        string classification)
+    {
+        // Arrange
+        var grant = new AccessGrantScope(AccessGrantScopeKind.SharedResource, FlowId,
+            TechnologyInventoryResourceTypes.InformationAsset);
+        var visibility = Visibility(new PermissionAuthorizer(false, manageAllowed: false),
+            new ScopedPermissionAuthorizer(grant));
+
+        // Act
+        var allowed = await visibility.CanReadFlowAsync(TenantId, UserId, Flow(classification));
+
+        // Assert
+        Assert.False(allowed);
+    }
+
     static TechnologyInventoryRestrictedVisibility Visibility(
         PermissionAuthorizer permissions, ScopedPermissionAuthorizer grants) =>
         new(permissions, grants);
@@ -147,19 +186,22 @@ public sealed class TechnologyInventoryRestrictedVisibilityTests
             new DateOnly(2026, 1, 1), Uuid.CreateVersion4(), "active", classification),
         "manual", ActorReference.ForMember(UserId, "Inventory Manager"), DateTimeOffset.UtcNow);
 
-    sealed class PermissionAuthorizer(bool allowed) : IPermissionAuthorizer
+    sealed class PermissionAuthorizer(bool allowed, bool manageAllowed = true) : IPermissionAuthorizer
     {
         public int CallCount { get; private set; }
 
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default)
         {
-            CallCount++;
+            if (permission == RbacPermissions.TechnologyInventoryRestrictedRead)
+                CallCount++;
             Assert.Equal(TenantId, tenantId);
             Assert.Equal(UserId, userId);
             Assert.Equal(RbacIds.Member(TenantId, UserId), memberId);
-            Assert.Equal("technology_inventory.restricted.read", permission);
-            return ValueTask.FromResult(allowed);
+            Assert.Contains(permission, new[] { RbacPermissions.TechnologyInventoryManage,
+                RbacPermissions.TechnologyInventoryRestrictedRead });
+            return ValueTask.FromResult(permission == RbacPermissions.TechnologyInventoryManage
+                ? manageAllowed : allowed);
         }
     }
 
@@ -177,7 +219,8 @@ public sealed class TechnologyInventoryRestrictedVisibilityTests
             Assert.Equal(TenantId, tenantId);
             Assert.Equal(UserId, userId);
             Assert.Equal(RbacIds.Member(TenantId, UserId), memberId);
-            Assert.Equal("technology_inventory.restricted.read", permission);
+            Assert.Contains(permission, new[] { RbacPermissions.TechnologyInventoryManage,
+                RbacPermissions.TechnologyInventoryRestrictedRead });
             RequestedScopes.AddRange(scopes);
             return ValueTask.FromResult(scopes.Any(allowedScopes.Contains));
         }

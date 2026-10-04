@@ -4,7 +4,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.TechnologyInventory;
 
 sealed class TechnologyInventoryAuthorizer(ITenantMembershipDirectoryReader memberships,
-    ITenantActivity tenants, IPermissionAuthorizer permissions)
+    ITenantActivity tenants, IPermissionAuthorizer permissions,
+    IAccessGrantScopePermissionAuthorizer? scopedPermissions = null)
     : IRequestAuthorizer<ITechnologyInventoryRequest>
 {
     // Technology inventory has its own permission so its scoped authorization can evolve
@@ -27,11 +28,16 @@ sealed class TechnologyInventoryAuthorizer(ITenantMembershipDirectoryReader memb
         if (!await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The tenant is not active."));
-        return await permissions.IsAllowedAsync(tenantId, userId,
-                RbacIds.Member(tenantId, userId), RbacPermissions.TechnologyInventoryManage, ct)
-            .ConfigureAwait(false)
-            ? Result.Success
-            : Result.Failure(new RequestError(RequestErrorKind.Forbidden,
-                "The actor may not inspect or manage the technology inventory."));
+        var memberId = RbacIds.Member(tenantId, userId);
+        if (await permissions.IsAllowedAsync(tenantId, userId, memberId,
+                RbacPermissions.TechnologyInventoryManage, ct).ConfigureAwait(false))
+            return Result.Success;
+        if (context.Request is ITechnologyInventoryReadRequest && scopedPermissions is not null &&
+            await scopedPermissions.IsAllowedAtAnyTechnologyInventoryScopeAsync(tenantId,
+                userId, memberId, RbacPermissions.TechnologyInventoryManage, ct)
+                .ConfigureAwait(false))
+            return Result.Success;
+        return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+            "The actor may not inspect or manage the technology inventory."));
     }
 }
