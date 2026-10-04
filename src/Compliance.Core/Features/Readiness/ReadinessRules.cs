@@ -349,27 +349,9 @@ public static class ReadinessRules
                     coverageGap.GapId,
                     revisionAtAsOf.ToString(CultureInfo.InvariantCulture));
                 var sourcesForGap = new List<ReadinessSourceReference> { providerReference, source };
-                foreach (var link in linkedAcceptances.Where(link => link.ProgramId == programId))
-                {
-                    sourcesForGap.Add(new ReadinessSourceReference("risk", link.RiskId, null));
-                    sourcesForGap.Add(new ReadinessSourceReference("risk_acceptance",
-                        link.AcceptanceId, null));
-                }
                 var explanation = $"{coverageGap.Content.Assertion} for {coverageGap.Content.Service} " +
                                   $"({coverageGap.Content.PeriodStart:O} to {coverageGap.Content.PeriodEnd:O}) " +
-                                  $"remains uncovered: {coverageGap.Content.Description}";
-                var latestAcceptance = linkedAcceptances.LastOrDefault(link =>
-                    link.ProgramId == programId);
-                var activeAcceptance = latestAcceptance is not null &&
-                                       latestAcceptance.ExpiresAt > asOf
-                    ? latestAcceptance
-                    : null;
-                if (activeAcceptance is not null)
-                    explanation += $" Exposure is linked to accepted risk {activeAcceptance.RiskId} " +
-                                   $"through {activeAcceptance.ExpiresAt:O}; the provider gap remains open.";
-                else if (latestAcceptance is not null)
-                    explanation += $" Its linked risk acceptance expired at {latestAcceptance.ExpiresAt:O}; " +
-                                   "the provider gap remains open.";
+                                  $"remains uncovered; see provider coverage gap {coverageGap.GapId} for details.";
                 gaps.Add(new ReadinessGapView(GapIdFor(programId,
                         ProviderCoverageGapUnresolved, coverageGap.GapId.ToString()),
                     "provider_coverage_gap_unresolved", coverageGap.GapId.ToString(),

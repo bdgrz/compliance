@@ -102,7 +102,7 @@ public sealed class ReadinessSourceRulesTests
     }
 
     [Fact]
-    public void ShouldReferenceActiveRiskAcceptanceAndKeepProviderGapOpenGivenAcceptedExposure()
+    public void ShouldKeepProviderGapOpenAndRedactRestrictedDetailsGivenAcceptedExposure()
     {
         // Arrange
         var providerId = Uuid.CreateVersion4();
@@ -110,6 +110,7 @@ public sealed class ReadinessSourceRulesTests
         var riskId = Uuid.CreateVersion4();
         var acceptanceId = Uuid.CreateVersion4();
         var acceptedUntil = AsOf.AddDays(30);
+        const string restrictedDescription = "Private audit detail about the provider control gap.";
         var provider = new ProviderView(Tenant, providerId, 1,
             new ProviderContent("Cloud hosting", "hosting", Materiality: "material"), "manual", "active", [],
             ActorReference.ForMember(Uuid.CreateVersion4(), "Avery Author"), AsOf.AddDays(-2));
@@ -117,8 +118,13 @@ public sealed class ReadinessSourceRulesTests
             acceptanceId, acceptedUntil, ActorReference.ForMember(Uuid.CreateVersion4(), "Jordan Approver"),
             AsOf.AddDays(-1))
         { Revision = 2 };
-        var gap = CoverageGap(providerId, sourceGapId, 2, "open", AsOf.AddDays(-2), null) with
+        var sourceGap = CoverageGap(providerId, sourceGapId, 2, "open", AsOf.AddDays(-2), null);
+        var gap = sourceGap with
         {
+            Content = sourceGap.Content with
+            {
+                Description = restrictedDescription,
+            },
             RiskAcceptances = [acceptance],
         };
         var sources = ReadinessSourceSet.Empty with
@@ -133,10 +139,11 @@ public sealed class ReadinessSourceRulesTests
         var linkedGap = Assert.Single(evaluation.Gaps, item => item.Kind == "provider_coverage_gap_unresolved");
         Assert.Contains(linkedGap.Sources, source => source.Kind == "provider_coverage_gap" &&
             source.Id == sourceGapId && source.Version == "2");
-        Assert.Contains(linkedGap.Sources, source => source.Kind == "risk_acceptance" &&
-            source.Id == acceptanceId && source.Version is null);
-        Assert.Contains(riskId.ToString(), linkedGap.Explanation, StringComparison.Ordinal);
-        Assert.Contains("remains open", linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.DoesNotContain(linkedGap.Sources, source => source.Kind is "risk" or "risk_acceptance");
+        Assert.DoesNotContain(acceptanceId.ToString(), linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.DoesNotContain(riskId.ToString(), linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.DoesNotContain(restrictedDescription, linkedGap.Explanation, StringComparison.Ordinal);
+        Assert.Contains("remains uncovered", linkedGap.Explanation, StringComparison.Ordinal);
     }
 
     [Fact]
