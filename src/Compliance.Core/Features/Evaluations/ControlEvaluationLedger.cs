@@ -338,6 +338,14 @@ public sealed class ControlEvaluationLedger : Aggregate
             StringComparer.Ordinal)
         .Select(ToView).ToArray();
 
+    /// <summary>Current evaluation rounds awaiting independent review.</summary>
+    public IReadOnlyList<ControlEvaluationView> ReadAwaitingReview() => _evaluations.Values
+        .Where(static evaluation => evaluation.State == Submitted)
+        .OrderBy(static evaluation => evaluation.Started.StartedAt)
+        .ThenBy(static evaluation => evaluation.Started.EvaluationId.ToString(),
+            StringComparer.Ordinal)
+        .Select(ToView).ToArray();
+
     ControlEvaluationView ToView(EvaluationState evaluation)
     {
         var started = evaluation.Started;
