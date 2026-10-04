@@ -45,6 +45,14 @@ An information asset grant does not cover a flow that carries the asset. A data-
 
 List page limits apply to visible rows. The server can scan additional projection pages to fill a page after filtering. A cursor advances past rows consumed during that scan, and does not provide a total count of hidden records. Technology-inventory list and history reads return a transient conflict if their projection changes while the filtered page is being read.
 
+Direct asset and flow reads recheck authoritative source visibility after loading
+the projected row. If a concurrent change makes the record restricted to the
+caller, the result is NotFound. If its source revision changes while remaining
+visible, the result is a transient conflict. Asset boundary-reference reads
+apply the same final visibility and revision check before returning the page.
+These checks detect changes observed during the read; they do not introduce a
+transaction spanning inventory, permission, and boundary streams.
+
 Change previews use the same row visibility rules before counting scanned flows or deriving impact from linked assets. Hidden records do not affect the preview's result or its scan-limit indication.
 
 ## Delivery ownership

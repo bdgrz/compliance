@@ -32,6 +32,16 @@ public sealed class GetDataFlowHandler(IAggregateReader aggregates,
                 .ConfigureAwait(false))
             return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The data flow was not found."));
+        var current = await aggregates.HydrateAsync(new DataFlow(request.TenantId,
+            request.DataFlowId), ct).ConfigureAwait(false);
+        if (!current.IsCreated || !await visibility.CanReadFlowAsync(request.TenantId, userId,
+                current.Id, current.Content?.Classification, ct).ConfigureAwait(false))
+            return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The data flow was not found."));
+        if (current.Revision != flow.Value.Revision)
+            return Result<DataFlowView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The data flow changed while it was being read. Retry the query.",
+                isTransient: true));
         return flow;
     }
 }

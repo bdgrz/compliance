@@ -72,6 +72,34 @@ public sealed class InventoryBoundaryReferenceReadTests
     }
 
     [Fact]
+    public async Task ShouldHideAssetBoundaryReferencesGivenReclassificationDuringIndexRead()
+    {
+        // Arrange
+        var scenario = CreateScenario("public");
+        var asset = await scenario.Reader.HydrateAsync(new InformationAsset(scenario.TenantId,
+            scenario.AssetId));
+        scenario.Directory.Page = new([Reference(scenario.TenantId, "information", scenario.AssetId)], null);
+        scenario.Directory.OnList = () => Assert.Null(asset.Revise(1,
+            current => current with { Classification = "restricted" }, Author,
+            DateTimeOffset.UtcNow));
+        var handler = new ListInformationAssetBoundaryReferencesHandler(scenario.Reader,
+            scenario.Directory, scenario.Consistency, Visibility());
+        var userId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<ListInformationAssetBoundaryReferences>(
+            new ListInformationAssetBoundaryReferences(scenario.TenantId, scenario.AssetId), actor),
+            CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, result.Error!.Kind);
+        Assert.Equal(1, scenario.Directory.ListCalls);
+    }
+
+    [Fact]
     public async Task ShouldHideUnknownRecordsWithoutReadingTheIndexGivenNoSuchComponentOrAsset()
     {
         // Arrange
@@ -206,6 +234,7 @@ public sealed class InventoryBoundaryReferenceReadTests
         public int ListCalls { get; private set; }
         public (string SubjectType, Uuid RecordId, int Limit) LastQuery { get; private set; }
         public Page<ApplicationBoundaryReferenceView> Page { get; set; } = new([], null);
+        public Action? OnList { get; set; }
 
         public ValueTask<Page<ApplicationBoundaryReferenceView>> ListAsync(Uuid tenantId,
             string subjectType, Uuid recordId, int limit, string? cursor,
@@ -213,6 +242,7 @@ public sealed class InventoryBoundaryReferenceReadTests
         {
             ListCalls++;
             LastQuery = (subjectType, recordId, limit);
+            OnList?.Invoke();
             return RejectCursor
                 ? ValueTask.FromException<Page<ApplicationBoundaryReferenceView>>(
                     new KvDirectoryQueryException())
