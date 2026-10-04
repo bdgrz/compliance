@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Policies;
@@ -28,6 +29,7 @@ sealed class OperationsFixture
     public required ManagerPermissions Permissions { get; init; }
     public required ProgramBoundaries Boundaries { get; init; }
     public required ProgramPolicies Policies { get; init; }
+    public required ProgramCommitments Commitments { get; init; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
     public Uuid ProgramId { get; } = Uuid.CreateVersion4();
     public Uuid LeadUserId { get; } = Uuid.CreateVersion4();
@@ -114,6 +116,9 @@ sealed class OperationsFixture
                 services.AddSingleton<ProgramPolicies>();
                 services.AddSingleton<IPolicyDirectoryReader>(provider =>
                     provider.GetRequiredService<ProgramPolicies>());
+                services.AddSingleton<ProgramCommitments>();
+                services.AddSingleton<ICommitmentDraftDirectoryReader>(provider =>
+                    provider.GetRequiredService<ProgramCommitments>());
             });
         var fixture = new OperationsFixture
         {
@@ -121,6 +126,7 @@ sealed class OperationsFixture
             Permissions = permissions,
             Boundaries = boundaries,
             Policies = provider.GetRequiredService<ProgramPolicies>(),
+            Commitments = provider.GetRequiredService<ProgramCommitments>(),
         };
         permissions.Managers.Add(fixture.LeadMemberId);
         permissions.Managers.Add(fixture.ApproverMemberId);
@@ -411,5 +417,71 @@ sealed class OperationsFixture
                     ? next.ToString(System.Globalization.CultureInfo.InvariantCulture)
                     : null));
         }
+    }
+
+    public sealed class ProgramCommitments : ICommitmentDraftDirectoryReader
+    {
+        readonly List<CommitmentDraftView> _drafts = [];
+
+        public ProjectionCheckpoint Checkpoint { get; set; } = ProjectionCheckpoint.Start;
+        public ProjectionCheckpoint? CheckpointAfterNextList { get; set; }
+
+        public void Add(CommitmentDraftView draft)
+        {
+            var index = _drafts.FindIndex(existing => existing.DraftId == draft.DraftId);
+            if (index < 0)
+                _drafts.Add(draft);
+            else
+                _drafts[index] = draft;
+        }
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(Checkpoint);
+
+        public ValueTask<CommitmentDraftView?> GetAsync(Uuid tenantId, Uuid draftId,
+            CancellationToken ct = default) => ValueTask.FromResult(_drafts.FirstOrDefault(draft =>
+            draft.TenantId == tenantId && draft.DraftId == draftId));
+
+        public ValueTask<Page<CommitmentDraftView>> ListProgramAsync(Uuid tenantId,
+            Uuid programId, int limit, string? cursor, CancellationToken ct = default)
+        {
+            var offset = cursor is null ? 0 : int.Parse(cursor,
+                System.Globalization.CultureInfo.InvariantCulture);
+            var matching = _drafts.Where(draft => draft.TenantId == tenantId &&
+                    draft.ProgramId == programId)
+                .OrderBy(static draft => draft.Identifier, StringComparer.Ordinal)
+                .ToArray();
+            var page = matching.Skip(offset).Take(limit).ToArray();
+            var next = offset + page.Length;
+            if (CheckpointAfterNextList is { } checkpoint)
+            {
+                Checkpoint = checkpoint;
+                CheckpointAfterNextList = null;
+            }
+            return ValueTask.FromResult(new Page<CommitmentDraftView>(page,
+                next < matching.Length
+                    ? next.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null));
+        }
+
+        public ValueTask<CommitmentDraftRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid draftId, long revision, CancellationToken ct = default) =>
+            ValueTask.FromResult<CommitmentDraftRevisionView?>(null);
+
+        public ValueTask<CommitmentVersionView?> GetVersionAsync(Uuid tenantId, Uuid draftId,
+            long version, CancellationToken ct = default) =>
+            ValueTask.FromResult<CommitmentVersionView?>(null);
+
+        public ValueTask<Page<CommitmentVersionView>> ListVersionsAsync(Uuid tenantId,
+            Uuid draftId, int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<CommitmentVersionView>([], null));
+
+        public ValueTask<Page<CommitmentDecisionView>> ListDecisionsAsync(Uuid tenantId,
+            Uuid draftId, int limit, string? cursor, CancellationToken ct = default) =>
+            ValueTask.FromResult(new Page<CommitmentDecisionView>([], null));
+
+        public ValueTask<CommitmentDecisionView?> GetDecisionAsync(Uuid tenantId,
+            Uuid decisionId, CancellationToken ct = default) =>
+            ValueTask.FromResult<CommitmentDecisionView?>(null);
     }
 }
