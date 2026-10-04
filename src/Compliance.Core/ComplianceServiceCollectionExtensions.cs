@@ -184,6 +184,7 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzPolicyDirectory>());
         services.AddScoped<IPolicyDirectoryReader>(provider =>
             provider.GetRequiredService<FitzPolicyDirectory>());
+        services.AddScoped<PolicyDirectoryReadConsistency>();
         services.AddScoped<PolicyImpactService>();
         services.AddScoped<FitzCampaignDirectory>();
         services.AddScoped<ICampaignDirectoryProjection>(provider =>

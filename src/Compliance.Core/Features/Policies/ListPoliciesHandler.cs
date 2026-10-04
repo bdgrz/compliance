@@ -7,7 +7,7 @@ namespace Bdgrz.Compliance.Features.Policies;
 ///     flags any whose periodic review is overdue today.
 /// </summary>
 public sealed class ListPoliciesHandler(IPolicyDirectoryReader directory,
-    IDomainEventReader events, TimeProvider clock)
+    PolicyDirectoryReadConsistency consistency, TimeProvider clock)
     : IRequestHandler<ListPolicies, Page<PolicySummaryView>>
 {
     public async ValueTask<Result<Page<PolicySummaryView>>> HandleAsync(
@@ -17,17 +17,9 @@ public sealed class ListPoliciesHandler(IPolicyDirectoryReader directory,
         if (request.Limit is < 1 or > 200)
             return Result<Page<PolicySummaryView>>.Failure(new RequestError(
                 RequestErrorKind.Validation, "Limit must be between 1 and 200."));
-        var checkpoint = await directory.LoadCheckpointAsync(request.TenantId, ct)
-            .ConfigureAwait(false);
-        await using (var pending = events.ReadAsync(EventStreamPattern.ForPattern(
-                         request.TenantId.ToString(), "policies"), checkpoint.Cursor, ct)
-                     .GetAsyncEnumerator(ct))
-        {
-            if (await pending.MoveNextAsync().ConfigureAwait(false))
-                return Result<Page<PolicySummaryView>>.Failure(new RequestError(
-                    RequestErrorKind.Conflict, "The policy list projection has not reached the source.",
-                    isTransient: true));
-        }
+        var capture = await consistency.CaptureAsync(request.TenantId, ct).ConfigureAwait(false);
+        if (!capture.IsSuccess)
+            return Result<Page<PolicySummaryView>>.Failure(capture.Error);
         Page<PolicySummaryView> page;
         try
         {
@@ -43,6 +35,10 @@ public sealed class ListPoliciesHandler(IPolicyDirectoryReader directory,
                                    item.ProgramId != request.ProgramId))
             return Result<Page<PolicySummaryView>>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The policy projection has an invalid program scope."));
+        var confirmed = await consistency.ConfirmUnchangedAndCaughtUpAsync(request.TenantId,
+            capture.Value, ct).ConfigureAwait(false);
+        if (!confirmed.IsSuccess)
+            return Result<Page<PolicySummaryView>>.Failure(confirmed.Error);
         var today = PolicySource.Today(clock);
         return Result<Page<PolicySummaryView>>.Success(new Page<PolicySummaryView>(
             page.Items.Select(item => item with
