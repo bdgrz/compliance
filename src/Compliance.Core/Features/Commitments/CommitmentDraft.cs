@@ -36,6 +36,8 @@ public sealed class CommitmentDraft : Aggregate
 
     /// <summary>The accepted review of the current revision that is waiting for approval.</summary>
     public Uuid? AcceptedReviewDecisionId => _acceptedReview?.DecisionId;
+    public Uuid? AcceptedReviewerMemberId => _acceptedReview?.ReviewerMemberId;
+    public IReadOnlySet<Uuid> PendingAuthorMemberIds => new HashSet<Uuid>(_pendingAuthors);
     public long Revision => _revision;
     public Uuid ProgramId { get; private set; }
     public Uuid ServiceId { get; private set; }
