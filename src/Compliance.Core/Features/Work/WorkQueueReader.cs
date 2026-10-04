@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.PolicyDistribution;
+using Bdgrz.Compliance.Features.Policies;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
@@ -13,7 +14,9 @@ namespace Bdgrz.Compliance.Features.Work;
 /// </summary>
 public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority authority,
     TimeProvider clock, ICampaignDirectoryReader? campaigns = null,
-    IBoundaryDirectoryReader? boundaries = null)
+    IBoundaryDirectoryReader? boundaries = null,
+    IPolicyDirectoryReader? policies = null,
+    PolicyDirectoryReadConsistency? policyConsistency = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -55,6 +58,15 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidates.AddRange((await PolicyCampaignWork.LoadAsync(reader, campaigns, tenantId, programId,
                     today, ct).ConfigureAwait(false))
                 .Where(candidate => workItemId is not { } wanted || candidate.WorkItemId == wanted));
+        if (policies is not null)
+        {
+            var decisions = await PolicyDecisionWork.LoadAsync(reader, policies, policyConsistency,
+                tenantId, programId, today, today.AddDays(horizonDays), workItemId, ct)
+                .ConfigureAwait(false);
+            if (!decisions.IsSuccess)
+                return Result<WorkQueueSnapshot>.Failure(decisions.Error);
+            candidates.AddRange(decisions.Value);
+        }
         var ledger = await reader.HydrateAsync(new WorkAssignmentLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         var manages = await authority.ManagesProgramAsync(tenantId, actor, programId, ct)

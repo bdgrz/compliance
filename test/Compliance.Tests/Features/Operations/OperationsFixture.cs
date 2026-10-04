@@ -3,6 +3,7 @@ using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Operations;
+using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Responsibilities;
@@ -26,6 +27,7 @@ sealed class OperationsFixture
     public required ServiceProvider Provider { get; init; }
     public required ManagerPermissions Permissions { get; init; }
     public required ProgramBoundaries Boundaries { get; init; }
+    public required ProgramPolicies Policies { get; init; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
     public Uuid ProgramId { get; } = Uuid.CreateVersion4();
     public Uuid LeadUserId { get; } = Uuid.CreateVersion4();
@@ -109,12 +111,16 @@ sealed class OperationsFixture
                 services.AddScoped<WorkQueueReader>();
                 services.AddSingleton<IControlDraftDirectoryReader, ProgramControls>();
                 services.AddSingleton<IBoundaryDirectoryReader>(boundaries);
+                services.AddSingleton<ProgramPolicies>();
+                services.AddSingleton<IPolicyDirectoryReader>(provider =>
+                    provider.GetRequiredService<ProgramPolicies>());
             });
         var fixture = new OperationsFixture
         {
             Provider = provider,
             Permissions = permissions,
             Boundaries = boundaries,
+            Policies = provider.GetRequiredService<ProgramPolicies>(),
         };
         permissions.Managers.Add(fixture.LeadMemberId);
         permissions.Managers.Add(fixture.ApproverMemberId);
@@ -368,5 +374,42 @@ sealed class OperationsFixture
 
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => throw new NotSupportedException();
+    }
+
+    public sealed class ProgramPolicies : IPolicyDirectoryReader
+    {
+        readonly List<PolicySummaryView> _policies = [];
+
+        public void Add(PolicySummaryView summary)
+        {
+            var index = _policies.FindIndex(existing => existing.PolicyId == summary.PolicyId);
+            if (index < 0)
+                _policies.Add(summary);
+            else
+                _policies[index] = summary;
+        }
+
+        public PolicySummaryView? Find(Uuid policyId) =>
+            _policies.FirstOrDefault(policy => policy.PolicyId == policyId);
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+
+        public ValueTask<Page<PolicySummaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default)
+        {
+            var offset = cursor is null ? 0 : int.Parse(cursor,
+                System.Globalization.CultureInfo.InvariantCulture);
+            var matching = _policies.Where(policy => policy.TenantId == tenantId &&
+                    policy.ProgramId == programId)
+                .OrderBy(static policy => policy.Identifier, StringComparer.Ordinal)
+                .ToArray();
+            var page = matching.Skip(offset).Take(limit).ToArray();
+            var next = offset + page.Length;
+            return ValueTask.FromResult(new Page<PolicySummaryView>(page,
+                next < matching.Length
+                    ? next.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null));
+        }
     }
 }

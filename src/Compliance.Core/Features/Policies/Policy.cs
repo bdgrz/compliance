@@ -44,6 +44,9 @@ public sealed class Policy : Aggregate
     public string? Identifier => _identifier;
     public PolicyContent? DraftContent => _draftOpen ? _draft : null;
     public long? DraftPredecessorVersion => _draftOpen ? _draftPredecessor : null;
+    public IReadOnlySet<Uuid> PendingAuthorMemberIds => new HashSet<Uuid>(_pendingAuthors);
+    public Uuid? AcceptedReviewDecisionId => _acceptedReview?.DecisionId;
+    public Uuid? AcceptedReviewerMemberId => _acceptedReview?.ReviewerMemberId;
     public bool IsRetired => _retired;
     public PolicyVersionView? CurrentVersion => _versions.LastOrDefault();
     public IReadOnlyList<PolicyVersionView> ReadVersions() => _versions.ToArray();
