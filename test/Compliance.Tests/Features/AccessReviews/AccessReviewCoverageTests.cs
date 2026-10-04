@@ -217,6 +217,36 @@ public sealed class AccessReviewCoverageTests
         Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
     }
 
+    [Fact]
+    public async Task ShouldHideForeignScopeDecisionGivenCoverageRead()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var instance = Assert.Single(CreateInstances(tenantId, applicationId, 1));
+        var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Compliance Lead");
+        var asOf = DateTimeOffset.UtcNow;
+        var scope = Record(instance, "included", asOf.AddDays(-1), actor);
+        var decision = Assert.Single(scope.Decisions) with
+        {
+            SystemInstanceId = Uuid.CreateVersion4(),
+        };
+        var reader = new SourceReader(tenantId, applicationId);
+        var directory = new ApplicationDirectory(tenantId, applicationId, [instance]);
+        var events = new InMemoryEventStore();
+        var handler = CreateHandler(directory,
+            new ScopeDirectory([scope with { Decisions = [decision] }]),
+            new PopulationDirectory(), reader, events);
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<GetAccessReviewCoverage>(
+            new GetAccessReviewCoverage(tenantId, applicationId, asOf), new ClaimsPrincipal()),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
     static GetAccessReviewCoverageHandler CreateHandler(ApplicationDirectory directory,
         ScopeDirectory scopes, PopulationDirectory populations,
         IAggregateReader reader, IDomainEventReader events)

@@ -72,7 +72,11 @@ public sealed class GetAccessReviewCoverageHandler(IApplicationDirectoryReader a
         var record = await scopes.GetAsync(tenantId, instance.SystemInstanceId, ct).ConfigureAwait(false);
         if (record is not null && (record.TenantId != tenantId ||
                                    record.ApplicationId != instance.ApplicationId ||
-                                   record.SystemInstanceId != instance.SystemInstanceId))
+                                   record.SystemInstanceId != instance.SystemInstanceId ||
+                                   record.Decisions is null ||
+                                   record.Decisions.Any(decision => decision.TenantId != tenantId ||
+                                       decision.ApplicationId != instance.ApplicationId ||
+                                       decision.SystemInstanceId != instance.SystemInstanceId)))
             return AccessReviewOutcome.Failure<AccessReviewInstanceCoverageView>(
                 RequestErrorKind.NotFound, "The system instances were not found.");
         var scope = AccessReviewScopeStatus.Evaluate(instance, record?.Decisions ?? [], asOf).Status;
