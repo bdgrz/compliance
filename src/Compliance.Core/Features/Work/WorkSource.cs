@@ -1,4 +1,6 @@
+using System.Globalization;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Risks;
@@ -8,10 +10,10 @@ namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
 ///     Derives open work from the authoritative source ledgers at read time (M0-D15): control
-///     occurrences to perform, control attestation and evaluation reviews, corrective actions,
-///     risk treatment actions and reviews, evidence requests, and boundary decisions. Nothing here
-///     is stored, so completing source work removes the item and a projection-only change can never
-///     complete it.
+///     occurrences to perform; control-plan approvals; control-attestation, control-mapping,
+///     criterion-applicability, evaluation, boundary, and risk-treatment reviews; corrective
+///     actions; and evidence requests. Nothing here is stored, so completing source work removes
+///     the item and a projection-only change can never complete it.
 /// </summary>
 static class WorkSource
 {
@@ -23,6 +25,8 @@ static class WorkSource
     public const string RiskTreatmentActionReview = "risk_treatment_action_review";
     public const string ControlEvaluationReview = "control_evaluation_review";
     public const string ControlOperatingPlanApproval = "control_operating_plan_approval";
+    public const string ControlCriterionMappingReview = "control_criterion_mapping_review";
+    public const string CriterionApplicabilityReview = "criterion_applicability_review";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
@@ -154,6 +158,50 @@ static class WorkSource
                 $"{prefix}/controls/{evaluation.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 new HashSet<Uuid> { evaluation.EvaluatorMemberId }, submission.SubmittedAt));
+        }
+        var mappings = await reader.HydrateAsync(new ControlCriterionMappingLedger(tenantId,
+            programId), ct).ConfigureAwait(false);
+        foreach (var mapping in mappings.ReadAll().Where(static mapping =>
+                     mapping.Status == "pending" &&
+                     mapping.Versions.Count > 0 && mapping.Versions[^1].Status == "proposed"))
+        {
+            var proposal = mapping.Versions[^1];
+            var identity = Uuid.CreateVersion5(mapping.MappingId,
+                $"control-criterion-mapping-review\n{proposal.VersionNumber}");
+            var candidateId = WorkCandidate.IdFor(identity, ControlCriterionMappingReview);
+            if (workItemId is { } wantedMapping && candidateId != wantedMapping)
+                continue;
+            var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id, CultureInfo.InvariantCulture);
+            candidates.Add(new WorkCandidate(candidateId, ControlCriterionMappingReview,
+                mapping.MappingId, mapping.ControlId, null,
+                $"Review control mapping for {mapping.CriterionIdentifier}",
+                "A control-to-criteria mapping proposal is awaiting independent review.", null,
+                null, "review",
+                $"{prefix}/control-mappings/{mapping.MappingId}/reviews",
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                new HashSet<Uuid> { proposerMemberId }, proposal.ProposedAt));
+        }
+        var applicability = await reader.HydrateAsync(new CriterionApplicabilityLedger(tenantId,
+            programId), ct).ConfigureAwait(false);
+        foreach (var decision in applicability.ReadAll().Where(static decision =>
+                     decision.Status == "pending" &&
+                     decision.Versions.Count > 0 &&
+                     decision.Versions[^1].Status == "proposed"))
+        {
+            var proposal = decision.Versions[^1];
+            var identity = Uuid.CreateVersion5(decision.DecisionId,
+                $"criterion-applicability-review\n{proposal.VersionNumber}");
+            var candidateId = WorkCandidate.IdFor(identity, CriterionApplicabilityReview);
+            if (workItemId is { } wantedApplicability && candidateId != wantedApplicability)
+                continue;
+            var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id, CultureInfo.InvariantCulture);
+            candidates.Add(new WorkCandidate(candidateId, CriterionApplicabilityReview,
+                decision.DecisionId, null, null,
+                $"Review not-applicable proposal for {decision.CriterionIdentifier}",
+                "A criterion not-applicable proposal is awaiting independent review.", null, null,
+                "review", $"{prefix}/criterion-applicability/{decision.DecisionId}/reviews",
+                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                new HashSet<Uuid> { proposerMemberId }, proposal.ProposedAt));
         }
         foreach (var controlId in operations.PlannedControlIds)
         {
