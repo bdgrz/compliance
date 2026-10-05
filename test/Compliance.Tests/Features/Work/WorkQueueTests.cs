@@ -10,6 +10,7 @@ using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Work;
 
@@ -172,6 +173,58 @@ public sealed class WorkQueueTests
 
         // Assert
         Assert.Empty(completedQueue.Items);
+    }
+
+    [Fact]
+    public async Task ShouldNotDuplicateBoundaryReviewGivenProjectionAndLiveSource()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var changedAt = now.AddMinutes(-5);
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", changedAt).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", changedAt.AddMinutes(1), changedAt.AddMinutes(1),
+                    null, []));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                changedAt), null, null, 1));
+        await fixture.CatchUpBoundaryDirectoryAsync();
+
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var sourceReader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var live = await BoundaryDecisionWork.LoadAsync(sourceReader, fixture.Boundaries,
+            fixture.TenantId, fixture.ProgramId, now, null, CancellationToken.None);
+        var candidate = Assert.Single(live.Value);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var projected = new ProjectedBoundaryWorkItemDirectory(candidate,
+            await ReadBoundaryCheckpointAsync(events, fixture.TenantId));
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        var queue = new WorkQueueReader(sourceReader,
+            scope.ServiceProvider.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
+            consistency, boundaries: fixture.Boundaries, accountableWorkItems: [projected]);
+        var actor = new OperationsActor(fixture.ReviewerUserId, fixture.ReviewerMemberId,
+            "Reviewer");
+
+        // Act
+        var result = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Value.Entries, entry => entry.Item.Kind == "boundary_review");
     }
 
     [Fact]
@@ -584,5 +637,36 @@ public sealed class WorkQueueTests
         var owner = await fixture.AsAsync(fixture.OwnerUserId,
             new ListWork(fixture.TenantId, fixture.ProgramId, "all"));
         Assert.DoesNotContain(owner.Items, item => item.WorkItemId == review.WorkItemId);
+    }
+
+    static async Task<ProjectionCheckpoint> ReadBoundaryCheckpointAsync(
+        IDomainEventReader events, Uuid tenantId)
+    {
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(
+                           tenantId.ToString(), "boundaries"), cursor, CancellationToken.None))
+            cursor = record.NextCursor;
+        return new ProjectionCheckpoint(cursor);
+    }
+
+    sealed class ProjectedBoundaryWorkItemDirectory(WorkCandidate candidate,
+        ProjectionCheckpoint checkpoint) : IAccountableWorkItemDirectoryReader
+    {
+        static readonly string[] Kinds = ["boundary_review", "boundary_approval"];
+
+        public string ProjectorName => "AccountableWorkItemBoundaryDecisionV1";
+
+        public IReadOnlyCollection<string> ProjectedKinds => Kinds;
+
+        public EventStreamPattern SourcePattern(Uuid tenantId) =>
+            EventStreamPattern.ForPattern(tenantId.ToString(), "boundaries");
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(checkpoint);
+
+        public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, CancellationToken ct = default) =>
+            ValueTask.FromResult<Result<IReadOnlyList<WorkCandidate>>>(
+                Result<IReadOnlyList<WorkCandidate>>.Success([candidate]));
     }
 }

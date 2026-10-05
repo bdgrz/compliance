@@ -252,13 +252,15 @@ static class WorkSource
                     pending.ProposerMemberId, pending.ProposedAt));
             }
         }
-        if (boundaries is not null)
+        if (boundaries is not null &&
+            BoundaryDecisionWork.ProjectedKinds.Any(kind => !projectedKinds.Contains(kind)))
         {
             var boundaryWork = await BoundaryDecisionWork.LoadAsync(reader, boundaries,
                 tenantId, programId, now, workItemId, ct).ConfigureAwait(false);
             if (!boundaryWork.IsSuccess)
                 return Result<IReadOnlyList<WorkCandidate>>.Failure(boundaryWork.Error);
-            candidates.AddRange(boundaryWork.Value);
+            candidates.AddRange(boundaryWork.Value.Where(candidate =>
+                !projectedKinds.Contains(candidate.Kind)));
         }
         return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }

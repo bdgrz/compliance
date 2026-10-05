@@ -81,7 +81,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         var candidates = work.Value.ToList();
         foreach (var workItems in _accountableWorkItems)
         {
-            var projected = await workItems.LoadProgramAsync(tenantId, programId, today,
+            var projected = await workItems.LoadProgramAsync(tenantId, programId, now,
                 today.AddDays(horizonDays), workItemId, ct).ConfigureAwait(false);
             if (!projected.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(projected.Error);

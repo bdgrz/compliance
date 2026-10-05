@@ -19,4 +19,9 @@ public interface IAccountableWorkItemDirectoryReader
     ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
         Uuid programId, DateOnly today, DateOnly horizon, Uuid? workItemId,
         CancellationToken ct = default) => LoadProgramAsync(tenantId, programId, ct);
+
+    ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+        Uuid programId, DateTimeOffset now, DateOnly horizon, Uuid? workItemId,
+        CancellationToken ct = default) => LoadProgramAsync(tenantId, programId,
+        DateOnly.FromDateTime(now.UtcDateTime), horizon, workItemId, ct);
 }
