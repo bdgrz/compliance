@@ -53,8 +53,7 @@ sealed class FitzBoundaryDecisionWorkItemDirectory(IKvClient client, IAggregateR
             throw new InvalidOperationException(
                 "A boundary work event must match its authoritative source aggregate.");
 
-        if (boundary.DraftVersionId == Uuid.Empty || boundary.DraftChangedAt is not { } changedAt ||
-            boundary.DraftRevision < 1 || boundary.DraftAuthorMemberId == Uuid.Empty)
+        if (boundary.DraftVersionId == Uuid.Empty)
         {
             if (current is not null)
                 await BoundaryDecisionWorkItemDirectorySchema.Boundaries.DeleteAsync(Transaction,
@@ -62,6 +61,11 @@ sealed class FitzBoundaryDecisionWorkItemDirectory(IKvClient client, IAggregateR
         }
         else
         {
+            if (!boundary.IsVisible || boundary.DraftChangedAt is not { } changedAt ||
+                boundary.DraftRevision < 1 || boundary.DraftAuthorMemberId == Uuid.Empty)
+                throw new InvalidOperationException(
+                    "An open boundary draft must have complete work projection state.");
+
             var scope = new ResponsibilityScope("boundary", boundaryId,
                 boundary.DraftVersionId, boundary.DraftRevision);
             var assignments = boundary.GetResponsibilitySet(scope).ReadAssignments().ToArray();
