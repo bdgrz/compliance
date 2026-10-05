@@ -46,10 +46,11 @@ public sealed class EvaluationDeviationFindingTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
-        var evaluation = await fixture.AsAsync(fixture.OwnerUserId, new StartControlEvaluation(
-            fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync(
             [new("implementation", "reperformance", [new("artifact", "exports/q3.csv", "sha256:1")],
-                "Every leaver was removed.")]));
+                "Every leaver was removed.")]);
+        var evaluation = await fixture.AsAsync(fixture.OwnerUserId, new StartControlEvaluation(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, plan.PlanVersionId));
         evaluation = await fixture.AsAsync(fixture.OwnerUserId, new RecordControlEvaluationStep(
             fixture.TenantId, fixture.ProgramId, fixture.ControlId, evaluation.EvaluationId,
             evaluation.Steps[0].StepId, evaluation.Revision, "not_met", "Two leavers active.",

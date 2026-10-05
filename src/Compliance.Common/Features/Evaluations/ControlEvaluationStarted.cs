@@ -8,4 +8,9 @@ public sealed record ControlEvaluationStarted(Uuid TenantId, Uuid ProgramId, Uui
     Uuid EvaluationId, long Revision, Uuid ControlVersionId,
     IReadOnlyList<EvaluationProcedureStep> Steps, Uuid EvaluatorMemberId, ActorReference StartedBy,
     DateTimeOffset StartedAt, Uuid? RetestOfEvaluationId, IReadOnlyList<Uuid> RetestOfDeviationIds)
-    : DomainEvent;
+    : DomainEvent
+{
+    /// <summary>The exact immutable procedure version used by new evaluations.</summary>
+    public Uuid? PlanVersionId { get; init; }
+    public long? PlanVersion { get; init; }
+}

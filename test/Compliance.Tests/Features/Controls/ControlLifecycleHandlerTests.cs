@@ -848,6 +848,7 @@ public sealed class ControlLifecycleHandlerTests
             await ProgramManagementServices.SeedAsync(Provider,
                 new ControlEvaluationLedger(TenantId, ProgramId), ledger =>
                     CommandResult(ledger.Start(ControlId, evaluationId, InitialVersionId,
+                        Uuid.CreateVersion4(), 1,
                         [new EvaluationProcedureStep("design", "inspection",
                             [artifactId is { } artifact
                                 ? new EvaluationInspectedItem("artifact", artifact.ToString(), "sha256:original")

@@ -110,13 +110,23 @@ public sealed class ControlEvaluationLedger : Aggregate
     public bool Contains(Uuid evaluationId) => _evaluations.ContainsKey(evaluationId);
 
     public CommandFailure? Start(Uuid controlId, Uuid evaluationId, Uuid controlVersionId,
-        IReadOnlyList<EvaluationProcedureStep>? steps, Uuid? retestOfEvaluationId,
+        Uuid planVersionId, long planVersion, IReadOnlyList<EvaluationProcedureStep>? steps,
+        Uuid? retestOfEvaluationId,
         Uuid evaluatorMemberId, string evaluatorDisplay, DateTimeOffset startedAt)
     {
         if (_evaluations.TryGetValue(evaluationId, out var existing))
-            return existing.Started.EvaluatorMemberId == evaluatorMemberId
+            return existing.Started.ControlId == controlId &&
+                   existing.Started.ControlVersionId == controlVersionId &&
+                   existing.Started.PlanVersionId == planVersionId &&
+                   existing.Started.PlanVersion == planVersion &&
+                   existing.Started.RetestOfEvaluationId == retestOfEvaluationId &&
+                   existing.Started.EvaluatorMemberId == evaluatorMemberId &&
+                   SameProcedure(existing.Started.Steps, steps)
                 ? null
                 : CommandFailure.StateConflict("The evaluation request was already recorded.");
+        if (planVersionId == Uuid.Empty || planVersion < 1)
+            return CommandFailure.InvalidContent(
+                "An evaluation must use an exact control-evaluation plan version.");
         IReadOnlyList<Uuid> retestDeviations = [];
         if (retestOfEvaluationId is { } originalId)
         {
@@ -127,16 +137,23 @@ public sealed class ControlEvaluationLedger : Aggregate
             if (accepted is null || !accepted.Deviations.Any(static d => d.Classification == Material))
                 return CommandFailure.StateConflict(
                     "Only an accepted evaluation with a material deviation can be retested.");
+            if (original.Started.PlanVersion is { } originalPlanVersion &&
+                planVersion < originalPlanVersion)
+                return CommandFailure.StateConflict(
+                    "A retest must use its original plan version or a successor version.");
             retestDeviations = accepted.Deviations.Where(static d => d.Classification == Material)
                 .Select(static d => d.DeviationId).ToArray();
-            steps ??= original.Started.Steps;
         }
         if (ValidateProcedure(steps) is { } invalid)
             return invalid;
         RaiseEvent(new ControlEvaluationStarted(_tenantId, Id, controlId, evaluationId, 1,
             controlVersionId, steps!.Select(Clean).ToArray(), evaluatorMemberId,
             ActorReference.ForMember(evaluatorMemberId, evaluatorDisplay), startedAt,
-            retestOfEvaluationId, retestDeviations));
+            retestOfEvaluationId, retestDeviations)
+        {
+            PlanVersionId = planVersionId,
+            PlanVersion = planVersion,
+        });
         return null;
     }
 
@@ -145,11 +162,22 @@ public sealed class ControlEvaluationLedger : Aggregate
         if (steps is null || steps.Count is < 1 or > MaximumSteps || steps.Any(static step =>
                 step is null || !Assertions.Contains(step.Assertion) ||
                 !Methods.Contains(step.Method) || !IsBoundedText(step.ExpectedCondition) ||
-                !AreItems(step.InspectedItems, required: true)))
+                step.InspectedItems is null || step.InspectedItems.Count is < 1 or > MaximumItems))
             return CommandFailure.InvalidContent(
-                "A procedure needs 1 to 100 steps, each with an assertion of design, implementation, or evidence_sufficiency, a method of inquiry, inspection, observation, or reperformance, an expected condition, and 1 to 50 inspected items naming a record or artifact with its exact version.");
+                "A procedure needs 1 to 100 steps, each with an assertion of design, implementation, or evidence_sufficiency, a method of inquiry, inspection, observation, or reperformance, an expected condition, and 1 to 50 inspected items.");
+        if (steps.Any(static step => !AreItems(step.InspectedItems, required: true)))
+            return CommandFailure.InvalidContent(
+                "Each inspected item needs a kind of record, artifact, boundary, commitment, risk, criterion, control, policy, provider, or evidence, plus an exact reference and version.");
         return null;
     }
+
+    static bool SameProcedure(IReadOnlyList<EvaluationProcedureStep> existing,
+        IReadOnlyList<EvaluationProcedureStep>? candidate) => candidate is not null &&
+        existing.Count == candidate.Count && existing.Zip(candidate).All(static pair =>
+            pair.First.Assertion == pair.Second.Assertion &&
+            pair.First.Method == pair.Second.Method &&
+            pair.First.ExpectedCondition == pair.Second.ExpectedCondition &&
+            pair.First.InspectedItems.SequenceEqual(pair.Second.InspectedItems));
 
     public CommandFailure? RecordStep(Uuid controlId, Uuid evaluationId, Uuid stepId,
         long expectedRevision, string result, string rationale,
@@ -374,7 +402,11 @@ public sealed class ControlEvaluationLedger : Aggregate
             evaluation.Deviations.ToArray(), evaluation.Submissions.ToArray(),
             evaluation.Reviews.ToArray(), evaluation.Reviews.LastOrDefault(), accepted?.Overall,
             started.RetestOfEvaluationId, started.RetestOfDeviationIds, retestStatus,
-            retests.Select(static other => other.Started.EvaluationId).ToArray());
+            retests.Select(static other => other.Started.EvaluationId).ToArray())
+        {
+            PlanVersionId = started.PlanVersionId,
+            PlanVersion = started.PlanVersion,
+        };
     }
 
     static EvaluationSubmissionView? AcceptedSubmission(EvaluationState evaluation) =>
@@ -427,9 +459,11 @@ public sealed class ControlEvaluationLedger : Aggregate
 
     static bool AreItems(IReadOnlyList<EvaluationInspectedItem>? items, bool required) =>
         items is not null && (!required || items.Count > 0) && items.Count <= MaximumItems &&
-        items.All(static item => item is not null && item.Kind is "record" or "artifact" &&
-            !string.IsNullOrWhiteSpace(item.Reference) && item.Reference.Trim().Length <= 2000 &&
-            !string.IsNullOrWhiteSpace(item.Version) && item.Version.Trim().Length <= 200);
+        items.All(static item => item is not null && (item.Kind is "record" or "artifact" or
+            "boundary" or "commitment" or "risk" or "criterion" or "control" or "policy" or
+            "provider" or "evidence") && !string.IsNullOrWhiteSpace(item.Reference) &&
+            item.Reference.Trim().Length <= 2000 && !string.IsNullOrWhiteSpace(item.Version) &&
+            item.Version.Trim().Length <= 200);
 
     static EvaluationInspectedItem Clean(EvaluationInspectedItem item) =>
         new(item.Kind, item.Reference.Trim(), item.Version.Trim());
