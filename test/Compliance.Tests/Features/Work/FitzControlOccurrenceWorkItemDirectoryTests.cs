@@ -33,6 +33,46 @@ public sealed class FitzControlOccurrenceWorkItemDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldMatchLedgerAfterReassigningOpenEventDrivenOccurrenceGivenReplacementPlan()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var cadence = new ControlCadence("ad_hoc", DueWithinDays: 10);
+        await fixture.PlanAsync(cadence: cadence);
+        var opened = await fixture.AsAsync(fixture.OwnerUserId, new OpenControlOccurrence(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, "Quarterly access review",
+            fixture.Today));
+        var replacementOwner = new OperatingHolder(OperatingAuthority.MemberHolder,
+            fixture.BackupMemberId);
+        await fixture.PlanAsync(owner: replacementOwner, cadence: cadence,
+            effectiveFrom: fixture.Today);
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var sourceReader = sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var horizon = today.AddDays(30);
+        var ledgerWork = await WorkSource.LoadAsync(sourceReader, fixture.TenantId,
+            fixture.ProgramId, today, horizon, now, null, fixture.Boundaries,
+            new HashSet<string>(StringComparer.Ordinal), CancellationToken.None);
+        var directory = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            sourceReader);
+        await CatchUpAsync(fixture, directory);
+
+        // Act
+        var projectedWork = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId,
+            today, horizon, null, CancellationToken.None);
+
+        // Assert
+        Assert.True(ledgerWork.IsSuccess);
+        Assert.True(projectedWork.IsSuccess);
+        AssertEquivalentCandidates(ledgerWork.Value.Where(IsOccurrenceWork).ToArray(),
+            projectedWork.Value);
+        var candidate = Assert.Single(projectedWork.Value,
+            item => item.Kind == WorkSource.ControlOccurrence && item.SourceId == opened.OccurrenceId);
+        Assert.Equal(replacementOwner, candidate.Responsible);
+    }
+
+    [Fact]
     public async Task ShouldMatchLedgerOccurrenceCandidatesGivenApprovedPlanAndHorizon()
     {
         // Arrange
@@ -108,6 +148,38 @@ public sealed class FitzControlOccurrenceWorkItemDirectoryTests
                     item.SourceId == occurrence.OccurrenceId);
         Assert.Equal("attest", returnedOccurrence.NextAction);
         Assert.Equal(occurrence.DueOn, returnedOccurrence.DueOn);
+    }
+
+    [Fact]
+    public async Task ShouldKeepReviewWorkGivenDeferredDecision()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var plan = await fixture.PlanAsync();
+        var occurrence = (await fixture.OccurrencesAsync())
+            .First(item => item.PeriodStart <= fixture.Today);
+        var attested = await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(occurrence));
+        var deferred = await fixture.AsAsync(fixture.ReviewerUserId,
+            fixture.Review(attested, "deferred"));
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var sourceReader = sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var directory = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            sourceReader);
+        await CatchUpAsync(fixture, directory);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Act
+        var work = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId, today,
+            today.AddDays(30), null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal("deferred", deferred.State);
+        Assert.True(work.IsSuccess);
+        var review = Assert.Single(work.Value, item =>
+            item.Kind == WorkSource.OccurrenceReview && item.SourceId == occurrence.OccurrenceId);
+        Assert.Equal(new OperatingHolder(OperatingAuthority.MemberHolder,
+            plan.ReviewerMemberId), review.Responsible);
+        Assert.Contains(fixture.OwnerMemberId, review.Excluded);
     }
 
     [Fact]
