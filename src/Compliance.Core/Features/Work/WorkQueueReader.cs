@@ -88,7 +88,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidates.AddRange(projected.Value.Where(candidate =>
                 workItemId is not { } wanted || candidate.WorkItemId == wanted));
         }
-        if (campaigns is not null)
+        if (campaigns is not null && !PolicyCampaignWork.IsFullyProjected(projectedKinds))
         {
             var consistency = campaignConsistency ?? throw new InvalidOperationException(
                 "Campaign work requires campaign-directory read consistency.");
@@ -97,7 +97,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             if (!campaignWork.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(campaignWork.Error);
             candidates.AddRange(campaignWork.Value
-                .Where(candidate => workItemId is not { } wanted || candidate.WorkItemId == wanted));
+                .Where(candidate => !projectedKinds.Contains(candidate.Kind) &&
+                                    (workItemId is not { } wanted || candidate.WorkItemId == wanted)));
         }
         if (policies is not null && !PolicyDecisionWork.IsFullyProjected(projectedKinds))
         {
