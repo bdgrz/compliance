@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Risks;
@@ -128,6 +129,28 @@ public sealed class WorkQueueReadConsistencyTests
             projectorName: "TestControlEvaluationWorkItems");
         var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
             [evaluationWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingCriterionApplicabilityProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await SeedCriterionApplicabilityProposalAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var applicabilityWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
+            area: "criterion-applicability", kind: WorkSource.CriterionApplicabilityReview,
+            projectorName: "TestCriterionApplicabilityWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [applicabilityWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -337,6 +360,50 @@ public sealed class WorkQueueReadConsistencyTests
         Assert.Equal("Review control evaluation", entry.Item.Summary);
     }
 
+    [Fact]
+    public async Task ShouldListProjectedCriterionApplicabilityReviewWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var (decisionId, proposedAt) =
+            await SeedCriterionApplicabilityProposalAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadCheckpointAsync(events, fixture.TenantId,
+            "criterion-applicability");
+        var identity = Uuid.CreateVersion5(decisionId, "criterion-applicability-review\n1");
+        var candidate = new WorkCandidate(WorkCandidate.IdFor(identity,
+                WorkSource.CriterionApplicabilityReview), WorkSource.CriterionApplicabilityReview,
+            decisionId, null, null, "Review not-applicable proposal for AC-2.4",
+            "A criterion not-applicable proposal is awaiting independent review.", null, null,
+            "review", $"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
+            $"criterion-applicability/{decisionId}/reviews",
+            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, fixture.ProgramId), null,
+            new HashSet<Uuid> { fixture.OwnerMemberId }, proposedAt);
+        var applicabilityWork = new ProjectedWorkItems(checkpoint, [candidate],
+            "criterion-applicability", WorkSource.CriterionApplicabilityReview,
+            "TestCriterionApplicabilityWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [applicabilityWork]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [applicabilityWork]);
+        var actor = new OperationsActor(fixture.LeadUserId, fixture.LeadMemberId, "Lead");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.CriterionApplicabilityReview);
+        Assert.Equal(decisionId, entry.Candidate.SourceId);
+        Assert.Null(entry.Candidate.ControlId);
+        Assert.Equal("Review not-applicable proposal for AC-2.4", entry.Item.Summary);
+    }
+
     static async Task<ControlEvaluationView> SubmitControlEvaluationAsync(OperationsFixture fixture)
     {
         var plan = await fixture.GetOrDefineEvaluationPlanAsync();
@@ -369,6 +436,26 @@ public sealed class WorkQueueReadConsistencyTests
                 return Result.Success;
             });
         return Assert.IsType<ControlEvaluationView>(submitted);
+    }
+
+    static async Task<(Uuid DecisionId, DateTimeOffset ProposedAt)>
+        SeedCriterionApplicabilityProposalAsync(OperationsFixture fixture)
+    {
+        var editionId = Uuid.CreateVersion4();
+        var proposedAt = DateTimeOffset.UtcNow;
+        var decisionId = CriterionApplicabilityLedger.DecisionIdFor(fixture.ProgramId, editionId,
+            "AC-2.4");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new CriterionApplicabilityLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Propose(editionId, "AC-2.4", 0,
+                    "The organization has no in-scope system for this criterion.",
+                    fixture.OwnerMemberId,
+                    ActorReference.ForMember(fixture.OwnerMemberId, "Owner"), proposedAt,
+                    out _));
+                return Result.Success;
+            });
+        return (decisionId, proposedAt);
     }
 
     static async Task SeedEvidenceRequestAsync(OperationsFixture fixture)

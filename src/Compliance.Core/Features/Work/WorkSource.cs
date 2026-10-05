@@ -225,27 +225,25 @@ static class WorkSource
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 new HashSet<Uuid> { proposerMemberId }, proposal.ProposedAt));
         }
-        var applicability = await reader.HydrateAsync(new CriterionApplicabilityLedger(tenantId,
-            programId), ct).ConfigureAwait(false);
-        foreach (var decision in applicability.ReadAll().Where(static decision =>
-                     decision.Status == "pending" &&
-                     decision.Versions.Count > 0 &&
-                     decision.Versions[^1].Status == "proposed"))
+        if (!projectedKinds.Contains(CriterionApplicabilityReview))
         {
-            var proposal = decision.Versions[^1];
-            var identity = Uuid.CreateVersion5(decision.DecisionId,
-                $"criterion-applicability-review\n{proposal.VersionNumber}");
-            var candidateId = WorkCandidate.IdFor(identity, CriterionApplicabilityReview);
-            if (workItemId is { } wantedApplicability && candidateId != wantedApplicability)
-                continue;
-            var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id, CultureInfo.InvariantCulture);
-            candidates.Add(new WorkCandidate(candidateId, CriterionApplicabilityReview,
-                decision.DecisionId, null, null,
-                $"Review not-applicable proposal for {decision.CriterionIdentifier}",
-                "A criterion not-applicable proposal is awaiting independent review.", null, null,
-                "review", $"{prefix}/criterion-applicability/{decision.DecisionId}/reviews",
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                new HashSet<Uuid> { proposerMemberId }, proposal.ProposedAt));
+            var applicability = await reader.HydrateAsync(new CriterionApplicabilityLedger(tenantId,
+                programId), ct).ConfigureAwait(false);
+            foreach (var decision in applicability.ReadAll().Where(static decision =>
+                         decision.Status == "pending" && decision.Versions.Count > 0 &&
+                         decision.Versions[^1].Status == "proposed"))
+            {
+                var proposal = decision.Versions[^1];
+                var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id,
+                    CultureInfo.InvariantCulture);
+                var candidate = CriterionApplicabilityReviewCandidate(tenantId, programId,
+                    decision.DecisionId, decision.CriterionIdentifier,
+                    proposerMemberId, proposal.VersionNumber, proposal.ProposedAt);
+                if (workItemId is { } wantedApplicability &&
+                    candidate.WorkItemId != wantedApplicability)
+                    continue;
+                candidates.Add(candidate);
+            }
         }
         foreach (var controlId in operations.PlannedControlIds)
         {
@@ -299,5 +297,24 @@ static class WorkSource
     {
         var identity = Uuid.CreateVersion5(evaluationId, $"control-evaluation-review\n{round}");
         return WorkCandidate.IdFor(identity, ControlEvaluationReview);
+    }
+
+    public static WorkCandidate CriterionApplicabilityReviewCandidate(Uuid tenantId,
+        Uuid programId, Uuid decisionId, string criterionIdentifier,
+        Uuid proposerMemberId, int versionNumber, DateTimeOffset proposedAt) =>
+        new(CriterionApplicabilityReviewWorkItemId(decisionId, versionNumber),
+            CriterionApplicabilityReview, decisionId, null, null,
+            $"Review not-applicable proposal for {criterionIdentifier}",
+            "A criterion not-applicable proposal is awaiting independent review.", null, null,
+            "review", $"/api/v1/tenants/{tenantId}/programs/{programId}/" +
+            $"criterion-applicability/{decisionId}/reviews",
+            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new HashSet<Uuid> { proposerMemberId }, proposedAt);
+
+    public static Uuid CriterionApplicabilityReviewWorkItemId(Uuid decisionId, int versionNumber)
+    {
+        var identity = Uuid.CreateVersion5(decisionId,
+            $"criterion-applicability-review\n{versionNumber}");
+        return WorkCandidate.IdFor(identity, CriterionApplicabilityReview);
     }
 }

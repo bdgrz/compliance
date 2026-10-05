@@ -408,6 +408,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(RiskGovernanceWorkRevision))]
 [JsonSerializable(typeof(RiskTreatmentActionWorkState))]
 [JsonSerializable(typeof(ControlEvaluationWorkState))]
+[JsonSerializable(typeof(CriterionApplicabilityWorkState))]
 [JsonSerializable(typeof(GetWorkItem))]
 [JsonSerializable(typeof(WorkItemDetailView))]
 [JsonSerializable(typeof(WorkAssignmentEntryView))]
