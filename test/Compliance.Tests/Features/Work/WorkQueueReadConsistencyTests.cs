@@ -18,14 +18,42 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 public sealed class WorkQueueReadConsistencyTests
 {
     [Fact]
-    public async Task ShouldRejectLaggingEvidenceProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldIgnoreUnrelatedTenantChangeGivenCaughtUpWorkProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.CatchUpBoundaryDirectoryAsync();
+        fixture.Boundaries.FollowSource = false;
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var evidence = new ProjectedWorkItems(ProjectionCheckpoint.Start);
+        var consistency = new WorkQueueReadConsistency(events, [evidence]);
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+        Assert.True(captured.IsSuccess);
+
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new Member(fixture.TenantId, Uuid.CreateVersion4()), member =>
+            {
+                member.Register();
+                return Result.Success;
+            });
+
+        // Act
+        var confirmed = await consistency.ConfirmUnchangedAndCaughtUpAsync(fixture.TenantId,
+            captured.Value, CancellationToken.None);
+
+        // Assert
+        Assert.True(confirmed.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingEvidenceProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
         await SeedEvidenceRequestAsync(fixture);
         var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
         var evidence = new ProjectedWorkItems(ProjectionCheckpoint.Start);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [evidence]);
+        var consistency = new WorkQueueReadConsistency(events, [evidence]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -46,7 +74,7 @@ public sealed class WorkQueueReadConsistencyTests
         var evidenceCheckpoint = await ReadCheckpointAsync(events, fixture.TenantId,
             "evidence-requests");
         var evidence = new ProjectedWorkItems(evidenceCheckpoint);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [evidence]);
+        var consistency = new WorkQueueReadConsistency(events, [evidence]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -61,7 +89,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingCorrectiveActionProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingCorrectiveActionProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -71,7 +99,7 @@ public sealed class WorkQueueReadConsistencyTests
         var correctiveActions = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "remediation", kind: WorkSource.CorrectiveAction,
             projectorName: "TestCorrectiveActionWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [correctiveActions]);
 
         // Act
@@ -84,7 +112,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingRiskGovernanceProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingRiskGovernanceProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -108,7 +136,7 @@ public sealed class WorkQueueReadConsistencyTests
                 WorkSource.RiskTreatmentActionReview,
                 WorkSource.RiskControlTreatmentReview,
             ]);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [riskWork]);
+        var consistency = new WorkQueueReadConsistency(events, [riskWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -120,7 +148,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingControlEvaluationProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingControlEvaluationProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -129,7 +157,7 @@ public sealed class WorkQueueReadConsistencyTests
         var evaluationWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "control-evaluations", kind: WorkSource.ControlEvaluationReview,
             projectorName: "TestControlEvaluationWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [evaluationWork]);
 
         // Act
@@ -142,7 +170,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingCriterionApplicabilityProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingCriterionApplicabilityProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -151,7 +179,7 @@ public sealed class WorkQueueReadConsistencyTests
         var applicabilityWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "criterion-applicability", kind: WorkSource.CriterionApplicabilityReview,
             projectorName: "TestCriterionApplicabilityWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [applicabilityWork]);
 
         // Act
@@ -164,7 +192,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingControlDecisionProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingControlDecisionProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -175,7 +203,7 @@ public sealed class WorkQueueReadConsistencyTests
             services.GetRequiredService<IAggregateReader>(),
             services.GetRequiredService<OperatingAuthority>(),
             new ControlActivationReleaseGate(true), new ControlLifecycleReleaseGate(true));
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [decisions]);
+        var consistency = new WorkQueueReadConsistency(events, [decisions]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -187,7 +215,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingControlMappingProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingControlMappingProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -196,7 +224,7 @@ public sealed class WorkQueueReadConsistencyTests
         var mappingWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "control-criterion-mappings", kind: WorkSource.ControlCriterionMappingReview,
             projectorName: "TestControlMappingWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [mappingWork]);
+        var consistency = new WorkQueueReadConsistency(events, [mappingWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -216,7 +244,7 @@ public sealed class WorkQueueReadConsistencyTests
         var correctiveActions = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "remediation", kind: WorkSource.CorrectiveAction,
             projectorName: "TestCorrectiveActionWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [correctiveActions]);
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
         Assert.True(captured.IsSuccess);
@@ -249,8 +277,7 @@ public sealed class WorkQueueReadConsistencyTests
             new OperatingHolder(OperatingAuthority.MemberHolder, fixture.OwnerMemberId), null,
             new HashSet<Uuid>(), DateTimeOffset.UtcNow);
         var evidence = new ProjectedWorkItems(evidenceCheckpoint, [candidate]);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries,
-            events, [evidence]);
+        var consistency = new WorkQueueReadConsistency(events, [evidence]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
@@ -291,7 +318,7 @@ public sealed class WorkQueueReadConsistencyTests
             new HashSet<Uuid>(), action.AddedAt);
         var correctiveActions = new ProjectedWorkItems(checkpoint, [candidate], "remediation",
             WorkSource.CorrectiveAction, "TestCorrectiveActionWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [correctiveActions]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -344,7 +371,7 @@ public sealed class WorkQueueReadConsistencyTests
             WorkSource.RiskTreatmentAction, "TestRiskWorkItems",
             [WorkSource.RiskTreatmentAction, WorkSource.RiskTreatmentActionReview,
                 WorkSource.RiskControlTreatmentReview]);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [riskWork]);
+        var consistency = new WorkQueueReadConsistency(events, [riskWork]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
@@ -385,7 +412,7 @@ public sealed class WorkQueueReadConsistencyTests
             new HashSet<Uuid> { evaluation.EvaluatorMemberId }, evaluation.Submissions[^1].SubmittedAt);
         var evaluationWork = new ProjectedWorkItems(checkpoint, [candidate], "control-evaluations",
             WorkSource.ControlEvaluationReview, "TestControlEvaluationWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [evaluationWork]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -428,7 +455,7 @@ public sealed class WorkQueueReadConsistencyTests
         var applicabilityWork = new ProjectedWorkItems(checkpoint, [candidate],
             "criterion-applicability", WorkSource.CriterionApplicabilityReview,
             "TestCriterionApplicabilityWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [applicabilityWork]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -465,7 +492,7 @@ public sealed class WorkQueueReadConsistencyTests
         var mappingWork = new ProjectedWorkItems(checkpoint, [candidate],
             "control-criterion-mappings", WorkSource.ControlCriterionMappingReview,
             "TestControlMappingWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [mappingWork]);
+        var consistency = new WorkQueueReadConsistency(events, [mappingWork]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
@@ -487,7 +514,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingOperatingPlanProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingOperatingPlanProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -496,7 +523,7 @@ public sealed class WorkQueueReadConsistencyTests
         var planWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
             area: "control-operations", kind: WorkSource.ControlOperatingPlanApproval,
             projectorName: "TestControlOperatingPlanWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [planWork]);
+        var consistency = new WorkQueueReadConsistency(events, [planWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -508,7 +535,7 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
-    public async Task ShouldRejectLaggingOccurrenceProjectionGivenCurrentTenantCheckpoint()
+    public async Task ShouldRejectLaggingOccurrenceProjectionGivenPendingSourceEvent()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
@@ -518,7 +545,7 @@ public sealed class WorkQueueReadConsistencyTests
         await using var sourceScope = fixture.Provider.CreateAsyncScope();
         var occurrenceWork = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
             sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>());
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [occurrenceWork]);
 
         // Act
@@ -545,7 +572,7 @@ public sealed class WorkQueueReadConsistencyTests
         var occurrenceWork = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
             services.GetRequiredService<IAggregateReader>());
         await FitzControlOccurrenceWorkItemDirectoryTests.CatchUpAsync(fixture, occurrenceWork);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+        var consistency = new WorkQueueReadConsistency(events,
             [occurrenceWork]);
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
             services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
@@ -578,7 +605,7 @@ public sealed class WorkQueueReadConsistencyTests
             fixture.LeadMemberId, plan.ProposedAt);
         var planWork = new ProjectedWorkItems(checkpoint, [candidate], "control-operations",
             WorkSource.ControlOperatingPlanApproval, "TestControlOperatingPlanWorkItems");
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [planWork]);
+        var consistency = new WorkQueueReadConsistency(events, [planWork]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),

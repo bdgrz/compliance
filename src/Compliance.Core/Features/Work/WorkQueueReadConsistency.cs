@@ -1,11 +1,9 @@
-using Bdgrz.Compliance.Features.Boundaries;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
-/// <summary>Fences a complete queue read against tenant changes and lagging source projections.</summary>
-public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantCheckpoint,
-    IDomainEventReader events,
+/// <summary>Fences a queue read against lagging or changing required source projections.</summary>
+public sealed class WorkQueueReadConsistency(IDomainEventReader events,
     IEnumerable<IAccountableWorkItemDirectoryReader>? accountableWorkItems = null)
 {
     readonly IAccountableWorkItemDirectoryReader[] _accountableWorkItems =
@@ -15,12 +13,6 @@ public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantChec
     public async ValueTask<Result<WorkQueueReadFence>> CaptureAsync(Uuid tenantId,
         CancellationToken ct)
     {
-        var tenantCursor = await tenantCheckpoint.LoadCheckpointAsync(tenantId, ct)
-            .ConfigureAwait(false);
-        if (await HasPendingSourceAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
-                tenantCursor, ct).ConfigureAwait(false))
-            return Result<WorkQueueReadFence>.Failure(BehindSourceError());
-
         var workItemProjections = new List<WorkItemProjectionFence>(_accountableWorkItems.Length);
         var identities = new HashSet<string>(StringComparer.Ordinal);
         foreach (var workItems in _accountableWorkItems)
@@ -37,20 +29,12 @@ public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantChec
                 checkpoint));
         }
 
-        return Result<WorkQueueReadFence>.Success(new WorkQueueReadFence(tenantCursor,
-            workItemProjections));
+        return Result<WorkQueueReadFence>.Success(new WorkQueueReadFence(workItemProjections));
     }
 
     public async ValueTask<Result> ConfirmUnchangedAndCaughtUpAsync(Uuid tenantId,
         WorkQueueReadFence fence, CancellationToken ct)
     {
-        var tenantCursor = await tenantCheckpoint.LoadCheckpointAsync(tenantId, ct)
-            .ConfigureAwait(false);
-        if (tenantCursor != fence.TenantCheckpoint ||
-            await HasPendingSourceAsync(EventStreamPattern.ForPattern(tenantId.ToString()),
-                tenantCursor, ct).ConfigureAwait(false))
-            return Result.Failure(BehindSourceError());
-
         if (fence.WorkItemProjections.Count != _accountableWorkItems.Length)
             return Result.Failure(BehindSourceError());
 

@@ -208,7 +208,7 @@ public sealed class FitzPolicyCampaignWorkItemDirectoryTests
             personId, "Ada Lovelace", Today.AddDays(7), fixture.ApproverMemberId);
         var projected = new CampaignProjection(candidate);
         var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        var consistency = new WorkQueueReadConsistency(events, [projected]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
