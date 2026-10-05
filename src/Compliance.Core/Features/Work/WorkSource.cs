@@ -39,6 +39,9 @@ static class WorkSource
     {
         bool Wanted(Uuid sourceId, string kind) =>
             workItemId is not { } wanted || WorkCandidate.IdFor(sourceId, kind) == wanted;
+        bool WantedRiskAction(Uuid riskId, Uuid sourceId, string kind) =>
+            workItemId is not { } wanted ||
+            RiskTreatmentWorkItemId(programId, riskId, sourceId, kind) == wanted;
         var candidates = new List<WorkCandidate>();
         var prefix = $"/api/v1/tenants/{tenantId}/programs/{programId}";
         var operations = await reader.HydrateAsync(new ControlOperationsLedger(tenantId,
@@ -102,57 +105,73 @@ static class WorkSource
                         new OperatingHolder(OperatingAuthority.MemberHolder, action.OwnerMemberId),
                         null, new HashSet<Uuid>(), action.AddedAt));
         }
-        var governance = await reader.HydrateAsync(new RiskGovernanceLedger(tenantId, programId),
-            ct).ConfigureAwait(false);
-        foreach (var action in governance.Actions().Where(action =>
-                     action.Status == RiskGovernanceLedger.ActionOpen &&
-                     Wanted(action.ActionId, RiskTreatmentAction)))
-            candidates.Add(new WorkCandidate(
-                WorkCandidate.IdFor(action.ActionId, RiskTreatmentAction), RiskTreatmentAction,
-                action.ActionId, null, null, action.Title,
-                $"Treatment work for a risk. Target state: {action.TargetState}", action.DueOn,
-                null, "complete",
-                $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completions",
-                new OperatingHolder(OperatingAuthority.MemberHolder, action.AccountableMemberId),
-                null, new HashSet<Uuid>(), action.CreatedAt));
-        foreach (var action in governance.Actions().Where(action =>
-                     action.Status == RiskGovernanceLedger.ActionSubmitted))
+        if (!projectedKinds.Contains(RiskTreatmentAction) ||
+            !projectedKinds.Contains(RiskTreatmentActionReview) ||
+            !projectedKinds.Contains(RiskControlTreatmentReview))
         {
-            var completion = action.Completions.LastOrDefault(static item =>
-                item.ReviewOutcome is null);
-            if (completion is null || !Wanted(completion.SubmissionId, RiskTreatmentActionReview))
-                continue;
-            var excluded = new HashSet<Uuid> { action.AccountableMemberId };
-            if (governance.SubmitterMemberId(action.RiskId, completion.SubmissionId) is { } submitter)
-                excluded.Add(submitter);
-            candidates.Add(new WorkCandidate(
-                WorkCandidate.IdFor(completion.SubmissionId, RiskTreatmentActionReview),
-                RiskTreatmentActionReview, completion.SubmissionId, null, null,
-                $"Review completion for {action.Title}",
-                "A risk treatment action completion is awaiting independent review.", action.DueOn,
-                null, "review",
-                $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completion-reviews",
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                excluded, completion.SubmittedAt));
-        }
-        foreach (var treatment in governance.PendingControlTreatments())
-        {
-            var identity = Uuid.CreateVersion5(treatment.RiskId,
-                $"risk-control-treatment-review\n{treatment.TreatmentId}");
-            var candidateId = WorkCandidate.IdFor(identity, RiskControlTreatmentReview);
-            if (workItemId is { } wantedTreatment && candidateId != wantedTreatment)
-                continue;
-            var proposerMemberId = Uuid.Parse(treatment.ProposedBy.Id,
-                CultureInfo.InvariantCulture);
-            candidates.Add(new WorkCandidate(candidateId, RiskControlTreatmentReview,
-                treatment.TreatmentId, treatment.ControlId, null,
-                $"Review control treatment for risk {treatment.RiskId}",
-                "A risk control-treatment assertion is awaiting independent review.", null, null,
-                "review",
-                $"{prefix}/risks/{treatment.RiskId}/control-treatments/" +
-                $"{treatment.TreatmentId}/reviews",
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
+            var governance = await reader.HydrateAsync(new RiskGovernanceLedger(tenantId, programId),
+                ct).ConfigureAwait(false);
+            if (!projectedKinds.Contains(RiskTreatmentAction))
+                foreach (var action in governance.Actions().Where(action =>
+                             action.Status == RiskGovernanceLedger.ActionOpen &&
+                             WantedRiskAction(action.RiskId, action.ActionId,
+                                 RiskTreatmentAction)))
+                    candidates.Add(new WorkCandidate(
+                        RiskTreatmentWorkItemId(programId, action.RiskId, action.ActionId,
+                            RiskTreatmentAction),
+                        RiskTreatmentAction, action.ActionId, null, null, action.Title,
+                        $"Treatment work for a risk. Target state: {action.TargetState}", action.DueOn,
+                        null, "complete",
+                        $"{prefix}/risks/{action.RiskId}/treatment-actions/{action.ActionId}/completions",
+                        new OperatingHolder(OperatingAuthority.MemberHolder,
+                            action.AccountableMemberId),
+                        null, new HashSet<Uuid>(), action.CreatedAt));
+            if (!projectedKinds.Contains(RiskTreatmentActionReview))
+                foreach (var action in governance.Actions().Where(action =>
+                             action.Status == RiskGovernanceLedger.ActionSubmitted))
+                {
+                    var completion = action.Completions.LastOrDefault(static item =>
+                        item.ReviewOutcome is null);
+                    if (completion is null ||
+                        !WantedRiskAction(action.RiskId, completion.SubmissionId,
+                            RiskTreatmentActionReview))
+                        continue;
+                    var excluded = new HashSet<Uuid> { action.AccountableMemberId };
+                    if (governance.SubmitterMemberId(action.RiskId,
+                            completion.SubmissionId) is { } submitter)
+                        excluded.Add(submitter);
+                    candidates.Add(new WorkCandidate(
+                        RiskTreatmentWorkItemId(programId, action.RiskId,
+                            completion.SubmissionId, RiskTreatmentActionReview),
+                        RiskTreatmentActionReview, completion.SubmissionId, null, null,
+                        $"Review completion for {action.Title}",
+                        "A risk treatment action completion is awaiting independent review.",
+                        action.DueOn, null, "review",
+                        $"{prefix}/risks/{action.RiskId}/treatment-actions/" +
+                        $"{action.ActionId}/completion-reviews",
+                        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                        excluded, completion.SubmittedAt));
+                }
+            if (!projectedKinds.Contains(RiskControlTreatmentReview))
+                foreach (var treatment in governance.PendingControlTreatments())
+                {
+                    var identity = Uuid.CreateVersion5(treatment.RiskId,
+                        $"risk-control-treatment-review\n{treatment.TreatmentId}");
+                    var candidateId = WorkCandidate.IdFor(identity, RiskControlTreatmentReview);
+                    if (workItemId is { } wantedTreatment && candidateId != wantedTreatment)
+                        continue;
+                    var proposerMemberId = Uuid.Parse(treatment.ProposedBy.Id,
+                        CultureInfo.InvariantCulture);
+                    candidates.Add(new WorkCandidate(candidateId, RiskControlTreatmentReview,
+                        treatment.TreatmentId, treatment.ControlId, null,
+                        $"Review control treatment for risk {treatment.RiskId}",
+                        "A risk control-treatment assertion is awaiting independent review.", null,
+                        null, "review",
+                        $"{prefix}/risks/{treatment.RiskId}/control-treatments/" +
+                        $"{treatment.TreatmentId}/reviews",
+                        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                        new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
+                }
         }
         if (!projectedKinds.Contains(EvidenceRequest))
         {
@@ -265,4 +284,8 @@ static class WorkSource
         }
         return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }
+
+    public static Uuid RiskTreatmentWorkItemId(Uuid programId, Uuid riskId, Uuid sourceId,
+        string kind) => WorkCandidate.IdFor(Uuid.CreateVersion5(programId,
+        $"risk-treatment-work\n{riskId}\n{sourceId}"), kind);
 }

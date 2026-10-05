@@ -7,14 +7,14 @@ public sealed record AccountableWorkItemView(Uuid TenantId, Uuid ProgramId, Uuid
     string Kind, Uuid SourceId, Uuid? ControlId, Uuid? FindingId, string Summary, string Reason,
     DateOnly? DueOn, string? Materiality, string NextAction, string ActionPath,
     OperatingHolder Responsible, OperatingHolder? Backup, Uuid[] Excluded,
-    DateTimeOffset CreatedAt)
+    DateTimeOffset CreatedAt, Uuid? RiskId = null)
 {
     public static AccountableWorkItemView FromCandidate(Uuid tenantId, Uuid programId,
-        WorkCandidate candidate) => new(tenantId, programId, candidate.WorkItemId,
+        WorkCandidate candidate, Uuid? riskId = null) => new(tenantId, programId, candidate.WorkItemId,
         candidate.Kind, candidate.SourceId, candidate.ControlId, candidate.FindingId,
         candidate.Summary, candidate.Reason, candidate.DueOn, candidate.Materiality,
         candidate.NextAction, candidate.ActionPath, candidate.Responsible, candidate.Backup,
-        candidate.Excluded.ToArray(), candidate.CreatedAt);
+        candidate.Excluded.ToArray(), candidate.CreatedAt, riskId);
 
     public WorkCandidate ToCandidate() => new(WorkItemId, Kind, SourceId, ControlId, FindingId,
         Summary, Reason, DueOn, Materiality, NextAction, ActionPath, Responsible, Backup,

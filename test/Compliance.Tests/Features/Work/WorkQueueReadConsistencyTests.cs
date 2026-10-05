@@ -3,6 +3,7 @@ using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Remediation;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
@@ -68,6 +69,42 @@ public sealed class WorkQueueReadConsistencyTests
             projectorName: "TestCorrectiveActionWorkItems");
         var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
             [correctiveActions]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingRiskGovernanceProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var now = DateTimeOffset.UtcNow;
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(Uuid.CreateVersion4(), 0,
+                    Uuid.CreateVersion4(), "mitigate", "Enforce MFA", "MFA is required",
+                    "Identity provider policy export.", fixture.Today.AddDays(5),
+                    fixture.OwnerMemberId, [],
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), now));
+                return Result.Success;
+            });
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var riskWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
+            area: "risk-governance", kind: WorkSource.RiskTreatmentAction,
+            projectorName: "TestRiskWorkItems", kinds:
+            [
+                WorkSource.RiskTreatmentAction,
+                WorkSource.RiskTreatmentActionReview,
+                WorkSource.RiskControlTreatmentReview,
+            ]);
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [riskWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -183,6 +220,58 @@ public sealed class WorkQueueReadConsistencyTests
         Assert.Equal(action.Description, entry.Item.Summary);
     }
 
+    [Fact]
+    public async Task ShouldListProjectedRiskActionWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var riskId = Uuid.CreateVersion4();
+        var actionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var actor = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(riskId, 0, actionId, "mitigate",
+                    "Enforce MFA", "MFA is required", "Identity provider policy export.",
+                    fixture.Today.AddDays(5), fixture.OwnerMemberId, [], actor, now));
+                return Result.Success;
+            });
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadCheckpointAsync(events, fixture.TenantId, "risk-governance");
+        var candidate = new WorkCandidate(WorkSource.RiskTreatmentWorkItemId(fixture.ProgramId,
+                riskId, actionId, WorkSource.RiskTreatmentAction), WorkSource.RiskTreatmentAction,
+            actionId,
+            null, null, "Enforce MFA", "Treatment work for a risk. Target state: MFA is required",
+            fixture.Today.AddDays(5), null, "complete",
+            $"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
+            $"risks/{riskId}/treatment-actions/{actionId}/completions",
+            new OperatingHolder(OperatingAuthority.MemberHolder, fixture.OwnerMemberId), null,
+            new HashSet<Uuid>(), now);
+        var riskWork = new ProjectedWorkItems(checkpoint, [candidate], "risk-governance",
+            WorkSource.RiskTreatmentAction, "TestRiskWorkItems",
+            [WorkSource.RiskTreatmentAction, WorkSource.RiskTreatmentActionReview,
+                WorkSource.RiskControlTreatmentReview]);
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [riskWork]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [riskWork]);
+        var actorContext = new OperationsActor(fixture.OwnerUserId, fixture.OwnerMemberId, "Owner");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actorContext, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.RiskTreatmentAction);
+        Assert.Equal(actionId, entry.Candidate.SourceId);
+        Assert.Equal("Enforce MFA", entry.Item.Summary);
+    }
+
     static async Task SeedEvidenceRequestAsync(OperationsFixture fixture)
     {
         var openedAt = DateTimeOffset.UtcNow;
@@ -211,12 +300,13 @@ public sealed class WorkQueueReadConsistencyTests
     sealed class ProjectedWorkItems(ProjectionCheckpoint checkpoint,
         IReadOnlyList<WorkCandidate>? candidates = null,
         string area = "evidence-requests", string kind = WorkSource.EvidenceRequest,
-        string projectorName = "TestEvidenceWorkItems")
+        string projectorName = "TestEvidenceWorkItems",
+        IReadOnlyCollection<string>? kinds = null)
         : IAccountableWorkItemDirectoryReader
     {
         public string ProjectorName => projectorName;
 
-        public IReadOnlyCollection<string> ProjectedKinds => [kind];
+        public IReadOnlyCollection<string> ProjectedKinds => kinds ?? [kind];
 
         public EventStreamPattern SourcePattern(Uuid tenantId) =>
             EventStreamPattern.ForPattern(tenantId.ToString(), area);
