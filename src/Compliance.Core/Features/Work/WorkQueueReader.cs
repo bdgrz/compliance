@@ -27,7 +27,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     ControlActivationReleaseGate? controlActivationGate = null,
     ControlLifecycleReleaseGate? controlLifecycleGate = null,
     IRiskDraftDirectoryReader? risks = null,
-    RiskDraftListReadConsistency? riskConsistency = null)
+    RiskDraftListReadConsistency? riskConsistency = null,
+    CampaignDirectoryReadConsistency? campaignConsistency = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -66,9 +67,16 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             return Result<WorkQueueSnapshot>.Failure(work.Error);
         var candidates = work.Value.ToList();
         if (campaigns is not null)
-            candidates.AddRange((await PolicyCampaignWork.LoadAsync(reader, campaigns, tenantId, programId,
-                    today, ct).ConfigureAwait(false))
+        {
+            var consistency = campaignConsistency ?? throw new InvalidOperationException(
+                "Campaign work requires campaign-directory read consistency.");
+            var campaignWork = await PolicyCampaignWork.LoadAsync(reader, campaigns, consistency,
+                tenantId, programId, today, ct).ConfigureAwait(false);
+            if (!campaignWork.IsSuccess)
+                return Result<WorkQueueSnapshot>.Failure(campaignWork.Error);
+            candidates.AddRange(campaignWork.Value
                 .Where(candidate => workItemId is not { } wanted || candidate.WorkItemId == wanted));
+        }
         if (policies is not null)
         {
             var decisions = await PolicyDecisionWork.LoadAsync(reader, policies, policyConsistency,
