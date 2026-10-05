@@ -402,6 +402,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(WorkQueueView))]
 [JsonSerializable(typeof(WorkCountsView))]
 [JsonSerializable(typeof(WorkQueueItemView))]
+[JsonSerializable(typeof(AccountableWorkItemView))]
+[JsonSerializable(typeof(EvidenceWorkItemProjectionRevision))]
 [JsonSerializable(typeof(GetWorkItem))]
 [JsonSerializable(typeof(WorkItemDetailView))]
 [JsonSerializable(typeof(WorkAssignmentEntryView))]

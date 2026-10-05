@@ -9,11 +9,11 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
-///     Derives open work from the authoritative source ledgers at read time (M0-D15): control
-///     occurrences to perform; control-plan approvals; control-attestation, control-mapping,
-///     criterion-applicability, evaluation, boundary, and risk-treatment reviews; corrective
-///     actions; and evidence requests. Nothing here is stored, so completing source work removes
-///     the item and a projection-only change can never complete it.
+///     Derives work from the authoritative source ledgers at read time (M0-D15) for source
+///     families that do not yet have dedicated projections: control occurrences to perform;
+///     control-plan approvals; control-attestation, control-mapping, criterion-applicability,
+///     evaluation, boundary, and risk-treatment reviews; and corrective actions. Work completion
+///     remains owned by each source workflow.
 /// </summary>
 static class WorkSource
 {
@@ -33,7 +33,8 @@ static class WorkSource
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
         IAggregateReader reader,
         Uuid tenantId, Uuid programId, DateOnly today, DateOnly horizon, DateTimeOffset now,
-        Uuid? workItemId, IBoundaryDirectoryReader? boundaries, CancellationToken ct)
+        Uuid? workItemId, IBoundaryDirectoryReader? boundaries, bool includeEvidenceRequests,
+        CancellationToken ct)
     {
         bool Wanted(Uuid sourceId, string kind) =>
             workItemId is not { } wanted || WorkCandidate.IdFor(sourceId, kind) == wanted;
@@ -149,17 +150,21 @@ static class WorkSource
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
         }
-        var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
-            .ConfigureAwait(false);
-        foreach (var request in evidence.ReadAll().Where(request =>
-                     request.Status == EvidenceRequestLedger.Open && Wanted(request.EvidenceRequestId, EvidenceRequest)))
-            candidates.Add(new WorkCandidate(
-                WorkCandidate.IdFor(request.EvidenceRequestId, EvidenceRequest), EvidenceRequest,
-                request.EvidenceRequestId, request.ControlId, null, request.Title, request.Instructions,
-                request.DueOn, null, "fulfil",
-                $"{prefix}/evidence-requests/{request.EvidenceRequestId}/fulfilments",
-                new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
-                new HashSet<Uuid>(), request.OpenedAt));
+        if (includeEvidenceRequests)
+        {
+            var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
+                .ConfigureAwait(false);
+            foreach (var request in evidence.ReadAll().Where(request =>
+                         request.Status == EvidenceRequestLedger.Open &&
+                         Wanted(request.EvidenceRequestId, EvidenceRequest)))
+                candidates.Add(new WorkCandidate(
+                    WorkCandidate.IdFor(request.EvidenceRequestId, EvidenceRequest), EvidenceRequest,
+                    request.EvidenceRequestId, request.ControlId, null, request.Title, request.Instructions,
+                    request.DueOn, null, "fulfil",
+                    $"{prefix}/evidence-requests/{request.EvidenceRequestId}/fulfilments",
+                    new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
+                    new HashSet<Uuid>(), request.OpenedAt));
+        }
         var evaluations = await reader.HydrateAsync(new ControlEvaluationLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         foreach (var evaluation in evaluations.ReadAwaitingReview())
