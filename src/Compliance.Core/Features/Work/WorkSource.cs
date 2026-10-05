@@ -12,8 +12,7 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     Derives work from the authoritative source ledgers at read time (M0-D15) for source
 ///     families that do not yet have dedicated projections: control occurrences to perform;
 ///     control-plan approvals; control-attestation, control-mapping, criterion-applicability,
-///     evaluation, boundary, and risk-treatment reviews. Work completion remains owned by each
-///     source workflow.
+///     boundary, and risk-treatment reviews. Work completion remains owned by each source workflow.
 /// </summary>
 static class WorkSource
 {
@@ -188,24 +187,21 @@ static class WorkSource
                     new OperatingHolder(OperatingAuthority.MemberHolder, request.OwnerMemberId), null,
                     new HashSet<Uuid>(), request.OpenedAt));
         }
-        var evaluations = await reader.HydrateAsync(new ControlEvaluationLedger(tenantId, programId), ct)
-            .ConfigureAwait(false);
-        foreach (var evaluation in evaluations.ReadAwaitingReview())
+        if (!projectedKinds.Contains(ControlEvaluationReview))
         {
-            var identity = Uuid.CreateVersion5(evaluation.EvaluationId,
-                $"control-evaluation-review\n{evaluation.Round}");
-            var candidateId = WorkCandidate.IdFor(identity, ControlEvaluationReview);
-            if (workItemId is { } wanted && candidateId != wanted)
-                continue;
-            var submission = evaluation.Submissions[^1];
-            candidates.Add(new WorkCandidate(candidateId, ControlEvaluationReview,
-                evaluation.EvaluationId, evaluation.ControlId, null,
-                "Review control evaluation",
-                $"Control evaluation round {evaluation.Round} is awaiting independent review.",
-                null, null, "review",
-                $"{prefix}/controls/{evaluation.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                new HashSet<Uuid> { evaluation.EvaluatorMemberId }, submission.SubmittedAt));
+            var evaluations = await reader.HydrateAsync(
+                new ControlEvaluationLedger(tenantId, programId), ct).ConfigureAwait(false);
+            foreach (var evaluation in evaluations.ReadAwaitingReview())
+            {
+                var submission = evaluation.Submissions[^1];
+                var candidate = ControlEvaluationReviewCandidate(tenantId, programId,
+                    evaluation.ControlId, evaluation.EvaluationId, evaluation.EvaluatorMemberId,
+                    evaluation.Round, submission.SubmittedAt);
+                var candidateId = candidate.WorkItemId;
+                if (workItemId is { } wanted && candidateId != wanted)
+                    continue;
+                candidates.Add(candidate);
+            }
         }
         var mappings = await reader.HydrateAsync(new ControlCriterionMappingLedger(tenantId,
             programId), ct).ConfigureAwait(false);
@@ -288,4 +284,20 @@ static class WorkSource
     public static Uuid RiskTreatmentWorkItemId(Uuid programId, Uuid riskId, Uuid sourceId,
         string kind) => WorkCandidate.IdFor(Uuid.CreateVersion5(programId,
         $"risk-treatment-work\n{riskId}\n{sourceId}"), kind);
+
+    public static WorkCandidate ControlEvaluationReviewCandidate(Uuid tenantId, Uuid programId,
+        Uuid controlId, Uuid evaluationId, Uuid evaluatorMemberId, int round,
+        DateTimeOffset submittedAt) => new(ControlEvaluationReviewWorkItemId(evaluationId, round),
+        ControlEvaluationReview, evaluationId, controlId, null, "Review control evaluation",
+        $"Control evaluation round {round} is awaiting independent review.", null, null, "review",
+        $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/" +
+        $"evaluations/{evaluationId}/reviews",
+        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+        new HashSet<Uuid> { evaluatorMemberId }, submittedAt);
+
+    public static Uuid ControlEvaluationReviewWorkItemId(Uuid evaluationId, int round)
+    {
+        var identity = Uuid.CreateVersion5(evaluationId, $"control-evaluation-review\n{round}");
+        return WorkCandidate.IdFor(identity, ControlEvaluationReview);
+    }
 }
