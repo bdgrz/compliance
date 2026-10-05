@@ -281,6 +281,67 @@ public sealed class WorkQueueTests
     }
 
     [Fact]
+    public async Task ShouldReturnTransientConflictGivenPendingBoundaryDraftMissingFromDirectory()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        fixture.Boundaries.FollowSource = false;
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+
+        // Act
+        var stale = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
+
+        // Assert
+        Assert.True(stale.Error!.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenBoundarySourceChangesDuringQueueRead()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        fixture.Boundaries.OnList = async _ =>
+        {
+            fixture.Boundaries.OnList = null;
+            await ProgramManagementServices.SeedAsync(fixture.Provider,
+                new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+                {
+                    Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                        fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                    return Result.Success;
+                });
+        };
+
+        // Act
+        var stale = await fixture.Scenario(fixture.ReviewerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
+
+        // Assert
+        Assert.True(stale.Error!.IsTransient);
+    }
+
+    [Fact]
     public async Task ShouldOmitBoundaryApprovalGivenForeignProjectedDecision()
     {
         // Arrange

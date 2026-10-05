@@ -11,9 +11,14 @@ static class BoundaryDecisionWork
     public const string Approval = "boundary_approval";
 
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
-        IAggregateReader reader, IBoundaryDirectoryReader directory, Uuid tenantId,
-        Uuid programId, DateTimeOffset now, Uuid? workItemId, CancellationToken ct)
+        IAggregateReader reader, IBoundaryDirectoryReader directory,
+        BoundaryDirectoryReadConsistency consistency, Uuid tenantId, Uuid programId,
+        DateTimeOffset now, Uuid? workItemId, CancellationToken ct)
     {
+        var fence = await consistency.CaptureAsync(tenantId, ct).ConfigureAwait(false);
+        if (!fence.IsSuccess)
+            return Result<IReadOnlyList<WorkCandidate>>.Failure(fence.Error);
+
         var candidates = new List<WorkCandidate>();
         string? cursor = null;
         do
@@ -93,6 +98,11 @@ static class BoundaryDecisionWork
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
-        return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
+
+        var confirmed = await consistency.ConfirmUnchangedAndCaughtUpAsync(tenantId,
+            fence.Value, ct).ConfigureAwait(false);
+        return confirmed.IsSuccess
+            ? Result<IReadOnlyList<WorkCandidate>>.Success(candidates)
+            : Result<IReadOnlyList<WorkCandidate>>.Failure(confirmed.Error);
     }
 }

@@ -329,6 +329,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<TenantManagerInvariant>();
         services.AddScoped<WorkforceRosterSnapshotter>();
         services.AddScoped<BoundaryHistoryReadConsistency>();
+        services.AddScoped<BoundaryDirectoryReadConsistency>();
         services.AddScoped<IBoundaryImpactContributor, ProgramBoundaryImpactContributor>();
         services.AddScoped<IBoundaryImpactContributor, ControlBoundaryImpactContributor>();
         services.AddScoped<FitzResponsibilitySetDirectory>();
