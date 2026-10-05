@@ -13,6 +13,11 @@ static class PolicyDecisionWork
     public const string RetirementReview = "policy_retirement_review";
     public const string RetirementApproval = "policy_retirement_approval";
     public const string PeriodicReview = "policy_periodic_review";
+    public static IReadOnlyList<string> ProjectedKinds { get; } = Array.AsReadOnly<string>(
+    [DraftReview, DraftApproval, RetirementReview, RetirementApproval, PeriodicReview]);
+
+    public static bool IsFullyProjected(IReadOnlySet<string> projectedKinds) =>
+        ProjectedKinds.All(projectedKinds.Contains);
 
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
         IAggregateReader reader, IPolicyDirectoryReader directory,
@@ -65,7 +70,7 @@ static class PolicyDecisionWork
         return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }
 
-    static List<WorkCandidate> Candidates(Policy policy, PolicyView view, Uuid tenantId,
+    internal static List<WorkCandidate> Candidates(Policy policy, PolicyView view, Uuid tenantId,
         Uuid programId, DateOnly horizon, Uuid? workItemId)
     {
         var prefix = $"/api/v1/tenants/{tenantId}/programs/{programId}/policies/{policy.Id}";

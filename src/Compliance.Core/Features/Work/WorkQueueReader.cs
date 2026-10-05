@@ -99,14 +99,15 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidates.AddRange(campaignWork.Value
                 .Where(candidate => workItemId is not { } wanted || candidate.WorkItemId == wanted));
         }
-        if (policies is not null)
+        if (policies is not null && !PolicyDecisionWork.IsFullyProjected(projectedKinds))
         {
             var decisions = await PolicyDecisionWork.LoadAsync(reader, policies, policyConsistency,
                 tenantId, programId, today, today.AddDays(horizonDays), workItemId, ct)
                 .ConfigureAwait(false);
             if (!decisions.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(decisions.Error);
-            candidates.AddRange(decisions.Value);
+            candidates.AddRange(decisions.Value.Where(candidate =>
+                !projectedKinds.Contains(candidate.Kind)));
         }
         if (commitments is not null)
         {

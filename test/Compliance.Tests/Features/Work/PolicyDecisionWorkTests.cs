@@ -5,6 +5,7 @@ using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Work;
 
@@ -263,10 +264,54 @@ public sealed class PolicyDecisionWorkTests
         Assert.Empty(queue.Items);
     }
 
+    [Fact]
+    public async Task ShouldListProjectedPolicyDecisionWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var policyId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, policyId, fixture.LeadMemberId);
+        var sourceItem = Assert.Single((await WorkAsync(fixture, fixture.ApproverUserId)).Items);
+        var candidate = new WorkCandidate(sourceItem.WorkItemId, sourceItem.Kind,
+            sourceItem.SourceId, sourceItem.ControlId, sourceItem.FindingId, sourceItem.Summary,
+            sourceItem.Reason, sourceItem.DueOn, sourceItem.Materiality, sourceItem.NextAction,
+            sourceItem.ActionPath, sourceItem.Responsible, null,
+            new HashSet<Uuid> { fixture.LeadMemberId }, sourceItem.CreatedAt);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadPolicyCheckpointAsync(events, fixture.TenantId);
+        var projected = new PolicyDecisionWorkProjectionReader(checkpoint, [candidate]);
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            policies: fixture.Policies, accountableWorkItems: [projected]);
+        var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
+            "Approver");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        Assert.Single(read.Value.Entries, entry => entry.Candidate.Kind == "policy_draft_review");
+    }
+
     static Task<WorkQueueView> WorkAsync(OperationsFixture fixture, Uuid userId,
         int? horizonDays = null) =>
         fixture.AsAsync(userId, new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned",
             horizonDays));
+
+    static async Task<ProjectionCheckpoint> ReadPolicyCheckpointAsync(IDomainEventReader events,
+        Uuid tenantId)
+    {
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(
+                           tenantId.ToString(), "policies"), cursor, CancellationToken.None))
+            cursor = record.NextCursor;
+        return new ProjectionCheckpoint(cursor);
+    }
 
     static Task SeedDraftAsync(OperationsFixture fixture, Uuid policyId, Uuid authorMemberId) =>
         SeedDraftAsync(fixture, policyId, authorMemberId, 12);
@@ -330,4 +375,34 @@ public sealed class PolicyDecisionWorkTests
 
     static DateTimeOffset At(DateOnly date) =>
         new(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+    sealed class PolicyDecisionWorkProjectionReader(ProjectionCheckpoint checkpoint,
+        IReadOnlyList<WorkCandidate> candidates) : IAccountableWorkItemDirectoryReader
+    {
+        public string ProjectorName => "TestPolicyDecisionWorkItems";
+
+        public IReadOnlyCollection<string> ProjectedKinds =>
+        [
+            "policy_draft_review", "policy_draft_approval", "policy_retirement_review",
+            "policy_retirement_approval", "policy_periodic_review",
+        ];
+
+        public EventStreamPattern SourcePattern(Uuid tenantId) =>
+            EventStreamPattern.ForPattern(tenantId.ToString(), "policies");
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(checkpoint);
+
+        public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, CancellationToken ct = default) =>
+            ValueTask.FromResult(Result<IReadOnlyList<WorkCandidate>>.Success(candidates));
+
+        public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, DateOnly today, DateOnly horizon, Uuid? workItemId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(Result<IReadOnlyList<WorkCandidate>>.Success(candidates
+                .Where(candidate => candidate.DueOn is null || candidate.DueOn <= horizon)
+                .Where(candidate => workItemId is not { } wanted ||
+                                    candidate.WorkItemId == wanted).ToArray()));
+    }
 }
