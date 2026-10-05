@@ -304,6 +304,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IRiskEvaluationDirectoryReader>(provider =>
             provider.GetRequiredService<FitzRiskEvaluationDirectory>());
         services.AddScoped<RiskEvaluationReadConsistency>();
+        services.AddScoped<RiskAcceptanceWorkItemDirectory>();
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
+            provider.GetRequiredService<RiskAcceptanceWorkItemDirectory>());
         services.AddScoped<FitzControlMappingDirectoryV1>();
         services.AddScoped<IControlMappingDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzControlMappingDirectoryV1>());
@@ -994,8 +997,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<RiskDraftHistoryProjectorV1>("RiskDraftHistoryDirectoryV1",
                 WorkloadScope.PerTenant)
-            .AddProjector<RiskEvaluationDirectoryProjectorV1>("RiskEvaluationDirectoryV1",
-                WorkloadScope.PerTenant)
+            .AddProjector<RiskEvaluationDirectoryProjectorV1>(
+                FitzRiskEvaluationDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ControlMappingDirectoryV1Projector>(
                 FitzControlMappingDirectoryV1.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<CriterionApplicabilityDirectoryV1Projector>(

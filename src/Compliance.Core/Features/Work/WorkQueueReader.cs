@@ -131,7 +131,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                 return Result<WorkQueueSnapshot>.Failure(decisions.Error);
             candidates.AddRange(decisions.Value);
         }
-        if (risks is not null)
+        if (risks is not null && !RiskAcceptanceWork.IsFullyProjected(projectedKinds))
         {
             var decisions = await RiskAcceptanceWork.LoadAsync(reader, risks, riskConsistency,
                 tenantId, programId, now, workItemId, ct).ConfigureAwait(false);

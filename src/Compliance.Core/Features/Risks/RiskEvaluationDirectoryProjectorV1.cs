@@ -5,7 +5,7 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed partial class RiskEvaluationDirectoryProjectorV1(
     IRiskEvaluationDirectoryProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant("risk-evaluations"),
-            "RiskEvaluationDirectoryV1"),
+            FitzRiskEvaluationDirectory.ProjectorName),
       IProjectorHandler<RiskAssessmentRecorded>, IProjectorHandler<RiskTreatmentChosen>,
       IProjectorHandler<RiskAccepted>
 {
