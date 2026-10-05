@@ -247,6 +247,131 @@ public sealed class FitzPolicyDecisionWorkItemDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldReopenReturnedDraftWithNewIdentityGivenRequestedChangesThenRevision()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var policyId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, policyId, 12);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var directory = new FitzPolicyDecisionWorkItemDirectory(new InMemoryKvClient(),
+            sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>(), TimeProvider.System);
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyDraftCreated(fixture.TenantId, fixture.ProgramId, policyId,
+                Uuid.CreateVersion4(), "POL-WORK", Content(12), "content-hash",
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, At(fixture.Today)));
+        var original = Assert.Single((await directory.LoadProgramAsync(fixture.TenantId,
+            fixture.ProgramId, fixture.Today, fixture.Today.AddDays(30), null)).Value);
+
+        var reviewId = Uuid.CreateVersion4();
+        var reviewedAt = At(fixture.Today).AddMinutes(1);
+        await ProgramManagementServices.SeedAsync(fixture.Provider, new Policy(fixture.TenantId,
+            policyId), policy =>
+        {
+            Assert.Null(policy.Review(fixture.ProgramId, 1, reviewId, "request_changes",
+                "Clarify the owner responsibilities.", Actor(fixture.ReviewerMemberId),
+                fixture.ReviewerMemberId, reviewedAt));
+            return Result.Success;
+        });
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyReviewed(fixture.TenantId, fixture.ProgramId, policyId, 1, reviewId,
+                "request_changes", "Clarify the owner responsibilities.",
+                Actor(fixture.ReviewerMemberId), fixture.ReviewerMemberId, reviewedAt, null));
+        var returned = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId,
+            fixture.Today, fixture.Today.AddDays(30), null);
+
+        var revisedAt = At(fixture.Today).AddMinutes(2);
+        var revisedContent = Content(12, "Revised Access Control Policy");
+        await ProgramManagementServices.SeedAsync(fixture.Provider, new Policy(fixture.TenantId,
+            policyId), policy =>
+        {
+            Assert.Null(policy.Revise(fixture.ProgramId, 1, revisedContent,
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, revisedAt));
+            return Result.Success;
+        });
+
+        // Act
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyDraftRevised(fixture.TenantId, fixture.ProgramId, policyId, 2,
+                revisedContent, "revised-content-hash", null,
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, revisedAt));
+        var revised = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId,
+            fixture.Today, fixture.Today.AddDays(30), null);
+
+        // Assert
+        Assert.True(returned.IsSuccess);
+        Assert.Empty(returned.Value);
+        Assert.True(revised.IsSuccess);
+        var reopened = Assert.Single(revised.Value);
+        Assert.Equal("policy_draft_review", reopened.Kind);
+        Assert.Contains("revision 2", reopened.Reason, StringComparison.Ordinal);
+        Assert.NotEqual(original.WorkItemId, reopened.WorkItemId);
+    }
+
+    [Fact]
+    public async Task ShouldKeepDuePeriodicReviewBesideSuccessorDraftGivenCurrentApprovedVersion()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var policyId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, policyId, 1);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var directory = new FitzPolicyDecisionWorkItemDirectory(new InMemoryKvClient(),
+            sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>(), TimeProvider.System);
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyDraftCreated(fixture.TenantId, fixture.ProgramId, policyId,
+                Uuid.CreateVersion4(), "POL-WORK", Content(1), "content-hash",
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, At(fixture.Today)));
+
+        var reviewId = Uuid.CreateVersion4();
+        var approvalId = Uuid.CreateVersion4();
+        var approvedOn = fixture.Today.AddMonths(-2);
+        var approvedAt = At(approvedOn).AddMinutes(2);
+        await ProgramManagementServices.SeedAsync(fixture.Provider, new Policy(fixture.TenantId,
+            policyId), policy =>
+        {
+            Assert.Null(policy.Review(fixture.ProgramId, 1, reviewId, "accept",
+                "The policy draft is ready.", Actor(fixture.ReviewerMemberId),
+                fixture.ReviewerMemberId, At(approvedOn).AddMinutes(1)));
+            Assert.Null(policy.Approve(fixture.ProgramId, 1, approvalId, reviewId,
+                approvedOn, true, "Approve the policy.", null,
+                Actor(fixture.ApproverMemberId), fixture.ApproverMemberId, approvedAt));
+            return Result.Success;
+        });
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyApproved(fixture.TenantId, fixture.ProgramId, policyId, 1, 1, true,
+                approvalId, reviewId, "content-hash", approvedOn, null, null,
+                "Approve the policy.", Actor(fixture.ApproverMemberId),
+                fixture.ApproverMemberId, approvedAt, null));
+        var revisedAt = At(fixture.Today);
+        var revisedContent = Content(1, "Successor Access Control Policy");
+        await ProgramManagementServices.SeedAsync(fixture.Provider, new Policy(fixture.TenantId,
+            policyId), policy =>
+        {
+            Assert.Null(policy.ProposeSuccessor(fixture.ProgramId, 1, revisedContent,
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, revisedAt));
+            return Result.Success;
+        });
+
+        // Act
+        await ProjectAsync(directory, events, fixture.TenantId,
+            new PolicyDraftRevised(fixture.TenantId, fixture.ProgramId, policyId, 2,
+                revisedContent, "successor-content-hash", 1,
+                Actor(fixture.LeadMemberId), fixture.LeadMemberId, revisedAt));
+        var work = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId,
+            fixture.Today, fixture.Today.AddDays(30), null);
+
+        // Assert
+        Assert.True(work.IsSuccess);
+        Assert.Collection(work.Value.OrderBy(static item => item.Kind, StringComparer.Ordinal),
+            item => Assert.Equal("policy_draft_review", item.Kind),
+            item => Assert.Equal("policy_periodic_review", item.Kind));
+        Assert.Equal(2, work.Value.Select(static item => item.WorkItemId).Distinct().Count());
+    }
+
+    [Fact]
     public async Task ShouldRemovePendingWorkAfterDraftDiscardGivenCurrentProjection()
     {
         // Arrange
@@ -338,7 +463,7 @@ public sealed class FitzPolicyDecisionWorkItemDirectoryTests
         return new ProjectionCheckpoint(cursor);
     }
 
-    static PolicyContent Content(int cadenceMonths) => new("Access Control Policy",
+    static PolicyContent Content(int cadenceMonths, string title = "Access Control Policy") => new(title,
         "Govern access", PolicyAudience.CoreSecurity, null, cadenceMonths, "Policy body", null,
         "Security owner", []);
 
