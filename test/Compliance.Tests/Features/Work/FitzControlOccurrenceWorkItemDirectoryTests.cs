@@ -102,6 +102,40 @@ public sealed class FitzControlOccurrenceWorkItemDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldMatchLedgerAcrossRecurringPlanHistoryGivenReplacementCadence()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.PlanAsync();
+        var replacementCadence = new ControlCadence("recurring", "quarterly",
+            fixture.Today.AddMonths(1), 8);
+        await fixture.PlanAsync(cadence: replacementCadence, effectiveFrom: fixture.Today);
+        var now = DateTimeOffset.UtcNow;
+        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var horizon = today.AddDays(120);
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var sourceReader = sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var ledgerWork = await WorkSource.LoadAsync(sourceReader, fixture.TenantId,
+            fixture.ProgramId, today, horizon, now, null, fixture.Boundaries,
+            new HashSet<string>(StringComparer.Ordinal), CancellationToken.None);
+        var directory = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            sourceReader);
+        await CatchUpAsync(fixture, directory);
+
+        // Act
+        var projectedWork = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId,
+            today, horizon, null, CancellationToken.None);
+
+        // Assert
+        Assert.True(ledgerWork.IsSuccess);
+        Assert.True(projectedWork.IsSuccess);
+        AssertEquivalentCandidates(ledgerWork.Value.Where(IsOccurrenceWork).ToArray(),
+            projectedWork.Value);
+        Assert.Contains(projectedWork.Value, item => item.Kind == WorkSource.ControlOccurrence &&
+            item.DueOn > fixture.Today.AddDays(20));
+    }
+
+    [Fact]
     public async Task ShouldProjectPendingReviewAndReturnedOccurrenceGivenAttestationAndDecision()
     {
         // Arrange
