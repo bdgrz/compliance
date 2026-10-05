@@ -41,49 +41,39 @@ static class WorkSource
             RiskTreatmentWorkItemId(programId, riskId, sourceId, kind) == wanted;
         var candidates = new List<WorkCandidate>();
         var prefix = $"/api/v1/tenants/{tenantId}/programs/{programId}";
-        var operations = await reader.HydrateAsync(new ControlOperationsLedger(tenantId,
-            programId), ct).ConfigureAwait(false);
-        foreach (var (controlId, plan, identifier, occurrences) in await ControlOperationsSource
-                     .ReadPlannedAsync(reader, operations, tenantId, programId, today, horizon, ct)
-                     .ConfigureAwait(false))
-            foreach (var occurrence in occurrences)
-            {
-                var path = $"{prefix}/controls/{controlId}/occurrences/{occurrence.OccurrenceId}";
-                var period = occurrence.PeriodStart is { } start
-                    ? $"{start:yyyy-MM-dd}"
-                    : occurrence.OccurrenceId.ToString();
-                var created = occurrence.PeriodStart is { } from
-                    ? new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
-                    : DateTimeOffset.MinValue;
-                if (occurrence.State is ControlOperationsLedger.Expected or
-                        ControlOperationsLedger.Missed or ControlOperationsLedger.Open or
-                        ControlOperationsLedger.Returned &&
-                    Wanted(occurrence.OccurrenceId, ControlOccurrence))
-                    candidates.Add(new WorkCandidate(
-                        WorkCandidate.IdFor(occurrence.OccurrenceId, ControlOccurrence),
-                        ControlOccurrence, occurrence.OccurrenceId, controlId, null,
-                        $"Perform {identifier} for {period}",
-                        "The approved operating plan expects this control to operate for the period.",
-                        occurrence.DueOn, null, "attest", path + "/attestations",
-                        occurrence.Assignee, plan.BackupOwner, new HashSet<Uuid>(), created));
-                if (occurrence.State is ControlOperationsLedger.Submitted or
-                        ControlOperationsLedger.Deferred && occurrence.Attestations.Count > 0 &&
-                    Wanted(occurrence.OccurrenceId, OccurrenceReview))
+        ControlOperationsLedger? operations = null;
+        if (!projectedKinds.Contains(ControlOccurrence) ||
+            !projectedKinds.Contains(OccurrenceReview))
+        {
+            operations = await reader.HydrateAsync(new ControlOperationsLedger(tenantId,
+                programId), ct).ConfigureAwait(false);
+            foreach (var (controlId, plan, identifier, occurrences) in await ControlOperationsSource
+                         .ReadPlannedAsync(reader, operations, tenantId, programId, today, horizon,
+                             ct).ConfigureAwait(false))
+                foreach (var occurrence in occurrences)
                 {
-                    var attestation = occurrence.Attestations[^1];
-                    var excluded = new HashSet<Uuid> { attestation.RecorderMemberId };
-                    if (attestation.PerformedBy is { Kind: OperatingAuthority.MemberHolder } performer)
-                        excluded.Add(performer.Id);
-                    candidates.Add(new WorkCandidate(
-                        WorkCandidate.IdFor(occurrence.OccurrenceId, OccurrenceReview),
-                        OccurrenceReview, occurrence.OccurrenceId, controlId, null,
-                        $"Review {identifier} for {period}",
-                        "An attestation awaits independent review by someone who did not perform or record it.",
-                        occurrence.DueOn, null, "review", path + "/reviews",
-                        new OperatingHolder(OperatingAuthority.MemberHolder, plan.ReviewerMemberId),
-                        null, excluded, attestation.RecordedAt));
+                    if (!projectedKinds.Contains(ControlOccurrence) &&
+                        (occurrence.State is ControlOperationsLedger.Expected or
+                            ControlOperationsLedger.Missed or ControlOperationsLedger.Open or
+                            ControlOperationsLedger.Returned) &&
+                        Wanted(occurrence.OccurrenceId, ControlOccurrence))
+                        candidates.Add(ControlOccurrenceCandidate(tenantId, programId, controlId,
+                            identifier, occurrence.OccurrenceId, occurrence.PeriodStart,
+                            occurrence.DueOn, occurrence.Assignee, plan.BackupOwner));
+
+                    if (!projectedKinds.Contains(OccurrenceReview) &&
+                        (occurrence.State is ControlOperationsLedger.Submitted or
+                            ControlOperationsLedger.Deferred) && occurrence.Attestations.Count > 0 &&
+                        Wanted(occurrence.OccurrenceId, OccurrenceReview))
+                    {
+                        var attestation = occurrence.Attestations[^1];
+                        candidates.Add(OccurrenceReviewCandidate(tenantId, programId, controlId,
+                            identifier, occurrence.OccurrenceId, occurrence.PeriodStart,
+                            occurrence.DueOn, plan.ReviewerMemberId, attestation.PerformedBy,
+                            attestation.RecorderMemberId, attestation.RecordedAt));
+                    }
                 }
-            }
+        }
         if (!projectedKinds.Contains(CorrectiveAction))
         {
             var remediation = await reader.HydrateAsync(new RemediationLedger(tenantId, programId), ct)
@@ -242,6 +232,8 @@ static class WorkSource
         }
         if (!projectedKinds.Contains(ControlOperatingPlanApproval))
         {
+            operations ??= await reader.HydrateAsync(new ControlOperationsLedger(tenantId,
+                programId), ct).ConfigureAwait(false);
             foreach (var controlId in operations.PlannedControlIds)
             {
                 if (operations.PendingPlan(controlId) is not { } pending ||
@@ -274,6 +266,46 @@ static class WorkSource
     public static Uuid RiskTreatmentWorkItemId(Uuid programId, Uuid riskId, Uuid sourceId,
         string kind) => WorkCandidate.IdFor(Uuid.CreateVersion5(programId,
         $"risk-treatment-work\n{riskId}\n{sourceId}"), kind);
+
+    public static WorkCandidate ControlOccurrenceCandidate(Uuid tenantId, Uuid programId,
+        Uuid controlId, string identifier, Uuid occurrenceId, DateOnly? periodStart,
+        DateOnly? dueOn, OperatingHolder responsible, OperatingHolder? backup)
+    {
+        var period = periodStart is { } start
+            ? $"{start:yyyy-MM-dd}"
+            : occurrenceId.ToString();
+        var created = periodStart is { } from
+            ? new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
+            : DateTimeOffset.MinValue;
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}" +
+                   $"/occurrences/{occurrenceId}";
+        return new WorkCandidate(WorkCandidate.IdFor(occurrenceId, ControlOccurrence),
+            ControlOccurrence, occurrenceId, controlId, null, $"Perform {identifier} for {period}",
+            "The approved operating plan expects this control to operate for the period.", dueOn,
+            null, "attest", path + "/attestations", responsible, backup, new HashSet<Uuid>(),
+            created);
+    }
+
+    public static WorkCandidate OccurrenceReviewCandidate(Uuid tenantId, Uuid programId,
+        Uuid controlId, string identifier, Uuid occurrenceId, DateOnly? periodStart,
+        DateOnly? dueOn, Uuid reviewerMemberId, OperatingHolder performedBy,
+        Uuid recorderMemberId, DateTimeOffset recordedAt)
+    {
+        var period = periodStart is { } start
+            ? $"{start:yyyy-MM-dd}"
+            : occurrenceId.ToString();
+        var path = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}" +
+                   $"/occurrences/{occurrenceId}";
+        var excluded = new HashSet<Uuid> { recorderMemberId };
+        if (performedBy.Kind == OperatingAuthority.MemberHolder)
+            excluded.Add(performedBy.Id);
+        return new WorkCandidate(WorkCandidate.IdFor(occurrenceId, OccurrenceReview),
+            OccurrenceReview, occurrenceId, controlId, null, $"Review {identifier} for {period}",
+            "An attestation awaits independent review by someone who did not perform or record it.",
+            dueOn, null, "review", path + "/reviews",
+            new OperatingHolder(OperatingAuthority.MemberHolder, reviewerMemberId), null, excluded,
+            recordedAt);
+    }
 
     public static WorkCandidate ControlOperatingPlanApprovalCandidate(Uuid tenantId,
         Uuid programId, Uuid controlId, string controlIdentifier, Uuid planVersionId,

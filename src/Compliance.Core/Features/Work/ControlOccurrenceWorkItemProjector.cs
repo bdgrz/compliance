@@ -3,10 +3,10 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
-public sealed partial class ControlOperatingPlanWorkItemProjector(
-    IControlOperatingPlanWorkItemProjection projection)
+public sealed partial class ControlOccurrenceWorkItemProjector(
+    IControlOccurrenceWorkItemProjection projection)
     : Projector(projection, EventStreamPattern.ForTenant("control-operations"),
-        FitzControlOperatingPlanWorkItemDirectory.ProjectorName),
+        FitzControlOccurrenceWorkItemDirectory.ProjectorName),
       IProjectorHandler<ControlOperatingPlanProposed>,
       IProjectorHandler<ControlOperatingPlanApproved>,
       IProjectorHandler<ControlOccurrenceOpened>,

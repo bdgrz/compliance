@@ -44,6 +44,13 @@ sealed class FitzControlOperatingPlanWorkItemDirectory(IKvClient client,
             throw new InvalidOperationException(
                 "A control operating-plan event must have complete tenant, program, and control scope.");
 
+        if (domainEvent is ControlOccurrenceOpened or ControlOccurrenceAttested or
+            ControlOccurrenceReviewed)
+        {
+            await IncrementRevisionAsync(ct).ConfigureAwait(false);
+            return;
+        }
+
         var key = ControlOperatingPlanWorkItemDirectorySchema.LineKey(scope.ProgramId,
             scope.ControlId);
         var current = await ControlOperatingPlanWorkItemDirectorySchema.Lines.GetAsync(
@@ -213,6 +220,12 @@ sealed class FitzControlOperatingPlanWorkItemDirectory(IKvClient client,
             ControlOperatingPlanProposed ev =>
                 (ev.TenantId, ev.ProgramId, ev.ControlId, ev.Revision),
             ControlOperatingPlanApproved ev =>
+                (ev.TenantId, ev.ProgramId, ev.ControlId, ev.Revision),
+            ControlOccurrenceOpened ev =>
+                (ev.TenantId, ev.ProgramId, ev.ControlId, ev.Revision),
+            ControlOccurrenceAttested ev =>
+                (ev.TenantId, ev.ProgramId, ev.ControlId, ev.Revision),
+            ControlOccurrenceReviewed ev =>
                 (ev.TenantId, ev.ProgramId, ev.ControlId, ev.Revision),
             _ => throw new InvalidOperationException(
                 $"The control operating-plan projector cannot apply {domainEvent.GetType().Name}.")

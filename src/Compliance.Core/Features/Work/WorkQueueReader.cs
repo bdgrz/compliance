@@ -81,8 +81,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         var candidates = work.Value.ToList();
         foreach (var workItems in _accountableWorkItems)
         {
-            var projected = await workItems.LoadProgramAsync(tenantId, programId, ct)
-                .ConfigureAwait(false);
+            var projected = await workItems.LoadProgramAsync(tenantId, programId, today,
+                today.AddDays(horizonDays), workItemId, ct).ConfigureAwait(false);
             if (!projected.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(projected.Error);
             candidates.AddRange(projected.Value.Where(candidate =>

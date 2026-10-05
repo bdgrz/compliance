@@ -327,6 +327,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzControlOperatingPlanWorkItemDirectory>());
         services.AddScoped<IAccountableWorkItemDirectoryReader>(
             provider => provider.GetRequiredService<FitzControlOperatingPlanWorkItemDirectory>());
+        services.AddScoped<FitzControlOccurrenceWorkItemDirectory>();
+        services.AddScoped<IControlOccurrenceWorkItemProjection>(
+            provider => provider.GetRequiredService<FitzControlOccurrenceWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(
+            provider => provider.GetRequiredService<FitzControlOccurrenceWorkItemDirectory>());
         services.AddScoped<FitzControlMappingWorkItemDirectory>();
         services.AddScoped<IControlCriterionMappingWorkItemProjection>(
             provider => provider.GetRequiredService<FitzControlMappingWorkItemDirectory>());
@@ -992,6 +997,8 @@ public static class ComplianceServiceCollectionExtensions
                 FitzControlEvaluationWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ControlOperatingPlanWorkItemProjector>(
                 FitzControlOperatingPlanWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<ControlOccurrenceWorkItemProjector>(
+                FitzControlOccurrenceWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ControlCriterionMappingWorkItemProjector>(
                 FitzControlMappingWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<CriterionApplicabilityWorkItemProjector>(

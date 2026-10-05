@@ -15,4 +15,8 @@ public interface IAccountableWorkItemDirectoryReader
 
     ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
         Uuid programId, CancellationToken ct = default);
+
+    ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+        Uuid programId, DateOnly today, DateOnly horizon, Uuid? workItemId,
+        CancellationToken ct = default) => LoadProgramAsync(tenantId, programId, ct);
 }
