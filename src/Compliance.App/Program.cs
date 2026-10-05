@@ -288,6 +288,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListMyControlWork>(tool => tool.ReadOnly())
         .AddMcpTool<GetControlOccurrence>(tool => tool.ReadOnly())
         .AddMcpTool<ListControlOccurrences>(tool => tool.ReadOnly())
+        .AddMcpTool<DefineControlEvaluationPlan>()
+        .AddMcpTool<GetControlEvaluationPlanVersion>(tool => tool.ReadOnly())
+        .AddMcpTool<ListControlEvaluationPlanVersions>(tool => tool.ReadOnly())
         .AddMcpTool<StartControlEvaluation>()
         .AddMcpTool<RecordControlEvaluationStep>()
         .AddMcpTool<DisposeControlEvaluationDeviation>()
@@ -1057,6 +1060,19 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Control operations");
     app.MapPortiaPost<StartControlEvaluation, ControlEvaluationView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/evaluations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control evaluations");
+    app.MapPortiaPost<DefineControlEvaluationPlan, ControlEvaluationPlanVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/evaluation-plan/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control evaluations");
+    app.MapPortiaGet<ListControlEvaluationPlanVersions,
+            Page<ControlEvaluationPlanVersionView>>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/evaluation-plan/versions")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Control evaluations");
+    app.MapPortiaGet<GetControlEvaluationPlanVersion, ControlEvaluationPlanVersionView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/evaluation-plan/versions/{plan_version_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Control evaluations");
     app.MapPortiaGet<ListControlEvaluations, Page<ControlEvaluationView>>(

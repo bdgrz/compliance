@@ -128,9 +128,10 @@ public sealed class ControlEvaluationWorkTests
 
     static async Task<ControlEvaluationView> SubmitAsync(OperationsFixture fixture)
     {
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync(Procedure);
         var evaluation = await fixture.AsAsync(fixture.OwnerUserId,
             new StartControlEvaluation(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                Procedure));
+                plan.PlanVersionId));
         return await SubmitRoundAsync(fixture, evaluation);
     }
 

@@ -8,7 +8,7 @@ namespace Bdgrz.Compliance.Tests.Features.Evaluations;
 
 public sealed class ControlEvaluationTests
 {
-    static readonly EvaluationInspectedItem Policy = new("record", "policy/access-review", "v3");
+    static readonly EvaluationInspectedItem Policy = new("policy", "policy/access-review", "v3");
     static readonly EvaluationInspectedItem Export = new("artifact", "exports/q3.csv", "sha256:ab12");
 
     static IReadOnlyList<EvaluationProcedureStep> Procedure =>
@@ -25,11 +25,14 @@ public sealed class ControlEvaluationTests
         new("evidence_sufficiency", "effective", "Evidence is sufficient."),
     ];
 
-    static Task<ControlEvaluationView> StartAsync(OperationsFixture fixture, Uuid? userId = null,
-        Uuid? retestOf = null, IReadOnlyList<EvaluationProcedureStep>? steps = null) =>
-        fixture.AsAsync(userId ?? fixture.OwnerUserId, new StartControlEvaluation(
+    static async Task<ControlEvaluationView> StartAsync(OperationsFixture fixture,
+        Uuid? userId = null, Uuid? retestOf = null, Uuid? planVersionId = null)
+    {
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync();
+        return await fixture.AsAsync(userId ?? fixture.OwnerUserId, new StartControlEvaluation(
             fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-            retestOf is null ? steps ?? Procedure : steps, retestOf));
+            planVersionId ?? plan.PlanVersionId, retestOf));
+    }
 
     static RecordControlEvaluationStep Record(OperationsFixture fixture,
         ControlEvaluationView evaluation, int index, string result = "met",
@@ -95,30 +98,33 @@ public sealed class ControlEvaluationTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync(Procedure);
 
         await fixture.Scenario(fixture.OutsiderUserId)
             // Act
             .When(new StartControlEvaluation(fixture.TenantId, fixture.ProgramId,
-                fixture.ControlId, Procedure))
+                fixture.ControlId, plan.PlanVersionId))
             // Assert
             .ExpectFailure(RequestErrorKind.Forbidden);
     }
 
     [Fact]
-    public async Task ShouldRejectProcedureGivenOperatingEffectivenessAssertionOrMissingVersion()
+    public async Task ShouldRejectPlanGivenOperatingEffectivenessAssertionOrMissingVersion()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
 
-        await fixture.Scenario(fixture.OwnerUserId)
+        await fixture.Scenario(fixture.LeadUserId)
             // Act
-            .When(new StartControlEvaluation(fixture.TenantId, fixture.ProgramId,
-                fixture.ControlId, [new("operating_effectiveness", "inspection", [Policy], "x")]))
+            .When(new DefineControlEvaluationPlan(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, fixture.ControlVersionId, 0, "Evaluate the control.",
+                [new("operating_effectiveness", "inspection", [Policy], "x")], false))
             // Assert
             .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(new StartControlEvaluation(fixture.TenantId, fixture.ProgramId,
-                fixture.ControlId, [new("design", "inspection", [new("record", "p", " ")], "x")]))
+        await fixture.Scenario(fixture.LeadUserId)
+            .When(new DefineControlEvaluationPlan(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, fixture.ControlVersionId, 0, "Evaluate the control.",
+                [new("design", "inspection", [new("record", "p", " ")], "x")], false))
             .ExpectFailure(RequestErrorKind.Validation);
     }
 
@@ -309,6 +315,8 @@ public sealed class ControlEvaluationTests
 
         // Assert
         Assert.Equal(accepted.EvaluationId, passed.RetestOfEvaluationId);
+        Assert.Equal(accepted.PlanVersionId, retest.PlanVersionId);
+        Assert.Equal(accepted.PlanVersion, retest.PlanVersion);
         Assert.Equal([deviation.DeviationId], passed.RetestOfDeviationIds);
         Assert.Equal(accepted.Steps.Select(static s => s.ExpectedCondition),
             retest.Steps.Select(static s => s.ExpectedCondition));
@@ -325,17 +333,47 @@ public sealed class ControlEvaluationTests
     }
 
     [Fact]
+    public async Task ShouldAllowSuccessorPlanGivenMaterialDeviationRetest()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var firstPlan = await fixture.GetOrDefineEvaluationPlanAsync(Procedure);
+        var evaluation = await StartAsync(fixture, planVersionId: firstPlan.PlanVersionId);
+        var withDeviation = await RecordAllAsync(fixture, evaluation,
+            implementation: "not_met", classification: "material");
+        var submitted = await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture, withDeviation,
+        [
+            AllEffective[0], new("implementation", "ineffective", "Leavers kept access."),
+            AllEffective[2],
+        ]));
+        var accepted = await fixture.AsAsync(fixture.ApproverUserId,
+            Review(fixture, submitted, "accepted"));
+        var successor = await fixture.DefineEvaluationPlanAsync(firstPlan.Version,
+            "Recheck access after remediation.", Procedure);
+
+        // Act
+        var retest = await StartAsync(fixture, retestOf: accepted.EvaluationId,
+            planVersionId: successor.PlanVersionId);
+
+        // Assert
+        Assert.Equal(successor.PlanVersionId, retest.PlanVersionId);
+        Assert.Equal(successor.Version, retest.PlanVersion);
+        Assert.Equal(accepted.EvaluationId, retest.RetestOfEvaluationId);
+    }
+
+    [Fact]
     public async Task ShouldRejectRetestGivenEvaluationWithoutMaterialDeviation()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
         var accepted = await fixture.AsAsync(fixture.ApproverUserId,
             Review(fixture, await SubmittedAsync(fixture), "accepted"));
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync();
 
         await fixture.Scenario(fixture.OwnerUserId)
             // Act
             .When(new StartControlEvaluation(fixture.TenantId, fixture.ProgramId,
-                fixture.ControlId, null, accepted.EvaluationId))
+                fixture.ControlId, plan.PlanVersionId, accepted.EvaluationId))
             // Assert
             .ExpectFailure(RequestErrorKind.Conflict);
     }

@@ -16,4 +16,8 @@ public sealed record ControlEvaluationView(Uuid TenantId, Uuid ProgramId, Uuid C
     IReadOnlyList<EvaluationSubmissionView> Submissions,
     IReadOnlyList<ControlEvaluationReviewView> Reviews, ControlEvaluationReviewView? LatestReview,
     string? AcceptedOverall, Uuid? RetestOfEvaluationId, IReadOnlyList<Uuid> RetestOfDeviationIds,
-    string RetestStatus, IReadOnlyList<Uuid> RetestEvaluationIds);
+    string RetestStatus, IReadOnlyList<Uuid> RetestEvaluationIds)
+{
+    public Uuid? PlanVersionId { get; init; }
+    public long? PlanVersion { get; init; }
+}

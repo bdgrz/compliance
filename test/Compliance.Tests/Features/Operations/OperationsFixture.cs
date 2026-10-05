@@ -98,6 +98,9 @@ sealed class OperationsFixture
                 .AddRequestHandler<SetWorkDigestPreferenceHandler>()
                 .AddRequestHandler<GetWorkDigestPreferenceHandler>()
                 .AddRequestAuthorizer<TenantAccessAuthorizer>()
+                .AddRequestHandler<DefineControlEvaluationPlanHandler>()
+                .AddRequestHandler<GetControlEvaluationPlanVersionHandler>()
+                .AddRequestHandler<ListControlEvaluationPlanVersionsHandler>()
                 .AddRequestHandler<StartControlEvaluationHandler>()
                 .AddRequestHandler<RecordControlEvaluationStepHandler>()
                 .AddRequestHandler<DisposeControlEvaluationDeviationHandler>()
@@ -233,6 +236,38 @@ sealed class OperationsFixture
         var result = await Scenario(userId).When(request).ExpectSuccess();
         return result.Value;
     }
+
+    public async Task<ControlEvaluationPlanVersionView> GetOrDefineEvaluationPlanAsync(
+        IReadOnlyList<EvaluationProcedureStep>? steps = null,
+        bool testerIndependenceRequired = false)
+    {
+        await using var scope = Provider.CreateAsyncScope();
+        var plan = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new ControlEvaluationPlan(TenantId, ProgramId, ControlId));
+        if (plan.CurrentVersion is { } current)
+            return current;
+        var defaultSteps = steps ??
+        [
+            new EvaluationProcedureStep("design", "inspection",
+                [new EvaluationInspectedItem("policy", "policy/access-review", "v3")],
+                "Policy requires a monthly signed review."),
+            new EvaluationProcedureStep("implementation", "reperformance",
+                [new EvaluationInspectedItem("artifact", "exports/q3.csv", "sha256:ab12")],
+                "Every leaver was removed."),
+            new EvaluationProcedureStep("evidence_sufficiency", "inspection",
+                [new EvaluationInspectedItem("artifact", "exports/q3.csv", "sha256:ab12")],
+                "Export is complete and dated."),
+        ];
+        return await DefineEvaluationPlanAsync(0, "Evaluate control design and implementation.",
+            defaultSteps, testerIndependenceRequired);
+    }
+
+    public Task<ControlEvaluationPlanVersionView> DefineEvaluationPlanAsync(long expectedVersion,
+        string objective, IReadOnlyList<EvaluationProcedureStep> steps,
+        bool testerIndependenceRequired = false, Uuid? userId = null) =>
+        AsAsync(userId ?? LeadUserId, new DefineControlEvaluationPlan(TenantId, ProgramId,
+            ControlId, ControlVersionId, expectedVersion, objective, steps,
+            testerIndependenceRequired));
 
     public Task<ControlOperatingPlanView> ProposeAsync(long expectedRevision,
         OperatingHolder? owner = null, OperatingHolder? backup = null, Uuid? reviewer = null,

@@ -13,11 +13,17 @@ procedure step records:
 - `assertion`: one of `design`, `implementation`, or `evidence_sufficiency`;
 - `method`: one of `inquiry`, `inspection`, `observation`, or `reperformance`;
 - the inspected items, as exact record versions or artifact content references
-  (ADR 0006);
+  (ADR 0006), typed as boundary, commitment, risk, criterion, control, policy,
+  provider, evidence, generic record, or artifact;
 - the expected condition.
 
 The plan version is frozen when evaluation starts. A changed plan is a new
 version and never rewrites results already recorded.
+
+Each plan version names the exact approved control version it evaluates. Each
+procedure step keeps its exact inspected record version or artifact content
+reference, so starting an evaluation does not resolve those references to newer
+versions later.
 
 ## Result vocabulary
 
