@@ -129,7 +129,9 @@ public sealed class PolicyCampaignWorkTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        var events = new InMemoryEventStore();
+        services.AddSingleton<IEventStore>(events);
+        services.AddSingleton<IDomainEventReader>(events);
         services.AddSingleton(TimeProvider.System);
         services.AddPortia();
         await using var provider = services.BuildServiceProvider();
@@ -147,32 +149,120 @@ public sealed class PolicyCampaignWorkTests
         var closed = Launch(Ada);
         Assert.Null(closed.Close(ProgramId, "Done", Owner, Now.AddDays(1)));
         await writer.SaveAsync(closed, dispatch, CancellationToken.None);
-        var directory = new Campaigns(Summary(open, "open"), Summary(closed, "closed"));
+        var checkpoint = await CheckpointAfterAsync(events);
+        var directory = new Campaigns(checkpoint, Summary(open, "open"), Summary(closed, "closed"));
 
         // Act
-        var work = await PolicyCampaignWork.LoadAsync(reader, directory, TenantId, ProgramId, Today,
+        var work = await PolicyCampaignWork.LoadAsync(reader, directory,
+            new CampaignDirectoryReadConsistency(directory, events), TenantId, ProgramId, Today,
             CancellationToken.None);
 
         // Assert
-        Assert.Equal(2, work.Count);
-        Assert.Contains(work, item => item.Responsible ==
+        Assert.True(work.IsSuccess);
+        Assert.Equal(2, work.Value.Count);
+        Assert.Contains(work.Value, item => item.Responsible ==
             new OperatingHolder(OperatingAuthority.MemberHolder, RbacIds.Member(TenantId, userId)));
-        Assert.Contains(work, item => item.Responsible ==
+        Assert.Contains(work.Value, item => item.Responsible ==
             new OperatingHolder(OperatingAuthority.MemberHolder, OwnerMemberId));
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenCampaignDirectoryBehindSource()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var events = new InMemoryEventStore();
+        services.AddSingleton<IEventStore>(events);
+        services.AddSingleton<IDomainEventReader>(events);
+        services.AddSingleton(TimeProvider.System);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var campaign = Launch(Ada);
+        await writer.SaveAsync(campaign, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var directory = new Campaigns(ProjectionCheckpoint.Start);
+
+        // Act
+        var result = await PolicyCampaignWork.LoadAsync(reader, directory,
+            new CampaignDirectoryReadConsistency(directory, events), TenantId, ProgramId, Today,
+            CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenCampaignSourceChangesDuringRead()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        var events = new InMemoryEventStore();
+        services.AddSingleton<IEventStore>(events);
+        services.AddSingleton<IDomainEventReader>(events);
+        services.AddSingleton(TimeProvider.System);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var dispatch = new RequestDispatchContext(RequestActor.System);
+        var existing = Launch(Ada);
+        await writer.SaveAsync(existing, dispatch, CancellationToken.None);
+        var checkpoint = await CheckpointAfterAsync(events);
+        var directory = new Campaigns(checkpoint, Summary(existing, "open"))
+        {
+            OnList = async _ =>
+            {
+                await writer.SaveAsync(Launch(Bob), dispatch, CancellationToken.None);
+            },
+        };
+
+        // Act
+        var result = await PolicyCampaignWork.LoadAsync(reader, directory,
+            new CampaignDirectoryReadConsistency(directory, events), TenantId, ProgramId, Today,
+            CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
     }
 
     static CampaignSummaryView Summary(PolicyDistributionCampaign campaign, string status) =>
         new(TenantId, ProgramId, campaign.Id, "policy", Uuid.CreateVersion4(), "POL-AC", 2,
             "Access Control Policy", Today.AddDays(30), status, 1, Now);
 
-    sealed class Campaigns(params CampaignSummaryView[] items) : ICampaignDirectoryReader
+    static async Task<ProjectionCheckpoint> CheckpointAfterAsync(InMemoryEventStore events)
     {
-        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
-            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(
+                           TenantId.ToString(), "policy-distribution-campaigns"), cursor,
+                           CancellationToken.None))
+            cursor = record.NextCursor;
+        return new ProjectionCheckpoint(cursor);
+    }
 
-        public ValueTask<Page<CampaignSummaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
-            int limit, string? cursor, CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<CampaignSummaryView>(items, null));
+    sealed class Campaigns(ProjectionCheckpoint checkpoint, params CampaignSummaryView[] items)
+        : ICampaignDirectoryReader
+    {
+        public ProjectionCheckpoint Checkpoint { get; set; } = checkpoint;
+        public Func<CancellationToken, ValueTask>? OnList { get; set; }
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(Checkpoint);
+
+        public async ValueTask<Page<CampaignSummaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default)
+        {
+            if (OnList is not null)
+                await OnList(ct);
+            return new Page<CampaignSummaryView>(items, null);
+        }
 
         public ValueTask<IReadOnlyList<Uuid>> ListForSubjectAsync(Uuid tenantId, Uuid programId,
             Uuid subjectId, long version, CancellationToken ct = default) =>

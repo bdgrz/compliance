@@ -191,6 +191,7 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzCampaignDirectory>());
         services.AddScoped<ICampaignDirectoryReader>(provider =>
             provider.GetRequiredService<FitzCampaignDirectory>());
+        services.AddScoped<CampaignDirectoryReadConsistency>();
         services.AddScoped<FitzPersonDirectory>();
         services.AddScoped<IPersonMemberDisplayReader>(
             provider => provider.GetRequiredService<FitzPersonDirectory>());

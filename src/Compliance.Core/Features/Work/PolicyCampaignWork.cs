@@ -20,9 +20,15 @@ static class PolicyCampaignWork
     ///     Loads work for the program's open campaigns. The directory only enumerates campaign identities; each
     ///     campaign and each person's membership link are read from their source ledgers.
     /// </summary>
-    public static async ValueTask<IReadOnlyList<WorkCandidate>> LoadAsync(IAggregateReader reader,
-        ICampaignDirectoryReader directory, Uuid tenantId, Uuid programId, DateOnly today, CancellationToken ct)
+    public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
+        IAggregateReader reader, ICampaignDirectoryReader directory,
+        CampaignDirectoryReadConsistency consistency, Uuid tenantId, Uuid programId,
+        DateOnly today, CancellationToken ct)
     {
+        var fence = await consistency.CaptureAsync(tenantId, ct).ConfigureAwait(false);
+        if (!fence.IsSuccess)
+            return Result<IReadOnlyList<WorkCandidate>>.Failure(fence.Error);
+
         var candidates = new List<WorkCandidate>();
         var members = new Dictionary<Uuid, Uuid>();
         var resolved = new HashSet<Uuid>();
@@ -50,7 +56,12 @@ static class PolicyCampaignWork
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
-        return candidates;
+
+        var confirmed = await consistency.ConfirmUnchangedAndCaughtUpAsync(tenantId,
+            fence.Value, ct).ConfigureAwait(false);
+        return confirmed.IsSuccess
+            ? Result<IReadOnlyList<WorkCandidate>>.Success(candidates)
+            : Result<IReadOnlyList<WorkCandidate>>.Failure(confirmed.Error);
     }
 
     public static IReadOnlyList<WorkCandidate> Candidates(PolicyDistributionCampaign campaign, DateOnly today,
