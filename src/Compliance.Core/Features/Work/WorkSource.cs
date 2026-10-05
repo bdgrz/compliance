@@ -33,8 +33,7 @@ static class WorkSource
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
         IAggregateReader reader,
         Uuid tenantId, Uuid programId, DateOnly today, DateOnly horizon, DateTimeOffset now,
-        Uuid? workItemId, IBoundaryDirectoryReader? boundaries,
-        BoundaryDirectoryReadConsistency? boundaryConsistency, CancellationToken ct)
+        Uuid? workItemId, IBoundaryDirectoryReader? boundaries, CancellationToken ct)
     {
         bool Wanted(Uuid sourceId, string kind) =>
             workItemId is not { } wanted || WorkCandidate.IdFor(sourceId, kind) == wanted;
@@ -249,10 +248,8 @@ static class WorkSource
         }
         if (boundaries is not null)
         {
-            var consistency = boundaryConsistency ?? throw new InvalidOperationException(
-                "Boundary work requires boundary-directory read consistency.");
             var boundaryWork = await BoundaryDecisionWork.LoadAsync(reader, boundaries,
-                consistency, tenantId, programId, now, workItemId, ct).ConfigureAwait(false);
+                tenantId, programId, now, workItemId, ct).ConfigureAwait(false);
             if (!boundaryWork.IsSuccess)
                 return Result<IReadOnlyList<WorkCandidate>>.Failure(boundaryWork.Error);
             candidates.AddRange(boundaryWork.Value);

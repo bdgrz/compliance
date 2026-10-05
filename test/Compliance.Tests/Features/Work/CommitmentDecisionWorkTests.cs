@@ -261,6 +261,7 @@ public sealed class CommitmentDecisionWorkTests
         var consistency = new CommitmentDraftListReadConsistency(fixture.Commitments,
             new InMemoryEventStore());
         var queue = new WorkQueueReader(reader, authority, TimeProvider.System,
+            services.GetRequiredService<WorkQueueReadConsistency>(),
             commitments: fixture.Commitments, commitmentConsistency: consistency);
         var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
             "Approver");

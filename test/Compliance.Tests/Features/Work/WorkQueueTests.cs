@@ -342,6 +342,36 @@ public sealed class WorkQueueTests
     }
 
     [Fact]
+    public async Task ShouldReturnTransientConflictGivenSourceChangesAfterBoundaryRead()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        fixture.Boundaries.FollowSource = false;
+        var evidenceId = Uuid.CreateVersion4();
+        var lead = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        fixture.Policies.OnList = async _ =>
+        {
+            fixture.Policies.OnList = null;
+            await ProgramManagementServices.SeedAsync(fixture.Provider,
+                new EvidenceRequestLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+                {
+                    Assert.Null(ledger.OpenRequest(evidenceId, "Access export", "Upload the export.",
+                        fixture.OwnerMemberId, fixture.Today.AddDays(5), null, lead,
+                        DateTimeOffset.UtcNow));
+                    return Result.Success;
+                });
+        };
+
+        // Act
+        var stale = await fixture.Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
+            .ExpectFailure(RequestErrorKind.Conflict);
+
+        // Assert
+        Assert.True(stale.Error!.IsTransient);
+    }
+
+    [Fact]
     public async Task ShouldOmitBoundaryApprovalGivenForeignProjectedDecision()
     {
         // Arrange
