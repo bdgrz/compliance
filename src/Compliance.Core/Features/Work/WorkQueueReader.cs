@@ -28,7 +28,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     ControlLifecycleReleaseGate? controlLifecycleGate = null,
     IRiskDraftDirectoryReader? risks = null,
     RiskDraftListReadConsistency? riskConsistency = null,
-    CampaignDirectoryReadConsistency? campaignConsistency = null)
+    CampaignDirectoryReadConsistency? campaignConsistency = null,
+    BoundaryDirectoryReadConsistency? boundaryConsistency = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -62,7 +63,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, boundaries, ct).ConfigureAwait(false);
+            today.AddDays(horizonDays), now, workItemId, boundaries, boundaryConsistency, ct)
+            .ConfigureAwait(false);
         if (!work.IsSuccess)
             return Result<WorkQueueSnapshot>.Failure(work.Error);
         var candidates = work.Value.ToList();

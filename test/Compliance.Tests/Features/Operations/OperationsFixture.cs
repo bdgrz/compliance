@@ -116,6 +116,9 @@ sealed class OperationsFixture
             {
                 services.AddScoped<OperatingAuthority>();
                 services.AddScoped<WorkQueueReader>();
+                services.AddScoped<BoundaryDirectoryReadConsistency>();
+                services.AddSingleton<IDomainEventReader>(provider =>
+                    (IDomainEventReader)provider.GetRequiredService<IEventStore>());
                 services.AddSingleton(new ControlActivationReleaseGate(true));
                 services.AddSingleton(new ControlLifecycleReleaseGate(true));
                 services.AddSingleton<IControlDraftDirectoryReader, ProgramControls>();
@@ -139,6 +142,7 @@ sealed class OperationsFixture
             Commitments = provider.GetRequiredService<ProgramCommitments>(),
             Risks = provider.GetRequiredService<ProgramRisks>(),
         };
+        boundaries.Events = provider.GetRequiredService<IDomainEventReader>();
         permissions.Managers.Add(fixture.LeadMemberId);
         permissions.Managers.Add(fixture.ApproverMemberId);
         ((ProgramControls)provider.GetRequiredService<IControlDraftDirectoryReader>()).Add(
@@ -154,7 +158,18 @@ sealed class OperationsFixture
         await ProgramManagementServices.SeedAsync(provider, new Team(fixture.TenantId,
             fixture.TeamId), team => team.Define("Infrastructure"));
         await fixture.SeedControlAsync();
+        await fixture.CatchUpBoundaryDirectoryAsync();
         return fixture;
+    }
+
+    public async Task CatchUpBoundaryDirectoryAsync()
+    {
+        var events = Provider.GetRequiredService<IDomainEventReader>();
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(TenantId.ToString()),
+                           cursor, CancellationToken.None))
+            cursor = record.NextCursor;
+        Boundaries.Checkpoint = new ProjectionCheckpoint(cursor);
     }
 
     async Task SeedControlAsync()
@@ -389,6 +404,11 @@ sealed class OperationsFixture
     {
         readonly List<BoundaryView> _boundaries = [];
 
+        public IDomainEventReader? Events { get; set; }
+        public ProjectionCheckpoint Checkpoint { get; set; } = ProjectionCheckpoint.Start;
+        public bool FollowSource { get; set; } = true;
+        public Func<CancellationToken, ValueTask>? OnList { get; set; }
+
         public void Add(BoundaryView boundary)
         {
             var index = _boundaries.FindIndex(existing => existing.BoundaryId == boundary.BoundaryId);
@@ -402,11 +422,15 @@ sealed class OperationsFixture
             CancellationToken ct = default) => ValueTask.FromResult(_boundaries.FirstOrDefault(
             boundary => boundary.TenantId == tenantId && boundary.BoundaryId == boundaryId));
 
-        public ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
-            int limit, string? cursor, CancellationToken ct = default) =>
-            ValueTask.FromResult(new Page<BoundaryView>(_boundaries
+        public async ValueTask<Page<BoundaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default)
+        {
+            if (OnList is not null)
+                await OnList(ct);
+            return new Page<BoundaryView>(_boundaries
                 .Where(boundary => boundary.TenantId == tenantId && boundary.ProgramId == programId)
-                .Take(limit).ToArray(), null));
+                .Take(limit).ToArray(), null);
+        }
 
         public ValueTask<BoundaryVersionView?> GetVersionAsync(Uuid tenantId, Uuid boundaryId,
             Uuid versionId, CancellationToken ct = default) => ValueTask.FromResult<BoundaryVersionView?>(null);
@@ -427,8 +451,17 @@ sealed class OperationsFixture
             Uuid boundaryId, int limit, string? cursor, CancellationToken ct = default) =>
             ValueTask.FromResult<Page<BoundaryDecisionView>?>(new Page<BoundaryDecisionView>([], null));
 
-        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
-            CancellationToken ct = default) => throw new NotSupportedException();
+        public async ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default)
+        {
+            if (!FollowSource || Events is null)
+                return Checkpoint;
+            var cursor = EventCursor.Start;
+            await foreach (var record in Events.ReadAsync(
+                               EventStreamPattern.ForPattern(tenantId.ToString()), cursor, ct))
+                cursor = record.NextCursor;
+            return new ProjectionCheckpoint(cursor);
+        }
     }
 
     public sealed class ProgramPolicies : IPolicyDirectoryReader
