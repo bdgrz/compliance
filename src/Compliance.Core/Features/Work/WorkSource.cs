@@ -240,28 +240,25 @@ static class WorkSource
                 candidates.Add(candidate);
             }
         }
-        foreach (var controlId in operations.PlannedControlIds)
+        if (!projectedKinds.Contains(ControlOperatingPlanApproval))
         {
-            if (operations.PendingPlan(controlId) is not { } pending ||
-                workItemId is { } wantedPlan && WorkCandidate.IdFor(pending.PlanVersionId,
-                    ControlOperatingPlanApproval) != wantedPlan)
-                continue;
-            var control = await ControlOperationsSource.LoadControlAsync(reader, tenantId,
-                programId, controlId, ct).ConfigureAwait(false);
-            if (control is null ||
-                control.ApprovedVersion is not { Status: ControlOperationsLedger.Approved } current ||
-                current.VersionId != pending.ControlVersionId)
-                continue;
-            var actionPath = $"{prefix}/controls/{controlId}/operating-plan/proposals/" +
-                             $"{pending.PlanVersionId}/approvals";
-            candidates.Add(new WorkCandidate(
-                WorkCandidate.IdFor(pending.PlanVersionId, ControlOperatingPlanApproval),
-                ControlOperatingPlanApproval, pending.PlanVersionId, controlId, null,
-                $"Approve operating plan for {current.Identifier}",
-                "A control operating plan is awaiting independent approval.", null, null,
-                "approve", actionPath,
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                new HashSet<Uuid> { pending.ProposerMemberId }, pending.ProposedAt));
+            foreach (var controlId in operations.PlannedControlIds)
+            {
+                if (operations.PendingPlan(controlId) is not { } pending ||
+                    workItemId is { } wantedPlan && WorkCandidate.IdFor(pending.PlanVersionId,
+                        ControlOperatingPlanApproval) != wantedPlan)
+                    continue;
+                var control = await ControlOperationsSource.LoadControlAsync(reader, tenantId,
+                    programId, controlId, ct).ConfigureAwait(false);
+                if (control is null || control.IsRetired ||
+                    control.ApprovedVersion is not
+                    { Status: ControlOperationsLedger.Approved } current ||
+                    current.VersionId != pending.ControlVersionId)
+                    continue;
+                candidates.Add(ControlOperatingPlanApprovalCandidate(tenantId, programId,
+                    controlId, current.Identifier, pending.PlanVersionId,
+                    pending.ProposerMemberId, pending.ProposedAt));
+            }
         }
         if (boundaries is not null)
         {
@@ -277,6 +274,18 @@ static class WorkSource
     public static Uuid RiskTreatmentWorkItemId(Uuid programId, Uuid riskId, Uuid sourceId,
         string kind) => WorkCandidate.IdFor(Uuid.CreateVersion5(programId,
         $"risk-treatment-work\n{riskId}\n{sourceId}"), kind);
+
+    public static WorkCandidate ControlOperatingPlanApprovalCandidate(Uuid tenantId,
+        Uuid programId, Uuid controlId, string controlIdentifier, Uuid planVersionId,
+        Uuid proposerMemberId, DateTimeOffset proposedAt) => new(
+        WorkCandidate.IdFor(planVersionId, ControlOperatingPlanApproval),
+        ControlOperatingPlanApproval, planVersionId, controlId, null,
+        $"Approve operating plan for {controlIdentifier}",
+        "A control operating plan is awaiting independent approval.", null, null, "approve",
+        $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/" +
+        $"operating-plan/proposals/{planVersionId}/approvals",
+        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+        new HashSet<Uuid> { proposerMemberId }, proposedAt);
 
     public static WorkCandidate ControlEvaluationReviewCandidate(Uuid tenantId, Uuid programId,
         Uuid controlId, Uuid evaluationId, Uuid evaluatorMemberId, int round,
