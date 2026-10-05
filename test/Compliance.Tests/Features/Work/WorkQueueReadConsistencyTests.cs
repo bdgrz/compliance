@@ -162,6 +162,27 @@ public sealed class WorkQueueReadConsistencyTests
     }
 
     [Fact]
+    public async Task ShouldRejectLaggingControlMappingProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await SeedControlMappingProposalAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var mappingWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
+            area: "control-criterion-mappings", kind: WorkSource.ControlCriterionMappingReview,
+            projectorName: "TestControlMappingWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [mappingWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
     public async Task ShouldRejectChangedCorrectiveActionProjectionGivenReadFence()
     {
         // Arrange
@@ -404,6 +425,42 @@ public sealed class WorkQueueReadConsistencyTests
         Assert.Equal("Review not-applicable proposal for AC-2.4", entry.Item.Summary);
     }
 
+    [Fact]
+    public async Task ShouldListProjectedControlMappingReviewWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var (mappingId, proposedAt) = await SeedControlMappingProposalAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadCheckpointAsync(events, fixture.TenantId,
+            "control-criterion-mappings");
+        var candidate = WorkSource.ControlCriterionMappingReviewCandidate(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId, mappingId, "AC-2.4", fixture.OwnerMemberId, 1,
+            proposedAt);
+        var mappingWork = new ProjectedWorkItems(checkpoint, [candidate],
+            "control-criterion-mappings", WorkSource.ControlCriterionMappingReview,
+            "TestControlMappingWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [mappingWork]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [mappingWork]);
+        var actor = new OperationsActor(fixture.LeadUserId, fixture.LeadMemberId, "Lead");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.ControlCriterionMappingReview);
+        Assert.Equal(mappingId, entry.Candidate.SourceId);
+        Assert.Equal(fixture.ControlId, entry.Candidate.ControlId);
+        Assert.Equal("Review control mapping for AC-2.4", entry.Item.Summary);
+    }
+
     static async Task<ControlEvaluationView> SubmitControlEvaluationAsync(OperationsFixture fixture)
     {
         var plan = await fixture.GetOrDefineEvaluationPlanAsync();
@@ -456,6 +513,25 @@ public sealed class WorkQueueReadConsistencyTests
                 return Result.Success;
             });
         return (decisionId, proposedAt);
+    }
+
+    static async Task<(Uuid MappingId, DateTimeOffset ProposedAt)>
+        SeedControlMappingProposalAsync(OperationsFixture fixture)
+    {
+        var editionId = Uuid.CreateVersion4();
+        var proposedAt = DateTimeOffset.UtcNow;
+        var mappingId = ControlCriterionMappingLedger.MappingIdFor(fixture.ProgramId,
+            fixture.ControlId, editionId, "AC-2.4");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ControlCriterionMappingLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Propose(fixture.ControlId, fixture.ControlVersionId, editionId,
+                    "AC-2.4", "security", 0, "The control addresses this criterion.",
+                    "The control covers the in-scope environment.", fixture.OwnerMemberId,
+                    "Owner", proposedAt, out _));
+                return Result.Success;
+            });
+        return (mappingId, proposedAt);
     }
 
     static async Task SeedEvidenceRequestAsync(OperationsFixture fixture)

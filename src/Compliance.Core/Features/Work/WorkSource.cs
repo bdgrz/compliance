@@ -9,10 +9,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
-///     Derives work from the authoritative source ledgers at read time (M0-D15) for source
-///     families that do not yet have dedicated projections: control occurrences to perform;
-///     control-plan approvals; control-attestation, control-mapping, criterion-applicability,
-///     boundary, and risk-treatment reviews. Work completion remains owned by each source workflow.
+///     Builds candidates from authoritative source ledgers at read time for work families without
+///     a supplied projection. Work completion remains owned by each source workflow.
 /// </summary>
 static class WorkSource
 {
@@ -203,27 +201,24 @@ static class WorkSource
                 candidates.Add(candidate);
             }
         }
-        var mappings = await reader.HydrateAsync(new ControlCriterionMappingLedger(tenantId,
-            programId), ct).ConfigureAwait(false);
-        foreach (var mapping in mappings.ReadAll().Where(static mapping =>
-                     mapping.Status == "pending" &&
-                     mapping.Versions.Count > 0 && mapping.Versions[^1].Status == "proposed"))
+        if (!projectedKinds.Contains(ControlCriterionMappingReview))
         {
-            var proposal = mapping.Versions[^1];
-            var identity = Uuid.CreateVersion5(mapping.MappingId,
-                $"control-criterion-mapping-review\n{proposal.VersionNumber}");
-            var candidateId = WorkCandidate.IdFor(identity, ControlCriterionMappingReview);
-            if (workItemId is { } wantedMapping && candidateId != wantedMapping)
-                continue;
-            var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id, CultureInfo.InvariantCulture);
-            candidates.Add(new WorkCandidate(candidateId, ControlCriterionMappingReview,
-                mapping.MappingId, mapping.ControlId, null,
-                $"Review control mapping for {mapping.CriterionIdentifier}",
-                "A control-to-criteria mapping proposal is awaiting independent review.", null,
-                null, "review",
-                $"{prefix}/control-mappings/{mapping.MappingId}/reviews",
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
-                new HashSet<Uuid> { proposerMemberId }, proposal.ProposedAt));
+            var mappings = await reader.HydrateAsync(new ControlCriterionMappingLedger(tenantId,
+                programId), ct).ConfigureAwait(false);
+            foreach (var mapping in mappings.ReadAll().Where(static mapping =>
+                         mapping.Status == "pending" && mapping.Versions.Count > 0 &&
+                         mapping.Versions[^1].Status == "proposed"))
+            {
+                var proposal = mapping.Versions[^1];
+                var proposerMemberId = Uuid.Parse(proposal.ProposedBy.Id,
+                    CultureInfo.InvariantCulture);
+                var candidate = ControlCriterionMappingReviewCandidate(tenantId, programId,
+                    mapping.ControlId, mapping.MappingId, mapping.CriterionIdentifier,
+                    proposerMemberId, proposal.VersionNumber, proposal.ProposedAt);
+                if (workItemId is { } wantedMapping && candidate.WorkItemId != wantedMapping)
+                    continue;
+                candidates.Add(candidate);
+            }
         }
         if (!projectedKinds.Contains(CriterionApplicabilityReview))
         {
@@ -297,6 +292,25 @@ static class WorkSource
     {
         var identity = Uuid.CreateVersion5(evaluationId, $"control-evaluation-review\n{round}");
         return WorkCandidate.IdFor(identity, ControlEvaluationReview);
+    }
+
+    public static WorkCandidate ControlCriterionMappingReviewCandidate(Uuid tenantId,
+        Uuid programId, Uuid controlId, Uuid mappingId, string criterionIdentifier,
+        Uuid proposerMemberId, int versionNumber, DateTimeOffset proposedAt) =>
+        new(ControlCriterionMappingReviewWorkItemId(mappingId, versionNumber),
+            ControlCriterionMappingReview, mappingId, controlId, null,
+            $"Review control mapping for {criterionIdentifier}",
+            "A control-to-criteria mapping proposal is awaiting independent review.", null, null,
+            "review", $"/api/v1/tenants/{tenantId}/programs/{programId}/" +
+            $"control-mappings/{mappingId}/reviews",
+            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new HashSet<Uuid> { proposerMemberId }, proposedAt);
+
+    public static Uuid ControlCriterionMappingReviewWorkItemId(Uuid mappingId, int versionNumber)
+    {
+        var identity = Uuid.CreateVersion5(mappingId,
+            $"control-criterion-mapping-review\n{versionNumber}");
+        return WorkCandidate.IdFor(identity, ControlCriterionMappingReview);
     }
 
     public static WorkCandidate CriterionApplicabilityReviewCandidate(Uuid tenantId,
