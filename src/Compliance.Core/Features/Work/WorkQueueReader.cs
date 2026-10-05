@@ -3,6 +3,7 @@ using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Policies;
+using Bdgrz.Compliance.Features.Risks;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
@@ -24,7 +25,9 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     IControlDraftDirectoryReader? controls = null,
     ControlDraftListReadConsistency? controlConsistency = null,
     ControlActivationReleaseGate? controlActivationGate = null,
-    ControlLifecycleReleaseGate? controlLifecycleGate = null)
+    ControlLifecycleReleaseGate? controlLifecycleGate = null,
+    IRiskDraftDirectoryReader? risks = null,
+    RiskDraftListReadConsistency? riskConsistency = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -94,6 +97,14 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                 return Result<WorkQueueSnapshot>.Failure(decisions.Error);
             candidates.AddRange(decisions.Value);
         }
+        if (risks is not null)
+        {
+            var decisions = await RiskAcceptanceWork.LoadAsync(reader, risks, riskConsistency,
+                tenantId, programId, now, workItemId, ct).ConfigureAwait(false);
+            if (!decisions.IsSuccess)
+                return Result<WorkQueueSnapshot>.Failure(decisions.Error);
+            candidates.AddRange(decisions.Value);
+        }
         var ledger = await reader.HydrateAsync(new WorkAssignmentLedger(tenantId, programId), ct)
             .ConfigureAwait(false);
         var manages = await authority.ManagesProgramAsync(tenantId, actor, programId, ct)
@@ -109,7 +120,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             var inTeam = candidate.Responsible.Kind == OperatingAuthority.TeamHolder &&
                          await HoldsAsync(tenantId, candidate.Responsible, actor.MemberId, ct)
                              .ConfigureAwait(false);
-            if (manages || eligible || assignee == actor.MemberId)
+            if (eligible || assignee == actor.MemberId ||
+                manages && !RiskAcceptanceWork.HasRestrictedAuthority(candidate))
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
         var ordered = entries
