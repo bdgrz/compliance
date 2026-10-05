@@ -312,6 +312,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzCorrectiveActionWorkItemDirectory>());
         services.AddScoped<IAccountableWorkItemDirectoryReader>(
             provider => provider.GetRequiredService<FitzCorrectiveActionWorkItemDirectory>());
+        services.AddScoped<FitzRiskGovernanceWorkItemDirectory>();
+        services.AddScoped<IRiskGovernanceWorkItemProjection>(
+            provider => provider.GetRequiredService<FitzRiskGovernanceWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(
+            provider => provider.GetRequiredService<FitzRiskGovernanceWorkItemDirectory>());
         services.AddScoped<FitzSnapshotDirectory>();
         services.AddScoped<ISnapshotDirectoryProjection>(
             provider => provider.GetRequiredService<FitzSnapshotDirectory>());
@@ -961,6 +966,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<CorrectiveActionWorkItemProjector>(
                 FitzCorrectiveActionWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<RiskGovernanceWorkItemProjector>(
+                FitzRiskGovernanceWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
             .AddProjector<MemberResponsibilityProjector>("MemberResponsibilitiesV1", WorkloadScope.PerTenant)
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)
