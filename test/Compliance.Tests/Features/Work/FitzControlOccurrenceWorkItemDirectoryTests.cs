@@ -183,6 +183,46 @@ public sealed class FitzControlOccurrenceWorkItemDirectoryTests
     }
 
     [Fact]
+    public async Task ShouldProjectLatestCorrectionAsPendingReviewGivenReturnedAttestation()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var plan = await fixture.PlanAsync(backup: new OperatingHolder(
+            OperatingAuthority.MemberHolder, fixture.BackupMemberId));
+        var occurrence = (await fixture.OccurrencesAsync("missed"))[0];
+        var submitted = await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(occurrence));
+        var returned = await fixture.AsAsync(fixture.ReviewerUserId,
+            fixture.Review(submitted, "returned"));
+        var corrected = await fixture.AsAsync(fixture.BackupUserId,
+            new CorrectControlAttestation(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                returned.OccurrenceId, returned.Revision, "complete",
+                DateTimeOffset.UtcNow.AddMinutes(-1), null, null, "Correction recorded.", null,
+                OperationsFixture.FullSupport, "Included the missing support."));
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var sourceReader = sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var directory = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            sourceReader);
+        await CatchUpAsync(fixture, directory);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Act
+        var work = await directory.LoadProgramAsync(fixture.TenantId, fixture.ProgramId, today,
+            today.AddDays(30), null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, corrected.Attestations.Count);
+        Assert.Equal(corrected.Attestations[0].AttestationId,
+            corrected.Attestations[1].SupersedesAttestationId);
+        Assert.True(work.IsSuccess);
+        var review = Assert.Single(work.Value, item =>
+            item.Kind == WorkSource.OccurrenceReview && item.SourceId == occurrence.OccurrenceId);
+        Assert.Equal(plan.ReviewerMemberId, review.Responsible.Id);
+        Assert.Equal(corrected.Attestations[^1].RecordedAt, review.CreatedAt);
+        Assert.Contains(fixture.BackupMemberId, review.Excluded);
+        Assert.DoesNotContain(fixture.OwnerMemberId, review.Excluded);
+    }
+
+    [Fact]
     public async Task ShouldIsolateProjectedOccurrencesToTheirTenantAndProgramGivenPlan()
     {
         // Arrange
