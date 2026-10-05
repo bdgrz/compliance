@@ -3,10 +3,15 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
 
-/// <summary>Fences a complete queue read against tenant changes and projected evidence work.</summary>
+/// <summary>Fences a complete queue read against tenant changes and lagging source projections.</summary>
 public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantCheckpoint,
-    IDomainEventReader events, IEvidenceWorkItemDirectoryReader? evidenceWorkItems = null)
+    IDomainEventReader events,
+    IEnumerable<IAccountableWorkItemDirectoryReader>? accountableWorkItems = null)
 {
+    readonly IAccountableWorkItemDirectoryReader[] _accountableWorkItems =
+        accountableWorkItems?.OrderBy(static reader => reader.ProjectorName,
+            StringComparer.Ordinal).ToArray() ?? [];
+
     public async ValueTask<Result<WorkQueueReadFence>> CaptureAsync(Uuid tenantId,
         CancellationToken ct)
     {
@@ -16,18 +21,24 @@ public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantChec
                 tenantCursor, ct).ConfigureAwait(false))
             return Result<WorkQueueReadFence>.Failure(BehindSourceError());
 
-        ProjectionCheckpoint? evidenceCursor = null;
-        if (evidenceWorkItems is not null)
+        var workItemProjections = new List<WorkItemProjectionFence>(_accountableWorkItems.Length);
+        var identities = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var workItems in _accountableWorkItems)
         {
-            evidenceCursor = await evidenceWorkItems.LoadCheckpointAsync(tenantId, ct)
+            if (!identities.Add(workItems.ProjectorName))
+                throw new InvalidOperationException(
+                    $"The work queue has duplicate projector identity {workItems.ProjectorName}.");
+            var pattern = workItems.SourcePattern(tenantId);
+            var checkpoint = await workItems.LoadCheckpointAsync(tenantId, ct)
                 .ConfigureAwait(false);
-            if (await HasPendingSourceAsync(EvidencePattern(tenantId), evidenceCursor.Value, ct)
-                    .ConfigureAwait(false))
+            if (await HasPendingSourceAsync(pattern, checkpoint, ct).ConfigureAwait(false))
                 return Result<WorkQueueReadFence>.Failure(BehindSourceError());
+            workItemProjections.Add(new WorkItemProjectionFence(workItems.ProjectorName,
+                checkpoint));
         }
 
         return Result<WorkQueueReadFence>.Success(new WorkQueueReadFence(tenantCursor,
-            evidenceCursor));
+            workItemProjections));
     }
 
     public async ValueTask<Result> ConfirmUnchangedAndCaughtUpAsync(Uuid tenantId,
@@ -40,19 +51,20 @@ public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantChec
                 tenantCursor, ct).ConfigureAwait(false))
             return Result.Failure(BehindSourceError());
 
-        if (evidenceWorkItems is null)
+        if (fence.WorkItemProjections.Count != _accountableWorkItems.Length)
+            return Result.Failure(BehindSourceError());
+
+        foreach (var workItems in _accountableWorkItems)
         {
-            if (fence.EvidenceWorkItemCheckpoint is not null)
+            var projectionFence = fence.WorkItemProjections.SingleOrDefault(item =>
+                StringComparer.Ordinal.Equals(item.ProjectorName, workItems.ProjectorName));
+            if (projectionFence is null)
                 return Result.Failure(BehindSourceError());
-        }
-        else
-        {
-            var evidenceCursor = await evidenceWorkItems.LoadCheckpointAsync(tenantId, ct)
+            var pattern = workItems.SourcePattern(tenantId);
+            var checkpoint = await workItems.LoadCheckpointAsync(tenantId, ct)
                 .ConfigureAwait(false);
-            if (fence.EvidenceWorkItemCheckpoint is not { } evidenceFence ||
-                evidenceCursor != evidenceFence ||
-                await HasPendingSourceAsync(EvidencePattern(tenantId), evidenceCursor, ct)
-                    .ConfigureAwait(false))
+            if (checkpoint != projectionFence.Checkpoint ||
+                await HasPendingSourceAsync(pattern, checkpoint, ct).ConfigureAwait(false))
                 return Result.Failure(BehindSourceError());
         }
 
@@ -66,9 +78,6 @@ public sealed class WorkQueueReadConsistency(IBoundaryDirectoryReader tenantChec
             .GetAsyncEnumerator(ct);
         return await pending.MoveNextAsync().ConfigureAwait(false);
     }
-
-    static EventStreamPattern EvidencePattern(Uuid tenantId) =>
-        EventStreamPattern.ForPattern(tenantId.ToString(), "evidence-requests");
 
     static RequestError BehindSourceError() => new(RequestErrorKind.Conflict,
         "The work queue sources changed or a required projection is behind. Retry the query.",

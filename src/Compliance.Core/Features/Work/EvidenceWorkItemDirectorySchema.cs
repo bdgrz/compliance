@@ -4,8 +4,9 @@ namespace Bdgrz.Compliance.Features.Work;
 
 static class EvidenceWorkItemDirectorySchema
 {
-    public static readonly KvDirectory<EvidenceWorkItemProjectionRevision, string> Revisions = new(
-        "projection_revisions", ComplianceCoreJsonContext.Default.EvidenceWorkItemProjectionRevision,
+    public static readonly KvDirectory<AccountableWorkItemProjectionRevision, string> Revisions = new(
+        "projection_revisions",
+        ComplianceCoreJsonContext.Default.AccountableWorkItemProjectionRevision,
         static revision => revision.ProjectorName,
         static projectorName => [projectorName], []);
 
@@ -18,5 +19,3 @@ static class EvidenceWorkItemDirectorySchema
         static item => item.WorkItemId,
         static workItemId => [workItemId.ToString()], [ByProgram]);
 }
-
-public sealed record EvidenceWorkItemProjectionRevision(string ProjectorName, long Revision);

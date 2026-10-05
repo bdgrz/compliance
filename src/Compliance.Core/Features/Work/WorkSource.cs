@@ -12,8 +12,8 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     Derives work from the authoritative source ledgers at read time (M0-D15) for source
 ///     families that do not yet have dedicated projections: control occurrences to perform;
 ///     control-plan approvals; control-attestation, control-mapping, criterion-applicability,
-///     evaluation, boundary, and risk-treatment reviews; and corrective actions. Work completion
-///     remains owned by each source workflow.
+///     evaluation, boundary, and risk-treatment reviews. Work completion remains owned by each
+///     source workflow.
 /// </summary>
 static class WorkSource
 {
@@ -33,7 +33,8 @@ static class WorkSource
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
         IAggregateReader reader,
         Uuid tenantId, Uuid programId, DateOnly today, DateOnly horizon, DateTimeOffset now,
-        Uuid? workItemId, IBoundaryDirectoryReader? boundaries, bool includeEvidenceRequests,
+        Uuid? workItemId, IBoundaryDirectoryReader? boundaries,
+        IReadOnlySet<string> projectedKinds,
         CancellationToken ct)
     {
         bool Wanted(Uuid sourceId, string kind) =>
@@ -83,21 +84,24 @@ static class WorkSource
                         null, excluded, attestation.RecordedAt));
                 }
             }
-        var remediation = await reader.HydrateAsync(new RemediationLedger(tenantId, programId), ct)
-            .ConfigureAwait(false);
-        foreach (var finding in remediation.ReadAll(now)
-                     .Where(static finding => finding.Status != RemediationLedger.Closed))
-            foreach (var action in finding.CorrectiveActions.Where(action =>
-                         action.Status == RemediationLedger.Open &&
-                         Wanted(action.ActionId, CorrectiveAction)))
-                candidates.Add(new WorkCandidate(
-                    WorkCandidate.IdFor(action.ActionId, CorrectiveAction), CorrectiveAction,
-                    action.ActionId, null, finding.FindingId, action.Description,
-                    $"Corrective action for finding \"{finding.Title}\".", action.DueOn,
-                    RemediationLedger.Materiality(finding.Severity), "complete",
-                    $"{prefix}/findings/{finding.FindingId}/corrective-actions/{action.ActionId}/completions",
-                    new OperatingHolder(OperatingAuthority.MemberHolder, action.OwnerMemberId),
-                    null, new HashSet<Uuid>(), action.AddedAt));
+        if (!projectedKinds.Contains(CorrectiveAction))
+        {
+            var remediation = await reader.HydrateAsync(new RemediationLedger(tenantId, programId), ct)
+                .ConfigureAwait(false);
+            foreach (var finding in remediation.ReadAll(now)
+                         .Where(static finding => finding.Status != RemediationLedger.Closed))
+                foreach (var action in finding.CorrectiveActions.Where(action =>
+                             action.Status == RemediationLedger.Open &&
+                             Wanted(action.ActionId, CorrectiveAction)))
+                    candidates.Add(new WorkCandidate(
+                        WorkCandidate.IdFor(action.ActionId, CorrectiveAction), CorrectiveAction,
+                        action.ActionId, null, finding.FindingId, action.Description,
+                        $"Corrective action for finding \"{finding.Title}\".", action.DueOn,
+                        RemediationLedger.Materiality(finding.Severity), "complete",
+                        $"{prefix}/findings/{finding.FindingId}/corrective-actions/{action.ActionId}/completions",
+                        new OperatingHolder(OperatingAuthority.MemberHolder, action.OwnerMemberId),
+                        null, new HashSet<Uuid>(), action.AddedAt));
+        }
         var governance = await reader.HydrateAsync(new RiskGovernanceLedger(tenantId, programId),
             ct).ConfigureAwait(false);
         foreach (var action in governance.Actions().Where(action =>
@@ -150,7 +154,7 @@ static class WorkSource
                 new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
                 new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
         }
-        if (includeEvidenceRequests)
+        if (!projectedKinds.Contains(EvidenceRequest))
         {
             var evidence = await reader.HydrateAsync(new EvidenceRequestLedger(tenantId, programId), ct)
                 .ConfigureAwait(false);

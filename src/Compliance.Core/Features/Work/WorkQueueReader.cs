@@ -30,7 +30,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     IRiskDraftDirectoryReader? risks = null,
     RiskDraftListReadConsistency? riskConsistency = null,
     CampaignDirectoryReadConsistency? campaignConsistency = null,
-    IEvidenceWorkItemDirectoryReader? evidenceWorkItems = null)
+    IEnumerable<IAccountableWorkItemDirectoryReader>? accountableWorkItems = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -38,6 +38,9 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     readonly Dictionary<(OperatingHolder Holder, Uuid MemberId), bool> _holds = [];
     readonly Dictionary<Uuid, bool> _active = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
+    readonly IAccountableWorkItemDirectoryReader[] _accountableWorkItems =
+        accountableWorkItems?.OrderBy(static reader => reader.ProjectorName,
+            StringComparer.Ordinal).ToArray() ?? [];
 
     internal ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
         OperationsActor actor, int horizonDays, CancellationToken ct) =>
@@ -67,16 +70,18 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
 
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var projectedKinds = _accountableWorkItems.SelectMany(static reader =>
+                reader.ProjectedKinds).ToHashSet(StringComparer.Ordinal);
         var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,
             today.AddDays(horizonDays), now, workItemId, boundaries,
-            includeEvidenceRequests: evidenceWorkItems is null, ct)
+            projectedKinds, ct)
             .ConfigureAwait(false);
         if (!work.IsSuccess)
             return Result<WorkQueueSnapshot>.Failure(work.Error);
         var candidates = work.Value.ToList();
-        if (evidenceWorkItems is not null)
+        foreach (var workItems in _accountableWorkItems)
         {
-            var projected = await evidenceWorkItems.LoadProgramAsync(tenantId, programId, ct)
+            var projected = await workItems.LoadProgramAsync(tenantId, programId, ct)
                 .ConfigureAwait(false);
             if (!projected.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(projected.Error);

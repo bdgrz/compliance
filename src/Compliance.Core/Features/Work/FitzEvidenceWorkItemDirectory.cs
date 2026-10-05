@@ -8,14 +8,21 @@ namespace Bdgrz.Compliance.Features.Work;
 sealed class FitzEvidenceWorkItemDirectory(IKvClient client)
     : FitzKvProjectionStore(client,
         "kv://bdgrz/accountable-work-items/evidence-v1", ProjectorName),
-      IEvidenceWorkItemDirectoryReader, IEvidenceWorkItemProjection
+      IAccountableWorkItemDirectoryReader, IEvidenceWorkItemProjection
 {
     public const string ProjectorName = "AccountableWorkItemEvidenceV1";
     const string RevisionKey = ProjectorName;
 
+    string IAccountableWorkItemDirectoryReader.ProjectorName => ProjectorName;
+
+    public IReadOnlyCollection<string> ProjectedKinds => [WorkSource.EvidenceRequest];
+
+    public EventStreamPattern SourcePattern(Uuid tenantId) =>
+        EventStreamPattern.ForPattern(tenantId.ToString(), "evidence-requests");
+
     public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
         CancellationToken ct = default) => base.LoadCheckpointAsync(new CheckpointIdentity(
-        ProjectorName, EventStreamPattern.ForPattern(tenantId.ToString(), "evidence-requests")), ct);
+        ProjectorName, SourcePattern(tenantId)), ct);
 
     public async ValueTask<long> LoadRevisionAsync(Uuid tenantId,
         CancellationToken ct = default)
@@ -114,7 +121,7 @@ sealed class FitzEvidenceWorkItemDirectory(IKvClient client)
     {
         var current = await EvidenceWorkItemDirectorySchema.Revisions.GetAsync(Transaction,
             RevisionKey, ct).ConfigureAwait(false);
-        var next = new EvidenceWorkItemProjectionRevision(ProjectorName,
+        var next = new AccountableWorkItemProjectionRevision(ProjectorName,
             checked((current?.Revision ?? 0) + 1));
         if (current is null)
             await EvidenceWorkItemDirectorySchema.Revisions.InsertAsync(Transaction, next, ct)
