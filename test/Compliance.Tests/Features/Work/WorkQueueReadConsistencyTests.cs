@@ -8,6 +8,7 @@ using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Testing;
+using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -480,6 +481,64 @@ public sealed class WorkQueueReadConsistencyTests
         Assert.False(captured.IsSuccess);
         Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
         Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingOccurrenceProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.PlanAsync();
+        await fixture.CatchUpBoundaryDirectoryAsync();
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var occurrenceWork = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>());
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [occurrenceWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldListProjectedOccurrenceWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.PlanAsync();
+        var occurrence = (await fixture.OccurrencesAsync())
+            .First(item => item.PeriodStart <= fixture.Today);
+        await fixture.CatchUpBoundaryDirectoryAsync();
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var services = sourceScope.ServiceProvider;
+        var occurrenceWork = new FitzControlOccurrenceWorkItemDirectory(new InMemoryKvClient(),
+            services.GetRequiredService<IAggregateReader>());
+        await FitzControlOccurrenceWorkItemDirectoryTests.CatchUpAsync(fixture, occurrenceWork);
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [occurrenceWork]);
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [occurrenceWork]);
+        var actor = new OperationsActor(fixture.OwnerUserId, fixture.OwnerMemberId, "Owner");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.ControlOccurrence &&
+                    item.Candidate.SourceId == occurrence.OccurrenceId);
+        Assert.True(entry.ActorEligible);
+        Assert.Equal("attest", entry.Candidate.NextAction);
     }
 
     [Fact]

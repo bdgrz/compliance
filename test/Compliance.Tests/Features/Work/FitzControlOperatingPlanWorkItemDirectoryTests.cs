@@ -185,4 +185,34 @@ public sealed class FitzControlOperatingPlanWorkItemDirectoryTests
             await directory.ApplyAsync(new ControlOperatingPlanProposed(fixture.TenantId,
                 fixture.ProgramId, fixture.ControlId, 2, skipped)));
     }
+
+    [Fact]
+    public async Task ShouldAdvanceProjectionRevisionGivenOccurrenceSourceEvent()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var sourceScope = fixture.Provider.CreateAsyncScope();
+        var directory = new FitzControlOperatingPlanWorkItemDirectory(new InMemoryKvClient(),
+            sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>());
+        var identity = new CheckpointIdentity(FitzControlOperatingPlanWorkItemDirectory.ProjectorName,
+            EventStreamPattern.ForPattern(fixture.TenantId.ToString(), "control-operations"));
+        var opened = new ControlOccurrenceOpened(fixture.TenantId, fixture.ProgramId,
+            fixture.ControlId, Uuid.CreateVersion4(), 1, ControlOperationsLedger.Expected,
+            Uuid.CreateVersion4(), Uuid.CreateVersion4(), fixture.Today, fixture.Today,
+            fixture.Today.AddDays(1), null,
+            new OperatingHolder(OperatingAuthority.MemberHolder, fixture.OwnerMemberId),
+            Bdgrz.Compliance.Features.AccessControl.ActorReference.ForMember(
+                fixture.OwnerMemberId, "Owner"), DateTimeOffset.UtcNow);
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(identity,
+                         ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(opened);
+            await batch.CommitAsync(new ProjectionCheckpoint(new EventCursor("occurrence-opened")));
+        }
+
+        // Assert
+        Assert.Equal(1, await directory.LoadRevisionAsync(fixture.TenantId));
+    }
 }
