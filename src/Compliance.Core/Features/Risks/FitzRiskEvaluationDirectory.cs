@@ -6,9 +6,16 @@ namespace Bdgrz.Compliance.Features.Risks;
 
 sealed class FitzRiskEvaluationDirectory(IKvClient client)
     : FitzKvProjectionStore(client, "kv://bdgrz/risk-evaluation-directory-v1/projection",
-            "RiskEvaluationDirectoryV1"),
+            ProjectorName),
         IRiskEvaluationDirectoryReader, IRiskEvaluationDirectoryProjection
 {
+    public const string ProjectorName = "RiskEvaluationDirectoryV1";
+
+    public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+        CancellationToken ct = default) => base.LoadCheckpointAsync(new CheckpointIdentity(
+        ProjectorName,
+        EventStreamPattern.ForPattern(tenantId.ToString(), "risk-evaluations")), ct);
+
     public async ValueTask ApplyAsync(DomainEvent domainEvent, CancellationToken ct = default)
     {
         switch (domainEvent)
