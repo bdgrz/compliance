@@ -276,6 +276,42 @@ public sealed class CommitmentDecisionWorkTests
         Assert.True(stale.Error.IsTransient);
     }
 
+    [Fact]
+    public async Task ShouldUseProjectedCommitmentKindsWithoutDuplicatingLiveCandidatesGivenCurrentProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var draftId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, draftId);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        fixture.Commitments.Checkpoint = await ReadCommitmentCheckpointAsync(events,
+            fixture.TenantId);
+        var consistency = new CommitmentDraftListReadConsistency(fixture.Commitments, events);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var live = await CommitmentDecisionWork.LoadAsync(
+            services.GetRequiredService<IAggregateReader>(), fixture.Commitments, consistency,
+            fixture.TenantId, fixture.ProgramId, DateTimeOffset.UtcNow, null,
+            CancellationToken.None);
+        var projection = new CommitmentDecisionWorkProjectionReader(
+            await ReadCommitmentCheckpointAsync(events, fixture.TenantId), live.Value);
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
+            new WorkQueueReadConsistency(fixture.Boundaries, events, [projection]),
+            commitments: fixture.Commitments, commitmentConsistency: consistency,
+            accountableWorkItems: [projection]);
+        var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
+            "Approver");
+
+        // Act
+        var result = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(result.Value.Entries);
+    }
+
     static Task<WorkQueueView> QueueAsync(OperationsFixture fixture, Uuid userId,
         string scope = "unassigned") =>
         fixture.AsAsync(userId, new ListWork(fixture.TenantId, fixture.ProgramId, scope));
@@ -320,4 +356,34 @@ public sealed class CommitmentDecisionWorkTests
 
     static DateTimeOffset At(DateOnly date) =>
         new(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+    static async Task<ProjectionCheckpoint> ReadCommitmentCheckpointAsync(
+        IDomainEventReader events, Uuid tenantId)
+    {
+        var cursor = EventCursor.Start;
+        await foreach (var record in events.ReadAsync(EventStreamPattern.ForPattern(
+                           tenantId.ToString(), "commitment-drafts"), cursor,
+                           CancellationToken.None))
+            cursor = record.NextCursor;
+        return new ProjectionCheckpoint(cursor);
+    }
+
+    sealed class CommitmentDecisionWorkProjectionReader(ProjectionCheckpoint checkpoint,
+        IReadOnlyList<WorkCandidate> candidates) : IAccountableWorkItemDirectoryReader
+    {
+        public string ProjectorName => "TestCommitmentDecisionWorkItems";
+
+        public IReadOnlyCollection<string> ProjectedKinds =>
+            ["commitment_draft_review", "commitment_draft_approval"];
+
+        public EventStreamPattern SourcePattern(Uuid tenantId) =>
+            EventStreamPattern.ForPattern(tenantId.ToString(), "commitment-drafts");
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(checkpoint);
+
+        public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, CancellationToken ct = default) =>
+            ValueTask.FromResult(Result<IReadOnlyList<WorkCandidate>>.Success(candidates));
+    }
 }

@@ -109,14 +109,16 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidates.AddRange(decisions.Value.Where(candidate =>
                 !projectedKinds.Contains(candidate.Kind)));
         }
-        if (commitments is not null)
+        if (commitments is not null &&
+            !CommitmentDecisionWork.IsFullyProjected(projectedKinds))
         {
             var decisions = await CommitmentDecisionWork.LoadAsync(reader, commitments,
                 commitmentConsistency, tenantId, programId, now, workItemId, ct)
                 .ConfigureAwait(false);
             if (!decisions.IsSuccess)
                 return Result<WorkQueueSnapshot>.Failure(decisions.Error);
-            candidates.AddRange(decisions.Value);
+            candidates.AddRange(decisions.Value.Where(candidate =>
+                !projectedKinds.Contains(candidate.Kind)));
         }
         if (controls is not null)
         {

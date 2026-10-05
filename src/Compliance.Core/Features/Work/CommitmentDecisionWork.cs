@@ -11,6 +11,11 @@ static class CommitmentDecisionWork
 {
     public const string Review = "commitment_draft_review";
     public const string Approval = "commitment_draft_approval";
+    public static IReadOnlyList<string> ProjectedKinds { get; } = Array.AsReadOnly<string>(
+        [Review, Approval]);
+
+    public static bool IsFullyProjected(IReadOnlySet<string> projectedKinds) =>
+        ProjectedKinds.All(projectedKinds.Contains);
 
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(
         IAggregateReader reader, ICommitmentDraftDirectoryReader directory,
@@ -41,11 +46,15 @@ static class CommitmentDecisionWork
                 var draft = await reader.HydrateAsync(new CommitmentDraft(tenantId,
                     summary.DraftId), ct).ConfigureAwait(false);
                 if (!draft.IsCreated || draft.ProgramId != programId ||
-                    draft.Revision != summary.Revision)
+                    draft.Revision != summary.Revision ||
+                    !StringComparer.Ordinal.Equals(draft.Identifier, summary.Identifier))
                     return Result<IReadOnlyList<WorkCandidate>>.Failure(SourceChanged());
 
-                candidates.AddRange(Candidates(draft, summary, tenantId, programId, now,
-                    workItemId));
+                var state = FromSource(tenantId, draft, summary.LastChangedAt);
+                var work = Candidates(state, now, workItemId);
+                if (!work.IsSuccess)
+                    return Result<IReadOnlyList<WorkCandidate>>.Failure(work.Error);
+                candidates.AddRange(work.Value);
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
@@ -60,82 +69,101 @@ static class CommitmentDecisionWork
         return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
     }
 
-    static List<WorkCandidate> Candidates(CommitmentDraft draft, CommitmentDraftView summary,
-        Uuid tenantId, Uuid programId, DateTimeOffset now, Uuid? workItemId)
+    internal static CommitmentDecisionWorkState FromSource(Uuid tenantId,
+        CommitmentDraft draft, DateTimeOffset draftChangedAt)
     {
-        string kind;
-        ResponsibilityType responsibilityType;
-        string nextAction;
-        string route;
-        string reason;
-        if (draft.AcceptedReviewDecisionId is not null)
-        {
-            kind = Approval;
-            responsibilityType = ResponsibilityType.PolicyApprover;
-            nextAction = "approve";
-            route = "approvals";
-            reason = $"Commitment draft revision {draft.Revision} is awaiting approval after its accepted review.";
-        }
-        else if (draft.LatestEffectiveRevision != draft.Revision)
-        {
-            kind = Review;
-            responsibilityType = ResponsibilityType.AssignedReviewer;
-            nextAction = "review";
-            route = "reviews";
-            reason = $"Commitment draft revision {draft.Revision} is awaiting independent review.";
-        }
-        else
-            return [];
-
         var scope = new ResponsibilityScope(SeparationOfDutiesRecordTypes.Commitment,
             draft.Id, draft.Id, draft.Revision);
-        var activeAssignments = draft.GetResponsibilitySet(scope).ReadAssignments()
-            .Where(assignment => assignment.TenantId == tenantId && assignment.Scope == scope &&
-                assignment.Type == responsibilityType && assignment.EffectiveFrom <= now &&
-                (assignment.EffectiveUntil is null || now < assignment.EffectiveUntil) &&
-                assignment.RevokedAt is null)
-            .Select(static assignment => assignment.MemberId)
-            .Distinct()
-            .OrderBy(static memberId => memberId.ToString(), StringComparer.Ordinal)
-            .ToArray();
-
-        var excluded = new HashSet<Uuid>(draft.PendingAuthorMemberIds);
-        if (kind == Approval && draft.AcceptedReviewerMemberId is { } reviewer)
-            excluded.Add(reviewer);
-
-        var prefix = $"/api/v1/tenants/{tenantId}/programs/{programId}/" +
-                     $"commitment-drafts/{draft.Id}";
-        var eligibleAssignments = activeAssignments.Where(memberId => !excluded.Contains(memberId))
-            .ToArray();
-        if (activeAssignments.Length > 0)
-            return eligibleAssignments.Select(memberId => CreateCandidate(draft, summary,
-                kind, nextAction, route, reason, prefix, workItemId,
-                new OperatingHolder(OperatingAuthority.MemberHolder, memberId), memberId))
-                .Where(static candidate => candidate is not null)
-                .Select(static candidate => candidate!)
-                .ToList();
-
-        var fallback = CreateCandidate(draft, summary, kind, nextAction, route, reason, prefix,
-            workItemId, new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId),
-            null, excluded);
-        return fallback is null ? [] : [fallback];
+        return new CommitmentDecisionWorkState(tenantId, draft.ProgramId, draft.Id,
+            draft.Identifier!, draft.Revision, draft.LatestEffectiveRevision,
+            draft.AcceptedReviewDecisionId, draft.AcceptedReviewerMemberId,
+            draft.PendingAuthorMemberIds.OrderBy(static memberId => memberId.ToString(),
+                StringComparer.Ordinal).ToArray(), draftChangedAt,
+            draft.GetResponsibilitySet(scope).ReadAssignments().ToArray());
     }
 
-    static WorkCandidate? CreateCandidate(CommitmentDraft draft, CommitmentDraftView summary,
-        string kind, string nextAction, string route, string reason, string prefix,
+    internal static Result<IReadOnlyList<WorkCandidate>> Candidates(
+        CommitmentDecisionWorkState state, DateTimeOffset now, Uuid? workItemId)
+    {
+        if (state.TenantId == Uuid.Empty || state.ProgramId == Uuid.Empty ||
+            state.DraftId == Uuid.Empty || string.IsNullOrWhiteSpace(state.Identifier) ||
+            state.SourceRevision < 1 || state.LatestEffectiveRevision is < 0 ||
+            state.PendingAuthorMemberIds is null || state.Assignments is null)
+            return Result<IReadOnlyList<WorkCandidate>>.Failure(InvalidScope());
+
+        var kind = state.AcceptedReviewDecisionId is not null ? Approval :
+            state.LatestEffectiveRevision != state.SourceRevision ? Review : null;
+        if (kind is null)
+            return Result<IReadOnlyList<WorkCandidate>>.Success([]);
+
+        var responsibilityType = kind == Approval
+            ? ResponsibilityType.PolicyApprover
+            : ResponsibilityType.AssignedReviewer;
+        var nextAction = kind == Approval ? "approve" : "review";
+        var route = kind == Approval ? "approvals" : "reviews";
+        var reason = kind == Approval
+            ? $"Commitment draft revision {state.SourceRevision} is awaiting approval after its accepted review."
+            : $"Commitment draft revision {state.SourceRevision} is awaiting independent review.";
+        var scope = new ResponsibilityScope(SeparationOfDutiesRecordTypes.Commitment,
+            state.DraftId, state.DraftId, state.SourceRevision);
+        var assignmentIds = new HashSet<Uuid>();
+        var activeAssignments = new HashSet<Uuid>();
+        foreach (var assignment in state.Assignments)
+        {
+            if (assignment is null || assignment.TenantId != state.TenantId ||
+                assignment.AssignmentId == Uuid.Empty || assignment.MemberId == Uuid.Empty ||
+                assignment.Scope != scope || !Enum.IsDefined(assignment.Type) ||
+                assignment.EffectiveUntil is { } until && until <= assignment.EffectiveFrom ||
+                !assignmentIds.Add(assignment.AssignmentId))
+                return Result<IReadOnlyList<WorkCandidate>>.Failure(InvalidScope());
+
+            if (assignment.Type == responsibilityType && assignment.EffectiveFrom <= now &&
+                (assignment.EffectiveUntil is not { } endsAt || now < endsAt) &&
+                assignment.RevokedAt is null)
+                activeAssignments.Add(assignment.MemberId);
+        }
+
+        var excluded = new HashSet<Uuid>(state.PendingAuthorMemberIds);
+        if (kind == Approval && state.AcceptedReviewerMemberId is { } reviewer)
+            excluded.Add(reviewer);
+
+        var prefix = $"/api/v1/tenants/{state.TenantId}/programs/{state.ProgramId}/" +
+                     $"commitment-drafts/{state.DraftId}";
+        if (activeAssignments.Count > 0)
+        {
+            var candidates = activeAssignments.Where(memberId => !excluded.Contains(memberId))
+                .OrderBy(static memberId => memberId.ToString(), StringComparer.Ordinal)
+                .Select(memberId => CreateCandidate(state, kind, nextAction, route, reason,
+                    prefix, workItemId,
+                    new OperatingHolder(OperatingAuthority.MemberHolder, memberId), memberId))
+                .Where(static candidate => candidate is not null)
+                .Select(static candidate => candidate!)
+                .ToArray();
+            return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
+        }
+
+        var fallback = CreateCandidate(state, kind, nextAction, route, reason, prefix,
+            workItemId,
+            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, state.ProgramId),
+            null, excluded);
+        return Result<IReadOnlyList<WorkCandidate>>.Success(fallback is null ? [] : [fallback]);
+    }
+
+    static WorkCandidate? CreateCandidate(CommitmentDecisionWorkState state, string kind,
+        string nextAction, string route, string reason, string prefix,
         Uuid? wantedWorkItemId, OperatingHolder responsible, Uuid? assignedMemberId,
         IReadOnlySet<Uuid>? excluded = null)
     {
-        var identity = Uuid.CreateVersion5(draft.Id,
-            $"commitment-decision\n{draft.Revision.ToString(CultureInfo.InvariantCulture)}\n" +
+        var identity = Uuid.CreateVersion5(state.DraftId,
+            $"commitment-decision\n{state.SourceRevision.ToString(CultureInfo.InvariantCulture)}\n" +
             $"{kind}\n{assignedMemberId?.ToString() ?? "program-reviewers"}");
-        var workItemId = WorkCandidate.IdFor(identity, kind);
-        if (wantedWorkItemId is { } wanted && wanted != workItemId)
+        var id = WorkCandidate.IdFor(identity, kind);
+        if (wantedWorkItemId is { } wanted && wanted != id)
             return null;
-        return new WorkCandidate(workItemId, kind, draft.Id, null, null,
-            $"{(nextAction == "review" ? "Review" : "Approve")} commitment {summary.Identifier}",
+        return new WorkCandidate(id, kind, state.DraftId, null, null,
+            $"{(nextAction == "review" ? "Review" : "Approve")} commitment {state.Identifier}",
             reason, null, null, nextAction, $"{prefix}/{route}", responsible, null,
-            excluded ?? new HashSet<Uuid>(), summary.LastChangedAt);
+            excluded ?? new HashSet<Uuid>(), state.DraftChangedAt);
     }
 
     static RequestError InvalidScope() => new(RequestErrorKind.Conflict,
