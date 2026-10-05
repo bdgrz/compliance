@@ -26,6 +26,32 @@ public sealed class FitzCommitmentDecisionWorkItemDirectoryTests
         var directory = new FitzCommitmentDecisionWorkItemDirectory(new InMemoryKvClient(),
             sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>());
         await ProjectAsync(directory, events, fixture.TenantId, created);
+        var responsibilityScope = new ResponsibilityScope("commitment", draftId, draftId, 1);
+        var reviewerAssignmentId = Uuid.CreateVersion4();
+        var approverAssignmentId = Uuid.CreateVersion4();
+        var assignedAt = created.ChangedAt.AddSeconds(1);
+        await ApplyDraftAsync(fixture, draftId, draft =>
+        {
+            Assert.Null(draft.AssignResponsibility(responsibilityScope, reviewerAssignmentId,
+                fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                fixture.LeadMemberId, "Lead", assignedAt, created.ChangedAt, null, []));
+            return Result.Success;
+        });
+        await ProjectAsync(directory, events, fixture.TenantId, new ResponsibilityAssigned(
+            fixture.TenantId, reviewerAssignmentId, fixture.ReviewerMemberId,
+            ResponsibilityType.AssignedReviewer, responsibilityScope, assignedAt,
+            fixture.LeadMemberId, created.ChangedAt, null, [], "Lead"));
+        await ApplyDraftAsync(fixture, draftId, draft =>
+        {
+            Assert.Null(draft.AssignResponsibility(responsibilityScope, approverAssignmentId,
+                fixture.ApproverMemberId, ResponsibilityType.PolicyApprover,
+                fixture.LeadMemberId, "Lead", assignedAt, created.ChangedAt, null, []));
+            return Result.Success;
+        });
+        await ProjectAsync(directory, events, fixture.TenantId, new ResponsibilityAssigned(
+            fixture.TenantId, approverAssignmentId, fixture.ApproverMemberId,
+            ResponsibilityType.PolicyApprover, responsibilityScope, assignedAt,
+            fixture.LeadMemberId, created.ChangedAt, null, [], "Lead"));
 
         var initial = Assert.Single((await directory.LoadProgramAsync(fixture.TenantId,
             fixture.ProgramId, created.ChangedAt, DateOnly.MaxValue, null)).Value);
@@ -65,16 +91,17 @@ public sealed class FitzCommitmentDecisionWorkItemDirectoryTests
 
         // Assert
         Assert.Equal("commitment_draft_review", initial.Kind);
+        Assert.Equal(fixture.ReviewerMemberId, initial.Responsible.Id);
         Assert.Equal(draftId, initial.SourceId);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
                      $"commitment-drafts/{draftId}/reviews", initial.ActionPath);
         Assert.Equal("commitment_draft_approval", approval.Kind);
+        Assert.Equal(fixture.ApproverMemberId, approval.Responsible.Id);
         Assert.NotEqual(initial.WorkItemId, approval.WorkItemId);
-        Assert.Contains(fixture.ReviewerMemberId, approval.Excluded);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
                      $"commitment-drafts/{draftId}/approvals", approval.ActionPath);
         Assert.Empty(completed.Value);
-        Assert.Equal(3, await directory.LoadRevisionAsync(fixture.TenantId));
+        Assert.Equal(5, await directory.LoadRevisionAsync(fixture.TenantId));
         Assert.Equal(await ReadCommitmentCheckpointAsync(events, fixture.TenantId),
             await directory.LoadCheckpointAsync(fixture.TenantId));
         Assert.Empty((await directory.LoadProgramAsync(fixture.TenantId,
