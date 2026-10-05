@@ -420,6 +420,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(CommitmentDecisionWorkState))]
 [JsonSerializable(typeof(ControlDecisionWorkState))]
 [JsonSerializable(typeof(PolicyDecisionWorkState))]
+[JsonSerializable(typeof(PolicyCampaignWorkCampaignState))]
+[JsonSerializable(typeof(PolicyCampaignWorkParticipantState))]
 [JsonSerializable(typeof(GetWorkItem))]
 [JsonSerializable(typeof(WorkItemDetailView))]
 [JsonSerializable(typeof(WorkAssignmentEntryView))]

@@ -190,6 +190,11 @@ public static class ComplianceServiceCollectionExtensions
             provider.GetRequiredService<FitzPolicyDecisionWorkItemDirectory>());
         services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
             provider.GetRequiredService<FitzPolicyDecisionWorkItemDirectory>());
+        services.AddScoped<FitzPolicyCampaignWorkItemDirectory>();
+        services.AddScoped<IPolicyCampaignWorkItemProjection>(provider =>
+            provider.GetRequiredService<FitzPolicyCampaignWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzPolicyCampaignWorkItemDirectory>());
         services.AddScoped<FitzBoundaryDecisionWorkItemDirectory>();
         services.AddScoped<IBoundaryDecisionWorkItemProjection>(provider =>
             provider.GetRequiredService<FitzBoundaryDecisionWorkItemDirectory>());
@@ -966,6 +971,8 @@ public static class ComplianceServiceCollectionExtensions
                 WorkloadScope.PerTenant)
             .AddProjector<PolicyDecisionWorkItemProjector>(
                 FitzPolicyDecisionWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
+            .AddProjector<PolicyCampaignWorkItemProjector>(
+                FitzPolicyCampaignWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<CampaignDirectoryProjector>(FitzCampaignDirectory.ProjectorName,
                 WorkloadScope.PerTenant)
             .AddProjector<CommitmentDraftHistoryDirectoryProjectorV1>(
