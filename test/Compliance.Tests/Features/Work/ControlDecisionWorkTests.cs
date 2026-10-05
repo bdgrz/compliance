@@ -303,6 +303,32 @@ public sealed class ControlDecisionWorkTests
     }
 
     [Fact]
+    public async Task ShouldUseProjectedControlDecisionGivenCompleteProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
+        await CreateDraftAsync(fixture, assignReviewer: true);
+        var sourceQueue = await ReadQueueAsync(fixture, fixture.TenantId, fixture.ProgramId,
+            activationEnabled: true, lifecycleEnabled: true);
+        var source = Assert.Single(sourceQueue.Value.Entries,
+            static entry => entry.Candidate.Kind == "control_draft_review");
+        var projection = new ProjectedControlDecisions(source.Candidate);
+        var directControls = new CountingControlDraftDirectoryReader();
+
+        // Act
+        var queue = await ReadQueueAsync(fixture, fixture.TenantId, fixture.ProgramId,
+            activationEnabled: true, lifecycleEnabled: true,
+            controls: directControls, projectedWorkItems: [projection]);
+
+        // Assert
+        Assert.True(queue.IsSuccess);
+        Assert.Single(queue.Value.Entries,
+            static entry => entry.Candidate.Kind == "control_draft_review");
+        Assert.Equal(0, directControls.ListProgramCalls);
+    }
+
+    [Fact]
     public async Task ShouldKeepControlDecisionWorkWithinTenantAndProgramGivenDifferentScope()
     {
         // Arrange
@@ -327,7 +353,8 @@ public sealed class ControlDecisionWorkTests
     static async Task<Result<WorkQueueSnapshot>> ReadQueueAsync(OperationsFixture fixture,
         Uuid tenantId, Uuid programId, bool activationEnabled, bool lifecycleEnabled,
         ControlDraftListReadConsistency? consistency = null,
-        IControlDraftDirectoryReader? controls = null)
+        IControlDraftDirectoryReader? controls = null,
+        IEnumerable<IAccountableWorkItemDirectoryReader>? projectedWorkItems = null)
     {
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -337,7 +364,8 @@ public sealed class ControlDecisionWorkTests
             controls: controls ?? services.GetRequiredService<IControlDraftDirectoryReader>(),
             controlConsistency: consistency,
             controlActivationGate: new ControlActivationReleaseGate(activationEnabled),
-            controlLifecycleGate: new ControlLifecycleReleaseGate(lifecycleEnabled));
+            controlLifecycleGate: new ControlLifecycleReleaseGate(lifecycleEnabled),
+            accountableWorkItems: projectedWorkItems);
         var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
             "Approver");
         return await queue.ReadAsync(tenantId, programId, actor, 30, CancellationToken.None);
@@ -419,6 +447,52 @@ public sealed class ControlDecisionWorkTests
 
         public ValueTask<ControlDraftRevisionView?> GetRevisionAsync(Uuid requestedTenantId,
             Uuid requestedControlId, long revision, CancellationToken ct = default) =>
+            ValueTask.FromResult<ControlDraftRevisionView?>(null);
+    }
+
+    sealed class ProjectedControlDecisions(WorkCandidate candidate)
+        : IAccountableWorkItemDirectoryReader
+    {
+        static readonly string[] Kinds =
+        [
+            "control_draft_review",
+            "control_draft_approval",
+            "control_retirement_review",
+            "control_retirement_approval",
+        ];
+
+        public string ProjectorName => "AccountableWorkItemControlDecisionV1";
+        public IReadOnlyCollection<string> ProjectedKinds => Kinds;
+        public EventStreamPattern SourcePattern(Uuid tenantId) =>
+            EventStreamPattern.ForPattern(tenantId.ToString(), "controls");
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(ProjectionCheckpoint.Start);
+        public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, CancellationToken ct = default) =>
+            ValueTask.FromResult(Result<IReadOnlyList<WorkCandidate>>.Success([candidate]));
+    }
+
+    sealed class CountingControlDraftDirectoryReader : IControlDraftDirectoryReader
+    {
+        public int ListProgramCalls { get; private set; }
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) =>
+            ValueTask.FromResult(ProjectionCheckpoint.Start);
+
+        public ValueTask<ControlDraftView?> GetAsync(Uuid tenantId, Uuid controlId,
+            CancellationToken ct = default) => ValueTask.FromResult<ControlDraftView?>(null);
+
+        public ValueTask<Page<ControlDraftView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default)
+        {
+            ListProgramCalls++;
+            return ValueTask.FromResult(new Page<ControlDraftView>([], null));
+        }
+
+        public ValueTask<ControlDraftRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid controlId,
+            long revision, CancellationToken ct = default) =>
             ValueTask.FromResult<ControlDraftRevisionView?>(null);
     }
 }

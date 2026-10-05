@@ -120,7 +120,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidates.AddRange(decisions.Value.Where(candidate =>
                 !projectedKinds.Contains(candidate.Kind)));
         }
-        if (controls is not null)
+        if (controls is not null && !ControlDecisionWork.IsFullyProjected(projectedKinds))
         {
             var decisions = await ControlDecisionWork.LoadAsync(reader, controls,
                 controlConsistency, authority, tenantId, programId, now, workItemId,
