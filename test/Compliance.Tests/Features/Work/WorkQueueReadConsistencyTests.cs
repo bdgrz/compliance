@@ -461,6 +461,70 @@ public sealed class WorkQueueReadConsistencyTests
         Assert.Equal("Review control mapping for AC-2.4", entry.Item.Summary);
     }
 
+    [Fact]
+    public async Task ShouldRejectLaggingOperatingPlanProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await fixture.ProposeAsync(0);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var planWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
+            area: "control-operations", kind: WorkSource.ControlOperatingPlanApproval,
+            projectorName: "TestControlOperatingPlanWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [planWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldListProjectedOperatingPlanApprovalWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var plan = await fixture.ProposeAsync(0);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadCheckpointAsync(events, fixture.TenantId, "control-operations");
+        var candidate = WorkSource.ControlOperatingPlanApprovalCandidate(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId, "AC-OPS", plan.PlanVersionId,
+            fixture.LeadMemberId, plan.ProposedAt);
+        var planWork = new ProjectedWorkItems(checkpoint, [candidate], "control-operations",
+            WorkSource.ControlOperatingPlanApproval, "TestControlOperatingPlanWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [planWork]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [planWork]);
+        var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
+            "Approver");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+        var proposerRead = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId,
+            new OperationsActor(fixture.LeadUserId, fixture.LeadMemberId, "Proposer"), 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.ControlOperatingPlanApproval);
+        Assert.True(entry.ActorEligible);
+        Assert.Equal(plan.PlanVersionId, entry.Candidate.SourceId);
+        Assert.Equal(fixture.ControlId, entry.Candidate.ControlId);
+        Assert.Equal("Approve operating plan for AC-OPS", entry.Item.Summary);
+        Assert.True(proposerRead.IsSuccess);
+        var proposerEntry = Assert.Single(proposerRead.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.ControlOperatingPlanApproval);
+        Assert.False(proposerEntry.ActorEligible);
+    }
+
     static async Task<ControlEvaluationView> SubmitControlEvaluationAsync(OperationsFixture fixture)
     {
         var plan = await fixture.GetOrDefineEvaluationPlanAsync();
