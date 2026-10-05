@@ -417,7 +417,7 @@ public sealed class FitzPolicyDecisionWorkItemDirectoryTests
         await using var sourceScope = fixture.Provider.CreateAsyncScope();
         var directory = new FitzPolicyDecisionWorkItemDirectory(new InMemoryKvClient(),
             sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>(), TimeProvider.System);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [directory]);
+        var consistency = new WorkQueueReadConsistency(events, [directory]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);

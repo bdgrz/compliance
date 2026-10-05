@@ -280,7 +280,7 @@ public sealed class PolicyDecisionWorkTests
         var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
         var checkpoint = await ReadPolicyCheckpointAsync(events, fixture.TenantId);
         var projected = new PolicyDecisionWorkProjectionReader(checkpoint, [candidate]);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        var consistency = new WorkQueueReadConsistency(events, [projected]);
         await using var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),

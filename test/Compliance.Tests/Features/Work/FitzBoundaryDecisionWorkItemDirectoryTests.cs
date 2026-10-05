@@ -101,7 +101,7 @@ public sealed class FitzBoundaryDecisionWorkItemDirectoryTests
         await using var sourceScope = fixture.Provider.CreateAsyncScope();
         var directory = new FitzBoundaryDecisionWorkItemDirectory(new InMemoryKvClient(),
             sourceScope.ServiceProvider.GetRequiredService<IAggregateReader>());
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [directory]);
+        var consistency = new WorkQueueReadConsistency(events, [directory]);
         var behind = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
 
         // Act

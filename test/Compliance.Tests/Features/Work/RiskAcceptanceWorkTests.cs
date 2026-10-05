@@ -175,7 +175,7 @@ public sealed class RiskAcceptanceWorkTests
         var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
         var projected = new ProjectedRiskAcceptanceWorkItems(candidate,
             await ReadRiskEvaluationCheckpointAsync(events, fixture.TenantId));
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        var consistency = new WorkQueueReadConsistency(events, [projected]);
         var queue = new WorkQueueReader(reader,
             scope.ServiceProvider.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
             consistency, risks: fixture.Risks, accountableWorkItems: [projected]);
@@ -249,7 +249,7 @@ public sealed class RiskAcceptanceWorkTests
         var workItems = new RiskAcceptanceWorkItemDirectory(
             scope.ServiceProvider.GetRequiredService<IAggregateReader>(), fixture.Risks, null,
             evaluations);
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [workItems]);
+        var consistency = new WorkQueueReadConsistency(events, [workItems]);
 
         // Act
         var result = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);

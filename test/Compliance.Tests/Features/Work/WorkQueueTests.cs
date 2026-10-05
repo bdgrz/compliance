@@ -211,7 +211,7 @@ public sealed class WorkQueueTests
         var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
         var projected = new ProjectedBoundaryWorkItemDirectory(candidate,
             await ReadBoundaryCheckpointAsync(events, fixture.TenantId));
-        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [projected]);
+        var consistency = new WorkQueueReadConsistency(events, [projected]);
         var queue = new WorkQueueReader(sourceReader,
             scope.ServiceProvider.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
             consistency, boundaries: fixture.Boundaries, accountableWorkItems: [projected]);
@@ -338,7 +338,6 @@ public sealed class WorkQueueTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
-        fixture.Boundaries.FollowSource = false;
         var boundaryId = Uuid.CreateVersion4();
         var draftVersionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
@@ -355,13 +354,24 @@ public sealed class WorkQueueTests
                 return Result.Success;
             });
 
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var projection = new ProjectedBoundaryWorkItemDirectory(null, ProjectionCheckpoint.Start);
+        var consistency = new WorkQueueReadConsistency(events, [projection]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [projection]);
+
         // Act
-        var stale = await fixture.Scenario(fixture.ReviewerUserId)
-            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        var stale = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId,
+            new OperationsActor(fixture.ReviewerUserId, fixture.ReviewerMemberId, "Reviewer"),
+            30, CancellationToken.None);
 
         // Assert
-        Assert.True(stale.Error!.IsTransient);
+        Assert.False(stale.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, stale.Error.Kind);
+        Assert.True(stale.Error.IsTransient);
     }
 
     [Fact]
@@ -373,9 +383,9 @@ public sealed class WorkQueueTests
         var draftVersionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
         var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
-        fixture.Boundaries.OnList = async _ =>
+        var projection = new ProjectedBoundaryWorkItemDirectory(null, ProjectionCheckpoint.Start,
+            async _ =>
         {
-            fixture.Boundaries.OnList = null;
             await ProgramManagementServices.SeedAsync(fixture.Provider,
                 new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
                 {
@@ -383,23 +393,31 @@ public sealed class WorkQueueTests
                         fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
                     return Result.Success;
                 });
-        };
+        });
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var consistency = new WorkQueueReadConsistency(events, [projection]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [projection]);
 
         // Act
-        var stale = await fixture.Scenario(fixture.ReviewerUserId)
-            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        var stale = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId,
+            new OperationsActor(fixture.ReviewerUserId, fixture.ReviewerMemberId, "Reviewer"),
+            30, CancellationToken.None);
 
         // Assert
-        Assert.True(stale.Error!.IsTransient);
+        Assert.False(stale.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, stale.Error.Kind);
+        Assert.True(stale.Error.IsTransient);
     }
 
     [Fact]
-    public async Task ShouldReturnTransientConflictGivenSourceChangesAfterBoundaryRead()
+    public async Task ShouldReturnTransientConflictGivenRequiredSourceChangesDuringQueueRead()
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
-        fixture.Boundaries.FollowSource = false;
         var evidenceId = Uuid.CreateVersion4();
         var lead = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
         fixture.Policies.OnList = async _ =>
@@ -414,14 +432,24 @@ public sealed class WorkQueueTests
                     return Result.Success;
                 });
         };
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var evidence = new ProjectedEvidenceWorkItemDirectory(ProjectionCheckpoint.Start);
+        var consistency = new WorkQueueReadConsistency(events, [evidence]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            policies: fixture.Policies, accountableWorkItems: [evidence]);
 
         // Act
-        var stale = await fixture.Scenario(fixture.OwnerUserId)
-            .When(new ListWork(fixture.TenantId, fixture.ProgramId))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        var stale = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId,
+            new OperationsActor(fixture.OwnerUserId, fixture.OwnerMemberId, "Owner"), 30,
+            CancellationToken.None);
 
         // Assert
-        Assert.True(stale.Error!.IsTransient);
+        Assert.False(stale.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, stale.Error.Kind);
+        Assert.True(stale.Error.IsTransient);
     }
 
     [Fact]
@@ -649,8 +677,9 @@ public sealed class WorkQueueTests
         return new ProjectionCheckpoint(cursor);
     }
 
-    sealed class ProjectedBoundaryWorkItemDirectory(WorkCandidate candidate,
-        ProjectionCheckpoint checkpoint) : IAccountableWorkItemDirectoryReader
+    sealed class ProjectedBoundaryWorkItemDirectory(WorkCandidate? candidate,
+        ProjectionCheckpoint checkpoint, Func<CancellationToken, ValueTask>? onLoad = null)
+        : IAccountableWorkItemDirectoryReader
     {
         static readonly string[] Kinds = ["boundary_review", "boundary_approval"];
 
@@ -664,9 +693,30 @@ public sealed class WorkQueueTests
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => ValueTask.FromResult(checkpoint);
 
+        public async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
+            Uuid programId, CancellationToken ct = default)
+        {
+            if (onLoad is not null)
+                await onLoad(ct).ConfigureAwait(false);
+            return Result<IReadOnlyList<WorkCandidate>>.Success(candidate is { } item ? [item] : []);
+        }
+    }
+
+    sealed class ProjectedEvidenceWorkItemDirectory(ProjectionCheckpoint checkpoint)
+        : IAccountableWorkItemDirectoryReader
+    {
+        public string ProjectorName => "TestEvidenceWorkItems";
+
+        public IReadOnlyCollection<string> ProjectedKinds => [WorkSource.EvidenceRequest];
+
+        public EventStreamPattern SourcePattern(Uuid tenantId) =>
+            EventStreamPattern.ForPattern(tenantId.ToString(), "evidence-requests");
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(checkpoint);
+
         public ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadProgramAsync(Uuid tenantId,
             Uuid programId, CancellationToken ct = default) =>
-            ValueTask.FromResult<Result<IReadOnlyList<WorkCandidate>>>(
-                Result<IReadOnlyList<WorkCandidate>>.Success([candidate]));
+            ValueTask.FromResult(Result<IReadOnlyList<WorkCandidate>>.Success([]));
     }
 }

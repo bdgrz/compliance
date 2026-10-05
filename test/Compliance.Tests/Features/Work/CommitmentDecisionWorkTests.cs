@@ -297,7 +297,7 @@ public sealed class CommitmentDecisionWorkTests
             await ReadCommitmentCheckpointAsync(events, fixture.TenantId), live.Value);
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
             services.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
-            new WorkQueueReadConsistency(fixture.Boundaries, events, [projection]),
+            new WorkQueueReadConsistency(events, [projection]),
             commitments: fixture.Commitments, commitmentConsistency: consistency,
             accountableWorkItems: [projection]);
         var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId,
