@@ -7,6 +7,7 @@ using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Remediation;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Versioning;
 using Bdgrz.Compliance.Features.Work;
@@ -30,6 +31,7 @@ sealed class OperationsFixture
     public required ProgramBoundaries Boundaries { get; init; }
     public required ProgramPolicies Policies { get; init; }
     public required ProgramCommitments Commitments { get; init; }
+    public required ProgramRisks Risks { get; init; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
     public Uuid ProgramId { get; } = Uuid.CreateVersion4();
     public Uuid LeadUserId { get; } = Uuid.CreateVersion4();
@@ -124,6 +126,9 @@ sealed class OperationsFixture
                 services.AddSingleton<ProgramCommitments>();
                 services.AddSingleton<ICommitmentDraftDirectoryReader>(provider =>
                     provider.GetRequiredService<ProgramCommitments>());
+                services.AddSingleton<ProgramRisks>();
+                services.AddSingleton<IRiskDraftDirectoryReader>(provider =>
+                    provider.GetRequiredService<ProgramRisks>());
             });
         var fixture = new OperationsFixture
         {
@@ -132,6 +137,7 @@ sealed class OperationsFixture
             Boundaries = boundaries,
             Policies = provider.GetRequiredService<ProgramPolicies>(),
             Commitments = provider.GetRequiredService<ProgramCommitments>(),
+            Risks = provider.GetRequiredService<ProgramRisks>(),
         };
         permissions.Managers.Add(fixture.LeadMemberId);
         permissions.Managers.Add(fixture.ApproverMemberId);
@@ -342,10 +348,12 @@ sealed class OperationsFixture
     public sealed class ManagerPermissions : IPermissionAuthorizer
     {
         public HashSet<Uuid> Managers { get; } = [];
+        public HashSet<(Uuid MemberId, string Permission)> RiskApprovers { get; } = [];
 
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
             string permission, CancellationToken ct = default) => ValueTask.FromResult(
-            permission == IProgramReadRequest.ReadPermission || Managers.Contains(memberId));
+            permission == IProgramReadRequest.ReadPermission || Managers.Contains(memberId) ||
+            RiskApprovers.Contains((memberId, permission)));
     }
 
     /// <summary>A program control directory that lists the seeded controls with no lag.</summary>
@@ -524,5 +532,37 @@ sealed class OperationsFixture
         public ValueTask<CommitmentDecisionView?> GetDecisionAsync(Uuid tenantId,
             Uuid decisionId, CancellationToken ct = default) =>
             ValueTask.FromResult<CommitmentDecisionView?>(null);
+    }
+
+    public sealed class ProgramRisks : IRiskDraftDirectoryReader
+    {
+        readonly List<RiskDraftView> _risks = [];
+
+        public void Add(RiskDraftView risk)
+        {
+            var index = _risks.FindIndex(existing => existing.RiskId == risk.RiskId);
+            if (index < 0)
+                _risks.Add(risk);
+            else
+                _risks[index] = risk;
+        }
+
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+
+        public ValueTask<RiskDraftView?> GetAsync(Uuid tenantId, Uuid riskId,
+            CancellationToken ct = default) => ValueTask.FromResult(_risks.FirstOrDefault(risk =>
+            risk.TenantId == tenantId && risk.RiskId == riskId));
+
+        public ValueTask<Page<RiskDraftView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+            int limit, string? cursor, CancellationToken ct = default)
+        {
+            var matching = _risks.Where(risk => risk.TenantId == tenantId && risk.ProgramId == programId)
+                .OrderBy(static risk => risk.Identifier, StringComparer.Ordinal).ToArray();
+            return ValueTask.FromResult(new Page<RiskDraftView>(matching.Take(limit).ToArray(), null));
+        }
+
+        public ValueTask<RiskDraftRevisionView?> GetRevisionAsync(Uuid tenantId, Uuid riskId,
+            long revision, CancellationToken ct = default) => ValueTask.FromResult<RiskDraftRevisionView?>(null);
     }
 }

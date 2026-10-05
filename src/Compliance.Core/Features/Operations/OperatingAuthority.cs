@@ -1,5 +1,6 @@
 using Cntryl.Portia;
 using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.AccessControl;
 
 namespace Bdgrz.Compliance.Features.Operations;
 
@@ -15,6 +16,8 @@ public sealed class OperatingAuthority(IAggregateReader reader,
     public const string PersonHolder = "person";
     public const string TeamHolder = "team";
     public const string ProgramReviewerHolder = "program_reviewer";
+    public const string RiskApproverHolder = "risk_approver";
+    public const string RiskExecutiveHolder = "risk_executive";
 
     internal ValueTask<bool> ManagesProgramAsync(Uuid tenantId, OperationsActor actor,
         Uuid programId, CancellationToken ct) => permissions.IsAllowedAsync(tenantId, actor.UserId,
@@ -48,6 +51,22 @@ public sealed class OperatingAuthority(IAggregateReader reader,
                    programMember.Affiliation == "client_personnel" && programMember.UserId != Uuid.Empty &&
                    await permissions.IsAllowedAsync(tenantId, programMember.UserId, memberId, holder.Id,
                        IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false);
+        }
+        if (holder.Kind is RiskApproverHolder or RiskExecutiveHolder)
+        {
+            var approverMember = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+                .ConfigureAwait(false);
+            if (!approverMember.IsRegistered || approverMember.IsSuspended ||
+                approverMember.IsDeprovisioned || approverMember.Affiliation != "client_personnel" ||
+                approverMember.UserId == Uuid.Empty)
+                return false;
+            var executive = await permissions.IsAllowedAsync(tenantId, approverMember.UserId,
+                memberId, holder.Id, RbacPermissions.RiskAcceptExecutive, ct).ConfigureAwait(false);
+            if (holder.Kind == RiskExecutiveHolder)
+                return executive;
+            return executive || await permissions.IsAllowedAsync(tenantId, approverMember.UserId,
+                memberId, holder.Id, RbacPermissions.RiskAcceptComplianceLead, ct)
+                .ConfigureAwait(false);
         }
         if (holder.Kind != TeamHolder)
             return false;
