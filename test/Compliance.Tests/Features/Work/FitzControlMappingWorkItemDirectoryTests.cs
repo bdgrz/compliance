@@ -163,6 +163,50 @@ public sealed class FitzControlMappingWorkItemDirectoryTests
         Assert.Equal(retiredCheckpoint, await directory.LoadCheckpointAsync(tenantId));
     }
 
+    [Fact]
+    public async Task ShouldIsolateMappingReviewsByTenantAndProgramGivenScopedRead()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var otherTenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var otherProgramId = Uuid.CreateVersion4();
+        var controlId = Uuid.CreateVersion4();
+        var controlVersionId = Uuid.CreateVersion4();
+        var editionId = Uuid.CreateVersion4();
+        var proposerId = Uuid.CreateVersion4();
+        var mappingId = ControlCriterionMappingLedger.MappingIdFor(programId, controlId,
+            editionId, "AC-2.4");
+        var proposedAt = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+        var directory = new FitzControlMappingWorkItemDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity(FitzControlMappingWorkItemDirectory.ProjectorName,
+            EventStreamPattern.ForPattern(tenantId.ToString(), "control-criterion-mappings"));
+        var checkpoint = new ProjectionCheckpoint(new EventCursor("mapping-proposed"));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(identity,
+                         ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(Proposed(tenantId, programId, controlId, mappingId,
+                controlVersionId, editionId, proposerId, 1, 1, proposedAt));
+            await batch.CommitAsync(checkpoint);
+        }
+        var correctScope = await directory.LoadProgramAsync(tenantId, programId,
+            CancellationToken.None);
+        var otherProgram = await directory.LoadProgramAsync(tenantId, otherProgramId,
+            CancellationToken.None);
+        var otherTenant = await directory.LoadProgramAsync(otherTenantId, programId,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(correctScope.IsSuccess);
+        Assert.Single(correctScope.Value);
+        Assert.True(otherProgram.IsSuccess);
+        Assert.Empty(otherProgram.Value);
+        Assert.True(otherTenant.IsSuccess);
+        Assert.Empty(otherTenant.Value);
+    }
+
     static ControlCriterionMappingProposed Proposed(Uuid tenantId, Uuid programId, Uuid controlId,
         Uuid mappingId, Uuid controlVersionId, Uuid editionId, Uuid proposerId, long revision,
         int versionNumber, DateTimeOffset proposedAt) => new(tenantId, programId, mappingId,
