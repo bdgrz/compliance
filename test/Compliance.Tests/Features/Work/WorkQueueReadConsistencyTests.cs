@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Operations;
+using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -152,6 +153,29 @@ public sealed class WorkQueueReadConsistencyTests
             projectorName: "TestCriterionApplicabilityWorkItems");
         var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
             [applicabilityWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingControlDecisionProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var decisions = new FitzControlDecisionWorkItemDirectory(new InMemoryKvClient(),
+            services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(),
+            new ControlActivationReleaseGate(true), new ControlLifecycleReleaseGate(true));
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [decisions]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
