@@ -302,6 +302,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
         services.AddScoped<IBoundaryDirectoryReader>(
             provider => provider.GetRequiredService<FitzBoundaryDirectory>());
+        services.AddScoped<FitzEvidenceWorkItemDirectory>();
+        services.AddScoped<IEvidenceWorkItemProjection>(
+            provider => provider.GetRequiredService<FitzEvidenceWorkItemDirectory>());
+        services.AddScoped<IEvidenceWorkItemDirectoryReader>(
+            provider => provider.GetRequiredService<FitzEvidenceWorkItemDirectory>());
         services.AddScoped<FitzSnapshotDirectory>();
         services.AddScoped<ISnapshotDirectoryProjection>(
             provider => provider.GetRequiredService<FitzSnapshotDirectory>());
@@ -947,6 +952,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<AssuranceProjector>(FitzAssuranceDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ClientServiceDirectoryProjector>("ClientServiceDirectory", WorkloadScope.PerTenant)
             .AddProjector<BoundaryDirectoryProjector>("BoundaryDirectoryV2", WorkloadScope.PerTenant)
+            .AddProjector<EvidenceWorkItemProjector>(FitzEvidenceWorkItemDirectory.ProjectorName,
+                WorkloadScope.PerTenant)
             .AddProjector<ResponsibilitySetProjector>("ResponsibilitySetsV1", WorkloadScope.PerTenant)
             .AddProjector<MemberResponsibilityProjector>("MemberResponsibilitiesV1", WorkloadScope.PerTenant)
             .AddProjector<AccessGrantProjector>("AccessGrantsV1", WorkloadScope.PerTenant)

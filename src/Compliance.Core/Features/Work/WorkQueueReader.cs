@@ -29,7 +29,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     ControlLifecycleReleaseGate? controlLifecycleGate = null,
     IRiskDraftDirectoryReader? risks = null,
     RiskDraftListReadConsistency? riskConsistency = null,
-    CampaignDirectoryReadConsistency? campaignConsistency = null)
+    CampaignDirectoryReadConsistency? campaignConsistency = null,
+    IEvidenceWorkItemDirectoryReader? evidenceWorkItems = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -67,11 +68,21 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, boundaries, ct)
+            today.AddDays(horizonDays), now, workItemId, boundaries,
+            includeEvidenceRequests: evidenceWorkItems is null, ct)
             .ConfigureAwait(false);
         if (!work.IsSuccess)
             return Result<WorkQueueSnapshot>.Failure(work.Error);
         var candidates = work.Value.ToList();
+        if (evidenceWorkItems is not null)
+        {
+            var projected = await evidenceWorkItems.LoadProgramAsync(tenantId, programId, ct)
+                .ConfigureAwait(false);
+            if (!projected.IsSuccess)
+                return Result<WorkQueueSnapshot>.Failure(projected.Error);
+            candidates.AddRange(projected.Value.Where(candidate =>
+                workItemId is not { } wanted || candidate.WorkItemId == wanted));
+        }
         if (campaigns is not null)
         {
             var consistency = campaignConsistency ?? throw new InvalidOperationException(
