@@ -116,7 +116,7 @@ sealed class OperationsFixture
             {
                 services.AddScoped<OperatingAuthority>();
                 services.AddScoped<WorkQueueReader>();
-                services.AddScoped<BoundaryDirectoryReadConsistency>();
+                services.AddScoped<WorkQueueReadConsistency>();
                 services.AddSingleton<IDomainEventReader>(provider =>
                     (IDomainEventReader)provider.GetRequiredService<IEventStore>());
                 services.AddSingleton(new ControlActivationReleaseGate(true));
@@ -468,6 +468,8 @@ sealed class OperationsFixture
     {
         readonly List<PolicySummaryView> _policies = [];
 
+        public Func<CancellationToken, ValueTask>? OnList { get; set; }
+
         public void Add(PolicySummaryView summary)
         {
             var index = _policies.FindIndex(existing => existing.PolicyId == summary.PolicyId);
@@ -483,9 +485,11 @@ sealed class OperationsFixture
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
 
-        public ValueTask<Page<PolicySummaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
+        public async ValueTask<Page<PolicySummaryView>> ListProgramAsync(Uuid tenantId, Uuid programId,
             int limit, string? cursor, CancellationToken ct = default)
         {
+            if (OnList is not null)
+                await OnList(ct);
             var offset = cursor is null ? 0 : int.Parse(cursor,
                 System.Globalization.CultureInfo.InvariantCulture);
             var matching = _policies.Where(policy => policy.TenantId == tenantId &&
@@ -494,10 +498,10 @@ sealed class OperationsFixture
                 .ToArray();
             var page = matching.Skip(offset).Take(limit).ToArray();
             var next = offset + page.Length;
-            return ValueTask.FromResult(new Page<PolicySummaryView>(page,
+            return new Page<PolicySummaryView>(page,
                 next < matching.Length
                     ? next.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : null));
+                    : null);
         }
     }
 

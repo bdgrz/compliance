@@ -16,7 +16,8 @@ namespace Bdgrz.Compliance.Features.Work;
 ///     membership, and eligibility answers so each is hydrated at most once.
 /// </summary>
 public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority authority,
-    TimeProvider clock, ICampaignDirectoryReader? campaigns = null,
+    TimeProvider clock, WorkQueueReadConsistency queueConsistency,
+    ICampaignDirectoryReader? campaigns = null,
     IBoundaryDirectoryReader? boundaries = null,
     IPolicyDirectoryReader? policies = null,
     PolicyDirectoryReadConsistency? policyConsistency = null,
@@ -28,8 +29,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     ControlLifecycleReleaseGate? controlLifecycleGate = null,
     IRiskDraftDirectoryReader? risks = null,
     RiskDraftListReadConsistency? riskConsistency = null,
-    CampaignDirectoryReadConsistency? campaignConsistency = null,
-    BoundaryDirectoryReadConsistency? boundaryConsistency = null)
+    CampaignDirectoryReadConsistency? campaignConsistency = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -60,10 +60,14 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     async ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
         OperationsActor actor, int horizonDays, Uuid? workItemId, CancellationToken ct)
     {
+        var captured = await queueConsistency.CaptureAsync(tenantId, ct).ConfigureAwait(false);
+        if (!captured.IsSuccess)
+            return Result<WorkQueueSnapshot>.Failure(captured.Error);
+
         var now = clock.GetUtcNow();
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,
-            today.AddDays(horizonDays), now, workItemId, boundaries, boundaryConsistency, ct)
+            today.AddDays(horizonDays), now, workItemId, boundaries, ct)
             .ConfigureAwait(false);
         if (!work.IsSuccess)
             return Result<WorkQueueSnapshot>.Failure(work.Error);
@@ -140,6 +144,10 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             .ThenBy(static entry => entry.Item.CreatedAt)
             .ThenBy(static entry => entry.Item.WorkItemId.ToString(), StringComparer.Ordinal)
             .ToArray();
+        var confirmed = await queueConsistency.ConfirmUnchangedAndCaughtUpAsync(tenantId,
+            captured.Value, ct).ConfigureAwait(false);
+        if (!confirmed.IsSuccess)
+            return Result<WorkQueueSnapshot>.Failure(confirmed.Error);
         return Result<WorkQueueSnapshot>.Success(new WorkQueueSnapshot(today, manages, ordered));
     }
 

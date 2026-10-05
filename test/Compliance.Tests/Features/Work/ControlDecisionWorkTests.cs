@@ -333,6 +333,7 @@ public sealed class ControlDecisionWorkTests
         var services = scope.ServiceProvider;
         var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
             services.GetRequiredService<OperatingAuthority>(), TimeProvider.System,
+            services.GetRequiredService<WorkQueueReadConsistency>(),
             controls: controls ?? services.GetRequiredService<IControlDraftDirectoryReader>(),
             controlConsistency: consistency,
             controlActivationGate: new ControlActivationReleaseGate(activationEnabled),
