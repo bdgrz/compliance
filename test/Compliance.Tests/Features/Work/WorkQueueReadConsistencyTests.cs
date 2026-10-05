@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Operations;
@@ -105,6 +106,28 @@ public sealed class WorkQueueReadConsistencyTests
                 WorkSource.RiskControlTreatmentReview,
             ]);
         var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events, [riskWork]);
+
+        // Act
+        var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
+
+        // Assert
+        Assert.False(captured.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, captured.Error.Kind);
+        Assert.True(captured.Error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldRejectLaggingControlEvaluationProjectionGivenCurrentTenantCheckpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await SubmitControlEvaluationAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var evaluationWork = new ProjectedWorkItems(ProjectionCheckpoint.Start,
+            area: "control-evaluations", kind: WorkSource.ControlEvaluationReview,
+            projectorName: "TestControlEvaluationWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [evaluationWork]);
 
         // Act
         var captured = await consistency.CaptureAsync(fixture.TenantId, CancellationToken.None);
@@ -270,6 +293,82 @@ public sealed class WorkQueueReadConsistencyTests
             item => item.Candidate.Kind == WorkSource.RiskTreatmentAction);
         Assert.Equal(actionId, entry.Candidate.SourceId);
         Assert.Equal("Enforce MFA", entry.Item.Summary);
+    }
+
+    [Fact]
+    public async Task ShouldListProjectedControlEvaluationReviewWithoutLiveDuplicateGivenCaughtUpProjection()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var evaluation = await SubmitControlEvaluationAsync(fixture);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var checkpoint = await ReadCheckpointAsync(events, fixture.TenantId, "control-evaluations");
+        var identity = Uuid.CreateVersion5(evaluation.EvaluationId,
+            $"control-evaluation-review\n{evaluation.Round}");
+        var candidate = new WorkCandidate(WorkCandidate.IdFor(identity,
+                WorkSource.ControlEvaluationReview), WorkSource.ControlEvaluationReview,
+            evaluation.EvaluationId, evaluation.ControlId, null, "Review control evaluation",
+            $"Control evaluation round {evaluation.Round} is awaiting independent review.", null,
+            null, "review",
+            $"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/controls/" +
+            $"{evaluation.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",
+            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, fixture.ProgramId), null,
+            new HashSet<Uuid> { evaluation.EvaluatorMemberId }, evaluation.Submissions[^1].SubmittedAt);
+        var evaluationWork = new ProjectedWorkItems(checkpoint, [candidate], "control-evaluations",
+            WorkSource.ControlEvaluationReview, "TestControlEvaluationWorkItems");
+        var consistency = new WorkQueueReadConsistency(fixture.Boundaries, events,
+            [evaluationWork]);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var queue = new WorkQueueReader(services.GetRequiredService<IAggregateReader>(),
+            services.GetRequiredService<OperatingAuthority>(), TimeProvider.System, consistency,
+            accountableWorkItems: [evaluationWork]);
+        var actor = new OperationsActor(fixture.LeadUserId, fixture.LeadMemberId, "Lead");
+
+        // Act
+        var read = await queue.ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        var entry = Assert.Single(read.Value.Entries,
+            item => item.Candidate.Kind == WorkSource.ControlEvaluationReview);
+        Assert.Equal(evaluation.EvaluationId, entry.Candidate.SourceId);
+        Assert.Equal("Review control evaluation", entry.Item.Summary);
+    }
+
+    static async Task<ControlEvaluationView> SubmitControlEvaluationAsync(OperationsFixture fixture)
+    {
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync();
+        var evaluationId = Uuid.CreateVersion4();
+        var startedAt = DateTimeOffset.UtcNow;
+        ControlEvaluationView? submitted = null;
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ControlEvaluationLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Start(fixture.ControlId, evaluationId, plan.ControlVersionId,
+                    plan.PlanVersionId, plan.Version, plan.Steps, null, fixture.OwnerMemberId,
+                    "Owner", startedAt));
+                var current = ledger.Read(fixture.ControlId, evaluationId)!;
+                foreach (var step in current.Steps)
+                {
+                    Assert.Null(ledger.RecordStep(fixture.ControlId, evaluationId, step.StepId,
+                        current.Revision, ControlEvaluationLedger.Met,
+                        "Inspected the exact items.", step.InspectedItems, null, null,
+                        fixture.OwnerMemberId, "Owner", startedAt.AddMinutes(1)));
+                    current = ledger.Read(fixture.ControlId, evaluationId)!;
+                }
+                Assert.Null(ledger.Submit(fixture.ControlId, evaluationId, current.Revision,
+                    [new("design", ControlEvaluationLedger.Effective, "Design is effective."),
+                        new("implementation", ControlEvaluationLedger.Effective,
+                            "Implementation is effective."),
+                        new("evidence_sufficiency", ControlEvaluationLedger.Effective,
+                            "Evidence is sufficient.")], fixture.OwnerMemberId, "Owner",
+                    startedAt.AddMinutes(2)));
+                submitted = ledger.Read(fixture.ControlId, evaluationId);
+                return Result.Success;
+            });
+        return Assert.IsType<ControlEvaluationView>(submitted);
     }
 
     static async Task SeedEvidenceRequestAsync(OperationsFixture fixture)
