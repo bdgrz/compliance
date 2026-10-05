@@ -416,6 +416,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ControlOccurrenceAttestationWorkState))]
 [JsonSerializable(typeof(ControlOccurrenceWorkState))]
 [JsonSerializable(typeof(CriterionApplicabilityWorkState))]
+[JsonSerializable(typeof(BoundaryDecisionWorkState))]
 [JsonSerializable(typeof(PolicyDecisionWorkState))]
 [JsonSerializable(typeof(GetWorkItem))]
 [JsonSerializable(typeof(WorkItemDetailView))]

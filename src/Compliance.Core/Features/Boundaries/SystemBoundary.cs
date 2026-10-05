@@ -17,11 +17,13 @@ public sealed class SystemBoundary : Aggregate
     Uuid _draftAuthorMemberId;
     bool _draftEverReviewed;
     Uuid _acceptedReviewDecisionId;
+    string? _latestReviewOutcome;
     Uuid _latestApprovedVersionId;
     readonly HashSet<Uuid> _approvedVersionIds = [];
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
     DateOnly? _latestApprovedEffectiveFrom;
+    DateTimeOffset? _draftChangedAt;
     long _revision;
 
     public bool IsCreated => _created;
@@ -31,6 +33,8 @@ public sealed class SystemBoundary : Aggregate
     public Uuid DraftVersionId => _draftVersionId;
     public long DraftRevision => _draftRevision;
     public Uuid DraftAuthorMemberId => _draftAuthorMemberId;
+    public DateTimeOffset? DraftChangedAt => _draftChangedAt;
+    public string? LatestReviewOutcome => _latestReviewOutcome;
     public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
     public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
 
@@ -53,6 +57,8 @@ public sealed class SystemBoundary : Aggregate
             _draftContent = ev.Content;
             _draftAuthorMemberId = ev.AuthorMemberId;
             _draftEverReviewed = false;
+            _draftChangedAt = ev.ChangedAt;
+            _latestReviewOutcome = null;
         });
         On<BoundaryDraftRevised>(ev =>
         {
@@ -61,11 +67,14 @@ public sealed class SystemBoundary : Aggregate
             _draftContent = ev.Content;
             _draftAuthorMemberId = ev.AuthorMemberId;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _draftChangedAt = ev.ChangedAt;
+            _latestReviewOutcome = null;
         });
         On<BoundaryReviewed>(ev =>
         {
             _revision++;
             _acceptedReviewDecisionId = ev.Outcome == "accept" ? ev.DecisionId : Uuid.Empty;
+            _latestReviewOutcome = ev.Outcome;
             _draftEverReviewed = true;
             RecordResponsibilityDecision(new ResponsibilityScope("boundary", Id,
                     ev.DraftVersionId, ev.Revision), ev.ActorMemberId,
@@ -78,6 +87,8 @@ public sealed class SystemBoundary : Aggregate
             _draftVersionId = Uuid.Empty;
             _draftContent = null;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _latestReviewOutcome = null;
+            _draftChangedAt = null;
         });
         On<BoundaryApproved>(ev =>
         {
@@ -94,6 +105,8 @@ public sealed class SystemBoundary : Aggregate
             _draftVersionId = Uuid.Empty;
             _draftContent = null;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _latestReviewOutcome = null;
+            _draftChangedAt = null;
         });
         On<BoundarySuccessorProposed>(ev =>
         {
@@ -104,6 +117,8 @@ public sealed class SystemBoundary : Aggregate
             _draftAuthorMemberId = ev.AuthorMemberId;
             _draftEverReviewed = false;
             _acceptedReviewDecisionId = Uuid.Empty;
+            _draftChangedAt = ev.ChangedAt;
+            _latestReviewOutcome = null;
         });
         On<ResponsibilityAssigned>(ev => GetResponsibilitySet(ev.Scope).Apply(ev));
         On<ResponsibilityRevoked>(ev => GetResponsibilitySet(ev.Scope).Apply(ev));
