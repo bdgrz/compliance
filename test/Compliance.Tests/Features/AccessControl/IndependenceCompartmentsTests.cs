@@ -5,6 +5,30 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 public sealed class IndependenceCompartmentsTests
 {
+    [Theory]
+    [InlineData(EngagementPractice.Advisory, true, true)]
+    [InlineData(EngagementPractice.Advisory, false, false)]
+    [InlineData(EngagementPractice.Attest, true, false)]
+    [InlineData(EngagementPractice.Attest, false, false)]
+    public void ShouldApplyAttestInternalWallGivenAssignmentScope(EngagementPractice practice,
+        bool sameClient, bool expectedBlocked)
+    {
+        // Arrange
+        EngagementAssignment[] assignments =
+            [new(sameClient ? ClientId : OtherClientId, AdvisoryEngagementId, PersonId,
+                PersonAccountId, practice)];
+
+        // Act
+        var blocked = IndependenceCompartments.IsBlockedByWall(ClientId, assignments,
+            RecordCompartment.AttestInternal);
+        var shared = IndependenceCompartments.IsBlockedByWall(ClientId, assignments,
+            RecordCompartment.Shared);
+
+        // Assert
+        Assert.Equal(expectedBlocked, blocked);
+        Assert.False(shared);
+    }
+
     static readonly Uuid ClientId = Id("5b7f0f5e-8f3e-4f47-9f7e-2f1d5b1c0a01");
     static readonly Uuid OtherClientId = Id("5b7f0f5e-8f3e-4f47-9f7e-2f1d5b1c0a02");
     static readonly Uuid PersonId = Id("5b7f0f5e-8f3e-4f47-9f7e-2f1d5b1c0a03");

@@ -5,4 +5,5 @@ public enum RecordCompartment
 {
     Shared,
     AdvisoryWorkingNotes,
+    AttestInternal,
 }

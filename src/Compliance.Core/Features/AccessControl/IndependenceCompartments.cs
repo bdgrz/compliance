@@ -41,7 +41,8 @@ public static class IndependenceCompartments
 
     /// <summary>
     ///     Returns whether the wall blocks the actor from a client's record compartment: attest assignees
-    ///     cannot read that client's advisory working notes. This is a deny rule layered on the ordinary
+    ///     cannot read that client's advisory working notes, and advisory assignees cannot read
+    ///     that client's attest-internal discussions. This is a deny rule layered on the ordinary
     ///     grant, never a grant: an actor it does not block still needs a membership or advisory
     ///     assignment that permits the read.
     /// </summary>
@@ -49,10 +50,15 @@ public static class IndependenceCompartments
         RecordCompartment compartment)
     {
         ArgumentNullException.ThrowIfNull(actorAssignments);
-        return compartment == RecordCompartment.AdvisoryWorkingNotes &&
-            actorAssignments.Any(assignment =>
-                assignment.ClientTenantId == clientTenantId &&
-                assignment.Practice == EngagementPractice.Attest);
+        var blockedPractice = compartment switch
+        {
+            RecordCompartment.AdvisoryWorkingNotes => EngagementPractice.Attest,
+            RecordCompartment.AttestInternal => EngagementPractice.Advisory,
+            _ => (EngagementPractice?)null,
+        };
+        return blockedPractice is { } practice && actorAssignments.Any(assignment =>
+            assignment.ClientTenantId == clientTenantId &&
+            assignment.Practice == practice);
     }
 
     /// <summary>
