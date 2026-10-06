@@ -55,7 +55,7 @@ public sealed class PreviewApplicationImportHandler(
             var blockers = new List<string>(row.ValidationFindings) { "source_claims_unavailable" };
             if (choice is { Decision: "link_existing" })
             {
-                var target = await reader.HydrateAsync(new DeclaredApplication(request.TenantId, choice.ApplicationId), ct)
+                var target = await reader.HydrateApplicationAsync(request.TenantId, choice.ApplicationId, ct)
                     .ConfigureAwait(false);
                 if (!target.IsCreated || target.IsRetired || target.Revision != choice.ExpectedApplicationRevision)
                     blockers.Add("correlation_target_changed");

@@ -16,8 +16,7 @@ public sealed class DeclareSystemInstanceHandler(IAggregateExecutor executor,
             return Result<SystemInstanceRegistration>.Failure(new RequestError(
                 RequestErrorKind.Validation,
                 "The expected application revision must be positive."));
-        var application = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
-            request.ApplicationId), ct).ConfigureAwait(false);
+        var application = await reader.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (!application.IsCreated)
             return Result<SystemInstanceRegistration>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));

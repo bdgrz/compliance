@@ -9,8 +9,7 @@ sealed class EventSourcedApplicationInventoryActivity(IAggregateReader reader,
     public async ValueTask<bool> IsDeclaredAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default)
     {
-        var application = await reader.HydrateAsync(
-            new DeclaredApplication(tenantId, applicationId), ct).ConfigureAwait(false);
+        var application = await reader.HydrateApplicationAsync(tenantId, applicationId, ct).ConfigureAwait(false);
         return application.IsCreated;
     }
 

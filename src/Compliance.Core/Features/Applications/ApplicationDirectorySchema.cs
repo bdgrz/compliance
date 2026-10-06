@@ -6,6 +6,10 @@ namespace Bdgrz.Compliance.Features.Applications;
 
 static class ApplicationDirectorySchema
 {
+    public static readonly KvDirectory<ApplicationImportVisibilityEpoch, string> ImportEpoch = new(
+        "import_visibility_epoch", ComplianceCoreJsonContext.Default.ApplicationImportVisibilityEpoch,
+        static _ => "imports", static key => [key], []);
+
     public static readonly KvDirectoryIndex<ApplicationView> ByName = new(
         "by_name", 1, static app => [app.Name.ToUpperInvariant(), app.ApplicationId.ToString()]);
 

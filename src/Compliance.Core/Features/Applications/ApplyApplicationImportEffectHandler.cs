@@ -16,7 +16,9 @@ public sealed class ApplyApplicationImportEffectHandler(IAggregateExecutor execu
         if (!authority.IsSuccess)
             return Result.Failure(authority.Error);
         var (batch, ledger) = authority.Value;
-        return await executor.ExecuteAsync(new DeclaredApplication(context.Request.TenantId, context.Request.ApplicationId),
+        var target = await ApplicationImportWriteGuard.PrepareAsync(reader, context.Request.TenantId,
+            context.Request.ApplicationId, ct).ConfigureAwait(false);
+        return await executor.ExecuteAsync(target,
             app => AggregateOutcome.CommitOnSuccess(app.RecordPendingImportEffect(ledger, batch,
                 context.Request.RowId, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }

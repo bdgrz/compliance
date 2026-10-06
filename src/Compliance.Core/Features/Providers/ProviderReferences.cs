@@ -38,7 +38,7 @@ public sealed class ProviderReferences(IAggregateReader reader, IDomainEventRead
                 else
                 {
                     var applicationId = dependency.ApplicationId!.Value;
-                    var application = await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId), ct).ConfigureAwait(false);
+                    var application = await reader.HydrateApplicationAsync(tenantId, applicationId, ct).ConfigureAwait(false);
                     var instance = await ScopedSystemInstanceSource.FindAsync(reader, events, tenantId, applicationId, id, ct).ConfigureAwait(false);
                     if (!application.IsCreated || instance is null)
                         return Missing();

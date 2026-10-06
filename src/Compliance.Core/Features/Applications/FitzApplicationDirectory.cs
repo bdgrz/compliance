@@ -4,7 +4,7 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
 
-sealed class FitzApplicationDirectory(IKvClient client)
+sealed partial class FitzApplicationDirectory(IKvClient client)
     : FitzKvProjectionStore(client, "kv://bdgrz/application-directory-v2/projection",
         "ApplicationDirectoryV2"), IApplicationDirectoryReader, IApplicationDirectoryProjection
 {
@@ -236,9 +236,11 @@ sealed class FitzApplicationDirectory(IKvClient client)
         string? cursor, CancellationToken ct = default)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
-        return await ApplicationDirectorySchema.Applications.QueryAsync(tx,
-                ApplicationDirectorySchema.ByName.Query().Take(limit).After(cursor), ct)
-            .ConfigureAwait(false);
+        var epoch = (await ApplicationDirectorySchema.ImportEpoch.GetAsync(tx, "imports", ct).ConfigureAwait(false))?.Revision ?? 0;
+        var page = await ApplicationDirectorySchema.Applications.QueryAsync(tx,
+            ApplicationDirectorySchema.ByName.Query().Take(limit)
+                .After(ApplicationImportVisibilityPaging.Decode(tenantId, epoch, cursor)), ct).ConfigureAwait(false);
+        return new Page<ApplicationView>(page.Items, ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
     }
 
     public async ValueTask<ApplicationRevisionView?> GetRevisionAsync(Uuid tenantId,
@@ -257,10 +259,12 @@ sealed class FitzApplicationDirectory(IKvClient client)
         if (await ApplicationDirectorySchema.Applications.GetAsync(tx, applicationId, ct)
                 .ConfigureAwait(false) is null)
             return null;
-        return await ApplicationDirectorySchema.Revisions.QueryAsync(tx,
+        var epoch = (await ApplicationDirectorySchema.ImportEpoch.GetAsync(tx, "imports", ct).ConfigureAwait(false))?.Revision ?? 0;
+        var page = await ApplicationDirectorySchema.Revisions.QueryAsync(tx,
             ApplicationDirectorySchema.RevisionsByApplication.Query()
                 .WithPrefix(applicationId.ToString()).Take(Math.Clamp(limit, 1, 200))
-                .After(cursor), ct).ConfigureAwait(false);
+                .After(ApplicationImportVisibilityPaging.Decode(tenantId, epoch, cursor)), ct).ConfigureAwait(false);
+        return new Page<ApplicationRevisionView>(page.Items, ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
     }
 
     public async ValueTask<SystemInstanceView?> GetInstanceAsync(Uuid tenantId,
@@ -275,8 +279,10 @@ sealed class FitzApplicationDirectory(IKvClient client)
         Uuid applicationId, int limit, string? cursor, CancellationToken ct = default)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
-        return await ApplicationDirectorySchema.Instances.QueryAsync(tx,
+        var epoch = (await ApplicationDirectorySchema.ImportEpoch.GetAsync(tx, "imports", ct).ConfigureAwait(false))?.Revision ?? 0;
+        var page = await ApplicationDirectorySchema.Instances.QueryAsync(tx,
             ApplicationDirectorySchema.ByApplication.Query().WithPrefix(applicationId.ToString())
-                .Take(limit).After(cursor), ct).ConfigureAwait(false);
+                .Take(limit).After(ApplicationImportVisibilityPaging.Decode(tenantId, epoch, cursor)), ct).ConfigureAwait(false);
+        return new Page<SystemInstanceView>(page.Items, ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
     }
 }

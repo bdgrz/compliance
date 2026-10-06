@@ -35,8 +35,7 @@ sealed class ProgramResourceScopeResolver(IProgramDirectoryReader programs,
             return false;
         // A preview spans Programs, but the application ID itself must exist in this tenant
         // before an organization-wide grant is evaluated.
-        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId,
-                applicationId), ct).ConfigureAwait(false);
+        var source = await reader.HydrateApplicationAsync(tenantId, applicationId, ct).ConfigureAwait(false);
         return source.IsCreated;
     }
 

@@ -11,6 +11,7 @@ static class ApplicationImportWriteGuard
         var source = await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId), ct)
             .ConfigureAwait(false);
         var settled = new HashSet<Uuid>();
+        var committed = new HashSet<Uuid>();
         foreach (var group in source.GetPendingImportEffects().GroupBy(ev => (ev.Plan.SourceKey, ev.Plan.SourceNamespace)))
         {
             var ledger = await reader.HydrateAsync(new ApplicationImportLedger(tenantId,
@@ -18,7 +19,13 @@ static class ApplicationImportWriteGuard
             foreach (var batchId in group.Select(ev => ev.Plan.BatchId).Distinct())
                 if (ledger.IsCancellationDurable(batchId))
                     settled.Add(batchId);
+            foreach (var effect in group)
+                if (ledger.IsEffectCommitted(effect))
+                {
+                    settled.Add(effect.Plan.BatchId);
+                    committed.Add(effect.Metadata.EventId);
+                }
         }
-        return new DeclaredApplication(tenantId, applicationId, settled);
+        return new DeclaredApplication(tenantId, applicationId, settled, committed);
     }
 }

@@ -75,6 +75,6 @@ public sealed class RestrictedApplicationVisibility(IPermissionAuthorizer permis
 
     async ValueTask<DeclaredApplication> CurrentApplicationAsync(Uuid tenantId,
         Uuid applicationId, CancellationToken ct) =>
-        await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId), ct)
+        await reader.HydrateApplicationAsync(tenantId, applicationId, ct)
             .ConfigureAwait(false);
 }

@@ -28,8 +28,7 @@ public sealed class DecideAccessReviewScopeHandler(IAggregateExecutor executor,
             return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
                 $"The system instance is at revision {instance.Revision}; the decision names revision {request.ExpectedSystemInstanceRevision}."));
-        var application = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
-            request.ApplicationId), ct).ConfigureAwait(false);
+        var application = await reader.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (application.AccessOwnerPersonId is { } ownerId)
         {
             var owner = await reader.HydrateAsync(new Person(request.TenantId, ownerId), ct)
