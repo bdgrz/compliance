@@ -11,6 +11,117 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationInventoryAuthorizerTests
 {
     [Theory]
+    [InlineData("stage", true)]
+    [InlineData("get", true)]
+    [InlineData("rows", true)]
+    [InlineData("preview", true)]
+    [InlineData("cancel", false)]
+    [InlineData("declare", false)]
+    public async Task ShouldLimitImportStagingGrantGivenRequestedOperation(string operation,
+        bool expectedAllowed)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var batchId = Uuid.CreateVersion4();
+        IApplicationInventoryRequest request = operation switch
+        {
+            "stage" => new StageApplicationImport(tenantId, batchId, "manual", "applications",
+                "partial", []),
+            "get" => new GetApplicationImport(tenantId, batchId),
+            "rows" => new ListApplicationImportRows(tenantId, batchId),
+            "preview" => new PreviewApplicationImport(tenantId, batchId),
+            "cancel" => new CancelApplicationImport(tenantId, batchId, 1, "Canceled by lead"),
+            _ => new DeclareApplication(tenantId, "Payroll", "Run payroll"),
+        };
+        var permissions = new ImportStagingPermissions();
+        var userId = Uuid.CreateVersion4();
+        var authorizer = new ApplicationInventoryAuthorizer(new FixedMembershipDirectory(true),
+            new ActiveTenant(), permissions, new FixedScopedPermissions(false));
+        var context = new RequestContext<IApplicationInventoryRequest>(request,
+            BdgrzActor(userId));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(expectedAllowed, result.IsSuccess);
+        Assert.Equal(expectedAllowed ? 2 : 1, permissions.Checks.Count);
+        Assert.All(permissions.Checks, check =>
+        {
+            Assert.Equal(tenantId, check.TenantId);
+            Assert.Equal(userId, check.UserId);
+            Assert.Equal(RbacIds.Member(tenantId, userId), check.MemberId);
+        });
+        if (!expectedAllowed)
+            Assert.Equal(RequestErrorKind.Forbidden, Assert.IsType<RequestError>(result.Error).Kind);
+    }
+
+    sealed class ImportStagingPermissions : IPermissionAuthorizer
+    {
+        public List<(Uuid TenantId, Uuid UserId, Uuid MemberId)> Checks { get; } = [];
+
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission, CancellationToken ct = default)
+        {
+            Checks.Add((tenantId, userId, memberId));
+            return ValueTask.FromResult(permission == "application_import.stage");
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false, "client", RequestErrorKind.NotFound)]
+    [InlineData(true, true, "client", RequestErrorKind.NotFound)]
+    [InlineData(true, false, "firm_staff", RequestErrorKind.Forbidden)]
+    public async Task ShouldDenyImportStagingGivenIneligibleMembership(bool member,
+        bool suspended, string affiliation, RequestErrorKind expected)
+    {
+        // Arrange
+        var permissions = new ImportStagingPermissions();
+        var authorizer = new ApplicationInventoryAuthorizer(
+            new FixedMembershipDirectory(member, affiliation, isSuspended: suspended),
+            new ActiveTenant(), permissions, new FixedScopedPermissions(false));
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new GetApplicationImport(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(expected, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Checks);
+    }
+
+    [Theory]
+    [InlineData(true, true, RequestErrorKind.NotFound)]
+    [InlineData(false, false, RequestErrorKind.Forbidden)]
+    public async Task ShouldDenyImportGrantGivenInactiveTenantOrDeprovisionedMember(
+        bool tenantActive, bool deprovisioned, RequestErrorKind expected)
+    {
+        // Arrange
+        var permissions = new ImportStagingPermissions();
+        var authorizer = new ApplicationInventoryAuthorizer(
+            new FixedMembershipDirectory(true, isDeprovisioned: deprovisioned),
+            new ImportTenantActivity(tenantActive), permissions, new FixedScopedPermissions(false));
+        var context = new RequestContext<IApplicationInventoryRequest>(
+            new PreviewApplicationImport(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            BdgrzActor(Uuid.CreateVersion4()));
+
+        // Act
+        var result = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(expected, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(permissions.Checks);
+    }
+
+    sealed class ImportTenantActivity(bool active) : ITenantActivity
+    {
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(active);
+    }
+
+    [Theory]
     [InlineData(false, true, RequestErrorKind.NotFound)]
     [InlineData(true, false, RequestErrorKind.Forbidden)]
     public async Task ShouldDenyInventoryGivenMissingMembershipOrGrant(bool member,

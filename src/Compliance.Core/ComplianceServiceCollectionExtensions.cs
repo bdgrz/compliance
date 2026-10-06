@@ -929,6 +929,8 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<ApplicationImportGrantBackfillReactor>(
+                ApplicationImportGrantBackfillReactor.WorkloadName, WorkloadScope.Global)
             .AddReactor<TechnologyInventoryGrantBackfillReactor>(
                 "TechnologyInventoryGrantBackfillV1", WorkloadScope.Global)
             .AddReactor<ProviderInventoryGrantBackfillReactor>(
