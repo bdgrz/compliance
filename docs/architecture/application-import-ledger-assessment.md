@@ -82,6 +82,18 @@ the canceled source rejects subsequent retries. The existing per-stream
 persistence boundary cannot prevent that cross-stream race and does not need to
 for the visibility contract.
 
+The ledger's `VerifyPendingEffects` gate checks the durable staging stream, the
+physical source-stream version of the frozen seal, and every exact target
+effect's committed stream position. A raised but unsaved record never counts as
+durable. The physical seal version is separate from a batch's lifecycle revision
+because older batches share the same source stream. Verification requires every
+row, matching frozen payload/attribution/hash, and unchanged governed target
+state; it returns a read-only complete proof or a conflict without raising an
+event. Missing durability is transient. Canceled batches, stale revision,
+foreign targets, altered payloads and changed governed targets fail the gate.
+This proof alone does not authorize a visibility commit: all governed consumers
+must honor the barrier before commit activation is added.
+
 No public acceptance route, commit marker, or worker is exposed yet. Committed
 source claims, changed/missing-row reconciliation, retirement impact, complete
 governed visibility after commit, and public acceptance remain required work.

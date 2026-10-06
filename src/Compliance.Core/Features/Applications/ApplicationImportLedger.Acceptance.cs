@@ -113,6 +113,7 @@ public sealed partial class ApplicationImportLedger
                 throw new InvalidOperationException("The frozen import plan is incomplete or altered.");
             _frozenPlans.Add(ev.BatchId, new ApplicationImportFrozenPlan(_planStarts[ev.BatchId],
                 Array.AsReadOnly(rows.ToArray()), ev.Revision, ev.PlanSha256));
+            _planSealVersions.Add(ev.BatchId, ev.Metadata.AggregateVersion);
             _revisions[ev.BatchId] = ev.Revision;
         });
     }
