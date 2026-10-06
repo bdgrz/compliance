@@ -36,16 +36,18 @@ authority.
   declarations, not verified external authority. A source claim is identified
   by tenant, source key, namespace, object kind `application`, and exact source
   record ID. Names are never match keys.
-- Authorization uses the Application inventory boundary:
-  active tenant membership and `application_inventory.manage`. A nonmember or
+- Authorization requires active tenant membership. Staging and batch, row,
+  and preview reads permit `application_import.stage` or
+  `application_inventory.manage`; cancellation requires the latter. A nonmember or
   wrong-tenant
   batch returns 404 before metadata or row counts are read; an active member
   without the grant receives 403. Import management authority does not grant
-  access to restricted governed Application content. ADR 0005 decision 5 (from
-  the M0-D03 role
-  decision, 2026-09-22) adds an import-staging grant so Contributors can stage
-  and preview, while acceptance and cancellation keep inventory-management
-  authority. EN-05 delivers that grant; until then this slice is unchanged.
+  access to restricted governed Application content. The import-staging grant
+  is assigned to Org Admin, Compliance Lead, and Contributor on new and
+  historical tenant registrations through the independent
+  `ApplicationImportGrantBackfillV1` workload. It grants no ordinary inventory
+  writes or cancellation. Whole-batch acceptance remains deferred and must
+  require Compliance Lead or Org Admin authority under ADR 0005 decision 5.
 - Success responses use Portia's current result mapping: 200 for a value and
   204 for an empty command result. `Page<T>` has `items` and `next_cursor`.
   `limit` defaults to 50 and accepts 1–200. An invalid cursor or a cursor from
