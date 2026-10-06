@@ -25,6 +25,10 @@ public sealed class ImportBatch : Aggregate
     public bool IsCanceled => _canceled;
     public string? SourceKey { get; private set; }
     public string? SourceNamespace { get; private set; }
+    public string? ContentDigest => _contentSha256;
+    public string? Coverage { get; private set; }
+    public Uuid SubmitterMemberId { get; private set; }
+    public string? SubmitterDisplay { get; private set; }
 
     public ImportBatch(Uuid tenantId, Uuid batchId)
         : base(batchId, new EventStreamAddress(tenantId.ToString(), "application_imports",
@@ -38,6 +42,9 @@ public sealed class ImportBatch : Aggregate
             _contentSha256 = ev.ContentSha256;
             SourceKey = ev.SourceKey;
             SourceNamespace = ev.SourceNamespace;
+            Coverage = ev.Coverage;
+            SubmitterMemberId = ev.ActorMemberId;
+            SubmitterDisplay = ev.ActorDisplay;
             foreach (var row in ev.Rows)
                 _rows.Add(row.RowId, row with { ValidationFindings = Array.AsReadOnly(row.ValidationFindings.ToArray()) });
         });
@@ -49,6 +56,9 @@ public sealed class ImportBatch : Aggregate
     }
 
     public ApplicationImportStagedRow? GetRow(Uuid rowId) => _rows.GetValueOrDefault(rowId);
+
+    public IReadOnlyList<ApplicationImportStagedRow> GetRows() =>
+        Array.AsReadOnly(_rows.Values.OrderBy(row => row.RowNumber).ToArray());
 
     public static Uuid BatchIdFor(StageApplicationImport request) =>
         Uuid.CreateVersion5(request.TenantId,

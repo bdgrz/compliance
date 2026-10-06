@@ -17,16 +17,16 @@ public sealed class ApplicationImportReadConsistency(IApplicationImportDirectory
             return Result<ApplicationImportView>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The import batch was not found."));
         var revision = source.Revision;
-        var canceled = source.IsCanceled;
+        var state = source.IsCanceled ? "canceled" : "preview_ready";
         if (source.SourceKey is { } sourceKey && source.SourceNamespace is { } sourceNamespace)
         {
             var ledger = await reader.HydrateAsync(
                 new ApplicationImportLedger(tenantId, sourceKey, sourceNamespace), ct).ConfigureAwait(false);
             revision = ledger.GetRevision(source);
+            state = ledger.GetState(source);
             if (ledger.GetCanceledRevision(batchId) is { } canceledRevision)
             {
                 revision = Math.Max(revision, canceledRevision);
-                canceled = true;
             }
         }
         if (minimumRevision is { } minimum && revision < minimum)
@@ -35,7 +35,7 @@ public sealed class ApplicationImportReadConsistency(IApplicationImportDirectory
                 isTransient: true));
         var view = await directory.GetAsync(tenantId, batchId, ct).ConfigureAwait(false);
         return view is null || view.TenantId != tenantId || view.BatchId != batchId ||
-               view.Revision != revision || view.State != (canceled ? "canceled" : "preview_ready") ||
+               view.Revision != revision || view.State != state ||
                (minimumRevision is { } wanted && view.Revision < wanted)
             ? Result<ApplicationImportView>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The import projection has not reached the source revision.",
