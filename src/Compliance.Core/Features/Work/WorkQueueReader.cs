@@ -159,7 +159,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
         var ordered = entries
-            .OrderBy(static entry => entry.Item.DueOn ?? DateOnly.MaxValue)
+            .OrderBy(static entry => entry.Item.DueOn is null)
+            .ThenBy(static entry => entry.Item.DueOn)
             .ThenBy(static entry => MaterialityRank(entry.Item.Materiality))
             .ThenBy(static entry => entry.Item.CreatedAt)
             .ThenBy(static entry => entry.Item.WorkItemId.ToString(), StringComparer.Ordinal)
