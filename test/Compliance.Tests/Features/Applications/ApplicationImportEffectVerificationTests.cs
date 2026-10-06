@@ -147,9 +147,11 @@ public sealed class ApplicationImportEffectVerificationTests
             Assert.Null(fixture.Ledger.Cancel(fixture.Batch, fixture.Ledger.GetRevision(fixture.Batch), "Canceled",
                 fixture.Actor, "Lead", fixture.Now));
         if (problem == "revised")
-            Assert.Null(target.Revise(1, "Manual revision", "Governed", null, fixture.Actor, "Lead", fixture.Now));
+            _ = new AggregateScenario<DeclaredApplication>(target).Given(new ApplicationRevised(fixture.Tenant,
+                target.Id, 2, "Historical manual revision", "Governed", null, fixture.Actor, "Lead", fixture.Now));
         if (problem == "retired")
-            Assert.Null(target.Retire(1, fixture.Now, "Manual retirement", null, fixture.Actor, "Lead", fixture.Now));
+            _ = new AggregateScenario<DeclaredApplication>(target).Given(new ApplicationRetired(fixture.Tenant,
+                target.Id, 2, fixture.Now, "Historical manual retirement", null, fixture.Actor, "Lead", fixture.Now));
         if (problem == "foreign_target")
             fixture.Targets[target.Id] = new DeclaredApplication(Uuid.CreateVersion4(), target.Id);
         if (problem == "wrong_target")

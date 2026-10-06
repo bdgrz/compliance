@@ -15,9 +15,12 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor,
             request.SystemOwnerPersonId, request.AccessOwnerPersonId, ct).ConfigureAwait(false);
         if (owners is not null)
             return Result.Failure(owners);
-        return await executor.ExecuteAsync(new DeclaredApplication(request.TenantId,
-                request.ApplicationId),
-            app => CommandFailureRequestAdapter.ToOutcome(app.Revise(request.ExpectedRevision,
+        var target = await ApplicationImportWriteGuard.PrepareAsync(reader, request.TenantId, request.ApplicationId, ct)
+            .ConfigureAwait(false);
+        return await executor.ExecuteAsync(target,
+            app => app.CheckPendingImportChanges() is { } importError
+                ? AggregateOutcome.Discard(Result.Failure(importError))
+                : CommandFailureRequestAdapter.ToOutcome(app.Revise(request.ExpectedRevision,
                 request.Name, request.Purpose, request.OwnerReference,
                 memberId, display, clock.GetUtcNow(), request.Classification,
                 request.SystemOwnerPersonId, request.AccessOwnerPersonId,
