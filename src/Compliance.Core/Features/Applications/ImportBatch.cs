@@ -22,6 +22,8 @@ public sealed class ImportBatch : Aggregate
     public bool IsCreated => _created;
     public long Revision => _revision;
     public bool IsCanceled => _canceled;
+    public string? SourceKey { get; private set; }
+    public string? SourceNamespace { get; private set; }
 
     public ImportBatch(Uuid tenantId, Uuid batchId)
         : base(batchId, new EventStreamAddress(tenantId.ToString(), "application_imports",
@@ -33,6 +35,8 @@ public sealed class ImportBatch : Aggregate
             _created = true;
             _revision = 1;
             _contentSha256 = ev.ContentSha256;
+            SourceKey = ev.SourceKey;
+            SourceNamespace = ev.SourceNamespace;
         });
         On<ApplicationImportCanceled>(ev =>
         {
