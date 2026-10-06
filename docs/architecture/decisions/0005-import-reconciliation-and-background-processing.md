@@ -125,6 +125,11 @@ built.
   belongs in Portia, following the rule that reusable infrastructure lives
   there, before building a Compliance-local version.
 
+The [2026-10-06 ownership assessment](../application-import-ledger-assessment.md)
+checks Portia 0.7.0's published primitives and scope. It records the application
+ledger boundary and the implementation gates; acceptance and the visibility
+barrier remain work for EN-05.
+
 ## Staging contract (unchanged)
 
 The first consumer stages bounded, tenant-supplied Application rows as an
