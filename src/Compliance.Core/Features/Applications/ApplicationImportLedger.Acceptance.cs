@@ -14,6 +14,23 @@ public sealed partial class ApplicationImportLedger
 
     public ApplicationImportFrozenPlan? GetFrozenPlan(Uuid batchId) => _frozenPlans.GetValueOrDefault(batchId);
 
+    public Result<ApplicationImportFrozenPlan> AuthorizePendingEffect(ImportBatch batch, Uuid rowId,
+        Uuid applicationId)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        if (!BelongsToSource(batch))
+            return Result<ApplicationImportFrozenPlan>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The import batch was not found for this source."));
+        if (GetState(batch) != "accepting" || _acceptingBatchId != batch.Id ||
+            !_frozenPlans.TryGetValue(batch.Id, out var plan))
+            return Result<ApplicationImportFrozenPlan>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The import batch has no active frozen plan."));
+        if (!plan.Rows.Any(row => row.RowId == rowId && row.ApplicationId == applicationId))
+            return Result<ApplicationImportFrozenPlan>.Failure(new RequestError(RequestErrorKind.NotFound,
+                "The effect was not found in the import plan."));
+        return Result<ApplicationImportFrozenPlan>.Success(plan);
+    }
+
     public string GetState(ImportBatch batch) => batch.IsCanceled || GetCanceledRevision(batch.Id) is not null
         ? "canceled" : _planStarts.ContainsKey(batch.Id) ? "accepting" : "preview_ready";
 
