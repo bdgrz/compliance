@@ -28,8 +28,7 @@ public sealed class GetApplicationHandler(IApplicationDirectoryReader directory,
                 "The application was not found."));
         if (request.MinimumRevision is { } minimum && (view is null || view.Revision < minimum))
         {
-            var source = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
-                request.ApplicationId), ct).ConfigureAwait(false);
+            var source = await reader.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
             if (!source.IsCreated)
                 return Result<ApplicationView>.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The application was not found."));

@@ -8,10 +8,46 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
             "ApplicationImportDirectoryV1"), IApplicationImportDirectoryReader,
         IApplicationImportDirectoryProjection
 {
+    Uuid? _batchTenantId;
+
+    public new ValueTask<IProjectionBatch> BeginAsync(ProjectionBatchContext context, CancellationToken ct = default) =>
+        BeginImportBatchAsync(context, ct);
+
+    ValueTask<IProjectionBatch> IProjectionStore.BeginAsync(ProjectionBatchContext context, CancellationToken ct) =>
+        BeginImportBatchAsync(context, ct);
+
+    async ValueTask<IProjectionBatch> BeginImportBatchAsync(ProjectionBatchContext context, CancellationToken ct)
+    {
+        if (context.Identity.Pattern.Resource is not null ||
+            !Uuid.TryParse(context.Identity.Pattern.Realm, null, out var tenantId) || tenantId == Uuid.Empty)
+            throw new InvalidOperationException("An import projection batch requires its tenant realm.");
+        var batch = await base.BeginAsync(context, ct).ConfigureAwait(false);
+        _batchTenantId = tenantId;
+        return batch;
+    }
+
     public async ValueTask ApplyAsync(DomainEvent ev, CancellationToken ct = default)
     {
         switch (ev)
         {
+            case ApplicationImportCommitted committed:
+                var committedBatch = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction,
+                    committed.BatchId, ct).ConfigureAwait(false);
+                if (committed.TenantId != _batchTenantId || committedBatch is null || committedBatch.TenantId != committed.TenantId ||
+                    committedBatch.SourceKey != committed.SourceKey || committedBatch.SourceNamespace != committed.SourceNamespace ||
+                    committedBatch.Revision + 1 != committed.Revision || committedBatch.State != "accepting" ||
+                    committedBatch.RowCount != committed.Effects.Count)
+                    throw new InvalidOperationException("An import commit cannot project before its complete source plan.");
+                await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, committedBatch,
+                    committedBatch with
+                    {
+                        Revision = committed.Revision,
+                        State = "committed",
+                        AppliedCount = committed.Effects.Count,
+                        PendingCount = 0,
+                        LastProgressAt = committed.CommittedAt,
+                    }, ct).ConfigureAwait(false);
+                break;
             case ApplicationImportPlanStarted started:
                 await ApplyPlanRevisionAsync(started.TenantId, started.BatchId, started.Revision, started.StartedAt, ct).ConfigureAwait(false);
                 break;

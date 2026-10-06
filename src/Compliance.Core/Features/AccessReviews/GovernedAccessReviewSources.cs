@@ -57,13 +57,14 @@ public sealed class GovernedAccessReviewSources(IPersonDirectoryReader people,
     public async ValueTask<Result<Uuid?>> AccessOwnerMemberAsync(Uuid tenantId, Uuid applicationId,
         CancellationToken ct = default)
     {
-        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId), ct)
+        var source = await reader.HydrateApplicationAsync(tenantId, applicationId, ct)
             .ConfigureAwait(false);
         var application = await applications.GetAsync(tenantId, applicationId, ct).ConfigureAwait(false);
-        if (!source.IsCreated || application is null || application.TenantId != tenantId)
+        if (!source.IsCreated || (application is not null &&
+            (application.TenantId != tenantId || application.ApplicationId != applicationId)))
             return Result<Uuid?>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The application was not found."));
-        if (application.Revision < source.Revision)
+        if (application is null || application.Revision < source.Revision)
             return Result<Uuid?>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The application projection has not reached the source revision.", isTransient: true));
         if (application.AccessOwnerPersonId is not { } ownerId)

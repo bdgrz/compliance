@@ -8,10 +8,15 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed partial class DeclaredApplication
 {
     readonly Dictionary<(Uuid BatchId, Uuid RowId), ApplicationImportEffectPending> _pendingImportEffects = [];
-    readonly FrozenSet<Uuid> _settledImportBatches = FrozenSet<Uuid>.Empty;
+    FrozenSet<Uuid> _settledImportBatches = FrozenSet<Uuid>.Empty;
+    readonly FrozenSet<Uuid> _committedImportEvents = FrozenSet<Uuid>.Empty;
 
     internal DeclaredApplication(Uuid tenantId, Uuid applicationId, IReadOnlySet<Uuid> settledImportBatches)
         : this(tenantId, applicationId) => _settledImportBatches = settledImportBatches.ToFrozenSet();
+
+    internal DeclaredApplication(Uuid tenantId, Uuid applicationId, IReadOnlySet<Uuid> settledImportBatches,
+        IReadOnlySet<Uuid> committedImportEvents) : this(tenantId, applicationId, settledImportBatches) =>
+        _committedImportEvents = committedImportEvents.ToFrozenSet();
 
     public IReadOnlyList<ApplicationImportEffectPending> GetPendingImportEffects() =>
         Array.AsReadOnly(_pendingImportEffects.Values.ToArray());
@@ -40,8 +45,12 @@ public sealed partial class DeclaredApplication
         var effect = new ApplicationImportEffectPending(_tenantId, Id, plan.Revision,
             plan.PlanSha256, plan.Start, row, recordedAt);
         if (GetPendingImportEffect(batch.Id, rowId) is { } existing)
-            return existing with { RecordedAt = recordedAt } == effect ? Result.Success :
+            return existing with { RecordedAt = recordedAt } == effect &&
+                   (ledger.GetState(batch) != "committed" || ledger.IsEffectCommitted(existing)) ? Result.Success :
                 Result.Failure(new RequestError(RequestErrorKind.Conflict, "The import effect has different content."));
+        if (ledger.GetState(batch) == "committed")
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The committed import effect is missing. Retry after its durable target is available.", isTransient: true));
         if (row.Decision == "create_new" && (_created || _pendingImportEffects.Count > 0))
             return Result.Failure(new RequestError(RequestErrorKind.Conflict, "The new import target already exists."));
         if (row.Decision == "link_existing")
@@ -72,10 +81,13 @@ public sealed partial class DeclaredApplication
             ev.Row.Decision is not ("create_new" or "link_existing") ||
             (ev.Row.Decision == "create_new" && (_created || _pendingImportEffects.Count > 0 ||
                 ev.Row.ExpectedApplicationRevision is not null)) ||
-            (ev.Row.Decision == "link_existing" && (!_created || _retired ||
-                ev.Row.ExpectedApplicationRevision != _revision)) ||
+            (ev.Row.Decision == "link_existing" && ((!_created &&
+                !_pendingImportEffects.Values.Any(effect => effect.Row.Decision == "create_new")) || _retired ||
+                ev.Row.ExpectedApplicationRevision != (_revision == 0 ? 1 : _revision))) ||
             _pendingImportEffects.ContainsKey((ev.Plan.BatchId, ev.Row.RowId)))
             throw new InvalidOperationException("The pending import effect does not belong to its target.");
         _pendingImportEffects.Add((ev.Plan.BatchId, ev.Row.RowId), ev);
+        if (_committedImportEvents.Contains(ev.Metadata.EventId))
+            ApplyCommittedImportCreation(ev);
     });
 }

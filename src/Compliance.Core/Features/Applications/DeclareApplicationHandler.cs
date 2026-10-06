@@ -15,8 +15,9 @@ public sealed class DeclareApplicationHandler(IAggregateExecutor executor,
             request.SystemOwnerPersonId, request.AccessOwnerPersonId, ct).ConfigureAwait(false);
         if (owners is not null)
             return Result<ApplicationRegistration>.Failure(owners);
-        return await executor.ExecuteAsync(new DeclaredApplication(request.TenantId,
-                context.RequestId),
+        var target = await ApplicationImportWriteGuard.PrepareAsync(reader, request.TenantId,
+            context.RequestId, ct).ConfigureAwait(false);
+        return await executor.ExecuteAsync(target,
             app => AggregateOutcome.CommitOnSuccess(app.Declare(request.Name, request.Purpose,
                 request.OwnerReference, memberId, display, clock.GetUtcNow(),
                 request.Classification, request.SystemOwnerPersonId,

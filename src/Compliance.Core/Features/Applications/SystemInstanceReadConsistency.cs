@@ -16,8 +16,7 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
         if (minimumInstanceRevision is < 1)
             return Result.Failure(new RequestError(RequestErrorKind.Validation,
                 "The minimum system instance revision must be positive."));
-        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId, applicationId),
-            ct).ConfigureAwait(false);
+        var source = await reader.HydrateApplicationAsync(tenantId, applicationId, ct).ConfigureAwait(false);
         if (!source.IsCreated)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The application was not found."));
@@ -72,7 +71,7 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
             // processes old application and new instance events in one tenant cursor.
             var backlog = await ApplicationDirectoryBacklog.FindAsync(directory, events,
                 tenantId, static ev => ev is ApplicationDeclared or ApplicationRevised or
-                    SystemInstanceDeclared or SystemInstanceRegistered, ct).ConfigureAwait(false);
+                    SystemInstanceDeclared or SystemInstanceRegistered or ApplicationImportCommitted, ct).ConfigureAwait(false);
             if (!backlog.Clear)
                 return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The system instance list projection has not reached the source.",

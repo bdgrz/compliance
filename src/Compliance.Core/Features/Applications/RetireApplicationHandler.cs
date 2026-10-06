@@ -15,8 +15,7 @@ public sealed class RetireApplicationHandler(IAggregateExecutor executor,
         if (request.MergedIntoApplicationId is { } successorId &&
             successorId != request.ApplicationId && successorId != Uuid.Empty)
         {
-            var successor = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
-                successorId), ct).ConfigureAwait(false);
+            var successor = await reader.HydrateApplicationAsync(request.TenantId, successorId, ct).ConfigureAwait(false);
             if (!successor.IsCreated)
                 return Result.Failure(new RequestError(RequestErrorKind.Validation,
                     "The merged-into application was not found."));

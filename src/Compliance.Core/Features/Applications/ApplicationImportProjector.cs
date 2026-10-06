@@ -7,7 +7,7 @@ public sealed partial class ApplicationImportProjector(IApplicationImportDirecto
         "ApplicationImportDirectoryV1"), IProjectorHandler<ApplicationImportStaged>,
         IProjectorHandler<ApplicationImportCanceled>, IProjectorHandler<ApplicationImportRowCorrelated>,
         IProjectorHandler<ApplicationImportPlanStarted>, IProjectorHandler<ApplicationImportPlanRowFrozen>,
-        IProjectorHandler<ApplicationImportPlanSealed>
+        IProjectorHandler<ApplicationImportPlanSealed>, IProjectorHandler<ApplicationImportCommitted>
 {
     public ValueTask HandleAsync(ApplicationImportStaged ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
@@ -26,4 +26,12 @@ public sealed partial class ApplicationImportProjector(IApplicationImportDirecto
 
     public ValueTask HandleAsync(ApplicationImportPlanSealed ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(ApplicationImportCommitted ev, IProjectorContext context,
+        CancellationToken ct)
+    {
+        if (context.Identity.Pattern.Realm != ev.TenantId.ToString())
+            throw new InvalidOperationException("An import commit must belong to its tenant projection workload.");
+        return projection.ApplyAsync(ev, ct);
+    }
 }

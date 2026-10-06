@@ -21,7 +21,8 @@ public sealed partial class ApplicationImportLedger
         if (!BelongsToSource(batch))
             return Result<ApplicationImportFrozenPlan>.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The import batch was not found for this source."));
-        if (GetState(batch) != "accepting" || _acceptingBatchId != batch.Id ||
+        var committed = GetState(batch) == "committed" && IsCommitDurable(batch.Id);
+        if ((!committed && (GetState(batch) != "accepting" || _acceptingBatchId != batch.Id)) ||
             !_frozenPlans.TryGetValue(batch.Id, out var plan))
             return Result<ApplicationImportFrozenPlan>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The import batch has no active frozen plan."));
@@ -32,7 +33,7 @@ public sealed partial class ApplicationImportLedger
     }
 
     public string GetState(ImportBatch batch) => batch.IsCanceled || GetCanceledRevision(batch.Id) is not null
-        ? "canceled" : _planStarts.ContainsKey(batch.Id) ? "accepting" : "preview_ready";
+        ? "canceled" : _commits.ContainsKey(batch.Id) ? "committed" : _planStarts.ContainsKey(batch.Id) ? "accepting" : "preview_ready";
 
     public Result BeginAcceptance(ImportBatch batch, long expectedRevision,
         IReadOnlyDictionary<Uuid, DeclaredApplication> targets, Uuid approverMemberId,

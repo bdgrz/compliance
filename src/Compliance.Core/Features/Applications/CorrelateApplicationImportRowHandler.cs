@@ -17,7 +17,7 @@ public sealed class CorrelateApplicationImportRowHandler(IAggregateExecutor exec
         if (!batch.IsCreated || batch.SourceKey is not { } sourceKey || batch.SourceNamespace is not { } sourceNamespace)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The import batch was not found."));
         var application = request.Decision == "link_existing" && request.ApplicationId is { } applicationId
-            ? await reader.HydrateAsync(new DeclaredApplication(request.TenantId, applicationId), ct).ConfigureAwait(false)
+            ? await reader.HydrateApplicationAsync(request.TenantId, applicationId, ct).ConfigureAwait(false)
             : null;
         return await executor.ExecuteAsync(new ApplicationImportLedger(request.TenantId, sourceKey, sourceNamespace),
             ledger => CommandFailureRequestAdapter.ToOutcome(ledger.Correlate(batch, request, application,

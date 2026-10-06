@@ -12,6 +12,31 @@ public sealed class ApplicationImportWriteGuardTests
     [Theory]
     [InlineData("revise")]
     [InlineData("retire")]
+    public async Task ShouldReleaseTargetReservationGivenDurableCommit(string change)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        Assert.True(fixture.Ledger.Commit(fixture.Batch, 5,
+            new Dictionary<Uuid, DeclaredApplication> { [fixture.Target.Id] = fixture.Target }, fixture.Now).IsSuccess);
+        var blocked = await fixture.ChangeAsync(change);
+        Assert.False(blocked.IsSuccess);
+        await fixture.Writer.SaveAsync(fixture.Ledger, fixture.Context);
+
+        // Act
+        var result = await fixture.ChangeAsync(change);
+        var target = await fixture.Reader.HydrateApplicationAsync(fixture.Tenant, fixture.Target.Id);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(target.IsCreated);
+        Assert.Equal(2, target.Revision);
+        Assert.Equal(change == "retire", target.IsRetired);
+        Assert.Null(target.CheckPendingImportChanges());
+    }
+
+    [Theory]
+    [InlineData("revise")]
+    [InlineData("retire")]
     public async Task ShouldRejectStaleEffectGivenManualChangeWinsBeforeReservation(string change)
     {
         // Arrange

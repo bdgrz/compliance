@@ -18,8 +18,7 @@ public sealed class ListSystemInstanceBoundaryReferencesHandler(
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.Validation,
                 "The system instance boundary reference list limit must be between 1 and 200."));
-        var application = await aggregates.HydrateAsync(new DeclaredApplication(
-            request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
+        var application = await aggregates.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (!application.IsCreated)
             return Result<Page<ApplicationBoundaryReferenceView>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The system instance was not found."));

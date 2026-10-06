@@ -25,7 +25,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
         _sourceNamespace = sourceNamespace;
         On<ApplicationImportCanceled>(ev =>
         {
-            if (ev.TenantId != _tenantId)
+            if (ev.TenantId != _tenantId || _commits.ContainsKey(ev.BatchId))
                 throw new InvalidOperationException("An import ledger event belongs to another tenant.");
             _canceledRevisions[ev.BatchId] = ev.Revision;
             _canceledEventVersions[ev.BatchId] = ev.Metadata.AggregateVersion;
@@ -41,6 +41,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
             _correlations[(ev.BatchId, ev.RowId)] = ev;
         });
         RegisterAcceptanceEvents();
+        RegisterCommitEvents();
     }
 
     public long? GetCanceledRevision(Uuid batchId) =>
@@ -136,6 +137,8 @@ public sealed partial class ApplicationImportLedger : Aggregate
         ArgumentNullException.ThrowIfNull(batch);
         if (!BelongsToSource(batch))
             return CommandFailure.MissingRecord("The import batch was not found for this source.");
+        if (_commits.ContainsKey(batch.Id))
+            return CommandFailure.StateConflict("The import batch is committed.");
         if (string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
             return CommandFailure.InvalidContent("Cancellation requires a reason of at most 2000 characters.");
         var canceledRevision = GetCanceledRevision(batch.Id);
@@ -152,7 +155,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
     bool BelongsToSource(ImportBatch batch) => batch.IsCreated && batch.Stream.Realm == _tenantId.ToString() &&
         StringComparer.Ordinal.Equals(batch.SourceKey, _sourceKey) && StringComparer.Ordinal.Equals(batch.SourceNamespace, _sourceNamespace);
 
-    static Uuid IdFor(Uuid tenantId, string sourceKey, string sourceNamespace)
+    internal static Uuid IdFor(Uuid tenantId, string sourceKey, string sourceNamespace)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceNamespace);

@@ -17,8 +17,7 @@ public sealed class ApplicationHistoryReadConsistency(IApplicationDirectoryReade
             view.ApplicationId == applicationId &&
             (minimumRevision is null || view.Revision >= minimumRevision))
             return Result.Success;
-        var source = await reader.HydrateAsync(new DeclaredApplication(tenantId,
-            applicationId), ct).ConfigureAwait(false);
+        var source = await reader.HydrateApplicationAsync(tenantId, applicationId, ct).ConfigureAwait(false);
         if (!source.IsCreated)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                 "The application was not found."));

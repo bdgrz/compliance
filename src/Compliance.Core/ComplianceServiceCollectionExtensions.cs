@@ -120,6 +120,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<IApplicationImportDirectoryReader>(provider =>
             provider.GetRequiredService<FitzApplicationImportDirectory>());
         services.AddScoped<ApplicationImportReadConsistency>();
+        services.AddScoped<ApplicationImportVisibilityReadConsistency>();
         services.AddScoped<FitzAccessReviewScopeDirectory>();
         services.AddScoped<IAccessReviewScopeDirectoryProjection>(provider =>
             provider.GetRequiredService<FitzAccessReviewScopeDirectory>());
@@ -522,6 +523,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<DeclareSystemInstanceHandler>()
             .AddRequestHandler<GetApplicationHandler>()
             .AddRequestHandler<ListApplicationsHandler>()
+            .AddRequestPipelineBehavior<ApplicationImportVisibilityBehavior>()
             .AddRequestHandler<GetApplicationRevisionHandler>()
             .AddRequestHandler<ListApplicationRevisionsHandler>()
             .AddRequestHandler<GetSystemInstanceHandler>()

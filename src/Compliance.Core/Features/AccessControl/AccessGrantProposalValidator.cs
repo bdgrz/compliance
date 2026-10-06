@@ -53,8 +53,7 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
         }
         else if (proposal.Scope.Kind == AccessGrantScopeKind.Application)
         {
-            var application = await reader.HydrateAsync(new DeclaredApplication(tenantId,
-                proposal.Scope.Id), ct).ConfigureAwait(false);
+            var application = await reader.HydrateApplicationAsync(tenantId, proposal.Scope.Id, ct).ConfigureAwait(false);
             if (!application.IsCreated)
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
                     "The application scope was not found in this organization."));
@@ -102,8 +101,7 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
         {
             if (instance.TenantId != tenantId || instance.SystemInstanceId != instanceId ||
                 instance.LegacyApplicationRevision is null ||
-                !(await reader.HydrateAsync(new DeclaredApplication(tenantId,
-                    instance.ApplicationId), ct).ConfigureAwait(false)).IsCreated)
+                !(await reader.HydrateApplicationAsync(tenantId, instance.ApplicationId, ct).ConfigureAwait(false)).IsCreated)
                 return false;
             return await ScopedSystemInstanceSource.FindAsync(reader, events, tenantId,
                 instance.ApplicationId, instanceId, ct).ConfigureAwait(false) is not null;
@@ -113,8 +111,7 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
             .FindPendingAsync(tenantId, instanceId, ct).ConfigureAwait(false);
         if (pending.Match is not SystemInstanceDeclared declaration)
             return false;
-        return (await reader.HydrateAsync(new DeclaredApplication(tenantId,
-            declaration.ApplicationId), ct).ConfigureAwait(false)).IsCreated;
+        return (await reader.HydrateApplicationAsync(tenantId, declaration.ApplicationId, ct).ConfigureAwait(false)).IsCreated;
     }
 
     async ValueTask<Result> ValidatePrincipalAsync(Uuid tenantId, AccessGrantPrincipal principal,

@@ -25,8 +25,7 @@ public sealed class PreviewApplicationChangeHandler(
         if (inputError is not null)
             return Result<ApplicationChangePreview>.Failure(inputError);
 
-        var source = await aggregates.HydrateAsync(new DeclaredApplication(
-            request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
+        var source = await aggregates.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (!source.IsCreated)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
@@ -110,8 +109,7 @@ public sealed class PreviewApplicationChangeHandler(
 
         // Source rechecks catch a pending relationship write that raced either reverse-index read.
         // This preview remains advisory; future approval must use a complete, exact-version impact gate.
-        var latest = await aggregates.HydrateAsync(new DeclaredApplication(
-            request.TenantId, request.ApplicationId), ct).ConfigureAwait(false);
+        var latest = await aggregates.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (latest.Revision != source.Revision)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The application changed during preview.",
