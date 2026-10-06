@@ -39,6 +39,9 @@ public sealed class PreviewApplicationImportHandler(
             return Result<Page<ApplicationImportPreviewRow>>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The import preview cursor is invalid."));
         }
+        var legacyError = ApplicationImportPaging.CheckLegacyRevision(fresh.Value.Revision, request.Cursor);
+        if (legacyError is not null)
+            return Result<Page<ApplicationImportPreviewRow>>.Failure(legacyError);
         if (page.Items.Any(row => row.TenantId != request.TenantId ||
                                   row.BatchId != request.BatchId) ||
             (request.Cursor is null && page.Items.Count == 0 && fresh.Value.RowCount > 0))

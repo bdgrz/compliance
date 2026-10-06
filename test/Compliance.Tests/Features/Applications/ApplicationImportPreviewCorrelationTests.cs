@@ -10,6 +10,31 @@ public sealed class ApplicationImportPreviewCorrelationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ShouldDistinguishInvalidCursorGivenLegacyCursorAfterLifecycleChange(bool validCursor)
+    {
+        // Arrange
+        var fixture = await StagedAsync();
+        var oldPage = await fixture.Directory.ListRowsAsync(fixture.TenantId, fixture.Batch.Id, 1, null);
+        Assert.NotNull(oldPage.NextCursor);
+        Assert.Null(fixture.Ledger.Correlate(fixture.Batch, new CorrelateApplicationImportRow(
+            fixture.TenantId, fixture.Batch.Id, fixture.Rows[1].RowId, 1, "create_new", null, null,
+            "Reviewed identity"), null, fixture.ActorId, "Lead", fixture.Now));
+        await fixture.ApplyAsync(Assert.Single(new AggregateScenario<ApplicationImportLedger>(fixture.Ledger).PendingEvents));
+        var cursor = validCursor ? oldPage.NextCursor : "not a cursor";
+
+        // Act
+        var result = await fixture.Handler.HandleAsync(new RequestContext<PreviewApplicationImport>(
+            new PreviewApplicationImport(fixture.TenantId, fixture.Batch.Id, Limit: 1, Cursor: cursor), new()), CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(validCursor ? RequestErrorKind.Conflict : RequestErrorKind.Validation, error.Kind);
+        Assert.Equal(validCursor, error.IsTransient);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ShouldShareCursorGivenRowAndPreviewPaging(bool rowsFirst)
     {
         // Arrange
