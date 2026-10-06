@@ -125,6 +125,19 @@ that ID returns 409. The response is:
 `CancelApplicationImport` takes `expected_batch_revision` and a nonblank
 `reason`. The bounded staging implementation permits cancellation before
 acceptance and retains the batch, rows, and attributed terminal decision.
+New cancellation decisions are serialized on the ledger for the exact tenant,
+source key, and namespace, in a separate stream within `application_imports`.
+The staged batch remains immutable; historical cancellations on its original
+stream remain terminal and readable. Staging replay returns the lifecycle
+revision, and batch/row/preview reads check both the raw batch and the ledger
+before accepting projected revision and state. The existing projector also
+consumes the ledger's `ApplicationImportCanceled` events.
+
+Complete the API/worker upgrade before introducing whole-batch acceptance.
+Older API hosts write cancellation to the original batch and cannot satisfy
+ledger-only minimum revisions. This release adds no acceptance or inventory
+effects.
+
 The accepted whole-batch target additionally permits cancellation during
 acceptance until commit, rolling back pending effects behind the visibility
 barrier; after commit cancellation returns 409. EN-05 must prove that barrier
@@ -184,7 +197,8 @@ its stable source-claim ID identifies the prior observation. It is never an
 automatic deletion or retirement. The future matching preview must check that
 the Application inventory and source-claim projections have caught up before
 claiming a complete match; otherwise it reports a retryable 409. The current
-preview only checks the import batch source against its batch/row projection.
+preview checks immutable batch data and its source ledger against the batch/row
+projection; inventory matching and source-claim reconciliation remain deferred.
 
 ## Error and verification contract
 
