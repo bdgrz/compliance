@@ -17,11 +17,15 @@ public sealed class ListApplicationImportRowsHandler(
             request.MinimumRevision, ct).ConfigureAwait(false);
         if (!fresh.IsSuccess)
             return Result<Page<ApplicationImportRowView>>.Failure(fresh.Error);
+        var cursorError = ApplicationImportPaging.Decode(request.TenantId, request.BatchId,
+            fresh.Value.Revision, request.Cursor, out var rowsCursor);
+        if (cursorError is not null)
+            return Result<Page<ApplicationImportRowView>>.Failure(cursorError);
         Page<ApplicationImportRowView> page;
         try
         {
             page = await directory.ListRowsAsync(request.TenantId, request.BatchId,
-                request.Limit ?? 50, request.Cursor, ct).ConfigureAwait(false);
+                request.Limit ?? 50, rowsCursor, ct).ConfigureAwait(false);
         }
         catch (KvDirectoryQueryException)
         {
@@ -34,6 +38,7 @@ public sealed class ListApplicationImportRowsHandler(
             return Result<Page<ApplicationImportRowView>>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The import row projection is incomplete.",
                 isTransient: true));
-        return Result<Page<ApplicationImportRowView>>.Success(page);
+        return Result<Page<ApplicationImportRowView>>.Success(new Page<ApplicationImportRowView>(page.Items,
+            ApplicationImportPaging.Encode(request.TenantId, request.BatchId, fresh.Value.Revision, page.NextCursor)));
     }
 }

@@ -16,6 +16,7 @@ public sealed class ApplicationInventoryAuthorizerTests
     [InlineData("rows", true)]
     [InlineData("preview", true)]
     [InlineData("cancel", false)]
+    [InlineData("correlate", false)]
     [InlineData("declare", false)]
     public async Task ShouldLimitImportStagingGrantGivenRequestedOperation(string operation,
         bool expectedAllowed)
@@ -31,6 +32,8 @@ public sealed class ApplicationInventoryAuthorizerTests
             "rows" => new ListApplicationImportRows(tenantId, batchId),
             "preview" => new PreviewApplicationImport(tenantId, batchId),
             "cancel" => new CancelApplicationImport(tenantId, batchId, 1, "Canceled by lead"),
+            "correlate" => new CorrelateApplicationImportRow(tenantId, batchId, Uuid.CreateVersion4(),
+                1, "create_new", null, null, "Reviewed identity"),
             _ => new DeclareApplication(tenantId, "Payroll", "Run payroll"),
         };
         var permissions = new ImportStagingPermissions();

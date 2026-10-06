@@ -1653,6 +1653,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Application imports");
+    app.MapPortiaPost<CorrelateApplicationImportRow>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows/{row_id}/correlations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Record a personal source-row correlation decision before acceptance")
+        .WithTags("Application imports");
     app.MapPortiaGet<GetApplicationImport, ApplicationImportView>(
             "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

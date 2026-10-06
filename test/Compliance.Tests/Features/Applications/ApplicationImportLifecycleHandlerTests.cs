@@ -9,6 +9,91 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationImportLifecycleHandlerTests
 {
     [Fact]
+    public async Task ShouldSerializeDecisionsGivenCorrelationRacingCancellation()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton(TimeProvider.System);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var writer = scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        var events = scope.ServiceProvider.GetRequiredService<IEventStore>();
+        var tenantId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "BdgrzSession"));
+        var request = new StageApplicationImport(tenantId, Uuid.CreateVersion4(), "manual", "applications", "partial",
+            [new("app-1", "Payroll", "Pay staff", null)]);
+        var staged = await new StageApplicationImportHandler(executor, reader, TimeProvider.System)
+            .HandleAsync(new RequestContext<StageApplicationImport>(request, actor), CancellationToken.None);
+        Assert.True(staged.IsSuccess);
+        var racingExecutor = new AggregateExecutor(new LedgerHydrationGate(reader), writer);
+        var cancel = new CancelApplicationImportHandler(racingExecutor, reader, TimeProvider.System);
+        var correlate = new CorrelateApplicationImportRowHandler(racingExecutor, reader, TimeProvider.System);
+        var cancelContext = new RequestContext<CancelApplicationImport>(
+            new CancelApplicationImport(tenantId, staged.Value.BatchId, 1, "Canceled"), actor);
+        var correlationContext = new RequestContext<CorrelateApplicationImportRow>(new CorrelateApplicationImportRow(
+            tenantId, staged.Value.BatchId, Uuid.CreateVersion5(staged.Value.BatchId, "1"), 1,
+            "create_new", null, null, "Reviewed identity"), actor);
+
+        // Act
+        var outcomes = await Task.WhenAll(RaceAsync(() => cancel.HandleAsync(cancelContext, CancellationToken.None)),
+            RaceAsync(() => correlate.HandleAsync(correlationContext, CancellationToken.None)));
+        var ledger = new ApplicationImportLedger(tenantId, "manual", "applications");
+        var records = new List<DomainEventRecord>();
+        await foreach (var record in events.ReadAsync(ledger.Stream, 0, CancellationToken.None))
+            records.Add(record);
+
+        // Assert
+        Assert.Single(outcomes, outcome => outcome is Result { IsSuccess: true });
+        Assert.Single(outcomes, outcome => outcome is EventStreamConcurrencyException);
+        Assert.Single(records);
+        Assert.True(records[0].Event is ApplicationImportCanceled or ApplicationImportRowCorrelated);
+    }
+
+    [Fact]
+    public async Task ShouldRecordChoiceAndReturnRevisionGivenCorrelationThenStagingReplay()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton(TimeProvider.System);
+        services.AddPortia();
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var tenantId = Uuid.CreateVersion4();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())], "BdgrzSession"));
+        var request = new StageApplicationImport(tenantId, Uuid.CreateVersion4(), "manual",
+            "applications", "partial", [new ApplicationImportInputRow("app-1", "Payroll", "Pay staff", null)]);
+        var stage = new StageApplicationImportHandler(executor, reader, TimeProvider.System);
+        var context = new RequestContext<StageApplicationImport>(request, actor);
+        var first = await stage.HandleAsync(context, CancellationToken.None);
+        Assert.True(first.IsSuccess);
+        var rowId = Uuid.CreateVersion5(first.Value.BatchId, "1");
+        var correlate = new CorrelateApplicationImportRowHandler(executor, reader, TimeProvider.System);
+
+        // Act
+        var recorded = await correlate.HandleAsync(new RequestContext<CorrelateApplicationImportRow>(
+            new CorrelateApplicationImportRow(tenantId, first.Value.BatchId, rowId, 1,
+                "create_new", null, null, "Reviewed source identity"), actor), CancellationToken.None);
+        var replay = await stage.HandleAsync(context, CancellationToken.None);
+        var ledger = await reader.HydrateAsync(new ApplicationImportLedger(tenantId, "manual", "applications"));
+
+        // Assert
+        Assert.True(recorded.IsSuccess);
+        Assert.True(replay.IsSuccess);
+        Assert.Equal(2, replay.Value.Revision);
+        Assert.Equal("create_new", ledger.GetCorrelation(first.Value.BatchId, rowId)?.Decision);
+        Assert.Null(ledger.GetCanceledRevision(first.Value.BatchId));
+    }
+
+    [Fact]
     public async Task ShouldWriteOneCancellationGivenConcurrentRequestsAndRetry()
     {
         // Arrange
@@ -52,11 +137,14 @@ public sealed class ApplicationImportLifecycleHandlerTests
     }
 
     static async Task<object> RaceAsync(CancelApplicationImportHandler handler,
-        RequestContext<CancelApplicationImport> context)
+        RequestContext<CancelApplicationImport> context) =>
+        await RaceAsync(() => handler.HandleAsync(context, CancellationToken.None));
+
+    static async Task<object> RaceAsync(Func<ValueTask<Result>> action)
     {
         try
         {
-            return await handler.HandleAsync(context, CancellationToken.None);
+            return await action();
         }
         catch (EventStreamConcurrencyException exception)
         {

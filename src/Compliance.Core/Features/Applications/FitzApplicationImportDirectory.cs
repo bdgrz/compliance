@@ -40,6 +40,14 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                         LastProgressAt = canceled.CanceledAt,
                     }, ct).ConfigureAwait(false);
                 break;
+            case ApplicationImportRowCorrelated correlated:
+                var batch = await ApplicationImportDirectorySchema.Batches.GetAsync(
+                                Transaction, correlated.BatchId, ct).ConfigureAwait(false) ??
+                            throw new InvalidOperationException("An import correlation cannot project before staging.");
+                await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, batch,
+                    batch with { Revision = correlated.Revision, LastProgressAt = correlated.RecordedAt }, ct)
+                    .ConfigureAwait(false);
+                break;
         }
     }
 
