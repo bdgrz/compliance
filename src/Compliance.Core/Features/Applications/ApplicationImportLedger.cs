@@ -5,7 +5,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 /// <summary>The post-staging lifecycle for one tenant-declared application source.</summary>
-public sealed class ApplicationImportLedger : Aggregate
+public sealed partial class ApplicationImportLedger : Aggregate
 {
     readonly Uuid _tenantId;
     readonly string _sourceKey;
@@ -28,6 +28,8 @@ public sealed class ApplicationImportLedger : Aggregate
                 throw new InvalidOperationException("An import ledger event belongs to another tenant.");
             _canceledRevisions[ev.BatchId] = ev.Revision;
             _revisions[ev.BatchId] = ev.Revision;
+            if (_acceptingBatchId == ev.BatchId)
+                _acceptingBatchId = null;
         });
         On<ApplicationImportRowCorrelated>(ev =>
         {
@@ -36,10 +38,37 @@ public sealed class ApplicationImportLedger : Aggregate
             _revisions[ev.BatchId] = ev.Revision;
             _correlations[(ev.BatchId, ev.RowId)] = ev;
         });
+        RegisterAcceptanceEvents();
     }
 
     public long? GetCanceledRevision(Uuid batchId) =>
         _canceledRevisions.TryGetValue(batchId, out var revision) ? revision : null;
+
+    public Result<IReadOnlyList<ApplicationImportPlannedRow>> PrepareAcceptancePlan(ImportBatch batch,
+        long expectedRevision)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        if (!BelongsToSource(batch))
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The import batch was not found for this source."));
+        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null)
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "The import batch is canceled."));
+        if (expectedRevision != GetRevision(batch))
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(
+                VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());
+        var planned = new List<ApplicationImportPlannedRow>();
+        foreach (var row in batch.GetRows())
+        {
+            var choice = GetCorrelation(batch.Id, row.RowId);
+            if (row.ValidationFindings.Count > 0 || choice is null)
+                return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict, "Every import row must be valid and explicitly correlated."));
+            planned.Add(new ApplicationImportPlannedRow(row.RowId, row.SourceRecordId!, choice.Decision,
+                choice.ApplicationId, choice.ExpectedApplicationRevision, row.Name!, row.Purpose!, row.OwnerReference));
+        }
+        return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Success(planned.AsReadOnly());
+    }
 
     public CommandFailure? Correlate(ImportBatch batch, CorrelateApplicationImportRow request,
         DeclaredApplication? application, Uuid actorMemberId, string actorDisplay,
@@ -68,6 +97,8 @@ public sealed class ApplicationImportLedger : Aggregate
             previous.Decision == request.Decision && previous.ApplicationId == targetId &&
             previous.ExpectedApplicationRevision == request.ExpectedApplicationRevision && previous.Reason == request.Reason.Trim())
             return null;
+        if (_frozenPlans.ContainsKey(batch.Id))
+            return CommandFailure.StateConflict("The import plan is already frozen.");
         if (request.Decision == "link_existing")
         {
             if (application is null || !application.IsCreated || application.Stream.Realm != _tenantId.ToString() || application.Id != request.ApplicationId)

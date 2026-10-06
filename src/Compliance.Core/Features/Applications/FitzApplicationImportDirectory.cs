@@ -12,6 +12,15 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
     {
         switch (ev)
         {
+            case ApplicationImportPlanStarted started:
+                await ApplyPlanRevisionAsync(started.TenantId, started.BatchId, started.Revision, started.StartedAt, ct).ConfigureAwait(false);
+                break;
+            case ApplicationImportPlanRowFrozen frozen:
+                await ApplyPlanRevisionAsync(frozen.TenantId, frozen.BatchId, frozen.Revision, null, ct).ConfigureAwait(false);
+                break;
+            case ApplicationImportPlanSealed sealedPlan:
+                await ApplyPlanRevisionAsync(sealedPlan.TenantId, sealedPlan.BatchId, sealedPlan.Revision, null, ct).ConfigureAwait(false);
+                break;
             case ApplicationImportStaged staged:
                 var invalid = staged.Rows.Count(row => row.ValidationFindings.Count > 0);
                 await ApplicationImportDirectorySchema.Batches.InsertAsync(Transaction,
@@ -49,6 +58,21 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                     .ConfigureAwait(false);
                 break;
         }
+    }
+
+    async ValueTask ApplyPlanRevisionAsync(Uuid tenantId, Uuid batchId, long revision,
+        DateTimeOffset? startedAt, CancellationToken ct)
+    {
+        var current = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction, batchId, ct).ConfigureAwait(false);
+        if (current is null || current.TenantId != tenantId)
+            throw new InvalidOperationException("An import plan cannot project before its tenant's staging event.");
+        await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, current,
+            current with
+            {
+                Revision = revision,
+                State = "accepting",
+                LastProgressAt = startedAt ?? current.LastProgressAt,
+            }, ct).ConfigureAwait(false);
     }
 
     public async ValueTask<ApplicationImportView?> GetAsync(Uuid tenantId, Uuid batchId,

@@ -57,6 +57,24 @@ effect execution, or commit.
 
 ## Delivery gates
 
+The internal initial-observation plan foundation now prepares every valid,
+explicitly correlated staged row and freezes it on the source ledger. A header,
+one bounded event per planned row, and a SHA-256 seal are raised in one aggregate
+outcome; the existing Portia stream transaction persists them together. Each
+record advances the batch revision. Replay publishes a frozen plan only after
+the row count and hash match, preserves submitter/approver attribution, and
+rejects incompatible source or revision histories. Only one batch per source
+can be accepting; cancellation releases that batch and retains its plan history.
+Linked targets are rechecked before freezing, and correlation edits cannot
+change a frozen plan. Import projection freshness includes these plan records.
+
+This foundation exposes no public acceptance request or route and runs no
+inventory effects. Committed source claims, changed/missing-row reconciliation,
+retirement impact, pending effects, governed visibility, and public acceptance
+remain required work. A stored plan alone is insufficient authority to execute
+an effect: the eventual internal command must also verify the authoritative
+active lifecycle and exact target/effect identity.
+
 1. **Ledger lifecycle and compatibility.** Prove source/tenant identity, staged
    cancellation, historical cancellation replay, expected revisions, per-source
    exclusivity, terminal-state replay, and monotonic per-batch revisions with

@@ -10,6 +10,7 @@ public sealed class ApplicationImportReadTests
     [Theory]
     [InlineData("cancel", "canceled")]
     [InlineData("correlate", "preview_ready")]
+    [InlineData("accept", "accepting")]
     public async Task ShouldReportLagAndRecoverGivenTransitionOnSourceLedger(string transition, string expectedState)
     {
         // Arrange
@@ -26,10 +27,15 @@ public sealed class ApplicationImportReadTests
         if (transition == "cancel")
             Assert.Null(ledger.Cancel(source, 1, "Superseded", actorId, "Lead", now));
         else
+        {
             Assert.Null(ledger.Correlate(source, new CorrelateApplicationImportRow(tenantId,
                 source.Id, staged.Rows[0].RowId, 1, "create_new", null, null, "Reviewed identity"),
                 null, actorId, "Lead", now));
-        var lifecycle = Assert.Single(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
+            if (transition == "accept")
+                Assert.True(ledger.BeginAcceptance(source, 2, new Dictionary<Uuid, DeclaredApplication>(), actorId, "Lead", now).IsSuccess);
+        }
+        var lifecycle = new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents.ToArray();
+        var revision = ledger.GetRevision(source);
         var directory = new FitzApplicationImportDirectory(new InMemoryKvClient());
         var identity = new CheckpointIdentity("ApplicationImportDirectoryV1",
             EventStreamPattern.ForPattern(tenantId.ToString(), "application_imports"));
@@ -46,16 +52,17 @@ public sealed class ApplicationImportReadTests
         await using (var projection = await directory.BeginAsync(
             new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
-            await directory.ApplyAsync(lifecycle);
+            foreach (var ev in lifecycle)
+                await directory.ApplyAsync(ev);
             await projection.CommitAsync(ProjectionCheckpoint.Start);
         }
-        var recovered = await consistency.GetFreshAsync(tenantId, source.Id, 2, CancellationToken.None);
+        var recovered = await consistency.GetFreshAsync(tenantId, source.Id, revision, CancellationToken.None);
 
         // Assert
         Assert.Equal(RequestErrorKind.Conflict, Assert.IsType<RequestError>(lagging.Error).Kind);
         Assert.True(Assert.IsType<RequestError>(lagging.Error).IsTransient);
         Assert.True(recovered.IsSuccess);
-        Assert.Equal(2, recovered.Value.Revision);
+        Assert.Equal(revision, recovered.Value.Revision);
         Assert.Equal(expectedState, recovered.Value.State);
     }
 
