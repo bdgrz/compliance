@@ -24,9 +24,12 @@ public sealed class RetireApplicationHandler(IAggregateExecutor executor,
                 return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                     "The merged-into application is retired."));
         }
-        return await executor.ExecuteAsync(new DeclaredApplication(request.TenantId,
-                request.ApplicationId),
-            app => CommandFailureRequestAdapter.ToOutcome(app.Retire(request.ExpectedRevision,
+        var target = await ApplicationImportWriteGuard.PrepareAsync(reader, request.TenantId, request.ApplicationId, ct)
+            .ConfigureAwait(false);
+        return await executor.ExecuteAsync(target,
+            app => app.CheckPendingImportChanges() is { } importError
+                ? AggregateOutcome.Discard(Result.Failure(importError))
+                : CommandFailureRequestAdapter.ToOutcome(app.Retire(request.ExpectedRevision,
                 request.EffectiveAt, request.Reason, request.MergedIntoApplicationId,
                 memberId, display, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }

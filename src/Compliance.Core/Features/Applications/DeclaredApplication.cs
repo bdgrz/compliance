@@ -143,6 +143,7 @@ public sealed partial class DeclaredApplication : Aggregate
     CommandFailure? CheckChange(long expectedRevision) => !_created
         ? CommandFailure.MissingRecord("The application was not found.")
         : _retired ? CommandFailure.StateConflict("The application is retired.")
+        : CheckPendingImportChanges() is { } importError ? CommandFailure.StateConflict(importError.Message!)
         : expectedRevision == _revision ? null :
             CommandFailure.ForVersion(VersionedRecordRules.StaleRevision("application", _revision));
 

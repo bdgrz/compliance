@@ -1,12 +1,26 @@
 using Cntryl.Portia;
 using System.Text.Json;
 using Bdgrz.Compliance.Features.Versioning;
+using System.Collections.Frozen;
 
 namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed partial class DeclaredApplication
 {
     readonly Dictionary<(Uuid BatchId, Uuid RowId), ApplicationImportEffectPending> _pendingImportEffects = [];
+    readonly FrozenSet<Uuid> _settledImportBatches = FrozenSet<Uuid>.Empty;
+
+    internal DeclaredApplication(Uuid tenantId, Uuid applicationId, IReadOnlySet<Uuid> settledImportBatches)
+        : this(tenantId, applicationId) => _settledImportBatches = settledImportBatches.ToFrozenSet();
+
+    public IReadOnlyList<ApplicationImportEffectPending> GetPendingImportEffects() =>
+        Array.AsReadOnly(_pendingImportEffects.Values.ToArray());
+
+    public RequestError? CheckPendingImportChanges() => _pendingImportEffects.Values.Any(
+        ev => !_settledImportBatches.Contains(ev.Plan.BatchId))
+        ? new RequestError(RequestErrorKind.Conflict,
+            "The application has an unsettled import effect. Retry after the batch settles.", isTransient: true)
+        : null;
 
     public ApplicationImportEffectPending? GetPendingImportEffect(Uuid batchId, Uuid rowId) =>
         _pendingImportEffects.GetValueOrDefault((batchId, rowId));

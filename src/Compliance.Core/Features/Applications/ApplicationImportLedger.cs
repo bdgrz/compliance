@@ -11,6 +11,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
     readonly string _sourceKey;
     readonly string _sourceNamespace;
     readonly Dictionary<Uuid, long> _canceledRevisions = [];
+    readonly Dictionary<Uuid, ulong> _canceledEventVersions = [];
     readonly Dictionary<Uuid, long> _revisions = [];
     readonly Dictionary<(Uuid BatchId, Uuid RowId), ApplicationImportRowCorrelated> _correlations = [];
 
@@ -27,6 +28,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
             if (ev.TenantId != _tenantId)
                 throw new InvalidOperationException("An import ledger event belongs to another tenant.");
             _canceledRevisions[ev.BatchId] = ev.Revision;
+            _canceledEventVersions[ev.BatchId] = ev.Metadata.AggregateVersion;
             _revisions[ev.BatchId] = ev.Revision;
             if (_acceptingBatchId == ev.BatchId)
                 _acceptingBatchId = null;
@@ -43,6 +45,9 @@ public sealed partial class ApplicationImportLedger : Aggregate
 
     public long? GetCanceledRevision(Uuid batchId) =>
         _canceledRevisions.TryGetValue(batchId, out var revision) ? revision : null;
+
+    public bool IsCancellationDurable(Uuid batchId) =>
+        _canceledEventVersions.TryGetValue(batchId, out var version) && CommittedStreamPosition >= version;
 
     public Result<IReadOnlyList<ApplicationImportPlannedRow>> PrepareAcceptancePlan(ImportBatch batch,
         long expectedRevision)

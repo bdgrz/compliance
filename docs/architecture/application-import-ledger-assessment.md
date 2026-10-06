@@ -94,6 +94,18 @@ foreign targets, altered payloads and changed governed targets fail the gate.
 This proof alone does not authorize a visibility commit: all governed consumers
 must honor the barrier before commit activation is added.
 
+Manual application revision and retirement now reserve a target while any import
+effect remains unsettled. Handlers capture durable canceled batches from each
+exact source ledger, then the application executor hydrates the guarded target
+again. A newly arrived effect absent from that settlement snapshot blocks the
+operation with a transient conflict. An effect appended after target hydration
+conflicts with the manual append through the existing target-stream OCC. Only a
+durable cancellation releases its matching reservation; an in-memory cancellation
+or another source's cancellation cannot release it. Canceled effect records
+remain invisible audit data and do not advance the governed revision. Target
+reads keep their existing governed state. Commit settlement and all governed
+consumer visibility still need implementation before acceptance activation.
+
 No public acceptance route, commit marker, or worker is exposed yet. Committed
 source claims, changed/missing-row reconciliation, retirement impact, complete
 governed visibility after commit, and public acceptance remain required work.
