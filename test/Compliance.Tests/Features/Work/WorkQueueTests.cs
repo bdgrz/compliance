@@ -16,6 +16,50 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 
 public sealed class WorkQueueTests
 {
+    [Fact]
+    public async Task ShouldPlaceUndatedReviewLastGivenEvidenceDueOnLatestSupportedDate()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness", ["security"], []);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
+                        boundaryId, draftVersionId, 1), Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                return Result.Success;
+            });
+        fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
+            new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
+                draftVersionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
+                now.AddMinutes(-5)), null, null, 1));
+        var evidence = await fixture.AsAsync(fixture.LeadUserId,
+            new OpenEvidenceRequest(fixture.TenantId, fixture.ProgramId, "Future evidence",
+                "Keep dated work before undated work.", fixture.ReviewerMemberId,
+                DateOnly.MaxValue));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ReviewerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Equal(2, queue.Items.Count);
+        Assert.Equal(new WorkCountsView(2, 0, 0, 0), queue.Counts);
+        Assert.Equal("evidence_request", queue.Items[0].Kind);
+        Assert.Equal(evidence.EvidenceRequestId, queue.Items[0].SourceId);
+        Assert.Equal(DateOnly.MaxValue, queue.Items[0].DueOn);
+        Assert.Equal("boundary_review", queue.Items[1].Kind);
+        Assert.Equal(draftVersionId, queue.Items[1].SourceId);
+        Assert.Null(queue.Items[1].DueOn);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
