@@ -16,6 +16,55 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 
 public sealed class WorkQueueTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public async Task ShouldReconcileQueueAndRemindersGivenLatestSupportedDueDates(
+        int daysBeforeMaximum)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId,
+            fixture.Today.AddDays(-7), fixture.Today.AddDays(-6), fixture.Today);
+        var dueOn = DateOnly.MaxValue.AddDays(-daysBeforeMaximum);
+        var evidence = await fixture.AsAsync(fixture.LeadUserId,
+            new OpenEvidenceRequest(fixture.TenantId, fixture.ProgramId, "Future evidence",
+                "Keep its source action available.", fixture.OwnerMemberId, dueOn,
+                fixture.ControlId));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId));
+        var reminders = await fixture.AsAsync(fixture.OwnerUserId,
+            new ListWorkReminders(fixture.TenantId, fixture.ProgramId));
+        var digest = await fixture.AsAsync(fixture.OwnerUserId,
+            new GetWorkDigest(fixture.TenantId, fixture.ProgramId));
+
+        // Assert
+        Assert.Equal(new WorkCountsView(4, 2, 1, 1), queue.Counts);
+        Assert.Equal(4, queue.Items.Count);
+        var item = Assert.Single(queue.Items, item => item.Kind == "evidence_request");
+        Assert.Equal(evidence.EvidenceRequestId, item.SourceId);
+        Assert.Equal(dueOn, item.DueOn);
+        Assert.False(item.Overdue);
+        Assert.False(item.Escalated);
+        Assert.Null(item.EscalatedBy);
+        Assert.Equal("fulfil", item.NextAction);
+        Assert.EndsWith($"/evidence-requests/{evidence.EvidenceRequestId}/fulfilments",
+            item.ActionPath, StringComparison.Ordinal);
+        var detail = await fixture.AsAsync(fixture.OwnerUserId,
+            new GetWorkItem(fixture.TenantId, fixture.ProgramId, item.WorkItemId));
+        Assert.Equal(item, detail.Item);
+        Assert.Equal(3, reminders.Count);
+        Assert.DoesNotContain(reminders, reminder => reminder.WorkItemId == item.WorkItemId);
+        Assert.Equal(2, digest.Overdue.Count);
+        Assert.Equal(fixture.Today, Assert.Single(digest.DueSoon).DueOn);
+        Assert.DoesNotContain(digest.Overdue.Concat(digest.DueSoon),
+            entry => entry.WorkItemId == item.WorkItemId);
+    }
+
     [Fact]
     public async Task ShouldListOpenEvidenceRequestForItsOwnerAndDropItGivenCancellation()
     {

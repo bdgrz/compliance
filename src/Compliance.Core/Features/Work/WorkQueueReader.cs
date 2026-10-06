@@ -233,7 +233,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         ArgumentNullException.ThrowIfNull(state);
         var escalatedBy = state.Escalated
             ? "member"
-            : candidate.DueOn is { } due && due.AddDays(SystemEscalationDays) <= today
+            : candidate.DueOn is { } due && today.DayNumber - due.DayNumber >= SystemEscalationDays
                 ? "system"
                 : null;
         return new WorkQueueItemView(candidate.WorkItemId, candidate.Kind, candidate.SourceId,
