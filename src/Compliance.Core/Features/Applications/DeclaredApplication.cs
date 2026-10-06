@@ -5,7 +5,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 /// <summary>Owns one tenant-declared application and its metadata history.</summary>
-public sealed class DeclaredApplication : Aggregate
+public sealed partial class DeclaredApplication : Aggregate
 {
     readonly Uuid _tenantId;
     bool _created;
@@ -32,6 +32,7 @@ public sealed class DeclaredApplication : Aggregate
             applicationId.ToString()))
     {
         _tenantId = tenantId;
+        RegisterImportEffectEvents();
         On<ApplicationDeclared>(ev =>
         {
             _created = true;
@@ -70,6 +71,9 @@ public sealed class DeclaredApplication : Aggregate
     {
         var normalizedOwner = NormalizeOptional(ownerReference);
         var normalizedClassification = NormalizeOptional(classification);
+        if (!_created && _pendingImportEffects.Values.Any(ev => ev.Row.Decision == "create_new"))
+            return Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The application identity is reserved by an import plan."));
         if (_created)
             return _initialName == name?.Trim() && _initialPurpose == purpose?.Trim() &&
                    _initialOwnerReference == normalizedOwner &&

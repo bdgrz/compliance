@@ -68,12 +68,27 @@ can be accepting; cancellation releases that batch and retains its plan history.
 Linked targets are rechecked before freezing, and correlation edits cannot
 change a frozen plan. Import projection freshness includes these plan records.
 
-This foundation exposes no public acceptance request or route and runs no
-inventory effects. Committed source claims, changed/missing-row reconciliation,
-retirement impact, pending effects, governed visibility, and public acceptance
-remain required work. A stored plan alone is insufficient authority to execute
-an effect: the eventual internal command must also verify the authoritative
-active lifecycle and exact target/effect identity.
+The dedicated internal `ApplyApplicationImportEffect` command now checks the
+trusted Portia system actor and the exact tenant/source/batch/row/target in an
+active sealed plan. Its handler reloads authority, then the target aggregate
+records one bounded pending audit effect with frozen content and both human
+attributions plus a named system process. Target-stream optimistic concurrency
+protects replay and current linked-target revision checks. A pending new target
+reserves its deterministic identity against manual declaration. Pending effects
+do not create active inventory, advance governed revisions, overwrite manual
+fields, or appear in inventory/history projections. Cancellation after an
+authority snapshot may leave a late durable effect, which remains invisible;
+the canceled source rejects subsequent retries. The existing per-stream
+persistence boundary cannot prevent that cross-stream race and does not need to
+for the visibility contract.
+
+No public acceptance route, commit marker, or worker is exposed yet. Committed
+source claims, changed/missing-row reconciliation, retirement impact, complete
+governed visibility after commit, and public acceptance remain required work.
+The eventual commit command must verify every persisted effect and every
+relevant governed target before committing. Future live effect recovery,
+cancellation races, isolation, and transport framing are separate integration
+tasks #801–#804; current acceptance remains unit-only.
 
 1. **Ledger lifecycle and compatibility.** Prove source/tenant identity, staged
    cancellation, historical cancellation replay, expected revisions, per-source

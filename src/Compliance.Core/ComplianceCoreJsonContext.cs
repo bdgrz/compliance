@@ -123,6 +123,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(ApplicationImportPlanStarted))]
 [JsonSerializable(typeof(ApplicationImportPlanRowFrozen))]
 [JsonSerializable(typeof(ApplicationImportPlanSealed))]
+[JsonSerializable(typeof(ApplicationImportEffectPending))]
+[JsonSerializable(typeof(ApplyApplicationImportEffect))]
 [JsonSerializable(typeof(SystemInstanceRegistration))]
 [JsonSerializable(typeof(ApplicationView))]
 [JsonSerializable(typeof(Page<ApplicationView>))]
