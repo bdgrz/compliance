@@ -18,6 +18,7 @@ public sealed class ImportBatch : Aggregate
     bool _canceled;
     long _revision;
     string? _contentSha256;
+    readonly Dictionary<Uuid, ApplicationImportStagedRow> _rows = [];
 
     public bool IsCreated => _created;
     public long Revision => _revision;
@@ -37,6 +38,8 @@ public sealed class ImportBatch : Aggregate
             _contentSha256 = ev.ContentSha256;
             SourceKey = ev.SourceKey;
             SourceNamespace = ev.SourceNamespace;
+            foreach (var row in ev.Rows)
+                _rows.Add(row.RowId, row with { ValidationFindings = Array.AsReadOnly(row.ValidationFindings.ToArray()) });
         });
         On<ApplicationImportCanceled>(ev =>
         {
@@ -44,6 +47,8 @@ public sealed class ImportBatch : Aggregate
             _revision = ev.Revision;
         });
     }
+
+    public ApplicationImportStagedRow? GetRow(Uuid rowId) => _rows.GetValueOrDefault(rowId);
 
     public static Uuid BatchIdFor(StageApplicationImport request) =>
         Uuid.CreateVersion5(request.TenantId,

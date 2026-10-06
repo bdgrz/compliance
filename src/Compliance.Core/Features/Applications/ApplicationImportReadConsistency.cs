@@ -22,9 +22,10 @@ public sealed class ApplicationImportReadConsistency(IApplicationImportDirectory
         {
             var ledger = await reader.HydrateAsync(
                 new ApplicationImportLedger(tenantId, sourceKey, sourceNamespace), ct).ConfigureAwait(false);
+            revision = ledger.GetRevision(source);
             if (ledger.GetCanceledRevision(batchId) is { } canceledRevision)
             {
-                revision = canceledRevision;
+                revision = Math.Max(revision, canceledRevision);
                 canceled = true;
             }
         }

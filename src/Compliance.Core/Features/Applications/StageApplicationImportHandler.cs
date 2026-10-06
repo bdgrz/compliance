@@ -19,7 +19,7 @@ public sealed class StageApplicationImportHandler(IAggregateExecutor executor,
             return result;
         var ledger = await reader.HydrateAsync(new ApplicationImportLedger(request.TenantId,
             request.SourceKey, request.SourceNamespace), ct).ConfigureAwait(false);
-        return ledger.GetCanceledRevision(result.Value.BatchId) is { } revision
+        return ledger.GetRecordedRevision(result.Value.BatchId) is { } revision
             ? Result<ApplicationImportRegistration>.Success(result.Value with { Revision = revision })
             : result;
     }

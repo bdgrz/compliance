@@ -7,8 +7,10 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 
 public sealed class ApplicationImportReadTests
 {
-    [Fact]
-    public async Task ShouldReportLagAndRecoverGivenCancellationOnSourceLedger()
+    [Theory]
+    [InlineData("cancel", "canceled")]
+    [InlineData("correlate", "preview_ready")]
+    public async Task ShouldReportLagAndRecoverGivenTransitionOnSourceLedger(string transition, string expectedState)
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -21,9 +23,13 @@ public sealed class ApplicationImportReadTests
         var staged = Assert.IsType<ApplicationImportStaged>(
             Assert.Single(new AggregateScenario<ImportBatch>(source).PendingEvents));
         var ledger = new ApplicationImportLedger(tenantId, request.SourceKey, request.SourceNamespace);
-        Assert.Null(ledger.Cancel(source, 1, "Superseded", actorId, "Lead", now));
-        var canceled = Assert.IsType<ApplicationImportCanceled>(
-            Assert.Single(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents));
+        if (transition == "cancel")
+            Assert.Null(ledger.Cancel(source, 1, "Superseded", actorId, "Lead", now));
+        else
+            Assert.Null(ledger.Correlate(source, new CorrelateApplicationImportRow(tenantId,
+                source.Id, staged.Rows[0].RowId, 1, "create_new", null, null, "Reviewed identity"),
+                null, actorId, "Lead", now));
+        var lifecycle = Assert.Single(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
         var directory = new FitzApplicationImportDirectory(new InMemoryKvClient());
         var identity = new CheckpointIdentity("ApplicationImportDirectoryV1",
             EventStreamPattern.ForPattern(tenantId.ToString(), "application_imports"));
@@ -40,7 +46,7 @@ public sealed class ApplicationImportReadTests
         await using (var projection = await directory.BeginAsync(
             new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
         {
-            await directory.ApplyAsync(canceled);
+            await directory.ApplyAsync(lifecycle);
             await projection.CommitAsync(ProjectionCheckpoint.Start);
         }
         var recovered = await consistency.GetFreshAsync(tenantId, source.Id, 2, CancellationToken.None);
@@ -50,7 +56,54 @@ public sealed class ApplicationImportReadTests
         Assert.True(Assert.IsType<RequestError>(lagging.Error).IsTransient);
         Assert.True(recovered.IsSuccess);
         Assert.Equal(2, recovered.Value.Revision);
-        Assert.Equal("canceled", recovered.Value.State);
+        Assert.Equal(expectedState, recovered.Value.State);
+    }
+
+    [Fact]
+    public async Task ShouldShowAttributedChoiceGivenFreshPreviewWithoutAcceptedClaims()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var request = new StageApplicationImport(tenantId, Uuid.CreateVersion4(), "manual",
+            "applications", "partial", [new ApplicationImportInputRow("app-1", "Payroll", "Pay staff", null)]);
+        var source = new ImportBatch(tenantId, ImportBatch.BatchIdFor(request));
+        Assert.True(source.Stage(request, actorId, "Lead", now).IsSuccess);
+        var staged = Assert.IsType<ApplicationImportStaged>(
+            Assert.Single(new AggregateScenario<ImportBatch>(source).PendingEvents));
+        var ledger = new ApplicationImportLedger(tenantId, "manual", "applications");
+        Assert.Null(ledger.Correlate(source, new CorrelateApplicationImportRow(tenantId,
+            source.Id, staged.Rows[0].RowId, 1, "create_new", null, null, "Reviewed identity"),
+            null, actorId, "Lead", now));
+        var correlated = Assert.Single(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
+        var directory = new FitzApplicationImportDirectory(new InMemoryKvClient());
+        var identity = new CheckpointIdentity("ApplicationImportDirectoryV1",
+            EventStreamPattern.ForPattern(tenantId.ToString(), "application_imports"));
+        await using (var projection = await directory.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(staged);
+            await directory.ApplyAsync(correlated);
+            await projection.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var reader = new SourceReader(source, ledger);
+        var consistency = new ApplicationImportReadConsistency(directory, reader);
+        var preview = new PreviewApplicationImportHandler(directory, consistency, reader);
+
+        // Act
+        var result = await preview.HandleAsync(new RequestContext<PreviewApplicationImport>(
+            new PreviewApplicationImport(tenantId, source.Id, MinimumRevision: 2), new()), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var row = Assert.Single(result.Value.Items);
+        var choice = Assert.IsType<ApplicationImportCorrelationView>(row.Correlation);
+        Assert.Equal("create_new", choice.Decision);
+        Assert.Equal(actorId, choice.ActorMemberId);
+        Assert.Equal("Reviewed identity", choice.Reason);
+        Assert.Equal(2, choice.Revision);
+        Assert.Equal("unmatched", row.MatchState);
+        Assert.Contains("source_claims_unavailable", row.AcceptanceBlockers);
     }
 
     [Theory]

@@ -1,11 +1,11 @@
 # Application import v1: bounded staging and deferred batch acceptance
 
-Status: bounded staging, read, and pre-acceptance cancellation contract for
+Status: bounded staging, read, pre-acceptance correlation, and cancellation contract for
 EN-05 / R1-10b. HTTP and MCP expose staging; batch, row, and preview queries
 are read-only MCP tools. Whole-batch acceptance and reconciliation follow
 ADR 0005 and remain separate delivery scope in
 [EN-05 backend #195](https://github.com/bdgrz/compliance/issues/195).
-Pre-acceptance cancellation is an HTTP-only terminal transition. This optional
+Pre-acceptance correlation and cancellation are personal HTTP-only decisions. This optional
 import path covers bounded tenant-supplied rows; it grants no source authority
 or reviewed scope and is not required to author or operate the application
 inventory manually. Current delivery and acceptance evidence belong to the
@@ -19,9 +19,9 @@ durable batch visibility barrier. `AcceptApplicationImportRow`,
 alternatives, not supported operations. Their earlier description is retained
 in repository history. The target role policy allows Contributors to stage
 and preview, while Compliance Leads or Org Admins accept or cancel a whole
-batch (M0-D03). EN-05 owns the additional staging grant and acceptance
-contract; the bounded staging slice currently uses inventory-management
-authority.
+batch (M0-D03). The staging grant is delivered. Correlation decisions require
+the same inventory-management authority as cancellation; whole-batch acceptance
+remains deferred.
 
 ## Common rules
 
@@ -38,7 +38,7 @@ authority.
   record ID. Names are never match keys.
 - Authorization requires active tenant membership. Staging and batch, row,
   and preview reads permit `application_import.stage` or
-  `application_inventory.manage`; cancellation requires the latter. A nonmember or
+  `application_inventory.manage`; correlation and cancellation require the latter. A nonmember or
   wrong-tenant
   batch returns 404 before metadata or row counts are read; an active member
   without the grant receives 403. Import management authority does not grant
@@ -46,13 +46,17 @@ authority.
   is assigned to Org Admin, Compliance Lead, and Contributor on new and
   historical tenant registrations through the independent
   `ApplicationImportGrantBackfillV1` workload. It grants no ordinary inventory
-  writes or cancellation. Whole-batch acceptance remains deferred and must
+  writes, correlation, or cancellation. Whole-batch acceptance remains deferred and must
   require Compliance Lead or Org Admin authority under ADR 0005 decision 5.
 - Success responses use Portia's current result mapping: 200 for a value and
   204 for an empty command result. `Page<T>` has `items` and `next_cursor`.
   `limit` defaults to 50 and accepts 1–200. An invalid cursor or a cursor from
   another tenant or batch returns 400; row and preview cursors for the same
-  batch are interchangeable because they share one indexed row query. All
+  batch and lifecycle revision are interchangeable because they share one indexed
+  row query. Cursors bind tenant, batch, and lifecycle revision; a correlation or
+  cancellation between pages returns transient 409 and requires paging to restart.
+  Historical unversioned cursors remain usable at staged revision 1; after a lifecycle
+  transition they also require restarting. All
   listed GETs can report 409 with `transient: true`
   when their requested `minimum_revision` is ahead of the source or projection.
 - OpenAPI 3.1 must list each mapped operation, parameters, schema, 200/204,
@@ -67,6 +71,8 @@ authority.
 | --- | --- | --- | --- |
 | `POST /api/v1/tenants/{tenant_id}/application-imports` | `StageApplicationImport` → `ApplicationImportRegistration` | 200; store one immutable bounded observation and return `batch_id`, `revision`, `content_sha256` | `bdgrz.application_import.stage` (idempotent, bounded JSON) |
 | `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations` | `CancelApplicationImport` → no value | 204 before acceptance (implemented). Under ADR 0005, also allowed while accepting and before commit, rolling back every pending effect; 409 after commit | none; HTTP-only |
+
+| `POST /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows/{row_id}/correlations` | `CorrelateApplicationImportRow` → no value | 204; record an attributable link-existing or create-new choice without changing inventory | none; HTTP-only |
 
 EN-05 defines the whole-batch acceptance operation under ADR 0005. The per-row
 `AcceptApplicationImportRow` route is rejected.
@@ -131,9 +137,10 @@ The staged batch remains immutable; historical cancellations on its original
 stream remain terminal and readable. Staging replay returns the lifecycle
 revision, and batch/row/preview reads check both the raw batch and the ledger
 before accepting projected revision and state. The existing projector also
-consumes the ledger's `ApplicationImportCanceled` events.
+consumes the ledger's cancellation and correlation events.
 
-Complete the API/worker upgrade before introducing whole-batch acceptance.
+Upgrade the API and worker together before using correlation decisions, and
+complete the lifecycle upgrade before introducing whole-batch acceptance.
 Older API hosts write cancellation to the original batch and cannot satisfy
 ledger-only minimum revisions. This release adds no acceptance or inventory
 effects.
@@ -142,6 +149,29 @@ The accepted whole-batch target additionally permits cancellation during
 acceptance until commit, rolling back pending effects behind the visibility
 barrier; after commit cancellation returns 409. EN-05 must prove that barrier
 before adding acceptance operations.
+
+## Pre-acceptance correlation
+
+`CorrelateApplicationImportRow` takes `expected_batch_revision`, `decision`
+(`link_existing` or `create_new`), nullable `application_id` and
+`expected_application_revision`, and a nonblank `reason` of at most 2000 characters.
+A link requires the exact existing, active tenant application and its current
+revision. A create-new decision requires both target fields to be null; the ledger
+records a deterministic target ID derived from the batch and row. Invalid and
+duplicate rows cannot be correlated, and canceled batches reject new decisions.
+
+The source ledger records the member, display, reason, time, and batch revision.
+An identical replay preserves that attribution and adds no event. A changed choice
+requires the current batch revision and advances it, invalidating older preview
+pages. Linking never overwrites governed application fields, and choosing a new
+application does not create it. Acceptance must recheck each target and revision
+from authoritative streams.
+
+Preview rows expose nullable `correlation` with the recorded decision, target,
+expected target revision, attribution, and decision revision. A linked target that
+is now missing, retired, or revised adds `correlation_target_changed`. The preview
+still reports `source_claims_unavailable`: no committed source claim or acceptance
+plan exists yet. A correlation choice alone grants no source authority.
 
 ## Read operations and MCP
 
@@ -179,8 +209,8 @@ freshness check.
 with a null `application_id`, and retains the attributable submission time on
 its batch.
 Cancellation retains the original staged rows and its attributed batch
-decision. Acceptance and pre-acceptance correlation decisions, with their
-history, are EN-05 additions under ADR 0005.
+decision. Pre-acceptance correlation decisions are recorded on the same source
+ledger, retaining their event history. Whole-batch acceptance remains an EN-05 addition.
 `ApplicationImportPreviewRow` adds `match_state` (`unmatched`, `unchanged`,
 `changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
 candidate Application IDs, changed field names, and `acceptance_blockers`.

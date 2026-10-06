@@ -7,4 +7,7 @@ public sealed record ApplicationImportPreviewRow(Uuid TenantId, Uuid BatchId, Uu
     int RowNumber, string? SourceRecordId, string? Name, string? Purpose,
     string? OwnerReference, IReadOnlyList<string> ValidationFindings,
     string MatchState, IReadOnlyList<Uuid> CandidateApplicationIds,
-    IReadOnlyList<string> ChangedFields, IReadOnlyList<string> AcceptanceBlockers);
+    IReadOnlyList<string> ChangedFields, IReadOnlyList<string> AcceptanceBlockers)
+{
+    public ApplicationImportCorrelationView? Correlation { get; init; }
+}
