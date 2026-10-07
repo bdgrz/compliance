@@ -8,9 +8,15 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 /// </summary>
 public static class IndependenceCompartments
 {
+    public const string PersonExclusivityRuleId = "m0_d26_person_exclusivity";
+
     const int MaximumDateOnlyMonthOffset = 120_000;
 
-    /// <summary>One person may never hold both an advisory and an attest assignment for the same client.</summary>
+    /// <summary>
+    ///     One person may never hold both an advisory and an attest assignment for the same client.
+    ///     Match either their account or staff record across the full supplied history; retain a stable
+    ///     historical conflict citation for the assignment boundary to explain the refusal.
+    /// </summary>
     public static IndependenceDecision CanAssign(IEnumerable<EngagementAssignment> clientAssignments,
         EngagementAssignment candidate)
     {
@@ -30,12 +36,16 @@ public static class IndependenceCompartments
                 assignment.FirmStaffMemberId == Uuid.Empty || assignment.UserId == Uuid.Empty ||
                 !Enum.IsDefined(assignment.Practice)))
             return new IndependenceDecision(IndependenceDecisionCode.AssignmentInvalid);
-        var crossesWall = clientHistory.Any(existing =>
-            existing.ClientTenantId == candidate.ClientTenantId &&
-            existing.FirmStaffMemberId == candidate.FirmStaffMemberId &&
-            existing.Practice != candidate.Practice);
-        return crossesWall
-            ? new IndependenceDecision(IndependenceDecisionCode.PersonPracticeConflict)
+        var conflictingAssignment = clientHistory.Where(existing =>
+                (existing.FirmStaffMemberId == candidate.FirmStaffMemberId || existing.UserId == candidate.UserId) &&
+                existing.Practice != candidate.Practice)
+            .OrderBy(existing => existing.EngagementId.ToString(), StringComparer.Ordinal)
+            .ThenBy(existing => existing.FirmStaffMemberId.ToString(), StringComparer.Ordinal)
+            .ThenBy(existing => existing.UserId.ToString(), StringComparer.Ordinal)
+            .FirstOrDefault();
+        return conflictingAssignment is not null
+            ? new IndependenceDecision(IndependenceDecisionCode.PersonPracticeConflict,
+                ruleId: PersonExclusivityRuleId, conflictingAssignment: conflictingAssignment)
             : IndependenceDecision.Allow;
     }
 

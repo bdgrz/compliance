@@ -85,6 +85,112 @@ public sealed class IndependenceCompartmentsTests
         Assert.Equal(IndependenceDecisionCode.PersonPracticeConflict, result.Code);
     }
 
+    [Theory]
+    [InlineData(EngagementPractice.Advisory, EngagementPractice.Attest)]
+    [InlineData(EngagementPractice.Attest, EngagementPractice.Advisory)]
+    public void ShouldRejectCrossPracticeAssignmentGivenSameAccountWithDifferentStaffRecord(
+        EngagementPractice existingPractice, EngagementPractice candidatePractice)
+    {
+        // Arrange
+        EngagementAssignment[] existing =
+            [new(ClientId, AdvisoryEngagementId, PersonId, PersonAccountId, existingPractice)];
+
+        // Act
+        var result = IndependenceCompartments.CanAssign(existing,
+            new EngagementAssignment(ClientId, AttestEngagementId, ColleagueId, PersonAccountId,
+                candidatePractice));
+
+        // Assert
+        Assert.False(result.IsAllowed);
+        Assert.Equal(IndependenceDecisionCode.PersonPracticeConflict, result.Code);
+    }
+
+    [Fact]
+    public void ShouldCiteConflictingAssignmentGivenPersonPracticeConflict()
+    {
+        // Arrange
+        var existing = new EngagementAssignment(ClientId, AdvisoryEngagementId, PersonId,
+            PersonAccountId, EngagementPractice.Advisory);
+
+        // Act
+        var result = IndependenceCompartments.CanAssign([existing],
+            new EngagementAssignment(ClientId, AttestEngagementId, ColleagueId, PersonAccountId,
+                EngagementPractice.Attest));
+
+        // Assert
+        Assert.Equal("m0_d26_person_exclusivity", result.RuleId);
+        Assert.Equal(existing, result.ConflictingAssignment);
+    }
+
+    [Fact]
+    public void ShouldCiteSameConflictGivenReorderedAssignmentHistory()
+    {
+        // Arrange
+        var first = new EngagementAssignment(ClientId, AdvisoryEngagementId, PersonId,
+            PersonAccountId, EngagementPractice.Advisory);
+        var second = first with { EngagementId = AttestEngagementId };
+        var candidate = first with { Practice = EngagementPractice.Attest };
+
+        // Act
+        var forward = IndependenceCompartments.CanAssign([first, second], candidate);
+        var reverse = IndependenceCompartments.CanAssign([second, first], candidate);
+
+        // Assert
+        Assert.Equal(first, forward.ConflictingAssignment);
+        Assert.Equal(first, reverse.ConflictingAssignment);
+    }
+
+    [Fact]
+    public void ShouldOmitConflictEvidenceGivenAllowedAssignment()
+    {
+        // Arrange
+        var assignment = new EngagementAssignment(ClientId, AdvisoryEngagementId, PersonId,
+            PersonAccountId, EngagementPractice.Advisory);
+
+        // Act
+        var result = IndependenceCompartments.CanAssign([assignment], assignment);
+
+        // Assert
+        Assert.True(result.IsAllowed);
+        Assert.Null(result.RuleId);
+        Assert.Null(result.ConflictingAssignment);
+    }
+
+    [Fact]
+    public void ShouldRejectInvalidHistoryGivenConflictAndMalformedSameClientAssignment()
+    {
+        // Arrange
+        var assignment = new EngagementAssignment(ClientId, AdvisoryEngagementId, PersonId,
+            PersonAccountId, EngagementPractice.Advisory);
+        var malformed = assignment with { EngagementId = Uuid.Empty };
+
+        // Act
+        var result = IndependenceCompartments.CanAssign([assignment, malformed],
+            assignment with { Practice = EngagementPractice.Attest });
+
+        // Assert
+        Assert.Equal(IndependenceDecisionCode.AssignmentInvalid, result.Code);
+        Assert.Null(result.RuleId);
+        Assert.Null(result.ConflictingAssignment);
+    }
+
+    [Fact]
+    public void ShouldAllowAssignmentGivenSameAccountAdvisesAnotherClientThroughDifferentStaffRecord()
+    {
+        // Arrange
+        var assignment = new EngagementAssignment(OtherClientId, AdvisoryEngagementId, PersonId,
+            PersonAccountId, EngagementPractice.Advisory);
+
+        // Act
+        var result = IndependenceCompartments.CanAssign([assignment],
+            new EngagementAssignment(ClientId, AttestEngagementId, ColleagueId, PersonAccountId,
+                EngagementPractice.Attest));
+
+        // Assert
+        Assert.True(result.IsAllowed);
+        Assert.Null(result.ConflictingAssignment);
+    }
+
     [Fact]
     public void ShouldEvaluateAssignmentHistoryGivenSingleUseSequence()
     {
