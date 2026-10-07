@@ -180,6 +180,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GetApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewMissingApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<RecordPerson>()
         .AddMcpTool<RevisePerson>(tool => tool.Idempotent())
         .AddMcpTool<CorrelatePersonMembership>(tool => tool.Idempotent())
@@ -1669,6 +1670,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<PreviewApplicationImport, Page<ApplicationImportPreviewRow>>(
             "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<PreviewMissingApplicationImportRows, Page<ApplicationImportMissingRow>>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview/missing")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Preview complete-source omissions as blocked retirement proposals")
         .WithTags("Application imports");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")

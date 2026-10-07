@@ -772,7 +772,7 @@ public sealed class ComplianceWebTests
         Assert.True(cancelBody.GetProperty("properties")
             .TryGetProperty("expected_batch_revision", out _));
         Assert.True(cancelBody.GetProperty("properties").TryGetProperty("reason", out _));
-        foreach (var suffix in new[] { "/rows", "/preview" })
+        foreach (var suffix in new[] { "/rows", "/preview", "/preview/missing" })
         {
             var read = paths.GetProperty(
                 $"/api/v1/tenants/{{tenant_id}}/application-imports/{{batch_id}}{suffix}")

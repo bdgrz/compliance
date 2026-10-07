@@ -24,11 +24,12 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
-    static readonly string[] ImportReadSuffixes = ["", "/rows", "/preview"];
+    static readonly string[] ImportReadSuffixes = ["", "/rows", "/preview", "/preview/missing"];
     static readonly string[] ImportCursorTools =
     [
         "bdgrz.application_import.rows.list",
         "bdgrz.application_import.preview",
+        "bdgrz.application_import.missing.preview",
     ];
     static readonly string[] ImportSourceIdsA = ["A-1", "A-2", "A-3"];
     static readonly string[] ImportSourceIdsB = ["B-1"];
@@ -37,6 +38,7 @@ public sealed class TenantReadLeakMatrixE2ETests(BrokerStackFixture broker)
         "bdgrz.application_import.get",
         "bdgrz.application_import.rows.list",
         "bdgrz.application_import.preview",
+        "bdgrz.application_import.missing.preview",
     ];
 
     [Theory]
