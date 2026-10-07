@@ -109,8 +109,8 @@ public sealed class ApplicationImportReadTests
         Assert.Equal(actorId, choice.ActorMemberId);
         Assert.Equal("Reviewed identity", choice.Reason);
         Assert.Equal(2, choice.Revision);
-        Assert.Equal("unmatched", row.MatchState);
-        Assert.Contains("source_claims_unavailable", row.AcceptanceBlockers);
+        Assert.Equal("new", row.MatchState);
+        Assert.Empty(row.AcceptanceBlockers);
     }
 
     [Theory]

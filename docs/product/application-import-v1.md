@@ -51,12 +51,12 @@ remains deferred.
 - Success responses use Portia's current result mapping: 200 for a value and
   204 for an empty command result. `Page<T>` has `items` and `next_cursor`.
   `limit` defaults to 50 and accepts 1–200. An invalid cursor or a cursor from
-  another tenant or batch returns 400; row and preview cursors for the same
-  batch and lifecycle revision are interchangeable because they share one indexed
+  another tenant or batch returns 400; with an empty source ledger, row and preview
+  cursors for the same batch and lifecycle revision are interchangeable because they share one indexed
   row query. Cursors bind tenant, batch, and lifecycle revision; a correlation or
   cancellation between pages returns transient 409 and requires paging to restart.
-  Historical unversioned cursors remain usable at staged revision 1; after a lifecycle
-  transition they also require restarting. All
+  Historical unversioned cursors remain usable at staged revision 1 with an empty
+  source ledger; after a lifecycle or source transition, preview requires restarting. All
   listed GETs can report 409 with `transient: true`
   when their requested `minimum_revision` is ahead of the source or projection.
 - OpenAPI 3.1 must list each mapped operation, parameters, schema, 200/204,
@@ -169,9 +169,11 @@ from authoritative streams.
 
 Preview rows expose nullable `correlation` with the recorded decision, target,
 expected target revision, attribution, and decision revision. A linked target that
-is now missing, retired, or revised adds `correlation_target_changed`. The preview
-still reports `source_claims_unavailable`: committed source claims are not yet
-wired into the public preview. A correlation choice alone grants no source authority.
+is now missing, retired, or revised adds `correlation_target_changed`. A correlation choice alone grants no source authority. Preview consumes durable
+source claims, compares accepted source observations, and rechecks claimed targets.
+A missing, retired, or revised claimed target adds `source_claim_target_changed`
+and is `conflicting` until a valid attributed correlation to the same target
+rechecks its current revision. Source identities cannot be rebound.
 
 ### Committed source-claim foundation
 
@@ -195,10 +197,11 @@ omissions can be enumerated internally as proposals; partial coverage returns no
 omissions. Acceptance planning rejects complete-source omissions until governed
 retirement plans and effects exist. No retirement is inferred or applied here.
 
-Public preview classifications and missing-row paging, whole-batch HTTP acceptance,
-worker execution/recovery, retirement effects, and rejected-item reports remain
-undelivered. This foundation adds no route, MCP operation, event schema, or
-projection. Existing ledger event history reconstructs the claims on replay.
+Public preview now classifies staged observations using these claims. Missing-row
+paging, whole-batch HTTP acceptance, worker execution/recovery, retirement effects,
+and rejected-item reports remain undelivered. Claims and preview add no route,
+MCP operation, event schema, or projection. Existing ledger event history
+reconstructs the claims on replay.
 
 ## Read operations and MCP
 
@@ -238,24 +241,45 @@ its batch.
 Cancellation retains the original staged rows and its attributed batch
 decision. Pre-acceptance correlation decisions are recorded on the same source
 ledger, retaining their event history. Whole-batch acceptance remains an EN-05 addition.
-`ApplicationImportPreviewRow` adds `match_state` (`unmatched`, `unchanged`,
-`changed`, `duplicate`, `ambiguous`, `missing_from_source`, or `invalid`),
-candidate Application IDs, changed field names, and `acceptance_blockers`.
-Only `unmatched`, `duplicate`, and `invalid` are emitted in the first slice;
-the other match states require source claims and accepted observations.
-`unmatched` means no accepted source-claim binding, not that no governed
-Application exists. The public preview does not yet consume ledger claims, so every
-otherwise valid row is provisionally `unmatched` with a
-`source_claims_unavailable` acceptance blocker. No Application inventory
-scan, name match, or completeness assertion is made. Candidates are suggestions only; the future acceptance command rechecks the exact
-target and revisions from authoritative streams. A complete-source omission
-will be a synthetic preview row with no staged `row_id` and cannot be accepted;
-its stable source-claim ID identifies the prior observation. It is never an
-automatic deletion or retirement. The future matching preview must check that
-the Application inventory and source-claim projections have caught up before
-claiming a complete match; otherwise it reports a retryable 409. The current
-preview checks immutable batch data and its source ledger against the batch/row
-projection; inventory matching and source-claim reconciliation remain deferred.
+`ApplicationImportPreviewRow` adds `match_state`, candidate Application IDs,
+changed field names, `acceptance_blockers`, and nullable attributed `correlation`.
+The public preview emits:
+
+- `unmatched`: a valid source ID has no committed claim or correlation;
+  `correlation_required` blocks acceptance planning.
+- `new`: a valid source ID has an explicit correlation but no committed claim.
+  It is new to this source, including when linked to an existing application.
+- `unchanged` or `changed`: the source ID has a committed claim; changed fields
+  compare trimmed `name`, `purpose`, and `owner_reference` against the last
+  accepted source observation, independently of governed application fields.
+- `conflicting`: a linked or claimed target is missing, retired, or revised,
+  or a recorded choice attempts to rebind a committed source identity.
+- `duplicate` or `invalid`: staged validation findings take precedence over
+  matching, and remain acceptance blockers.
+
+Candidates come only from the exact source claim or attributed correlation;
+there is no inventory scan or name match. Preview never creates, revises, retires,
+accepts, or silently correlates an application. A canceled batch adds
+`batch_canceled`. Complete-source omissions add
+`missing_source_retirement_unavailable` to staged preview rows until governed
+retirement plans exist. Partial coverage never infers omissions. Synthetic
+`missing_from_source` rows and their paging remain deferred; these proposals are
+never automatic deletion or retirement. No claim of whole-batch acceptability
+follows from an individual row having no blockers; public acceptance is still
+unavailable.
+
+Preview reads immutable staged rows and the authoritative source ledger, verifies
+projected payloads against staging, and retries with transient 409 if an undurable
+commit or a source-ledger change prevents a consistent read. Preview continuation
+cursors bind both the batch lifecycle revision and durable source-ledger position,
+including changes from other batches of the same source. Row reads can consume
+preview cursors, but their returned cursors bind only raw-row lifecycle state.
+Once the source ledger has advanced, preview requires its own continuation cursor;
+a valid older row/legacy cursor returns transient 409 and requires restarting
+preview. With an empty source ledger, existing row/preview cursor sharing remains
+available. Malformed or cross-tenant/batch cursors remain 400. Target streams are
+rechecked on each page; the future acceptance command must recheck the complete
+plan and exact targets. Preview paging is not a frozen target snapshot.
 
 ## Error and verification contract
 
