@@ -170,8 +170,35 @@ from authoritative streams.
 Preview rows expose nullable `correlation` with the recorded decision, target,
 expected target revision, attribution, and decision revision. A linked target that
 is now missing, retired, or revised adds `correlation_target_changed`. The preview
-still reports `source_claims_unavailable`: no committed source claim or acceptance
-plan exists yet. A correlation choice alone grants no source authority.
+still reports `source_claims_unavailable`: committed source claims are not yet
+wired into the public preview. A correlation choice alone grants no source authority.
+
+### Committed source-claim foundation
+
+The internal source ledger derives claims from durable commit markers and their
+frozen plans. Each claim retains the exact source record ID, target application,
+accepted field observation, batch, submitter, approver, and commit time. Stream
+order selects the latest accepted observation; caller timestamps do not reorder
+claims. Pending plans, unsaved commits, and cancellations establish no claim.
+
+A repeated source record uses its committed target as a link-existing plan row.
+Its accepted target revision is rechecked against the authoritative application;
+later governed changes require a fresh attributed correlation to the same target.
+Correlation and replay reject rebinding a committed source ID to another target.
+Unknown source IDs still require explicit correlation, and identity remains exact,
+case-sensitive, and scoped to the tenant/source key/namespace.
+
+Source-field comparison reports changes against the last accepted observation,
+using the staging contract's trimmed display fields. It never overwrites governed
+fields or treats a changed observation as a reviewed revision. Complete-source
+omissions can be enumerated internally as proposals; partial coverage returns no
+omissions. Acceptance planning rejects complete-source omissions until governed
+retirement plans and effects exist. No retirement is inferred or applied here.
+
+Public preview classifications and missing-row paging, whole-batch HTTP acceptance,
+worker execution/recovery, retirement effects, and rejected-item reports remain
+undelivered. This foundation adds no route, MCP operation, event schema, or
+projection. Existing ledger event history reconstructs the claims on replay.
 
 ## Read operations and MCP
 
@@ -217,7 +244,7 @@ candidate Application IDs, changed field names, and `acceptance_blockers`.
 Only `unmatched`, `duplicate`, and `invalid` are emitted in the first slice;
 the other match states require source claims and accepted observations.
 `unmatched` means no accepted source-claim binding, not that no governed
-Application exists. In the first slice, no source-claim store exists, so every
+Application exists. The public preview does not yet consume ledger claims, so every
 otherwise valid row is provisionally `unmatched` with a
 `source_claims_unavailable` acceptance blocker. No Application inventory
 scan, name match, or completeness assertion is made. Candidates are suggestions only; the future acceptance command rechecks the exact
