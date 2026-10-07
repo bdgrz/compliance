@@ -101,7 +101,8 @@ public sealed partial class ApplicationImportLedger
             if (ev.TenantId != _tenantId || _acceptingBatchId != ev.BatchId ||
                 !_planRows.TryGetValue(ev.BatchId, out var rows) || _frozenPlans.ContainsKey(ev.BatchId) ||
                 rows.Count >= _planStarts[ev.BatchId].RowCount || ev.Revision != _revisions[ev.BatchId] + 1 ||
-                rows.Any(row => row.RowId == ev.Row.RowId || row.SourceRecordId == ev.Row.SourceRecordId))
+                rows.Any(row => row.RowId == ev.Row.RowId || row.SourceRecordId == ev.Row.SourceRecordId) ||
+                ConflictsWithRecordedClaim(ev.Row))
                 throw new InvalidOperationException("The frozen import row does not belong to its plan.");
             rows.Add(ev.Row);
             _revisions[ev.BatchId] = ev.Revision;

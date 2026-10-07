@@ -38,6 +38,9 @@ public sealed class ApplicationImportCommitTests
         // Assert
         Assert.True(persisted.IsCommitDurable(batch.Id));
         Assert.True(persisted.IsEffectCommitted(effect));
+        Assert.Null(persisted.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id,
+            effect.Row.RowId, 1, "create_new", null, null, "Reviewed"), null,
+            Uuid.CreateVersion4(), "Retrying lead", now.AddDays(1)));
         Assert.False(persisted.IsEffectCommitted(effect with { Row = effect.Row with { Name = "Different" } }));
         Assert.True(persisted.Commit(batch, 7, targets, now.AddDays(1)).IsSuccess);
         Assert.True(persisted.Commit(batch, 8, targets, now.AddDays(1)).IsSuccess);

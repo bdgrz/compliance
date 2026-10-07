@@ -63,15 +63,29 @@ public sealed partial class ApplicationImportLedger : Aggregate
         if (expectedRevision != GetRevision(batch))
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(
                 VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());
+        if (HasUndurableCommit())
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "The source commit must be durable before planning another batch.", isTransient: true));
+        var missing = GetMissingSourceClaims(batch);
+        if (missing.IsSuccess && missing.Value.Count > 0)
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "Missing source claims require a governed retirement plan before acceptance."));
+        var claims = GetSourceClaims().ToDictionary(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal);
         var planned = new List<ApplicationImportPlannedRow>();
         foreach (var row in batch.GetRows())
         {
             var choice = GetCorrelation(batch.Id, row.RowId);
-            if (row.ValidationFindings.Count > 0 || choice is null)
+            var claim = row.SourceRecordId is not null ? claims.GetValueOrDefault(row.SourceRecordId) : null;
+            if (row.ValidationFindings.Count > 0 || (choice is null && claim is null))
                 return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
                     RequestErrorKind.Conflict, "Every import row must be valid and explicitly correlated."));
-            planned.Add(new ApplicationImportPlannedRow(row.RowId, row.SourceRecordId!, choice.Decision,
-                choice.ApplicationId, choice.ExpectedApplicationRevision, row.Name!, row.Purpose!, row.OwnerReference));
+            var targetId = choice?.ApplicationId ?? claim!.Observation.ApplicationId;
+            if (claim is not null && (targetId != claim.Observation.ApplicationId || choice?.Decision == "create_new"))
+                return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict, "A committed source claim cannot be rebound to another application."));
+            planned.Add(new ApplicationImportPlannedRow(row.RowId, row.SourceRecordId!, choice?.Decision ?? "link_existing",
+                targetId, choice is not null ? choice.ExpectedApplicationRevision : claim!.Observation.ExpectedApplicationRevision ?? 1,
+                row.Name!, row.Purpose!, row.OwnerReference));
         }
         return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Success(planned.AsReadOnly());
     }
@@ -103,6 +117,11 @@ public sealed partial class ApplicationImportLedger : Aggregate
             previous.Decision == request.Decision && previous.ApplicationId == targetId &&
             previous.ExpectedApplicationRevision == request.ExpectedApplicationRevision && previous.Reason == request.Reason.Trim())
             return null;
+        if (GetSourceClaim(row.SourceRecordId!) is { } claim &&
+            (targetId != claim.Observation.ApplicationId || request.Decision != "link_existing"))
+            return CommandFailure.StateConflict("A committed source claim cannot be rebound to another application.");
+        if (HasUndurableCommit())
+            return CommandFailure.StateConflict("The source commit must be durable before correlation.");
         if (_frozenPlans.ContainsKey(batch.Id))
             return CommandFailure.StateConflict("The import plan is already frozen.");
         if (request.Decision == "link_existing")
