@@ -48,6 +48,18 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                         LastProgressAt = committed.CommittedAt,
                     }, ct).ConfigureAwait(false);
                 break;
+            case ApplicationImportRetirementProposalStarted retirementStart:
+                await ApplyRetirementRevisionAsync(retirementStart.TenantId, retirementStart.BatchId,
+                    retirementStart.Revision, retirementStart.PreparedAt, retirementStart, ct).ConfigureAwait(false);
+                break;
+            case ApplicationImportRetirementRowFrozen retirementRow:
+                await ApplyRetirementRevisionAsync(retirementRow.TenantId, retirementRow.BatchId,
+                    retirementRow.Revision, null, null, ct).ConfigureAwait(false);
+                break;
+            case ApplicationImportRetirementProposalSealed retirementSeal:
+                await ApplyRetirementRevisionAsync(retirementSeal.TenantId, retirementSeal.BatchId,
+                    retirementSeal.Revision, null, null, ct).ConfigureAwait(false);
+                break;
             case ApplicationImportPlanStarted started:
                 await ApplyPlanRevisionAsync(started.TenantId, started.BatchId, started.Revision, started.StartedAt, ct).ConfigureAwait(false);
                 break;
@@ -94,6 +106,19 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                     .ConfigureAwait(false);
                 break;
         }
+    }
+
+    async ValueTask ApplyRetirementRevisionAsync(Uuid tenantId, Uuid batchId, long revision,
+        DateTimeOffset? preparedAt, ApplicationImportRetirementProposalStarted? start, CancellationToken ct)
+    {
+        var current = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction, batchId, ct).ConfigureAwait(false);
+        if (tenantId != _batchTenantId || current is null || current.TenantId != tenantId ||
+            current.Coverage != "declared_complete" || current.State != "preview_ready" || current.Revision + 1 != revision ||
+            (start is not null && (current.SourceKey != start.SourceKey || current.SourceNamespace != start.SourceNamespace ||
+                current.ContentSha256 != start.ContentSha256)))
+            throw new InvalidOperationException("A retirement proposal requires its exact preview-ready staged batch.");
+        await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, current,
+            current with { Revision = revision, LastProgressAt = preparedAt ?? current.LastProgressAt }, ct).ConfigureAwait(false);
     }
 
     async ValueTask ApplyPlanRevisionAsync(Uuid tenantId, Uuid batchId, long revision,
