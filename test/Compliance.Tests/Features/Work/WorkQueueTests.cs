@@ -17,6 +17,32 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 public sealed class WorkQueueTests
 {
     [Fact]
+    public async Task ShouldShowIndependentClosureWorkGivenCompletedCorrectiveActions()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var finding = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId,
+            fixture.Today);
+        var action = Assert.Single(finding.CorrectiveActions);
+        finding = await fixture.AsAsync(fixture.OwnerUserId, new CompleteCorrectiveAction(
+            fixture.TenantId, fixture.ProgramId, finding.FindingId, finding.Revision,
+            action.ActionId, "Removed obsolete access.", OperationsFixture.FullSupport));
+
+        // Act
+        var queue = await fixture.AsAsync(fixture.ApproverUserId,
+            new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned"));
+
+        // Assert
+        var item = Assert.Single(queue.Items);
+        Assert.Equal("finding_closure_review", item.Kind);
+        Assert.Equal(finding.FindingId, item.SourceId);
+        Assert.Equal("close", item.NextAction);
+        Assert.EndsWith($"/findings/{finding.FindingId}/closures", item.ActionPath,
+            StringComparison.Ordinal);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), queue.Counts);
+    }
+
+    [Fact]
     public async Task ShouldPlaceUndatedReviewLastGivenEvidenceDueOnLatestSupportedDate()
     {
         // Arrange

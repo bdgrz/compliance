@@ -20,6 +20,31 @@ workflow truth. Its first sources are:
 Every item links to its exact source record. Completing work happens in the
 source workflow, and the item then disappears from the queue.
 
+## Finding closure decision work
+
+The backend includes `finding_closure_review` when a finding has at least one
+corrective action, every action is completed, and the finding remains open for
+independent verification. The item links to the existing HTTP-only finding
+closure operation. The finding remains the authority for required evidence,
+verification rationale, program-management permission, and separation of duties.
+
+Ordinary closure work is visible to active client members with `program.manage`
+who are neither the current finding owner nor an action owner or completer.
+A member requiring an approved separation-of-duties waiver uses the finding's
+existing direct workflow; queue reads do not infer or grant that exception.
+
+The work identity includes the exact finding revision. Revising or reopening a
+finding creates a new work identity; an earlier assignment cannot authorize or
+assign the new round. New incomplete corrective work removes the closure item,
+and closure removes it. Counts, item reads, reminders, and digest content all
+use the same source-derived item and eligibility rules.
+
+A separate tenant-scoped Fitz projection stores the finding's decision-work
+inputs and remediation checkpoint in one transaction. Queue reads return a
+transient conflict while it lags or changes during enumeration. This is the
+existing per-source freshness guarantee; it does not establish cross-stream
+atomicity or resolve access-campaign program placement.
+
 ## Ordering
 
 Items are ordered by:
