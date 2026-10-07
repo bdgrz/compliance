@@ -197,9 +197,10 @@ omissions can be enumerated internally as proposals; partial coverage returns no
 omissions. Acceptance planning rejects complete-source omissions until governed
 retirement plans and effects exist. No retirement is inferred or applied here.
 
-Public preview now classifies staged observations using these claims. Missing-row
-paging, whole-batch HTTP acceptance, worker execution/recovery, retirement effects,
-and rejected-item reports remain undelivered. Claims and preview add no route,
+Public preview classifies staged observations using these claims and separately
+pages complete-source omissions. Whole-batch HTTP acceptance, worker
+execution/recovery, retirement plans/effects, downstream impact, and rejected-item
+reports remain undelivered. Claims and preview add no route,
 MCP operation, event schema, or projection. Existing ledger event history
 reconstructs the claims on replay.
 
@@ -210,15 +211,16 @@ reconstructs the claims on replay.
 | `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}?minimum_revision={n}` | `GetApplicationImport` → `ApplicationImportView` | `bdgrz.application_import.get` |
 | `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rows?limit={n}&cursor={opaque}&minimum_revision={n}` | `ListApplicationImportRows` → `Page<ApplicationImportRowView>` | `bdgrz.application_import.rows.list` |
 | `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewApplicationImport` → `Page<ApplicationImportPreviewRow>` | `bdgrz.application_import.preview` |
+| `GET /api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview/missing?limit={n}&cursor={opaque}&minimum_revision={n}` | `PreviewMissingApplicationImportRows` → `Page<ApplicationImportMissingRow>` | `bdgrz.application_import.missing.preview` |
 
-The three read queries are registered as `ReadOnly` with Portia MCP, and staging
+The four read queries are registered as `ReadOnly` with Portia MCP, and staging
 is registered as an `Idempotent` command. Portia 0.5.3 fixes the MCP binder so
 object and array arguments are parsed from their raw JSON before source-generated
 request binding. The application verifies the bounded `rows` array through a real
 broker call, including tenant authorization. Cancellation is HTTP-only. Tool
 arguments use the same snake_case input names and return the same result fields.
 No MCP tool makes an acceptance decision for a staged row or performs a personal
-sign-off. Discovery shows the stage command and the three read tools. Unauthorized
+sign-off. Discovery shows the stage command and the four read tools. Unauthorized
 calls must be denied before projection data is read.
 
 `ApplicationImportView` includes `tenant_id`, `batch_id`, `submission_id`,
@@ -262,8 +264,8 @@ there is no inventory scan or name match. Preview never creates, revises, retire
 accepts, or silently correlates an application. A canceled batch adds
 `batch_canceled`. Complete-source omissions add
 `missing_source_retirement_unavailable` to staged preview rows until governed
-retirement plans exist. Partial coverage never infers omissions. Synthetic
-`missing_from_source` rows and their paging remain deferred; these proposals are
+retirement plans exist. Partial coverage never infers omissions. The separate
+missing-row preview exposes synthetic `missing_from_source` proposals; they are
 never automatic deletion or retirement. No claim of whole-batch acceptability
 follows from an individual row having no blockers; public acceptance is still
 unavailable.
@@ -280,6 +282,45 @@ preview. With an empty source ledger, existing row/preview cursor sharing remain
 available. Malformed or cross-tenant/batch cursors remain 400. Target streams are
 rechecked on each page; the future acceptance command must recheck the complete
 plan and exact targets. Preview paging is not a frozen target snapshot.
+
+### Missing-row proposals
+
+`GET .../preview/missing` and its read-only MCP tool page the exact durable source
+claims absent from a `declared_complete` batch. Partial coverage returns an empty
+page. Presence uses the exact staged source ID even if that row has other validation
+findings; invalid fields do not turn a present ID into an omission. The operation
+uses the same active-membership and inventory-management/import-staging grants as
+other import reads. It exposes source observations and target lifecycle freshness,
+not restricted program relationships or downstream impact details.
+
+`ApplicationImportMissingRow` has no staged `row_id`. Its stable `source_claim_id`
+is derived from the tenant/source ledger and exact source ID; `batch_id` identifies
+the batch being previewed, and `last_observed_batch_id` identifies the accepted
+observation. `name`, `purpose`, `owner_reference`, and `observation_committed_at`
+come from that accepted source observation. `application_id` retains the claimed
+target. `expected_application_revision` is its accepted revision (1 for a committed
+create); `current_application_revision` is null for a missing target. `match_state`
+is `missing_from_source`, including when its target now conflicts.
+
+Each proposal retains `missing_source_retirement_unavailable` and
+`retirement_impact_unavailable` until an exact governed retirement plan and the
+required downstream-impact preview exist. Missing, retired, or revised targets add
+`source_claim_target_changed`; a canceled batch adds `batch_canceled`. These rows
+cannot be supplied to the staged-row correlation command. A source claim or a
+previewed omission alone never authorizes retirement. Existing application-change
+preview is advisory and incomplete; it cannot be treated as a complete import
+retirement impact gate. References and their history must remain through retirement.
+
+Limits default to 50 and accept 1–200. Claims are ordered by exact source ID with
+ordinal comparison. Missing-row cursors are separate from staged row/preview
+cursors and bind tenant, batch, lifecycle revision, durable source-ledger position,
+and continuation offset. Malformed/cross-scope/out-of-range cursors return 400;
+a changed lifecycle or any other-batch source-ledger advance returns transient 409.
+Source state is rechecked after the target reads, including on empty pages, so
+undurable commits and concurrent source changes cannot yield mixed omission pages.
+Targets are checked per page; future acceptance must freeze and recheck every
+retirement and its impact. Staged row counts and the existing preview schema are
+unchanged. No events, active changes, or retirement effects are emitted here.
 
 ## Error and verification contract
 

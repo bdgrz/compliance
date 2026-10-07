@@ -15,6 +15,7 @@ public sealed class ApplicationInventoryAuthorizerTests
     [InlineData("get", true)]
     [InlineData("rows", true)]
     [InlineData("preview", true)]
+    [InlineData("missing", true)]
     [InlineData("cancel", false)]
     [InlineData("correlate", false)]
     [InlineData("declare", false)]
@@ -31,6 +32,7 @@ public sealed class ApplicationInventoryAuthorizerTests
             "get" => new GetApplicationImport(tenantId, batchId),
             "rows" => new ListApplicationImportRows(tenantId, batchId),
             "preview" => new PreviewApplicationImport(tenantId, batchId),
+            "missing" => new PreviewMissingApplicationImportRows(tenantId, batchId),
             "cancel" => new CancelApplicationImport(tenantId, batchId, 1, "Canceled by lead"),
             "correlate" => new CorrelateApplicationImportRow(tenantId, batchId, Uuid.CreateVersion4(),
                 1, "create_new", null, null, "Reviewed identity"),
@@ -84,7 +86,7 @@ public sealed class ApplicationInventoryAuthorizerTests
             new FixedMembershipDirectory(member, affiliation, isSuspended: suspended),
             new ActiveTenant(), permissions, new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
-            new GetApplicationImport(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            new PreviewMissingApplicationImportRows(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
             BdgrzActor(Uuid.CreateVersion4()));
 
         // Act
@@ -107,7 +109,7 @@ public sealed class ApplicationInventoryAuthorizerTests
             new FixedMembershipDirectory(true, isDeprovisioned: deprovisioned),
             new ImportTenantActivity(tenantActive), permissions, new FixedScopedPermissions(false));
         var context = new RequestContext<IApplicationInventoryRequest>(
-            new PreviewApplicationImport(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
+            new PreviewMissingApplicationImportRows(Uuid.CreateVersion4(), Uuid.CreateVersion4()),
             BdgrzActor(Uuid.CreateVersion4()));
 
         // Act
@@ -205,7 +207,7 @@ public sealed class ApplicationInventoryAuthorizerTests
         var authorizer = new ApplicationInventoryAuthorizer(new FixedMembershipDirectory(true),
             new ActiveTenant(), permissions, scopedPermissions);
         var context = new RequestContext<IApplicationInventoryRequest>(
-            new GetApplicationImport(tenantId, Uuid.CreateVersion4()),
+            new PreviewMissingApplicationImportRows(tenantId, Uuid.CreateVersion4()),
             BdgrzActor(Uuid.CreateVersion4()));
 
         // Act
