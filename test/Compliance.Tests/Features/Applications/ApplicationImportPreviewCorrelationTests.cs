@@ -143,7 +143,7 @@ public sealed class ApplicationImportPreviewCorrelationTests
         var row = result.Value.Items[0];
         Assert.Equal(fixture.Application.Id, Assert.IsType<ApplicationImportCorrelationView>(row.Correlation).ApplicationId);
         Assert.Equal(targetState != "unchanged", row.AcceptanceBlockers.Contains("correlation_target_changed"));
-        Assert.Contains("source_claims_unavailable", row.AcceptanceBlockers);
+        Assert.DoesNotContain("source_claims_unavailable", row.AcceptanceBlockers);
     }
 
     static async Task<Fixture> StagedAsync()

@@ -166,7 +166,7 @@ public sealed class ApplicationImportE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
         Assert.Equal("duplicate", preview.GetProperty("items")[0]
             .GetProperty("match_state").GetString());
-        Assert.Contains("source_claims_unavailable", preview.GetProperty("items")[0]
+        Assert.Contains("duplicate_source_record_id", preview.GetProperty("items")[0]
             .GetProperty("acceptance_blockers").EnumerateArray()
             .Select(item => item.GetString()));
         Assert.Equal(HttpStatusCode.NotFound, deniedBatch.StatusCode);
