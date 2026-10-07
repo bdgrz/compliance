@@ -155,7 +155,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                          await HoldsAsync(tenantId, candidate.Responsible, actor.MemberId, ct)
                              .ConfigureAwait(false);
             if (eligible || assignee == actor.MemberId ||
-                manages && !RiskAcceptanceWork.HasRestrictedAuthority(candidate))
+                manages && !RiskAcceptanceWork.HasRestrictedAuthority(candidate) &&
+                (candidate.Kind != FindingClosureWork.Kind || eligible))
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
         var ordered = entries

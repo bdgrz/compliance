@@ -74,6 +74,15 @@ static class WorkSource
                     }
                 }
         }
+        if (!projectedKinds.Contains(FindingClosureWork.Kind))
+        {
+            var findings = await reader.HydrateAsync(new RemediationLedger(tenantId, programId), ct)
+                .ConfigureAwait(false);
+            foreach (var finding in findings.ReadAll(now))
+                if (FindingClosureWork.Candidate(finding) is { } candidate &&
+                    (workItemId is not { } wantedClosure || candidate.WorkItemId == wantedClosure))
+                    candidates.Add(candidate);
+        }
         if (!projectedKinds.Contains(CorrectiveAction))
         {
             var remediation = await reader.HydrateAsync(new RemediationLedger(tenantId, programId), ct)

@@ -336,6 +336,11 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzEvidenceWorkItemDirectory>());
         services.AddScoped<IAccountableWorkItemDirectoryReader>(
             provider => provider.GetRequiredService<FitzEvidenceWorkItemDirectory>());
+        services.AddScoped<FitzFindingClosureWorkItemDirectory>();
+        services.AddScoped<IFindingClosureWorkItemProjection>(
+            provider => provider.GetRequiredService<FitzFindingClosureWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(
+            provider => provider.GetRequiredService<FitzFindingClosureWorkItemDirectory>());
         services.AddScoped<FitzCorrectiveActionWorkItemDirectory>();
         services.AddScoped<ICorrectiveActionWorkItemProjection>(
             provider => provider.GetRequiredService<FitzCorrectiveActionWorkItemDirectory>());
@@ -1034,6 +1039,8 @@ public static class ComplianceServiceCollectionExtensions
                 FitzControlDecisionWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<EvidenceWorkItemProjector>(FitzEvidenceWorkItemDirectory.ProjectorName,
                 WorkloadScope.PerTenant)
+            .AddProjector<FindingClosureWorkItemProjector>(
+                FitzFindingClosureWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<CorrectiveActionWorkItemProjector>(
                 FitzCorrectiveActionWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<RiskGovernanceWorkItemProjector>(
