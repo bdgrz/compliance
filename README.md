@@ -97,7 +97,7 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
 
 - Application APIs live under `/api/v1`.
 - Unknown `/api/*` routes return an API error. The backend does not serve SPA assets or client-side routes.
-- OpenAPI 3.1 is exposed at `/openapi/v1.json` and `/openapi/v1.yml`.
+- OpenAPI 3.1 is exposed at `/openapi/v1.json` and `/openapi/v1.yml`. API-user operations declare the existing `bdgrz_session` cookie (`BdgrzSessionCookie`) or bearer JWT (`BdgrzBearer`) as alternative authentication mechanisms. Request authorizers still verify actor identity, tenant membership, and operation permissions. Anonymous routes have no global API-user security requirement.
 - `/health/live` reports that the process can answer HTTP.
 - `/health/ready` and the compatibility alias `/healthz` become healthy after hosted startup, including the initial Fitz connection and worker startup.
 - API errors use RFC Problem Details and include a `trace_id`.
