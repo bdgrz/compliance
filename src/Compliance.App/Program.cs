@@ -3,6 +3,7 @@ using System.Text.Json;
 using Bdgrz.Compliance;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
+using Microsoft.AspNetCore.OpenApi;
 
 var hostMode = ComplianceHostModeParser.Parse(
     Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE"));
@@ -344,6 +345,11 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     }
 
     builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
+    builder.Services.Configure<OpenApiOptions>("v1", options =>
+    {
+        options.AddDocumentTransformer<ComplianceOpenApiSecurityTransformer>();
+        options.AddOperationTransformer<ComplianceOpenApiSecurityTransformer>();
+    });
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSingleton<AuthorizationDenialLog>();
     builder.Services.AddHostedService(services => services.GetRequiredService<AuthorizationDenialLog>());
