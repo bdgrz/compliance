@@ -40,6 +40,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
             _revisions[ev.BatchId] = ev.Revision;
             _correlations[(ev.BatchId, ev.RowId)] = ev;
         });
+        RegisterRetirementEvents();
         RegisterAcceptanceEvents();
         RegisterCommitEvents();
     }

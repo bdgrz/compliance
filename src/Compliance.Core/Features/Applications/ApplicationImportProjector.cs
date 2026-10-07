@@ -7,7 +7,9 @@ public sealed partial class ApplicationImportProjector(IApplicationImportDirecto
         "ApplicationImportDirectoryV1"), IProjectorHandler<ApplicationImportStaged>,
         IProjectorHandler<ApplicationImportCanceled>, IProjectorHandler<ApplicationImportRowCorrelated>,
         IProjectorHandler<ApplicationImportPlanStarted>, IProjectorHandler<ApplicationImportPlanRowFrozen>,
-        IProjectorHandler<ApplicationImportPlanSealed>, IProjectorHandler<ApplicationImportCommitted>
+        IProjectorHandler<ApplicationImportPlanSealed>, IProjectorHandler<ApplicationImportCommitted>,
+        IProjectorHandler<ApplicationImportRetirementProposalStarted>,
+        IProjectorHandler<ApplicationImportRetirementRowFrozen>, IProjectorHandler<ApplicationImportRetirementProposalSealed>
 {
     public ValueTask HandleAsync(ApplicationImportStaged ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
@@ -25,6 +27,15 @@ public sealed partial class ApplicationImportProjector(IApplicationImportDirecto
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(ApplicationImportPlanSealed ev, IProjectorContext context,
+        CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(ApplicationImportRetirementProposalStarted ev, IProjectorContext context,
+        CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(ApplicationImportRetirementRowFrozen ev, IProjectorContext context,
+        CancellationToken ct) => projection.ApplyAsync(ev, ct);
+
+    public ValueTask HandleAsync(ApplicationImportRetirementProposalSealed ev, IProjectorContext context,
         CancellationToken ct) => projection.ApplyAsync(ev, ct);
 
     public ValueTask HandleAsync(ApplicationImportCommitted ev, IProjectorContext context,

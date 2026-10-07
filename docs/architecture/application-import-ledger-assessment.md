@@ -146,3 +146,33 @@ integration are tracked separately in the future E2E milestone, including
 [#657](https://github.com/bdgrz/compliance/issues/657) and
 [#658](https://github.com/bdgrz/compliance/issues/658). This assessment supplies
 ownership and sequencing evidence; it is not proof that batch acceptance works.
+
+## Durable complete-source omission proposals
+
+The source ledger can freeze a bounded, attributable retirement **proposal** for
+one valid declared-complete batch. The header binds the exact tenant/source,
+staged content digest, ordered present source identities, batch revision and
+prior durable source position. Ordered rows record stable claim identities,
+last accepted observation provenance, and exact governed target revisions. A
+SHA-256 seal covers the header and rows. Incomplete or altered replay is rejected;
+the getter exposes only a durable seal that still matches the batch and latest
+source position. Later correlation, cancellation or another source-ledger write
+invalidates the proposal. Preparation makes no target event, inventory change,
+acceptance intent or reservation. Partial coverage never freezes a retirement
+proposal.
+
+A missing source claim is not exclusive retirement authority. A present or
+missing alias already claiming the same target in this source, or a present row
+newly correlated to that target, blocks preparation.
+Other sources and manual references cannot be enumerated from this one source
+ledger. Future whole-batch acceptance must incorporate a complete downstream
+impact snapshot and check relevant other-source/manual references before any
+tombstone is authorized. The durable proposal retains historical target revisions; retries never replace
+its attribution, and future acceptance must revalidate current targets and impact.
+The durable proposal is an immutable input to that
+future plan, not proof that retirement is safe. Existing acceptance continues to
+reject complete-source omissions; no public acceptance or proposal-write route
+is introduced. Retirement effects, reservations, durable effect verification,
+commit visibility, impact completeness and worker recovery remain separate
+implementation gates. Current validation is focused and full backend unit tests;
+live durability/recovery validation remains in the E2E milestone.
