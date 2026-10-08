@@ -8,8 +8,8 @@ namespace Bdgrz.Compliance.Features.Work;
 
 /// <summary>
 ///     Turns an open policy or training campaign's unsatisfied people into work (M0-D15, M0-D12). A person with a
-///     platform membership gets their own item; for anyone else the campaign owner collects and records the
-///     acknowledgement or completion.
+///     platform membership acknowledges personally. Campaign owners with current program-management authority
+///     record training evidence and acknowledgements for people without platform membership.
 /// </summary>
 static class PolicyCampaignWork
 {
@@ -17,6 +17,10 @@ static class PolicyCampaignWork
     public const string TrainingCompletion = "training_completion";
 
     public static IReadOnlyCollection<string> ProjectedKinds => [Acknowledgement, TrainingCompletion];
+
+    public static bool RequiresProgramManagement(WorkCandidate candidate) =>
+        candidate.Kind == TrainingCompletion ||
+        candidate.Kind == Acknowledgement && candidate.NextAction == "record_acknowledgement";
 
     public static bool IsFullyProjected(IReadOnlySet<string> projectedKinds) =>
         ProjectedKinds.All(projectedKinds.Contains);
@@ -97,21 +101,24 @@ static class PolicyCampaignWork
                    (training ? "completions" : "acknowledgements");
         var label = $"{subject.Identifier} v{subject.Version} {subject.Title}";
         var owner = new OperatingHolder(OperatingAuthority.MemberHolder, ownerMemberId);
+        if (training)
+            return new WorkCandidate(WorkCandidate.IdFor(sourceId, kind), kind, sourceId, null, null,
+                $"Record {label} completion for {displayName}",
+                $"{displayName}'s training completion requires reviewed manual or LMS-export evidence.",
+                dueOn, null, "record_completion", path, owner,
+                new OperatingHolder(OperatingAuthority.ProgramRecorderHolder, programId),
+                new HashSet<Uuid>(), launchedAt);
         return memberId is { } member
             ? new WorkCandidate(WorkCandidate.IdFor(sourceId, kind), kind, sourceId, null, null,
-                training ? $"Complete {label}" : $"Acknowledge {label}",
-                training
-                    ? "You are in this training campaign's audience."
-                    : "You are in this policy campaign's audience.",
-                dueOn, null, training ? "complete" : "acknowledge", path,
+                $"Acknowledge {label}", "You are in this policy campaign's audience.",
+                dueOn, null, "acknowledge", path,
                 new OperatingHolder(OperatingAuthority.MemberHolder, member), null,
                 new HashSet<Uuid>(), launchedAt)
             : new WorkCandidate(WorkCandidate.IdFor(sourceId, kind), kind, sourceId, null, null,
-                training
-                    ? $"Collect {label} completion from {displayName}"
-                    : $"Collect {label} acknowledgement from {displayName}",
+                $"Collect {label} acknowledgement from {displayName}",
                 $"{displayName} has no platform membership, so the campaign owner records the result.",
-                dueOn, null, training ? "record_completion" : "record_acknowledgement", path, owner,
-                null, new HashSet<Uuid>(), launchedAt);
+                dueOn, null, "record_acknowledgement", path, owner,
+                new OperatingHolder(OperatingAuthority.ProgramRecorderHolder, programId),
+                new HashSet<Uuid>(), launchedAt);
     }
 }
