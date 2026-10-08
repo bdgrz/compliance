@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Testing;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -30,7 +31,7 @@ public sealed class ApplicationImportEffectVerificationTests
         Assert.True(staged.IsSuccess);
         var batch = await reader.HydrateAsync(new ImportBatch(tenant, staged.Value.BatchId));
         var rowId = batch.GetRows()[0].RowId;
-        var correlation = new RequestContext<CorrelateApplicationImportRow>(new CorrelateApplicationImportRow(
+        var correlation = new PersonalApplicationImportContext<CorrelateApplicationImportRow>(new CorrelateApplicationImportRow(
             tenant, batch.Id, rowId, 1, "create_new", null, null, "Reviewed"), actor);
         Assert.True((await new CorrelateApplicationImportRowHandler(executor, reader, TimeProvider.System)
             .HandleAsync(correlation, CancellationToken.None)).IsSuccess);

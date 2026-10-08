@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Testing;
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
@@ -33,9 +34,9 @@ public sealed class ApplicationImportLifecycleHandlerTests
         var racingExecutor = new AggregateExecutor(new LedgerHydrationGate(reader), writer);
         var cancel = new CancelApplicationImportHandler(racingExecutor, reader, TimeProvider.System);
         var correlate = new CorrelateApplicationImportRowHandler(racingExecutor, reader, TimeProvider.System);
-        var cancelContext = new RequestContext<CancelApplicationImport>(
+        var cancelContext = new PersonalApplicationImportContext<CancelApplicationImport>(
             new CancelApplicationImport(tenantId, staged.Value.BatchId, 1, "Canceled"), actor);
-        var correlationContext = new RequestContext<CorrelateApplicationImportRow>(new CorrelateApplicationImportRow(
+        var correlationContext = new PersonalApplicationImportContext<CorrelateApplicationImportRow>(new CorrelateApplicationImportRow(
             tenantId, staged.Value.BatchId, Uuid.CreateVersion5(staged.Value.BatchId, "1"), 1,
             "create_new", null, null, "Reviewed identity"), actor);
 
@@ -79,7 +80,7 @@ public sealed class ApplicationImportLifecycleHandlerTests
         var correlate = new CorrelateApplicationImportRowHandler(executor, reader, TimeProvider.System);
 
         // Act
-        var recorded = await correlate.HandleAsync(new RequestContext<CorrelateApplicationImportRow>(
+        var recorded = await correlate.HandleAsync(new PersonalApplicationImportContext<CorrelateApplicationImportRow>(
             new CorrelateApplicationImportRow(tenantId, first.Value.BatchId, rowId, 1,
                 "create_new", null, null, "Reviewed source identity"), actor), CancellationToken.None);
         var replay = await stage.HandleAsync(context, CancellationToken.None);
@@ -121,9 +122,9 @@ public sealed class ApplicationImportLifecycleHandlerTests
         var cancel = new CancelApplicationImport(tenantId, staged.Value.BatchId, 1, "Superseded");
 
         // Act
-        var outcomes = await Task.WhenAll(RaceAsync(racing, new RequestContext<CancelApplicationImport>(cancel, actor)),
-            RaceAsync(racing, new RequestContext<CancelApplicationImport>(cancel, actor)));
-        var retry = await retryHandler.HandleAsync(new RequestContext<CancelApplicationImport>(cancel, actor), CancellationToken.None);
+        var outcomes = await Task.WhenAll(RaceAsync(racing, new PersonalApplicationImportContext<CancelApplicationImport>(cancel, actor)),
+            RaceAsync(racing, new PersonalApplicationImportContext<CancelApplicationImport>(cancel, actor)));
+        var retry = await retryHandler.HandleAsync(new PersonalApplicationImportContext<CancelApplicationImport>(cancel, actor), CancellationToken.None);
         var ledger = new ApplicationImportLedger(tenantId, request.SourceKey, request.SourceNamespace);
         var records = new List<DomainEventRecord>();
         await foreach (var record in events.ReadAsync(ledger.Stream, 0, CancellationToken.None))
@@ -137,7 +138,7 @@ public sealed class ApplicationImportLifecycleHandlerTests
     }
 
     static async Task<object> RaceAsync(CancelApplicationImportHandler handler,
-        RequestContext<CancelApplicationImport> context) =>
+        IRequestContext<CancelApplicationImport> context) =>
         await RaceAsync(() => handler.HandleAsync(context, CancellationToken.None));
 
     static async Task<object> RaceAsync(Func<ValueTask<Result>> action)
@@ -192,7 +193,7 @@ public sealed class ApplicationImportLifecycleHandlerTests
         var first = await stageHandler.HandleAsync(context, CancellationToken.None);
         Assert.True(first.IsSuccess);
         var cancelHandler = new CancelApplicationImportHandler(executor, reader, TimeProvider.System);
-        var cancel = await cancelHandler.HandleAsync(new RequestContext<CancelApplicationImport>(
+        var cancel = await cancelHandler.HandleAsync(new PersonalApplicationImportContext<CancelApplicationImport>(
             new CancelApplicationImport(tenantId, first.Value.BatchId, 1, "Superseded"), actor), CancellationToken.None);
         Assert.True(cancel.IsSuccess);
 

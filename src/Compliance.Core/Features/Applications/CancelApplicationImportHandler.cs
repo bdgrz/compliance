@@ -10,6 +10,10 @@ public sealed class CancelApplicationImportHandler(IAggregateExecutor executor,
     public async ValueTask<Result> HandleAsync(IRequestContext<CancelApplicationImport> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _) || RequestActor.IsSystem(context.Actor))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Cancellation requires a personal Bdgrz user over HTTP."));
         var request = context.Request;
         var (memberId, display) = ApplicationActor.From(context);
         var batch = await reader.HydrateAsync(new ImportBatch(request.TenantId, request.BatchId), ct)

@@ -98,6 +98,9 @@ public sealed class ApplicationImportCompositionTests
             Reader = _scope.ServiceProvider.GetRequiredService<IAggregateReader>();
         }
 
+        ValueTask<Result> SendPersonalAsync(IRequest request) => Bus.DispatchAsync(request,
+            new RequestDispatchContext(Actor, new HttpInvocation("POST", "/synthetic/import", "/synthetic/import", "synthetic")), CancellationToken.None);
+
         public async Task<(Uuid BatchId, Uuid OriginalBatchId, Uuid ApplicationId)> SeedAsync()
         {
             var original = await Bus.SendAsync(new StageApplicationImport(Tenant, Uuid.CreateVersion4(),
@@ -105,9 +108,9 @@ public sealed class ApplicationImportCompositionTests
             Assert.True(original.IsSuccess, original.Error?.Message);
             var originalBatch = await Reader.HydrateAsync(new ImportBatch(Tenant, original.Value!.BatchId));
             var row = Assert.Single(originalBatch.GetRows());
-            Assert.True((await Bus.SendAsync(new CorrelateApplicationImportRow(Tenant, originalBatch.Id,
-                row.RowId, 1, "create_new", null, null, "New source identity"), Actor)).IsSuccess);
-            Assert.True((await Bus.SendAsync(new AcceptApplicationImport(Tenant, originalBatch.Id, 2), Actor)).IsSuccess);
+            Assert.True((await SendPersonalAsync(new CorrelateApplicationImportRow(Tenant, originalBatch.Id,
+                row.RowId, 1, "create_new", null, null, "New source identity"))).IsSuccess);
+            Assert.True((await SendPersonalAsync(new AcceptApplicationImport(Tenant, originalBatch.Id, 2))).IsSuccess);
             Assert.True((await Bus.SendAsync(new ExecuteApplicationImport(Tenant, originalBatch.Id), RequestActor.System)).IsSuccess);
             var ledger = await Reader.HydrateAsync(new ApplicationImportLedger(Tenant, "manual", "applications"));
             Assert.Equal("committed", ledger.GetState(originalBatch));

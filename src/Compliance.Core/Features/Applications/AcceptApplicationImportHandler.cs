@@ -8,8 +8,9 @@ public sealed class AcceptApplicationImportHandler(IAggregateExecutor executor,
     public async ValueTask<Result> HandleAsync(IRequestContext<AcceptApplicationImport> context,
         CancellationToken ct)
     {
-        if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _) || RequestActor.IsSystem(context.Actor))
-            return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "Acceptance requires a personal Bdgrz user."));
+        if (context.Invocation is not HttpInvocation ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _) || RequestActor.IsSystem(context.Actor))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "Acceptance requires a personal Bdgrz user over HTTP."));
         var request = context.Request;
         var batch = await reader.HydrateAsync(new ImportBatch(request.TenantId, request.BatchId), ct).ConfigureAwait(false);
         if (!batch.IsCreated || batch.SourceKey is not { } key || batch.SourceNamespace is not { } space)
