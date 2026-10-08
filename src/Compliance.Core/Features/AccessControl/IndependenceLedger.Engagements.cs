@@ -150,7 +150,8 @@ public sealed partial class IndependenceLedger
     {
         Fence(change.TenantId, change.ExpectedSequence);
         var current = Engagement(change.Engagement.EngagementId);
-        if (!ValidEngagementContent(change.Engagement.Content) ||
+        if (change.Engagement.EngagementId == Uuid.Empty || current is null && change.Engagement.Status != "draft" ||
+            !ValidEngagementContent(change.Engagement.Content) ||
             !IndependenceRecordValidation.ValidAttribution(change.RequestId, change.Engagement.Actor,
                 change.Engagement.RecordedAt, "member") ||
             current is { Status: "closed" } || current is not null && current.Content.Practice != change.Engagement.Content.Practice ||
@@ -160,6 +161,7 @@ public sealed partial class IndependenceLedger
             change.Engagement.Status == "closed" && change.Engagement.Staff.Any(staff => staff.IsCurrent) ||
             change.Engagement.Staff.Any(staff => staff.StaffMemberId == Uuid.Empty || staff.UserId == Uuid.Empty ||
                 staff.DirectoryStaffRevision <= 0 || staff.Practice != change.Engagement.Content.Practice ||
+                !IndependenceRecordValidation.ValidAttribution(change.RequestId, staff.Actor, staff.RecordedAt, "member") ||
                 staff.IsCurrent != (staff.ProposalState == "proposed")) ||
             change.Engagement.TenantId != _tenantId || change.Engagement.Revision != (current?.Revision ?? 0) + 1 ||
             change.Engagement.ProfessionalAccessGranted || change.Engagement.Status is not ("draft" or "closed") ||

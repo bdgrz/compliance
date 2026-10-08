@@ -163,6 +163,10 @@ public sealed class ServiceEngagementLifecycleTests
     }
 
     [Theory]
+    [InlineData("empty_engagement")]
+    [InlineData("initial_closed")]
+    [InlineData("staff_actor")]
+    [InlineData("staff_time")]
     [InlineData("empty_user")]
     [InlineData("invalid_period")]
     [InlineData("nonmember_actor")]
@@ -179,6 +183,10 @@ public sealed class ServiceEngagementLifecycleTests
         var view = ev.Engagement;
         view = corruption switch
         {
+            "empty_engagement" => view with { EngagementId = Uuid.Empty },
+            "initial_closed" => view with { Status = "closed", Staff = [view.Staff[0] with { IsCurrent = false, ProposalState = "withdrawn" }] },
+            "staff_actor" => view with { Staff = [view.Staff[0] with { Actor = ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator") }] },
+            "staff_time" => view with { Staff = [view.Staff[0] with { RecordedAt = default }] },
             "empty_user" => view with { Staff = [view.Staff[0] with { UserId = Uuid.Empty }] },
             "invalid_period" => view with { Content = view.Content with { PeriodStart = DateOnly.MinValue } },
             "nonmember_actor" => view with { Actor = ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator") },
