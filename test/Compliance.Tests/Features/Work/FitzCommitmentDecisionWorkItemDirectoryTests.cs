@@ -214,12 +214,12 @@ public sealed class FitzCommitmentDecisionWorkItemDirectoryTests
             fixture.ProgramId, revokedAt, DateOnly.MaxValue, null);
 
         // Assert
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder,
             Assert.Single(beforeStart.Value).Responsible.Kind);
         Assert.Equal(fixture.ReviewerMemberId, Assert.Single(atStart.Value).Responsible.Id);
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder,
             Assert.Single(immediatelyAfterRevocationWasRecorded.Value).Responsible.Kind);
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder,
             Assert.Single(atRevocation.Value).Responsible.Kind);
     }
 
@@ -261,10 +261,10 @@ public sealed class FitzCommitmentDecisionWorkItemDirectoryTests
             effectiveUntil, DateOnly.MaxValue, null);
 
         // Assert
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder,
             Assert.Single(beforeStart.Value).Responsible.Kind);
         Assert.Equal(fixture.ReviewerMemberId, Assert.Single(active.Value).Responsible.Id);
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder,
             Assert.Single(atEnd.Value).Responsible.Kind);
     }
 

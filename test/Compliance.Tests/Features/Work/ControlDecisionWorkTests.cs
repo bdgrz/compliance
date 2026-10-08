@@ -175,7 +175,7 @@ public sealed class ControlDecisionWorkTests
         // Assert
         var item = Assert.Single(managerQueue.Items);
         Assert.Equal("control_draft_review", item.Kind);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Null(item.AssigneeMemberId);
         Assert.Empty(reviewerQueue.Items);

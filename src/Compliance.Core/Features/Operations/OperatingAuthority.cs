@@ -25,14 +25,14 @@ public sealed class OperatingAuthority(IAggregateReader reader,
         Uuid programId, CancellationToken ct) => permissions.IsAllowedAsync(tenantId, actor.UserId,
         actor.MemberId, programId, IProgramScopedRequest.ManagementPermission, ct);
 
-    /// <summary>Whether a current client member may perform a program-management decision.</summary>
+    /// <summary>Whether a current non-firm member may perform a program-management decision.</summary>
     public async ValueTask<bool> HasProgramManagementPermissionAsync(Uuid tenantId,
         Uuid programId, Uuid memberId, CancellationToken ct)
     {
         var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
             .ConfigureAwait(false);
         return member.IsRegistered && !member.IsSuspended && !member.IsDeprovisioned &&
-               member.Affiliation == "client_personnel" && member.UserId != Uuid.Empty &&
+               member.Affiliation != "firm_staff" && member.UserId != Uuid.Empty &&
                await permissions.IsAllowedAsync(tenantId, member.UserId, memberId, programId,
                    IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false);
     }

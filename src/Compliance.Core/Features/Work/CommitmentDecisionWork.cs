@@ -144,7 +144,7 @@ static class CommitmentDecisionWork
 
         var fallback = CreateCandidate(state, kind, nextAction, route, reason, prefix,
             workItemId,
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, state.ProgramId),
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, state.ProgramId),
             null, excluded);
         return Result<IReadOnlyList<WorkCandidate>>.Success(fallback is null ? [] : [fallback]);
     }

@@ -76,7 +76,7 @@ static class PolicyDecisionWork
         var prefix = $"/api/v1/tenants/{tenantId}/programs/{programId}/policies/{policy.Id}";
         var title = policy.DraftContent?.Title ?? policy.CurrentVersion?.Content.Title ??
                     policy.Identifier ?? "policy";
-        var holder = new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId);
+        var holder = new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId);
         var candidates = new List<WorkCandidate>();
 
         void Add(string kind, string summary, string reason, DateOnly? dueOn, string nextAction,

@@ -73,19 +73,36 @@ campaign projection records and work identities remain compatible.
 ## Management decision authority
 
 Evaluation-round reviews, operating-plan approvals, control-mapping reviews,
-criterion-applicability reviews and independent finding closure use
-`program_manager` responsibility. Their source commands accept current active non-firm-staff members with explicit
-`program.manage`, including persisted guest memberships. Queue eligibility,
+criterion-applicability reviews, independent finding closure, policy decisions,
+control decision fallback, commitment decision fallback and risk governance
+reviews use `program_manager` responsibility. Their source commands accept
+current active non-firm-staff members with explicit `program.manage`, including
+persisted guest memberships. Queue eligibility,
 assignment and scoped counts use that same authority. The shared source
 candidate factories keep projected and fallback reads aligned without changing
 work identity or persistence. Existing proposer/evaluator exclusions still
 apply; decisions retain their source version and independence checks.
 
-Other source roles keep their existing requirements. In particular,
-`program_reviewer` remains client-personnel-only where that existing queue role
-is used. Finding ownership, corrective-action ownership and recorded completer
-exclusions still deny ordinary closure work regardless of management grant or
+Named control decision duties also require that current non-firm management
+grant. Named commitment and boundary duties keep their additional current source
+management requirement. Other source roles keep their existing requirements.
+The legacy `program_reviewer` holder itself remains client-personnel-only.
+Finding ownership, corrective-action ownership and recorded completer exclusions still deny ordinary closure work regardless of management grant or
 membership affiliation; the correction grants no closure exception or waiver.
+Risk action owners and completion submitters remain excluded from independent
+completion review, including explicitly granted guests. Grant loss invalidates
+recorded assignments under the same eligibility rule used by counts and reads.
+
+Policy decision work uses `AccountableWorkItemPolicyDecisionV2` and the separate
+`policy-decisions-v2` Fitz resource. The worker replays retained policy events
+into this generation's own rows, numeric revision and transactional checkpoint.
+V1 rows, revision and checkpoint remain unchanged for audit. Live queue readers
+use V2 only and return a transient conflict until its policy source cursor is
+caught up, even when V1 is current. V2 rows require the exact owning program's
+`program_manager` holder; legacy, unknown and wrong-program holders fail closed.
+API and worker must run the matching V2 implementation for catch-up to complete.
+This is the ADR 0007 generation rule for this interpretation correction; broader
+queue-wide source reconciliation and ADR acceptance remain under #284.
 
 ## Risk completion assignment identity
 

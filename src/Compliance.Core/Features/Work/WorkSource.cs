@@ -145,7 +145,7 @@ static class WorkSource
                         action.DueOn, null, "review",
                         $"{prefix}/risks/{action.RiskId}/treatment-actions/" +
                         $"{action.ActionId}/completion-reviews",
-                        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                        new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
                         excluded, completion.SubmittedAt));
                 }
             if (!projectedKinds.Contains(RiskControlTreatmentReview))
@@ -165,7 +165,7 @@ static class WorkSource
                         null, "review",
                         $"{prefix}/risks/{treatment.RiskId}/control-treatments/" +
                         $"{treatment.TreatmentId}/reviews",
-                        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+                        new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
                         new HashSet<Uuid> { proposerMemberId }, treatment.ProposedAt));
                 }
         }

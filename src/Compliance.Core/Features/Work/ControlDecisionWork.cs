@@ -157,7 +157,7 @@ static class ControlDecisionWork
         if (responsibleMembers.Count == 0)
             return Result<IReadOnlyList<WorkCandidate>>.Success(CreateCandidates(state,
                 targetId.Value, changedAt.Value, kind, approval, isRetirement, wantedWorkItemId,
-                new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, state.ProgramId),
+                new OperatingHolder(OperatingAuthority.ProgramManagerHolder, state.ProgramId),
                 null, excluded));
 
         var candidates = responsibleMembers.SelectMany(memberId => CreateCandidates(state,

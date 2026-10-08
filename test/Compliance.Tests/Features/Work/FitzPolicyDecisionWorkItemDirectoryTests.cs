@@ -5,6 +5,7 @@ using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
+using Cntryl.Fitz;
 using Cntryl.Portia;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +13,176 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 
 public sealed class FitzPolicyDecisionWorkItemDirectoryTests
 {
+    [Fact]
+    public async Task ShouldPreserveCurrentSourceAuthorityGivenCurrentPolicyHolder()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var client = new InMemoryKvClient();
+        var state = StoredPolicy(tenantId, programId, new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId));
+        await StoreAsync(client, state);
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var directory = new FitzPolicyDecisionWorkItemDirectory(client,
+            scope.ServiceProvider.GetRequiredService<IAggregateReader>(), TimeProvider.System);
+
+        // Act
+        var work = await directory.LoadProgramAsync(tenantId, programId);
+
+        // Assert
+        Assert.True(work.IsSuccess);
+        var candidate = Assert.Single(work.Value);
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), candidate.Responsible);
+        Assert.Equal(Assert.Single(state.Items).WorkItemId, candidate.WorkItemId);
+        Assert.Equal(Assert.Single(state.Items).Excluded, candidate.Excluded);
+    }
+
+    [Theory]
+    [InlineData("program_reviewer", false)]
+    [InlineData("program_reviewer", true)]
+    [InlineData("program_manager", true)]
+    [InlineData("member", false)]
+    [InlineData("program_recorder", false)]
+    public async Task ShouldRejectPolicyProjectionGivenWrongProgramOrUnknownHolder(string kind, bool wrongProgram)
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var programId = Uuid.CreateVersion4();
+        var client = new InMemoryKvClient();
+        await StoreAsync(client, StoredPolicy(tenantId, programId,
+            new OperatingHolder(kind, wrongProgram ? Uuid.CreateVersion4() : programId)));
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var directory = new FitzPolicyDecisionWorkItemDirectory(client,
+            scope.ServiceProvider.GetRequiredService<IAggregateReader>(), TimeProvider.System);
+
+        // Act
+        var work = await directory.LoadProgramAsync(tenantId, programId);
+
+        // Assert
+        Assert.False(work.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, work.Error.Kind);
+    }
+
+    static PolicyDecisionWorkState StoredPolicy(Uuid tenantId, Uuid programId, OperatingHolder holder)
+    {
+        var policyId = Uuid.CreateVersion4();
+        return new PolicyDecisionWorkState(tenantId, programId, policyId, 1,
+            [new AccountableWorkItemView(tenantId, programId, Uuid.CreateVersion4(),
+                "policy_draft_review", policyId, null, null, "Review policy", "Pending review",
+                null, null, "review", $"/api/v1/tenants/{tenantId}/programs/{programId}/policies/{policyId}/reviews",
+                holder, null, [Uuid.CreateVersion4()], DateTimeOffset.UtcNow)]);
+    }
+
+    static async Task StoreAsync(InMemoryKvClient client, PolicyDecisionWorkState state)
+    {
+        var route = await new PolicyRouteReader(client).GetRouteAsync(state.TenantId);
+        await using var tx = await client.BeginAsync(route, KvDurability.Sync, KvMode.ReadWrite);
+        await PolicyDecisionWorkItemDirectorySchema.Policies.InsertAsync(tx, state);
+        await tx.CommitAsync();
+    }
+
+    sealed class PolicyRouteReader(IKvClient client)
+        : FitzKvProjectionStore(client, "kv://bdgrz/accountable-work-items/policy-decisions-v2",
+            FitzPolicyDecisionWorkItemDirectory.ProjectorName)
+    {
+        public async Task<string> GetRouteAsync(Uuid tenantId)
+        {
+            await using var tx = await BeginReadAsync(tenantId.ToString());
+            return tx.Route;
+        }
+    }
+
+    [Fact]
+    public async Task ShouldPreserveOldGenerationAndFailClosedUntilReplayGivenCurrentV1Checkpoint()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var policyId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, policyId, 12);
+        var events = fixture.Provider.GetRequiredService<IDomainEventReader>();
+        var client = new InMemoryKvClient();
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var reader = services.GetRequiredService<IAggregateReader>();
+        var policy = await reader.HydrateAsync(new Policy(fixture.TenantId, policyId));
+        var sourceCandidate = Assert.Single(PolicyDecisionWork.Candidates(policy, policy.ToView(fixture.Today)!,
+            fixture.TenantId, fixture.ProgramId, DateOnly.MaxValue, null));
+        var legacyState = new PolicyDecisionWorkState(fixture.TenantId, fixture.ProgramId, policyId,
+            policy.Revision, [AccountableWorkItemView.FromCandidate(fixture.TenantId, fixture.ProgramId,
+                sourceCandidate with { Responsible = new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+                    fixture.ProgramId) })]);
+        var legacy = new LegacyPolicyStore(client);
+        var sourceCheckpoint = await ReadPolicyCheckpointAsync(events, fixture.TenantId);
+        await legacy.SeedAsync(legacyState, sourceCheckpoint);
+        var directory = new FitzPolicyDecisionWorkItemDirectory(client, reader, TimeProvider.System);
+        var authority = services.GetRequiredService<OperatingAuthority>();
+        var actor = new OperationsActor(fixture.ApproverUserId, fixture.ApproverMemberId, "Approver");
+        WorkQueueReader Queue(FitzPolicyDecisionWorkItemDirectory source) => new(reader, authority, TimeProvider.System,
+            new WorkQueueReadConsistency(events, [source]), accountableWorkItems: [source]);
+
+        // Act
+        var before = await Queue(directory).ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+
+        // Assert
+        Assert.False(before.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, before.Error.Kind);
+        Assert.True(before.Error.IsTransient);
+        Assert.Equal(ProjectionCheckpoint.Start, await directory.LoadCheckpointAsync(fixture.TenantId));
+        Assert.Equal(0, await directory.LoadRevisionAsync(fixture.TenantId));
+
+        // Act: rebuild only the new generation from retained source events.
+        var identity = new CheckpointIdentity(FitzPolicyDecisionWorkItemDirectory.ProjectorName,
+            directory.SourcePattern(fixture.TenantId));
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start)))
+        {
+            await foreach (var record in events.ReadAsync(directory.SourcePattern(fixture.TenantId), EventCursor.Start, CancellationToken.None))
+                await directory.ApplyAsync(record.Event);
+            await batch.CommitAsync(sourceCheckpoint);
+        }
+        var restarted = new FitzPolicyDecisionWorkItemDirectory(client, reader, TimeProvider.System);
+        var after = await Queue(restarted).ReadAsync(fixture.TenantId, fixture.ProgramId, actor, 30,
+            CancellationToken.None);
+        var oldState = await legacy.ReadAsync(fixture.TenantId, policyId);
+
+        // Assert
+        Assert.True(after.IsSuccess);
+        var item = Assert.Single(after.Value.Entries).Item;
+        Assert.Equal(sourceCandidate.WorkItemId, item.WorkItemId);
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder, item.Responsible.Kind);
+        Assert.Equal(sourceCheckpoint, await restarted.LoadCheckpointAsync(fixture.TenantId));
+        Assert.Equal(1, await restarted.LoadRevisionAsync(fixture.TenantId));
+        Assert.Equivalent(legacyState, oldState.State, strict: true);
+        Assert.Equal(17, oldState.Revision);
+        Assert.Equal(sourceCheckpoint, await legacy.LoadCheckpointAsync(new CheckpointIdentity(
+            LegacyPolicyStore.Name, directory.SourcePattern(fixture.TenantId))));
+    }
+
+    sealed class LegacyPolicyStore(InMemoryKvClient client)
+        : FitzKvProjectionStore(client, "kv://bdgrz/accountable-work-items/policy-decisions-v1", Name)
+    {
+        public const string Name = "AccountableWorkItemPolicyDecisionV1";
+
+        public async Task SeedAsync(PolicyDecisionWorkState state, ProjectionCheckpoint checkpoint)
+        {
+            var identity = new CheckpointIdentity(Name, EventStreamPattern.ForPattern(state.TenantId.ToString(), "policies"));
+            await using var batch = await BeginAsync(new ProjectionBatchContext(identity, ProjectionCheckpoint.Start));
+            await PolicyDecisionWorkItemDirectorySchema.Policies.InsertAsync(Transaction, state);
+            await PolicyDecisionWorkItemDirectorySchema.Revisions.InsertAsync(Transaction, new(Name, 17));
+            await batch.CommitAsync(checkpoint);
+        }
+
+        public async Task<(PolicyDecisionWorkState? State, long? Revision)> ReadAsync(Uuid tenantId, Uuid policyId)
+        {
+            await using var tx = await BeginReadAsync(tenantId.ToString());
+            var state = await PolicyDecisionWorkItemDirectorySchema.Policies.GetAsync(tx, policyId);
+            var revision = await PolicyDecisionWorkItemDirectorySchema.Revisions.GetAsync(tx, Name);
+            return (state, revision?.Revision);
+        }
+    }
+
     [Fact]
     public async Task ShouldProjectPendingReviewWithCurrentSourceCandidateGivenPolicyDraftCreated()
     {
