@@ -163,7 +163,10 @@ static class CommitmentDecisionWork
         return new WorkCandidate(id, kind, state.DraftId, null, null,
             $"{(nextAction == "review" ? "Review" : "Approve")} commitment {state.Identifier}",
             reason, null, null, nextAction, $"{prefix}/{route}", responsible, null,
-            excluded ?? new HashSet<Uuid>(), state.DraftChangedAt);
+            excluded ?? new HashSet<Uuid>(), state.DraftChangedAt)
+        {
+            RequiredManagementProgramId = state.ProgramId
+        };
     }
 
     static RequestError InvalidScope() => new(RequestErrorKind.Conflict,

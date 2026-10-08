@@ -1,4 +1,6 @@
 using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Work;
@@ -90,6 +92,8 @@ public sealed class CommitmentDecisionWorkTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
         var draftId = Uuid.CreateVersion4();
         await SeedDraftAsync(fixture, draftId);
         await ApplyDraftAsync(fixture, draftId, draft =>
@@ -121,6 +125,8 @@ public sealed class CommitmentDecisionWorkTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        fixture.Permissions.Managers.Add(fixture.BackupMemberId);
         var draftId = Uuid.CreateVersion4();
         await SeedDraftAsync(fixture, draftId);
         await ApplyDraftAsync(fixture, draftId, draft =>
@@ -310,6 +316,62 @@ public sealed class CommitmentDecisionWorkTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Single(result.Value.Entries);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldHideAssignedCommitmentDecisionGivenMissingCurrentSourceGrant(bool approval)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var draftId = Uuid.CreateVersion4();
+        var reviewId = Uuid.CreateVersion4();
+        await SeedDraftAsync(fixture, draftId);
+        await ApplyDraftAsync(fixture, draftId, draft =>
+        {
+            Assign(draft, fixture, fixture.OwnerMemberId,
+                approval ? ResponsibilityType.PolicyApprover : ResponsibilityType.AssignedReviewer);
+            if (approval)
+                Assert.Null(draft.Review(fixture.ProgramId, draft.Revision, reviewId, "accept",
+                    "Security lead", "applicable", "supported", null, "Verified against source",
+                    fixture.ApproverMemberId, "Reviewer", At(fixture.Today).AddMinutes(1), null,
+                    SourceReference, "Signed MSA section 4.1"));
+            return Result.Success;
+        });
+        await RefreshDirectoryAsync(fixture, draftId);
+        var authorizer = new ProgramManagementAuthorizer(
+            fixture.Provider.GetRequiredService<ITenantMembershipDirectoryReader>(),
+            fixture.Provider.GetRequiredService<ITenantActivity>(),
+            fixture.Provider.GetRequiredService<IAccessGrantPermissionAuthorizer>(),
+            ProgramManagementServices.ResourceScopes(fixture.ProgramId));
+        IProgramManagementRequest request = approval
+            ? new ApproveCommitmentDraft(fixture.TenantId, fixture.ProgramId, draftId, 1,
+                reviewId, fixture.Today, "Approved.", "impact")
+            : new ReviewCommitmentDraft(fixture.TenantId, fixture.ProgramId, draftId, 1,
+                "accept", "Reviewed.");
+        var context = new RequestContext<IProgramManagementRequest>(request,
+            ProgramManagementServices.Actor(fixture.OwnerUserId));
+
+        // Act
+        var source = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+        var before = await QueueAsync(fixture, fixture.OwnerUserId, "mine");
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        var authorizedSource = await authorizer.AuthorizeAsync(context, CancellationToken.None);
+        var authorized = await QueueAsync(fixture, fixture.OwnerUserId, "mine");
+        fixture.Permissions.Managers.Remove(fixture.OwnerMemberId);
+        var revoked = await QueueAsync(fixture, fixture.OwnerUserId, "mine");
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        var restored = await QueueAsync(fixture, fixture.OwnerUserId, "mine");
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, source.Error?.Kind);
+        Assert.Empty(before.Items);
+        Assert.Equal(new WorkCountsView(0, 0, 0, 0), before.Counts);
+        Assert.True(authorizedSource.IsSuccess);
+        Assert.Empty(revoked.Items);
+        Assert.Equal(Assert.Single(authorized.Items).WorkItemId,
+            Assert.Single(restored.Items).WorkItemId);
     }
 
     static Task<WorkQueueView> QueueAsync(OperationsFixture fixture, Uuid userId,
