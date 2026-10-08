@@ -64,6 +64,30 @@ public sealed class AttestManagementWriteWallTests
     }
 
     [Theory]
+    [InlineData("http")]
+    [InlineData("mcp")]
+    public async Task ShouldDenyManagementWriteGivenNativeTransportAndPermanentAttestHistory(string transport)
+    {
+        // Arrange
+        await using var provider = Compose("client_personnel");
+        await SeedProgramAsync(provider);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, Tenant, User, true);
+        await using var scope = provider.CreateAsyncScope();
+        RequestInvocation invocation = transport == "http"
+            ? new HttpInvocation("POST", "/synthetic/control-drafts", "/synthetic/control-drafts", "synthetic")
+            : new McpInvocation("bdgrz.control.draft.create");
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            new CreateControlDraft(Tenant, Program, "AC-1", Content),
+            new RequestDispatchContext(Actor, invocation), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Contains("Attest", result.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("client_personnel")]
     [InlineData("guest")]
     public async Task ShouldAllowSharedControlReadGivenHistoricalAttestIdentityAndOrdinaryGrant(string affiliation)
