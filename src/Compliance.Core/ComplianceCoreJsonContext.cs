@@ -745,6 +745,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(Page<OperationalProcessView>))]
 [JsonSerializable(typeof(OperationalProcessRevisionRecorded))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceArtifactRegistered))]
+[JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceRedactionPrepared))]
+[JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceRedactionApproved))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceArtifactInspected))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceArtifactQuarantineReleased))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceRequestOpened))]
