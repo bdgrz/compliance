@@ -19,6 +19,30 @@ namespace Bdgrz.Compliance.Tests.Features.PolicyDistribution;
 public sealed class PolicyAcknowledgementIndependenceTests
 {
     [Theory]
+    [InlineData(false, "direct")]
+    [InlineData(false, "mcp")]
+    [InlineData(true, "direct")]
+    [InlineData(true, "mcp")]
+    public async Task ShouldDenyPersonalProofGivenNonHttpInvocation(bool proxy, string transport)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var actor = proxy ? fixture.Source.ManagerUserId : fixture.Source.MemberUserId;
+        var person = proxy ? fixture.Source.NonMemberPersonId : fixture.Source.MemberPersonId;
+        var before = await fixture.CampaignAsync();
+
+        // Act
+        var result = await fixture.AcknowledgeAsync(actor, person, transport);
+        var after = await fixture.CampaignAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Contains("personal HTTP", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Equal(before.CommittedStreamPosition, after.CommittedStreamPosition);
+        Assert.Null(after.FindAcknowledgement(person));
+    }
+
+    [Theory]
     [InlineData(false, "client_personnel")]
     [InlineData(true, "client_personnel")]
     [InlineData(true, "guest")]
@@ -353,13 +377,15 @@ public sealed class PolicyAcknowledgementIndependenceTests
             return new Fixture { Source = source, Provider = provider, Version = version, CampaignId = campaign.CampaignId };
         }
 
-        public async Task<Result<CampaignAcknowledgementView>> AcknowledgeAsync(Uuid actor, Uuid person)
+        public async Task<Result<CampaignAcknowledgementView>> AcknowledgeAsync(Uuid actor, Uuid person, string transport = "http")
         {
             await using var scope = Provider.CreateAsyncScope();
             return await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
                 Source.Acknowledge(CampaignId, person, Version),
                 new RequestDispatchContext(ProgramManagementServices.Actor(actor),
-                    new HttpInvocation("POST", "/synthetic/policy/acknowledgements", "/synthetic/policy/acknowledgements", "synthetic")),
+                    transport == "http"
+                        ? new HttpInvocation("POST", "/synthetic/policy/acknowledgements", "/synthetic/policy/acknowledgements", "synthetic")
+                        : transport == "mcp" ? new McpInvocation("synthetic.policy.acknowledge") : new DirectInvocation()),
                 CancellationToken.None);
         }
 
