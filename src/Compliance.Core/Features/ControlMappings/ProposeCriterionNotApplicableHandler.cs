@@ -14,6 +14,10 @@ public sealed class ProposeCriterionNotApplicableHandler(IAggregateExecutor exec
     public async ValueTask<Result<CriterionApplicabilityRegistration>> HandleAsync(
         IRequestContext<ProposeCriterionNotApplicable> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<CriterionApplicabilityRegistration>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Criterion sign-off requires personal HTTP submission."));
         var request = context.Request;
         var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId,
             request.ProgramId), ct).ConfigureAwait(false);

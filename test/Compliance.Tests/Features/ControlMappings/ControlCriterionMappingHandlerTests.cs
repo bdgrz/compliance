@@ -29,9 +29,7 @@ public sealed class ControlCriterionMappingHandlerTests
         var pending = await fixture.CoverageAsync("CC6.1");
 
         // Act
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(registration.MappingId, registration.Revision, "accept"))
-            .ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(registration.MappingId, registration.Revision, "accept"));
 
         // Assert
         Assert.Equal("unmapped", pending.CoverageState);
@@ -56,13 +54,9 @@ public sealed class ControlCriterionMappingHandlerTests
         var fixture = await Fixture.CreateAsync();
         var registration = await fixture.ProposeAsync("CC6.1");
 
-        await fixture.Scenario(fixture.AuthorUserId)
-            // Act
-            .When(fixture.Review(registration.MappingId, registration.Revision, "accept"))
-            // Assert
-            .ExpectAuthorized()
-            .ExpectHandled()
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        // Assert
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.AuthorUserId, fixture.Review(registration.MappingId, registration.Revision, "accept"), RequestErrorKind.Forbidden);
         var mapping = await fixture.GetAsync(registration.MappingId);
         Assert.Equal("pending", mapping.Status);
         Assert.Equal("unmapped", (await fixture.CoverageAsync("CC6.1")).CoverageState);
@@ -107,9 +101,7 @@ public sealed class ControlCriterionMappingHandlerTests
         var fixture = await Fixture.CreateAsync();
         var first = await fixture.ProposeAsync("CC6.1");
         var retry = await fixture.ProposeAsync("CC6.1");
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(first.MappingId, first.Revision, "accept"))
-            .ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(first.MappingId, first.Revision, "accept"));
 
         await fixture.Scenario(fixture.AuthorUserId)
             // Act
@@ -130,11 +122,9 @@ public sealed class ControlCriterionMappingHandlerTests
         // Arrange
         var fixture = await Fixture.CreateAsync();
         var first = await fixture.ProposeAsync("CC6.1");
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(first.MappingId, 1, "accept")).ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(first.MappingId, 1, "accept"));
         var second = await fixture.ProposeAsync("CC6.1", 2, "Narrowed rationale");
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(first.MappingId, second.Revision, "accept")).ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(first.MappingId, second.Revision, "accept"));
 
         await fixture.Scenario(fixture.ReviewerUserId)
             // Act
@@ -157,8 +147,7 @@ public sealed class ControlCriterionMappingHandlerTests
         // Arrange
         var fixture = await Fixture.CreateAsync();
         var first = await fixture.ProposeAsync(FocusIdentifier);
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(first.MappingId, 1, "accept")).ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(first.MappingId, 1, "accept"));
 
         // Act
         await ProgramManagementServices.SeedAsync(fixture.Provider,
@@ -205,20 +194,14 @@ public sealed class ControlCriterionMappingHandlerTests
     {
         // Arrange
         var fixture = await Fixture.CreateAsync();
-        var proposed = await fixture.Scenario(fixture.AuthorUserId)
-            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
-                CurrentEdition, "CC6.2", 0, "No user accounts are approved by the service."))
-            .ExpectSuccess();
+        var proposed = await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.AuthorUserId, new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                CurrentEdition, "CC6.2", 0, "No user accounts are approved by the service."));
         var registration = proposed.Value;
-        await fixture.Scenario(fixture.AuthorUserId)
-            .When(fixture.ReviewApplicability(registration.DecisionId, 1, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.AuthorUserId, fixture.ReviewApplicability(registration.DecisionId, 1, "accept"), RequestErrorKind.Forbidden);
         var pending = await fixture.CoverageAsync("CC6.2");
 
         // Act
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.ReviewApplicability(registration.DecisionId, 1, "accept"))
-            .ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.ReviewApplicability(registration.DecisionId, 1, "accept"));
 
         // Assert
         Assert.Equal("unmapped", pending.CoverageState);
@@ -251,16 +234,12 @@ public sealed class ControlCriterionMappingHandlerTests
         // Arrange
         var fixture = await Fixture.CreateAsync();
 
-        await fixture.Scenario(fixture.AuthorUserId)
-            // Act
-            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
-                CurrentEdition, FocusIdentifier, 0, "Not applicable."))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.AuthorUserId)
-            .When(new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
-                NextEdition, "CC6.2", 0, "Not applicable."))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        // Assert
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.AuthorUserId, new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                CurrentEdition, FocusIdentifier, 0, "Not applicable."), RequestErrorKind.Validation);
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.AuthorUserId, new ProposeCriterionNotApplicable(fixture.TenantId, fixture.ProgramId,
+                NextEdition, "CC6.2", 0, "Not applicable."), RequestErrorKind.Conflict);
     }
 
     [Fact]
@@ -269,9 +248,7 @@ public sealed class ControlCriterionMappingHandlerTests
         // Arrange
         var fixture = await Fixture.CreateAsync();
         var registration = await fixture.ProposeAsync("CC6.1");
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(registration.MappingId, registration.Revision, "accept"))
-            .ExpectSuccess();
+        await PersonalMappingDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(registration.MappingId, registration.Revision, "accept"));
         var before = Assert.Single((await fixture.CoverageAsync("CC6.1")).MappedControls);
 
         // Act
@@ -324,7 +301,7 @@ public sealed class ControlCriterionMappingHandlerTests
             Entries(CurrentEdition).Concat(Entries(NextEdition)).ToArray());
     }
 
-    sealed class Fixture
+    internal sealed class Fixture
     {
         public required ServiceProvider Provider { get; init; }
         public Uuid TenantId { get; } = Uuid.CreateVersion4();
