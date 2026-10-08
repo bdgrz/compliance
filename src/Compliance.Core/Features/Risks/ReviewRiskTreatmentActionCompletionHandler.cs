@@ -17,6 +17,10 @@ public sealed class ReviewRiskTreatmentActionCompletionHandler(IAggregateExecuto
     public async ValueTask<Result> HandleAsync(
         IRequestContext<ReviewRiskTreatmentActionCompletion> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Risk sign-off requires a personal HTTP invocation."));
         var request = context.Request;
         var risk = await RiskOwnerResolution.RequireRiskAsync(reader, request.TenantId,
             request.ProgramId, request.RiskId, ct).ConfigureAwait(false);

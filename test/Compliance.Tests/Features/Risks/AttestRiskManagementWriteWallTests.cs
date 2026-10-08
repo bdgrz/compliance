@@ -150,7 +150,7 @@ public sealed class AttestRiskManagementWriteWallTests
     static RequestDispatchContext Context(Uuid userId) => new(ProgramManagementServices.Actor(userId),
         new HttpInvocation("POST", "/synthetic/risk-management", "/synthetic/risk-management", "synthetic"));
 
-    static async Task<ServiceProvider> ComposeAsync(RiskGovernanceHandlerTests.Fixture source)
+    internal static async Task<ServiceProvider> ComposeAsync(RiskGovernanceHandlerTests.Fixture source)
     {
         var services = new ServiceCollection();
         services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
