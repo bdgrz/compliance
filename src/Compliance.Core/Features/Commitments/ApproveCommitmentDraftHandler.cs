@@ -11,6 +11,10 @@ public sealed class ApproveCommitmentDraftHandler(IAggregateExecutor executor,
     public async ValueTask<Result> HandleAsync(IRequestContext<ApproveCommitmentDraft> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Commitment sign-off requires personal HTTP submission."));
         var request = context.Request;
         var preview = await impact.PreviewAsync(new PreviewCommitmentImpact(request.TenantId,
             request.ProgramId, request.DraftId, request.ExpectedRevision), ct)
