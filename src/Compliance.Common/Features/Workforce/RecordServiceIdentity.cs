@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -12,4 +13,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 public sealed record RecordServiceIdentity(Uuid TenantId, string DisplayName, string IdentityKind,
     string Purpose, string OwnerKind, Uuid OwnerId, DateOnly ReviewBy, string? Environment = null,
     DateOnly? ExpiresOn = null)
-    : IRequest<ServiceIdentityRegistration>, IWorkforceRequest, ICallable;
+    : IRequest<ServiceIdentityRegistration>, IWorkforceRequest, IClientManagementMutationRequest, ICallable;

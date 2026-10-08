@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -11,4 +12,4 @@ public sealed record RecordWorkRelationship(Uuid TenantId, Uuid PersonId, string
     string WorkerType, string LifecycleStatus, DateOnly StartDate, DateOnly? EndDate = null,
     string? Department = null, Uuid? ManagerPersonId = null, Uuid? SponsorPersonId = null,
     string? EmploymentStatusReason = null)
-    : IRequest<WorkRelationshipRegistration>, IWorkforceRequest, ICallable;
+    : IRequest<WorkRelationshipRegistration>, IWorkforceRequest, IClientManagementMutationRequest, ICallable;

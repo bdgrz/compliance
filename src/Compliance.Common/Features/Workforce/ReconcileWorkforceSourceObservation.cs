@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 [Discriminator("bdgrz.workforce.source.reconcile", 1)]
 public sealed record ReconcileWorkforceSourceObservation(Uuid TenantId, Uuid ObservationId,
     long ExpectedRevision, long ExpectedTargetRevision, string Outcome, string Note)
-    : IRequest, IWorkforceRequest, ICallable;
+    : IRequest, IWorkforceRequest, IClientManagementMutationRequest, ICallable;

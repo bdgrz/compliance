@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// </summary>
 [Discriminator("bdgrz.workforce.observation.resolve", 1)]
 public sealed record ResolveWorkforceObservation(Uuid TenantId, Uuid ObservationId,
-    string Resolution, string Note) : IRequest, IWorkforceRequest, ICallable;
+    string Resolution, string Note) : IRequest, IWorkforceRequest, IClientManagementMutationRequest, ICallable;
