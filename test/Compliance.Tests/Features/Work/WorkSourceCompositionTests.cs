@@ -314,7 +314,7 @@ public sealed class WorkSourceCompositionTests
         var performedItem = initial.Value.Items[0];
         var source = await Scenario().When(new GetControlOccurrence(fixture.TenantId,
             fixture.ProgramId, performedItem.ControlId!.Value, performedItem.SourceId)).ExpectSuccess();
-        var performed = await Scenario().When(fixture.Attest(source.Value)).ExpectSuccess();
+        var performed = await PersonalOccurrenceProofTransportTests.HttpAsync(provider, fixture.OwnerUserId, fixture.Attest(source.Value));
         Assert.Equal(ControlOperationsLedger.Submitted, performed.Value.State);
         await CatchUpAsync(provider, fixture.TenantId);
         var before = await Scenario().When(new ListWork(fixture.TenantId,
@@ -326,8 +326,7 @@ public sealed class WorkSourceCompositionTests
         // Act
         var readable = await Scenario().When(new GetControlOccurrence(fixture.TenantId,
             fixture.ProgramId, item.ControlId!.Value, item.SourceId)).ExpectSuccess();
-        var denied = await Scenario().When(fixture.Attest(readable.Value))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        var denied = await PersonalOccurrenceProofTransportTests.HttpAsync(provider, fixture.OwnerUserId, fixture.Attest(readable.Value), RequestErrorKind.Forbidden);
         var team = await Scenario().When(new ListWork(fixture.TenantId,
             fixture.ProgramId, "team")).ExpectSuccess();
         var all = await Scenario().When(new ListWork(fixture.TenantId,

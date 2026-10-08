@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -11,6 +12,10 @@ public sealed class CorrectControlAttestationHandler(IAggregateExecutor executor
     public async ValueTask<Result<ControlOccurrenceView>> HandleAsync(
         IRequestContext<CorrectControlAttestation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ControlOccurrenceView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Occurrence proofs require personal HTTP submission."));
         var request = context.Request;
         var now = clock.GetUtcNow();
         var prepared = await OccurrenceAttestation.PrepareAsync(reader, authority, request.TenantId,
