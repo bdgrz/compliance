@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Controls;
 using Bdgrz.Compliance.Tests.Features.Evaluations;
 using Bdgrz.Compliance.Tests.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Policies;
@@ -550,12 +551,9 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind is "control" or "control_assigned")
             {
-                var request = Scenario().When(new ReviewControl(Operations.TenantId, Operations.ProgramId,
-                    pending.ResourceId!.Value, pending.Revision, "accept", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalControlDecisionTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewControl(Operations.TenantId, Operations.ProgramId,
+                        pending.ResourceId!.Value, pending.Revision, "accept", "Reviewed independently."), error);
             }
             else if (kind == "finding_closure")
             {

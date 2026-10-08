@@ -36,12 +36,8 @@ public sealed class ControlLifecycleHandlerTests
                 registration.Revision));
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(registration.Revision, reviewId, SuccessorFrom, "STALE"))
-            .ExpectFailure(RequestErrorKind.Conflict);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(registration.Revision, reviewId, SuccessorFrom, preview.Digest))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(registration.Revision, reviewId, SuccessorFrom, "STALE"), RequestErrorKind.Conflict);
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(registration.Revision, reviewId, SuccessorFrom, preview.Digest));
 
         // Assert
         Assert.Equal("successor", preview.Kind);
@@ -90,10 +86,8 @@ public sealed class ControlLifecycleHandlerTests
                 proposal.Value.Revision));
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                proposal.Value.Revision, reviewId, preview.Digest, "Retire at quarter end."))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                proposal.Value.Revision, reviewId, preview.Digest, "Retire at quarter end."));
 
         // Assert
         Assert.Equal("retirement", preview.Kind);
@@ -359,13 +353,9 @@ public sealed class ControlLifecycleHandlerTests
 
         // Act
         await fixture.CancelEvidenceRequestAsync(evidenceId);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(proposal.Revision, reviewId, SuccessorFrom, preview.Digest))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(proposal.Revision, reviewId, SuccessorFrom, preview.Digest), RequestErrorKind.Conflict);
         var refreshed = await fixture.QueryAsync<PreviewControlImpact, ControlImpactPreview>(query);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(proposal.Revision, reviewId, SuccessorFrom, refreshed.Digest))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(proposal.Revision, reviewId, SuccessorFrom, refreshed.Digest));
 
         // Assert
         Assert.NotEqual(preview.Digest, refreshed.Digest);
@@ -391,15 +381,11 @@ public sealed class ControlLifecycleHandlerTests
 
         // Act
         await fixture.SeedOperatingPlanAsync(approve: false, effectiveFrom: EffectiveFrom.AddMonths(1));
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                proposal.Value.Revision, reviewId, preview.Digest, "Retire."))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                proposal.Value.Revision, reviewId, preview.Digest, "Retire."), RequestErrorKind.Conflict);
         var refreshed = await fixture.QueryAsync<PreviewControlImpact, ControlImpactPreview>(query);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                proposal.Value.Revision, reviewId, refreshed.Digest, "Retire."))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                proposal.Value.Revision, reviewId, refreshed.Digest, "Retire."));
 
         // Assert
         Assert.NotEqual(preview.Digest, refreshed.Digest);
@@ -451,14 +437,10 @@ public sealed class ControlLifecycleHandlerTests
             await fixture.SeedEvidenceRequestAsync();
         var overflow = await fixture.QueryAsync<PreviewControlImpact, ControlImpactPreview>(query);
         if (kind == "successor")
-            await fixture.Scenario(fixture.ApproverUserId)
-                .When(fixture.Approve(revision, reviewId, SuccessorFrom, overflow.Digest))
-                .ExpectFailure(RequestErrorKind.Conflict);
+            await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(revision, reviewId, SuccessorFrom, overflow.Digest), RequestErrorKind.Conflict);
         else
-            await fixture.Scenario(fixture.ApproverUserId)
-                .When(new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                    revision, reviewId, overflow.Digest, "Retire."))
-                .ExpectFailure(RequestErrorKind.Conflict);
+            await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new RetireControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                    revision, reviewId, overflow.Digest, "Retire."), RequestErrorKind.Conflict);
 
         // Assert
         Assert.True(atBound.Complete);
@@ -548,9 +530,7 @@ public sealed class ControlLifecycleHandlerTests
                 registration.Revision));
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(registration.Revision, reviewId, SuccessorFrom, preview.Digest))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(registration.Revision, reviewId, SuccessorFrom, preview.Digest));
 
         // Assert
         var current = await fixture.QueryAsync<GetCurrentControlVersion, ControlVersionView>(
@@ -629,10 +609,8 @@ public sealed class ControlLifecycleHandlerTests
                 new Member(fixture.TenantId, fixture.OwnerUserId), member => member.Register());
             await fixture.AssignOwnerAsync(fixture.InitialVersionId, 1);
             var reviewId = await fixture.ReviewAsync(1);
-            await fixture.Scenario(fixture.ApproverUserId)
-                .When(new ApproveControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
-                    1, reviewId, EffectiveFrom, "Ready to operate."))
-                .ExpectSuccess();
+            await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new ApproveControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                    1, reviewId, EffectiveFrom, "Ready to operate."));
             return fixture;
         }
 
@@ -882,11 +860,9 @@ public sealed class ControlLifecycleHandlerTests
         public async Task<Uuid> ReviewAsync(long revision)
         {
             var requestId = Uuid.CreateVersion4();
-            await Scenario(ReviewerUserId)
-                .GivenMetadata(new RequestMetadata(requestId, requestId, null))
-                .When(new ReviewControl(TenantId, ProgramId, ControlId, revision, "accept",
-                    "Reviewed"))
-                .ExpectSuccess();
+            await PersonalControlDecisionTransportTests.HttpAsync(Provider, ReviewerUserId,
+                new ReviewControl(TenantId, ProgramId, ControlId, revision, "accept", "Reviewed"),
+                metadata: new RequestMetadata(requestId, requestId, null));
             return requestId;
         }
 
