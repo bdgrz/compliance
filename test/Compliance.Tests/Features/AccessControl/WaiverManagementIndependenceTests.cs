@@ -143,7 +143,7 @@ public sealed class WaiverManagementIndependenceTests
         Assert.Equal(1, await fixture.WaiverEventsAsync());
     }
 
-    sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         public Uuid Tenant { get; } = Uuid.CreateVersion4();
         public Uuid Requester { get; } = Uuid.CreateVersion4();
@@ -205,13 +205,13 @@ public sealed class WaiverManagementIndependenceTests
         public ValueTask DisposeAsync() => Provider.DisposeAsync();
     }
 
-    sealed class Permissions : IPermissionAuthorizer
+    internal sealed class Permissions : IPermissionAuthorizer
     {
         public bool Allowed { get; set; } = true;
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission, CancellationToken ct = default) => ValueTask.FromResult(Allowed);
     }
 
-    sealed class Memberships(Uuid tenant, Uuid beneficiary, IReadOnlySet<Uuid> users) : ITenantMembershipDirectoryReader
+    internal sealed class Memberships(Uuid tenant, Uuid beneficiary, IReadOnlySet<Uuid> users) : ITenantMembershipDirectoryReader
     {
         public string BeneficiaryStatus { get; set; } = "active";
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
