@@ -85,6 +85,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListCriteriaCatalogEntries>(tool => tool.ReadOnly())
         .AddMcpTool<GetCriteriaCatalogEntry>(tool => tool.ReadOnly())
         .AddMcpTool<ExportCriteriaCatalogEntries>(tool => tool.ReadOnly())
+        .AddMcpTool<GetClientIndependenceRules>(tool => tool.ReadOnly())
+        .AddMcpTool<GetIndependenceRuleVersions>(tool => tool.ReadOnly())
+        .AddMcpTool<ReviseIndependenceRules>(tool => tool.Idempotent())
+        .AddMcpTool<RecordNonattestService>(tool => tool.Idempotent())
+        .AddMcpTool<EvaluateClientIndependence>(tool => tool.Idempotent())
+        .AddMcpTool<GetClientIndependenceHistory>(tool => tool.ReadOnly())
         .AddMcpTool<SetCriteriaTextOverlay>(tool => tool.Idempotent())
         .AddMcpTool<SelectProgramCriteriaEdition>(tool => tool.Idempotent())
         .AddMcpTool<CreateControlDraft>()
@@ -536,6 +542,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Criteria");
+    app.MapPortiaGet<GetClientIndependenceRules, IReadOnlyList<IndependenceRuleVersionView>>(
+            "/api/v1/tenants/{tenant_id}/independence/rules")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaGet<GetIndependenceRuleVersions, IReadOnlyList<IndependenceRuleVersionView>>(
+            "/api/v1/platform/independence/rules")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPut<ReviseIndependenceRules, IndependenceRuleVersionView>(
+            "/api/v1/platform/independence/rules")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPut<RecordNonattestService, NonattestServiceView>(
+            "/api/v1/tenants/{tenant_id}/independence/services/{service_record_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPut<EvaluateClientIndependence, IndependenceEvaluationView>(
+            "/api/v1/tenants/{tenant_id}/independence/evaluations/{evaluation_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaGet<GetClientIndependenceHistory, IndependenceHistoryView>(
+            "/api/v1/tenants/{tenant_id}/independence/history")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
     app.MapPortiaPut<SetCriteriaTextOverlay, CriteriaTextOverlayRegistration>(
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}/overlay")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
