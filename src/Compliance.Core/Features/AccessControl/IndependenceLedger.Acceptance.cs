@@ -74,6 +74,7 @@ public sealed partial class IndependenceLedger
         DateOnly.FromDateTime(effectiveAt.UtcDateTime) >= engagement.Content.PeriodStart &&
         (engagement.Content.PeriodEnd is null || DateOnly.FromDateTime(effectiveAt.UtcDateTime) <= engagement.Content.PeriodEnd) &&
         acceptance.Rules.Version == currentRuleVersion &&
+        !_sourceReevaluations.Any(receipt => receipt.EngagementId == engagementId) &&
         CompleteFacts(acceptance.CompleteServiceHistory.Select(service => service.ServiceRecordId).ToArray()) &&
         acceptance.Assignments.Any(staff => staff.IsCurrent && staff.StaffMemberId == staffMemberId &&
             staff.UserId == userId && staff.AssignedAt <= effectiveAt && staff.DirectoryStaffRevision == currentDirectoryStaffRevision);

@@ -37,6 +37,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(GetClientIndependenceHistory))]
 [JsonSerializable(typeof(IndependenceRulesRevised))]
 [JsonSerializable(typeof(NonattestServiceRecorded))]
+[JsonSerializable(typeof(ServiceIndependenceReevaluated))]
 [JsonSerializable(typeof(ClientIndependenceEvaluated))]
 [JsonSerializable(typeof(GetIndependenceRuleVersions))]
 [JsonSerializable(typeof(IReadOnlyList<IndependenceRuleVersionView>))]
