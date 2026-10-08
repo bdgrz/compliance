@@ -11,6 +11,15 @@ public sealed record IndependenceHistoryView(Uuid TenantId, long Sequence,
     readonly IReadOnlyList<AssignmentIndependenceReevaluationView> _assignmentReevaluations =
         Array.Empty<AssignmentIndependenceReevaluationView>();
 
+    readonly IReadOnlyList<DirectoryIndependenceReevaluationView> _directoryReevaluations =
+        Array.Empty<DirectoryIndependenceReevaluationView>();
+
+    public IReadOnlyList<DirectoryIndependenceReevaluationView> DirectoryReevaluations
+    {
+        get => _directoryReevaluations;
+        init => _directoryReevaluations = Array.AsReadOnly((value ?? []).ToArray());
+    }
+
     public IReadOnlyList<ServiceIndependenceReevaluationView> SourceReevaluations
     {
         get => _sourceReevaluations;

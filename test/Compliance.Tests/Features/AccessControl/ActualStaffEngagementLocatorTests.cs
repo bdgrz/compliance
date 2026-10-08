@@ -271,7 +271,7 @@ public sealed class ActualStaffEngagementLocatorTests
         public bool IsRebuild => false;
     }
 
-    sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         readonly ServiceProvider _provider;
         readonly AsyncServiceScope _scope;
@@ -281,11 +281,12 @@ public sealed class ActualStaffEngagementLocatorTests
         public Uuid Tenant { get; } = Uuid.CreateVersion4();
         public FirmStaffMemberView Staff { get; private set; } = null!;
         public IServiceProvider Services => _scope.ServiceProvider;
+        internal IServiceProvider Provider => _provider;
         public Faults Faults { get; } = new();
         public CheckpointIdentity Identity => new("ActualStaffEngagementLocatorV1",
             EventStreamPattern.ForPattern(Tenant.ToString(), "client-independence"));
 
-        Fixture()
+        Fixture(TimeProvider? clock = null)
         {
             var services = new ServiceCollection();
             services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -293,17 +294,21 @@ public sealed class ActualStaffEngagementLocatorTests
                 ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
                 ["Fitz:ApplicationName"] = "compliance",
             }).Build(), developerAuthentication: true);
+            if (clock is not null)
+                services.AddSingleton(clock);
             var events = new InMemoryEventStore();
-            services.AddSingleton<IEventStore>(events);
+            services.AddSingleton<IEventStore>(new FaultingEventStore(events, Faults));
             services.AddSingleton<IDomainEventReader>(events);
             services.AddSingleton<IKvClient>(new FaultingKvClient(new InMemoryKvClient(), Faults));
+            services.AddScoped<IActualStaffEngagementLocatorReader>(provider =>
+                new FaultingLocatorReader(provider.GetRequiredService<FitzActualStaffEngagementLocator>(), Faults));
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             _scope = _provider.CreateAsyncScope();
         }
 
-        public static async Task<Fixture> CreateAsync(int staffCount = 1, int engagementCount = 1)
+        public static async Task<Fixture> CreateAsync(int staffCount = 1, int engagementCount = 1, TimeProvider? clock = null, int serviceCount = 0)
         {
-            var fixture = new Fixture();
+            var fixture = new Fixture(clock);
             var actor = ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator");
             FirmStaffMemberView? partner = null;
             var staff = new List<FirmStaffMemberView>();
@@ -332,6 +337,12 @@ public sealed class ActualStaffEngagementLocatorTests
                 var acknowledgement = Uuid.CreateVersion4();
                 await ProgramManagementServices.SeedAsync(fixture._provider, new IndependenceLedger(fixture.Tenant), ledger =>
                 {
+                    if (index == 0)
+                        for (var serviceIndex = 0; serviceIndex < serviceCount; serviceIndex++)
+                            Assert.True(ledger.RecordService(Uuid.CreateVersion4(), Uuid.CreateVersion4(), ledger.Sequence,
+                                new NonattestServiceContent(Uuid.CreateVersion4(), "readiness", new DateOnly(2010, 1, 1),
+                                    new DateOnly(2010, 12, 31), [fixture.Staff.StaffMemberId], false,
+                                    "Synthetic historical service source " + new string('s', 1900)), client, Now).IsSuccess);
                     Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, ledger.Sequence,
                         new ServiceEngagementDraftContent("attest", "Synthetic scope", new DateOnly(2026, 1, 1),
                             new DateOnly(2026, 12, 31), fixture.Staff.StaffMemberId), fixture.Staff, client, Now).IsSuccess);
@@ -339,7 +350,8 @@ public sealed class ActualStaffEngagementLocatorTests
                         Assert.True(ledger.ProposeEngagementStaff(Uuid.CreateVersion4(), engagement, ledger.Sequence, additional, client, Now).IsSuccess);
                     var revision = ledger.Engagement(engagement)!.Revision;
                     Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
-                        fixture.Tenant, engagement, acknowledgement, ledger.Sequence, revision, [], "Management retains responsibility"),
+                        fixture.Tenant, engagement, acknowledgement, ledger.Sequence, revision,
+                        ledger.History().Services.Select(service => service.ServiceRecordId).ToArray(), "Management retains responsibility"),
                         administrator, client, Now).IsSuccess);
                     // Synthetic internal proof and ratification exercise the engine; no public authority is inferred.
                     var proof = new VerifiedEngagementAcceptance(fixture.Tenant, engagement, revision, Uuid.CreateVersion4(),
@@ -407,29 +419,32 @@ public sealed class ActualStaffEngagementLocatorTests
             });
         }
 
-        public async Task SeedOtherTenantAsync(Uuid otherTenant)
+        public async Task SeedOtherTenantAsync(Uuid otherTenant, FirmStaffMemberView? assignedStaff = null, DateTimeOffset? recordedAt = null)
         {
+            var assignee = assignedStaff ?? Staff;
+            var at = recordedAt ?? Now;
             var directory = await ProgramManagementServices.HydrateAsync(_provider, new FirmStaffDirectory());
-            var partner = Assert.Single(directory.View().Staff, item => item.StaffMemberId != Staff.StaffMemberId);
+            var partner = Assert.Single(directory.View().Staff, item => item.StaffMemberId != assignee.StaffMemberId);
             var administrator = Uuid.CreateVersion4();
             var client = ActorReference.ForMember(RbacIds.Member(otherTenant, administrator), "Synthetic second client administrator");
             var engagement = Uuid.CreateVersion4();
             var acknowledgement = Uuid.CreateVersion4();
             await ProgramManagementServices.SeedAsync(_provider, new IndependenceLedger(otherTenant), ledger =>
             {
-                Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, 0,
+                Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, ledger.Sequence,
                     new ServiceEngagementDraftContent("attest", "Synthetic second client scope", new DateOnly(2026, 1, 1),
-                        new DateOnly(2026, 12, 31), Staff.StaffMemberId), Staff, client, Now).IsSuccess);
+                        new DateOnly(2026, 12, 31), assignee.StaffMemberId), assignee, client, at).IsSuccess);
                 Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
-                    otherTenant, engagement, acknowledgement, 1, 1, [], "Management retains responsibility"),
-                    administrator, client, Now).IsSuccess);
+                    otherTenant, engagement, acknowledgement, ledger.Sequence,
+                        ledger.Engagement(engagement)!.Revision, ledger.History().Services.Select(service => service.ServiceRecordId).ToArray(), "Management retains responsibility"),
+                    administrator, client, at).IsSuccess);
                 var proof = new VerifiedEngagementAcceptance(otherTenant, engagement, 1, Uuid.CreateVersion4(),
                     partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY", null,
-                    acknowledgement, null, null, [Staff], partner, 1, Now);
+                    acknowledgement, null, null, [assignee], partner, 1, at);
                 var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
                     [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
-                    "Synthetic ratified test rules ONLY"), partner.Actor, Now, true);
-                return ledger.AcceptEngagement(Uuid.CreateVersion4(), 2, proof, rules, Now);
+                    "Synthetic ratified test rules ONLY"), partner.Actor, at, true);
+                return ledger.AcceptEngagement(Uuid.CreateVersion4(), ledger.Sequence, proof, rules, at);
             });
         }
 
@@ -459,9 +474,57 @@ public sealed class ActualStaffEngagementLocatorTests
         }
     }
 
-    sealed class Faults
+    internal sealed class Faults
     {
         public bool FailNextLocatorCommit { get; set; }
+        public Func<Task>? OnNextLocatorScan { get; set; }
+        public bool FailNextDirectoryReceiptWrite { get; set; }
+        public Func<Task>? OnNextDirectoryReceiptWrite { get; set; }
+        public string? LocatorPageFault { get; set; }
+    }
+
+    sealed class FaultingLocatorReader(IActualStaffEngagementLocatorReader inner, Faults faults) : IActualStaffEngagementLocatorReader
+    {
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId, CancellationToken ct = default) =>
+            inner.LoadCheckpointAsync(tenantId, ct);
+        public ValueTask<Page<ActualStaffEngagementLocatorView>> ListAsync(Uuid tenantId, int limit, string? cursor, CancellationToken ct = default) =>
+            inner.ListAsync(tenantId, limit, cursor, ct);
+        public async ValueTask<Page<ActualStaffEngagementLocatorView>> ListForStaffAsync(Uuid tenantId, Uuid staffMemberId,
+            Uuid userId, int limit, string? cursor, CancellationToken ct = default)
+        {
+            var page = await inner.ListForStaffAsync(tenantId, staffMemberId, userId, limit, cursor, ct);
+            return faults.LocatorPageFault switch
+            {
+                "missing" => new Page<ActualStaffEngagementLocatorView>([], page.NextCursor),
+                "duplicate" => new Page<ActualStaffEngagementLocatorView>(page.Items.Concat(page.Items).ToArray(), page.NextCursor),
+                _ => page
+            };
+        }
+    }
+
+    sealed class FaultingEventStore(IEventStore inner, Faults faults) : IEventStore
+    {
+        public IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamAddress stream, ulong offset, CancellationToken ct) =>
+            inner.ReadAsync(stream, offset, ct);
+        public IAsyncEnumerable<DomainEventRecord> ReadAsync(EventStreamPattern pattern, EventCursor cursor, CancellationToken ct) =>
+            inner.ReadAsync(pattern, cursor, ct);
+        public async ValueTask AppendAsync(EventStreamAddress stream, ulong position, IReadOnlyList<DomainEvent> events, CancellationToken ct)
+        {
+            if (events.OfType<DirectoryIndependenceReevaluated>().Any())
+            {
+                if (faults.FailNextDirectoryReceiptWrite)
+                {
+                    faults.FailNextDirectoryReceiptWrite = false;
+                    throw new IOException("Synthetic directory receipt writer failure before append.");
+                }
+                if (faults.OnNextDirectoryReceiptWrite is { } publish)
+                {
+                    faults.OnNextDirectoryReceiptWrite = null;
+                    await publish();
+                }
+            }
+            await inner.AppendAsync(stream, position, events, ct);
+        }
     }
 
     sealed class FaultingKvClient(IKvClient inner, Faults faults) : IKvClient
@@ -487,7 +550,16 @@ public sealed class ActualStaffEngagementLocatorTests
             public Task DeleteAsync(ReadOnlyMemory<byte> key, CancellationToken ct = default) => inner.DeleteAsync(key, ct);
             public Task DeleteRangeAsync(ReadOnlyMemory<byte> startKey, ReadOnlyMemory<byte> endKey,
                 CancellationToken ct = default) => inner.DeleteRangeAsync(startKey, endKey, ct);
-            public Task<KvScanResult> ScanAsync(KvScanQuery query, CancellationToken ct = default) => inner.ScanAsync(query, ct);
+            public async Task<KvScanResult> ScanAsync(KvScanQuery query, CancellationToken ct = default)
+            {
+                var result = await inner.ScanAsync(query, ct);
+                if (Route.Contains("actual-staff-engagement-locator", StringComparison.Ordinal) && faults.OnNextLocatorScan is { } publish)
+                {
+                    faults.OnNextLocatorScan = null;
+                    await publish();
+                }
+                return result;
+            }
             public Task CommitAsync(CancellationToken ct = default)
             {
                 if (_inserted && faults.FailNextLocatorCommit && Route.Contains("actual-staff-engagement-locator", StringComparison.Ordinal))

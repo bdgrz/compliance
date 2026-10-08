@@ -474,6 +474,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTeamRoleDirectoryReader>();
         services.AddScoped<ITeamRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
         services.AddScoped<ITeamRoleDirectoryReader>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
+        services.AddScoped<DirectoryReevaluationDiscovery>();
         services.AddScoped<FitzActualStaffEngagementLocator>();
         services.AddScoped<IActualStaffEngagementLocatorProjection>(provider =>
             provider.GetRequiredService<FitzActualStaffEngagementLocator>());
@@ -511,6 +512,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RecordNonattestServiceHandler>()
             .AddRequestHandler<EvaluateClientIndependenceHandler>()
             .AddRequestHandler<GetClientIndependenceHistoryHandler>()
+            .AddRequestHandler<RecordDirectoryIndependenceReevaluationHandler>()
             .AddRequestHandler<RegisterFirmStaffHandler>()
             .AddRequestHandler<SetFirmStaffStatusHandler>()
             .AddRequestHandler<GetFirmStaffDirectoryHandler>()
@@ -530,6 +532,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestAuthorizer<IndependenceRuleAdministrationAuthorizer>()
             .AddRequestAuthorizer<FirmStaffAdministrationAuthorizer>()
             .AddRequestAuthorizer<IndependenceAdministrationAuthorizer>()
+            .AddRequestAuthorizer<RecordDirectoryIndependenceReevaluationAuthorizer>()
             .AddRequestHandler<RegisterMemberHandler>()
             .AddRequestHandler<SuspendMemberHandler>()
             .AddRequestHandler<ReinstateMemberHandler>()
@@ -994,6 +997,10 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<FirmStaffStatusReevaluationReactor>(FirmStaffStatusReevaluationReactor.WorkloadName, WorkloadScope.Global,
+                options => { options.FailureAttemptLimit = int.MaxValue; options.MaximumFailureDelay = TimeSpan.FromSeconds(2); })
+            .AddReactor<AcceptedStaffDirectoryReconciliationReactor>(AcceptedStaffDirectoryReconciliationReactor.WorkloadName, WorkloadScope.PerTenant,
+                options => { options.FailureAttemptLimit = int.MaxValue; options.MaximumFailureDelay = TimeSpan.FromSeconds(2); })
             .AddReactor<ApplicationImportExecutionReactor>(ApplicationImportExecutionReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddReactor<ApplicationImportGrantBackfillReactor>(
                 ApplicationImportGrantBackfillReactor.WorkloadName, WorkloadScope.Global)
