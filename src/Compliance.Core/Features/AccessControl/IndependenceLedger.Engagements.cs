@@ -124,6 +124,8 @@ public sealed partial class IndependenceLedger
         var request = new CloseServiceEngagement(_tenantId, engagementId, expectedSequence, reason);
         if (Retry<ServiceEngagementView>(requestId, request, actor) is { } retry)
             return retry;
+        if (Engagement(engagementId) is { Status: "accepted" })
+            return CloseActualEngagement(requestId, engagementId, expectedSequence, reason, actor, recordedAt);
         if (MutableEngagement(engagementId, expectedSequence) is not { } current)
             return UnavailableEngagement();
         return CommitEngagement(requestId, expectedSequence, request, current with
@@ -154,7 +156,7 @@ public sealed partial class IndependenceLedger
             !ValidEngagementContent(change.Engagement.Content) ||
             !IndependenceRecordValidation.ValidAttribution(change.RequestId, change.Engagement.Actor,
                 change.Engagement.RecordedAt, "member") ||
-            current is { Status: "closed" } || current is not null && current.Content.Practice != change.Engagement.Content.Practice ||
+            current is { Status: not "draft" } || current is not null && current.Content.Practice != change.Engagement.Content.Practice ||
             change.Engagement.Staff.Count > 100 ||
             change.Engagement.Status == "draft" && !change.Engagement.Staff.Any(staff =>
                 staff.StaffMemberId == change.Engagement.Content.EngagementLeadStaffMemberId && staff.IsCurrent) ||
@@ -200,7 +202,9 @@ public sealed partial class IndependenceLedger
     static bool ValidEngagementContent(ServiceEngagementDraftContent content) => content is not null &&
         content.Practice is "advisory" or "attest" && BoundedEngagement(content.Scope) &&
         content.PeriodStart != DateOnly.MinValue && (content.PeriodEnd is null || content.PeriodEnd >= content.PeriodStart) &&
-        content.EngagementLeadStaffMemberId != Uuid.Empty;
+        content.EngagementLeadStaffMemberId != Uuid.Empty &&
+        (content.ExaminationBoundary is null || content.ExaminationBoundary.BoundaryId != Uuid.Empty &&
+            content.ExaminationBoundary.VersionId != Uuid.Empty && content.ExaminationBoundary.Revision > 0);
     static bool ValidStaff(FirmStaffMemberView staff, string practice) => staff is not null &&
         staff.IsActive && staff.StaffMemberId != Uuid.Empty && staff.UserId != Uuid.Empty &&
         staff.Revision > 0 && staff.Practice == practice;

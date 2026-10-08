@@ -83,3 +83,53 @@ This is the client's own management decision. It does not ratify independence ru
 an engagement partner, accept an engagement, or grant professional access. A later professional
 acceptance must independently verify designated partner authority, current source facts and
 this exact acknowledgement. No public professional acceptance operation exists yet.
+
+## Accepted-state domain boundary
+
+The ledger has an internal acceptance command that consumes verified named-partner review
+proof, current active directory snapshots and designated-duty revision, a ratified rule
+snapshot, and the exact personal client acknowledgement. This command is deliberately absent
+from public HTTP and MCP write contracts. No partner duty designation or production ratification
+is inferred from platform operator, directory practice or client administration authority.
+The production verified-partner authorizer and cross-source acceptance handler remain unfinished;
+synthetic fixture proofs are test evidence, never real professional ratification.
+
+Acceptance recomputes policy from the complete immutable retained service history. An impaired
+or unclassified Attest service cannot be overridden; conditional compatibility requires a
+recorded partner evaluation. The acceptance snapshot retains its rule version, considered
+services and result, management acknowledgement, approver, review-task authority and source
+revisions, time, and actual accepted team. A draft may optionally select an examination boundary;
+when it does, acceptance requires the matching approved version and approval decision. Unscoped
+drafts accept with no boundary proof; unselected, half-present or mismatched proofs are refused.
+Later boundary successors cannot rewrite the historical binding.
+
+The approving partner remains separately attributed. Approval alone does not create an actual
+team assignment or grant client business access. The approver is checked against opposite
+actual assignment history; explicitly proposed team members become actual history only at
+acceptance. A broader rule about professional involvement outside assignments remains a firm
+ratification detail for issue #343.
+
+Actual assignments create permanent client-specific person history by canonical user and staff
+identity. Client closure and assignment revocation preserve it through aliases and later
+engagements. Removing the accepted lead closes the engagement and revokes the entire team;
+other removals revoke the named assignment. Client management acknowledgements refuse actual
+historical Attest actors even if they have a client-role identity. Immutable accepted history
+retains original approvals and separately attributed revocation reason and time.
+
+Current client administration grants allow acceptance metadata/history reads and the existing
+closure operation consumes accepted state when it exists. Actual removal is internal pending
+its professional lifecycle contract. No public acceptance writer or professional access grant
+is introduced. `IsEligibleForProfessionalAccess` is only a deny-only prerequisite: callers must
+supply trusted current rule and directory versions and an effective UTC instant, then apply
+ordinary grants and active directory/tenant conditions independently. It refuses before the
+recorded acceptance/assignment, outside the engagement period, after closure/removal, and when
+new service facts or changed supplied source versions invalidate the accepted snapshot. Runtime
+professional-access authorizers and compartment search/count/export/notification consumers
+remain unfinished.
+
+Engagement and acceptance histories remain bounded to one hundred revisions, and complete
+actual assignment history to one thousand records. New oversized events or histories are
+refused without truncating evidence. Acceptance cannot predate any retained engagement/staff-proposal decision, its exact acknowledgement,
+complete service facts, authored rules, approved boundary or verified authority/directory sources;
+backdated draft successors cannot hide later historical timestamps. Revocations cannot predate
+the latest recorded lifecycle decision. Replay recomputes the policy and source/identity fences from retained facts.

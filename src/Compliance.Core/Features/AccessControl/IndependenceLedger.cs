@@ -17,6 +17,8 @@ public sealed partial class IndependenceLedger : Aggregate
         _tenantId = tenantId;
         InitializeEngagements();
         On<EngagementManagementAcknowledged>(Apply);
+        On<ServiceEngagementAcceptanceRecorded>(Apply);
+        On<ServiceEngagementAssignmentRevoked>(Apply);
         On<NonattestServiceRecorded>(Apply);
         On<ClientIndependenceEvaluated>(Apply);
     }

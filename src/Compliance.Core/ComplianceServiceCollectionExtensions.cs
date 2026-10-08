@@ -512,6 +512,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ProposeServiceEngagementStaffHandler>()
             .AddRequestHandler<WithdrawServiceEngagementStaffProposalHandler>()
             .AddRequestHandler<CloseServiceEngagementHandler>()
+            .AddRequestHandler<GetServiceEngagementAcceptanceHandler>()
+            .AddRequestHandler<GetServiceEngagementAcceptanceHistoryHandler>()
             .AddRequestHandler<GetServiceEngagementHandler>()
             .AddRequestHandler<ListServiceEngagementsHandler>()
             .AddRequestHandler<GetServiceEngagementHistoryHandler>()
