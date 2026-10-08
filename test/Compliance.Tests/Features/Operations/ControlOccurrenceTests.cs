@@ -40,17 +40,11 @@ public sealed class ControlOccurrenceTests
         await fixture.PlanAsync();
         var missed = (await fixture.OccurrencesAsync("missed"))[0];
 
-        await fixture.Scenario(fixture.OwnerUserId)
-            // Act
-            .When(fixture.Attest(missed, evidence: [new(0, "external", "https://x.example")]))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(fixture.Attest(missed, "skipped", evidence: []))
-            .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(fixture.Attest(missed, "partly"))
-            .ExpectFailure(RequestErrorKind.Validation);
+        // Act
+        // Assert
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, fixture.Attest(missed, evidence: [new(0, "external", "https://x.example")]), RequestErrorKind.Validation);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, fixture.Attest(missed, "skipped", evidence: []), RequestErrorKind.Validation);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, fixture.Attest(missed, "partly"), RequestErrorKind.Validation);
     }
 
     [Fact]
@@ -61,14 +55,10 @@ public sealed class ControlOccurrenceTests
         await fixture.PlanAsync();
         var missed = (await fixture.OccurrencesAsync("missed"))[0];
 
-        await fixture.Scenario(fixture.OutsiderUserId)
-            // Act
-            .When(fixture.Attest(missed))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.LeadUserId)
-            .When(fixture.Attest(missed))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        // Assert
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OutsiderUserId, fixture.Attest(missed), RequestErrorKind.Forbidden);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.LeadUserId, fixture.Attest(missed), RequestErrorKind.Forbidden);
     }
 
     [Fact]
@@ -80,11 +70,9 @@ public sealed class ControlOccurrenceTests
         var missed = (await fixture.OccurrencesAsync("missed"))[0];
         await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(missed));
 
-        await fixture.Scenario(fixture.BackupUserId)
-            // Act
-            .When(fixture.Attest(missed))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        // Assert
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.BackupUserId, fixture.Attest(missed), RequestErrorKind.Conflict);
     }
 
     [Fact]
@@ -103,12 +91,8 @@ public sealed class ControlOccurrenceTests
         var attestation = Assert.Single(attested.Attestations);
         Assert.Equal(new OperatingHolder("person", fixture.PersonId), attestation.PerformedBy);
         Assert.Equal(fixture.LeadMemberId, attestation.RecorderMemberId);
-        await fixture.Scenario(fixture.LeadUserId)
-            .When(fixture.Review(attested, "approved"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.OutsiderUserId)
-            .When(fixture.Attest(missed, personId: fixture.PersonId))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.LeadUserId, fixture.Review(attested, "approved"), RequestErrorKind.Forbidden);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OutsiderUserId, fixture.Attest(missed, personId: fixture.PersonId), RequestErrorKind.Forbidden);
     }
 
     [Fact]
@@ -119,10 +103,8 @@ public sealed class ControlOccurrenceTests
         await fixture.PlanAsync();
         var missed = (await fixture.OccurrencesAsync("missed"))[0];
         var submitted = await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(missed));
-        await fixture.Scenario(fixture.OwnerUserId).When(fixture.Review(submitted, "approved"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.OutsiderUserId).When(fixture.Review(submitted, "approved"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, fixture.Review(submitted, "approved"), RequestErrorKind.Forbidden);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.OutsiderUserId, fixture.Review(submitted, "approved"), RequestErrorKind.Forbidden);
 
         // Act
         var reviewed = await fixture.AsAsync(fixture.ReviewerUserId,
@@ -187,12 +169,10 @@ public sealed class ControlOccurrenceTests
         Assert.Equal("Reviewer found the removal ticket missing.",
             corrected.Attestations[1].CorrectionReason);
         Assert.Equal("returned", Assert.Single(corrected.Reviews).Outcome);
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(corrected, "approved") with
-            {
-                AttestationId = corrected.Attestations[0].AttestationId,
-            })
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(corrected, "approved") with
+        {
+            AttestationId = corrected.Attestations[0].AttestationId,
+        }, RequestErrorKind.Conflict);
     }
 
     [Fact]
@@ -203,9 +183,7 @@ public sealed class ControlOccurrenceTests
         await fixture.PlanAsync();
         var missed = (await fixture.OccurrencesAsync("missed"))[0];
         var submitted = await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(missed));
-        await fixture.Scenario(fixture.ReviewerUserId)
-            .When(fixture.Review(submitted, "action_requested"))
-            .ExpectFailure(RequestErrorKind.Validation);
+        await PersonalOccurrenceProofTransportTests.HttpAsync(fixture.Provider, fixture.ReviewerUserId, fixture.Review(submitted, "action_requested"), RequestErrorKind.Validation);
 
         // Act
         var reviewed = await fixture.AsAsync(fixture.ReviewerUserId,

@@ -183,7 +183,8 @@ public sealed class PersonalReadinessClosureTransportTests
             ? new HttpInvocation("POST", "/synthetic/personal/decision", "/synthetic/personal/decision", "synthetic")
             : transport == "mcp" ? new McpInvocation("synthetic.personal.decision") : new DirectInvocation());
 
-    internal static async Task<ServiceProvider> ComposeAsync(ServiceProvider source, Uuid tenant, Uuid programId)
+    internal static async Task<ServiceProvider> ComposeAsync(ServiceProvider source, Uuid tenant, Uuid programId,
+        IPermissionAuthorizer? permissions = null)
     {
         var services = new ServiceCollection();
         services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -195,8 +196,9 @@ public sealed class PersonalReadinessClosureTransportTests
         services.AddSingleton(store);
         services.AddSingleton<IDomainEventReader>((IDomainEventReader)store);
         services.AddSingleton<IKvClient>(new InMemoryKvClient());
-        services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PermissionBackedAccessGrantPermissionAuthorizer(
-            new RecordingPermissionAuthorizer(allowed: true)));
+        permissions ??= new RecordingPermissionAuthorizer(allowed: true);
+        services.AddSingleton(permissions);
+        services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PermissionBackedAccessGrantPermissionAuthorizer(permissions));
         services.AddSingleton<ITenantActivity, ActiveTenant>();
         services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
