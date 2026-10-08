@@ -38,6 +38,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
 
     readonly Dictionary<(OperatingHolder Holder, Uuid MemberId), bool> _holds = [];
     readonly Dictionary<Uuid, bool> _active = [];
+    readonly Dictionary<Uuid, bool> _teamOversight = [];
     readonly Dictionary<Uuid, bool> _canAuthorManagement = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _proxyAllowed = [];
@@ -157,8 +158,10 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             var inTeam = candidate.Responsible.Kind == OperatingAuthority.TeamHolder &&
                          await HoldsAsync(tenantId, candidate.Responsible, actor.MemberId, ct)
                              .ConfigureAwait(false);
+            var oversees = manages || inTeam &&
+                await CanOverseeTeamAsync(tenantId, actor, ct).ConfigureAwait(false);
             if (eligible || assignee == actor.MemberId ||
-                manages && !RiskAcceptanceWork.HasRestrictedAuthority(candidate) &&
+                oversees && !RiskAcceptanceWork.HasRestrictedAuthority(candidate) &&
                 (candidate.Kind != FindingClosureWork.Kind || eligible))
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
@@ -266,6 +269,19 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             _holds[key] = holds = await authority.HoldsAsync(tenantId, holder, memberId, ct)
                 .ConfigureAwait(false);
         return holds;
+    }
+
+    async ValueTask<bool> CanOverseeTeamAsync(Uuid tenantId, OperationsActor actor, CancellationToken ct)
+    {
+        if (_teamOversight.TryGetValue(actor.MemberId, out var allowed))
+            return allowed;
+        var member = await reader.HydrateAsync(Member.ForVerification(tenantId, actor.MemberId), ct)
+            .ConfigureAwait(false);
+        allowed = member.IsRegistered && !member.IsSuspended && !member.IsDeprovisioned &&
+                  member.Affiliation != "firm_staff" && member.UserId != Uuid.Empty &&
+                  member.UserId == actor.UserId && RbacIds.Member(tenantId, member.UserId) == actor.MemberId;
+        _teamOversight[actor.MemberId] = allowed;
+        return allowed;
     }
 
     async ValueTask<bool> IsActiveMemberAsync(Uuid tenantId, Uuid memberId, CancellationToken ct)

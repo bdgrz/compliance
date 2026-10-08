@@ -188,3 +188,8 @@ correlation when evaluating an actor. Actual Attest history denies proxy eligibi
 an existing assignment while preserving ordinary All/Team oversight. Direct member-held personal acknowledgement
 remains available under its ordinary read/audience checks and retains the existing team-only Claim validation.
 The whole `AcknowledgePolicy` DTO remains unmarked because its personal and proxy branches have different authority.
+
+Current active team membership also supplies ordinary Team/All read oversight when the actor holds the existing
+program source-read grant, even if retained Attest history removes source action eligibility. That visibility does
+not supply an effective assignee, actionable Mine/unassigned work, claim, assignment, or delegation authority.
+Removed, suspended and deprovisioned team members remain absent; existing restricted-source visibility fences apply.
