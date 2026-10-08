@@ -432,6 +432,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<TechnologyInventoryRestrictedVisibility>();
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<ClientManagementIndependenceGuard>();
+        services.AddScoped<ClientCompartmentIndependenceGuard>();
         services.AddScoped<PolicyAcknowledgementRecorderGuard>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
@@ -706,6 +707,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListTypeIEntryDecisionsHandler>()
             .AddRequestHandler<AnnotateReadinessGapHandler>()
             .AddRequestHandler<ListReadinessAnnotationsHandler>()
+            .AddRequestAuthorizer<ReadinessAnnotationCompartmentAuthorizer>()
             .AddRequestHandler<ProposeControlOperatingPlanHandler>()
             .AddRequestHandler<PreviewControlOperatingPlanHandler>()
             .AddRequestHandler<ApproveControlOperatingPlanHandler>()
