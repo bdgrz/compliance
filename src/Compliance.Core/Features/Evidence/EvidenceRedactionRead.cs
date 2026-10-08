@@ -15,11 +15,18 @@ sealed class EvidenceRedactionRead(EvidenceArtifactReadAccess access, EvidenceRe
             return Result<EvidenceRedactionReadSnapshot>.Failure(new RequestError(RequestErrorKind.NotFound, "The redaction lineage was not found."));
         var captured = await sources.CaptureAsync(context, tenantId, preparation.Original.ArtifactId, preparation.Derived.ArtifactId, ct).ConfigureAwait(false);
         if (!captured.IsSuccess)
-            return Result<EvidenceRedactionReadSnapshot>.Failure(captured.Error);
+            return Result<EvidenceRedactionReadSnapshot>.Failure(captured.Error.Kind == RequestErrorKind.NotFound ?
+                new RequestError(RequestErrorKind.NotFound, "The redaction lineage was not found.") : captured.Error);
         if (EvidenceRedactionSources.Identity(captured.Value.Original) != preparation.Original ||
             EvidenceRedactionSources.Identity(captured.Value.Derived) != preparation.Derived)
             return Result<EvidenceRedactionReadSnapshot>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The current artifacts differ from the retained preparation identities."));
+        // The current available artifact lifecycle has no later valid mutation. Retained approvals
+        // must bind that exact observed source and availability fact, including older preparation approvals.
+        if (redaction.Approvals.Any(approval => approval.DerivedSourcePosition != captured.Value.Derived.Metadata.SourcePosition ||
+                approval.DerivedAvailableAt != captured.Value.Derived.AvailabilityRecordedAt))
+            return Result<EvidenceRedactionReadSnapshot>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The retained approval source proof differs from the observed derived artifact."));
         var checkedSources = await sources.CheckAsync(context, captured.Value, ct).ConfigureAwait(false);
         if (!checkedSources.IsSuccess)
             return Result<EvidenceRedactionReadSnapshot>.Failure(checkedSources.Error);

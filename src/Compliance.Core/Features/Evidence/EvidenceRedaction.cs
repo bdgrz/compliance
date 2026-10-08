@@ -62,20 +62,21 @@ public sealed class EvidenceRedaction : Aggregate
 
     internal Result<EvidenceRedactionApprovalFact> Approve(Uuid requestId, long expectedRevision,
         Uuid preparationId, long preparedRevision, ulong derivedSourcePosition,
-        ActorReference actor, DateTimeOffset approvedAt, SeparationOfDutiesWaiver? waiver = null)
+        ActorReference actor, DateTimeOffset approvedAt, DateTimeOffset derivedAvailableAt, SeparationOfDutiesWaiver? waiver = null)
     {
         if (!ValidActor(actor) || requestId == Uuid.Empty)
             return Refuse<EvidenceRedactionApprovalFact>(RequestErrorKind.Validation, "Approval requires a canonical attributed member decision.");
         if (_approvals.FirstOrDefault(item => item.ApprovalId == requestId) is { } prior)
             return expectedRevision == prior.Revision - 1 && prior.PreparationId == preparationId &&
-                prior.PreparedRevision == preparedRevision && SameActor(prior.ApprovedBy, actor) &&
+                prior.PreparedRevision == preparedRevision && prior.DerivedAvailableAt == derivedAvailableAt && SameActor(prior.ApprovedBy, actor) &&
                 prior.SeparationOfDutiesWaiver?.WaiverId == waiver?.Id
                 ? Result<EvidenceRedactionApprovalFact>.Success(prior)
                 : Refuse<EvidenceRedactionApprovalFact>(RequestErrorKind.Conflict, "This approval identity retains different intent or canonical actor.");
         if (_preparations.Any(item => item.PreparationId == requestId) || expectedRevision != Revision ||
             CurrentPreparation is not { } prepared || prepared.PreparationId != preparationId || prepared.Revision != preparedRevision ||
-            CurrentApproval is not null || derivedSourcePosition == 0 || _preparations.Count + _approvals.Count >= MaximumHistory ||
-            approvedAt == default || approvedAt < _lastChangedAt)
+            CurrentApproval is not null || derivedSourcePosition < 2 || _preparations.Count + _approvals.Count >= MaximumHistory ||
+            approvedAt == default || approvedAt < _lastChangedAt || derivedAvailableAt == default ||
+            derivedAvailableAt < prepared.Derived.RegisteredAt || approvedAt < derivedAvailableAt)
             return Refuse<EvidenceRedactionApprovalFact>(RequestErrorKind.Conflict, "Approve the current exact preparation and preserve bounded source chronology.");
         var waiverSnapshot = waiver is null ? null : SnapshotWaiver(waiver);
         if (waiver is not null && (waiver.TenantId != _tenantId || waiverSnapshot is null ||
@@ -83,7 +84,7 @@ public sealed class EvidenceRedaction : Aggregate
             SameActor(prepared.PreparedBy, actor) && waiverSnapshot is null)
             return Refuse<EvidenceRedactionApprovalFact>(RequestErrorKind.Forbidden, "A preparer cannot approve their own derivative without an independently approved exact-scope active waiver.");
         var view = new EvidenceRedactionApprovalFact(requestId, Revision + 1, preparationId, preparedRevision,
-            derivedSourcePosition, actor, approvedAt, waiverSnapshot);
+            derivedSourcePosition, derivedAvailableAt, actor, approvedAt, waiverSnapshot);
         var ev = new EvidenceRedactionApproved(_tenantId, Id, Revision, view);
         if (!Fits(ev))
             return Refuse<EvidenceRedactionApprovalFact>(RequestErrorKind.Validation, "The complete approval event exceeds its payload bound.");
@@ -98,8 +99,9 @@ public sealed class EvidenceRedaction : Aggregate
             view is null || view.Revision != Revision + 1 || view.ApprovalId == Uuid.Empty || !ValidActor(view.ApprovedBy) ||
             _preparations.Any(item => item.PreparationId == view.ApprovalId) || _approvals.Any(item => item.ApprovalId == view.ApprovalId) ||
             CurrentPreparation is not { } prepared || prepared.PreparationId != view.PreparationId || prepared.Revision != view.PreparedRevision ||
-            CurrentApproval is not null || view.DerivedSourcePosition == 0 || _preparations.Count + _approvals.Count >= MaximumHistory ||
-            view.ApprovedAt == default || view.ApprovedAt < _lastChangedAt ||
+            CurrentApproval is not null || view.DerivedSourcePosition < 2 || _preparations.Count + _approvals.Count >= MaximumHistory ||
+            view.ApprovedAt == default || view.ApprovedAt < _lastChangedAt || view.DerivedAvailableAt == default ||
+            view.DerivedAvailableAt < prepared.Derived.RegisteredAt || view.ApprovedAt < view.DerivedAvailableAt ||
             view.SeparationOfDutiesWaiver is { } waiver && !ValidWaiver(waiver, prepared, view.ApprovedBy, view.ApprovedAt) ||
             SameActor(prepared.PreparedBy, view.ApprovedBy) && view.SeparationOfDutiesWaiver is null || !Fits(ev))
             throw new InvalidOperationException("Redaction approvals must retain the exact current preparation, attribution, chronology and independent decision.");

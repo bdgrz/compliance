@@ -15,8 +15,9 @@ sealed class EvidenceRedactionWaiverScopeAuthorizer(SeparationOfDutiesWaiverAuth
         var allowed = await RequireAdministrationAsync(context, ct).ConfigureAwait(false);
         if (!allowed.IsSuccess)
             return allowed;
-        return await VerifyAsync(context, context.Request.TenantId, context.Request.Scope,
+        var verified = await VerifyAsync(context, context.Request.TenantId, context.Request.Scope,
             RbacIds.Member(context.Request.TenantId, context.Request.BeneficiaryUserId), ct).ConfigureAwait(false);
+        return verified.IsSuccess ? await RequireAdministrationAsync(context, ct).ConfigureAwait(false) : verified;
     }
 
     public async ValueTask<Result> AuthorizeAsync(IRequestContext<ApproveSeparationOfDutiesWaiver> context, CancellationToken ct)
@@ -39,6 +40,9 @@ sealed class EvidenceRedactionWaiverScopeAuthorizer(SeparationOfDutiesWaiverAuth
         var verified = await VerifyAsync(context, context.Request.TenantId, waiver.Scope, waiver.BeneficiaryMemberId, ct).ConfigureAwait(false);
         if (!verified.IsSuccess)
             return verified;
+        allowed = await RequireAdministrationAsync(context, ct).ConfigureAwait(false);
+        if (!allowed.IsSuccess)
+            return allowed;
         var current = await reader.HydrateAsync(new SeparationOfDutiesWaiver(context.Request.TenantId, context.Request.WaiverId), ct).ConfigureAwait(false);
         return current.CommittedStreamPosition == position ? Result.Success : Result.Failure(new RequestError(
             RequestErrorKind.Conflict, "The waiver changed during scope verification.", isTransient: true));

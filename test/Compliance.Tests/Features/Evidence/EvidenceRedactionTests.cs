@@ -141,7 +141,7 @@ public sealed class EvidenceRedactionTests
 
         // Act
         var result = redaction.Approve(decisionId, 1, preparationId, 1, 2,
-            lead, Now.AddMinutes(1));
+            lead, Now.AddMinutes(1), Now);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -212,14 +212,14 @@ public sealed class EvidenceRedactionTests
         Assert.True(redaction.Prepare(preparationId, 0, Identity('a'), Identity('b'), "Manual", "Private fields", Contributor, Now).IsSuccess);
         var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Lead");
         var request = Uuid.CreateVersion4();
-        var first = redaction.Approve(request, 1, preparationId, 1, 2, actor, Now.AddMinutes(1));
+        var first = redaction.Approve(request, 1, preparationId, 1, 2, actor, Now.AddMinutes(1), Now);
         Assert.True(first.IsSuccess);
 
         // Act
         var renamed = redaction.Approve(request, 1, preparationId, 1, 3,
-            actor with { Display = "Renamed lead" }, Now.AddMinutes(2));
+            actor with { Display = "Renamed lead" }, Now.AddMinutes(2), Now);
         var other = redaction.Approve(request, 1, preparationId, 1, 3,
-            ActorReference.ForMember(Uuid.CreateVersion4(), "Other lead"), Now.AddMinutes(2));
+            ActorReference.ForMember(Uuid.CreateVersion4(), "Other lead"), Now.AddMinutes(2), Now);
 
         // Assert
         Assert.Equal(first.Value, renamed.Value);
@@ -236,7 +236,7 @@ public sealed class EvidenceRedactionTests
         Assert.True(redaction.Prepare(preparationId, 0, Identity('a'), Identity('b'), "Manual", "Private fields", Contributor, Now).IsSuccess);
 
         // Act
-        var result = redaction.Approve(Uuid.CreateVersion4(), 1, preparationId, 1, 2, Contributor, Now.AddMinutes(1));
+        var result = redaction.Approve(Uuid.CreateVersion4(), 1, preparationId, 1, 2, Contributor, Now.AddMinutes(1), Now);
 
         // Assert
         Assert.False(result.IsSuccess);

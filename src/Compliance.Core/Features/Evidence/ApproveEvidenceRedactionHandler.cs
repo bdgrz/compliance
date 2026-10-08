@@ -20,7 +20,8 @@ sealed class ApproveEvidenceRedactionHandler(EvidenceRedactionAccess access, Evi
         var snapshot = await read.GetAsync(context, request.TenantId, request.RedactionId, ct).ConfigureAwait(false);
         if (!snapshot.IsSuccess)
             return Result<EvidenceRedactionView>.Failure(snapshot.Error);
-        if (snapshot.Value.Sources.Derived.Metadata.State != EvidenceArtifactStates.Available)
+        if (snapshot.Value.Sources.Derived.Metadata.State != EvidenceArtifactStates.Available ||
+            snapshot.Value.Sources.Derived.AvailabilityRecordedAt is not { } availableAt)
             return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "Approval requires the exact derived artifact to be currently available."));
         SeparationOfDutiesWaiver? waiver = null;
@@ -32,31 +33,36 @@ sealed class ApproveEvidenceRedactionHandler(EvidenceRedactionAccess access, Evi
             if (!waiver.IsRecorded)
                 return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Forbidden, "The exact-scope waiver is not active."));
         }
-        allowed = await access.RequireAsync(context, request.TenantId, true, ct).ConfigureAwait(false);
-        if (!allowed.IsSuccess)
-            return Result<EvidenceRedactionView>.Failure(allowed.Error);
-        var checkedSources = await sources.CheckAsync(context, snapshot.Value.Sources, ct).ConfigureAwait(false);
-        if (!checkedSources.IsSuccess)
-            return Result<EvidenceRedactionView>.Failure(checkedSources.Error);
-        if (waiver is not null)
-        {
-            var current = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId, waiver.Id), ct).ConfigureAwait(false);
-            if (current.CommittedStreamPosition != waiverPosition)
-                return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Conflict,
-                    "The waiver changed during this request.", isTransient: true));
-        }
         var at = clock.GetUtcNow();
         if (waiver is not null)
         {
             var eligible = await waivers.RequireAsync(waiver, snapshot.Value.Redaction, RbacIds.Member(request.TenantId, user), at, ct).ConfigureAwait(false);
             if (!eligible.IsSuccess)
                 return Result<EvidenceRedactionView>.Failure(eligible.Error);
+            var current = await reader.HydrateAsync(new SeparationOfDutiesWaiver(request.TenantId, waiver.Id), ct).ConfigureAwait(false);
+            if (current.CommittedStreamPosition != waiverPosition)
+                return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The waiver changed during this request.", isTransient: true));
         }
+        allowed = await access.RequireAsync(context, request.TenantId, true, ct).ConfigureAwait(false);
+        if (!allowed.IsSuccess)
+            return Result<EvidenceRedactionView>.Failure(allowed.Error);
+        var checkedSources = await sources.CheckAsync(context, snapshot.Value.Sources, ct).ConfigureAwait(false);
+        if (!checkedSources.IsSuccess)
+            return Result<EvidenceRedactionView>.Failure(checkedSources.Error);
+        at = clock.GetUtcNow();
+        if (waiver is not null && !waiver.Allows(snapshot.Value.Redaction.WaiverScope(snapshot.Value.Redaction.CurrentPreparation!),
+                RbacIds.Member(request.TenantId, user), at))
+            return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The exact-scope waiver is not currently eligible for this decision."));
+        if (availableAt == default || at < availableAt)
+            return Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "Approval cannot precede the retained availability decision."));
         var actor = ActorReference.ForMember(RbacIds.Member(request.TenantId, user), UserIdentityClaims.BdgrzDisplay(context.Actor, user));
         return await executor.ExecuteAsync(new EvidenceRedaction(request.TenantId, request.RedactionId), aggregate =>
         {
             var approved = aggregate.Approve(context.RequestId, request.ExpectedRevision, request.PreparationId,
-                request.PreparedRevision, snapshot.Value.Sources.Derived.Metadata.SourcePosition, actor, at, waiver);
+                request.PreparedRevision, snapshot.Value.Sources.Derived.Metadata.SourcePosition, actor, at, availableAt, waiver);
             return approved.IsSuccess ? AggregateOutcome.Commit(Result<EvidenceRedactionView>.Success(
                 aggregate.PublicView(snapshot.Value.Sources.Original.Metadata.State, snapshot.Value.Sources.Derived.Metadata.State,
                     aggregate.CurrentApproval is not null))) : AggregateOutcome.Discard(Result<EvidenceRedactionView>.Failure(approved.Error));
