@@ -34,7 +34,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         var pending = await fixture.SeedAsync(executive);
 
         // Act
-        await fixture.Scenario(userId).When(fixture.Accept(pending, executive)).ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, executive), userId, RequestErrorKind.Forbidden);
         var queue = await fixture.Scenario(userId).When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "unassigned")).ExpectSuccess();
 
@@ -56,7 +56,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         fixture.Permissions.Acceptors.Add((fixture.GuestMemberId, executive
             ? RbacPermissions.RiskAcceptExecutive : RbacPermissions.RiskAcceptComplianceLead));
         var first = await fixture.SeedAsync(executive);
-        await fixture.Scenario().When(fixture.Accept(first, executive)).ExpectSuccess();
+        await fixture.AcceptHttpAsync(fixture.Accept(first, executive), fixture.GuestUserId);
         var next = await fixture.SeedAsync(executive);
 
         // Act
@@ -66,7 +66,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         var assigned = await fixture.Scenario().When(new AssignWorkItem(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, item.WorkItemId, item.AssignmentRevision, fixture.GuestMemberId))
             .ExpectSuccess();
-        await fixture.Scenario().When(fixture.Accept(next, executive)).ExpectSuccess();
+        await fixture.AcceptHttpAsync(fixture.Accept(next, executive), fixture.GuestUserId);
         await fixture.CatchUpAsync();
         var after = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "mine")).ExpectSuccess();
@@ -102,7 +102,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
             fixture.Permissions.Acceptors.Remove((fixture.GuestMemberId, RbacPermissions.RiskAcceptComplianceLead));
 
         // Act
-        await fixture.Scenario().When(fixture.Accept(pending, false)).ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, false), fixture.GuestUserId, RequestErrorKind.Forbidden);
         var after = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "mine")).ExpectSuccess();
         await fixture.Scenario().When(new GetWorkItem(fixture.Operations.TenantId,
@@ -131,13 +131,13 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         var pending = await fixture.SeedAsync(!unsetAppetite, unsetAppetite ? null : 20);
 
         // Act
-        await fixture.Scenario().When(fixture.Accept(pending, false)).ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, false), fixture.GuestUserId, RequestErrorKind.Forbidden);
         var before = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "unassigned")).ExpectSuccess();
         fixture.Permissions.Acceptors.Add((fixture.GuestMemberId, RbacPermissions.RiskAcceptExecutive));
         var after = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "unassigned")).ExpectSuccess();
-        await fixture.Scenario().When(fixture.Accept(pending, true)).ExpectSuccess();
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, true), fixture.GuestUserId);
 
         // Assert
         Assert.Empty(before.Value.Items);
@@ -156,7 +156,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         var pending = await fixture.SeedAsync(false, assessorMemberId: fixture.GuestMemberId);
 
         // Act
-        await fixture.Scenario().When(fixture.Accept(pending, false)).ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, false), fixture.GuestUserId, RequestErrorKind.Forbidden);
         var queue = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "mine")).ExpectSuccess();
 
@@ -195,7 +195,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
             });
 
         // Act
-        await fixture.Scenario().When(fixture.Accept(pending, false)).ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.AcceptHttpAsync(fixture.Accept(pending, false), fixture.GuestUserId, RequestErrorKind.Forbidden);
         var queue = await fixture.Scenario().When(new ListWork(fixture.Operations.TenantId,
             fixture.Operations.ProgramId, "mine")).ExpectSuccess();
 
@@ -214,7 +214,7 @@ public sealed class RiskAcceptanceWorkAuthorityTests
         var pending = await fixture.SeedAsync(false);
 
         // Act
-        var accepted = await fixture.Scenario().When(fixture.Accept(pending, false)).ExpectSuccess();
+        var accepted = await fixture.AcceptHttpAsync(fixture.Accept(pending, false), fixture.GuestUserId);
         var source = await ProgramManagementServices.HydrateAsync(fixture.Operations.Provider,
             new RiskEvaluation(fixture.Operations.TenantId, pending.RiskId));
 
@@ -299,6 +299,21 @@ public sealed class RiskAcceptanceWorkAuthorityTests
                 ProjectSource = projected,
                 GuestUserId = guestUserId
             };
+        }
+
+        public async Task<Result<RiskAcceptanceView>> AcceptHttpAsync(AcceptRisk request, Uuid userId,
+            RequestErrorKind? expectedFailure = null)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(request,
+                new RequestDispatchContext(ProgramManagementServices.Actor(userId),
+                    new HttpInvocation("POST", "/synthetic/risk-acceptance", "/synthetic/risk-acceptance", "synthetic")),
+                CancellationToken.None);
+            if (expectedFailure is { } error)
+                Assert.Equal(error, result.Error?.Kind);
+            else
+                Assert.True(result.IsSuccess, result.Error?.Message);
+            return result;
         }
 
         public RequestScenario Scenario(Uuid? userId = null) => RequestScenario.For(Provider)

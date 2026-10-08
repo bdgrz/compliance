@@ -91,12 +91,8 @@ public sealed class RiskGovernanceHandlerTests
         var waiverId = await fixture.SeedWaiverAsync(residual.Value.AssessmentId, 3);
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Accept(residual.Value.AssessmentId, null))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        var accepted = await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Accept(residual.Value.AssessmentId, waiverId))
-            .ExpectSuccess();
+        await fixture.AcceptHttpAsync(fixture.Accept(residual.Value.AssessmentId, null), fixture.ApproverUserId, RequestErrorKind.Forbidden);
+        var accepted = await fixture.AcceptHttpAsync(fixture.Accept(residual.Value.AssessmentId, waiverId), fixture.ApproverUserId);
 
         // Assert
         Assert.Equal(waiverId, accepted.Value.SeparationOfDutiesWaiverId);
@@ -534,6 +530,21 @@ public sealed class RiskGovernanceHandlerTests
                         new HashSet<Uuid> { owner }, Uuid.CreateVersion4(), "Approver", now));
                 });
             return fixture;
+        }
+
+        public async Task<Result<RiskAcceptanceView>> AcceptHttpAsync(AcceptRisk request, Uuid userId,
+            RequestErrorKind? expectedFailure = null)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(request,
+                new RequestDispatchContext(ProgramManagementServices.Actor(userId),
+                    new HttpInvocation("POST", "/synthetic/risk-acceptance", "/synthetic/risk-acceptance", "synthetic")),
+                CancellationToken.None);
+            if (expectedFailure is { } error)
+                Assert.Equal(error, result.Error?.Kind);
+            else
+                Assert.True(result.IsSuccess, result.Error?.Message);
+            return result;
         }
 
         public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
