@@ -20,6 +20,7 @@ public sealed partial class IndependenceLedger : Aggregate
         On<ServiceEngagementAcceptanceRecorded>(Apply);
         On<ServiceEngagementAssignmentRevoked>(Apply);
         On<NonattestServiceRecorded>(Apply);
+        On<ServiceIndependenceReevaluated>(Apply);
         On<ClientIndependenceEvaluated>(Apply);
     }
 
@@ -43,7 +44,12 @@ public sealed partial class IndependenceLedger : Aggregate
         var recorded = new NonattestServiceRecorded(_tenantId, requestId, expectedSequence, service);
         if (!Fits(recorded))
             return Failure<NonattestServiceView>(RequestErrorKind.Validation, "The service event exceeds the bounded payload.");
+        var reevaluations = PrepareSourceReevaluations(recorded);
+        if (!reevaluations.IsSuccess)
+            return Result<NonattestServiceView>.Failure(reevaluations.Error);
         RaiseEvent(recorded);
+        foreach (var reevaluation in reevaluations.Value)
+            RaiseEvent(reevaluation);
         return Result<NonattestServiceView>.Success(service);
     }
 
@@ -96,7 +102,10 @@ public sealed partial class IndependenceLedger : Aggregate
     public IndependenceHistoryView History() => new(_tenantId, Sequence,
         Array.AsReadOnly(_evaluations.Select(evaluation => evaluation.EvaluatedRules)
             .DistinctBy(version => version.Version).OrderBy(version => version.Version).ToArray()),
-        Array.AsReadOnly(_services.ToArray()), Array.AsReadOnly(_evaluations.ToArray()));
+        Array.AsReadOnly(_services.ToArray()), Array.AsReadOnly(_evaluations.ToArray()))
+    {
+        SourceReevaluations = Array.AsReadOnly(_sourceReevaluations.Select(FreezeReevaluation).ToArray())
+    };
 
     void Apply(NonattestServiceRecorded recorded)
     {
@@ -106,6 +115,7 @@ public sealed partial class IndependenceLedger : Aggregate
             throw new InvalidOperationException("Service identities cannot be rewritten.");
         var service = IndependenceRecordValidation.Freeze(recorded.Service);
         _services.Add(service);
+        _serviceSourceSequences.Add(service.ServiceRecordId, recorded.ExpectedSequence + 1);
         Remember(recorded.RequestId, new RecordNonattestService(_tenantId, service.ServiceRecordId,
             recorded.ExpectedSequence, service.Content), service.Actor, service);
     }
