@@ -67,9 +67,12 @@ public sealed partial class IndependenceLedger
         var duringPeriod = history.Any(service => !acceptedServiceIds.Contains(service.ServiceRecordId) &&
             service.Content.StartedOn > engagement.Content.PeriodStart &&
             (engagement.Content.PeriodEnd is null || service.Content.StartedOn <= engagement.Content.PeriodEnd));
-        var code = decision.Code == IndependenceDecisionCode.Allowed && duringPeriod
-            ? "during_period_service_requires_review" : WireCode(decision.Code);
-        var state = decision.Code == IndependenceDecisionCode.RecentImpairingService ? "impaired" :
+        var knownImpairment = decision.ConsideredServices.Any(assessment =>
+            assessment.Classification == IndependenceServiceClassification.Impairing);
+        var code = knownImpairment ? "recent_impairing_service" :
+            decision.Code == IndependenceDecisionCode.Allowed && duringPeriod
+                ? "during_period_service_requires_review" : WireCode(decision.Code);
+        var state = knownImpairment ? "impaired" :
             decision.Code == IndependenceDecisionCode.Allowed && !duringPeriod ? "compatible" : "review_required";
         var considered = decision.ConsideredServices.Select(item => item.Service).ToHashSet();
         var digest = AcceptanceDigest(acceptance);

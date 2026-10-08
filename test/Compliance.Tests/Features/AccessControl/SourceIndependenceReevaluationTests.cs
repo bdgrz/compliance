@@ -499,6 +499,55 @@ public sealed class SourceIndependenceReevaluationTests
             JsonSerializer.Serialize(replay.History(), ComplianceCoreJsonContext.Default.IndependenceHistoryView));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldPreserveKnownImpairmentGivenMixedClassifiedLookbackHistory(bool unknownFirst)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var before = await fixture.ReadAsync();
+        var impaired = fixture.Service(before.Sequence);
+        impaired = impaired with
+        {
+            Content = impaired.Content with
+            {
+                StartedOn = new DateOnly(2025, 11, 1),
+                EndedOn = new DateOnly(2025, 12, 1),
+                InvolvedManagementFunctions = true
+            }
+        };
+        if (unknownFirst)
+            impaired = impaired with { Content = impaired.Content with { ServiceType = "unclassified", InvolvedManagementFunctions = false } };
+        Assert.True((await fixture.Bus.DispatchAsync(impaired, fixture.Context(), CancellationToken.None)).IsSuccess);
+        var changed = await fixture.ReadAsync();
+        var unknown = fixture.Service(changed.Sequence);
+        unknown = unknown with
+        {
+            Content = unknown.Content with
+            {
+                ServiceType = unknownFirst ? "readiness" : "unclassified",
+                InvolvedManagementFunctions = unknownFirst,
+                StartedOn = new DateOnly(2025, 10, 1),
+                EndedOn = new DateOnly(2025, 12, 1)
+            }
+        };
+
+        // Act
+        var result = await fixture.Bus.DispatchAsync(unknown, fixture.Context(), CancellationToken.None);
+        var retained = await fixture.ReadAsync();
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(2, retained.History().SourceReevaluations.Count);
+        Assert.Equal(unknownFirst ? "review_required" : "impaired", retained.History().SourceReevaluations[0].State);
+        var receipt = retained.History().SourceReevaluations[1];
+        Assert.Equal("impaired", receipt.State);
+        Assert.Equal("recent_impairing_service", receipt.DecisionCode);
+        Assert.Equal("service_not_classified", receipt.PeriodStartLookbackDecisionCode);
+        Assert.All(retained.History().SourceReevaluations, item => Assert.True(item.ProductionAcceptanceBlocked));
+    }
+
     sealed class Fixture : IAsyncDisposable
     {
         readonly ServiceProvider _provider;
