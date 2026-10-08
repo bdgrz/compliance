@@ -277,8 +277,9 @@ public sealed class ReadinessAssessmentHandlerTests
 
         // Act
         // Assert
-        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.RunnerUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+        var denied = await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.RunnerUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
                 assessment.AssessmentId, 1, "defer", "Self sign."), RequestErrorKind.Forbidden);
+        Assert.Equal("The member who ran an assessment cannot sign its Type I entry decision.", denied.Error!.Message);
         await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
                 assessment.AssessmentId, 1, "approve_with_exceptions", "No proceed.", all), RequestErrorKind.Conflict);
         var deferred = await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
