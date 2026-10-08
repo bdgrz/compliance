@@ -79,6 +79,51 @@ public sealed class AttestAccessReviewWriteWallTests
         Assert.True(result.IsSuccess, result.Error?.Message);
     }
 
+    [Fact]
+    public async Task ShouldPermitClientManagementGivenActualAdvisoryHistoryForSameClient()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.Source.TenantId,
+            fixture.Source.ManagerUserId, practice: "advisory");
+
+        // Act
+        var result = await fixture.SendAsync(fixture.Source.ManagerUserId, fixture.Open());
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRetainPersonalAccessDecisionGivenOrdinaryAssignedReviewerWithoutAttestHistory(bool bulk)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var (populationId, _) = await fixture.Source.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.Source.ClassifyStandardAsync(populationId);
+        var launched = await fixture.Source.LaunchAsync(populationId);
+        var campaign = await fixture.Source.CampaignAsync(launched.CampaignId);
+        var itemId = AccessReviewCampaignTests.ItemId(campaign, "ada", "deploy");
+        var preview = await fixture.SendAsync(fixture.Source.ReviewerUserId,
+            new PreviewBulkAccessDecision(fixture.Source.TenantId, launched.CampaignId, [itemId], "keep"));
+
+        // Act
+        var success = bulk
+            ? (await fixture.SendAsync(fixture.Source.ReviewerUserId, new RecordBulkAccessDecision(fixture.Source.TenantId,
+                launched.CampaignId, [itemId], "keep", "Reviewed", preview.Value!.PreviewToken))).IsSuccess
+            : (await fixture.SendAsync(fixture.Source.ReviewerUserId, new RecordAccessDecision(fixture.Source.TenantId,
+                launched.CampaignId, itemId, 1, "keep", "Reviewed"))).IsSuccess;
+        var retained = await fixture.SendAsync(fixture.Source.ReviewerUserId,
+            new GetAccessReviewCampaign(fixture.Source.TenantId, launched.CampaignId));
+
+        // Assert
+        Assert.True(success);
+        Assert.True(retained.IsSuccess);
+        Assert.Equal("decided", Assert.Single(retained.Value!.Items, item => item.Item.ItemId == itemId).Status);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

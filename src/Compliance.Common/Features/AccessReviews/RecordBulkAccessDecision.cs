@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_review.decision.bulk_record", 1)]
 public sealed record RecordBulkAccessDecision(Uuid TenantId, Uuid CampaignId,
     IReadOnlyList<Uuid> ItemIds, string Decision, string Rationale, string PreviewToken)
-    : IRequest<BulkAccessDecisionResult>, IAccessReviewParticipantRequest, ICallable;
+    : IRequest<BulkAccessDecisionResult>, IAccessReviewParticipantRequest, IAccessReviewMutationRequest, ICallable;

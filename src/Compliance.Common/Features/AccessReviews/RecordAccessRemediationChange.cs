@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record RecordAccessRemediationChange(Uuid TenantId, Uuid CampaignId,
     Uuid ItemId, long ExpectedRevision, string Reference, string Description,
     DateTimeOffset ChangedAt)
-    : IRequest<AccessRemediationChangeView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessRemediationChangeView>, IAccessReviewMutationRequest, ICallable;

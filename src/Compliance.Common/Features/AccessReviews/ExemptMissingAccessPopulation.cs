@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_population.exception.record", 1)]
 public sealed record ExemptMissingAccessPopulation(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, long ExpectedLedgerRevision, string Reason, DateTimeOffset ExpiresAt)
-    : IRequest<AccessPopulationExceptionView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessPopulationExceptionView>, IAccessReviewMutationRequest, ICallable;

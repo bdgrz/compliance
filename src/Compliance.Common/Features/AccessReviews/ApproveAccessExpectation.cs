@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_expectation.approve", 1)]
 public sealed record ApproveAccessExpectation(Uuid TenantId, Uuid SystemInstanceId,
     Uuid ExpectationId, long ExpectedLedgerRevision, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<AccessExpectationView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessExpectationView>, IAccessReviewMutationRequest, ICallable;
