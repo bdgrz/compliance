@@ -40,7 +40,7 @@ sealed class FitzActualStaffEngagementLocator(IKvClient client)
         if (source.Event is not ServiceEngagementAcceptanceRecorded accepted)
             return;
         var view = accepted.Acceptance;
-        if (accepted.TenantId != tenant || accepted.RequestId == Uuid.Empty || accepted.ExpectedSequence < 0 ||
+        if (accepted.TenantId != tenant || accepted.RequestId == Uuid.Empty || accepted.ExpectedSequence is < 0 or long.MaxValue ||
             string.IsNullOrWhiteSpace(accepted.Intent) ||
             view is null || view.TenantId != tenant || view.EngagementId == Uuid.Empty || view.Revision != 1 ||
             view.Status != "active" || view.RecordedAt == default || view.Assignments is null ||
@@ -57,7 +57,7 @@ sealed class FitzActualStaffEngagementLocator(IKvClient client)
         var rows = view.Assignments.Select(staff => new ActualStaffEngagementLocatorView(
             Uuid.CreateVersion5(accepted.RequestId,
                 $"actual_staff_locator_v1:{tenant}:{view.EngagementId}:{view.Revision}:{staff.StaffMemberId}:{staff.UserId}"),
-            tenant, view.EngagementId, accepted.RequestId, view.Revision, accepted.ExpectedSequence,
+            tenant, view.EngagementId, accepted.RequestId, view.Revision, accepted.ExpectedSequence + 1,
             digest, sourceDigest, staff.StaffMemberId, staff.UserId, staff.Practice, staff.DirectoryStaffRevision,
             view.RecordedAt, staff.AssignedAt, source.Stream.Realm, source.Stream.Area, source.Stream.Resource,
             source.ResourceOffset, source.NextCursor.Value)).ToArray();

@@ -28,6 +28,10 @@ public sealed class ActualStaffEngagementLocatorTests
         Assert.Equal(fixture.Tenant, row.TenantId);
         Assert.Equal(fixture.Staff.StaffMemberId, row.StaffMemberId);
         Assert.Equal(fixture.Staff.UserId, row.UserId);
+        var accepted = Assert.IsType<ServiceEngagementAcceptanceRecorded>(source.Event);
+        Assert.Equal(accepted.ExpectedSequence + 1, row.AcceptanceSourceSequence);
+        var ledger = await fixture.HydrateLedgerAsync();
+        Assert.Equal(ledger.Sequence, row.AcceptanceSourceSequence);
         Assert.Equal(source.ResourceOffset, row.SourceResourceOffset);
         Assert.Equal(source.NextCursor.Value, row.SourceNextCursor);
         Assert.Equal(source.Stream.Realm, row.SourceRealm);
@@ -227,6 +231,7 @@ public sealed class ActualStaffEngagementLocatorTests
     [InlineData("invalid_revision")]
     [InlineData("duplicate_staff")]
     [InlineData("future_assignment")]
+    [InlineData("overflow_sequence")]
     public async Task ShouldRejectSourceBeforeRowsOrCheckpointGivenMalformedLocatorProvenance(string mutation)
     {
         // Arrange
@@ -245,6 +250,7 @@ public sealed class ActualStaffEngagementLocatorTests
             "invalid_revision" => source with { Event = accepted with { Acceptance = accepted.Acceptance with { Assignments = [assignment with { DirectoryStaffRevision = 0 }] } } },
             "duplicate_staff" => source with { Event = accepted with { Acceptance = accepted.Acceptance with { Assignments = [assignment, assignment] } } },
             "future_assignment" => source with { Event = accepted with { Acceptance = accepted.Acceptance with { Assignments = [assignment with { AssignedAt = accepted.Acceptance.RecordedAt.AddMinutes(1) }] } } },
+            "overflow_sequence" => source with { Event = accepted with { ExpectedSequence = long.MaxValue } },
             _ => throw new InvalidOperationException(),
         };
         var projection = fixture.Services.GetRequiredService<IActualStaffEngagementLocatorProjection>();
@@ -374,6 +380,9 @@ public sealed class ActualStaffEngagementLocatorTests
 
         public async Task<List<DomainEventRecord>> AcceptanceRecordsAsync()
             => (await SourceRecordsAsync()).Where(record => record.Event is ServiceEngagementAcceptanceRecorded).ToList();
+
+        public Task<IndependenceLedger> HydrateLedgerAsync() =>
+            ProgramManagementServices.HydrateAsync(_provider, new IndependenceLedger(Tenant));
 
         public async Task<List<DomainEventRecord>> SourceRecordsAsync()
         {
