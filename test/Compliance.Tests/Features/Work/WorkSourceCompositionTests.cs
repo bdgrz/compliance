@@ -182,9 +182,9 @@ public sealed class WorkSourceCompositionTests
             revoked: revoked);
 
         // Act
-        await Scenario(fixture.ApproverUserId).When(new ApproveControlOperatingPlan(fixture.TenantId,
-            fixture.ProgramId, fixture.ControlId, plan.Revision, plan.PlanVersionId,
-            "Independent approval.")).ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalOperatingPlanApprovalTransportTests.HttpAsync(provider, fixture.ApproverUserId,
+            new ApproveControlOperatingPlan(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                plan.Revision, plan.PlanVersionId, "Independent approval."), RequestErrorKind.Forbidden);
         var mine = await Scenario(fixture.ApproverUserId)
             .When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();
         var orphan = await Scenario(fixture.OwnerUserId)
@@ -199,9 +199,9 @@ public sealed class WorkSourceCompositionTests
             item.WorkItemId, 1, fixture.ApproverMemberId)).ExpectFailure(RequestErrorKind.Validation);
         await Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
             item.WorkItemId, 1, fixture.OwnerMemberId)).ExpectSuccess();
-        await Scenario(fixture.OwnerUserId).When(new ApproveControlOperatingPlan(fixture.TenantId,
-            fixture.ProgramId, fixture.ControlId, plan.Revision, plan.PlanVersionId,
-            "Independent replacement approval.")).ExpectSuccess();
+        await PersonalOperatingPlanApprovalTransportTests.HttpAsync(provider, fixture.OwnerUserId,
+            new ApproveControlOperatingPlan(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                plan.Revision, plan.PlanVersionId, "Independent replacement approval."));
         await CatchUpAsync(provider, fixture.TenantId);
         var after = await Scenario(fixture.OwnerUserId)
             .When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();

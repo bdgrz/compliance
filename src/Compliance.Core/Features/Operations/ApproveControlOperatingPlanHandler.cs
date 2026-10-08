@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -14,6 +15,10 @@ public sealed class ApproveControlOperatingPlanHandler(IAggregateExecutor execut
     public async ValueTask<Result<ControlOperatingPlanView>> HandleAsync(
         IRequestContext<ApproveControlOperatingPlan> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ControlOperatingPlanView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Operating plan approval requires personal HTTP submission."));
         var request = context.Request;
         var control = await ControlOperationsSource.LoadControlAsync(reader, request.TenantId,
             request.ProgramId, request.ControlId, ct).ConfigureAwait(false);

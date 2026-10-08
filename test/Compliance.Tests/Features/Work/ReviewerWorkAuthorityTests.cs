@@ -579,13 +579,9 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "operating_plan")
             {
-                var request = Scenario().When(new ApproveControlOperatingPlan(Operations.TenantId,
-                    Operations.ProgramId, Operations.ControlId, pending.Revision, pending.Id,
-                    "Approved independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalOperatingPlanApprovalTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ApproveControlOperatingPlan(Operations.TenantId, Operations.ProgramId,
+                        Operations.ControlId, pending.Revision, pending.Id, "Approved independently."), error);
             }
             else if (kind == "mapping")
             {

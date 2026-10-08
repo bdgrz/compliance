@@ -39,12 +39,13 @@ public sealed class ControlOperatingPlanTests
         var fixture = await OperationsFixture.CreateAsync();
         var proposed = await fixture.ProposeAsync(0);
 
-        await fixture.Scenario(fixture.LeadUserId)
-            // Act
-            .When(new ApproveControlOperatingPlan(fixture.TenantId, fixture.ProgramId,
-                fixture.ControlId, proposed.Revision, proposed.PlanVersionId, "Mine."))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        var denied = await PersonalOperatingPlanApprovalTransportTests.HttpAsync(fixture.Provider, fixture.LeadUserId,
+            new ApproveControlOperatingPlan(fixture.TenantId, fixture.ProgramId,
+                fixture.ControlId, proposed.Revision, proposed.PlanVersionId, "Mine."), RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.Equal("The member who proposed an operating plan cannot approve it.", denied.Error!.Message);
     }
 
     [Fact]
