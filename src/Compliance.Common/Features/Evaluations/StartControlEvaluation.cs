@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Evaluations;
 [Discriminator("bdgrz.control.evaluation.start", 1)]
 public sealed record StartControlEvaluation(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     Uuid PlanVersionId, Uuid? RetestOfEvaluationId = null)
-    : IRequest<ControlEvaluationView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlEvaluationView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

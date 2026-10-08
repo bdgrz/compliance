@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Operations;
@@ -11,4 +12,4 @@ public sealed record ReviewControlOccurrence(Uuid TenantId, Uuid ProgramId, Uuid
     Uuid OccurrenceId, long ExpectedRevision, Uuid AttestationId, string Outcome,
     string Rationale, IReadOnlyList<string>? RequestedActions = null,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<ControlOccurrenceView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlOccurrenceView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

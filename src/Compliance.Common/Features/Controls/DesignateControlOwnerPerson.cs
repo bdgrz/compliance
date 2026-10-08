@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Controls;
 [Discriminator("bdgrz.control.owner_person.designate", 1)]
 public sealed record DesignateControlOwnerPerson(Uuid TenantId, Uuid ProgramId,
     Uuid ControlId, long ExpectedRevision, Uuid? PersonId, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Operations;
@@ -6,4 +7,4 @@ namespace Bdgrz.Compliance.Features.Operations;
 [Discriminator("bdgrz.control.occurrence.open", 1)]
 public sealed record OpenControlOccurrence(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     string Trigger, DateOnly OccurredOn)
-    : IRequest<ControlOccurrenceView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlOccurrenceView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

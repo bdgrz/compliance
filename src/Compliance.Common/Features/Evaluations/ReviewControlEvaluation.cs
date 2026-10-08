@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Evaluations;
 public sealed record ReviewControlEvaluation(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     Uuid EvaluationId, long ExpectedRevision, string Decision, string Rationale,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<ControlEvaluationView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlEvaluationView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

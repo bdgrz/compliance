@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Portia;
 
@@ -8,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Evaluations;
 public sealed record DisposeControlEvaluationDeviation(Uuid TenantId, Uuid ProgramId,
     Uuid ControlId, Uuid EvaluationId, Uuid DeviationId, long ExpectedRevision,
     string Disposition, string Rationale, Uuid? WaiverId = null)
-    : IRequest<ControlEvaluationView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlEvaluationView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

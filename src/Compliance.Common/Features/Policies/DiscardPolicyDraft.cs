@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Policies;
 [Discriminator("bdgrz.policy.draft.discard", 1)]
 public sealed record DiscardPolicyDraft(Uuid TenantId, Uuid ProgramId, Uuid PolicyId,
     long ExpectedRevision, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

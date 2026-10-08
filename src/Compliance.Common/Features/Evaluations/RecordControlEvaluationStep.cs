@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Portia;
 
@@ -12,4 +13,4 @@ public sealed record RecordControlEvaluationStep(Uuid TenantId, Uuid ProgramId, 
     Uuid EvaluationId, Uuid StepId, long ExpectedRevision, string Result, string Rationale,
     IReadOnlyList<EvaluationInspectedItem> InspectedItems,
     string? DeviationClassification = null, string? DeviationDescription = null)
-    : IRequest<ControlEvaluationView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlEvaluationView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

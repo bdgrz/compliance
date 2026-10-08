@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Evidence;
 [Discriminator("bdgrz.evidence.request.open", 1)]
 public sealed record OpenEvidenceRequest(Uuid TenantId, Uuid ProgramId, string Title, string Instructions,
     Uuid OwnerMemberId, DateOnly DueOn, Uuid? ControlId = null)
-    : IRequest<EvidenceRequestView>, IProgramScopedRequest, ICallable;
+    : IRequest<EvidenceRequestView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

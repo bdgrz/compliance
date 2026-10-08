@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Policies;
 public sealed record ApprovePolicy(Uuid TenantId, Uuid ProgramId, Uuid PolicyId,
     long ExpectedRevision, Uuid AcceptedReviewDecisionId, DateOnly EffectiveFrom, bool Major,
     string Rationale, string? ImpactDigest = null, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<PolicyVersionView>, IProgramScopedRequest, ICallable;
+    : IRequest<PolicyVersionView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;
