@@ -11,6 +11,10 @@ public sealed class DecideTypeIEntryHandler(IAggregateExecutor executor, IAggreg
     public async ValueTask<Result<TypeIEntryDecisionView>> HandleAsync(
         IRequestContext<DecideTypeIEntry> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<TypeIEntryDecisionView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Type I entry sign-off requires personal HTTP submission."));
         var request = context.Request;
         SeparationOfDutiesWaiver? waiver = null;
         if (request.SeparationOfDutiesWaiverId is { } waiverId)
