@@ -12,6 +12,10 @@ public sealed class ApproveBoundaryHandler(IAggregateExecutor executor,
     public async ValueTask<Result> HandleAsync(IRequestContext<ApproveBoundary> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Boundary decision requires personal HTTP submission."));
         var request = context.Request;
         var preview = await impact.PreviewAsync(new PreviewBoundaryImpact(request.TenantId,
                 request.BoundaryId, request.DraftVersionId, request.ExpectedRevision), ct)

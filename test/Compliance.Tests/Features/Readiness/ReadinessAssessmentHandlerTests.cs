@@ -311,10 +311,8 @@ public sealed class ReadinessAssessmentHandlerTests
         var gap = assessment.Gaps[0];
 
         // Act
-        var annotation = await fixture.Scenario(fixture.DeciderUserId)
-            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, gap.GapId, 1, "Consider a quarterly review."))
-            .ExpectSuccess();
+        var annotation = await PersonalReadinessAnnotationTransportTests.HttpAsync(fixture.Provider, fixture.DeciderUserId, new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, gap.GapId, 1, "Consider a quarterly review."));
         await fixture.RunAsync(2);
 
         // Assert
@@ -325,10 +323,8 @@ public sealed class ReadinessAssessmentHandlerTests
         var stored = Assert.Single(list.Items);
         Assert.False(stored.Current);
         Assert.Equal("Consider a quarterly review.", stored.Body);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, Uuid.CreateVersion4(), 3, "Unknown gap."))
-            .ExpectFailure(RequestErrorKind.NotFound);
+        await PersonalReadinessAnnotationTransportTests.HttpAsync(fixture.Provider, fixture.DeciderUserId, new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, Uuid.CreateVersion4(), 3, "Unknown gap."), RequestErrorKind.NotFound);
     }
 
     [Fact]
@@ -465,10 +461,8 @@ public sealed class ReadinessAssessmentHandlerTests
             .When(new PlanReadinessGap(fixture.TenantId, fixture.ProgramId, gap.GapId, 1,
                 fixture.OwnerMemberId, new DateOnly(2027, 3, 31), "Track the limitation."))
             .ExpectSuccess();
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
-                first.AssessmentId, gap.GapId, 2, "Acknowledged; declaration remains."))
-            .ExpectSuccess();
+        await PersonalReadinessAnnotationTransportTests.HttpAsync(fixture.Provider, fixture.DeciderUserId, new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                first.AssessmentId, gap.GapId, 2, "Acknowledged; declaration remains."));
 
         // Act
         var repeated = await fixture.RunAsync(3, asOf);
@@ -507,10 +501,8 @@ public sealed class ReadinessAssessmentHandlerTests
         var asOf = DateTimeOffset.UtcNow;
         var assessment = await fixture.RunAsync(0, asOf);
         var gap = Assert.Single(assessment.Gaps, item => item.Kind == "catalog_support_gap");
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, gap.GapId, 1, "Acknowledged limitation."))
-            .ExpectSuccess();
+        await PersonalReadinessAnnotationTransportTests.HttpAsync(fixture.Provider, fixture.DeciderUserId, new AnnotateReadinessGap(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, gap.GapId, 1, "Acknowledged limitation."));
 
         // Act
         var revision = await fixture.PlanAllAndProceedAsync(await fixture.GetAsync(assessment.AssessmentId));

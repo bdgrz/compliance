@@ -9,6 +9,11 @@ public sealed class ApproveSeparationOfDutiesWaiverHandler(IAggregateExecutor ex
     public ValueTask<Result<SeparationOfDutiesWaiverView>> HandleAsync(
         IRequestContext<ApproveSeparationOfDutiesWaiver> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return ValueTask.FromResult(Result<SeparationOfDutiesWaiverView>.Failure(
+                new RequestError(RequestErrorKind.Forbidden,
+                    "Waiver approval requires personal HTTP submission.")));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var approverUserId))
             return ValueTask.FromResult(Result<SeparationOfDutiesWaiverView>.Failure(
                 new RequestError(RequestErrorKind.Unauthorized,

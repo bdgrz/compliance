@@ -11,6 +11,10 @@ public sealed class ReviewBoundaryHandler(IAggregateExecutor executor, IAggregat
     public async ValueTask<Result> HandleAsync(IRequestContext<ReviewBoundary> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Boundary decision requires personal HTTP submission."));
         var request = context.Request;
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
