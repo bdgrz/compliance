@@ -90,6 +90,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<SetFirmStaffStatus>(tool => tool.Idempotent())
         .AddMcpTool<GetFirmStaffDirectory>(tool => tool.ReadOnly())
         .AddMcpTool<ListAssignableFirmStaff>(tool => tool.ReadOnly())
+        .AddMcpTool<GetEngagementManagementAcknowledgements>(tool => tool.ReadOnly())
         .AddMcpTool<CreateServiceEngagement>(tool => tool.Idempotent())
         .AddMcpTool<AmendServiceEngagement>(tool => tool.Idempotent())
         .AddMcpTool<ProposeServiceEngagementStaff>(tool => tool.Idempotent())
@@ -590,6 +591,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Service engagements");
     app.MapPortiaPost<WithdrawServiceEngagementStaffProposal, ServiceEngagementView>(
             "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/staff-proposals/{staff_member_id}/withdrawals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPost<AcknowledgeEngagementManagement, EngagementManagementAcknowledgementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/management-acknowledgements/{acknowledgement_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<GetEngagementManagementAcknowledgements, IReadOnlyList<EngagementManagementAcknowledgementView>>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/management-acknowledgements")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Service engagements");
     app.MapPortiaPost<CloseServiceEngagement, ServiceEngagementView>(
