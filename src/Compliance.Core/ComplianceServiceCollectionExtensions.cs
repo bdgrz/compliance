@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Retention;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
@@ -45,6 +46,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton<IArtifactContentStore, LocalArtifactContentStore>();
         services.AddSingleton<IArtifactInspector, UninspectedArtifactInspector>();
         services.AddScoped<EvidenceArtifactStorageReconciler>();
+        services.AddScoped<ArtifactRetentionMutation>();
+        services.AddScoped<ArtifactRetentionRead>();
         var emailDeliverySettings = EmailChallengeDeliverySettings.FromConfiguration(configuration,
             requireRealEmailDelivery);
         services.AddSingleton(emailDeliverySettings);
@@ -544,6 +547,13 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetAccessReviewScopeHandler>()
             .AddRequestHandler<ListAccessReviewScopesHandler>()
             .AddRequestHandler<PreviewInformationAssetChangeHandler>()
+            .AddRequestAuthorizer<ArtifactRetentionAdminAuthorizer>()
+            .AddRequestHandler<RecordArtifactRetentionBasisHandler>()
+            .AddRequestHandler<PlaceArtifactLegalHoldHandler>()
+            .AddRequestHandler<ReleaseArtifactLegalHoldHandler>()
+            .AddRequestHandler<GetArtifactRetentionHandler>()
+            .AddRequestHandler<GetApplicationImportRetentionHandler>()
+            .AddRequestHandler<ListArtifactLegalHoldsHandler>()
             .AddRequestHandler<StageApplicationImportHandler>()
             .AddRequestHandler<CancelApplicationImportHandler>()
             .AddRequestHandler<AcceptApplicationImportHandler>()

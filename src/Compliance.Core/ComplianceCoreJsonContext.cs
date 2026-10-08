@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Retention;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.Responsibilities;
@@ -5,6 +6,20 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance;
 
+[JsonSerializable(typeof(ArtifactRetentionSource))]
+[JsonSerializable(typeof(ArtifactRetentionView))]
+[JsonSerializable(typeof(ArtifactLegalHoldView))]
+[JsonSerializable(typeof(RecordArtifactRetentionBasis))]
+[JsonSerializable(typeof(PlaceArtifactLegalHold))]
+[JsonSerializable(typeof(ReleaseArtifactLegalHold))]
+[JsonSerializable(typeof(GetArtifactRetention))]
+[JsonSerializable(typeof(GetApplicationImportRetention))]
+[JsonSerializable(typeof(ListArtifactLegalHolds))]
+[JsonSerializable(typeof(ArtifactRetentionBound))]
+[JsonSerializable(typeof(ArtifactRetentionBasisRecorded))]
+[JsonSerializable(typeof(ArtifactLegalHoldPlaced))]
+[JsonSerializable(typeof(ArtifactLegalHoldReleased))]
+[JsonSerializable(typeof(Page<ArtifactLegalHoldView>))]
 [JsonSerializable(typeof(CriteriaTextOverlayEntryRevised))]
 [JsonSerializable(typeof(CriteriaTextOverlayRevision))]
 [JsonSerializable(typeof(CriteriaTextOverlayRegistration))]
