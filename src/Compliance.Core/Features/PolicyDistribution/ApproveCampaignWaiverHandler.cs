@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.Versioning;
 using Bdgrz.Compliance.Features.Workforce;
@@ -16,6 +17,10 @@ public sealed class ApproveCampaignWaiverHandler(IAggregateExecutor executor,
     public async ValueTask<Result<CampaignWaiverView>> HandleAsync(
         IRequestContext<ApproveCampaignWaiver> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<CampaignWaiverView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Campaign exception approval requires personal HTTP submission."));
         var request = context.Request;
         var actor = PolicyActor.From(context, request.TenantId);
         var visibility = await permissions.GetProgramVisibilityAsync(request.TenantId,
