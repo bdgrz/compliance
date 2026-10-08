@@ -12,6 +12,8 @@ public sealed partial class ApplicationImportLedger
     readonly Dictionary<Uuid, ApplicationImportFrozenPlan> _frozenPlans = [];
     Uuid? _acceptingBatchId;
 
+    public bool HasOtherAcceptingBatch(ImportBatch batch) => _acceptingBatchId is { } id && id != batch.Id;
+
     public ApplicationImportFrozenPlan? GetFrozenPlan(Uuid batchId) => _frozenPlans.GetValueOrDefault(batchId);
 
     public Result<ApplicationImportFrozenPlan> AuthorizePendingEffect(ImportBatch batch, Uuid rowId,
@@ -33,7 +35,7 @@ public sealed partial class ApplicationImportLedger
     }
 
     public string GetState(ImportBatch batch) => batch.IsCanceled || GetCanceledRevision(batch.Id) is not null
-        ? "canceled" : _commits.ContainsKey(batch.Id) ? "committed" : _planStarts.ContainsKey(batch.Id) ? "accepting" : "preview_ready";
+        ? "canceled" : _failures.ContainsKey(batch.Id) ? "failed" : _commits.ContainsKey(batch.Id) ? "committed" : _planStarts.ContainsKey(batch.Id) ? "accepting" : "preview_ready";
 
     public Result BeginAcceptance(ImportBatch batch, long expectedRevision,
         IReadOnlyDictionary<Uuid, DeclaredApplication> targets, Uuid approverMemberId,
@@ -45,8 +47,8 @@ public sealed partial class ApplicationImportLedger
             return Result.Failure(new RequestError(RequestErrorKind.Validation, "An import plan requires an attributable approver."));
         if (!BelongsToSource(batch))
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The import batch was not found for this source."));
-        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null)
-            return Result.Failure(new RequestError(RequestErrorKind.Conflict, "The import batch is canceled."));
+        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null || _failures.ContainsKey(batch.Id))
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict, "The import batch is canceled or failed."));
         if (_frozenPlans.TryGetValue(batch.Id, out var existing))
             return expectedRevision == existing.Start.Revision - 1 || expectedRevision == GetRevision(batch)
                 ? Result.Success : Result.Failure(VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());

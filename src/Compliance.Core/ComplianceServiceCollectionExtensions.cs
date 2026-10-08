@@ -546,6 +546,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<PreviewInformationAssetChangeHandler>()
             .AddRequestHandler<StageApplicationImportHandler>()
             .AddRequestHandler<CancelApplicationImportHandler>()
+            .AddRequestHandler<AcceptApplicationImportHandler>()
+            .AddRequestHandler<GetApplicationImportProgressHandler>()
+            .AddRequestHandler<GetApplicationImportRejectedReportHandler>()
+            .AddRequestHandler<ExecuteApplicationImportHandler>()
+            .AddRequestAuthorizer<ExecuteApplicationImportAuthorizer>()
             .AddRequestHandler<GetApplicationImportHandler>()
             .AddRequestHandler<ListApplicationImportRowsHandler>()
             .AddRequestHandler<PreviewApplicationImportHandler>()
@@ -939,6 +944,7 @@ public static class ComplianceServiceCollectionExtensions
             // registrations without restoring intentionally removed memberships or grants.
             .AddReactor<ApplicationInventoryGrantBackfillReactor>(
                 "ApplicationInventoryGrantBackfillV1", WorkloadScope.Global)
+            .AddReactor<ApplicationImportExecutionReactor>(ApplicationImportExecutionReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddReactor<ApplicationImportGrantBackfillReactor>(
                 ApplicationImportGrantBackfillReactor.WorkloadName, WorkloadScope.Global)
             .AddReactor<TechnologyInventoryGrantBackfillReactor>(

@@ -30,6 +30,22 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
     {
         switch (ev)
         {
+            case ApplicationImportFailed failed:
+                var failedBatch = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction, failed.BatchId, ct).ConfigureAwait(false);
+                if (failed.TenantId != _batchTenantId || failedBatch is null || failedBatch.TenantId != failed.TenantId ||
+                    failedBatch.SourceKey != failed.SourceKey || failedBatch.SourceNamespace != failed.SourceNamespace ||
+                    failedBatch.State != "accepting" || failedBatch.Revision + 1 != failed.Revision)
+                    throw new InvalidOperationException("An import failure requires its exact accepting source batch.");
+                await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, failedBatch, failedBatch with
+                {
+                    Revision = failed.Revision,
+                    State = "failed",
+                    PendingCount = 0,
+                    AppliedCount = 0,
+                    FailedCount = failedBatch.RowCount,
+                    LastProgressAt = failed.FailedAt,
+                }, ct).ConfigureAwait(false);
+                break;
             case ApplicationImportCommitted committed:
                 var committedBatch = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction,
                     committed.BatchId, ct).ConfigureAwait(false);
@@ -94,6 +110,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                     {
                         Revision = canceled.Revision,
                         State = "canceled",
+                        PendingCount = 0,
                         LastProgressAt = canceled.CanceledAt,
                     }, ct).ConfigureAwait(false);
                 break;
@@ -132,6 +149,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
             {
                 Revision = revision,
                 State = "accepting",
+                PendingCount = current.RowCount,
                 LastProgressAt = startedAt ?? current.LastProgressAt,
             }, ct).ConfigureAwait(false);
     }

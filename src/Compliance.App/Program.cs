@@ -188,6 +188,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewMissingApplicationImportRows>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationImportProgress>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationImportRejectedReport>(tool => tool.ReadOnly())
         .AddMcpTool<RecordPerson>()
         .AddMcpTool<RevisePerson>(tool => tool.Idempotent())
         .AddMcpTool<CorrelatePersonMembership>(tool => tool.Idempotent())
@@ -1685,6 +1687,21 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
             "/api/v1/tenants/{tenant_id}/application-imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaGet<GetApplicationImportProgress, ApplicationImportProgress>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/progress")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Read durable whole-batch import execution progress")
+        .WithTags("Application imports");
+    app.MapPortiaGet<GetApplicationImportRejectedReport, ApplicationImportRejectedReport>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/rejected-report")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Read bounded rejected-item findings from retained import rows")
+        .WithTags("Application imports");
+    app.MapPortiaPost<AcceptApplicationImport>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/acceptances")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Personally accept a resolved whole application import batch")
         .WithTags("Application imports");
     app.MapPortiaPost<CancelApplicationImport>(
             "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/cancellations")
