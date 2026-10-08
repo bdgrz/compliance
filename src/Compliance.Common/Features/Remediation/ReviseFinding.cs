@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -8,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Remediation;
 public sealed record ReviseFinding(Uuid TenantId, Uuid ProgramId, Uuid FindingId,
     long ExpectedRevision, string Severity, Uuid OwnerMemberId, DateOnly DueOn,
     string AffectedScope, string? RootCause, string Reason)
-    : IRequest<FindingView>, IProgramScopedRequest, ICallable;
+    : IRequest<FindingView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

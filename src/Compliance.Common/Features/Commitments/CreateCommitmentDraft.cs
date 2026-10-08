@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Commitments;
 public sealed record CreateCommitmentDraft(Uuid TenantId, Uuid ProgramId, Uuid ServiceId,
     string Kind, string Identifier, string Statement, string Context, string SourceReference,
     Uuid? ProviderId = null)
-    : IRequest<CommitmentDraftRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<CommitmentDraftRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

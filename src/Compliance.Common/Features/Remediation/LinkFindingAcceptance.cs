@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Remediation;
 [Discriminator("bdgrz.finding.acceptance.link", 1)]
 public sealed record LinkFindingAcceptance(Uuid TenantId, Uuid ProgramId, Uuid FindingId,
     long ExpectedRevision, string Kind, Uuid RecordId, Uuid? DecisionId = null)
-    : IRequest<FindingView>, IProgramScopedRequest, ICallable;
+    : IRequest<FindingView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

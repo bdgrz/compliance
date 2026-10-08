@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -8,4 +9,4 @@ public sealed record DefineControlEvaluationPlan(Uuid TenantId, Uuid ProgramId, 
     Uuid ControlVersionId, long ExpectedVersion, string Objective,
     IReadOnlyList<EvaluationProcedureStep>? Steps,
     bool TesterIndependenceRequired)
-    : IRequest<ControlEvaluationPlanVersionView>, IProgramScopedRequest, ICallable;
+    : IRequest<ControlEvaluationPlanVersionView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

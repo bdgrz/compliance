@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.PolicyDistribution;
 public sealed record LaunchTrainingCampaign(Uuid TenantId, Uuid ProgramId,
     Uuid RequirementId, long RequirementVersion, Uuid RosterSnapshotId, DateOnly DueOn,
     string? Instructions = null)
-    : IRequest<CampaignRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<CampaignRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

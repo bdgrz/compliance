@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 [Discriminator("bdgrz.criterion_applicability.withdraw_not_applicable", 1)]
 public sealed record WithdrawCriterionNotApplicable(Uuid TenantId, Uuid ProgramId,
     Uuid DecisionId, long ExpectedRevision, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

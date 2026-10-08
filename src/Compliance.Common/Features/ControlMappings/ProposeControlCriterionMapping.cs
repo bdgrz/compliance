@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 public sealed record ProposeControlCriterionMapping(Uuid TenantId, Uuid ProgramId,
     Uuid ControlId, Uuid ControlVersionId, Uuid EditionId, string CriterionIdentifier,
     long ExpectedRevision, string Rationale, string ApplicabilityExplanation)
-    : IRequest<ControlCriterionMappingRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<ControlCriterionMappingRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 [Discriminator("bdgrz.control_mapping.review", 1)]
 public sealed record ReviewControlCriterionMapping(Uuid TenantId, Uuid ProgramId,
     Uuid MappingId, long ExpectedRevision, string Outcome, string Rationale,
-    Uuid? SeparationOfDutiesWaiverId = null) : IRequest, IProgramScopedRequest, ICallable;
+    Uuid? SeparationOfDutiesWaiverId = null) : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;
