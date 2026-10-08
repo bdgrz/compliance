@@ -19,6 +19,10 @@ public sealed class ApproveControlHandler(IAggregateExecutor executor, IAggregat
     public async ValueTask<Result> HandleAsync(IRequestContext<ApproveControl> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Control decision requires a personal HTTP invocation."));
         if (!releaseGate.IsEnabled)
             return Result.Failure(ControlActivationReleaseGate.Unavailable);
         var request = context.Request;

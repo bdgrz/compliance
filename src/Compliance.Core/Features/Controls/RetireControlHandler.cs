@@ -16,6 +16,10 @@ public sealed class RetireControlHandler(IAggregateExecutor executor, IAggregate
     public async ValueTask<Result> HandleAsync(IRequestContext<RetireControl> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Control decision requires a personal HTTP invocation."));
         if (!releaseGate.IsEnabled)
             return Result.Failure(ControlLifecycleReleaseGate.Unavailable);
         var request = context.Request;

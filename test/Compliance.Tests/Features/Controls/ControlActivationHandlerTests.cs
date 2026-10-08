@@ -22,17 +22,11 @@ public sealed class ControlActivationHandlerTests
         await fixture.SuspendOwnerAsync();
         var reviewId = await fixture.ReviewAsync();
 
-        await fixture.Scenario(fixture.ApproverUserId)
-            // Act
-            .When(fixture.Approve(reviewId))
-            // Assert
-            .ExpectAuthorized()
-            .ExpectHandled()
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(reviewId), RequestErrorKind.Conflict);
         await fixture.ReinstateOwnerAsync();
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.Approve(reviewId))
-            .ExpectSuccess();
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.Approve(reviewId));
+        // Assert
         var version = await fixture.QueryAsync<GetEffectiveControlVersion, ControlVersionView>(
             new GetEffectiveControlVersion(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
                 EffectiveFrom));
@@ -57,14 +51,10 @@ public sealed class ControlActivationHandlerTests
         // Arrange
         var fixture = await Fixture.CreateAsync(activationEnabled: false);
 
-        await fixture.Scenario(fixture.ApproverUserId)
-            // Act
-            .When(new ReviewControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId, 1,
-                "accept", "Reviewed"))
-            // Assert
-            .ExpectAuthorized()
-            .ExpectHandled()
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        await PersonalControlDecisionTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, new ReviewControl(fixture.TenantId, fixture.ProgramId, fixture.ControlId, 1,
+                "accept", "Reviewed"), RequestErrorKind.Conflict);
+        // Assert
         var source = await ProgramManagementServices.HydrateAsync(fixture.Provider,
             new ControlDraft(fixture.TenantId, fixture.ControlId));
         Assert.Empty(source.ReadDecisions());
@@ -141,10 +131,9 @@ public sealed class ControlActivationHandlerTests
         public async Task<Uuid> ReviewAsync()
         {
             var requestId = Uuid.CreateVersion4();
-            await Scenario(ReviewerUserId)
-                .GivenMetadata(new RequestMetadata(requestId, requestId, null))
-                .When(new ReviewControl(TenantId, ProgramId, ControlId, 1, "accept", "Reviewed"))
-                .ExpectSuccess();
+            await PersonalControlDecisionTransportTests.HttpAsync(Provider, ReviewerUserId,
+                new ReviewControl(TenantId, ProgramId, ControlId, 1, "accept", "Reviewed"),
+                metadata: new RequestMetadata(requestId, requestId, null));
             return requestId;
         }
 
