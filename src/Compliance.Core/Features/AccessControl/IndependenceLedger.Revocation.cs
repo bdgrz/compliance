@@ -18,8 +18,13 @@ public sealed partial class IndependenceLedger
         if (!CanRevoke(engagementId, expectedSequence) || recordedAt < Engagement(engagementId)!.RecordedAt || !Acceptance(engagementId)!.Assignments.Any(staff =>
             staff.StaffMemberId == staffMemberId && staff.IsCurrent))
             return RefuseAcceptance("Reload the current actual assignment and complete client sequence before revoking.");
-        RaiseEvent(new ServiceEngagementAssignmentRevoked(_tenantId, requestId, Sequence, engagementId,
-            staffMemberId, reason, intent, actor, recordedAt));
+        var cause = new ServiceEngagementAssignmentRevoked(_tenantId, requestId, Sequence, engagementId,
+            staffMemberId, reason, intent, actor, recordedAt);
+        var receipt = PrepareAssignmentReevaluation(cause);
+        if (!receipt.IsSuccess)
+            return Result<ServiceEngagementAcceptanceView>.Failure(receipt.Error);
+        RaiseEvent(cause);
+        RaiseEvent(receipt.Value);
         return Result<ServiceEngagementAcceptanceView>.Success(Acceptance(engagementId)!);
     }
 
@@ -29,8 +34,13 @@ public sealed partial class IndependenceLedger
         if (!CanRevoke(engagementId, expectedSequence) || recordedAt < Engagement(engagementId)!.RecordedAt)
             return UnavailableEngagement();
         var intent = Intent(new CloseServiceEngagement(_tenantId, engagementId, expectedSequence, reason));
-        RaiseEvent(new ServiceEngagementAssignmentRevoked(_tenantId, requestId, Sequence, engagementId,
-            null, reason, intent, actor, recordedAt));
+        var cause = new ServiceEngagementAssignmentRevoked(_tenantId, requestId, Sequence, engagementId,
+            null, reason, intent, actor, recordedAt);
+        var receipt = PrepareAssignmentReevaluation(cause);
+        if (!receipt.IsSuccess)
+            return Result<ServiceEngagementView>.Failure(receipt.Error);
+        RaiseEvent(cause);
+        RaiseEvent(receipt.Value);
         return Result<ServiceEngagementView>.Success(Engagement(engagementId)!);
     }
 
@@ -53,16 +63,7 @@ public sealed partial class IndependenceLedger
         var acceptance = Acceptance(ev.EngagementId)!;
         var engagement = Engagement(ev.EngagementId)!;
         var closes = ev.StaffMemberId is null || ev.StaffMemberId == engagement.Content.EngagementLeadStaffMemberId;
-        var revised = acceptance with
-        {
-            Revision = acceptance.Revision + 1,
-            Status = closes ? "closed" : "active",
-            ChangedBy = ev.Actor,
-            ChangedAt = ev.RecordedAt,
-            ChangeReason = ev.Reason,
-            Assignments = Array.AsReadOnly(acceptance.Assignments.Select(staff => closes || staff.StaffMemberId == ev.StaffMemberId
-                ? staff with { IsCurrent = false } : staff).ToArray())
-        };
+        var revised = RevisedAcceptance(ev, acceptance, engagement);
         Fence(ev.TenantId, ev.ExpectedSequence);
         _acceptances[ev.EngagementId] = revised;
         _acceptanceHistory[ev.EngagementId].Add(revised);
@@ -76,5 +77,6 @@ public sealed partial class IndependenceLedger
         _engagements[ev.EngagementId] = view;
         _engagementHistory[ev.EngagementId].Add(view);
         _decisions.Add(ev.RequestId, (ev.Intent, ev.Actor, ev.StaffMemberId is null ? view : revised));
+        _revocationSources.Add(ev.RequestId, (ev, acceptance, revised));
     }
 }

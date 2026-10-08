@@ -8,10 +8,18 @@ public sealed record IndependenceHistoryView(Uuid TenantId, long Sequence,
 {
     readonly IReadOnlyList<ServiceIndependenceReevaluationView> _sourceReevaluations =
         Array.Empty<ServiceIndependenceReevaluationView>();
+    readonly IReadOnlyList<AssignmentIndependenceReevaluationView> _assignmentReevaluations =
+        Array.Empty<AssignmentIndependenceReevaluationView>();
 
     public IReadOnlyList<ServiceIndependenceReevaluationView> SourceReevaluations
     {
         get => _sourceReevaluations;
         init => _sourceReevaluations = Array.AsReadOnly((value ?? []).ToArray());
+    }
+
+    public IReadOnlyList<AssignmentIndependenceReevaluationView> AssignmentReevaluations
+    {
+        get => _assignmentReevaluations;
+        init => _assignmentReevaluations = Array.AsReadOnly((value ?? []).ToArray());
     }
 }

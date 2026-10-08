@@ -21,6 +21,7 @@ public sealed partial class IndependenceLedger : Aggregate
         On<ServiceEngagementAssignmentRevoked>(Apply);
         On<NonattestServiceRecorded>(Apply);
         On<ServiceIndependenceReevaluated>(Apply);
+        On<AssignmentIndependenceReevaluated>(Apply);
         On<ClientIndependenceEvaluated>(Apply);
     }
 
@@ -104,7 +105,8 @@ public sealed partial class IndependenceLedger : Aggregate
             .DistinctBy(version => version.Version).OrderBy(version => version.Version).ToArray()),
         Array.AsReadOnly(_services.ToArray()), Array.AsReadOnly(_evaluations.ToArray()))
     {
-        SourceReevaluations = Array.AsReadOnly(_sourceReevaluations.Select(FreezeReevaluation).ToArray())
+        SourceReevaluations = Array.AsReadOnly(_sourceReevaluations.Select(FreezeReevaluation).ToArray()),
+        AssignmentReevaluations = Array.AsReadOnly(_assignmentReevaluations.Select(FreezeAssignmentReevaluation).ToArray())
     };
 
     void Apply(NonattestServiceRecorded recorded)
