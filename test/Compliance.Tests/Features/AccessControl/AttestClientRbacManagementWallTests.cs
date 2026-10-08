@@ -137,6 +137,38 @@ public sealed class AttestClientRbacManagementWallTests
     static RequestDispatchContext Context(bool mcp = false) => new(ProgramManagementServices.Actor(User),
         mcp ? new McpInvocation("synthetic.rbac") : new HttpInvocation("POST", "/synthetic", "/synthetic", "synthetic"));
 
+    [Fact]
+    public async Task ShouldDenyAccessGrantRevocationGivenTrustedSystemActor()
+    {
+        // Arrange
+        await using var provider = Compose();
+        await using var scope = provider.CreateAsyncScope();
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().SendAsync(
+            new RevokeAccessGrant(Tenant, Uuid.CreateVersion4()), RequestActor.System);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Contains("authenticated member", result.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveFixedRoleCatalogDenialGivenOrdinaryClientAdministrationGrant()
+    {
+        // Arrange
+        await using var provider = Compose();
+        await using var scope = provider.CreateAsyncScope();
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            new DefineRole(Tenant, Uuid.CreateVersion4(), "Custom role"), Context(), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Contains("fixed by the system", result.Error!.Message, StringComparison.Ordinal);
+    }
+
     static ServiceProvider Compose(bool allowed = true, string identity = "valid")
     {
         var services = new ServiceCollection();
