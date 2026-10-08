@@ -209,7 +209,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                        await HoldsAsync(tenantId, manager, memberId, ct).ConfigureAwait(false);
         if (eligible && candidate.RequiredManagementProgramId is { } requiredProgram)
             eligible = await HoldsAsync(tenantId,
-                new OperatingHolder(OperatingAuthority.ProgramRecorderHolder, requiredProgram), memberId, ct)
+                new OperatingHolder(OperatingAuthority.ProgramManagerHolder, requiredProgram), memberId, ct)
                 .ConfigureAwait(false);
         _eligible[key] = eligible;
         return eligible;

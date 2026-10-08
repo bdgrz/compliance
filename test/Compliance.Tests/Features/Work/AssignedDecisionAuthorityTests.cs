@@ -12,14 +12,17 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 
 public sealed class AssignedDecisionAuthorityTests
 {
-    [Fact]
-    public async Task ShouldExcludeBoundaryDecisionGivenAssignedReviewerLacksSourceManagementGrant()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldExcludeBoundaryDecisionGivenAssignedDutyLacksSourceManagementGrant(bool approval)
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
         var boundaryId = Uuid.CreateVersion4();
         var versionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
+        var reviewId = Uuid.CreateVersion4();
         var content = new BoundaryContent("System boundary", "readiness", ["security"], []);
         await ProgramManagementServices.SeedAsync(fixture.Provider,
             new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
@@ -28,21 +31,31 @@ public sealed class AssignedDecisionAuthorityTests
                     fixture.LeadMemberId, "Lead", now.AddMinutes(-5)).IsSuccess);
                 Assert.Null(boundary.AssignResponsibility(new ResponsibilityScope("boundary",
                         boundaryId, versionId, 1), Uuid.CreateVersion4(), fixture.ReviewerMemberId,
-                    ResponsibilityType.AssignedReviewer, fixture.LeadMemberId, "Lead",
+                    approval ? ResponsibilityType.PolicyApprover : ResponsibilityType.AssignedReviewer, fixture.LeadMemberId, "Lead",
                     now.AddMinutes(-4), now.AddMinutes(-4), null, []));
+                if (approval)
+                    Assert.Null(boundary.Review(versionId, 1, reviewId, "accept", "Reviewed.",
+                        fixture.ApproverMemberId, "Reviewer", now.AddMinutes(-3)));
                 return Result.Success;
             });
         fixture.Boundaries.Add(new BoundaryView(fixture.TenantId, boundaryId, fixture.ProgramId,
             new BoundaryVersionView(fixture.TenantId, boundaryId, fixture.ProgramId,
                 versionId, 1, content, "draft", null, fixture.LeadMemberId, "Lead",
-                now.AddMinutes(-5)), null, null, 1));
+                now.AddMinutes(-5)), null, approval
+                    ? new BoundaryDecisionView(fixture.TenantId, boundaryId, reviewId, versionId, 1,
+                        "accept", fixture.ApproverMemberId, "Reviewer", "Reviewed.",
+                        now.AddMinutes(-3), null, null, null)
+                    : null, approval ? 2 : 1));
         var authorizer = new ProgramManagementAuthorizer(
             fixture.Provider.GetRequiredService<ITenantMembershipDirectoryReader>(),
             fixture.Provider.GetRequiredService<ITenantActivity>(),
             fixture.Provider.GetRequiredService<IAccessGrantPermissionAuthorizer>(),
             ProgramManagementServices.ResourceScopes(fixture.ProgramId));
-        var context = new RequestContext<IProgramManagementRequest>(new ReviewBoundary(
-                fixture.TenantId, boundaryId, versionId, 1, "accept", "Reviewed."),
+        IProgramManagementRequest request = approval
+            ? new ApproveBoundary(fixture.TenantId, boundaryId, versionId, 1, reviewId,
+                fixture.Today, "Approved.", "impact")
+            : new ReviewBoundary(fixture.TenantId, boundaryId, versionId, 1, "accept", "Reviewed.");
+        var context = new RequestContext<IProgramManagementRequest>(request,
             ProgramManagementServices.Actor(fixture.ReviewerUserId));
 
         // Act
@@ -82,6 +95,5 @@ public sealed class AssignedDecisionAuthorityTests
         Assert.Equal(RequestErrorKind.Forbidden, revokedSource.Error?.Kind);
         Assert.Empty(revoked.Items);
         Assert.Equal(item.WorkItemId, Assert.Single(restored.Items).WorkItemId);
-
     }
 }
