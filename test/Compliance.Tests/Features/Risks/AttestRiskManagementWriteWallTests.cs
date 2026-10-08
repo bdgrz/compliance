@@ -122,6 +122,31 @@ public sealed class AttestRiskManagementWriteWallTests
         Assert.Equal(result.Value!.AcceptanceId, Assert.Single(retained.ToView().Acceptances).AcceptanceId);
     }
 
+    [Theory]
+    [InlineData("mcp")]
+    [InlineData("direct")]
+    public async Task ShouldDenyPersonalRiskAcceptanceGivenNonHttpInvocation(string transport)
+    {
+        // Arrange
+        var source = await RiskGovernanceHandlerTests.Fixture.CreateAsync("accept");
+        await using var sourceProvider = source.Provider;
+        var residual = await source.Scenario(source.AssessorUserId).When(source.Residual(2)).ExpectSuccess();
+        await using var provider = await ComposeAsync(source);
+        await using var scope = provider.CreateAsyncScope();
+        var context = new RequestDispatchContext(ProgramManagementServices.Actor(source.ApproverUserId),
+            transport == "mcp" ? new McpInvocation("synthetic.risk.accept") : new DirectInvocation());
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            source.Accept(residual.Value.AssessmentId, null), context, CancellationToken.None);
+        var retained = await ProgramManagementServices.HydrateAsync(provider,
+            new RiskEvaluation(source.TenantId, source.RiskId));
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Empty(retained.ToView().Acceptances);
+    }
+
     static RequestDispatchContext Context(Uuid userId) => new(ProgramManagementServices.Actor(userId),
         new HttpInvocation("POST", "/synthetic/risk-management", "/synthetic/risk-management", "synthetic"));
 

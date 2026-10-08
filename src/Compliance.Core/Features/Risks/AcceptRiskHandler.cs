@@ -15,6 +15,10 @@ public sealed class AcceptRiskHandler(IAggregateExecutor executor, IAggregateRea
     public async ValueTask<Result<RiskAcceptanceView>> HandleAsync(
         IRequestContext<AcceptRisk> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<RiskAcceptanceView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Risk acceptance requires a personal HTTP invocation."));
         var request = context.Request;
         var risk = await reader.HydrateAsync(new RiskDraft(request.TenantId, request.RiskId), ct)
             .ConfigureAwait(false);
