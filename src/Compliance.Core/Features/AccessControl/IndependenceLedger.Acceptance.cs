@@ -75,6 +75,8 @@ public sealed partial class IndependenceLedger
         (engagement.Content.PeriodEnd is null || DateOnly.FromDateTime(effectiveAt.UtcDateTime) <= engagement.Content.PeriodEnd) &&
         acceptance.Rules.Version == currentRuleVersion &&
         !_sourceReevaluations.Any(receipt => receipt.EngagementId == engagementId) &&
+        !_directoryReevaluations.Any(receipt => receipt.OriginalAcceptance.EngagementId == engagementId &&
+            receipt.Source.StaffMemberId == staffMemberId && receipt.Source.UserId == userId) &&
         CompleteFacts(acceptance.CompleteServiceHistory.Select(service => service.ServiceRecordId).ToArray()) &&
         acceptance.Assignments.Any(staff => staff.IsCurrent && staff.StaffMemberId == staffMemberId &&
             staff.UserId == userId && staff.AssignedAt <= effectiveAt && staff.DirectoryStaffRevision == currentDirectoryStaffRevision);
@@ -189,6 +191,7 @@ public sealed partial class IndependenceLedger
             Assignments = Array.AsReadOnly(acceptance.Assignments.ToArray()),
             ConsideredServiceRecordIds = Array.AsReadOnly(acceptance.ConsideredServiceRecordIds.ToArray())
         };
+        _acceptanceSources.Add(ev.RequestId, ev with { Acceptance = acceptance });
         _acceptances.Add(acceptance.EngagementId, acceptance);
         _acceptanceHistory.Add(acceptance.EngagementId, [acceptance]);
         _assignmentHistory.AddRange(acceptance.Assignments.Select(staff => new EngagementAssignment(_tenantId,

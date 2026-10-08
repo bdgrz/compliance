@@ -12,6 +12,12 @@ static class IndependenceSourceDigest
     public static string AcceptanceEvent(ServiceEngagementAcceptanceRecorded accepted) =>
         Digest(accepted, ComplianceCoreJsonContext.Default.ServiceEngagementAcceptanceRecorded);
 
+    public static string DirectorySource(DirectoryStatusSourceView source) =>
+        Digest(source, ComplianceCoreJsonContext.Default.DirectoryStatusSourceView);
+
+    public static string DirectoryEvent(FirmStaffChangeRecorded change) =>
+        Digest(change, ComplianceCoreJsonContext.Default.FirmStaffChangeRecorded);
+
     static string Digest<T>(T value, JsonTypeInfo<T> typeInfo) =>
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value, typeInfo)));
 }
