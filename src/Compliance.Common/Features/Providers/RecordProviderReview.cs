@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Providers;
@@ -8,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Providers;
 /// </summary>
 [Discriminator("bdgrz.provider.review.record", 1)]
 public sealed record RecordProviderReview(Uuid TenantId, Uuid ProviderId, ProviderReviewContent Content)
-    : IRequest<ProviderReviewRegistration>, IProviderManagementRequest, ICallable;
+    : IRequest<ProviderReviewRegistration>, IProviderManagementRequest, IClientManagementMutationRequest, ICallable;
