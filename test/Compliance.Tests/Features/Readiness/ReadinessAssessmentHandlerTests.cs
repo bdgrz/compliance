@@ -221,11 +221,9 @@ public sealed class ReadinessAssessmentHandlerTests
         var gapIds = assessment.Gaps.Select(static g => g.GapId).ToArray();
 
         // Act
-        var decision = await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+        var decision = await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
                 assessment.AssessmentId, revision, "approve_with_exceptions",
-                "Gaps are owned and acknowledged.", gapIds))
-            .ExpectSuccess();
+                "Gaps are owned and acknowledged.", gapIds));
 
         // Assert
         var view = decision.Value;
@@ -244,10 +242,8 @@ public sealed class ReadinessAssessmentHandlerTests
             fixture.ProgramId));
         Assert.Single(list.Items);
         var later = await fixture.RunAsync(revision + 1);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, later.AssessmentId,
-                revision + 2, "defer", "Second try."))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, later.AssessmentId,
+                revision + 2, "defer", "Second try."), RequestErrorKind.Conflict);
     }
 
     [Fact]
@@ -259,22 +255,16 @@ public sealed class ReadinessAssessmentHandlerTests
         var revision = await fixture.PlanAllAndProceedAsync(assessment);
         var partial = assessment.Gaps.Skip(1).Select(static g => g.GapId).ToArray();
 
-        await fixture.Scenario(fixture.DeciderUserId)
-            // Act
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+        // Act
+        // Assert
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
                 assessment.AssessmentId, revision, "approve_with_exceptions", "Partial.",
-                partial))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Conflict);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, revision, "approve", "Ignore gaps."))
-            .ExpectFailure(RequestErrorKind.Conflict);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                partial), RequestErrorKind.Conflict);
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, revision, "approve", "Ignore gaps."), RequestErrorKind.Conflict);
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
                 assessment.AssessmentId, revision, "approve_with_exceptions", "Unknown.",
-                [Uuid.CreateVersion4()]))
-            .ExpectFailure(RequestErrorKind.Validation);
+                [Uuid.CreateVersion4()]), RequestErrorKind.Validation);
     }
 
     [Fact]
@@ -285,20 +275,14 @@ public sealed class ReadinessAssessmentHandlerTests
         var assessment = await fixture.RunAsync(0);
         var all = assessment.Gaps.Select(static g => g.GapId).ToArray();
 
-        await fixture.Scenario(fixture.RunnerUserId)
-            // Act
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, 1, "defer", "Self sign."))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, 1, "approve_with_exceptions", "No proceed.", all))
-            .ExpectFailure(RequestErrorKind.Conflict);
-        var deferred = await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, 1, "defer", "Not ready yet."))
-            .ExpectSuccess();
+        // Act
+        // Assert
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.RunnerUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "defer", "Self sign."), RequestErrorKind.Forbidden);
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "approve_with_exceptions", "No proceed.", all), RequestErrorKind.Conflict);
+        var deferred = await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "defer", "Not ready yet."));
         Assert.Equal("defer", deferred.Value.Outcome);
         Assert.All(deferred.Value.UnresolvedItems, item => Assert.False(item.Acknowledged));
     }
@@ -311,12 +295,10 @@ public sealed class ReadinessAssessmentHandlerTests
         var first = await fixture.RunAsync(0);
         await fixture.RunAsync(1);
 
-        await fixture.Scenario(fixture.DeciderUserId)
-            // Act
-            .When(new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, first.AssessmentId,
-                2, "defer", "Stale."))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        // Assert
+        await PersonalTypeIEntryTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideTypeIEntry(fixture.TenantId, fixture.ProgramId, first.AssessmentId,
+                2, "defer", "Stale."), RequestErrorKind.Conflict);
     }
 
     [Fact]

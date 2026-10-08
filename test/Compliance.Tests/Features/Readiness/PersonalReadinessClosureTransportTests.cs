@@ -178,12 +178,12 @@ public sealed class PersonalReadinessClosureTransportTests
         return result;
     }
 
-    static RequestDispatchContext Context(Uuid actor, string transport) => new(
+    internal static RequestDispatchContext Context(Uuid actor, string transport) => new(
         ProgramManagementServices.Actor(actor), transport == "http"
             ? new HttpInvocation("POST", "/synthetic/personal/decision", "/synthetic/personal/decision", "synthetic")
             : transport == "mcp" ? new McpInvocation("synthetic.personal.decision") : new DirectInvocation());
 
-    static async Task<ServiceProvider> ComposeAsync(ServiceProvider source, Uuid tenant, Uuid programId)
+    internal static async Task<ServiceProvider> ComposeAsync(ServiceProvider source, Uuid tenant, Uuid programId)
     {
         var services = new ServiceCollection();
         services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
