@@ -40,6 +40,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     readonly Dictionary<Uuid, bool> _active = [];
     readonly Dictionary<Uuid, bool> _canAuthorManagement = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
+    readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _proxyAllowed = [];
     readonly IAccountableWorkItemDirectoryReader[] _accountableWorkItems =
         accountableWorkItems?.OrderBy(static reader => reader.ProjectorName,
             StringComparer.Ordinal).ToArray() ?? [];
@@ -213,16 +214,35 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             eligible = await HoldsAsync(tenantId,
                 new OperatingHolder(OperatingAuthority.ProgramManagerHolder, requiredProgram), memberId, ct)
                 .ConfigureAwait(false);
-        if (eligible && WorkSourceManagement.IsManagementMutation(candidate))
-            eligible = await CanAuthorManagementAsync(tenantId, memberId, ct).ConfigureAwait(false);
+        if (eligible)
+            eligible = await CanAssignAsync(tenantId, candidate, memberId, ct).ConfigureAwait(false);
         _eligible[key] = eligible;
         return eligible;
     }
 
-    internal ValueTask<bool> CanAssignAsync(Uuid tenantId, WorkCandidate candidate,
-        Uuid memberId, CancellationToken ct) => WorkSourceManagement.IsManagementMutation(candidate)
-        ? CanAuthorManagementAsync(tenantId, memberId, ct)
-        : ValueTask.FromResult(true);
+    internal async ValueTask<bool> CanAssignAsync(Uuid tenantId, WorkCandidate candidate,
+        Uuid memberId, CancellationToken ct)
+    {
+        if (candidate.Kind == PolicyCampaignWork.Acknowledgement && candidate.NextAction == "record_acknowledgement")
+        {
+            var key = (candidate.WorkItemId, memberId);
+            if (_proxyAllowed.TryGetValue(key, out var known))
+                return known;
+            if (candidate.AcknowledgementPerson is not { } person)
+                return _proxyAllowed[key] = false;
+            var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+                .ConfigureAwait(false);
+            if (!member.IsRegistered || member.UserId == Uuid.Empty ||
+                RbacIds.Member(tenantId, member.UserId) != memberId)
+                return _proxyAllowed[key] = false;
+            var eligibility = await new PolicyAcknowledgementRecorderGuard(reader,
+                    new ClientManagementIndependenceGuard(reader))
+                .EvaluateCapturedAsync(tenantId, member.UserId, person, ct).ConfigureAwait(false);
+            return _proxyAllowed[key] = eligibility.CanRecordProxy;
+        }
+        return !WorkSourceManagement.IsManagementMutation(candidate) ||
+               await CanAuthorManagementAsync(tenantId, memberId, ct).ConfigureAwait(false);
+    }
 
     async ValueTask<bool> CanAuthorManagementAsync(Uuid tenantId, Uuid memberId, CancellationToken ct)
     {

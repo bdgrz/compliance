@@ -85,6 +85,7 @@ sealed class FitzPolicyCampaignWorkItemDirectory(IKvClient client, IAggregateRea
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         var candidates = new List<WorkCandidate>();
         var members = new Dictionary<Uuid, Uuid>();
+        var people = new Dictionary<Uuid, PolicyAcknowledgementPersonSnapshot>();
         var resolvedPeople = new HashSet<Uuid>();
         string? campaignCursor = null;
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
@@ -128,6 +129,7 @@ sealed class FitzPolicyCampaignWorkItemDirectory(IKvClient client, IAggregateRea
                         {
                             var person = await sourceReader.HydrateAsync(new Person(tenantId,
                                 participant.PersonId), ct).ConfigureAwait(false);
+                            people[participant.PersonId] = PolicyAcknowledgementPersonSnapshot.Capture(person);
                             if (person.IsCreated && person.CorrelatedUserId is { } userId)
                                 members[participant.PersonId] = RbacIds.Member(tenantId, userId);
                         }
@@ -138,7 +140,10 @@ sealed class FitzPolicyCampaignWorkItemDirectory(IKvClient client, IAggregateRea
                         candidates.Add(PolicyCampaignWork.CreateCandidate(tenantId, programId,
                             campaign.CampaignId, campaign.Subject, campaign.OwnerMemberId,
                             campaign.LaunchedAt, participant.PersonId, participant.DisplayName,
-                            participant.DueOn, memberId));
+                            participant.DueOn, memberId) with
+                        {
+                            AcknowledgementPerson = people[participant.PersonId],
+                        });
                     }
                     participantCursor = participantPage.NextCursor;
                 } while (participantCursor is not null);

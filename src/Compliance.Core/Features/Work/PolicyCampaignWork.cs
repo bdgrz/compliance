@@ -40,6 +40,7 @@ static class PolicyCampaignWork
 
         var candidates = new List<WorkCandidate>();
         var members = new Dictionary<Uuid, Uuid>();
+        var people = new Dictionary<Uuid, PolicyAcknowledgementPersonSnapshot>();
         var resolved = new HashSet<Uuid>();
         string? cursor = null;
         do
@@ -58,10 +59,11 @@ static class PolicyCampaignWork
                 {
                     var record = await reader.HydrateAsync(new Person(tenantId, person.PersonId), ct)
                         .ConfigureAwait(false);
+                    people[person.PersonId] = PolicyAcknowledgementPersonSnapshot.Capture(record);
                     if (record.IsCreated && record.CorrelatedUserId is { } userId)
                         members[person.PersonId] = RbacIds.Member(tenantId, userId);
                 }
-                candidates.AddRange(Candidates(campaign, today, members));
+                candidates.AddRange(Candidates(campaign, today, members, people));
             }
             cursor = page.NextCursor;
         } while (cursor is not null);
@@ -74,7 +76,8 @@ static class PolicyCampaignWork
     }
 
     public static IReadOnlyList<WorkCandidate> Candidates(PolicyDistributionCampaign campaign, DateOnly today,
-        IReadOnlyDictionary<Uuid, Uuid> memberByPerson)
+        IReadOnlyDictionary<Uuid, Uuid> memberByPerson,
+        IReadOnlyDictionary<Uuid, PolicyAcknowledgementPersonSnapshot>? people = null)
     {
         if (!campaign.IsLaunched || campaign.IsClosed || campaign.Subject is not { } subject)
             return [];
@@ -85,7 +88,11 @@ static class PolicyCampaignWork
             var member = memberByPerson.TryGetValue(person.PersonId, out var memberId) ? memberId : (Uuid?)null;
             candidates.Add(CreateCandidate(campaign.TenantId, campaign.ProgramId, campaign.Id,
                 subject, campaign.OwnerMemberId, campaign.LaunchedAt, person.PersonId,
-                person.DisplayName, person.DueOn, member));
+                person.DisplayName, person.DueOn, member) with
+            {
+                AcknowledgementPerson = people is not null && people.TryGetValue(person.PersonId, out var captured)
+                    ? captured : null,
+            });
         }
         return candidates;
     }

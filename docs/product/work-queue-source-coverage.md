@@ -180,3 +180,11 @@ Queue action eligibility and management assignment use the source request's `ICl
 A recorded assignee who loses source eligibility becomes effectively unassigned without rewriting the retained assignment history. Mine and eligible-unassigned counts, claim, delegation, escalation and management assignment follow that source eligibility. Authorized program-manager and current-team read oversight retain the existing All/Team/detail visibility; a `next_action` describes the source workflow and grants no authority, as for existing separation-of-duties exclusions. Eligible replacement members can still claim or receive the orphaned work.
 
 Personal policy acknowledgement remains unmarked and usable by its correlated audience member. Its existing direct-member assignment and team-only claim validation remain unchanged. Conditional manager proxy acknowledgement has a shared request with personal acknowledgement and requires a separately accepted source-aware guard; this metadata slice does not invent a denial before that source contract exists. Campaign routing under #646 and complete parent acceptance remain open. Source projection fences and retained source history are independent checks; this is not a cross-stream atomic snapshot or authorization/write guarantee.
+
+Conditional policy proxy recording uses `PolicyAcknowledgementRecorderGuard.EvaluateCapturedAsync` with the exact
+runtime Person snapshot captured while deriving audience membership. The projected reader and retained-source fallback
+capture that Person once per participant; neither stores that capture as projection authority nor rehydrates the
+correlation when evaluating an actor. Actual Attest history denies proxy eligibility and manager assignment, orphaning
+an existing assignment while preserving ordinary All/Team oversight. Direct member-held personal acknowledgement
+remains available under its ordinary read/audience checks and retains the existing team-only Claim validation.
+The whole `AcknowledgePolicy` DTO remains unmarked because its personal and proxy branches have different authority.

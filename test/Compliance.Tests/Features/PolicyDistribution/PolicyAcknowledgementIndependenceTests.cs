@@ -171,8 +171,10 @@ public sealed class PolicyAcknowledgementIndependenceTests
         Assert.False(result.CanRecordProxy);
     }
 
-    [Fact]
-    public async Task ShouldReconcileProxyQueueGivenActualSourceDenialAfterAttestHistory()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldReconcileProxyQueueGivenActualSourceDenialAfterAttestHistory(bool revoked)
     {
         // Arrange
         await using (var ordinary = await Fixture.CreateAsync())
@@ -193,18 +195,100 @@ public sealed class PolicyAcknowledgementIndependenceTests
         var item = Assert.Single(before.Value.Items);
         Assert.Equal("record_acknowledgement", item.NextAction);
         await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.Source.TenantId,
-            fixture.Source.ManagerUserId, revoked: true);
+            fixture.Source.ManagerUserId, revoked);
 
         // Act
         var denied = await fixture.AcknowledgeAsync(fixture.Source.ManagerUserId, fixture.Source.NonMemberPersonId);
         var after = await Scenario().When(new ListWork(fixture.Source.TenantId, fixture.Source.ProgramId, "mine"))
             .ExpectSuccess();
+        var oversight = await Scenario().When(new GetWorkItem(fixture.Source.TenantId,
+            fixture.Source.ProgramId, item.WorkItemId)).ExpectSuccess();
+        await Scenario().When(new AssignWorkItem(fixture.Source.TenantId, fixture.Source.ProgramId,
+            item.WorkItemId, 0, RbacIds.Member(fixture.Source.TenantId, fixture.Source.ManagerUserId)))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario().When(new DelegateWorkItem(fixture.Source.TenantId, fixture.Source.ProgramId,
+            item.WorkItemId, 0, RbacIds.Member(fixture.Source.TenantId, fixture.Source.MemberUserId), "Reconcile source eligibility."))
+            .ExpectFailure(RequestErrorKind.Forbidden);
 
         // Assert
+        Assert.Null(oversight.Value.Item.AssigneeMemberId);
         Assert.Equal(RequestErrorKind.Forbidden, denied.Error?.Kind);
         Assert.Contains("Attest", denied.Error!.Message, StringComparison.Ordinal);
         Assert.Empty(after.Value.Items);
         Assert.Equal(0, after.Value.Counts.Total);
+    }
+
+    [Theory]
+    [InlineData("none")]
+    [InlineData("advisory")]
+    [InlineData("other_client")]
+    public async Task ShouldCompleteGenuineProxyWorkGivenSourceEligibleManager(string history)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new Member(fixture.Source.TenantId, fixture.Source.ManagerUserId), member => member.Register());
+        if (history != "none")
+            await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider,
+                history == "other_client" ? Uuid.CreateVersion4() : fixture.Source.TenantId,
+                fixture.Source.ManagerUserId, true, history == "advisory" ? "advisory" : "attest");
+        await CatchUpWorkAsync(fixture.Provider, fixture.Source.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(fixture.Provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.Source.ManagerUserId));
+        var before = await Scenario().When(new ListWork(fixture.Source.TenantId,
+            fixture.Source.ProgramId, "mine")).ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+
+        // Act
+        var assignment = await Scenario().When(new AssignWorkItem(fixture.Source.TenantId,
+            fixture.Source.ProgramId, item.WorkItemId, 0,
+            RbacIds.Member(fixture.Source.TenantId, fixture.Source.ManagerUserId))).ExpectFailure(RequestErrorKind.Conflict);
+        var recorded = await fixture.AcknowledgeAsync(fixture.Source.ManagerUserId, fixture.Source.NonMemberPersonId);
+        await CatchUpWorkAsync(fixture.Provider, fixture.Source.TenantId);
+        var after = await Scenario().When(new ListWork(fixture.Source.TenantId,
+            fixture.Source.ProgramId, "mine")).ExpectSuccess();
+
+        // Assert
+        Assert.Contains("already assigned", assignment.Error!.Message, StringComparison.Ordinal);
+        Assert.True(recorded.IsSuccess, recorded.Error?.Message);
+        Assert.True(recorded.Value.RecordedOnBehalf);
+        Assert.Empty(after.Value.Items);
+        Assert.Equal(0, after.Value.Counts.Total);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveGenuinePersonalQueueGivenAttestHistoryAndReadOnlyAuthority()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new Member(fixture.Source.TenantId, fixture.Source.MemberUserId), member => member.Register());
+        await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.Source.TenantId,
+            fixture.Source.MemberUserId, revoked: true);
+        await CatchUpWorkAsync(fixture.Provider, fixture.Source.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(fixture.Provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.Source.MemberUserId));
+        var before = await Scenario().When(new ListWork(fixture.Source.TenantId,
+            fixture.Source.ProgramId, "mine")).ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+
+        // Act
+        await Scenario().When(new GetWorkItem(fixture.Source.TenantId,
+            fixture.Source.ProgramId, item.WorkItemId)).ExpectSuccess();
+        var claim = await Scenario().When(new ClaimWorkItem(fixture.Source.TenantId,
+            fixture.Source.ProgramId, item.WorkItemId, 0)).ExpectFailure(RequestErrorKind.Validation);
+        var recorded = await fixture.AcknowledgeAsync(fixture.Source.MemberUserId, fixture.Source.MemberPersonId);
+        await CatchUpWorkAsync(fixture.Provider, fixture.Source.TenantId);
+        var after = await Scenario().When(new ListWork(fixture.Source.TenantId,
+            fixture.Source.ProgramId, "mine")).ExpectSuccess();
+
+        // Assert
+        Assert.Equal("acknowledge", item.NextAction);
+        Assert.Equal(1, before.Value.Counts.Mine);
+        Assert.Contains("Only team work", claim.Error!.Message, StringComparison.Ordinal);
+        Assert.True(recorded.IsSuccess, recorded.Error?.Message);
+        Assert.False(recorded.Value.RecordedOnBehalf);
+        Assert.Empty(after.Value.Items);
     }
 
     static async Task CatchUpWorkAsync(IServiceProvider provider, Uuid tenantId)
