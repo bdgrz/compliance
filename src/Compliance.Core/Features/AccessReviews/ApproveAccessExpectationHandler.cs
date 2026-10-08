@@ -12,6 +12,10 @@ public sealed class ApproveAccessExpectationHandler(IAggregateExecutor executor,
     public async ValueTask<Result<AccessExpectationView>> HandleAsync(
         IRequestContext<ApproveAccessExpectation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessExpectationView>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
         if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,

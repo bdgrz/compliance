@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 using Bdgrz.Compliance.Features.Applications;
 
@@ -11,6 +12,10 @@ public sealed class ExemptAccessRemediationHandler(IAggregateExecutor executor,
     public async ValueTask<Result<AccessRemediationExceptionView>> HandleAsync(
         IRequestContext<ExemptAccessRemediation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessRemediationExceptionView>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
         var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,

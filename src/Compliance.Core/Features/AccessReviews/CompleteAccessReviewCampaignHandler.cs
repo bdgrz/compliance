@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
@@ -16,6 +17,10 @@ public sealed class CompleteAccessReviewCampaignHandler(IAggregateReader reader,
     public async ValueTask<Result<AccessReviewCampaignCompletionView>> HandleAsync(
         IRequestContext<CompleteAccessReviewCampaign> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessReviewCampaignCompletionView>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var campaign = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId,
             request.CampaignId), ct).ConfigureAwait(false);

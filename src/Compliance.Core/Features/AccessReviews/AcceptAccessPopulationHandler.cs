@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
@@ -16,6 +17,10 @@ public sealed class AcceptAccessPopulationHandler(IAggregateReader reader,
     public async ValueTask<Result<AccessPopulationAcceptance>> HandleAsync(
         IRequestContext<AcceptAccessPopulation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessPopulationAcceptance>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var population = await reader.HydrateAsync(new AccessPopulation(request.TenantId,
             request.PopulationId), ct).ConfigureAwait(false);

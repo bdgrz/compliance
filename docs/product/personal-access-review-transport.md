@@ -1,0 +1,9 @@
+# Personal access-review decision transport
+
+Eight existing personal HTTP-only contracts require native HttpInvocation plus a canonical non-system personal actor before source/visibility/waiver reads or snapshot freezing: AcceptAccessPopulation, ApproveAccessExpectation, ExemptAccessExpectation, ExemptMissingAccessPopulation, RecordAccessDecision, RecordBulkAccessDecision, ExemptAccessRemediation and CompleteAccessReviewCampaign.
+
+Sixteen actual production AddCompliance valid-source Direct/MCP cases reproduced successful personal decisions before the guard. Denial now advances neither the owning source nor the request-bound PopulationSnapshot. Eight native HTTP positives retain canonical member attribution; population acceptance and campaign completion retain intact frozen snapshots. Five native HTTP refusal cases retain exact proposer/reviewer separation, self-review, unassigned reviewer and privileged-bulk preview reasons. Ordinary membership/grants, historical management independence, restricted visibility, source revisions, complete bulk preview, waiver and completion rules remain mandatory.
+
+The AccessReviews-only fixture selects explicit HTTP for those eight named personal request types; ordinary reads, launch, provider changes and verification keep their existing Direct scenario. The fixed-request acceptance retry and three manual restricted-source handler tests use explicit native HTTP, preserving their original business assertions. Global RequestContext and RequestScenario defaults remain unchanged. The production tests dispatch explicit Direct/MCP contexts independently of that fixture selection.
+
+This is correction reserve under #277, with no parent criterion completion, forecast decrement, professional authority or campaign owner/routing decision. Launch, change recording, verification and #646 program placement are excluded. Routes, MCP tools and wire/event schemas are unchanged.

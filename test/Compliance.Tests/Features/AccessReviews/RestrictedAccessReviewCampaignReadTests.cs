@@ -122,7 +122,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
         var scenario = Scenario();
         var handler = new RecordAccessDecisionHandler(null!, scenario.Reader,
             TimeProvider.System, RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
-        var context = new RequestContext<RecordAccessDecision>(new RecordAccessDecision(
+        var context = PersonalAccessReviewTransportTests.HttpContext<RecordAccessDecision>(new RecordAccessDecision(
             scenario.TenantId, scenario.CampaignId, scenario.ItemId, 1, "keep",
             "Still required."), Actor(scenario.UserId));
 
@@ -141,7 +141,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
         var scenario = Scenario();
         var handler = new CompleteAccessReviewCampaignHandler(scenario.Reader, null!, null!,
             TimeProvider.System, RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
-        var context = new RequestContext<CompleteAccessReviewCampaign>(
+        var context = PersonalAccessReviewTransportTests.HttpContext<CompleteAccessReviewCampaign>(
             new CompleteAccessReviewCampaign(scenario.TenantId, scenario.CampaignId, 1,
                 "I reviewed the campaign."), Actor(scenario.UserId));
 
