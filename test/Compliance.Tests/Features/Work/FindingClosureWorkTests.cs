@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Fitz.Testing;
@@ -34,9 +35,9 @@ public sealed class FindingClosureWorkTests
             new ListWorkReminders(fixture.TenantId, fixture.ProgramId));
         var digest = await fixture.AsAsync(fixture.ApproverUserId,
             new GetWorkDigest(fixture.TenantId, fixture.ProgramId));
-        var closed = await fixture.AsAsync(fixture.ApproverUserId, new CloseFinding(
+        var closed = (await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.ApproverUserId, new CloseFinding(
             fixture.TenantId, fixture.ProgramId, finding.FindingId, finding.Revision,
-            "Independently verified correction.", OperationsFixture.FullSupport, "Closure accepted."));
+            "Independently verified correction.", OperationsFixture.FullSupport, "Closure accepted."))).Value;
         var after = await fixture.AsAsync(fixture.ApproverUserId,
             new ListWork(fixture.TenantId, fixture.ProgramId, "all"));
         var afterReminders = await fixture.AsAsync(fixture.ApproverUserId,

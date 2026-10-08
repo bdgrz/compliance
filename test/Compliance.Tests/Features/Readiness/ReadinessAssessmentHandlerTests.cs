@@ -130,12 +130,12 @@ public sealed class ReadinessAssessmentHandlerTests
         var fixture = await Fixture.CreateAsync();
         var assessment = await fixture.RunAsync(0);
 
-        await fixture.Scenario(fixture.RunnerUserId)
-            // Act
-            .When(new DecideReadiness(fixture.TenantId, fixture.ProgramId,
-                assessment.AssessmentId, 1, "do_not_proceed", "Too many gaps."))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        var result = await PersonalReadinessClosureTransportTests.DecideHttpAsync(fixture.Provider, fixture.RunnerUserId, new DecideReadiness(fixture.TenantId, fixture.ProgramId,
+                assessment.AssessmentId, 1, "do_not_proceed", "Too many gaps."), RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.False(result.IsSuccess);
     }
 
     [Fact]
@@ -146,8 +146,7 @@ public sealed class ReadinessAssessmentHandlerTests
         var assessment = await fixture.RunAsync(0);
         var decide = new DecideReadiness(fixture.TenantId, fixture.ProgramId,
             assessment.AssessmentId, 1, "proceed", "Gaps have owners and dates.");
-        await fixture.Scenario(fixture.DeciderUserId).When(decide)
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalReadinessClosureTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, decide, RequestErrorKind.Conflict);
         var revision = 1L;
         foreach (var gap in assessment.Gaps)
         {
@@ -159,8 +158,7 @@ public sealed class ReadinessAssessmentHandlerTests
         }
 
         // Act
-        var decision = await fixture.Scenario(fixture.DeciderUserId)
-            .When(decide with { ExpectedRevision = revision }).ExpectSuccess();
+        var decision = await PersonalReadinessClosureTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, decide with { ExpectedRevision = revision });
 
         // Assert
         Assert.Equal("proceed", decision.Value.Outcome);
@@ -171,9 +169,7 @@ public sealed class ReadinessAssessmentHandlerTests
             new ListReadinessGaps(fixture.TenantId, fixture.ProgramId, assessment.AssessmentId,
                 "unplanned"));
         Assert.Empty(unplanned.Items);
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(decide with { ExpectedRevision = revision + 1, Outcome = "do_not_proceed" })
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalReadinessClosureTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, decide with { ExpectedRevision = revision + 1, Outcome = "do_not_proceed" }, RequestErrorKind.Conflict);
         var list = await fixture.QueryAsync<ListReadinessAssessments,
             Page<ReadinessAssessmentSummaryView>>(new ListReadinessAssessments(fixture.TenantId,
             fixture.ProgramId));
@@ -502,10 +498,8 @@ public sealed class ReadinessAssessmentHandlerTests
         Assert.Equal(fixture.OwnerMemberId, retained.Plan.OwnerMemberId);
         Assert.Equal(first.InputFingerprint, repeated.InputFingerprint);
         Assert.DoesNotContain(repeated.Findings, finding => finding.RuleId == "catalog_support_declared");
-        await fixture.Scenario(fixture.DeciderUserId)
-            .When(new DecideReadiness(fixture.TenantId, fixture.ProgramId, repeated.AssessmentId,
-                4, "proceed", "Other gaps remain unplanned."))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalReadinessClosureTransportTests.DecideHttpAsync(fixture.Provider, fixture.DeciderUserId, new DecideReadiness(fixture.TenantId, fixture.ProgramId, repeated.AssessmentId,
+                4, "proceed", "Other gaps remain unplanned."), RequestErrorKind.Conflict);
     }
 
     [Fact]
@@ -558,7 +552,7 @@ public sealed class ReadinessAssessmentHandlerTests
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
 
-    sealed class Fixture
+    internal sealed class Fixture
     {
         public required ServiceProvider Provider { get; init; }
         public Uuid TenantId { get; } = Uuid.CreateVersion4();
@@ -652,10 +646,8 @@ public sealed class ReadinessAssessmentHandlerTests
                     .ExpectSuccess();
                 revision++;
             }
-            await Scenario(DeciderUserId)
-                .When(new DecideReadiness(TenantId, ProgramId, assessment.AssessmentId,
-                    revision, "proceed", "Owned."))
-                .ExpectSuccess();
+            await PersonalReadinessClosureTransportTests.DecideHttpAsync(Provider, DeciderUserId, new DecideReadiness(TenantId, ProgramId, assessment.AssessmentId,
+                    revision, "proceed", "Owned."));
             return revision + 1;
         }
 

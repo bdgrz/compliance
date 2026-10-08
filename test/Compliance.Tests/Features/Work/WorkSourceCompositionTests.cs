@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.PolicyDistribution;
@@ -68,9 +69,9 @@ public sealed class WorkSourceCompositionTests
         var closureItem = Assert.Single(after.Value.Items, item => item.Kind == "finding_closure_review");
         await Scenario().When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId, closureItem.WorkItemId,
             0, fixture.ApproverMemberId)).ExpectSuccess();
-        await Scenario().When(new CloseFinding(fixture.TenantId, fixture.ProgramId, verified.FindingId,
+        await PersonalReadinessClosureTransportTests.CloseHttpAsync(provider, fixture.ApproverUserId, new CloseFinding(fixture.TenantId, fixture.ProgramId, verified.FindingId,
             verified.Revision, "Independently verified correction", OperationsFixture.FullSupport,
-            "Closure accepted")).ExpectSuccess();
+            "Closure accepted"));
         await Scenario().When(list).ExpectFailure(RequestErrorKind.Conflict);
         await CatchUpAsync(provider, fixture.TenantId);
         var final = await Scenario().When(list).ExpectSuccess();
