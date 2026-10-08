@@ -11,7 +11,7 @@ cross-stream snapshot.
 | Control operations | Occurrences and independent occurrence reviews | `control-operations` | `FitzControlOccurrenceWorkItemDirectoryTests`, `WorkQueueTests` |
 | Evidence requests | Open owner fulfilment | `evidence-requests` | `FitzEvidenceWorkItemDirectoryTests`, `WorkQueueTests` |
 | Findings | Corrective actions and independent finding closure | `remediation` | `FitzCorrectiveActionWorkItemDirectoryTests`, `FitzFindingClosureWorkItemDirectoryTests`, `FindingClosureWorkTests` |
-| Risk governance | Treatment actions, completion reviews, control-treatment reviews | `risk-governance` | `FitzRiskGovernanceWorkItemDirectoryTests`, `RiskControlTreatmentWorkTests`, `WorkAssignmentTests` |
+| Risk governance | Treatment actions, completion reviews, control-treatment reviews | `risk-governance` | `FitzRiskGovernanceWorkItemDirectoryTests`, `RiskControlTreatmentWorkTests`, `WorkAssignmentTests`, `RiskGovernanceHandlerTests` |
 | Control evaluations | Submitted evaluation-round reviews | `control-evaluations` | `FitzControlEvaluationWorkItemDirectoryTests`, `ControlEvaluationWorkTests` |
 | Criterion applicability | Not-applicable proposal reviews | `criterion-applicability` | `FitzCriterionApplicabilityWorkItemDirectoryTests`, `ControlMappingWorkTests` |
 | Control mappings | Exact mapping-version reviews | `control-criterion-mappings` | `FitzControlMappingWorkItemDirectoryTests`, `ControlMappingWorkTests` |
@@ -86,6 +86,20 @@ Other source roles keep their existing requirements. In particular,
 is used. Finding ownership, corrective-action ownership and recorded completer
 exclusions still deny ordinary closure work regardless of management grant or
 membership affiliation; the correction grants no closure exception or waiver.
+
+## Risk completion assignment identity
+
+The completion-review source handler reads the same program/risk/submission
+work identity emitted by both the authoritative fallback and Fitz projection.
+Assignments created through the queue authorize only that exact pending
+submission. Reassignment removes the previous reviewer's authority; a rejected
+completion followed by resubmission requires a new assignment. Source revision,
+evidence, ownership and independence checks still apply.
+
+The program/risk namespace introduced in #616 is retained. Historical assignment
+entries using the earlier submission-only identity remain audit records and
+do not authorize current namespaced work. A pending review needs an assignment
+through its current queue item; no compatibility fallback reads the old key.
 
 ## Remaining acceptance boundaries
 

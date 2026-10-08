@@ -34,8 +34,8 @@ public sealed class ReviewRiskTreatmentActionCompletionHandler(IAggregateExecuto
         {
             var assignments = await reader.HydrateAsync(new WorkAssignmentLedger(request.TenantId,
                 request.ProgramId), ct).ConfigureAwait(false);
-            var workItemId = WorkCandidate.IdFor(pending.SubmissionId,
-                WorkSource.RiskTreatmentActionReview);
+            var workItemId = WorkSource.RiskTreatmentWorkItemId(request.ProgramId,
+                request.RiskId, pending.SubmissionId, WorkSource.RiskTreatmentActionReview);
             var assigned = assignments.Read(workItemId).AssigneeMemberId == actor.MemberId;
             var conflicts = governance.SubmitterMemberId(request.RiskId, pending.SubmissionId) ==
                                 actor.MemberId || action?.AccountableMemberId == actor.MemberId;
