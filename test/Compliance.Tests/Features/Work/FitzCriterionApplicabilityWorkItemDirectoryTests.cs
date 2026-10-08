@@ -114,7 +114,7 @@ public sealed class FitzCriterionApplicabilityWorkItemDirectoryTests
         Assert.Equal("review", first.NextAction);
         Assert.Equal($"/api/v1/tenants/{tenantId}/programs/{programId}/" +
             $"criterion-applicability/{decisionId}/reviews", first.ActionPath);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId),
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId),
             first.Responsible);
         Assert.Contains(proposerId, first.Excluded);
         Assert.Equal(proposedAt, first.CreatedAt);

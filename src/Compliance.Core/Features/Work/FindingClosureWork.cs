@@ -26,7 +26,7 @@ static class FindingClosureWork
             $"Completed corrective work at finding revision {finding.Revision} awaits independent verification.",
             finding.DueOn, RemediationLedger.Materiality(finding.Severity), "close",
             $"/api/v1/tenants/{finding.TenantId}/programs/{finding.ProgramId}/findings/{finding.FindingId}/closures",
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, finding.ProgramId),
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, finding.ProgramId),
             null, excluded, finding.ChangedAt);
     }
 

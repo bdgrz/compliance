@@ -29,7 +29,7 @@ public sealed class ControlEvaluationWorkTests
         Assert.Equal(fixture.ControlId, item.ControlId);
         Assert.Equal("review", item.NextAction);
         Assert.Null(item.AssigneeMemberId);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/controls/" +
                      $"{fixture.ControlId}/evaluations/{evaluation.EvaluationId}/reviews",

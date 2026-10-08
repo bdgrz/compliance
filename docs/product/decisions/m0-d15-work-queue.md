@@ -28,7 +28,8 @@ independent verification. The item links to the existing HTTP-only finding
 closure operation. The finding remains the authority for required evidence,
 verification rationale, program-management permission, and separation of duties.
 
-Ordinary closure work is visible to active client members with `program.manage`
+Ordinary closure work is visible to active non-firm-staff tenant members with
+`program.manage` (including explicitly authorized persisted guest memberships)
 who are neither the current finding owner nor an action owner or completer.
 A member requiring an approved separation-of-duties waiver uses the finding's
 existing direct workflow; queue reads do not infer or grant that exception.
