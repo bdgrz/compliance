@@ -3,6 +3,8 @@ using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Workforce;
+using Bdgrz.Compliance.Features.Work;
+using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Tests.Testing;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Cntryl.Fitz;
@@ -167,6 +169,66 @@ public sealed class PolicyAcknowledgementIndependenceTests
         // Assert
         Assert.False(result.IsSelf);
         Assert.False(result.CanRecordProxy);
+    }
+
+    [Fact]
+    public async Task ShouldReconcileProxyQueueGivenActualSourceDenialAfterAttestHistory()
+    {
+        // Arrange
+        await using (var ordinary = await Fixture.CreateAsync())
+        {
+            var accepted = await ordinary.AcknowledgeAsync(ordinary.Source.ManagerUserId,
+                ordinary.Source.NonMemberPersonId);
+            Assert.True(accepted.IsSuccess, accepted.Error?.Message);
+        }
+        await using var fixture = await Fixture.CreateAsync();
+        foreach (var user in new[] { fixture.Source.ManagerUserId, fixture.Source.MemberUserId })
+            await ProgramManagementServices.SeedAsync(fixture.Provider, new Member(fixture.Source.TenantId, user),
+                member => member.Register());
+        await CatchUpWorkAsync(fixture.Provider, fixture.Source.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(fixture.Provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.Source.ManagerUserId));
+        var before = await Scenario().When(new ListWork(fixture.Source.TenantId, fixture.Source.ProgramId, "mine"))
+            .ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+        Assert.Equal("record_acknowledgement", item.NextAction);
+        await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.Source.TenantId,
+            fixture.Source.ManagerUserId, revoked: true);
+
+        // Act
+        var denied = await fixture.AcknowledgeAsync(fixture.Source.ManagerUserId, fixture.Source.NonMemberPersonId);
+        var after = await Scenario().When(new ListWork(fixture.Source.TenantId, fixture.Source.ProgramId, "mine"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, denied.Error?.Kind);
+        Assert.Contains("Attest", denied.Error!.Message, StringComparison.Ordinal);
+        Assert.Empty(after.Value.Items);
+        Assert.Equal(0, after.Value.Counts.Total);
+    }
+
+    static async Task CatchUpWorkAsync(IServiceProvider provider, Uuid tenantId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var events = services.GetRequiredService<IDomainEventReader>();
+        foreach (var directory in services.GetServices<IAccountableWorkItemDirectoryReader>())
+        {
+            var store = directory as FitzKvProjectionStore ?? services.GetRequiredService<FitzRiskEvaluationDirectory>();
+            var apply = store.GetType().GetMethod("ApplyAsync", [typeof(DomainEvent), typeof(CancellationToken)])!
+                .CreateDelegate<Func<DomainEvent, CancellationToken, ValueTask>>(store);
+            var pattern = directory.SourcePattern(tenantId);
+            var checkpoint = await directory.LoadCheckpointAsync(tenantId);
+            await using var batch = await store.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity(directory.ProjectorName, pattern), checkpoint));
+            var cursor = checkpoint.Cursor;
+            await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+            {
+                await apply(record.Event, CancellationToken.None);
+                cursor = record.NextCursor;
+            }
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
     }
 
     sealed class Fixture : IAsyncDisposable
