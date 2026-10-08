@@ -12,6 +12,10 @@ public sealed class ReviewControlCriterionMappingHandler(IAggregateExecutor exec
     public async ValueTask<Result> HandleAsync(
         IRequestContext<ReviewControlCriterionMapping> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Criterion sign-off requires personal HTTP submission."));
         var request = context.Request;
         if (request.Outcome == "accept")
         {

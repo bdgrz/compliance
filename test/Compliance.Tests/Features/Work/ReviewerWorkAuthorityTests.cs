@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Tests.Features.Evaluations;
 using Bdgrz.Compliance.Tests.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Policies;
 using Bdgrz.Compliance.Tests.Features.Commitments;
+using Bdgrz.Compliance.Tests.Features.ControlMappings;
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -576,21 +577,15 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "mapping")
             {
-                var request = Scenario().When(new ReviewControlCriterionMapping(Operations.TenantId,
-                    Operations.ProgramId, pending.Id, pending.Revision, "reject", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalMappingDecisionTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewControlCriterionMapping(Operations.TenantId, Operations.ProgramId,
+                        pending.Id, pending.Revision, "reject", "Reviewed independently."), error);
             }
             else
             {
-                var request = Scenario().When(new ReviewCriterionApplicability(Operations.TenantId,
-                    Operations.ProgramId, pending.Id, pending.Revision, "reject", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalMappingDecisionTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewCriterionApplicability(Operations.TenantId, Operations.ProgramId,
+                        pending.Id, pending.Revision, "reject", "Reviewed independently."), error);
             }
             if (kind == "policy")
             {
