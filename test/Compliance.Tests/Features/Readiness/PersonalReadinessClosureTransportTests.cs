@@ -148,7 +148,7 @@ public sealed class PersonalReadinessClosureTransportTests
         var retained = await ProgramManagementServices.HydrateAsync(provider, new RemediationLedger(source.TenantId, source.ProgramId));
 
         // Assert
-        Assert.DoesNotContain("personal HTTP", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("owner cannot verify and close their own remediation", result.Error!.Message, StringComparison.Ordinal);
         Assert.Null(retained.Read(finding.FindingId, DateTimeOffset.UtcNow)!.Closure);
     }
 
