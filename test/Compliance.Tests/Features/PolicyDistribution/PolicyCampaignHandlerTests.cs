@@ -6,6 +6,7 @@ using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Versioning;
 using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Testing;
+using Bdgrz.Compliance.Tests.Features.Policies;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
@@ -28,21 +29,17 @@ public sealed class PolicyCampaignHandlerTests
             .When(new ProposePolicySuccessor(fixture.TenantId, fixture.ProgramId,
                 predecessor.PolicyId, 1, predecessor.Content with { Title = "Successor" }))
             .ExpectSuccess();
-        var review = await fixture.Scenario(fixture.ReviewerUserId)
-            .When(new ReviewPolicyDraft(fixture.TenantId, fixture.ProgramId,
-                predecessor.PolicyId, successor.Value.Revision, "accept", "Reviewed"))
-            .ExpectSuccess();
+        var review = await PersonalPolicyDecisionTransportTests.SendHttpAsync(fixture.Provider, fixture.ReviewerUserId, new ReviewPolicyDraft(fixture.TenantId, fixture.ProgramId,
+                predecessor.PolicyId, successor.Value.Revision, "accept", "Reviewed"));
         var preview = await fixture.Scenario(fixture.ManagerUserId)
             .When(new PreviewPolicyImpact(fixture.TenantId, fixture.ProgramId,
                 predecessor.PolicyId, successor.Value.Revision)).ExpectSuccess();
         var campaign = await fixture.LaunchAsync(predecessor);
 
         // Act
-        var approval = await fixture.Scenario(fixture.ManagerUserId)
-            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+        var approval = await PersonalPolicyDecisionTransportTests.SendHttpAsync(fixture.Provider, fixture.ManagerUserId, new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
                 successor.Value.Revision, review.Value.DecisionId,
-                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest))
-            .ExpectFailure(RequestErrorKind.Conflict);
+                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest), RequestErrorKind.Conflict);
         var retained = await ProgramManagementServices.HydrateAsync(fixture.Provider,
             new Policy(fixture.TenantId, predecessor.PolicyId));
 
@@ -53,19 +50,15 @@ public sealed class PolicyCampaignHandlerTests
 
         // Act: the projector catches up; an old digest still cannot acknowledge the new impact.
         await fixture.ProjectCampaignsAsync();
-        await fixture.Scenario(fixture.ManagerUserId)
-            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+        await PersonalPolicyDecisionTransportTests.SendHttpAsync(fixture.Provider, fixture.ManagerUserId, new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
                 successor.Value.Revision, review.Value.DecisionId,
-                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest))
-            .ExpectFailure(RequestErrorKind.Conflict);
+                new DateOnly(2026, 11, 1), true, "Approved", preview.Value.Digest), RequestErrorKind.Conflict);
         var refreshed = await fixture.Scenario(fixture.ManagerUserId)
             .When(new PreviewPolicyImpact(fixture.TenantId, fixture.ProgramId,
                 predecessor.PolicyId, successor.Value.Revision)).ExpectSuccess();
-        var approved = await fixture.Scenario(fixture.ManagerUserId)
-            .When(new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
+        var approved = await PersonalPolicyDecisionTransportTests.SendHttpAsync(fixture.Provider, fixture.ManagerUserId, new ApprovePolicy(fixture.TenantId, fixture.ProgramId, predecessor.PolicyId,
                 successor.Value.Revision, review.Value.DecisionId,
-                new DateOnly(2026, 11, 1), true, "Approved", refreshed.Value.Digest))
-            .ExpectSuccess();
+                new DateOnly(2026, 11, 1), true, "Approved", refreshed.Value.Digest));
 
         // Assert
         Assert.Equal([campaign.CampaignId], refreshed.Value.AffectedCampaignIds);
@@ -310,16 +303,14 @@ public sealed class PolicyCampaignHandlerTests
                 ProgramId, "POL-AC", new PolicyContent("Access Control Policy", "Govern access",
                     PolicyAudience.CoreSecurity, null, 12, "All access is reviewed.", null,
                     "Security lead", []))).ExpectSuccess();
-            var review = await Scenario(ReviewerUserId).When(new ReviewPolicyDraft(TenantId,
-                ProgramId, registration.Value.PolicyId, 1, "accept", "Accurate"))
-                .ExpectSuccess();
-            await Scenario(AuthorUserId).When(new ApprovePolicy(TenantId, ProgramId,
+            var review = await PersonalPolicyDecisionTransportTests.SendHttpAsync(Provider, ReviewerUserId, new ReviewPolicyDraft(TenantId,
+                ProgramId, registration.Value.PolicyId, 1, "accept", "Accurate"));
+            await PersonalPolicyDecisionTransportTests.SendHttpAsync(Provider, AuthorUserId, new ApprovePolicy(TenantId, ProgramId,
                     registration.Value.PolicyId, 1, review.Value.DecisionId,
-                    new DateOnly(2026, 10, 1), true, "Self approval"))
-                .ExpectFailure(RequestErrorKind.Forbidden);
-            var approved = await Scenario(ManagerUserId).When(new ApprovePolicy(TenantId,
+                    new DateOnly(2026, 10, 1), true, "Self approval"), RequestErrorKind.Forbidden);
+            var approved = await PersonalPolicyDecisionTransportTests.SendHttpAsync(Provider, ManagerUserId, new ApprovePolicy(TenantId,
                 ProgramId, registration.Value.PolicyId, 1, review.Value.DecisionId,
-                new DateOnly(2026, 10, 1), true, "Approved")).ExpectSuccess();
+                new DateOnly(2026, 10, 1), true, "Approved"));
             return approved.Value;
         }
 
