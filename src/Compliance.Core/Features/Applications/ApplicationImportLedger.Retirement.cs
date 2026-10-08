@@ -50,9 +50,7 @@ public sealed partial class ApplicationImportLedger
         var missing = GetMissingSourceClaims(batch).Value;
         if (missing.Count is < 1 or > 200)
             return Failure(RequestErrorKind.Validation, "A retirement proposal requires between 1 and 200 missing claims.");
-        var claims = GetSourceClaims();
-        if (missing.Any(claim => claims.Count(other => other.Observation.ApplicationId == claim.Observation.ApplicationId) != 1) ||
-            HasPresentRetirementAlias(batch.Id, batch.GetRows().Select(row => row.SourceRecordId!), missing))
+        if (HasSharedOrPresentRetirementAlias(batch, missing))
             return Failure(RequestErrorKind.Conflict, "A source alias cannot authorize retirement of a shared target.");
         foreach (var claim in missing)
         {
@@ -144,6 +142,13 @@ public sealed partial class ApplicationImportLedger
             HasPresentRetirementAlias(start.BatchId, start.PresentSourceRecordIds, missing))
             throw new InvalidOperationException("A source alias cannot authorize retirement of a shared target.");
         return missing;
+    }
+
+    internal bool HasSharedOrPresentRetirementAlias(ImportBatch batch, IEnumerable<ApplicationImportSourceClaim> missing)
+    {
+        var claims = GetSourceClaims();
+        return missing.Any(claim => claims.Count(other => other.Observation.ApplicationId == claim.Observation.ApplicationId) != 1) ||
+            HasPresentRetirementAlias(batch.Id, batch.GetRows().Select(row => row.SourceRecordId!), missing);
     }
 
     bool HasPresentRetirementAlias(Uuid batchId, IEnumerable<string> present,

@@ -64,7 +64,7 @@ public sealed class ApplicationImportCompositionTests
         Assert.Equal(expected, result.Error?.Kind);
     }
 
-    sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         readonly ServiceProvider _provider;
         readonly AsyncServiceScope _scope;
@@ -74,6 +74,7 @@ public sealed class ApplicationImportCompositionTests
             new Claim("iss", "bdgrz"), new Claim("sub", User.ToString())], "BdgrzSession"));
         public Permissions Permissions { get; } = new();
         public MembershipDirectory Memberships { get; }
+        public IServiceProvider Provider => _provider;
         public IRequestBus Bus { get; }
         public IAggregateReader Reader { get; }
 
@@ -101,7 +102,7 @@ public sealed class ApplicationImportCompositionTests
         ValueTask<Result> SendPersonalAsync(IRequest request) => Bus.DispatchAsync(request,
             new RequestDispatchContext(Actor, new HttpInvocation("POST", "/synthetic/import", "/synthetic/import", "synthetic")), CancellationToken.None);
 
-        public async Task<(Uuid BatchId, Uuid OriginalBatchId, Uuid ApplicationId)> SeedAsync()
+        public async Task<(Uuid BatchId, Uuid OriginalBatchId, Uuid ApplicationId)> SeedAsync(string coverage = "declared_complete", bool invalid = false)
         {
             var original = await Bus.SendAsync(new StageApplicationImport(Tenant, Uuid.CreateVersion4(),
                 "manual", "applications", "partial", [new("omitted", "Observed application", "Purpose", null)]), Actor);
@@ -116,7 +117,7 @@ public sealed class ApplicationImportCompositionTests
             Assert.Equal("committed", ledger.GetState(originalBatch));
             var applicationId = Assert.Single(ledger.GetFrozenPlan(originalBatch.Id)!.Rows).ApplicationId;
             var staged = await Bus.SendAsync(new StageApplicationImport(Tenant, Uuid.CreateVersion4(),
-                "manual", "applications", "declared_complete", [new("present", "Present application", "Purpose", null)]), Actor);
+                "manual", "applications", coverage, [new("present", invalid ? "" : "Present application", "Purpose", null)]), Actor);
             Assert.True(staged.IsSuccess, staged.Error?.Message);
             var batch = await Reader.HydrateAsync(new ImportBatch(Tenant, staged.Value!.BatchId));
             var directory = _scope.ServiceProvider.GetRequiredService<IApplicationImportDirectoryProjection>();
@@ -134,7 +135,7 @@ public sealed class ApplicationImportCompositionTests
         }
     }
 
-    sealed class Permissions : IPermissionAuthorizer
+    internal sealed class Permissions : IPermissionAuthorizer
     {
         public bool Allowed { get; set; } = true;
         public bool StageOnly { get; set; }
@@ -144,7 +145,7 @@ public sealed class ApplicationImportCompositionTests
              !StageOnly && permission == RbacPermissions.ApplicationInventoryManage));
     }
 
-    sealed class MembershipDirectory(Uuid tenant, Uuid user) : ITenantMembershipDirectoryReader
+    internal sealed class MembershipDirectory(Uuid tenant, Uuid user) : ITenantMembershipDirectoryReader
     {
         public string State { get; set; } = "active";
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
