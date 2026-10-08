@@ -20,6 +20,7 @@ public sealed class ImportBatch : Aggregate
     string? _contentSha256;
     readonly Dictionary<Uuid, ApplicationImportStagedRow> _rows = [];
 
+    internal ApplicationImportStaged? SourceObservation { get; private set; }
     public bool IsCreated => _created;
     public long Revision => _revision;
     public bool IsCanceled => _canceled;
@@ -37,6 +38,7 @@ public sealed class ImportBatch : Aggregate
         _tenantId = tenantId;
         On<ApplicationImportStaged>(ev =>
         {
+            SourceObservation = ev;
             _created = true;
             _revision = 1;
             _contentSha256 = ev.ContentSha256;

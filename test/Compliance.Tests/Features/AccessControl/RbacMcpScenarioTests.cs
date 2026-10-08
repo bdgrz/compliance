@@ -80,6 +80,9 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.application_import.rows.list",
             "bdgrz.application_import.preview",
             "bdgrz.application_import.missing.preview",
+            "bdgrz.artifact_retention.get",
+            "bdgrz.artifact_retention.legal_holds.list",
+            "bdgrz.application_import.retention.get",
             "bdgrz.application_import.progress",
             "bdgrz.application_import.rejected_report",
             "bdgrz.system_instance.declare",
@@ -363,6 +366,10 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application_import.missing.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.progress").ReadOnly);
+        foreach (var name in new[] { "bdgrz.artifact_retention.get", "bdgrz.artifact_retention.legal_holds.list", "bdgrz.application_import.retention.get" })
+            Assert.True(Assert.Single(tools, tool => tool.Name == name).ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name is "bdgrz.artifact_retention.basis.record" or
+            "bdgrz.artifact_retention.legal_hold.place" or "bdgrz.artifact_retention.legal_hold.release");
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.rejected_report").ReadOnly);
         Assert.DoesNotContain(tools, tool => tool.Name is

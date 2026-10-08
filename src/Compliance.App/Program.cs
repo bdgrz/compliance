@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Retention;
 using System.Globalization;
 using System.Text.Json;
 using Bdgrz.Compliance;
@@ -200,6 +201,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewMissingApplicationImportRows>(tool => tool.ReadOnly())
+        .AddMcpTool<GetArtifactRetention>(tool => tool.ReadOnly())
+        .AddMcpTool<ListArtifactLegalHolds>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationImportRetention>(tool => tool.ReadOnly())
         .AddMcpTool<GetApplicationImportProgress>(tool => tool.ReadOnly())
         .AddMcpTool<GetApplicationImportRejectedReport>(tool => tool.ReadOnly())
         .AddMcpTool<RecordPerson>()
@@ -1744,6 +1748,30 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("List the projected access-review scope status of an application's system instances")
         .WithTags("Applications");
+    app.MapPortiaGet<GetArtifactRetention, ArtifactRetentionView>(
+            "/api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
+    app.MapPortiaGet<ListArtifactLegalHolds, Page<ArtifactLegalHoldView>>(
+            "/api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/legal-holds")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
+    app.MapPortiaGet<GetApplicationImportRetention, ArtifactRetentionView>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/retention")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
+    app.MapPortiaPost<RecordArtifactRetentionBasis>(
+            "/api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/basis")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
+    app.MapPortiaPost<PlaceArtifactLegalHold>(
+            "/api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/legal-holds")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
+    app.MapPortiaPost<ReleaseArtifactLegalHold>(
+            "/api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/legal-holds/{hold_id}/releases")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Artifact retention");
     app.MapPortiaPost<StageApplicationImport, ApplicationImportRegistration>(
             "/api/v1/tenants/{tenant_id}/application-imports")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
