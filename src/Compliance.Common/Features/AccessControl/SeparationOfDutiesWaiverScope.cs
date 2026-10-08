@@ -12,6 +12,9 @@ public sealed record SeparationOfDutiesWaiverScope(
 
 public static class SeparationOfDutiesRecordTypes
 {
+    /// <summary>A derived evidence approval; the version and revision identify its retained preparation.</summary>
+    public const string EvidenceRedaction = "evidence_redaction";
+
     public const string Boundary = "boundary";
 
     /// <summary>An access-review scope decision; the version is the instance ID.</summary>

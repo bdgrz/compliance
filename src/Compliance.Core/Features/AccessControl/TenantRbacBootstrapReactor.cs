@@ -53,6 +53,10 @@ public sealed partial class TenantRbacBootstrapReactor(
             new AssignRolePermission(tenantId, BuiltInRbac.ComplianceParticipationRoleId(tenantId),
                 RbacPermissions.TenantAccess),
             new AssignRolePermission(tenantId, BuiltInRbac.ViewerRoleId(tenantId), RbacPermissions.TenantAccess),
+            new AssignRolePermission(tenantId, BuiltInRbac.TenantAdministrationRoleId(tenantId), RbacPermissions.EvidenceRedactionPrepare),
+            new AssignRolePermission(tenantId, BuiltInRbac.ComplianceManagementRoleId(tenantId), RbacPermissions.EvidenceRedactionPrepare),
+            new AssignRolePermission(tenantId, BuiltInRbac.ComplianceParticipationRoleId(tenantId), RbacPermissions.EvidenceRedactionPrepare),
+            new AssignRolePermission(tenantId, BuiltInRbac.ComplianceManagementRoleId(tenantId), RbacPermissions.EvidenceRedactionApprove),
             new AssignRolePermission(tenantId, BuiltInRbac.ViewerRoleId(tenantId), RbacPermissions.EvidenceArtifactRead),
         ];
 

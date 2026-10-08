@@ -123,7 +123,7 @@ public sealed class EvidenceRedaction : Aggregate
         at >= waiver.ApprovedAt && at < waiver.ExpiresAt;
 
     internal SeparationOfDutiesWaiverScope WaiverScope(EvidenceRedactionPreparationFact prepared) =>
-        new("evidence_redaction", Id, prepared.PreparationId, prepared.Revision, SeparationOfDutiesActions.Approve);
+        new(SeparationOfDutiesRecordTypes.EvidenceRedaction, Id, prepared.PreparationId, prepared.Revision, SeparationOfDutiesActions.Approve);
 
     static bool SameActor(ActorReference first, ActorReference second) => first.Kind == second.Kind && first.Id == second.Id;
 
