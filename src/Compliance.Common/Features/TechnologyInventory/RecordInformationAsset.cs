@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.TechnologyInventory;
 [Discriminator("bdgrz.inventory.information_asset.record", 1)]
 public sealed record RecordInformationAsset(Uuid TenantId, string Name, string Classification,
     string RetentionReference, Uuid OwnerPersonId, string? Description = null)
-    : IRequest<InformationAssetRegistration>, ITechnologyInventoryRequest, ICallable;
+    : IRequest<InformationAssetRegistration>, ITechnologyInventoryWriteRequest, ICallable;

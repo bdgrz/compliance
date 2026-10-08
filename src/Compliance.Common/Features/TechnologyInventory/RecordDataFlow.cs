@@ -9,4 +9,4 @@ public sealed record RecordDataFlow(Uuid TenantId, string SourceType, Uuid Sourc
     bool EncryptedInTransit, bool EncryptedAtRest, DateOnly EffectiveFrom, Uuid OwnerPersonId,
     Uuid? DestinationId = null, string? DestinationParty = null,
     string? ExceptionReference = null)
-    : IRequest<DataFlowRegistration>, ITechnologyInventoryRequest, ICallable;
+    : IRequest<DataFlowRegistration>, ITechnologyInventoryWriteRequest, ICallable;

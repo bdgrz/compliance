@@ -10,4 +10,4 @@ public sealed record ReviseDataFlow(Uuid TenantId, Uuid DataFlowId, long Expecte
     bool EncryptedAtRest, DateOnly EffectiveFrom, Uuid OwnerPersonId, string Lifecycle,
     Uuid? DestinationId = null, string? DestinationParty = null,
     string? ExceptionReference = null)
-    : IRequest, ITechnologyInventoryRequest, ICallable;
+    : IRequest, ITechnologyInventoryWriteRequest, ICallable;
