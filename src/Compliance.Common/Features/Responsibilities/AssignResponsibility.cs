@@ -8,7 +8,7 @@ namespace Bdgrz.Compliance.Features.Responsibilities;
 public sealed record AssignResponsibility(Uuid TenantId, Uuid MemberUserId,
     ResponsibilityType Type, string RecordType, Uuid RecordId, Uuid VersionId, long ScopeRevision,
     DateTimeOffset EffectiveFrom, DateTimeOffset? EffectiveUntil,
-    IReadOnlyList<Uuid> SeparationOfDutiesWaiverIds) : IRequest, IRbacManagementRequest, ICallable
+    IReadOnlyList<Uuid> SeparationOfDutiesWaiverIds) : IRequest, IRbacManagementRequest, IClientManagementMutationRequest, ICallable
 {
     [JsonIgnore]
     public ResponsibilityScope Scope => new(RecordType, RecordId, VersionId, ScopeRevision);
