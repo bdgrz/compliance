@@ -123,3 +123,6 @@ MCP contracts. Web and mobile clients own their experiences in separate
 repositories. Human acknowledgements, approvals, acceptance, and sign-offs
 remain attributed human actions under the delivery contracts. No product
 document assigns client implementation to the backend repository.
+
+The [work queue source coverage](work-queue-source-coverage.md) records projected
+source families, search/count semantics, and remaining source-placement decisions.
