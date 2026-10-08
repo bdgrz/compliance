@@ -1,7 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.Versioning;
-using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.PolicyDistribution;
@@ -12,7 +11,8 @@ namespace Bdgrz.Compliance.Features.PolicyDistribution;
 ///     program manager, attributed separately as performer and recorder. HTTP-only.
 /// </summary>
 public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
-    IAggregateReader reader, IAccessGrantPermissionAuthorizer permissions, TimeProvider clock)
+    IAggregateReader reader, IAccessGrantPermissionAuthorizer permissions, TimeProvider clock,
+    PolicyAcknowledgementRecorderGuard recorderGuard)
     : IRequestHandler<AcknowledgePolicy, CampaignAcknowledgementView>
 {
     public async ValueTask<Result<CampaignAcknowledgementView>> HandleAsync(
@@ -24,8 +24,10 @@ public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
         if (!source.IsSuccess)
             return Result<CampaignAcknowledgementView>.Failure(source.Error);
         var actor = PolicyActor.From(context, request.TenantId);
-        var person = await reader.HydrateAsync(new Person(request.TenantId, request.PersonId), ct)
+        var person = await recorderGuard.CaptureAsync(request.TenantId, request.PersonId, ct)
             .ConfigureAwait(false);
+        if (person.TenantId != request.TenantId || person.PersonId != request.PersonId)
+            return NotInAudience();
         // Authorize before consulting the audience, so a member acting for someone else learns
         // nothing about who is in it or who holds a membership.
         var self = person.CorrelatedUserId == actor.UserId;
@@ -37,6 +39,11 @@ public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
         if (!self && person.CorrelatedUserId is not null)
             return Result<CampaignAcknowledgementView>.Failure(new RequestError(
                 RequestErrorKind.Forbidden, "A member must acknowledge a policy personally."));
+        var eligibility = await recorderGuard.EvaluateCapturedAsync(request.TenantId, actor.UserId, person, ct)
+            .ConfigureAwait(false);
+        if (!self && !eligibility.CanRecordProxy)
+            return Result<CampaignAcknowledgementView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "A person with actual Attest assignment history cannot record this client's management acknowledgements."));
         var onBehalf = !self;
         var performer = new ActorReference("workforce_person", request.PersonId.ToString(),
             source.Value.DisplayNameOf(request.PersonId) ?? "Workforce person");

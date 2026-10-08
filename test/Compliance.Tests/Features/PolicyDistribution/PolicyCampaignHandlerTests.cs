@@ -214,7 +214,7 @@ public sealed class PolicyCampaignHandlerTests
         Assert.Equal("approved", version.Status);
     }
 
-    sealed class Fixture
+    internal sealed class Fixture
     {
         public required ServiceProvider Provider { get; init; }
         public Uuid TenantId { get; } = Uuid.CreateVersion4();
@@ -242,6 +242,8 @@ public sealed class PolicyCampaignHandlerTests
                     .AddRequestHandler<GetCampaignHandler>()
                     .AddRequestHandler<ListCampaignParticipantsHandler>(),
                 services => services.AddScoped<PolicyImpactService>()
+                    .AddScoped<ClientManagementIndependenceGuard>()
+                    .AddScoped<PolicyAcknowledgementRecorderGuard>()
                     .AddSingleton<IDomainEventReader>(provider =>
                         (IDomainEventReader)provider.GetRequiredService<IEventStore>())
                     .AddSingleton<ICampaignDirectoryReader>(
