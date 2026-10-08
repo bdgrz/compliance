@@ -94,12 +94,16 @@ public sealed class AttestManagementWriteWallTests
         Assert.Equal("Access control", read.Value!.Content.Title);
     }
 
-    [Fact]
-    public async Task ShouldAllowManagementWriteGivenOnlyAnotherClientsActualAttestHistory()
+    [Theory]
+    [InlineData(false, "attest")]
+    [InlineData(true, "advisory")]
+    public async Task ShouldAllowManagementWriteGivenNoActualAttestHistoryForThisClient(bool sameTenant,
+        string practice)
     {
         // Arrange
         await using var provider = Compose("client_personnel");
-        await AttestAssignmentHistoryFixture.SeedAsync(provider, Uuid.CreateVersion4(), User, true);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, sameTenant ? Tenant : Uuid.CreateVersion4(),
+            User, true, practice);
         await using var scope = provider.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
 

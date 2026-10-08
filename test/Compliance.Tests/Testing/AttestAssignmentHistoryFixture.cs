@@ -8,12 +8,12 @@ static class AttestAssignmentHistoryFixture
 {
     static readonly DateTimeOffset Now = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
 
-    public static async Task SeedAsync(IServiceProvider provider, Uuid tenant, Uuid canonicalUserId, bool revoked = false)
+    public static async Task SeedAsync(IServiceProvider provider, Uuid tenant, Uuid canonicalUserId, bool revoked = false, string practice = "attest")
     {
         // Explicit synthetic internal evidence exercises retained history; it grants no public acceptance authority.
         var administrator = Uuid.CreateVersion4();
         var client = ActorReference.ForMember(RbacIds.Member(tenant, administrator), "Synthetic client administrator");
-        var staff = new FirmStaffMemberView(Uuid.CreateVersion4(), canonicalUserId, "attest", "Synthetic assignee", true,
+        var staff = new FirmStaffMemberView(Uuid.CreateVersion4(), canonicalUserId, practice, "Synthetic assignee", true,
             1, ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), Now);
         var partner = staff with { StaffMemberId = Uuid.CreateVersion4(), UserId = Uuid.CreateVersion4() };
         var engagement = Uuid.CreateVersion4();
@@ -21,7 +21,7 @@ static class AttestAssignmentHistoryFixture
         await ProgramManagementServices.SeedAsync(provider, new IndependenceLedger(tenant), ledger =>
         {
             Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, 0,
-                new ServiceEngagementDraftContent("attest", "Synthetic scope", new DateOnly(2026, 1, 1),
+                new ServiceEngagementDraftContent(practice, "Synthetic scope", new DateOnly(2026, 1, 1),
                     new DateOnly(2026, 12, 31), staff.StaffMemberId), staff, client, Now).IsSuccess);
             Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
                 tenant, engagement, acknowledgement, 1, 1, [], "I retain management responsibility"),
