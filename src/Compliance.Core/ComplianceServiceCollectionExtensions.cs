@@ -998,6 +998,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            .AddReactor<EvidenceRedactionPermissionsReactor>("EvidenceRedactionPermissionsV1", WorkloadScope.Global)
             .AddReactor<EvidenceArtifactReadPermissionReactor>("EvidenceArtifactReadPermissionV1", WorkloadScope.Global)
             .AddReactor<BuiltInRoleCatalogMigrationReactor>("BuiltInRoleCatalogV1", WorkloadScope.Global)
             // Creator activation follows its durable team assignment on a tenant workload,

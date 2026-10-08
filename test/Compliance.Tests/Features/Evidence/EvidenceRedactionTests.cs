@@ -244,6 +244,48 @@ public sealed class EvidenceRedactionTests
         Assert.Single(new AggregateScenario<EvidenceRedaction>(redaction).PendingEvents);
     }
 
+    [Fact]
+    public void ShouldPreserveBoundedHistoryAndAllowExactRetryGivenHistoryCapacity()
+    {
+        // Arrange
+        var redaction = new EvidenceRedaction(Tenant, Uuid.CreateVersion4());
+        var firstRequest = Uuid.CreateVersion4();
+        var original = Identity('a');
+        var derived = Identity('b');
+        Assert.True(redaction.Prepare(firstRequest, 0, original, derived, "Manual", "Initial", Contributor, Now).IsSuccess);
+        for (var revision = 1; revision < 100; revision++)
+            Assert.True(redaction.Prepare(Uuid.CreateVersion4(), revision, original, derived, "Manual", "Revision", Contributor, Now.AddSeconds(revision)).IsSuccess);
+
+        // Act
+        var retry = redaction.Prepare(firstRequest, 0, original, derived, "Manual", "Initial", Contributor, Now.AddDays(1));
+        var extra = redaction.Prepare(Uuid.CreateVersion4(), 100, original, derived, "Manual", "Extra", Contributor, Now.AddDays(1));
+        var replay = new AggregateScenario<EvidenceRedaction>(new EvidenceRedaction(Tenant, redaction.Id))
+            .Given(new AggregateScenario<EvidenceRedaction>(redaction).PendingEvents.ToArray()).Aggregate;
+
+        // Assert
+        Assert.True(retry.IsSuccess);
+        Assert.False(extra.IsSuccess);
+        Assert.Equal(100, redaction.Revision);
+        Assert.Equal(100, replay.Preparations.Count);
+        Assert.Equal("Initial", replay.Preparations[0].Reason);
+        Assert.Equal(100, new AggregateScenario<EvidenceRedaction>(redaction).PendingEvents.Count);
+    }
+
+    [Fact]
+    public void ShouldDenyBeforeAppendGivenCompleteSerializedPreparationExceedsPayloadBound()
+    {
+        // Arrange
+        var redaction = new EvidenceRedaction(Tenant, Uuid.CreateVersion4());
+
+        // Act
+        var result = redaction.Prepare(Uuid.CreateVersion4(), 0, Identity('a'), Identity('b'),
+            new string('\uffff', 4000), new string('\uffff', 4000), Contributor, Now);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Empty(new AggregateScenario<EvidenceRedaction>(redaction).PendingEvents);
+    }
+
     static EvidenceRedactionSourceCapsule Identity(char hash)
     {
         var digest = new string(hash, 64);

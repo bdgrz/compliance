@@ -3,8 +3,10 @@ using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Fitz;
+using Cntryl.Portia.Testing;
 using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Evidence;
@@ -193,6 +195,7 @@ public sealed class EvidenceRedactionCompositionTests
     [InlineData("derived")]
     [InlineData("permission")]
     [InlineData("attest_history")]
+    [InlineData("admin")]
     public async Task ShouldPreservePreparationWithoutAppendGivenIneligibleApproval(string fault)
     {
         // Arrange
@@ -214,11 +217,14 @@ public sealed class EvidenceRedactionCompositionTests
                 new RolePermission(fixture.TenantId, BuiltInRbac.ComplianceManagementRoleId(fixture.TenantId), RbacPermissions.EvidenceRedactionApprove), item => item.Remove());
         else if (fault == "attest_history")
             await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.TenantId, lead);
+        if (fault == "admin")
+            await GrantPairAsync(fixture, fixture.UserId, derived);
+        var decisionActor = fault == "admin" ? fixture.UserId : lead;
         RequestInvocation invocation = fault == "direct" ? new DirectInvocation() : fault == "mcp" ? new McpInvocation("redaction-approve") :
             new HttpInvocation("POST", "/test", "/test", "test");
 
         // Act
-        var result = await DispatchAsync(fixture, lead, new ApproveEvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId,
+        var result = await DispatchAsync(fixture, decisionActor, new ApproveEvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId,
             1, fault == "stale" ? Uuid.CreateVersion4() : preparation.PreparationId, 1), invocation);
         var after = await ProgramManagementServices.HydrateAsync(fixture.Provider, new EvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId));
 
@@ -281,6 +287,29 @@ public sealed class EvidenceRedactionCompositionTests
             Assert.True(approved.Value.ApprovalCurrent);
             Assert.True(approved.Value.Approvals[0].SeparationOfDutiesWaived);
             Assert.Equal(recorded.Value.WaiverId, after.CurrentApproval!.SeparationOfDutiesWaiver!.WaiverId);
+            var events = await fixture.TenantEventsAsync();
+            var preparedEvent = Assert.Single(events.OfType<EvidenceRedactionPrepared>(),
+                item => item.RedactionId == prepared.Value.RedactionId);
+            var approvedEvent = Assert.Single(events.OfType<EvidenceRedactionApproved>(),
+                item => item.RedactionId == prepared.Value.RedactionId);
+            var preparedJson = JsonSerializer.Serialize(preparedEvent, ComplianceCoreJsonContext.Default.EvidenceRedactionPrepared);
+            var approvedJson = JsonSerializer.Serialize(approvedEvent, ComplianceCoreJsonContext.Default.EvidenceRedactionApproved);
+            var restoredPreparation = JsonSerializer.Deserialize(preparedJson, ComplianceCoreJsonContext.Default.EvidenceRedactionPrepared)!;
+            var restoredApproval = JsonSerializer.Deserialize(approvedJson, ComplianceCoreJsonContext.Default.EvidenceRedactionApproved)!;
+            Assert.Equal(preparedEvent.Preparation, restoredPreparation.Preparation);
+            Assert.Equal(approvedEvent.Approval, restoredApproval.Approval);
+            Assert.NotEqual(Uuid.Empty, restoredPreparation.Preparation.Original.RegistrationEventId);
+            Assert.NotEqual(Uuid.Empty, restoredPreparation.Preparation.Derived.RegistrationEventId);
+            Assert.Equal(64, restoredPreparation.Preparation.Original.RegistrationSha256.Length);
+            Assert.Equal(64, restoredPreparation.Preparation.Derived.IdentitySha256.Length);
+            Assert.True(restoredApproval.Approval.DerivedSourcePosition >= 2);
+            Assert.Equal(ArtifactMetadataAccessTests.Fixture.Now, restoredApproval.Approval.DerivedAvailableAt);
+            Assert.Equal(recorded.Value.WaiverId, restoredApproval.Approval.SeparationOfDutiesWaiver!.WaiverId);
+            var replay = new AggregateScenario<EvidenceRedaction>(new EvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId))
+                .Given(restoredPreparation, restoredApproval).Aggregate;
+            Assert.Equal(after.CurrentPreparation, replay.CurrentPreparation);
+            Assert.Equal(after.CurrentApproval, replay.CurrentApproval);
+            Assert.Equal(after.Revision, replay.Revision);
         }
         else
         {
@@ -544,6 +573,124 @@ public sealed class EvidenceRedactionCompositionTests
 
         public ValueTask AppendAsync(EventStreamAddress stream, ulong expectedStreamPosition, IReadOnlyList<DomainEvent> events,
             CancellationToken ct = default) => inner.AppendAsync(stream, expectedStreamPosition, events, ct);
+    }
+
+    [Fact]
+    public async Task ShouldBackfillOnlyFourPermissionsGivenCompletedExistingCatalogCheckpoint()
+    {
+        // Arrange
+        await using var fixture = await ArtifactMetadataAccessTests.Fixture.CreateAsync();
+        await fixture.RunReactorAsync("BuiltInRoleCatalogV1");
+        var derived = await SeedDerivedAsync(fixture);
+        await GrantPairAsync(fixture, fixture.UserId, derived);
+        var assignments = new[]
+        {
+            (BuiltInRbac.TenantAdministrationRoleId(fixture.TenantId), RbacPermissions.EvidenceRedactionPrepare),
+            (BuiltInRbac.ComplianceManagementRoleId(fixture.TenantId), RbacPermissions.EvidenceRedactionPrepare),
+            (BuiltInRbac.ComplianceParticipationRoleId(fixture.TenantId), RbacPermissions.EvidenceRedactionPrepare),
+            (BuiltInRbac.ComplianceManagementRoleId(fixture.TenantId), RbacPermissions.EvidenceRedactionApprove)
+        };
+        // Synthetic missing fixed-catalog state models an existing tenant without these new permissions.
+        foreach (var (role, permission) in assignments)
+            await ProgramManagementServices.SeedAsync(fixture.Provider, new RolePermission(fixture.TenantId, role, permission), item => item.Remove());
+        await fixture.ProjectAsync();
+        var request = new PrepareEvidenceRedaction(fixture.TenantId, Uuid.CreateVersion4(), 0, fixture.ArtifactId, derived, "Manual", "Private fields");
+        Assert.False((await DispatchAsync(fixture, fixture.UserId, request)).IsSuccess);
+        var before = await fixture.TenantEventsAsync();
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var oldRegistration = Assert.Single(services.GetServices<WorkloadRegistration>(), item => item.Name == "BuiltInRoleCatalogV1");
+        var oldReactor = (Reactor)services.GetRequiredService(oldRegistration.ComponentType);
+        var checkpoints = services.GetRequiredService<IProjectionCheckpointStore>();
+        var identity = new CheckpointIdentity(oldReactor.Name, oldReactor.Pattern);
+        var oldCheckpoint = await checkpoints.LoadAsync(identity);
+
+        // Act
+        await fixture.RunReactorAsync("EvidenceRedactionPermissionsV1");
+        await fixture.ProjectAsync();
+        var after = await fixture.TenantEventsAsync();
+        await fixture.RunReactorAsync("EvidenceRedactionPermissionsV1");
+        var repeated = await fixture.TenantEventsAsync();
+        var enabled = await DispatchAsync(fixture, fixture.UserId, request);
+
+        // Assert
+        Assert.True(enabled.IsSuccess, enabled.Error?.Message);
+        Assert.Equal(oldCheckpoint, await checkpoints.LoadAsync(identity));
+        Assert.Equal(before.Count + 4, after.Count);
+        Assert.Equal(after.Count, repeated.Count);
+        Assert.Equal(before.OfType<AccessGrantIssued>().Count(), after.OfType<AccessGrantIssued>().Count());
+        Assert.Equal(before.OfType<RoleDefined>().Count(), after.OfType<RoleDefined>().Count());
+        Assert.Equal(before.OfType<MemberRegistered>().Count(), after.OfType<MemberRegistered>().Count());
+        foreach (var (role, permission) in assignments)
+        {
+            var retained = await ProgramManagementServices.HydrateAsync(fixture.Provider, new RolePermission(fixture.TenantId, role, permission));
+            Assert.True(retained.IsAssigned);
+        }
+    }
+
+    [Fact]
+    public async Task ShouldExposeOnlyLineageSummaryGivenRejectedOriginalAndAvailableDerivative()
+    {
+        // Arrange
+        await using var fixture = await ArtifactMetadataAccessTests.Fixture.CreateAsync();
+        await fixture.InspectAsync(EvidenceInspectionOutcome.SecretDetected);
+        var derived = await SeedDerivedAsync(fixture);
+        var lead = await SeedMemberAsync(fixture, BuiltInRbac.PowerUsersTeamId(fixture.TenantId));
+        await GrantPairAsync(fixture, fixture.UserId, derived);
+        await GrantPairAsync(fixture, lead, derived);
+        var prepared = await DispatchAsync(fixture, fixture.UserId, new PrepareEvidenceRedaction(fixture.TenantId,
+            Uuid.CreateVersion4(), 0, fixture.ArtifactId, derived, "Manual", "Private fields"));
+        Assert.True(prepared.IsSuccess, prepared.Error?.Message);
+        Assert.True((await DispatchAsync(fixture, lead, new ApproveEvidenceRedaction(fixture.TenantId,
+            prepared.Value.RedactionId, 1, prepared.Value.Preparations[0].PreparationId, 1))).IsSuccess);
+
+        // Act
+        var result = await DispatchAsync(fixture, lead, new GetEvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId), new McpInvocation("redaction-get"));
+        var json = JsonSerializer.Serialize(result.Value, ComplianceCoreJsonContext.Default.EvidenceRedactionView);
+        var original = await fixture.ReadAsync();
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.True(result.Value.ApprovalCurrent);
+        Assert.Equal("rejected", result.Value.OriginalState);
+        Assert.True(original.IsSuccess, original.Error?.Message);
+        Assert.Null(original.Value.Content);
+        foreach (var omitted in new[] { "Restricted native evidence", "Source description", "Native source", "registration_event_id", "registration_sha256",
+                     "identity_sha256", "derived_source_position", "derived_available_at", "registration_payload_sha256", "aggregate_id", "causation_id", "Collector" })
+            Assert.DoesNotContain(omitted, json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("version")]
+    [InlineData("beneficiary")]
+    public async Task ShouldDenyRecordingWithoutAppendGivenMismatchedPreparedWaiverScope(string fault)
+    {
+        // Arrange
+        await using var fixture = await ArtifactMetadataAccessTests.Fixture.CreateAsync();
+        var derived = await SeedDerivedAsync(fixture);
+        var lead = await SeedMemberAsync(fixture, BuiltInRbac.PowerUsersTeamId(fixture.TenantId));
+        var other = await SeedMemberAsync(fixture, BuiltInRbac.StandardUsersTeamId(fixture.TenantId));
+        await GrantPairAsync(fixture, lead, derived);
+        await GrantPairAsync(fixture, fixture.UserId, derived);
+        var prepared = await DispatchAsync(fixture, lead, new PrepareEvidenceRedaction(fixture.TenantId,
+            Uuid.CreateVersion4(), 0, fixture.ArtifactId, derived, "Manual", "Private fields"));
+        Assert.True(prepared.IsSuccess, prepared.Error?.Message);
+        var preparation = prepared.Value.Preparations[0];
+        var metadata = RequestMetadata.Create();
+        var request = new RecordSeparationOfDutiesWaiver(fixture.TenantId,
+            new SeparationOfDutiesWaiverScope("evidence_redaction", prepared.Value.RedactionId,
+                fault == "version" ? Uuid.CreateVersion4() : preparation.PreparationId, 1, "approve"),
+            fault == "beneficiary" ? other : lead, "Exact exception", ArtifactMetadataAccessTests.Fixture.Now.AddHours(1));
+
+        // Act
+        var result = await DispatchAsync(fixture, fixture.UserId, request, metadata: metadata);
+        var retained = await ProgramManagementServices.HydrateAsync(fixture.Provider, new SeparationOfDutiesWaiver(fixture.TenantId, metadata.RequestId));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, result.Error!.Kind);
+        Assert.Equal(0UL, retained.CommittedStreamPosition);
+        Assert.False(retained.IsRecorded);
     }
 
     static ServiceProvider Compose(ArtifactMetadataAccessTests.Fixture fixture, MutableClock clock, Uuid approver, IEventStore? events = null)
