@@ -1,4 +1,6 @@
 using Bdgrz.Compliance.Features.Providers;
+using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz;
@@ -36,7 +38,7 @@ public sealed class AttestProviderManagementWriteWallTests
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
         Assert.Contains("Attest", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Null(retained.Get(result.Value?.ProviderId ?? Uuid.Empty));
+        Assert.Equal(0UL, retained.CommittedStreamPosition);
     }
 
     [Fact]
@@ -51,6 +53,7 @@ public sealed class AttestProviderManagementWriteWallTests
         Assert.True(recorded.IsSuccess, recorded.Error?.Message);
         await ProjectProvidersAsync(scope.ServiceProvider);
         await AttestAssignmentHistoryFixture.SeedAsync(provider, Tenant, User, revoked: true);
+        await ProjectSetupAsync(scope.ServiceProvider);
 
         // Act
         var revision = await bus.DispatchAsync(new ReviseProvider(Tenant, recorded.Value!.ProviderId, 1,
@@ -92,6 +95,22 @@ public sealed class AttestProviderManagementWriteWallTests
     static RequestDispatchContext Context(bool mcp = false) => new(ProgramManagementServices.Actor(User),
         mcp ? new McpInvocation("synthetic.provider") : new HttpInvocation("POST", "/synthetic", "/synthetic", "synthetic"));
 
+    [Fact]
+    public async Task ShouldDenyProviderAuthoringGivenNoOrdinaryOrganizationGrantAndNoAttestHistory()
+    {
+        // Arrange
+        await using var provider = Compose(allowed: false);
+        await using var scope = provider.CreateAsyncScope();
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            new RecordProvider(Tenant, new ProviderContent("Supplier", "Supplier")), Context(), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.DoesNotContain("Attest", result.Error!.Message, StringComparison.Ordinal);
+    }
+
     static async Task ProjectProvidersAsync(IServiceProvider services)
     {
         var events = services.GetRequiredService<IDomainEventReader>();
@@ -107,7 +126,28 @@ public sealed class AttestProviderManagementWriteWallTests
         await batch.CommitAsync(new ProjectionCheckpoint(cursor));
     }
 
-    static ServiceProvider Compose()
+    static async Task ProjectSetupAsync(IServiceProvider services)
+    {
+        var events = services.GetRequiredService<IDomainEventReader>();
+        var programs = services.GetRequiredService<IProgramDirectoryProjection>();
+        var boundaries = services.GetRequiredService<IBoundaryDirectoryProjection>();
+        var pattern = EventStreamPattern.ForPattern(Tenant.ToString());
+        await using var programBatch = await programs.BeginAsync(new ProjectionBatchContext(
+            new CheckpointIdentity("ProgramDirectory", pattern), ProjectionCheckpoint.Start));
+        await using var boundaryBatch = await boundaries.BeginAsync(new ProjectionBatchContext(
+            new CheckpointIdentity("BoundaryDirectoryV2", pattern), ProjectionCheckpoint.Start));
+        var cursor = ProjectionCheckpoint.Start.Cursor;
+        await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+        {
+            await programs.ApplyAsync(record.Event, CancellationToken.None);
+            await boundaries.ApplyAsync(record.Event, CancellationToken.None);
+            cursor = record.NextCursor;
+        }
+        await programBatch.CommitAsync(new ProjectionCheckpoint(cursor));
+        await boundaryBatch.CommitAsync(new ProjectionCheckpoint(cursor));
+    }
+
+    static ServiceProvider Compose(bool allowed = true)
     {
         var services = new ServiceCollection();
         services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -122,7 +162,7 @@ public sealed class AttestProviderManagementWriteWallTests
         services.AddSingleton<ITenantActivity>(new ActiveTenant());
         services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships());
         services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PermissionBackedAccessGrantPermissionAuthorizer(
-            new RecordingPermissionAuthorizer(true)));
+            new RecordingPermissionAuthorizer(allowed)));
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

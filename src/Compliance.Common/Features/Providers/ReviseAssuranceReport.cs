@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Providers;
@@ -6,4 +7,4 @@ namespace Bdgrz.Compliance.Features.Providers;
 [Discriminator("bdgrz.provider.assurance_report.revise", 1)]
 public sealed record ReviseAssuranceReport(Uuid TenantId, Uuid ProviderId, Uuid ReportId,
     long ExpectedRevision, AssuranceReportContent Content)
-    : IRequest<AssuranceReportRegistration>, IProviderManagementRequest, ICallable;
+    : IRequest<AssuranceReportRegistration>, IProviderManagementRequest, IClientManagementMutationRequest, ICallable;
