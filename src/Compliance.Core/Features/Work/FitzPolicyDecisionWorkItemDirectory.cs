@@ -8,10 +8,10 @@ namespace Bdgrz.Compliance.Features.Work;
 sealed class FitzPolicyDecisionWorkItemDirectory(IKvClient client, IAggregateReader sourceReader,
     TimeProvider clock)
     : FitzKvProjectionStore(client,
-        "kv://bdgrz/accountable-work-items/policy-decisions-v1", ProjectorName),
+        "kv://bdgrz/accountable-work-items/policy-decisions-v2", ProjectorName),
       IAccountableWorkItemDirectoryReader, IPolicyDecisionWorkItemProjection
 {
-    public const string ProjectorName = "AccountableWorkItemPolicyDecisionV1";
+    public const string ProjectorName = "AccountableWorkItemPolicyDecisionV2";
     const string RevisionKey = ProjectorName;
 
     string IAccountableWorkItemDirectoryReader.ProjectorName => ProjectorName;
@@ -114,7 +114,7 @@ sealed class FitzPolicyDecisionWorkItemDirectory(IKvClient client, IAggregateRea
                         item.WorkItemId == Uuid.Empty || item.SourceId != state.PolicyId ||
                         !ProjectedKinds.Contains(item.Kind, StringComparer.Ordinal) ||
                         item.Responsible != new OperatingHolder(
-                            OperatingAuthority.ProgramReviewerHolder, programId) ||
+                            OperatingAuthority.ProgramManagerHolder, programId) ||
                         !item.ActionPath.StartsWith(sourcePath, StringComparison.Ordinal) ||
                         item.Excluded is null || !workItemIds.Add(item.WorkItemId))
                         return Result<IReadOnlyList<WorkCandidate>>.Failure(InvalidScope());

@@ -77,7 +77,7 @@ public sealed class RiskControlTreatmentWorkTests
         Assert.Equal(treatmentId, item.SourceId);
         Assert.Equal("review", item.NextAction);
         Assert.Null(item.AssigneeMemberId);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
                      $"risks/{riskId}/control-treatments/{treatmentId}/reviews", item.ActionPath);

@@ -69,7 +69,7 @@ public sealed class FitzRiskGovernanceWorkItemDirectoryTests
         Assert.Equal("review", review.NextAction);
         Assert.Equal($"/api/v1/tenants/{tenantId}/programs/{programId}/" +
             $"risks/{riskId}/treatment-actions/{actionId}/completion-reviews", review.ActionPath);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId),
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId),
             review.Responsible);
         Assert.Equal(new HashSet<Uuid> { ownerId, submitterId }, review.Excluded);
         Assert.Equal(now.AddMinutes(2), review.CreatedAt);
@@ -179,7 +179,7 @@ public sealed class FitzRiskGovernanceWorkItemDirectoryTests
         Assert.Equal(treatmentId, item.SourceId);
         Assert.Equal(controlId, item.ControlId);
         Assert.Equal("review", item.NextAction);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId),
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId),
             item.Responsible);
         Assert.Contains(proposerId, item.Excluded);
         Assert.Empty(reviewed.Value);

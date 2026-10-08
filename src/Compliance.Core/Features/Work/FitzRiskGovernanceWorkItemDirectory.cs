@@ -431,7 +431,7 @@ sealed class FitzRiskGovernanceWorkItemDirectory(IKvClient client)
             state.Action.DueOn, null, "review",
             $"/api/v1/tenants/{tenantId}/programs/{programId}/risks/{state.RiskId}/" +
             $"treatment-actions/{state.Action.ActionId}/completion-reviews",
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
             excluded, completion.SubmittedAt);
     }
 
@@ -447,7 +447,7 @@ sealed class FitzRiskGovernanceWorkItemDirectory(IKvClient client)
             "review",
             $"/api/v1/tenants/{tenantId}/programs/{programId}/risks/{treatment.RiskId}/" +
             $"control-treatments/{treatment.TreatmentId}/reviews",
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
             new HashSet<Uuid> { proposerId }, treatment.ProposedAt);
     }
 

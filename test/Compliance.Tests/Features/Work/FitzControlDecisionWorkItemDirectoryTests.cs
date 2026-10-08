@@ -199,7 +199,7 @@ public sealed class FitzControlDecisionWorkItemDirectoryTests
             fixture.ProgramId, createdAt, DateOnly.MaxValue, null)).Value);
 
         // Assert
-        Assert.Equal(OperatingAuthority.ProgramReviewerHolder, item.Responsible.Kind);
+        Assert.Equal(OperatingAuthority.ProgramManagerHolder, item.Responsible.Kind);
     }
 
     static async Task ApplyControlAsync(OperationsFixture fixture, Uuid controlId,
