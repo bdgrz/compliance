@@ -18,6 +18,10 @@ public sealed class AcknowledgePolicyHandler(IAggregateExecutor executor,
     public async ValueTask<Result<CampaignAcknowledgementView>> HandleAsync(
         IRequestContext<AcknowledgePolicy> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<CampaignAcknowledgementView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Policy acknowledgement requires a personal HTTP invocation."));
         var request = context.Request;
         var source = await CampaignSource.ReadAsync(reader, request.TenantId, request.ProgramId,
             request.CampaignId, ct).ConfigureAwait(false);

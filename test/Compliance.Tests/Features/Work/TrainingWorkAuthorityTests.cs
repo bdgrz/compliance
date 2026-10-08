@@ -137,9 +137,9 @@ public sealed class TrainingWorkAuthorityTests
         var item = Assert.Single(before.Items);
 
         // Act
-        var recorded = await fixture.Scenario(fixture.LearnerUserId).When(new AcknowledgePolicy(
+        var recorded = await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
             fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText)).ExpectSuccess();
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.LearnerUserId);
         await fixture.CatchUpAsync();
         var after = await fixture.QueueAsync(fixture.LearnerUserId);
 
@@ -166,9 +166,9 @@ public sealed class TrainingWorkAuthorityTests
         var claim = await fixture.Scenario(fixture.LearnerUserId).When(new ClaimWorkItem(
             fixture.TenantId, fixture.ProgramId, item.WorkItemId, 0))
             .ExpectFailure(RequestErrorKind.Validation);
-        var recorded = await fixture.Scenario(fixture.LearnerUserId).When(new AcknowledgePolicy(
+        var recorded = await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
             fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText)).ExpectSuccess();
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.LearnerUserId);
         await fixture.CatchUpAsync();
         var after = await fixture.QueueAsync(fixture.LearnerUserId);
 
@@ -192,10 +192,9 @@ public sealed class TrainingWorkAuthorityTests
 
         // Act
         var orphan = await fixture.QueueAsync(fixture.OwnerUserId, "all");
-        await fixture.Scenario(fixture.OwnerUserId).When(new AcknowledgePolicy(
+        await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
             fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.OwnerUserId, RequestErrorKind.Forbidden);
 
         // Assert
         var item = Assert.Single(orphan.Items);
@@ -214,10 +213,9 @@ public sealed class TrainingWorkAuthorityTests
         fixture.Permissions.Managers.Remove(fixture.OwnerMemberId);
 
         // Act
-        await fixture.Scenario(fixture.OwnerUserId).When(new AcknowledgePolicy(
+        await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
             fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText))
-            .ExpectFailure(RequestErrorKind.NotFound);
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.OwnerUserId, RequestErrorKind.NotFound);
         var owner = await fixture.QueueAsync(fixture.OwnerUserId);
         var manager = await fixture.QueueAsync(fixture.OtherManagerUserId, "unassigned");
         await fixture.Scenario(fixture.OwnerUserId).When(new GetWorkItem(
@@ -243,9 +241,9 @@ public sealed class TrainingWorkAuthorityTests
         var item = Assert.Single((await fixture.QueueAsync(fixture.OwnerUserId)).Items);
 
         // Act
-        var recorded = await fixture.Scenario(fixture.OwnerUserId).When(new AcknowledgePolicy(
+        var recorded = await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
             fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText)).ExpectSuccess();
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.OwnerUserId);
         await fixture.CatchUpAsync();
         var after = await fixture.QueueAsync(fixture.OwnerUserId);
 
@@ -286,9 +284,9 @@ public sealed class TrainingWorkAuthorityTests
         if (kind == "training")
             await fixture.Scenario(fixture.OwnerUserId).When(fixture.Completion()).ExpectSuccess();
         else
-            await fixture.Scenario(fixture.OwnerUserId).When(new AcknowledgePolicy(
+            await fixture.AcknowledgeHttpAsync(new AcknowledgePolicy(
                 fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
-                "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText)).ExpectSuccess();
+                "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText), fixture.OwnerUserId);
         await fixture.CatchUpAsync();
         var after = await fixture.QueueAsync(fixture.OwnerUserId);
 
@@ -411,6 +409,21 @@ public sealed class TrainingWorkAuthorityTests
 
         public RecordTrainingCompletion Completion() => new(TenantId, ProgramId, CampaignId,
             PersonId, 1, Today, "manual", "certificate/security-awareness.pdf");
+
+        public async Task<Result<CampaignAcknowledgementView>> AcknowledgeHttpAsync(AcknowledgePolicy request, Uuid userId,
+            RequestErrorKind? expectedFailure = null)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(request,
+                new RequestDispatchContext(ProgramManagementServices.Actor(userId),
+                    new HttpInvocation("POST", "/synthetic/policy-acknowledgement", "/synthetic/policy-acknowledgement", "synthetic")),
+                CancellationToken.None);
+            if (expectedFailure is { } error)
+                Assert.Equal(error, result.Error?.Kind);
+            else
+                Assert.True(result.IsSuccess, result.Error?.Message);
+            return result;
+        }
 
         public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
             .GivenActor(ProgramManagementServices.Actor(userId));

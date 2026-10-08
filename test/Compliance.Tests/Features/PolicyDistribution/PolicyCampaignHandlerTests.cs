@@ -102,24 +102,14 @@ public sealed class PolicyCampaignHandlerTests
         var campaign = await fixture.LaunchAsync(version);
 
         // Act
-        var memberForOther = await fixture.Scenario(fixture.MemberUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version))
-            .ExpectFailure(RequestErrorKind.NotFound);
-        var managerForMember = await fixture.Scenario(fixture.ManagerUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        var personal = await fixture.Scenario(fixture.MemberUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version))
-            .ExpectSuccess();
-        var recorded = await fixture.Scenario(fixture.ManagerUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version))
-            .ExpectSuccess();
-        var wrongVersion = await fixture.Scenario(fixture.MemberUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version) with
-            {
-                PolicyVersion = 2,
-            })
-            .ExpectFailure(RequestErrorKind.Conflict);
+        var memberForOther = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version), fixture.MemberUserId, RequestErrorKind.NotFound);
+        var managerForMember = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version), fixture.ManagerUserId, RequestErrorKind.Forbidden);
+        var personal = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version), fixture.MemberUserId);
+        var recorded = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version), fixture.ManagerUserId);
+        var wrongVersion = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.MemberPersonId, version) with
+        {
+            PolicyVersion = 2,
+        }, fixture.MemberUserId, RequestErrorKind.Conflict);
 
         // Assert
         Assert.False(memberForOther.IsSuccess);
@@ -147,12 +137,8 @@ public sealed class PolicyCampaignHandlerTests
         var campaign = await fixture.LaunchAsync(version);
 
         // Act
-        var inAudience = await fixture.Scenario(fixture.MemberUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version))
-            .ExpectFailure(RequestErrorKind.NotFound);
-        var outsideAudience = await fixture.Scenario(fixture.MemberUserId)
-            .When(fixture.Acknowledge(campaign.CampaignId, Uuid.CreateVersion4(), version))
-            .ExpectFailure(RequestErrorKind.NotFound);
+        var inAudience = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, fixture.NonMemberPersonId, version), fixture.MemberUserId, RequestErrorKind.NotFound);
+        var outsideAudience = await fixture.AcknowledgeHttpAsync(fixture.Acknowledge(campaign.CampaignId, Uuid.CreateVersion4(), version), fixture.MemberUserId, RequestErrorKind.NotFound);
 
         // Assert
         Assert.Equal(outsideAudience.Error!.Message, inAudience.Error!.Message);
@@ -282,6 +268,21 @@ public sealed class PolicyCampaignHandlerTests
         static Result Command(CommandFailure? failure) => failure is null
             ? Result.Success
             : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
+
+        public async Task<Result<CampaignAcknowledgementView>> AcknowledgeHttpAsync(AcknowledgePolicy request, Uuid userId,
+            RequestErrorKind? expectedFailure = null)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(request,
+                new RequestDispatchContext(ProgramManagementServices.Actor(userId),
+                    new HttpInvocation("POST", "/synthetic/policy-acknowledgement", "/synthetic/policy-acknowledgement", "synthetic")),
+                CancellationToken.None);
+            if (expectedFailure is { } error)
+                Assert.Equal(error, result.Error?.Kind);
+            else
+                Assert.True(result.IsSuccess, result.Error?.Message);
+            return result;
+        }
 
         public RequestScenario Scenario(Uuid userId) => RequestScenario.For(Provider)
             .GivenActor(ProgramManagementServices.Actor(userId));
