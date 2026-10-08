@@ -204,6 +204,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationImportRows>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationImport>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewMissingApplicationImportRows>(tool => tool.ReadOnly())
+        .AddMcpTool<PreviewApplicationImportOmissionProposal>(tool => tool.ReadOnly())
+        .AddMcpTool<GetApplicationImportOmissionProposal>(tool => tool.ReadOnly())
         .AddMcpTool<GetArtifactRetention>(tool => tool.ReadOnly())
         .AddMcpTool<ListArtifactLegalHolds>(tool => tool.ReadOnly())
         .AddMcpTool<GetApplicationImportRetention>(tool => tool.ReadOnly())
@@ -1835,6 +1837,19 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/preview/missing")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("Preview complete-source omissions as blocked retirement proposals")
+        .WithTags("Application imports");
+    app.MapPortiaGet<PreviewApplicationImportOmissionProposal, ApplicationImportOmissionPreview>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/omission-proposal/preview")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Application imports");
+    app.MapPortiaPost<FreezeApplicationImportOmissionProposal>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/omission-proposal")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Confirm a source-bound omission proposal without approving retirement")
+        .WithTags("Application imports");
+    app.MapPortiaGet<GetApplicationImportOmissionProposal, ApplicationImportOmissionProposalView>(
+            "/api/v1/tenants/{tenant_id}/application-imports/{batch_id}/omission-proposal")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Application imports");
     app.MapPortiaPost<CreateClientService, ClientServiceRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/client-services")
