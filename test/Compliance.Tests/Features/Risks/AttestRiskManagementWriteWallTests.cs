@@ -67,10 +67,13 @@ public sealed class AttestRiskManagementWriteWallTests
         // Act
         var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
             source.Accept(residual.Value.AssessmentId, null), Context(source.ApproverUserId), CancellationToken.None);
+        var retained = await ProgramManagementServices.HydrateAsync(provider,
+            new RiskEvaluation(source.TenantId, source.RiskId));
 
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
         Assert.Contains("Attest", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Empty(retained.ToView().Acceptances);
     }
 
     [Fact]
@@ -95,6 +98,28 @@ public sealed class AttestRiskManagementWriteWallTests
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, selfReview.Error?.Kind);
         Assert.True(independentReview.IsSuccess, independentReview.Error?.Message);
+    }
+
+    [Fact]
+    public async Task ShouldRetainPersonalRiskAcceptanceGivenOrdinaryIndependentHttpAuthority()
+    {
+        // Arrange
+        var source = await RiskGovernanceHandlerTests.Fixture.CreateAsync("accept");
+        await using var sourceProvider = source.Provider;
+        var residual = await source.Scenario(source.AssessorUserId).When(source.Residual(2)).ExpectSuccess();
+        await using var provider = await ComposeAsync(source);
+        await using var scope = provider.CreateAsyncScope();
+        var context = Context(source.ApproverUserId);
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            source.Accept(residual.Value.AssessmentId, null), context, CancellationToken.None);
+        var retained = await ProgramManagementServices.HydrateAsync(provider,
+            new RiskEvaluation(source.TenantId, source.RiskId));
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(result.Value!.AcceptanceId, Assert.Single(retained.ToView().Acceptances).AcceptanceId);
     }
 
     static RequestDispatchContext Context(Uuid userId) => new(ProgramManagementServices.Actor(userId),
