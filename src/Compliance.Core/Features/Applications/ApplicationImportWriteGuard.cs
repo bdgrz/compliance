@@ -17,7 +17,7 @@ static class ApplicationImportWriteGuard
             var ledger = await reader.HydrateAsync(new ApplicationImportLedger(tenantId,
                 group.Key.SourceKey, group.Key.SourceNamespace), ct).ConfigureAwait(false);
             foreach (var batchId in group.Select(ev => ev.Plan.BatchId).Distinct())
-                if (ledger.IsCancellationDurable(batchId))
+                if (ledger.IsRollbackDurable(batchId))
                     settled.Add(batchId);
             foreach (var effect in group)
                 if (ledger.IsEffectCommitted(effect))

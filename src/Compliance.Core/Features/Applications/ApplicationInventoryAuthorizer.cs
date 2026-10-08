@@ -33,7 +33,8 @@ sealed class ApplicationInventoryAuthorizer(ITenantMembershipDirectoryReader mem
                 RbacPermissions.ApplicationInventoryManage, ct).ConfigureAwait(false))
             return Result.Success;
         if (context.Request is StageApplicationImport or GetApplicationImport or
-                ListApplicationImportRows or PreviewApplicationImport or PreviewMissingApplicationImportRows &&
+                ListApplicationImportRows or PreviewApplicationImport or PreviewMissingApplicationImportRows or
+                GetApplicationImportProgress or GetApplicationImportRejectedReport &&
             await permissions.IsAllowedAsync(tenantId, userId, memberId,
                 RbacPermissions.ApplicationImportStage, ct).ConfigureAwait(false))
             return Result.Success;

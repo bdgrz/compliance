@@ -17,7 +17,7 @@ public sealed partial class DeclaredApplication
                 ApplyCommittedImportCreation(effect);
                 _settledImportBatches = _settledImportBatches.Append(effect.Plan.BatchId).ToFrozenSet();
             }
-            else if (ledger.IsCancellationDurable(effect.Plan.BatchId))
+            else if (ledger.IsRollbackDurable(effect.Plan.BatchId))
                 _settledImportBatches = _settledImportBatches.Append(effect.Plan.BatchId).ToFrozenSet();
         }
     }

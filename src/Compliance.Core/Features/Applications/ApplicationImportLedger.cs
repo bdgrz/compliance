@@ -25,7 +25,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
         _sourceNamespace = sourceNamespace;
         On<ApplicationImportCanceled>(ev =>
         {
-            if (ev.TenantId != _tenantId || _commits.ContainsKey(ev.BatchId))
+            if (ev.TenantId != _tenantId || _commits.ContainsKey(ev.BatchId) || _failures.ContainsKey(ev.BatchId))
                 throw new InvalidOperationException("An import ledger event belongs to another tenant.");
             _canceledRevisions[ev.BatchId] = ev.Revision;
             _canceledEventVersions[ev.BatchId] = ev.Metadata.AggregateVersion;
@@ -43,6 +43,7 @@ public sealed partial class ApplicationImportLedger : Aggregate
         RegisterRetirementEvents();
         RegisterAcceptanceEvents();
         RegisterCommitEvents();
+        RegisterFailureEvents();
     }
 
     public long? GetCanceledRevision(Uuid batchId) =>
@@ -58,9 +59,9 @@ public sealed partial class ApplicationImportLedger : Aggregate
         if (!BelongsToSource(batch))
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The import batch was not found for this source."));
-        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null)
+        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null || _failures.ContainsKey(batch.Id))
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
-                RequestErrorKind.Conflict, "The import batch is canceled."));
+                RequestErrorKind.Conflict, "The import batch is canceled or failed."));
         if (expectedRevision != GetRevision(batch))
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(
                 VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());
@@ -102,8 +103,8 @@ public sealed partial class ApplicationImportLedger : Aggregate
         var row = batch.GetRow(request.RowId);
         if (row is null)
             return CommandFailure.MissingRecord("The import row was not found.");
-        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null)
-            return CommandFailure.StateConflict("The import batch is canceled.");
+        if (batch.IsCanceled || GetCanceledRevision(batch.Id) is not null || _failures.ContainsKey(batch.Id))
+            return CommandFailure.StateConflict("The import batch is canceled or failed.");
         if (row.ValidationFindings.Count > 0 || string.IsNullOrWhiteSpace(row.SourceRecordId))
             return CommandFailure.InvalidContent("An invalid or duplicate row cannot be correlated.");
         if (request.Decision is not ("link_existing" or "create_new") ||
@@ -157,8 +158,8 @@ public sealed partial class ApplicationImportLedger : Aggregate
         ArgumentNullException.ThrowIfNull(batch);
         if (!BelongsToSource(batch))
             return CommandFailure.MissingRecord("The import batch was not found for this source.");
-        if (_commits.ContainsKey(batch.Id))
-            return CommandFailure.StateConflict("The import batch is committed.");
+        if (_commits.ContainsKey(batch.Id) || _failures.ContainsKey(batch.Id))
+            return CommandFailure.StateConflict("The import batch is committed or failed.");
         if (string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
             return CommandFailure.InvalidContent("Cancellation requires a reason of at most 2000 characters.");
         var canceledRevision = GetCanceledRevision(batch.Id);

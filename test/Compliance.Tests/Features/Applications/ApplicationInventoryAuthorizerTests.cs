@@ -16,7 +16,10 @@ public sealed class ApplicationInventoryAuthorizerTests
     [InlineData("rows", true)]
     [InlineData("preview", true)]
     [InlineData("missing", true)]
+    [InlineData("progress", true)]
+    [InlineData("report", true)]
     [InlineData("cancel", false)]
+    [InlineData("accept", false)]
     [InlineData("correlate", false)]
     [InlineData("declare", false)]
     public async Task ShouldLimitImportStagingGrantGivenRequestedOperation(string operation,
@@ -33,6 +36,9 @@ public sealed class ApplicationInventoryAuthorizerTests
             "rows" => new ListApplicationImportRows(tenantId, batchId),
             "preview" => new PreviewApplicationImport(tenantId, batchId),
             "missing" => new PreviewMissingApplicationImportRows(tenantId, batchId),
+            "progress" => new GetApplicationImportProgress(tenantId, batchId),
+            "report" => new GetApplicationImportRejectedReport(tenantId, batchId),
+            "accept" => new AcceptApplicationImport(tenantId, batchId, 1),
             "cancel" => new CancelApplicationImport(tenantId, batchId, 1, "Canceled by lead"),
             "correlate" => new CorrelateApplicationImportRow(tenantId, batchId, Uuid.CreateVersion4(),
                 1, "create_new", null, null, "Reviewed identity"),
