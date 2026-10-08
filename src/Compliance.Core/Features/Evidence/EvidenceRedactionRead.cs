@@ -23,8 +23,7 @@ sealed class EvidenceRedactionRead(EvidenceArtifactReadAccess access, EvidenceRe
                 "The current artifacts differ from the retained preparation identities."));
         // The current available artifact lifecycle has no later valid mutation. Retained approvals
         // must bind that exact observed source and availability fact, including older preparation approvals.
-        if (redaction.Approvals.Any(approval => approval.DerivedSourcePosition != captured.Value.Derived.Metadata.SourcePosition ||
-                approval.DerivedAvailableAt != captured.Value.Derived.AvailabilityRecordedAt))
+        if (!HasConsistentApprovalSources(redaction, captured.Value))
             return Result<EvidenceRedactionReadSnapshot>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The retained approval source proof differs from the observed derived artifact."));
         var checkedSources = await sources.CheckAsync(context, captured.Value, ct).ConfigureAwait(false);
@@ -36,6 +35,10 @@ sealed class EvidenceRedactionRead(EvidenceArtifactReadAccess access, EvidenceRe
                 "The redaction lineage changed during this request.", isTransient: true));
         return Result<EvidenceRedactionReadSnapshot>.Success(new(redaction, captured.Value));
     }
+
+    internal static bool HasConsistentApprovalSources(EvidenceRedaction redaction, EvidenceRedactionSourcePair sources) =>
+        redaction.Approvals.All(approval => approval.DerivedSourcePosition == sources.Derived.Metadata.SourcePosition &&
+            approval.DerivedAvailableAt == sources.Derived.AvailabilityRecordedAt);
 
     internal static EvidenceRedactionView View(EvidenceRedactionReadSnapshot snapshot) => snapshot.Redaction.PublicView(
         snapshot.Sources.Original.Metadata.State, snapshot.Sources.Derived.Metadata.State,

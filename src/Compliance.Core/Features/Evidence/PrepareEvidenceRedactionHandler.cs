@@ -24,6 +24,9 @@ sealed class PrepareEvidenceRedactionHandler(EvidenceRedactionAccess access, Evi
         var actor = ActorReference.ForMember(RbacIds.Member(request.TenantId, user), UserIdentityClaims.BdgrzDisplay(context.Actor, user));
         return await executor.ExecuteAsync(new EvidenceRedaction(request.TenantId, request.RedactionId), aggregate =>
         {
+            if (!EvidenceRedactionRead.HasConsistentApprovalSources(aggregate, captured.Value))
+                return AggregateOutcome.Discard(Result<EvidenceRedactionView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The retained approval source proof differs from the observed derived artifact.")));
             var prepared = aggregate.Prepare(context.RequestId, request.ExpectedRevision,
                 EvidenceRedactionSources.Identity(captured.Value.Original), EvidenceRedactionSources.Identity(captured.Value.Derived),
                 request.Provenance, request.Reason, actor, clock.GetUtcNow());

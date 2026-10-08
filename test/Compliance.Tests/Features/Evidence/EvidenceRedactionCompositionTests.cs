@@ -516,8 +516,10 @@ public sealed class EvidenceRedactionCompositionTests
         Assert.Empty(after.Approvals);
     }
 
-    [Fact]
-    public async Task ShouldRefuseApplicabilityGivenRetainedApprovalSourcePositionChanged()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRefuseApplicabilityGivenRetainedApprovalSourcePositionChanged(bool preparationRetry)
     {
         // Arrange
         await using var fixture = await ArtifactMetadataAccessTests.Fixture.CreateAsync();
@@ -525,12 +527,16 @@ public sealed class EvidenceRedactionCompositionTests
         var lead = await SeedMemberAsync(fixture, BuiltInRbac.PowerUsersTeamId(fixture.TenantId));
         await GrantPairAsync(fixture, fixture.UserId, derived);
         await GrantPairAsync(fixture, lead, derived);
-        var prepared = await DispatchAsync(fixture, fixture.UserId, new PrepareEvidenceRedaction(fixture.TenantId,
-            Uuid.CreateVersion4(), 0, fixture.ArtifactId, derived, "Manual", "Private fields"));
+        var preparationRequest = new PrepareEvidenceRedaction(fixture.TenantId,
+            Uuid.CreateVersion4(), 0, fixture.ArtifactId, derived, "Manual", "Private fields");
+        var preparationMetadata = RequestMetadata.Create();
+        var prepared = await DispatchAsync(fixture, fixture.UserId, preparationRequest, metadata: preparationMetadata);
         Assert.True(prepared.IsSuccess, prepared.Error?.Message);
         var approved = await DispatchAsync(fixture, lead, new ApproveEvidenceRedaction(fixture.TenantId,
             prepared.Value.RedactionId, 1, prepared.Value.Preparations[0].PreparationId, 1));
         Assert.True(approved.IsSuccess, approved.Error?.Message);
+        var before = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new EvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId));
         var clock = new MutableClock { Now = ArtifactMetadataAccessTests.Fixture.Now };
         // Replays the genuine retained event envelope with only the private claimed source position corrupted.
         await using var provider = Compose(fixture, clock, Uuid.Empty,
@@ -538,12 +544,20 @@ public sealed class EvidenceRedactionCompositionTests
         await using var scope = provider.CreateAsyncScope();
 
         // Act
-        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
-            new GetEvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId),
-            new RequestDispatchContext(ProgramManagementServices.Actor(lead), new HttpInvocation("GET", "/test", "/test", "test")));
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var result = preparationRetry ? await bus.DispatchAsync(preparationRequest,
+            new RequestDispatchContext(ProgramManagementServices.Actor(fixture.UserId),
+                new HttpInvocation("POST", "/test", "/test", "test"), preparationMetadata)) :
+            await bus.DispatchAsync(new GetEvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId),
+                new RequestDispatchContext(ProgramManagementServices.Actor(lead), new HttpInvocation("GET", "/test", "/test", "test")));
 
         // Assert
-        Assert.True(!result.IsSuccess || !result.Value.ApprovalCurrent);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error!.Kind);
+        var after = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new EvidenceRedaction(fixture.TenantId, prepared.Value.RedactionId));
+        Assert.Equal(before.CommittedStreamPosition, after.CommittedStreamPosition);
+        Assert.Equal(before.Revision, after.Revision);
     }
 
     sealed class ChangedApprovalStore(IEventStore inner, Uuid redactionId) : IEventStore
