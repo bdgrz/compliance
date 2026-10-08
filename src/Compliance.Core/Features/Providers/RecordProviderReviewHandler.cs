@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Providers;
@@ -9,6 +10,10 @@ public sealed class RecordProviderReviewHandler(IAggregateExecutor executor, IAg
     public async ValueTask<Result<ProviderReviewRegistration>> HandleAsync(
         IRequestContext<RecordProviderReview> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ProviderReviewRegistration>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Provider review requires personal HTTP submission."));
         var request = context.Request;
         var source = await reader.HydrateAsync(new ProviderAssuranceRegister(request.TenantId), ct).ConfigureAwait(false);
         if (source.CheckReviewRetry(context.RequestId, request.ProviderId, context.RequestId, request.Content) is { } retry)

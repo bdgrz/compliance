@@ -31,7 +31,7 @@ public sealed class ProviderAssurancePipelineTests
             .ExpectSuccess()).Value;
         var stale = await scenario.When(new ReviseAssuranceReport(fixture.TenantId, fixture.ProviderId, report.ReportId, 1, Report()))
             .ExpectFailure(RequestErrorKind.Conflict);
-        var review = (await scenario.When(new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId))).ExpectSuccess()).Value;
+        var review = (await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId)))).Value;
         var coverage = (await scenario.When(new GetProviderAssuranceCoverage(fixture.TenantId, fixture.ProviderId, new DateOnly(2026, 10, 2))).ExpectSuccess()).Value;
         var source = await ProgramManagementServices.HydrateAsync(fixture.Services, new ProviderAssuranceRegister(fixture.TenantId));
 
@@ -70,7 +70,7 @@ public sealed class ProviderAssurancePipelineTests
         if (manager)
         {
             await write.ExpectSuccess();
-            await review.ExpectSuccess();
+            await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review() with { Evidence = Citation() }));
         }
         else
         {
@@ -89,7 +89,7 @@ public sealed class ProviderAssurancePipelineTests
 
         // Act
         var record = await scenario.When(new RecordAssuranceReport(otherTenant, fixture.ProviderId, Report())).ExpectFailure(RequestErrorKind.NotFound);
-        var review = await scenario.When(new RecordProviderReview(otherTenant, fixture.ProviderId, Review() with { Evidence = Citation() })).ExpectFailure(RequestErrorKind.NotFound);
+        var review = await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(otherTenant, fixture.ProviderId, Review() with { Evidence = Citation() }), RequestErrorKind.NotFound);
         var coverage = await scenario.When(new GetProviderAssuranceCoverage(otherTenant, fixture.ProviderId)).ExpectFailure(RequestErrorKind.NotFound);
         var unknown = await scenario.When(new GetProviderAssuranceCoverage(fixture.TenantId, Uuid.CreateVersion4())).ExpectFailure(RequestErrorKind.NotFound);
         var foreignReport = await scenario.When(new RecordAssuranceReport(fixture.TenantId, fixture.ProviderId, Report())).ExpectSuccess();
@@ -123,10 +123,10 @@ public sealed class ProviderAssurancePipelineTests
         {
             Citation = Citation("internal", Uuid.CreateVersion4()),
         })).ExpectFailure(RequestErrorKind.NotFound);
-        var review = await scenario.When(new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review() with
+        var review = await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review() with
         {
             Evidence = Citation("internal", Uuid.CreateVersion4()),
-        })).ExpectFailure(RequestErrorKind.NotFound);
+        }), RequestErrorKind.NotFound);
 
         // Assert
         Assert.Equal(1, found.Value.Revision);
@@ -141,7 +141,7 @@ public sealed class ProviderAssurancePipelineTests
         await using var fixture = await Fixture.CreateAsync(RbacPermissions.TenantAccess, RbacPermissions.ProviderInventoryManage);
         var scenario = fixture.Scenario();
         var report = (await scenario.When(new RecordAssuranceReport(fixture.TenantId, fixture.ProviderId, Report())).ExpectSuccess()).Value;
-        await scenario.When(new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId))).ExpectSuccess();
+        await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId)));
 
         // Act
         var lagging = await scenario.When(new ListProviderAssuranceReports(fixture.TenantId, fixture.ProviderId)).ExpectFailure(RequestErrorKind.Conflict);
@@ -170,7 +170,7 @@ public sealed class ProviderAssurancePipelineTests
         await ProgramManagementServices.SeedAsync(fixture.Services, new ProviderRegister(otherTenant), register =>
             register.Record(fixture.ProviderId, Uuid.CreateVersion4(), MaterialProvider("Other tenant provider"), Author, Now));
         var report = (await scenario.When(new RecordAssuranceReport(fixture.TenantId, fixture.ProviderId, Report())).ExpectSuccess()).Value;
-        await scenario.When(new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId))).ExpectSuccess();
+        await PersonalProviderReviewTransportTests.HttpAsync(fixture.Services, fixture.UserId, new RecordProviderReview(fixture.TenantId, fixture.ProviderId, Review(report.ReportId)));
         await fixture.CatchUpAsync();
 
         // Act

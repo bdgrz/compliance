@@ -169,7 +169,7 @@ public sealed class AttestWorkforceManagementWallTests
         Assert.Equal(before, await fixture.ManagementEventCountAsync());
     }
 
-    sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         public Uuid TenantId { get; } = Uuid.CreateVersion4();
         public Uuid UserId { get; } = Uuid.CreateVersion4();
@@ -184,6 +184,7 @@ public sealed class AttestWorkforceManagementWallTests
         Uuid _snapshotId;
         public Uuid SnapshotId => _snapshotId;
         Uuid _observationId;
+        public Uuid ObservationId => _observationId;
         ActorReference Author => ActorReference.ForMember(RbacIds.Member(TenantId, UserId), "Client author");
         static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -241,8 +242,11 @@ public sealed class AttestWorkforceManagementWallTests
         async Task<Result> BusAsync(IRequest request)
         {
             await using var scope = Provider.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<IRequestBus>().SendAsync(request,
-                ProgramManagementServices.Actor(UserId));
+            var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+            if (request is ReconcileWorkforceSourceObservation or ResolveWorkforceObservation)
+                return await bus.DispatchAsync(request, new RequestDispatchContext(ProgramManagementServices.Actor(UserId),
+                    new HttpInvocation("POST", "/synthetic/workforce/decision", "/synthetic/workforce/decision", "synthetic")), CancellationToken.None);
+            return await bus.SendAsync(request, ProgramManagementServices.Actor(UserId));
         }
 
         async Task<Result> SendAsync<T>(IRequest<T> request)
@@ -322,7 +326,7 @@ public sealed class AttestWorkforceManagementWallTests
         public ValueTask DisposeAsync() => Provider.DisposeAsync();
     }
 
-    sealed class Permissions : IPermissionAuthorizer
+    internal sealed class Permissions : IPermissionAuthorizer
     {
         public bool Allowed { get; set; } = true;
 

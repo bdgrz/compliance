@@ -155,10 +155,9 @@ public sealed class PolicyCampaignHandlerTests
             .When(new ApproveCampaignWaiver(fixture.TenantId, fixture.ProgramId,
                 campaign.CampaignId, fixture.NonMemberPersonId, "Leave", expires))
             .ExpectFailure(RequestErrorKind.Forbidden);
-        var waiver = await fixture.Scenario(fixture.ManagerUserId)
-            .When(new ApproveCampaignWaiver(fixture.TenantId, fixture.ProgramId,
-                campaign.CampaignId, fixture.NonMemberPersonId, "Extended leave", expires))
-            .ExpectSuccess();
+        var waiver = await PersonalPolicyDecisionTransportTests.SendHttpAsync(fixture.Provider, fixture.ManagerUserId,
+            new ApproveCampaignWaiver(fixture.TenantId, fixture.ProgramId,
+                campaign.CampaignId, fixture.NonMemberPersonId, "Extended leave", expires));
         var people = await fixture.Scenario(fixture.ManagerUserId)
             .When(new ListCampaignParticipants(fixture.TenantId, fixture.ProgramId,
                 campaign.CampaignId, State: "excepted"))

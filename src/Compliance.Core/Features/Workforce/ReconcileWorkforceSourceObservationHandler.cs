@@ -11,6 +11,10 @@ public sealed class ReconcileWorkforceSourceObservationHandler(IAggregateExecuto
     public async ValueTask<Result> HandleAsync(IRequestContext<ReconcileWorkforceSourceObservation> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Workforce decision requires a personal HTTP invocation."));
         var request = context.Request;
         var source = await reader.HydrateAsync(new WorkforceSourceObservation(request.TenantId,
             request.ObservationId), ct).ConfigureAwait(false);

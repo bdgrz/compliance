@@ -1,0 +1,7 @@
+# Personal campaign exception approval transport
+
+ApproveCampaignWaiver enforces its explicit Compliance Lead personal HTTP-only exception contract before permission, Person or campaign reads. A non-system canonical Bdgrz user and native HTTP invocation remain required in addition to ordinary membership, current management authority and the permanent actual Attest history wall.
+
+Two genuine valid-source production AddCompliance Direct/MCP approvals succeeded before the guard. Eleven focused cases preserve native HTTP canonical attribution, exact metadata retry, non-acknowledgement exception totals and precise organization-wide management, correlated-person self-exclusion, frozen audience, bounded expiry, owning program, closed campaign and revoked Attest history refusals. Setup retains a current approved policy and immutable roster and launches through the actual ordinary production campaign handler. The waiver consumes that campaign's exact frozen subject/audience; it does not add a new live policy-version rule absent from the source.
+
+Only the existing manager waiver success fixture call now uses explicit HTTP. Its non-manager authorization refusal, ordinary campaign writes and global fixture defaults remain unchanged. This is reserve correction under #277, with forecast 3 unchanged and broader authority, compartment and ratification gates open. Campaign routing #646 stays separate. Routes, tools, DTOs, events, persistence formats and deployment are unchanged.

@@ -27,16 +27,16 @@ public sealed class WorkforceSourceHandlerTests
         await fixture.ProjectSourcesAsync();
         var preview = (await fixture.As().When(new PreviewWorkforceSourceObservation(fixture.TenantId,
             registration.ObservationId)).ExpectSuccess()).Value;
-        _ = await fixture.As().When(new ReconcileWorkforceSourceObservation(fixture.TenantId,
-            registration.ObservationId, 1, 1, "accepted", "HRIS checked")).ExpectFailure(RequestErrorKind.Conflict);
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, new ReconcileWorkforceSourceObservation(fixture.TenantId,
+            registration.ObservationId, 1, 1, "accepted", "HRIS checked"), RequestErrorKind.Conflict);
         await ProgramManagementServices.SeedAsync(fixture.Provider, new Person(fixture.TenantId, fixture.PersonId),
             person => person.Revise(1, "Ada King", "ada@example.com", fixture.Author, DateTimeOffset.UtcNow) is null
                 ? Result.Success : Result.Failure(new RequestError(RequestErrorKind.Conflict, "revise")));
         await fixture.ProjectPeopleAsync();
-        _ = await fixture.As().When(new ReconcileWorkforceSourceObservation(fixture.TenantId,
-            registration.ObservationId, 1, 1, "accepted", "HRIS checked")).ExpectFailure(RequestErrorKind.Conflict);
-        _ = await fixture.As().When(new ReconcileWorkforceSourceObservation(fixture.TenantId,
-            registration.ObservationId, 1, 2, "accepted", "HRIS checked")).ExpectSuccess();
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, new ReconcileWorkforceSourceObservation(fixture.TenantId,
+            registration.ObservationId, 1, 1, "accepted", "HRIS checked"), RequestErrorKind.Conflict);
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, new ReconcileWorkforceSourceObservation(fixture.TenantId,
+            registration.ObservationId, 1, 2, "accepted", "HRIS checked"));
         await fixture.ProjectSourcesAsync();
         var accepted = (await fixture.As().When(new GetWorkforceSourceObservation(fixture.TenantId,
             registration.ObservationId)).ExpectSuccess()).Value;
@@ -138,8 +138,8 @@ public sealed class WorkforceSourceHandlerTests
         // Act
         var preview = (await fixture.As().When(new PreviewWorkforceSourceObservation(fixture.TenantId,
             registered.ObservationId)).ExpectSuccess()).Value;
-        _ = await fixture.As().When(new ReconcileWorkforceSourceObservation(fixture.TenantId,
-            registered.ObservationId, 1, 1, "accepted", "Provider facts checked")).ExpectSuccess();
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, new ReconcileWorkforceSourceObservation(fixture.TenantId,
+            registered.ObservationId, 1, 1, "accepted", "Provider facts checked"));
         await fixture.ProjectSourcesAsync();
         var source = (await fixture.As().When(new GetWorkforceSourceObservation(fixture.TenantId,
             registered.ObservationId)).ExpectSuccess()).Value;
@@ -167,7 +167,7 @@ public sealed class WorkforceSourceHandlerTests
         var registration = (await fixture.As().When(request).ExpectSuccess()).Value;
         var decision = new ReconcileWorkforceSourceObservation(fixture.TenantId,
             registration.ObservationId, 1, 1, "accepted", "Source checked");
-        _ = await fixture.As().When(decision).ExpectSuccess();
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, decision);
         var original = await ProgramManagementServices.HydrateAsync(fixture.Provider,
             new WorkforceSourceObservation(fixture.TenantId, registration.ObservationId));
         await ProgramManagementServices.SeedAsync(fixture.Provider, new Person(fixture.TenantId,
@@ -179,7 +179,7 @@ public sealed class WorkforceSourceHandlerTests
 
         // Act
         var retry = (await fixture.As(retryingUser).When(request).ExpectSuccess()).Value;
-        _ = await fixture.As(retryingUser).When(decision).ExpectSuccess();
+        _ = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, retryingUser, decision);
         var hydrated = await ProgramManagementServices.HydrateAsync(fixture.Provider,
             new WorkforceSourceObservation(fixture.TenantId, registration.ObservationId));
         await fixture.ProjectSourcesAsync();
@@ -349,16 +349,16 @@ public sealed class WorkforceSourceHandlerTests
         fixture.Permissions.SetRestrictedPermissions(restrictedPermission);
 
         // Act
-        var matching = await fixture.As().When(accepted).ExpectFailure(RequestErrorKind.Forbidden);
-        var kept = await fixture.As().When(dismissed).ExpectFailure(RequestErrorKind.Forbidden);
+        var matching = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, accepted, RequestErrorKind.Forbidden);
+        var kept = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, dismissed, RequestErrorKind.Forbidden);
         fixture.Permissions.SetRestrictedPermissions(FieldClasses.WorkforceManagerChain.ReadPermission,
             FieldClasses.WorkforcePersonalDetails.ReadPermission);
         var decision = privateValues ? accepted : dismissed;
-        await fixture.As().When(decision).ExpectSuccess();
+        await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, decision);
         fixture.Permissions.SetRestrictedPermissions(restrictedPermission);
-        var retry = await fixture.As().When(decision).ExpectFailure(RequestErrorKind.Forbidden);
-        var guessed = await fixture.As().When(decision with { Note = "guess" })
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        var retry = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId, decision, RequestErrorKind.Forbidden);
+        var guessed = await PersonalWorkforceObservationTransportTests.HttpAsync(fixture.Provider, fixture.UserId,
+            decision with { Note = "guess" }, RequestErrorKind.Forbidden);
 
         // Assert
         Assert.Equal(matching.Error!.Message, kept.Error!.Message);
