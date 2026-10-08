@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Readiness;
 public sealed record DecideReadiness(Uuid TenantId, Uuid ProgramId, Uuid AssessmentId,
     long ExpectedRevision, string Outcome, string Rationale,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<ReadinessDecisionView>, IProgramScopedRequest, ICallable;
+    : IRequest<ReadinessDecisionView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

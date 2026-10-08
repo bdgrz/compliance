@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.PolicyDistribution;
 [Discriminator("bdgrz.campaign.close", 1)]
 public sealed record CloseCampaign(Uuid TenantId, Uuid ProgramId, Uuid CampaignId,
     string Rationale)
-    : IRequest<CampaignView>, IProgramScopedRequest, ICallable;
+    : IRequest<CampaignView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,7 +1,8 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
 
 [Discriminator("bdgrz.program.revise", 1)]
 public sealed record ReviseProgram(Uuid TenantId, Uuid ProgramId, long ExpectedRevision,
-    string Name, ProgramPlan Plan) : IRequest, IProgramScopedRequest, ICallable;
+    string Name, ProgramPlan Plan) : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 [Discriminator("bdgrz.control_mapping.retire", 1)]
 public sealed record RetireControlCriterionMapping(Uuid TenantId, Uuid ProgramId,
     Uuid MappingId, long ExpectedRevision, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

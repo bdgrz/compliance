@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -8,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Remediation;
 public sealed record RaiseFinding(Uuid TenantId, Uuid ProgramId, FindingSource Source,
     string Title, string Description, string Severity, string AffectedScope,
     Uuid OwnerMemberId, DateOnly DueOn, IReadOnlyList<FindingLink>? Links = null)
-    : IRequest<FindingRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<FindingRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
@@ -14,4 +15,4 @@ public sealed record CloseFinding(Uuid TenantId, Uuid ProgramId, Uuid FindingId,
     long ExpectedRevision, string VerificationRationale,
     IReadOnlyList<EvidenceReference> ResolutionEvidence, string Rationale,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<FindingView>, IProgramScopedRequest, ICallable;
+    : IRequest<FindingView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

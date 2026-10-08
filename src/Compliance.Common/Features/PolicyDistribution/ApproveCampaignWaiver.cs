@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.PolicyDistribution;
 [Discriminator("bdgrz.campaign.waiver.approve", 1)]
 public sealed record ApproveCampaignWaiver(Uuid TenantId, Uuid ProgramId, Uuid CampaignId,
     Uuid PersonId, string Reason, DateOnly ExpiresOn)
-    : IRequest<CampaignWaiverView>, IProgramScopedRequest, ICallable;
+    : IRequest<CampaignWaiverView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

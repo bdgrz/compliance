@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.PolicyDistribution;
 [Discriminator("bdgrz.campaign.audience.reconcile", 1)]
 public sealed record ReconcileCampaignAudience(Uuid TenantId, Uuid ProgramId, Uuid CampaignId,
     Uuid RosterSnapshotId)
-    : IRequest<CampaignReconciliationView>, IProgramScopedRequest, ICallable;
+    : IRequest<CampaignReconciliationView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

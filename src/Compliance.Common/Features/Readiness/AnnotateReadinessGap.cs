@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Readiness;
 [Discriminator("bdgrz.readiness.gap.annotate", 1)]
 public sealed record AnnotateReadinessGap(Uuid TenantId, Uuid ProgramId, Uuid AssessmentId,
     Uuid GapId, long ExpectedRevision, string Body)
-    : IRequest<ReadinessAnnotationView>, IProgramScopedRequest, ICallable;
+    : IRequest<ReadinessAnnotationView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

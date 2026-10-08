@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Commitments;
 public sealed record ApproveCommitmentDraft(Uuid TenantId, Uuid ProgramId, Uuid DraftId,
     long ExpectedRevision, Uuid AcceptedReviewDecisionId, DateOnly EffectiveFrom,
     string Rationale, string ImpactDigest, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

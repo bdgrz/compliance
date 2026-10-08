@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Readiness;
 [Discriminator("bdgrz.readiness.assessment.run", 1)]
 public sealed record RunReadinessAssessment(Uuid TenantId, Uuid ProgramId,
     long ExpectedRevision, DateTimeOffset? AsOf = null)
-    : IRequest<ReadinessAssessmentRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<ReadinessAssessmentRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

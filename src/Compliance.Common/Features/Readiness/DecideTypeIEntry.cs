@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -12,4 +13,4 @@ namespace Bdgrz.Compliance.Features.Readiness;
 public sealed record DecideTypeIEntry(Uuid TenantId, Uuid ProgramId, Uuid AssessmentId,
     long ExpectedRevision, string Outcome, string Rationale,
     IReadOnlyList<Uuid>? AcknowledgedGapIds = null, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<TypeIEntryDecisionView>, IProgramScopedRequest, ICallable;
+    : IRequest<TypeIEntryDecisionView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

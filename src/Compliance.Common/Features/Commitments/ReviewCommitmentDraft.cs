@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -14,4 +15,4 @@ public sealed record ReviewCommitmentDraft(Uuid TenantId, Uuid ProgramId, Uuid D
     string? Applicability = null, string? Interpretation = null,
     string? InterpretationNote = null, string? SourceVerifiedReference = null,
     string? SourceEvidence = null, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.ControlMappings;
 [Discriminator("bdgrz.criterion_applicability.propose_not_applicable", 1)]
 public sealed record ProposeCriterionNotApplicable(Uuid TenantId, Uuid ProgramId,
     Uuid EditionId, string CriterionIdentifier, long ExpectedRevision, string Rationale)
-    : IRequest<CriterionApplicabilityRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<CriterionApplicabilityRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;
