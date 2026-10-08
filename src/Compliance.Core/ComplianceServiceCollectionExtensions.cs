@@ -908,6 +908,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<RegenerateWorkforceRosterSnapshotManifestHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
             .AddRequestAuthorizer<ClientManagementMutationAuthorizer>()
+            .AddRequestAuthorizer<ClientRbacMutationAuthorizer>()
             .AddRequestAuthorizer<SeparationOfDutiesWaiverAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()

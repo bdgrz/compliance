@@ -9,4 +9,4 @@ public sealed record RecordSeparationOfDutiesWaiver(
     Uuid BeneficiaryUserId,
     string Rationale,
     DateTimeOffset ExpiresAt)
-    : IRequest<SeparationOfDutiesWaiverView>, ISeparationOfDutiesWaiverAdminRequest, ICallable;
+    : IRequest<SeparationOfDutiesWaiverView>, ISeparationOfDutiesWaiverAdminRequest, IClientManagementMutationRequest, ICallable;
