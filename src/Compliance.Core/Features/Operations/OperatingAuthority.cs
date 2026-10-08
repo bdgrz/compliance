@@ -16,6 +16,7 @@ public sealed class OperatingAuthority(IAggregateReader reader,
     public const string PersonHolder = "person";
     public const string TeamHolder = "team";
     public const string ProgramReviewerHolder = "program_reviewer";
+    public const string ProgramRecorderHolder = "program_recorder";
     public const string RiskApproverHolder = "risk_approver";
     public const string RiskExecutiveHolder = "risk_executive";
 
@@ -43,12 +44,15 @@ public sealed class OperatingAuthority(IAggregateReader reader,
             return false;
         if (holder.Kind == MemberHolder)
             return holder.Id == memberId;
-        if (holder.Kind == ProgramReviewerHolder)
+        if (holder.Kind is ProgramReviewerHolder or ProgramRecorderHolder)
         {
             var programMember = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
                 .ConfigureAwait(false);
             return programMember.IsRegistered && !programMember.IsSuspended && !programMember.IsDeprovisioned &&
-                   programMember.Affiliation == "client_personnel" && programMember.UserId != Uuid.Empty &&
+                   (holder.Kind == ProgramReviewerHolder
+                       ? programMember.Affiliation == "client_personnel"
+                       : programMember.Affiliation != "firm_staff") &&
+                   programMember.UserId != Uuid.Empty &&
                    await permissions.IsAllowedAsync(tenantId, programMember.UserId, memberId, holder.Id,
                        IProgramScopedRequest.ManagementPermission, ct).ConfigureAwait(false);
         }

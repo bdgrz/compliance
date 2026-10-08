@@ -204,6 +204,9 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
                         candidate.Backup is { } backup &&
                         await HoldsAsync(tenantId, backup, memberId, ct).ConfigureAwait(false)) &&
                        await IsActiveMemberAsync(tenantId, memberId, ct).ConfigureAwait(false);
+        if (eligible && PolicyCampaignWork.RequiresProgramManagement(candidate))
+            eligible = candidate.Backup is { Kind: OperatingAuthority.ProgramRecorderHolder } manager &&
+                       await HoldsAsync(tenantId, manager, memberId, ct).ConfigureAwait(false);
         _eligible[key] = eligible;
         return eligible;
     }

@@ -20,7 +20,7 @@ cross-stream snapshot.
 | Boundaries | Exact-revision assigned reviews/approvals | `boundaries` | `FitzBoundaryDecisionWorkItemDirectoryTests`, `WorkQueueTests` |
 | Commitments | Exact-revision assigned reviews/approvals | `commitment-drafts` | `FitzCommitmentDecisionWorkItemDirectoryTests`, `CommitmentDecisionWorkTests` |
 | Controls | Draft and retirement reviews/approvals | `controls` | `FitzControlDecisionWorkItemDirectoryTests`, `ControlDecisionWorkTests` |
-| Policy campaigns | Acknowledgements and training completion | `policy-distribution-campaigns` | `FitzPolicyCampaignWorkItemDirectoryTests`, `PolicyCampaignWorkTests` |
+| Policy campaigns | Acknowledgements and training completion | `policy-distribution-campaigns` | `FitzPolicyCampaignWorkItemDirectoryTests`, `PolicyCampaignWorkTests`, `TrainingWorkAuthorityTests` |
 | Risk acceptance | Current residual-assessment acceptance | `risk-evaluations` | `RiskAcceptanceWorkTests` |
 
 Each production source reader is registered as an accountable-work reader and
@@ -50,6 +50,25 @@ the returned scope's matching items: total, overdue, due today and escalated.
 They are not independent tab totals. Filtering preserves the queue's existing
 due date, materiality, creation time and ID ordering. Item lookup and source
 commands retain their authorization and freshness checks.
+
+## Campaign recording authority
+
+Training completion work asks the campaign owner to record reviewed manual or
+LMS-export evidence. The owner must currently hold `program.manage`; another
+active program manager can receive delegated work. Policy acknowledgements for
+people without a correlated platform member use the same current management
+requirement for on-behalf recording. If the owner loses authority or membership,
+recording work becomes unassigned and eligible managers can claim it. Explicitly
+authorized guest memberships follow the source recording permission; firm staff
+remain excluded. This recording authority does not widen independent reviewer
+roles. Counts,
+item lookup and assignment use the same source eligibility rule.
+
+Correlated policy audience members still acknowledge personally. A deprovisioned
+but still-correlated member leaves an explicit unassigned personal item; manager
+routing never authorizes acknowledgement on that person's behalf. Source
+commands retain their existing grants, audience and version checks. Existing
+campaign projection records and work identities remain compatible.
 
 ## Remaining acceptance boundaries
 
