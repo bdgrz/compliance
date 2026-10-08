@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -9,4 +10,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 [Discriminator("bdgrz.risk.treatment_action.cancel", 1)]
 public sealed record CancelRiskTreatmentAction(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     Uuid ActionId, long ExpectedRevision, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

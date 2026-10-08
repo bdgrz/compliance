@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -12,4 +13,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record SubmitRiskTreatmentActionCompletion(Uuid TenantId, Uuid ProgramId,
     Uuid RiskId, Uuid ActionId, long ExpectedRevision, string Summary,
     IReadOnlyList<Uuid> EvidenceRequestIds)
-    : IRequest<RiskTreatmentActionCompletionRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<RiskTreatmentActionCompletionRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

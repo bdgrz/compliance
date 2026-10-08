@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -12,4 +13,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record AcceptRisk(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long ExpectedRevision, Uuid ResidualAssessmentId, string ApproverAuthority,
     DateTimeOffset ExpiresAt, string Rationale, Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<RiskAcceptanceView>, IProgramScopedRequest, ICallable;
+    : IRequest<RiskAcceptanceView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

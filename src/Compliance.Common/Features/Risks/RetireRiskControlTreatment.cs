@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 [Discriminator("bdgrz.risk.control_treatment.retire", 1)]
 public sealed record RetireRiskControlTreatment(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     Uuid TreatmentId, long ExpectedRevision, string Rationale)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;
