@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -16,6 +17,10 @@ public sealed class ResolveWorkforceObservationHandler(IAggregateExecutor execut
     public async ValueTask<Result> HandleAsync(IRequestContext<ResolveWorkforceObservation> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Workforce decision requires a personal HTTP invocation."));
         var actor = WorkforceActor.From(context);
         var request = context.Request;
         var existing = await reader.HydrateAsync(
