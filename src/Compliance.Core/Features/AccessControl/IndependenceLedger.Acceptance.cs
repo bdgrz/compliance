@@ -18,7 +18,7 @@ public sealed partial class IndependenceLedger
         if (proof is null || rules is null || requestId == Uuid.Empty || recordedAt == default ||
             proof.TenantId != _tenantId || proof.EngagementId == Uuid.Empty || proof.ReviewTaskId == Uuid.Empty ||
             proof.PartnerStaffMemberId == Uuid.Empty || proof.PartnerUserId == Uuid.Empty ||
-            !ValidPartner(proof) || !BoundedEngagement(proof.AuthorityReference) || proof.PartnerEvaluationReference is not null &&
+            !ValidPartner(proof) || !ValidProofTimes(proof, rules, recordedAt) || !BoundedEngagement(proof.AuthorityReference) || proof.PartnerEvaluationReference is not null &&
             !BoundedEngagement(proof.PartnerEvaluationReference) || !rules.IsRatified || rules.Version <= 0 ||
             !IndependenceRecordValidation.ValidRules(rules.Content) || !ValidApprovedBoundary(proof))
             return RefuseAcceptance("Verified scoped partner authority, approved boundary and ratified rules are required.");
@@ -33,7 +33,8 @@ public sealed partial class IndependenceLedger
             !MatchingSelectedBoundary(engagement, proof) || _acceptances.ContainsKey(proof.EngagementId) ||
             _engagementHistory[proof.EngagementId].Count >= 100 || _assignmentHistory.Count + engagement.Staff.Count(staff => staff.IsCurrent) > 1000)
             return RefuseAcceptance("Reload the exact draft and complete client sequence before accepting.");
-        if (!MatchingAcknowledgement(proof.ManagementAcknowledgementId, engagement, proof.PartnerUserId) ||
+        if (recordedAt < engagement.RecordedAt || _services.Any(service => service.RecordedAt > recordedAt) ||
+            !MatchingAcknowledgement(proof.ManagementAcknowledgementId, engagement, proof.PartnerUserId, recordedAt) ||
             _engagementHistory[proof.EngagementId].Any(view => view.Actor.Id == RbacIds.Member(_tenantId, proof.PartnerUserId).ToString()))
             return RefuseAcceptance("Acceptance requires current client management acknowledgement and a separate reviewer.");
         var proposed = engagement.Staff.Where(staff => staff.IsCurrent).ToArray();
@@ -53,10 +54,12 @@ public sealed partial class IndependenceLedger
             proof.ReviewTaskId, proof.PartnerStaffMemberId, proof.PartnerUserId, proof.CurrentPartner.Revision, proof.PartnerDutyRevision, proof.AuthorityReference,
             proof.PartnerEvaluationReference, proof.ManagementAcknowledgementId, proof.Boundary?.BoundaryId,
             proof.Boundary?.VersionId, proof.Boundary?.Revision, proof.BoundaryApproval?.DecisionId,
-            IndependenceRecordValidation.Freeze(rules), Array.AsReadOnly(_services.Select(IndependenceRecordValidation.Freeze).ToArray()),
+            new EngagementAcceptanceSourceTimes(proof.CurrentPartner.RecordedAt, proof.PartnerAuthorityVerifiedAt,
+                proof.Boundary?.ChangedAt, proof.BoundaryApproval?.DecidedAt), IndependenceRecordValidation.Freeze(rules), Array.AsReadOnly(_services.Select(IndependenceRecordValidation.Freeze).ToArray()),
             "allowed", AcceptanceOutcome(policyResult.Decision), policyResult.ConsideredIds,
             Array.AsReadOnly(proposed.Select(staff => new EngagementActualAssignmentView(staff.StaffMemberId, staff.UserId,
-                staff.Practice, staff.DirectoryStaffRevision, true, actor, recordedAt)).ToArray()), "active", actor, recordedAt);
+                staff.Practice, staff.DirectoryStaffRevision,
+                proof.CurrentStaff.Single(current => current.StaffMemberId == staff.StaffMemberId).RecordedAt, true, actor, recordedAt)).ToArray()), "active", actor, recordedAt);
         var ev = new ServiceEngagementAcceptanceRecorded(_tenantId, requestId, Sequence, intent, view);
         if (!Fits(ev))
             return RefuseAcceptance("The complete accepted snapshot exceeds the bounded event payload; sources were not truncated.");
@@ -75,10 +78,10 @@ public sealed partial class IndependenceLedger
         acceptance.Assignments.Any(staff => staff.IsCurrent && staff.StaffMemberId == staffMemberId &&
             staff.UserId == userId && staff.AssignedAt <= effectiveAt && staff.DirectoryStaffRevision == currentDirectoryStaffRevision);
 
-    bool MatchingAcknowledgement(Uuid acknowledgementId, ServiceEngagementView engagement, Uuid partnerUserId) =>
+    bool MatchingAcknowledgement(Uuid acknowledgementId, ServiceEngagementView engagement, Uuid partnerUserId, DateTimeOffset acceptedAt) =>
         _managementAcknowledgements.Any(ack => ack.AcknowledgementId == acknowledgementId &&
             ack.EngagementId == engagement.EngagementId && ack.EngagementRevision == engagement.Revision &&
-            ack.UserId != partnerUserId && CompleteFacts(ack.CompleteServiceRecordIds));
+            ack.UserId != partnerUserId && ack.RecordedAt <= acceptedAt && CompleteFacts(ack.CompleteServiceRecordIds));
 
     (IndependenceDecision Decision, IReadOnlyList<Uuid> ConsideredIds) AcceptancePolicy(
         ServiceEngagementView engagement, IndependenceRuleVersionView rules, string? evaluationReference)
@@ -104,6 +107,23 @@ public sealed partial class IndependenceLedger
         IndependenceEvaluationOutcome.ConditionallyCompatible => "conditionally_compatible",
         _ => "not_applicable"
     };
+
+    static bool ValidProofTimes(VerifiedEngagementAcceptance proof, IndependenceRuleVersionView rules, DateTimeOffset acceptedAt) =>
+        proof.PartnerAuthorityVerifiedAt != default && proof.PartnerAuthorityVerifiedAt <= acceptedAt &&
+        proof.CurrentPartner.RecordedAt != default && proof.CurrentPartner.RecordedAt <= acceptedAt &&
+        rules.RecordedAt != default && rules.RecordedAt <= acceptedAt &&
+        (proof.Boundary is null || proof.Boundary.ChangedAt != default && proof.Boundary.ChangedAt <= acceptedAt) &&
+        (proof.BoundaryApproval is null || proof.BoundaryApproval.DecidedAt != default && proof.BoundaryApproval.DecidedAt <= acceptedAt) &&
+        proof.CurrentStaff is not null && proof.CurrentStaff.All(staff => staff.RecordedAt != default && staff.RecordedAt <= acceptedAt);
+
+    static bool ValidRecordedSourceTimes(ServiceEngagementAcceptanceView acceptance) => acceptance.SourceTimes is { } source &&
+        source.PartnerDirectoryRecordedAt != default && source.PartnerDirectoryRecordedAt <= acceptance.RecordedAt &&
+        source.PartnerAuthorityVerifiedAt != default && source.PartnerAuthorityVerifiedAt <= acceptance.RecordedAt &&
+        acceptance.Rules.RecordedAt != default && acceptance.Rules.RecordedAt <= acceptance.RecordedAt &&
+        (acceptance.BoundaryId is null
+            ? source.BoundaryChangedAt is null && source.BoundaryApprovedAt is null
+            : source.BoundaryChangedAt is { } changed && changed != default && changed <= acceptance.RecordedAt &&
+              source.BoundaryApprovedAt is { } approved && approved != default && approved <= acceptance.RecordedAt);
 
     static bool ValidPartner(VerifiedEngagementAcceptance proof) => proof.PartnerDutyRevision > 0 &&
         proof.CurrentPartner is { IsActive: true } partner && partner.Revision > 0 &&
@@ -134,7 +154,7 @@ public sealed partial class IndependenceLedger
         var acceptance = ev.Acceptance;
         var engagement = Engagement(acceptance.EngagementId);
         if (ev.TenantId != _tenantId || ev.ExpectedSequence != Sequence || acceptance.TenantId != _tenantId ||
-            ev.RequestId == Uuid.Empty || string.IsNullOrWhiteSpace(ev.Intent) || engagement is not { Status: "draft" } ||
+            ev.RequestId == Uuid.Empty || _decisions.ContainsKey(ev.RequestId) || string.IsNullOrWhiteSpace(ev.Intent) || engagement is not { Status: "draft" } ||
             acceptance.ReviewedDraftRevision != engagement.Revision || acceptance.Revision != 1 || acceptance.Status != "active" ||
             !acceptance.Rules.IsRatified || !IndependenceRecordValidation.ValidRules(acceptance.Rules.Content) ||
             acceptance.Rules.Version <= 0 || acceptance.ReviewTaskId == Uuid.Empty || acceptance.PartnerStaffMemberId == Uuid.Empty ||
@@ -144,10 +164,12 @@ public sealed partial class IndependenceLedger
             _engagementHistory[acceptance.EngagementId].Any(view => view.Actor.Id == RbacIds.Member(_tenantId, acceptance.PartnerUserId).ToString()) ||
             acceptance.Actor.Kind != "firm_staff" ||
             acceptance.Actor.Id != acceptance.PartnerUserId.ToString() || !BoundedEngagement(acceptance.AuthorityReference) ||
-            acceptance.RecordedAt == default || acceptance.ChangedBy is not null || acceptance.ChangedAt is not null ||
+            acceptance.RecordedAt == default || acceptance.RecordedAt < engagement.RecordedAt ||
+            _services.Any(service => service.RecordedAt > acceptance.RecordedAt) || !ValidRecordedSourceTimes(acceptance) ||
+            acceptance.ChangedBy is not null || acceptance.ChangedAt is not null ||
             acceptance.ChangeReason is not null || !MatchingAcceptedBoundary(engagement, acceptance) ||
             acceptance.PartnerEvaluationReference is not null && !BoundedEngagement(acceptance.PartnerEvaluationReference) ||
-            !MatchingAcknowledgement(acceptance.ManagementAcknowledgementId, engagement, acceptance.PartnerUserId) ||
+            !MatchingAcknowledgement(acceptance.ManagementAcknowledgementId, engagement, acceptance.PartnerUserId, acceptance.RecordedAt) ||
             !SameServiceSnapshots(acceptance.CompleteServiceHistory) ||
             !MatchingAcceptancePolicy(engagement, acceptance) ||
             !ValidInitialAssignments(engagement, acceptance) || _acceptances.ContainsKey(acceptance.EngagementId) ||
@@ -195,7 +217,8 @@ public sealed partial class IndependenceLedger
         var proposed = engagement.Staff.Where(staff => staff.IsCurrent).ToArray();
         return acceptance.Assignments is { Count: > 0 and <= 100 } && acceptance.Assignments.Count == proposed.Length &&
             acceptance.Assignments.Select(staff => staff.StaffMemberId).Distinct().Count() == proposed.Length &&
-            acceptance.Assignments.All(staff => staff.IsCurrent && staff.Actor == acceptance.Actor && staff.AssignedAt == acceptance.RecordedAt &&
+            acceptance.Assignments.All(staff => staff.IsCurrent && staff.DirectoryStaffRecordedAt != default &&
+                staff.DirectoryStaffRecordedAt <= acceptance.RecordedAt && staff.Actor == acceptance.Actor && staff.AssignedAt == acceptance.RecordedAt &&
                 proposed.Any(proposal => proposal.StaffMemberId == staff.StaffMemberId && proposal.UserId == staff.UserId &&
                     proposal.Practice == staff.Practice && proposal.DirectoryStaffRevision == staff.DirectoryStaffRevision) &&
                 IndependenceCompartments.CanAssign(_assignmentHistory, new EngagementAssignment(_tenantId,

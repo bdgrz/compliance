@@ -8,4 +8,4 @@ sealed record VerifiedEngagementAcceptance(Uuid TenantId, Uuid EngagementId,
     long ReviewedDraftRevision, Uuid ReviewTaskId, Uuid PartnerStaffMemberId, Uuid PartnerUserId,
     string AuthorityReference, string? PartnerEvaluationReference, Uuid ManagementAcknowledgementId,
     BoundaryVersionView? Boundary, BoundaryDecisionView? BoundaryApproval,
-    IReadOnlyList<FirmStaffMemberView> CurrentStaff, FirmStaffMemberView CurrentPartner, long PartnerDutyRevision);
+    IReadOnlyList<FirmStaffMemberView> CurrentStaff, FirmStaffMemberView CurrentPartner, long PartnerDutyRevision, DateTimeOffset PartnerAuthorityVerifiedAt);

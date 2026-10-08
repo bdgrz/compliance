@@ -40,7 +40,7 @@ public sealed partial class IndependenceLedger
 
     void Apply(ServiceEngagementAssignmentRevoked ev)
     {
-        if (ev.TenantId != _tenantId || !CanRevoke(ev.EngagementId, ev.ExpectedSequence) ||
+        if (_decisions.ContainsKey(ev.RequestId) || ev.TenantId != _tenantId || !CanRevoke(ev.EngagementId, ev.ExpectedSequence) ||
             !ValidMutation(ev.RequestId, ev.EngagementId, ev.Actor, ev.RecordedAt) || !BoundedEngagement(ev.Reason) ||
             ev.RecordedAt < Engagement(ev.EngagementId)!.RecordedAt ||
             ev.Intent != (ev.StaffMemberId is { } identity

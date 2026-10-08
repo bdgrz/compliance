@@ -243,6 +243,7 @@ public sealed class ServiceEngagementAcceptanceTests
     }
 
     [Theory]
+    [InlineData("request_identity")]
     [InlineData("partner_revision")]
     [InlineData("boundary")]
     [InlineData("facts")]
@@ -255,9 +256,12 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.True(ledger.AcceptEngagement(Uuid.CreateVersion4(), 2, proof, rules, Now).IsSuccess);
         var events = new AggregateScenario<IndependenceLedger>(ledger).PendingEvents.ToArray();
         var ev = Assert.IsType<ServiceEngagementAcceptanceRecorded>(events[^1]);
+        if (corruption == "request_identity")
+            ev = ev with { RequestId = Assert.IsType<ServiceEngagementMutationRecorded>(events[0]).RequestId };
         var acceptance = ev.Acceptance;
         acceptance = corruption switch
         {
+            "request_identity" => acceptance,
             "partner_revision" => acceptance with { PartnerDirectoryStaffRevision = 0 },
             "boundary" => acceptance with { BoundaryVersionId = Uuid.CreateVersion4() },
             "facts" => acceptance with
@@ -339,6 +343,21 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.False(eligible);
     }
 
+    [Fact]
+    public void ShouldRefuseAcceptanceGivenDecisionPredatesItsRetainedDraftAndAcknowledgement()
+    {
+        // Arrange
+        var (ledger, proof, rules) = Fixture("attest");
+
+        // Act
+        var result = ledger.AcceptEngagement(Uuid.CreateVersion4(), 2, proof, rules, Now.AddDays(-1));
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Null(ledger.Acceptance(proof.EngagementId));
+        Assert.Equal(2, ledger.Sequence);
+    }
+
     static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice)
     {
         var ledger = new IndependenceLedger(Tenant);
@@ -362,7 +381,7 @@ public sealed class ServiceEngagementAcceptanceTests
         var partner = staff with { StaffMemberId = Uuid.CreateVersion4(), UserId = Uuid.CreateVersion4() };
         var proof = new VerifiedEngagementAcceptance(Tenant, engagement, 1, Uuid.CreateVersion4(),
             partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY; not production evidence", null,
-            acknowledgement, boundary, approval, [staff], partner, 1);
+            acknowledgement, boundary, approval, [staff], partner, 1, Now);
         var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
             [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
             "Synthetic ratified test fixture ONLY; not production evidence"),
