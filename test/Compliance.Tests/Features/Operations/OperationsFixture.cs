@@ -254,6 +254,11 @@ sealed class OperationsFixture
 
     public async Task<TOut> AsAsync<TOut>(Uuid userId, IRequest<TOut> request)
     {
+        if (request is ApproveControlOperatingPlan)
+        {
+            var approval = await PersonalOperatingPlanApprovalTransportTests.HttpAsync(Provider, userId, request);
+            return approval.Value;
+        }
         if (request is AttestControlOccurrence or CorrectControlAttestation or ReviewControlOccurrence)
         {
             var personal = await PersonalOccurrenceProofTransportTests.HttpAsync(Provider, userId, request);
