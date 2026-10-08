@@ -156,7 +156,7 @@ public sealed partial class IndependenceLedger
             !ValidEngagementContent(change.Engagement.Content) ||
             !IndependenceRecordValidation.ValidAttribution(change.RequestId, change.Engagement.Actor,
                 change.Engagement.RecordedAt, "member") ||
-            current is { Status: "closed" } || current is not null && current.Content.Practice != change.Engagement.Content.Practice ||
+            current is { Status: not "draft" } || current is not null && current.Content.Practice != change.Engagement.Content.Practice ||
             change.Engagement.Staff.Count > 100 ||
             change.Engagement.Status == "draft" && !change.Engagement.Staff.Any(staff =>
                 staff.StaffMemberId == change.Engagement.Content.EngagementLeadStaffMemberId && staff.IsCurrent) ||

@@ -358,6 +358,38 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.Equal(2, ledger.Sequence);
     }
 
+    [Theory]
+    [InlineData("draft")]
+    [InlineData("closed")]
+    public void ShouldRejectLegacyDraftMutationGivenAlreadyAcceptedEngagement(string state)
+    {
+        // Arrange
+        var (ledger, proof, rules) = Fixture("attest");
+        Assert.True(ledger.AcceptEngagement(Uuid.CreateVersion4(), 2, proof, rules, Now).IsSuccess);
+        var events = new AggregateScenario<IndependenceLedger>(ledger).PendingEvents.ToArray();
+        var original = Assert.IsType<ServiceEngagementMutationRecorded>(events[0]);
+        var current = ledger.Engagement(proof.EngagementId)!;
+        var forged = original with
+        {
+            RequestId = Uuid.CreateVersion4(),
+            ExpectedSequence = 3,
+            Engagement = current with
+            {
+                Revision = 3,
+                Status = state,
+                Actor = ClientActor,
+                Staff = state == "closed" ? current.Staff.Select(staff => staff with
+                { IsCurrent = false, ProposalState = "withdrawn" }).ToArray() : current.Staff
+            }
+        };
+
+        // Act
+        var replay = () => new AggregateScenario<IndependenceLedger>(new IndependenceLedger(Tenant)).Given(events.Append(forged).ToArray());
+
+        // Assert
+        Assert.Throws<InvalidOperationException>(replay);
+    }
+
     static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice)
     {
         var ledger = new IndependenceLedger(Tenant);
