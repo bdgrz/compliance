@@ -8,6 +8,8 @@ namespace Bdgrz.Compliance.Features.Work;
 /// </summary>
 public sealed class ListWorkHandler(WorkQueueReader queue) : IRequestHandler<ListWork, WorkQueueView>
 {
+    public const int MaximumSearchLength = 200;
+
     public const string Mine = "mine";
     public const string Team = "team";
     public const string Unassigned = "unassigned";
@@ -25,6 +27,10 @@ public sealed class ListWorkHandler(WorkQueueReader queue) : IRequestHandler<Lis
         if (request.HorizonDays is < 0 or > ControlCadenceSchedule.MaximumDueWithinDays)
             return Result<WorkQueueView>.Failure(new RequestError(RequestErrorKind.Validation,
                 "The horizon must be between 0 and 365 days."));
+        if (request.Search is { Length: > MaximumSearchLength })
+            return Result<WorkQueueView>.Failure(new RequestError(RequestErrorKind.Validation,
+                "The search must be at most 200 characters."));
+        var search = request.Search?.Trim();
         var actor = OperationsActor.From(context.Actor, request.TenantId);
         var read = await queue.ReadAsync(request.TenantId, request.ProgramId, actor,
             request.HorizonDays ?? WorkQueueReader.DefaultHorizonDays, ct).ConfigureAwait(false);
@@ -40,6 +46,10 @@ public sealed class ListWorkHandler(WorkQueueReader queue) : IRequestHandler<Lis
                 _ => true,
             })
             .Select(static entry => entry.Item)
+            .Where(item => string.IsNullOrEmpty(search) ||
+                item.Summary.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                item.Reason.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                item.Kind.Contains(search, StringComparison.OrdinalIgnoreCase))
             .ToArray();
         return Result<WorkQueueView>.Success(new WorkQueueView(scope, snapshot.Today,
             new WorkCountsView(items.Length, items.Count(static item => item.Overdue),
