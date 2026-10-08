@@ -474,6 +474,11 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTeamRoleDirectoryReader>();
         services.AddScoped<ITeamRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
         services.AddScoped<ITeamRoleDirectoryReader>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
+        services.AddScoped<FitzActualStaffEngagementLocator>();
+        services.AddScoped<IActualStaffEngagementLocatorProjection>(provider =>
+            provider.GetRequiredService<FitzActualStaffEngagementLocator>());
+        services.AddScoped<IActualStaffEngagementLocatorReader>(provider =>
+            provider.GetRequiredService<FitzActualStaffEngagementLocator>());
         services.AddSingleton<ITenantDirectory>(provider =>
             new EventSourcedTenantDirectory<TenantRegistered, TenantRegistered>(
                 provider.GetRequiredService<IDomainEventReader>(),
@@ -1012,6 +1017,8 @@ public static class ComplianceServiceCollectionExtensions
                 ControlOccurrenceFindingReactor.WorkloadName, WorkloadScope.PerTenant)
             .AddReactor<ControlEvaluationDeviationFindingReactor>(
                 ControlEvaluationDeviationFindingReactor.WorkloadName, WorkloadScope.PerTenant)
+            .AddProjector<ActualStaffEngagementLocatorProjector>(ActualStaffEngagementLocatorProjector.WorkloadName,
+                WorkloadScope.PerTenant)
             .AddProjector<PermissionProjector>("PermissionProjection", WorkloadScope.PerTenant)
             .AddProjector<TeamDirectoryProjector>("TeamDirectory", WorkloadScope.PerTenant)
             .AddProjector<TeamMemberDirectoryProjector>("TeamMemberDirectory", WorkloadScope.PerTenant)

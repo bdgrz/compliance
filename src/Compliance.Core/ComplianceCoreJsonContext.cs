@@ -45,6 +45,7 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(GetClientIndependenceRules))]
 [JsonSerializable(typeof(FirmStaffMemberView))]
 [JsonSerializable(typeof(FirmStaffDirectoryView))]
+[JsonSerializable(typeof(ActualStaffEngagementLocatorView))]
 [JsonSerializable(typeof(ServiceEngagementDraftContent))]
 [JsonSerializable(typeof(ServiceEngagementStaffProposalView))]
 [JsonSerializable(typeof(ServiceEngagementView))]
