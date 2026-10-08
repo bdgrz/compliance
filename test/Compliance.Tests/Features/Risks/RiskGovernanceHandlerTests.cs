@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Evidence;
+using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Versioning;
@@ -9,6 +10,7 @@ using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Extensions;
 using Cntryl.Portia;
+using Cntryl.Fitz.Testing;
 using Cntryl.Portia.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -164,18 +166,7 @@ public sealed class RiskGovernanceHandlerTests
         await fixture.Scenario(fixture.ApproverUserId)
             .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
             .ExpectFailure(RequestErrorKind.Forbidden);
-        var reviewWorkItemId = WorkCandidate.IdFor(submitted.Value.SubmissionId,
-            "risk_treatment_action_review");
-        var assessor = RbacIds.Member(fixture.TenantId, fixture.AssessorUserId);
-        await ProgramManagementServices.SeedAsync(fixture.Provider,
-            new WorkAssignmentLedger(fixture.TenantId, fixture.ProgramId), ledger =>
-            {
-                Assert.Null(ledger.AssignTo(reviewWorkItemId, 0, WorkAssignmentLedger.Assign,
-                    RbacIds.Member(fixture.TenantId, fixture.ApproverUserId), null,
-                    "Independent completion review.",
-                    ActorReference.ForMember(assessor, "Assessor"), DateTimeOffset.UtcNow));
-                return Result.Success;
-            });
+        await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
         await fixture.Scenario(fixture.ApproverUserId)
             .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
         var done = await fixture.GovernanceAsync();
@@ -339,6 +330,109 @@ public sealed class RiskGovernanceHandlerTests
         Assert.Single(Assert.Single(governance.TreatmentActions).Completions);
     }
 
+    [Theory]
+    [InlineData(false, "accept")]
+    [InlineData(true, "accept")]
+    [InlineData(false, "reject")]
+    [InlineData(true, "reject")]
+    public async Task ShouldReviewAndRemoveQueueWorkGivenReviewerAssignedThroughActualQueue(
+        bool projected, string outcome)
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate", projected: projected);
+        var worker = await fixture.SeedMemberAsync();
+        var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
+        var submitted = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var item = await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
+
+        // Act
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, outcome)).ExpectSuccess();
+        await fixture.CatchUpAsync();
+        var after = await fixture.Scenario(fixture.ApproverUserId).When(new ListWork(
+            fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();
+        var governance = await fixture.GovernanceAsync();
+
+        // Assert
+        Assert.Equal(submitted.Value.SubmissionId, item.SourceId);
+        Assert.Equal(RbacIds.Member(fixture.TenantId, fixture.ApproverUserId), item.AssigneeMemberId);
+        Assert.Empty(after.Value.Items);
+        Assert.Equal(0, after.Value.Counts.Total);
+        Assert.Equal(outcome, Assert.Single(Assert.Single(governance.TreatmentActions).Completions).ReviewOutcome);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldDenyPreviousReviewerGivenActualQueueReassignment(bool projected)
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate", projected: projected);
+        var worker = await fixture.SeedMemberAsync();
+        var replacement = await fixture.SeedMemberAsync();
+        var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
+        var submitted = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var first = await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
+        var reassigned = await fixture.AssignReviewAsync(submitted.Value.SubmissionId,
+            replacement.UserId);
+
+        // Act
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await fixture.Scenario(replacement.UserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
+
+        // Assert
+        Assert.Equal(first.WorkItemId, reassigned.WorkItemId);
+        Assert.Equal(first.AssignmentRevision + 1, reassigned.AssignmentRevision);
+        Assert.Equal(replacement.MemberId, reassigned.AssigneeMemberId);
+        Assert.Equal("completed", (await fixture.GovernanceAsync()).TreatmentActionStatus);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRequireNewQueueAssignmentGivenRejectedCompletionResubmitted(bool projected)
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync("mitigate", projected: projected);
+        var worker = await fixture.SeedMemberAsync();
+        var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
+        var added = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
+        var first = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var firstItem = await fixture.AssignReviewAsync(first.Value.SubmissionId);
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 2, "reject")).ExpectSuccess();
+        var second = await fixture.Scenario(fixture.AssessorUserId)
+            .When(fixture.Submit(added.Value.ActionId, 3, [evidenceId])).ExpectSuccess();
+
+        // Act
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 4, "accept"))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        var secondItem = await fixture.AssignReviewAsync(second.Value.SubmissionId);
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 3, "accept"))
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await fixture.Scenario(fixture.ApproverUserId)
+            .When(fixture.ReviewAction(added.Value.ActionId, 4, "accept")).ExpectSuccess();
+
+        // Assert
+        Assert.NotEqual(first.Value.SubmissionId, second.Value.SubmissionId);
+        Assert.NotEqual(firstItem.WorkItemId, secondItem.WorkItemId);
+        Assert.Equal(1, secondItem.AssignmentRevision);
+        Assert.Equal(2, Assert.Single((await fixture.GovernanceAsync()).TreatmentActions).Completions.Count);
+    }
+
     sealed record Worker(Uuid UserId, Uuid MemberId);
 
     sealed class Fixture
@@ -353,9 +447,10 @@ public sealed class RiskGovernanceHandlerTests
         public Uuid ControlVersionId => ControlVersionIds.Initial(ControlId);
         public Uuid MethodVersionId { get; private set; }
 
-        public static async Task<Fixture> CreateAsync(string treatment, bool allowed = true)
+        public static async Task<Fixture> CreateAsync(string treatment, bool allowed = true, bool projected = false)
         {
             var directory = new SingleRiskDirectory();
+            var client = new InMemoryKvClient();
             var provider = ProgramManagementServices.Build(
                 new RecordingPermissionAuthorizer(allowed),
                 portia => portia.AddRequestHandler<RecordRiskAssessmentHandler>()
@@ -368,15 +463,33 @@ public sealed class RiskGovernanceHandlerTests
                     .AddRequestHandler<ReviseRiskTreatmentActionHandler>()
                     .AddRequestHandler<SubmitRiskTreatmentActionCompletionHandler>()
                     .AddRequestHandler<ReviewRiskTreatmentActionCompletionHandler>()
+                    .AddRequestHandler<ListWorkHandler>()
+                    .AddRequestHandler<GetWorkItemHandler>()
+                    .AddRequestHandler<AssignWorkItemHandler>()
                     .AddRequestHandler<RaiseRiskReassessmentTriggersHandler>()
                     .AddRequestAuthorizer<RiskReassessmentReactionAuthorizer>(),
-                services => services.AddScoped<ControlActivationSource>()
-                    .AddScoped<RiskDraftListReadConsistency>()
-                    .AddSingleton<IDomainEventReader>(services =>
-                        (IDomainEventReader)services.GetRequiredService<IEventStore>())
-                    .AddSingleton<IRiskDraftDirectoryReader>(directory));
+                services =>
+                {
+                    services.AddScoped<ControlActivationSource>()
+                        .AddScoped<RiskDraftListReadConsistency>()
+                        .AddScoped<OperatingAuthority>()
+                        .AddScoped<WorkQueueReader>()
+                        .AddScoped<WorkQueueReadConsistency>()
+                        .AddSingleton<IDomainEventReader>(provider =>
+                            (IDomainEventReader)provider.GetRequiredService<IEventStore>())
+                        .AddSingleton<IRiskDraftDirectoryReader>(directory);
+                    if (projected)
+                    {
+                        services.AddScoped<FitzRiskGovernanceWorkItemDirectory>(provider => new(client));
+                        services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
+                            provider.GetRequiredService<FitzRiskGovernanceWorkItemDirectory>());
+                    }
+                });
             var fixture = new Fixture { Provider = provider };
             directory.Fixture = fixture;
+            foreach (var userId in new[] { fixture.AssessorUserId, fixture.ApproverUserId })
+                await ProgramManagementServices.SeedAsync(provider, new Member(fixture.TenantId, userId),
+                    member => member.Register());
             var now = DateTimeOffset.UtcNow;
             var assessor = RbacIds.Member(fixture.TenantId, fixture.AssessorUserId);
             await ProgramManagementServices.SeedAsync(provider,
@@ -431,6 +544,40 @@ public sealed class RiskGovernanceHandlerTests
             .GivenActor(ProgramManagementServices.Actor(userId))
             .GivenMetadata(new RequestMetadata(requestId, requestId, null))
             .When(request).ExpectAuthorized().ExpectHandled();
+
+        public async Task<WorkQueueItemView> AssignReviewAsync(Uuid submissionId, Uuid? userId = null)
+        {
+            await CatchUpAsync();
+            var queue = await Scenario(AssessorUserId).When(new ListWork(TenantId, ProgramId, "all"))
+                .ExpectSuccess();
+            var item = Assert.Single(queue.Value.Items, candidate => candidate.Kind ==
+                WorkSource.RiskTreatmentActionReview && candidate.SourceId == submissionId);
+            var assigned = await Scenario(AssessorUserId).When(new AssignWorkItem(TenantId,
+                ProgramId, item.WorkItemId, item.AssignmentRevision,
+                RbacIds.Member(TenantId, userId ?? ApproverUserId), "Independent completion review."))
+                .ExpectSuccess();
+            return assigned.Value.Item;
+        }
+
+        public async Task CatchUpAsync()
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var directory = scope.ServiceProvider.GetService<FitzRiskGovernanceWorkItemDirectory>();
+            if (directory is null)
+                return;
+            var events = scope.ServiceProvider.GetRequiredService<IDomainEventReader>();
+            var checkpoint = await directory.LoadCheckpointAsync(TenantId);
+            var pattern = directory.SourcePattern(TenantId);
+            await using var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                new CheckpointIdentity(FitzRiskGovernanceWorkItemDirectory.ProjectorName, pattern), checkpoint));
+            var cursor = checkpoint.Cursor;
+            await foreach (var record in events.ReadAsync(pattern, cursor, CancellationToken.None))
+            {
+                await directory.ApplyAsync(record.Event);
+                cursor = record.NextCursor;
+            }
+            await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
 
         public AddRiskTreatmentAction AddAction(Worker worker, IReadOnlyList<Uuid> evidence,
             long revision) => new(TenantId, ProgramId, RiskId, revision, "Enforce MFA",
