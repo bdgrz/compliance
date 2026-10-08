@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -6,4 +7,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 [Discriminator("bdgrz.workforce.person.record", 1)]
 public sealed record RecordPerson(Uuid TenantId, string DisplayName, string? WorkEmail = null,
     PersonalContactDetails? PersonalContact = null)
-    : IRequest<PersonRegistration>, IWorkforceRequest, ICallable;
+    : IRequest<PersonRegistration>, IWorkforceRequest, IClientManagementMutationRequest, ICallable;

@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Snapshots;
 using Cntryl.Portia;
 
@@ -9,4 +10,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// </summary>
 [Discriminator("bdgrz.snapshot.workforce_roster.amend", 1)]
 public sealed record AmendWorkforceRosterSnapshot(Uuid TenantId, Uuid SnapshotId, string Reason)
-    : IRequest<SnapshotRegistration>, IWorkforceRequest, ICallable;
+    : IRequest<SnapshotRegistration>, IWorkforceRequest, IClientManagementMutationRequest, ICallable;

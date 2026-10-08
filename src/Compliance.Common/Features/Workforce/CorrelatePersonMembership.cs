@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Workforce;
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Workforce;
 /// </summary>
 [Discriminator("bdgrz.workforce.person.correlate-membership", 1)]
 public sealed record CorrelatePersonMembership(Uuid TenantId, Uuid PersonId,
-    long ExpectedRevision, Uuid? UserId = null) : IRequest, IWorkforceRequest, ICallable;
+    long ExpectedRevision, Uuid? UserId = null) : IRequest, IWorkforceRequest, IClientManagementMutationRequest, ICallable;
