@@ -587,6 +587,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetApplicationImportHandler>()
             .AddRequestHandler<ListApplicationImportRowsHandler>()
             .AddRequestHandler<PreviewApplicationImportHandler>()
+            .AddRequestHandler<PreviewMissingApplicationImportRowsHandler>()
             .AddRequestHandler<CorrelateApplicationImportRowHandler>()
             .AddRequestHandler<ApplyApplicationImportEffectHandler>()
             .AddRequestAuthorizer<ApplyApplicationImportEffectAuthorizer>()
