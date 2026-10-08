@@ -79,12 +79,20 @@ public sealed class AttestRetentionManagementWriteWallTests
         var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
             new RecordArtifactRetentionBasis(Tenant, "evidence_artifact", id, Sha, 0, "Native evidence period"),
             Http(), CancellationToken.None);
+        var read = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(
+            new GetArtifactRetention(Tenant, "evidence_artifact", id), Http(), CancellationToken.None);
         var retained = await ProgramManagementServices.HydrateAsync(provider,
             new ArtifactRetention(Tenant, "evidence_artifact", id));
 
         // Assert
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(2, retained.Revision);
+        Assert.NotNull(retained.Basis);
+        Assert.Equal(new DateOnly(2019, 1, 1), retained.Basis.PeriodStart);
+        Assert.Equal(new DateOnly(2019, 12, 31), retained.Basis.PeriodEnd);
+        Assert.True(read.IsSuccess, read.Error?.Message);
+        Assert.Equal(retained.Basis.PeriodStart, read.Value!.PeriodStart);
+        Assert.Equal(retained.Basis.PeriodEnd, read.Value.PeriodEnd);
     }
 
     [Theory]
