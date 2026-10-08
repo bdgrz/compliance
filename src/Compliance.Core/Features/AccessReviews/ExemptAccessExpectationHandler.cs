@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 using Bdgrz.Compliance.Features.Applications;
 
@@ -11,6 +12,10 @@ public sealed class ExemptAccessExpectationHandler(IAggregateExecutor executor,
     public async ValueTask<Result<AccessExpectationExceptionView>> HandleAsync(
         IRequestContext<ExemptAccessExpectation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessExpectationExceptionView>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var actor = AccessReviewActor.From(context);
         if (!await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,

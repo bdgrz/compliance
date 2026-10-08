@@ -139,7 +139,7 @@ public sealed class RestrictedAccessPopulationReadTests
         var reader = new SourceReader(application, population);
         var handler = new AcceptAccessPopulationHandler(reader, null!, null!, TimeProvider.System,
             RestrictedApplicationVisibilityFixture.Create(reader));
-        var context = new RequestContext<AcceptAccessPopulation>(
+        var context = PersonalAccessReviewTransportTests.HttpContext<AcceptAccessPopulation>(
             new AcceptAccessPopulation(tenantId, populationId, 1, "I attest to this data."),
             Actor(userId));
 

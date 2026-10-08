@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Cntryl.Portia;
 
@@ -12,6 +13,10 @@ public sealed class ExemptMissingAccessPopulationHandler(IAggregateExecutor exec
     public async ValueTask<Result<AccessPopulationExceptionView>> HandleAsync(
         IRequestContext<ExemptMissingAccessPopulation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return AccessReviewOutcome.Failure<AccessPopulationExceptionView>(RequestErrorKind.Forbidden,
+                "Access review sign-off requires personal HTTP submission.");
         var request = context.Request;
         var instance = await ScopedSystemInstanceSource.FindAsync(reader, events, request.TenantId,
             request.ApplicationId, request.SystemInstanceId, ct).ConfigureAwait(false);

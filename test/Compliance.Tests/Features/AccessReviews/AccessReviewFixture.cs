@@ -183,6 +183,12 @@ sealed class AccessReviewFixture : IAsyncDisposable
 
     public async Task<TOut> SendAsync<TOut>(Uuid userId, IRequest<TOut> request)
     {
+        if (PersonalAccessReviewTransportTests.IsPersonalDecision(request))
+        {
+            var personal = await PersonalAccessReviewTransportTests.SendHttpAsync(Provider, userId, request);
+            Assert.True(personal.IsSuccess, personal.Error?.Message);
+            return personal.Value;
+        }
         var result = await As(userId).When(request).ExpectSuccess();
         return result.Value;
     }
@@ -193,6 +199,12 @@ sealed class AccessReviewFixture : IAsyncDisposable
     async Task<RequestError> FailCoreAsync<TOut>(Uuid userId, IRequest<TOut> request,
         RequestErrorKind kind)
     {
+        if (PersonalAccessReviewTransportTests.IsPersonalDecision(request))
+        {
+            var personal = await PersonalAccessReviewTransportTests.SendHttpAsync(Provider, userId, request);
+            Assert.Equal(kind, personal.Error?.Kind);
+            return Assert.IsType<RequestError>(personal.Error);
+        }
         var result = await As(userId).When(request).ExpectFailure(kind);
         return Assert.IsType<RequestError>(result.Error);
     }

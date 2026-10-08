@@ -118,10 +118,12 @@ public sealed class AccessPopulationHandlerTests
         var requestId = Uuid.CreateVersion4();
 
         // Act
-        var first = await fixture.As(fixture.ManagerUserId).GivenMetadata(new RequestMetadata(requestId, requestId, null)).When(accept)
-            .ExpectSuccess();
-        var second = await fixture.As(fixture.ManagerUserId).GivenMetadata(new RequestMetadata(requestId, requestId, null)).When(accept)
-            .ExpectSuccess();
+        var first = await PersonalAccessReviewTransportTests.SendHttpAsync(fixture.Provider,
+            fixture.ManagerUserId, accept, new RequestMetadata(requestId, requestId, null));
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        var second = await PersonalAccessReviewTransportTests.SendHttpAsync(fixture.Provider,
+            fixture.ManagerUserId, accept, new RequestMetadata(requestId, requestId, null));
+        Assert.True(second.IsSuccess, second.Error?.Message);
 
         // Assert
         Assert.Equal(first.Value.SnapshotId, second.Value.SnapshotId);
