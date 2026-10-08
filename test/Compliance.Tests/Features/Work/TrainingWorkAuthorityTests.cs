@@ -350,6 +350,8 @@ public sealed class TrainingWorkAuthorityTests
                     .AddRequestHandler<DelegateWorkItemHandler>(),
                 services =>
                 {
+                    services.AddScoped<ClientManagementIndependenceGuard>();
+                    services.AddScoped<PolicyAcknowledgementRecorderGuard>();
                     services.AddScoped<ITenantMembershipDirectoryReader, MembershipDirectory>();
                     services.AddScoped<OperatingAuthority>();
                     services.AddScoped<WorkQueueReader>();
