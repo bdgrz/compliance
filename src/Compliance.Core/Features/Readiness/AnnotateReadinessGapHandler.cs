@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -10,6 +11,10 @@ public sealed class AnnotateReadinessGapHandler(IAggregateExecutor executor, Tim
     public async ValueTask<Result<ReadinessAnnotationView>> HandleAsync(
         IRequestContext<AnnotateReadinessGap> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ReadinessAnnotationView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Readiness feedback requires personal HTTP submission."));
         var request = context.Request;
         var actor = ReadinessActor.From(context, request.TenantId);
         return await executor.ExecuteAsync(new ReadinessLedger(request.TenantId,
