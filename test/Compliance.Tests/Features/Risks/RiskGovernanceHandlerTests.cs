@@ -31,14 +31,10 @@ public sealed class RiskGovernanceHandlerTests
                 fixture.RiskId, 0, fixture.ControlId, fixture.ControlVersionId,
                 "Quarterly access review lowers likelihood."))
             .ExpectSuccess();
-        await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.ReviewTreatment(proposed.Value.TreatmentId, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.ReviewTreatment(proposed.Value.TreatmentId, "accept"), RequestErrorKind.Forbidden);
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewTreatment(proposed.Value.TreatmentId, "accept"))
-            .ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewTreatment(proposed.Value.TreatmentId, "accept"));
         var residual = await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.Residual(2))
             .ExpectSuccess();
@@ -142,29 +138,19 @@ public sealed class RiskGovernanceHandlerTests
         var added = await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.AddAction(worker, [requestId], 0)).ExpectSuccess();
         var early = fixture.Submit(added.Value.ActionId, 1, [requestId]);
-        await fixture.Scenario(fixture.AssessorUserId).When(early)
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, early, RequestErrorKind.Conflict);
         await fixture.FulfilEvidenceAsync(requestId);
 
         // Act
-        var submitted = await fixture.Scenario(fixture.AssessorUserId).When(early).ExpectSuccess();
+        var submitted = await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, early);
         var pending = await fixture.GovernanceAsync();
-        await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(worker.UserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"), RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, worker.UserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"), RequestErrorKind.Forbidden);
         var unassignedReviewer = Uuid.CreateVersion4();
-        await fixture.Scenario(unassignedReviewer)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, unassignedReviewer, fixture.ReviewAction(added.Value.ActionId, 2, "accept"), RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"), RequestErrorKind.Forbidden);
         await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"));
         var done = await fixture.GovernanceAsync();
 
         // Assert
@@ -251,18 +237,14 @@ public sealed class RiskGovernanceHandlerTests
         // Act
         await fixture.Scenario(fixture.AssessorUserId).When(fixture.AddAction(worker, [], 0))
             .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.Submit(Uuid.CreateVersion4(), 1, [Uuid.CreateVersion4()]))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.Submit(Uuid.CreateVersion4(), 1, [Uuid.CreateVersion4()]), RequestErrorKind.Forbidden);
         await fixture.Scenario(fixture.AssessorUserId)
             .When(new ReviseRiskTreatmentAction(fixture.TenantId, fixture.ProgramId,
                 fixture.RiskId, Uuid.CreateVersion4(), 0, "Updated action", "Updated state",
                 "Updated evidence", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30),
                 Uuid.CreateVersion4()))
             .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(Uuid.CreateVersion4(), 1, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(Uuid.CreateVersion4(), 1, "accept"), RequestErrorKind.Forbidden);
 
         // Assert
         var ledger = await ProgramManagementServices.HydrateAsync(fixture.Provider,
@@ -314,8 +296,8 @@ public sealed class RiskGovernanceHandlerTests
             .ExpectSuccess();
         var submitId = Uuid.CreateVersion4();
         var submit = fixture.Submit(addId, 1, [evidenceId]);
-        await fixture.ReplayScenario(fixture.AssessorUserId, submit, submitId).ExpectSuccess();
-        await fixture.ReplayScenario(fixture.AssessorUserId, submit, submitId).ExpectSuccess();
+        await fixture.ReplaySubmitHttpAsync(submit, submitId);
+        await fixture.ReplaySubmitHttpAsync(submit, submitId);
         await fixture.ReplayScenario(fixture.AssessorUserId, add with { Title = "Changed" },
             addId).ExpectFailure(RequestErrorKind.Conflict);
 
@@ -340,13 +322,11 @@ public sealed class RiskGovernanceHandlerTests
         var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
         var added = await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
-        var submitted = await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var submitted = await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.Submit(added.Value.ActionId, 1, [evidenceId]));
         var item = await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, outcome)).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 2, outcome));
         await fixture.CatchUpAsync();
         var after = await fixture.Scenario(fixture.ApproverUserId).When(new ListWork(
             fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();
@@ -372,18 +352,14 @@ public sealed class RiskGovernanceHandlerTests
         var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
         var added = await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
-        var submitted = await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var submitted = await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.Submit(added.Value.ActionId, 1, [evidenceId]));
         var first = await fixture.AssignReviewAsync(submitted.Value.SubmissionId);
         var reassigned = await fixture.AssignReviewAsync(submitted.Value.SubmissionId,
             replacement.UserId);
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(replacement.UserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "accept")).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"), RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, replacement.UserId, fixture.ReviewAction(added.Value.ActionId, 2, "accept"));
 
         // Assert
         Assert.Equal(first.WorkItemId, reassigned.WorkItemId);
@@ -403,24 +379,16 @@ public sealed class RiskGovernanceHandlerTests
         var evidenceId = await fixture.SeedEvidenceAsync(fulfilled: true, worker);
         var added = await fixture.Scenario(fixture.AssessorUserId)
             .When(fixture.AddAction(worker, [evidenceId], 0)).ExpectSuccess();
-        var first = await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.Submit(added.Value.ActionId, 1, [evidenceId])).ExpectSuccess();
+        var first = await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.Submit(added.Value.ActionId, 1, [evidenceId]));
         var firstItem = await fixture.AssignReviewAsync(first.Value.SubmissionId);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 2, "reject")).ExpectSuccess();
-        var second = await fixture.Scenario(fixture.AssessorUserId)
-            .When(fixture.Submit(added.Value.ActionId, 3, [evidenceId])).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 2, "reject"));
+        var second = await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.AssessorUserId, fixture.Submit(added.Value.ActionId, 3, [evidenceId]));
 
         // Act
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 4, "accept"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 4, "accept"), RequestErrorKind.Forbidden);
         var secondItem = await fixture.AssignReviewAsync(second.Value.SubmissionId);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 3, "accept"))
-            .ExpectFailure(RequestErrorKind.Conflict);
-        await fixture.Scenario(fixture.ApproverUserId)
-            .When(fixture.ReviewAction(added.Value.ActionId, 4, "accept")).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 3, "accept"), RequestErrorKind.Conflict);
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, fixture.ReviewAction(added.Value.ActionId, 4, "accept"));
 
         // Assert
         Assert.NotEqual(first.Value.SubmissionId, second.Value.SubmissionId);
@@ -544,6 +512,18 @@ public sealed class RiskGovernanceHandlerTests
                 Assert.Equal(error, result.Error?.Kind);
             else
                 Assert.True(result.IsSuccess, result.Error?.Message);
+            return result;
+        }
+
+        public async Task<Result<RiskTreatmentActionCompletionRegistration>> ReplaySubmitHttpAsync(
+            SubmitRiskTreatmentActionCompletion request, Uuid requestId)
+        {
+            await using var scope = Provider.CreateAsyncScope();
+            var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().DispatchAsync(request,
+                new RequestDispatchContext(ProgramManagementServices.Actor(AssessorUserId),
+                    new HttpInvocation("POST", "/synthetic/risk/signoff", "/synthetic/risk/signoff", "synthetic"),
+                    new RequestMetadata(requestId, requestId, null)), CancellationToken.None);
+            Assert.True(result.IsSuccess, result.Error?.Message);
             return result;
         }
 

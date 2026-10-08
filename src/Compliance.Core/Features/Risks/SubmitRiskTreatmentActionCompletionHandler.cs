@@ -17,6 +17,10 @@ public sealed class SubmitRiskTreatmentActionCompletionHandler(IAggregateExecuto
     public async ValueTask<Result<RiskTreatmentActionCompletionRegistration>> HandleAsync(
         IRequestContext<SubmitRiskTreatmentActionCompletion> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<RiskTreatmentActionCompletionRegistration>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Risk sign-off requires a personal HTTP invocation."));
         var request = context.Request;
         var risk = await RiskOwnerResolution.RequireRiskAsync(reader, request.TenantId,
             request.ProgramId, request.RiskId, ct).ConfigureAwait(false);

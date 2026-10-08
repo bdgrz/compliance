@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Tests.Features.Evaluations;
+using Bdgrz.Compliance.Tests.Features.Risks;
 using Bdgrz.Compliance.Tests.Features.Policies;
 using Bdgrz.Compliance.Tests.Features.Commitments;
 using Bdgrz.Compliance.Tests.Features.Readiness;
@@ -112,7 +113,7 @@ public sealed class ReviewerWorkAuthorityTests
         // Act
         await fixture.Scenario(operations.ApproverUserId).When(new AssignWorkItem(operations.TenantId,
             operations.ProgramId, item.WorkItemId, 0, fixture.GuestMemberId)).ExpectSuccess();
-        await fixture.Scenario().When(command).ExpectSuccess();
+        await PersonalRiskSignoffTransportTests.HttpAsync(fixture.Provider, fixture.GuestUserId, command);
         await fixture.CatchUpAsync();
         var after = await fixture.Scenario().When(new ListWork(operations.TenantId, operations.ProgramId,
             "mine")).ExpectSuccess();
@@ -520,13 +521,10 @@ public sealed class ReviewerWorkAuthorityTests
         {
             if (kind == "risk_completion")
             {
-                var request = Scenario().When(new ReviewRiskTreatmentActionCompletion(Operations.TenantId,
+                await PersonalRiskSignoffTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewRiskTreatmentActionCompletion(Operations.TenantId,
                     Operations.ProgramId, pending.ResourceId!.Value, pending.ActionId!.Value,
-                    pending.Revision, "accept", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                    pending.Revision, "accept", "Reviewed independently."), error);
             }
             else if (kind == "commitment")
             {
@@ -538,13 +536,10 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "risk_control_treatment")
             {
-                var request = Scenario().When(new ReviewRiskControlTreatment(Operations.TenantId,
+                await PersonalRiskSignoffTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewRiskControlTreatment(Operations.TenantId,
                     Operations.ProgramId, pending.ResourceId!.Value, pending.Id, pending.Revision,
-                    "accept", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                    "accept", "Reviewed independently."), error);
             }
             else if (kind == "policy")
             {
