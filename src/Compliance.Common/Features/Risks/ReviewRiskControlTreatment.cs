@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 [Discriminator("bdgrz.risk.control_treatment.review", 1)]
 public sealed record ReviewRiskControlTreatment(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     Uuid TreatmentId, long ExpectedRevision, string Outcome, string Rationale,
-    Uuid? SeparationOfDutiesWaiverId = null) : IRequest, IProgramScopedRequest, ICallable;
+    Uuid? SeparationOfDutiesWaiverId = null) : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

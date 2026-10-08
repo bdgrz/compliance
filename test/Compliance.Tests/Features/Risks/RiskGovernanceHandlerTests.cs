@@ -433,9 +433,9 @@ public sealed class RiskGovernanceHandlerTests
         Assert.Equal(2, Assert.Single((await fixture.GovernanceAsync()).TreatmentActions).Completions.Count);
     }
 
-    sealed record Worker(Uuid UserId, Uuid MemberId);
+    internal sealed record Worker(Uuid UserId, Uuid MemberId);
 
-    sealed class Fixture
+    internal sealed class Fixture
     {
         public required ServiceProvider Provider { get; init; }
         public Uuid TenantId { get; } = Uuid.CreateVersion4();

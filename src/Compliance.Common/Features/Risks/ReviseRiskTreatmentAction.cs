@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -9,4 +10,4 @@ public sealed record ReviseRiskTreatmentAction(Uuid TenantId, Uuid ProgramId, Uu
     Uuid ActionId, long ExpectedRevision, string Title, string TargetState,
     string ExpectedEvidence, DateOnly DueOn, Uuid AccountableMemberId,
     IReadOnlyList<Uuid>? EvidenceRequestIds = null)
-    : IRequest, IProgramScopedRequest, ICallable;
+    : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

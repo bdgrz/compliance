@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -13,4 +14,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record AddRiskTreatmentAction(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long ExpectedRevision, string Title, string TargetState, string ExpectedEvidence,
     DateOnly DueOn, Uuid AccountableMemberId, IReadOnlyList<Uuid>? EvidenceRequestIds = null)
-    : IRequest<RiskTreatmentActionRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<RiskTreatmentActionRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

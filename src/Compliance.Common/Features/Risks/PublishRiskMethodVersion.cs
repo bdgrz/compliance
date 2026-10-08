@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -7,4 +8,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 public sealed record PublishRiskMethodVersion(Uuid TenantId, Uuid ProgramId,
     long ExpectedVersion, IReadOnlyList<string> LikelihoodScale,
     IReadOnlyList<string> ImpactScale, int? AppetiteThreshold = null)
-    : IRequest<RiskMethodVersionView>, IProgramScopedRequest, ICallable;
+    : IRequest<RiskMethodVersionView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

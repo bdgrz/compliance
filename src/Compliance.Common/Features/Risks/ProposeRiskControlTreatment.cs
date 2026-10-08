@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -10,4 +11,4 @@ namespace Bdgrz.Compliance.Features.Risks;
 [Discriminator("bdgrz.risk.control_treatment.propose", 1)]
 public sealed record ProposeRiskControlTreatment(Uuid TenantId, Uuid ProgramId, Uuid RiskId,
     long ExpectedRevision, Uuid ControlId, Uuid ControlVersionId, string Rationale)
-    : IRequest<RiskControlTreatmentRegistration>, IProgramScopedRequest, ICallable;
+    : IRequest<RiskControlTreatmentRegistration>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;
