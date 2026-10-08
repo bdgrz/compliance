@@ -175,7 +175,10 @@ static class RiskAcceptanceWork
             new OperatingHolder(executiveRequired
                     ? OperatingAuthority.RiskExecutiveHolder
                     : OperatingAuthority.RiskApproverHolder,
-                programId), null, excluded, residual.AssessedAt);
+                programId), null, excluded, residual.AssessedAt)
+        {
+            RequiredManagementProgramId = programId
+        };
         return Result<WorkCandidate?>.Success(candidate);
     }
 
