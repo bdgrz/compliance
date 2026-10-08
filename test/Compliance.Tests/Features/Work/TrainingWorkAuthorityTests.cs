@@ -151,6 +151,37 @@ public sealed class TrainingWorkAuthorityTests
     }
 
     [Fact]
+    public async Task ShouldPreservePersonalAcknowledgementAndClaimContractGivenRetainedAttestHistory()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync("policy");
+        await AttestAssignmentHistoryFixture.SeedAsync(fixture.Provider, fixture.TenantId,
+            fixture.LearnerUserId, revoked: true);
+        var before = await fixture.QueueAsync(fixture.LearnerUserId);
+        var item = Assert.Single(before.Items);
+
+        // Act
+        await fixture.Scenario(fixture.LearnerUserId).When(new GetWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId)).ExpectSuccess();
+        var claim = await fixture.Scenario(fixture.LearnerUserId).When(new ClaimWorkItem(
+            fixture.TenantId, fixture.ProgramId, item.WorkItemId, 0))
+            .ExpectFailure(RequestErrorKind.Validation);
+        var recorded = await fixture.Scenario(fixture.LearnerUserId).When(new AcknowledgePolicy(
+            fixture.TenantId, fixture.ProgramId, fixture.CampaignId, fixture.PersonId, 1,
+            "subject-hash", PolicyDistributionCampaign.DefaultAcknowledgementText)).ExpectSuccess();
+        await fixture.CatchUpAsync();
+        var after = await fixture.QueueAsync(fixture.LearnerUserId);
+
+        // Assert
+        Assert.Equal("acknowledge", item.NextAction);
+        Assert.Equal(fixture.LearnerMemberId, item.AssigneeMemberId);
+        Assert.Equal(1, before.Counts.Total);
+        Assert.Contains("Only team work", claim.Error!.Message, StringComparison.Ordinal);
+        Assert.False(recorded.Value.RecordedOnBehalf);
+        Assert.Empty(after.Items);
+    }
+
+    [Fact]
     public async Task ShouldPreservePolicyOrphanGivenStillCorrelatedDeprovisionedAudienceMember()
     {
         // Arrange
@@ -315,6 +346,7 @@ public sealed class TrainingWorkAuthorityTests
                     .AddRequestHandler<ListWorkHandler>()
                     .AddRequestHandler<GetWorkItemHandler>()
                     .AddRequestHandler<AssignWorkItemHandler>()
+                    .AddRequestHandler<ClaimWorkItemHandler>()
                     .AddRequestHandler<DelegateWorkItemHandler>(),
                 services =>
                 {

@@ -1,3 +1,6 @@
+using Bdgrz.Compliance.Features.Operations;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Risks;
@@ -30,23 +33,7 @@ public sealed class WorkSourceCompositionTests
         var evidenceRequest = await fixture.AsAsync(fixture.LeadUserId, new OpenEvidenceRequest(
             fixture.TenantId, fixture.ProgramId, "Quarterly evidence", "Reviewed export", fixture.OwnerMemberId,
             fixture.Today));
-        var events = fixture.Provider.GetRequiredService<IEventStore>();
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
-            ["Fitz:ApplicationName"] = "compliance"
-        }).Build();
-        _ = services.AddCompliance(configuration, developerAuthentication: true);
-        services.AddSingleton<IKvClient>(new InMemoryKvClient());
-        services.AddSingleton(events);
-        services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
-        services.AddSingleton<IAccessGrantPermissionAuthorizer>(
-            new PermissionBackedAccessGrantPermissionAuthorizer(fixture.Permissions));
-        services.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
-        services.AddSingleton<ITenantActivity, ActiveTenant>();
-        services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
-        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        await using var provider = CreateProvider(fixture);
         var actor = ProgramManagementServices.Actor(fixture.ApproverUserId);
         RequestScenario Scenario() => RequestScenario.For(provider).GivenActor(actor);
         var list = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
@@ -101,6 +88,295 @@ public sealed class WorkSourceCompositionTests
         Assert.Equal("corrective_action", Assert.Single(final.Value.Items).Kind);
         Assert.Contains(after.Value.Items, item => item.Kind == "corrective_action" && item.NextAction == "complete");
         Assert.Contains(after.Value.Items, item => item.Kind == "finding_closure_review" && item.NextAction == "close");
+    }
+
+    [Fact]
+    public async Task ShouldRemoveManagementWorkFromMineGivenRetainedAttestHistory()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var permitted = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId, fixture.Today);
+        var blocked = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId, fixture.Today);
+        await using var provider = CreateProvider(fixture);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+        CompleteCorrectiveAction Complete(FindingView finding) => new(fixture.TenantId, fixture.ProgramId,
+            finding.FindingId, finding.Revision, Assert.Single(finding.CorrectiveActions).ActionId,
+            "Removed.", OperationsFixture.FullSupport);
+        await Scenario().When(Complete(permitted)).ExpectSuccess();
+        await CatchUpAsync(provider, fixture.TenantId);
+        var before = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+        Assert.Equal("corrective_action", item.Kind);
+        Assert.Equal(1, before.Value.Counts.Total);
+
+        // Act
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId,
+            revoked: true);
+        var denied = await Scenario().When(Complete(blocked)).ExpectFailure(RequestErrorKind.Forbidden);
+        var after = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Contains("Attest", denied.Error!.Message, StringComparison.Ordinal);
+        Assert.Empty(after.Value.Items);
+        Assert.Equal(0, after.Value.Counts.Total);
+        await Scenario().When(new GetWorkItem(fixture.TenantId, fixture.ProgramId, item.WorkItemId))
+            .ExpectFailure(RequestErrorKind.NotFound);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveOversightButDenyManagementAssignmentGivenManagersAttestHistory()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        await fixture.ProposeAsync(0);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario(Uuid user) => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(user));
+        var before = await Scenario(fixture.ApproverUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned")).ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+        Assert.Equal("control_operating_plan_approval", item.Kind);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.ApproverUserId);
+
+        // Act
+        var oversight = await Scenario(fixture.ApproverUserId)
+            .When(new GetWorkItem(fixture.TenantId, fixture.ProgramId, item.WorkItemId)).ExpectSuccess();
+        await Scenario(fixture.ApproverUserId).When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 0, fixture.OwnerMemberId)).ExpectFailure(RequestErrorKind.Forbidden);
+        var assigned = await Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 0, fixture.OwnerMemberId)).ExpectSuccess();
+
+        // Assert
+        Assert.Null(oversight.Value.Item.AssigneeMemberId);
+        Assert.Equal(fixture.OwnerMemberId, assigned.Value.Item.AssigneeMemberId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldInvalidateRecordedAssigneeAndAllowReplacementGivenActualAttestHistory(bool revoked)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        var plan = await fixture.ProposeAsync(0);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario(Uuid user) => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(user));
+        var before = await Scenario(fixture.ApproverUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned")).ExpectSuccess();
+        var item = Assert.Single(before.Value.Items);
+        await Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 0, fixture.ApproverMemberId)).ExpectSuccess();
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.ApproverUserId,
+            revoked: revoked);
+
+        // Act
+        await Scenario(fixture.ApproverUserId).When(new ApproveControlOperatingPlan(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId, plan.Revision, plan.PlanVersionId,
+            "Independent approval.")).ExpectFailure(RequestErrorKind.Forbidden);
+        var mine = await Scenario(fixture.ApproverUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();
+        var orphan = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned")).ExpectSuccess();
+        await Scenario(fixture.ApproverUserId).When(new DelegateWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 1, fixture.OwnerMemberId, "Replacement needed."))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario(fixture.ApproverUserId).When(new EscalateWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 1, "Replacement needed."))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 1, fixture.ApproverMemberId)).ExpectFailure(RequestErrorKind.Validation);
+        await Scenario(fixture.LeadUserId).When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 1, fixture.OwnerMemberId)).ExpectSuccess();
+        await Scenario(fixture.OwnerUserId).When(new ApproveControlOperatingPlan(fixture.TenantId,
+            fixture.ProgramId, fixture.ControlId, plan.Revision, plan.PlanVersionId,
+            "Independent replacement approval.")).ExpectSuccess();
+        await CatchUpAsync(provider, fixture.TenantId);
+        var after = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine")).ExpectSuccess();
+
+        // Assert
+        Assert.Empty(mine.Value.Items);
+        Assert.Equal(0, mine.Value.Counts.Total);
+        Assert.Null(Assert.Single(orphan.Value.Items).AssigneeMemberId);
+        Assert.Equal(1, orphan.Value.Counts.Total);
+        Assert.DoesNotContain(after.Value.Items, candidate => candidate.WorkItemId == item.WorkItemId);
+        Assert.All(after.Value.Items, candidate => Assert.Equal("control_occurrence", candidate.Kind));
+    }
+
+    [Theory]
+    [InlineData("advisory", false)]
+    [InlineData("attest", true)]
+    public async Task ShouldPreserveManagementWorkGivenHistoryOutsideTheClientsAttestWall(string practice,
+        bool otherTenant)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var finding = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId, fixture.Today);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider,
+            otherTenant ? Uuid.CreateVersion4() : fixture.TenantId, fixture.OwnerUserId, practice: practice);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+
+        // Act
+        var mine = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+        var completed = await Scenario().When(new CompleteCorrectiveAction(fixture.TenantId,
+            fixture.ProgramId, finding.FindingId, finding.Revision,
+            Assert.Single(finding.CorrectiveActions).ActionId, "Removed.", OperationsFixture.FullSupport))
+            .ExpectSuccess();
+        await CatchUpAsync(provider, fixture.TenantId);
+        var after = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Equal(1, mine.Value.Counts.Total);
+        Assert.Equal(fixture.OwnerMemberId, Assert.Single(mine.Value.Items).AssigneeMemberId);
+        Assert.Equal("completed", Assert.Single(completed.Value.CorrectiveActions).Status);
+        Assert.Empty(after.Value.Items);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveTeamOversightButDenyClaimGivenActualAttestHistory()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        fixture.Permissions.Managers.Add(fixture.OwnerMemberId);
+        await fixture.AddToTeamAsync(fixture.OwnerUserId);
+        await fixture.AddToTeamAsync(fixture.OutsiderUserId);
+        await fixture.PlanAsync(new OperatingHolder(OperatingAuthority.TeamHolder, fixture.TeamId));
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario(Uuid user) => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(user));
+        var before = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "team")).ExpectSuccess();
+        var item = before.Value.Items[0];
+        Assert.Null(item.AssigneeMemberId);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId);
+
+        // Act
+        var team = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "team")).ExpectSuccess();
+        var all = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "all")).ExpectSuccess();
+        var unassigned = await Scenario(fixture.OwnerUserId)
+            .When(new ListWork(fixture.TenantId, fixture.ProgramId, "unassigned")).ExpectSuccess();
+        await Scenario(fixture.OwnerUserId).When(new ClaimWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 0)).ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario(fixture.OwnerUserId).When(new AssignWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 0, fixture.Member(fixture.OutsiderUserId)))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        var claimed = await Scenario(fixture.OutsiderUserId).When(new ClaimWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId, 0)).ExpectSuccess();
+
+        // Assert
+        Assert.Equal(before.Value.Counts, team.Value.Counts);
+        Assert.Equal(before.Value.Items, team.Value.Items);
+        Assert.Equal(team.Value.Counts, all.Value.Counts);
+        Assert.Empty(unassigned.Value.Items);
+        Assert.Equal(0, unassigned.Value.Counts.Total);
+        Assert.Equal(fixture.Member(fixture.OutsiderUserId), claimed.Value.Item.AssigneeMemberId);
+    }
+
+    [Fact]
+    public async Task ShouldFailClosedGivenRetainedMemberUserDisagreesWithCanonicalMemberIdentity()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var finding = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId, fixture.Today);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId);
+        {
+            var registrations = new List<DomainEvent>();
+            await foreach (var record in provider.GetRequiredService<IDomainEventReader>().ReadAsync(
+                               EventStreamPattern.ForPattern(fixture.TenantId.ToString(), "rbac-members",
+                                   fixture.OwnerMemberId.ToString()), ProjectionCheckpoint.Start.Cursor, CancellationToken.None))
+                registrations.Add(record.Event);
+            Assert.IsType<MemberRegistered>(Assert.Single(registrations));
+            // Deliberately malformed retained provenance: public registration cannot produce this identity.
+            DomainEvent malformed = new MemberRegistered(fixture.TenantId, fixture.OwnerMemberId,
+                fixture.OutsiderUserId, "client_personnel", Uuid.CreateVersion4());
+            malformed.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), fixture.OwnerMemberId,
+                2, DateTimeOffset.UtcNow));
+            await provider.GetRequiredService<IEventStore>().AppendAsync(new EventStreamAddress(
+                fixture.TenantId.ToString(), "rbac-members", fixture.OwnerMemberId.ToString()),
+                1, [malformed]);
+        }
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+
+        // Act
+        await Scenario().When(new CompleteCorrectiveAction(fixture.TenantId, fixture.ProgramId,
+            finding.FindingId, finding.Revision, Assert.Single(finding.CorrectiveActions).ActionId,
+            "Removed.", OperationsFixture.FullSupport)).ExpectFailure(RequestErrorKind.Forbidden);
+        var mine = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Empty(mine.Value.Items);
+        Assert.Equal(0, mine.Value.Counts.Total);
+    }
+
+    [Fact]
+    public async Task ShouldCoverEveryProductionKindGivenSourceManagementRequestMapping()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await using var provider = CreateProvider(fixture);
+        await using var scope = provider.CreateAsyncScope();
+        var kinds = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
+            .SelectMany(reader => reader.ProjectedKinds).Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal);
+
+        // Act
+        var mapped = WorkSourceManagement.SourceRequests.Keys.Order(StringComparer.Ordinal);
+
+        // Assert
+        Assert.Equal(kinds, mapped);
+        Assert.All(WorkSourceManagement.SourceRequests.Values.SelectMany(types => types),
+            type => Assert.True(typeof(IRequestBase).IsAssignableFrom(type)));
+        Assert.Equal(typeof(AcknowledgePolicy), Assert.Single(
+            WorkSourceManagement.SourceRequests[PolicyCampaignWork.Acknowledgement]));
+        Assert.False(typeof(IClientManagementMutationRequest).IsAssignableFrom(typeof(AcknowledgePolicy)));
+    }
+
+    static ServiceProvider CreateProvider(OperationsFixture fixture)
+    {
+        var events = fixture.Provider.GetRequiredService<IEventStore>();
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
+            ["Fitz:ApplicationName"] = "compliance"
+        }).Build();
+        _ = services.AddCompliance(configuration, developerAuthentication: true);
+        services.AddSingleton<IKvClient>(new InMemoryKvClient());
+        services.AddSingleton(events);
+        services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
+        services.AddSingleton<IAccessGrantPermissionAuthorizer>(
+            new PermissionBackedAccessGrantPermissionAuthorizer(fixture.Permissions));
+        services.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
+        services.AddSingleton<ITenantActivity, ActiveTenant>();
+        services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     static async Task CatchUpAsync(IServiceProvider provider, Uuid tenantId)

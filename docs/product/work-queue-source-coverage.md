@@ -172,3 +172,11 @@ handler and records its returned acceptance in the retained source aggregate.
   validation phase; this backend inventory does not claim that acceptance.
 
 Boundary review and approval require both the current named operating duty and the current source `program.manage` grant. A duty assignment alone does not authorize the source decision. Revoked grants remove action eligibility immediately while preserving responsibility history and work identity.
+
+### Historical management authority
+
+Queue action eligibility and management assignment use the source request's `IClientManagementMutationRequest` metadata. The explicit source-kind/request map covers every registered production kind, including currently unmarked source commands, so a later concrete source marker also changes queue eligibility. Current membership, ordinary grants, named duty and source separation of duties remain required. Canonical user identity comes from the actual owning-client member; retained actual Attest history denies marked management work even after assignment closure or current client/guest relinking.
+
+A recorded assignee who loses source eligibility becomes effectively unassigned without rewriting the retained assignment history. Mine and eligible-unassigned counts, claim, delegation, escalation and management assignment follow that source eligibility. Authorized program-manager and current-team read oversight retain the existing All/Team/detail visibility; a `next_action` describes the source workflow and grants no authority, as for existing separation-of-duties exclusions. Eligible replacement members can still claim or receive the orphaned work.
+
+Personal policy acknowledgement remains unmarked and usable by its correlated audience member. Its existing direct-member assignment and team-only claim validation remain unchanged. Conditional manager proxy acknowledgement has a shared request with personal acknowledgement and requires a separately accepted source-aware guard; this metadata slice does not invent a denial before that source contract exists. Campaign routing under #646 and complete parent acceptance remain open. Source projection fences and retained source history are independent checks; this is not a cross-stream atomic snapshot or authorization/write guarantee.

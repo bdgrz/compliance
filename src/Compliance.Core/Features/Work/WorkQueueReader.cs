@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Controls;
@@ -37,6 +38,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
 
     readonly Dictionary<(OperatingHolder Holder, Uuid MemberId), bool> _holds = [];
     readonly Dictionary<Uuid, bool> _active = [];
+    readonly Dictionary<Uuid, bool> _canAuthorManagement = [];
     readonly Dictionary<(Uuid WorkItemId, Uuid MemberId), bool> _eligible = [];
     readonly IAccountableWorkItemDirectoryReader[] _accountableWorkItems =
         accountableWorkItems?.OrderBy(static reader => reader.ProjectorName,
@@ -211,8 +213,29 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             eligible = await HoldsAsync(tenantId,
                 new OperatingHolder(OperatingAuthority.ProgramManagerHolder, requiredProgram), memberId, ct)
                 .ConfigureAwait(false);
+        if (eligible && WorkSourceManagement.IsManagementMutation(candidate))
+            eligible = await CanAuthorManagementAsync(tenantId, memberId, ct).ConfigureAwait(false);
         _eligible[key] = eligible;
         return eligible;
+    }
+
+    internal ValueTask<bool> CanAssignAsync(Uuid tenantId, WorkCandidate candidate,
+        Uuid memberId, CancellationToken ct) => WorkSourceManagement.IsManagementMutation(candidate)
+        ? CanAuthorManagementAsync(tenantId, memberId, ct)
+        : ValueTask.FromResult(true);
+
+    async ValueTask<bool> CanAuthorManagementAsync(Uuid tenantId, Uuid memberId, CancellationToken ct)
+    {
+        if (_canAuthorManagement.TryGetValue(memberId, out var allowed))
+            return allowed;
+        var member = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
+            .ConfigureAwait(false);
+        allowed = member.IsRegistered && member.UserId != Uuid.Empty &&
+                  RbacIds.Member(tenantId, member.UserId) == memberId &&
+                  await new ClientManagementIndependenceGuard(reader)
+                      .CanAuthorAsync(tenantId, member.UserId, ct).ConfigureAwait(false);
+        _canAuthorManagement[memberId] = allowed;
+        return allowed;
     }
 
     async ValueTask<bool> HoldsAsync(Uuid tenantId, OperatingHolder holder, Uuid memberId,

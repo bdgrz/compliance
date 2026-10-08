@@ -19,6 +19,10 @@ public sealed class AssignWorkItemHandler(IAggregateExecutor executor, WorkQueue
                 if (!snapshot.ActorManages)
                     return WorkCommands.Fail(RequestErrorKind.Forbidden,
                         "Only a program manager may assign or reassign work.");
+                if (!await queue.CanAssignAsync(request.TenantId, entry.Candidate, actor.MemberId, ct)
+                        .ConfigureAwait(false))
+                    return WorkCommands.Fail(RequestErrorKind.Forbidden,
+                        "Actual Attest assignment history prevents authoring this management work assignment.");
                 if (entry.Item.AssigneeMemberId == request.AssigneeMemberId)
                     return WorkCommands.Fail(RequestErrorKind.Conflict,
                         "The work item is already assigned to this member.");
