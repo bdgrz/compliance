@@ -33,7 +33,7 @@ public sealed partial class IndependenceLedger
             !MatchingSelectedBoundary(engagement, proof) || _acceptances.ContainsKey(proof.EngagementId) ||
             _engagementHistory[proof.EngagementId].Count >= 100 || _assignmentHistory.Count + engagement.Staff.Count(staff => staff.IsCurrent) > 1000)
             return RefuseAcceptance("Reload the exact draft and complete client sequence before accepting.");
-        if (recordedAt < engagement.RecordedAt || _services.Any(service => service.RecordedAt > recordedAt) ||
+        if (!EngagementSourcesExistBy(engagement.EngagementId, recordedAt) || _services.Any(service => service.RecordedAt > recordedAt) ||
             !MatchingAcknowledgement(proof.ManagementAcknowledgementId, engagement, proof.PartnerUserId, recordedAt) ||
             _engagementHistory[proof.EngagementId].Any(view => view.Actor.Id == RbacIds.Member(_tenantId, proof.PartnerUserId).ToString()))
             return RefuseAcceptance("Acceptance requires current client management acknowledgement and a separate reviewer.");
@@ -77,6 +77,10 @@ public sealed partial class IndependenceLedger
         CompleteFacts(acceptance.CompleteServiceHistory.Select(service => service.ServiceRecordId).ToArray()) &&
         acceptance.Assignments.Any(staff => staff.IsCurrent && staff.StaffMemberId == staffMemberId &&
             staff.UserId == userId && staff.AssignedAt <= effectiveAt && staff.DirectoryStaffRevision == currentDirectoryStaffRevision);
+
+    bool EngagementSourcesExistBy(Uuid engagementId, DateTimeOffset acceptedAt) =>
+        _engagementHistory[engagementId].All(version => version.RecordedAt <= acceptedAt &&
+            version.Staff.All(proposal => proposal.RecordedAt <= acceptedAt));
 
     bool MatchingAcknowledgement(Uuid acknowledgementId, ServiceEngagementView engagement, Uuid partnerUserId, DateTimeOffset acceptedAt) =>
         _managementAcknowledgements.Any(ack => ack.AcknowledgementId == acknowledgementId &&
@@ -164,7 +168,7 @@ public sealed partial class IndependenceLedger
             _engagementHistory[acceptance.EngagementId].Any(view => view.Actor.Id == RbacIds.Member(_tenantId, acceptance.PartnerUserId).ToString()) ||
             acceptance.Actor.Kind != "firm_staff" ||
             acceptance.Actor.Id != acceptance.PartnerUserId.ToString() || !BoundedEngagement(acceptance.AuthorityReference) ||
-            acceptance.RecordedAt == default || acceptance.RecordedAt < engagement.RecordedAt ||
+            acceptance.RecordedAt == default || !EngagementSourcesExistBy(engagement.EngagementId, acceptance.RecordedAt) ||
             _services.Any(service => service.RecordedAt > acceptance.RecordedAt) || !ValidRecordedSourceTimes(acceptance) ||
             acceptance.ChangedBy is not null || acceptance.ChangedAt is not null ||
             acceptance.ChangeReason is not null || !MatchingAcceptedBoundary(engagement, acceptance) ||

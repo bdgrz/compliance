@@ -129,5 +129,7 @@ remain unfinished.
 
 Engagement and acceptance histories remain bounded to one hundred revisions, and complete
 actual assignment history to one thousand records. New oversized events or histories are
-refused without truncating evidence. Revocations cannot predate the latest recorded lifecycle
-decision. Replay recomputes the policy and source/identity fences from retained facts.
+refused without truncating evidence. Acceptance cannot predate any retained engagement/staff-proposal decision, its exact acknowledgement,
+complete service facts, authored rules, approved boundary or verified authority/directory sources;
+backdated draft successors cannot hide later historical timestamps. Revocations cannot predate
+the latest recorded lifecycle decision. Replay recomputes the policy and source/identity fences from retained facts.

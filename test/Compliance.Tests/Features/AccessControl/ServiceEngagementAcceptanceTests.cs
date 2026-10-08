@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Tests.Testing;
 using Microsoft.Extensions.Configuration;
@@ -431,16 +432,73 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.True(current.IsSuccess);
         Assert.True(history.IsSuccess);
         Assert.Equal(engagement, current.Value!.EngagementId);
-        Assert.Equal(current.Value, Assert.Single(history.Value!));
+        Assert.Equal(JsonSerializer.Serialize(current.Value, ComplianceCoreJsonContext.Default.ServiceEngagementAcceptanceView),
+            JsonSerializer.Serialize(Assert.Single(history.Value!), ComplianceCoreJsonContext.Default.ServiceEngagementAcceptanceView));
         Assert.Equal("active", current.Value.Status);
         Assert.Equal("allowed", current.Value.DecisionCode);
     }
 
-    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice, IndependenceLedger? source = null)
+    [Fact]
+    public void ShouldRefuseBackdatedAcceptanceGivenLaterTimestampInRetainedDraftHistory()
+    {
+        // Arrange
+        var earlier = Now.AddDays(-1);
+        var (ledger, proof, rules) = Fixture("attest", sourceRecordedAt: earlier);
+        var staff = proof.CurrentStaff[0];
+        Assert.True(ledger.AmendEngagement(Uuid.CreateVersion4(), proof.EngagementId, 2,
+            ledger.Engagement(proof.EngagementId)!.Content, staff, ClientActor, earlier).IsSuccess);
+        var acknowledgement = Uuid.CreateVersion4();
+        Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(Tenant,
+            proof.EngagementId, acknowledgement, 3, 2, [], "I retain management responsibility."), ClientUser, ClientActor, earlier).IsSuccess);
+        proof = proof with { ReviewedDraftRevision = 2, ManagementAcknowledgementId = acknowledgement };
+
+        // Act
+        var result = ledger.AcceptEngagement(Uuid.CreateVersion4(), 4, proof, rules, earlier);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(4, ledger.Sequence);
+        Assert.Null(ledger.Acceptance(proof.EngagementId));
+    }
+
+    [Fact]
+    public void ShouldRejectBackdatedReplayGivenLaterTimestampInRetainedDraftHistory()
+    {
+        // Arrange
+        var earlier = Now.AddDays(-1);
+        var (ledger, proof, rules) = Fixture("attest", sourceRecordedAt: earlier);
+        Assert.True(ledger.AmendEngagement(Uuid.CreateVersion4(), proof.EngagementId, 2,
+            ledger.Engagement(proof.EngagementId)!.Content, proof.CurrentStaff[0], ClientActor, earlier).IsSuccess);
+        var acknowledgement = Uuid.CreateVersion4();
+        Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(Tenant,
+            proof.EngagementId, acknowledgement, 3, 2, [], "I retain management responsibility."), ClientUser, ClientActor, earlier).IsSuccess);
+        proof = proof with { ReviewedDraftRevision = 2, ManagementAcknowledgementId = acknowledgement };
+        Assert.True(ledger.AcceptEngagement(Uuid.CreateVersion4(), 4, proof, rules, Now).IsSuccess);
+        var events = new AggregateScenario<IndependenceLedger>(ledger).PendingEvents.ToArray();
+        var ev = Assert.IsType<ServiceEngagementAcceptanceRecorded>(events[^1]);
+        var corrupt = ev with
+        {
+            Acceptance = ev.Acceptance with
+            {
+                RecordedAt = earlier,
+                Assignments = ev.Acceptance.Assignments.Select(staff => staff with { AssignedAt = earlier }).ToArray()
+            }
+        };
+
+        // Act
+        var replay = () => new AggregateScenario<IndependenceLedger>(new IndependenceLedger(Tenant)).Given(
+            events.Take(events.Length - 1).Append(corrupt).ToArray());
+
+        // Assert
+        Assert.Throws<InvalidOperationException>(replay);
+    }
+
+    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice, IndependenceLedger? source = null, DateTimeOffset? sourceRecordedAt = null)
     {
         var ledger = source ?? new IndependenceLedger(Tenant);
+        var sourceTime = sourceRecordedAt ?? Now;
         var staff = new FirmStaffMemberView(Uuid.CreateVersion4(), Uuid.CreateVersion4(), practice,
-            "Synthetic directory source", true, 1, ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), Now);
+            "Synthetic directory source", true, 1, ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), sourceTime);
         var engagement = Uuid.CreateVersion4();
         var boundaryId = Uuid.CreateVersion4();
         var versionId = Uuid.CreateVersion4();
@@ -453,17 +511,17 @@ public sealed class ServiceEngagementAcceptanceTests
             Tenant, engagement, acknowledgement, 1, 1, [], "I retain management responsibility."), ClientUser, ClientActor, Now).IsSuccess);
         var boundary = new BoundaryVersionView(Tenant, boundaryId, Uuid.CreateVersion4(), versionId, 1,
             new BoundaryContent("Synthetic approved scope", "examination", ["security"], []), "approved",
-            new DateOnly(2026, 1, 1), Uuid.CreateVersion4(), "Synthetic author", Now);
+            new DateOnly(2026, 1, 1), Uuid.CreateVersion4(), "Synthetic author", sourceTime);
         var approval = new BoundaryDecisionView(Tenant, boundaryId, approvalId, versionId, 1, "approve",
-            Uuid.CreateVersion4(), "Synthetic reviewer", "Synthetic approval", Now, null, null, "synthetic-digest");
+            Uuid.CreateVersion4(), "Synthetic reviewer", "Synthetic approval", sourceTime, null, null, "synthetic-digest");
         var partner = staff with { StaffMemberId = Uuid.CreateVersion4(), UserId = Uuid.CreateVersion4() };
         var proof = new VerifiedEngagementAcceptance(Tenant, engagement, 1, Uuid.CreateVersion4(),
             partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY; not production evidence", null,
-            acknowledgement, boundary, approval, [staff], partner, 1, Now);
+            acknowledgement, boundary, approval, [staff], partner, 1, sourceTime);
         var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
             [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
             "Synthetic ratified test fixture ONLY; not production evidence"),
-            ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), Now, true);
+            ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), sourceTime, true);
         return (ledger, proof, rules);
     }
 }
