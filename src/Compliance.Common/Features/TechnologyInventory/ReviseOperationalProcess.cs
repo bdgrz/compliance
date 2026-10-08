@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.TechnologyInventory;
 public sealed record ReviseOperationalProcess(Uuid TenantId, Uuid OperationalProcessId,
     long ExpectedRevision, string Name, string Purpose, Uuid OwnerPersonId, string Lifecycle,
     string? Inputs = null, string? Outputs = null)
-    : IRequest, ITechnologyInventoryRequest, ICallable;
+    : IRequest, ITechnologyInventoryWriteRequest, ICallable;

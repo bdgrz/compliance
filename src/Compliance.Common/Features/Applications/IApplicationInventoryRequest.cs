@@ -1,4 +1,5 @@
 using Cntryl.Portia;
+using Bdgrz.Compliance.Features.AccessControl;
 
 namespace Bdgrz.Compliance.Features.Applications;
 
@@ -15,6 +16,6 @@ public interface IRestrictedApplicationResourceReadRequest : IApplicationInvento
 {
 }
 
-public interface IApplicationInventoryWriteRequest : IApplicationInventoryRequest
+public interface IApplicationInventoryWriteRequest : IApplicationInventoryRequest, IClientManagementMutationRequest
 {
 }

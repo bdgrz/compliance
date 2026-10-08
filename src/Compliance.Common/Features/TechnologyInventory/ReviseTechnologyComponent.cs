@@ -8,4 +8,4 @@ public sealed record ReviseTechnologyComponent(Uuid TenantId, Uuid ComponentId,
     long ExpectedRevision, string Name, Uuid OwnerPersonId, string Lifecycle,
     string? EnvironmentReference = null, string? LocationReference = null,
     int? EndpointCount = null, string? ManagementSource = null)
-    : IRequest, ITechnologyInventoryRequest, ICallable;
+    : IRequest, ITechnologyInventoryWriteRequest, ICallable;

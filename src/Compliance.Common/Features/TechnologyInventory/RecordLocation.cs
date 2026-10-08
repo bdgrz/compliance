@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.TechnologyInventory;
 [Discriminator("bdgrz.inventory.location.record", 1)]
 public sealed record RecordLocation(Uuid TenantId, string Kind, string Name, Uuid OwnerPersonId,
     string? GeographyReference = null)
-    : IRequest<LocationRegistration>, ITechnologyInventoryRequest, ICallable;
+    : IRequest<LocationRegistration>, ITechnologyInventoryWriteRequest, ICallable;

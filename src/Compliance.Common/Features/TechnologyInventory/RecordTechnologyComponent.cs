@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.TechnologyInventory;
 public sealed record RecordTechnologyComponent(Uuid TenantId, string Category, string Name,
     Uuid OwnerPersonId, string? EnvironmentReference = null, string? LocationReference = null,
     Uuid? SystemInstanceId = null, int? EndpointCount = null, string? ManagementSource = null)
-    : IRequest<TechnologyComponentRegistration>, ITechnologyInventoryRequest, ICallable;
+    : IRequest<TechnologyComponentRegistration>, ITechnologyInventoryWriteRequest, ICallable;
