@@ -12,6 +12,10 @@ public sealed class DecideAccessReviewScopeHandler(IAggregateExecutor executor,
     public async ValueTask<Result<AccessReviewScopeDecisionView>> HandleAsync(
         IRequestContext<DecideAccessReviewScope> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<AccessReviewScopeDecisionView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Access-review scope approval requires personal HTTP submission."));
         var (memberId, display) = ApplicationActor.From(context);
         var request = context.Request;
         if (request.ExpectedSystemInstanceRevision < 1 || request.ExpectedDecisionCount < 0)
