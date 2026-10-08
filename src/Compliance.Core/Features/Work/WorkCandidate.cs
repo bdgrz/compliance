@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.PolicyDistribution;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Work;
@@ -13,6 +14,9 @@ public sealed record WorkCandidate(Uuid WorkItemId, string Kind, Uuid SourceId, 
 {
     /// <summary>Source-management permission required in addition to the named operating duty.</summary>
     public Uuid? RequiredManagementProgramId { get; init; }
+
+    /// <summary>Runtime source capture for conditional policy proxy recording; never persisted as authority.</summary>
+    public PolicyAcknowledgementPersonSnapshot? AcknowledgementPerson { get; init; }
 
     public static Uuid IdFor(Uuid sourceId, string kind) => Uuid.CreateVersion5(sourceId,
         "work:" + kind);
