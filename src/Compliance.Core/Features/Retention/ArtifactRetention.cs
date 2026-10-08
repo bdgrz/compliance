@@ -97,7 +97,7 @@ public sealed class ArtifactRetention : Aggregate
             return InvalidPeriod();
         var normalized = reason.Trim();
         if (_basis is not null)
-            return _basis.PeriodStart == first && _basis.PeriodEnd == last && _basis.Reason == normalized &&
+            return _basis.PeriodStart == first && _basis.PeriodEnd == last && _basis.Reason == normalized && _basis.RecordedBy == actor &&
                    expectedRevision <= Revision ? Result.Success : ChangedIntent();
         if (expectedRevision != Revision)
             return StaleRevision();
@@ -116,7 +116,7 @@ public sealed class ArtifactRetention : Aggregate
             return InvalidDecision();
         var normalized = reason.Trim();
         if (_holds.TryGetValue(holdId, out var previous))
-            return previous.Reason == normalized && expectedRevision <= Revision ? Result.Success : ChangedIntent();
+            return previous.Reason == normalized && previous.PlacedBy == actor && expectedRevision <= Revision ? Result.Success : ChangedIntent();
         if (expectedRevision != Revision)
             return StaleRevision();
         Bind(source, actor, recordedAt);
@@ -136,7 +136,7 @@ public sealed class ArtifactRetention : Aggregate
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The legal hold was not found."));
         var normalized = reason.Trim();
         if (hold.ReleasedAt is not null)
-            return hold.ReleaseReason == normalized && expectedRevision <= Revision ? Result.Success : ChangedIntent();
+            return hold.ReleaseReason == normalized && hold.ReleasedBy == actor && expectedRevision <= Revision ? Result.Success : ChangedIntent();
         if (expectedRevision != Revision)
             return StaleRevision();
         if (recordedAt < hold.PlacedAt)

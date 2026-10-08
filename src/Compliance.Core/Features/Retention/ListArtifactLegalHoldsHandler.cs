@@ -18,6 +18,7 @@ sealed class ListArtifactLegalHoldsHandler(IAggregateReader reader)
             return Result<Page<ArtifactLegalHoldView>>.Failure(source.Error);
         var retention = await reader.HydrateAsync(new ArtifactRetention(request.TenantId,
             request.SourceKind, request.SourceId), ct).ConfigureAwait(false);
+        var observedPosition = retention.CommittedStreamPosition;
         var valid = retention.ValidateSource(source.Value);
         if (!valid.IsSuccess)
             return Result<Page<ArtifactLegalHoldView>>.Failure(valid.Error);
@@ -49,7 +50,7 @@ sealed class ListArtifactLegalHoldsHandler(IAggregateReader reader)
             return Result<Page<ArtifactLegalHoldView>>.Failure(fence.Error);
         var current = await reader.HydrateAsync(new ArtifactRetention(request.TenantId,
             request.SourceKind, request.SourceId), ct).ConfigureAwait(false);
-        if (current.CommittedStreamPosition != retention.CommittedStreamPosition)
+        if (current.CommittedStreamPosition != observedPosition)
             return Fail(RequestErrorKind.Conflict, "Retention changed during this request.", true);
         return Result<Page<ArtifactLegalHoldView>>.Success(new(items, next));
     }

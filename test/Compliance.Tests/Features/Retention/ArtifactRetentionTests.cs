@@ -165,4 +165,35 @@ public sealed class ArtifactRetentionTests
         Assert.Equal(0, retention.Revision);
         Assert.Empty(new AggregateScenario<ArtifactRetention>(retention).PendingEvents);
     }
+    [Theory]
+    [InlineData("basis")]
+    [InlineData("place")]
+    [InlineData("release")]
+    public void ShouldRejectChangedActorGivenAttributedHistoricalDecisionRetry(string operation)
+    {
+        // Arrange
+        var tenant = Uuid.CreateVersion4();
+        var id = Uuid.CreateVersion4();
+        var retention = new ArtifactRetention(tenant, "application_import", id);
+        var source = new ArtifactRetentionSourceSnapshot(new(tenant, "application_import", id, new string('a', 64)), 1);
+        var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "First Org Admin");
+        var other = ActorReference.ForMember(Uuid.CreateVersion4(), "Another Org Admin");
+        var now = DateTimeOffset.UtcNow;
+        var hold = Uuid.CreateVersion4();
+        Assert.True(retention.RecordBasis(source, 0, new(2019, 1, 1), new(2019, 12, 31), "Verified", actor, now).IsSuccess);
+        Assert.True(retention.PlaceLegalHold(source, 2, hold, "Preserve", actor, now).IsSuccess);
+        Assert.True(retention.ReleaseLegalHold(source, 3, hold, "Released", actor, now).IsSuccess);
+
+        // Act
+        var result = operation switch
+        {
+            "basis" => retention.RecordBasis(source, 0, new(2019, 1, 1), new(2019, 12, 31), "Verified", other, now),
+            "place" => retention.PlaceLegalHold(source, 2, hold, "Preserve", other, now),
+            _ => retention.ReleaseLegalHold(source, 3, hold, "Released", other, now),
+        };
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(4, retention.Revision);
+    }
 }

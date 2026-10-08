@@ -14,6 +14,7 @@ sealed class ArtifactRetentionRead(IAggregateReader reader, TimeProvider clock)
         if (!source.IsSuccess)
             return Result<ArtifactRetentionView>.Failure(source.Error);
         var retention = await reader.HydrateAsync(new ArtifactRetention(tenant, kind, id), ct).ConfigureAwait(false);
+        var observedPosition = retention.CommittedStreamPosition;
         var valid = retention.ValidateSource(source.Value);
         if (!valid.IsSuccess)
             return Result<ArtifactRetentionView>.Failure(valid.Error);
@@ -24,7 +25,7 @@ sealed class ArtifactRetentionRead(IAggregateReader reader, TimeProvider clock)
         if (!fence.IsSuccess)
             return Result<ArtifactRetentionView>.Failure(fence.Error);
         var current = await reader.HydrateAsync(new ArtifactRetention(tenant, kind, id), ct).ConfigureAwait(false);
-        if (current.CommittedStreamPosition != retention.CommittedStreamPosition)
+        if (current.CommittedStreamPosition != observedPosition)
             return Result<ArtifactRetentionView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "Retention changed during this request.", isTransient: true));
         return Result<ArtifactRetentionView>.Success(retention.Assess(source.Value.Source,

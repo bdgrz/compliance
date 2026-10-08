@@ -293,6 +293,55 @@ public sealed class ArtifactRetentionHandlerTests
         Assert.Equal(2UL, retention.CommittedStreamPosition);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRejectReusedMutableReaderRaceGivenAssessmentOrHistory(bool history)
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+        var id = await fixture.EvidenceAsync();
+        var reader = new ReusingPolicyReader(fixture.Reader);
+
+        // Act
+        var failed = history
+            ? !(await new ListArtifactLegalHoldsHandler(reader).HandleAsync(new RequestContext<ListArtifactLegalHolds>(
+                new(fixture.Tenant, "evidence_artifact", id), fixture.Actor), CancellationToken.None)).IsSuccess
+            : !(await new ArtifactRetentionRead(reader, TimeProvider.System).GetAsync(fixture.Tenant,
+                "evidence_artifact", id, null, CancellationToken.None)).IsSuccess;
+
+        // Assert
+        Assert.True(failed);
+    }
+
+    sealed class ReusingPolicyReader(IAggregateReader inner) : IAggregateReader
+    {
+        ArtifactRetention? _shared;
+        public async ValueTask<T> HydrateAsync<T>(T aggregate, CancellationToken ct = default) where T : Aggregate
+        {
+            if (aggregate is not ArtifactRetention retention)
+            {
+                if (aggregate is EvidenceArtifact)
+                    _sourceId = aggregate.Id;
+                return await inner.HydrateAsync(aggregate, ct);
+            }
+            if (_shared is null)
+                _shared = retention;
+            else
+            {
+                var tenant = Uuid.Parse(retention.Stream.Realm, null);
+                var source = new ArtifactRetentionSource(tenant, "evidence_artifact", _sourceId, Fixture.Sha);
+                var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Org Admin");
+                var now = DateTimeOffset.UtcNow;
+                new AggregateScenario<ArtifactRetention>(_shared).Given(
+                    DomainEventSeed.Attach(new ArtifactRetentionBound(source, 1, 1, actor, now), _shared.Id, 1),
+                    DomainEventSeed.Attach(new ArtifactLegalHoldPlaced(source, 2, 1, Uuid.CreateVersion4(), "Concurrent hold", actor, now), _shared.Id, 2));
+            }
+            return (T)(Aggregate)_shared;
+        }
+        Uuid _sourceId;
+    }
+
     static ClaimsPrincipal BdgrzActor(Uuid user) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", user.ToString())], "BdgrzSession"));
 
