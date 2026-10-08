@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Policies;
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -548,12 +549,9 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "policy")
             {
-                var request = Scenario().When(new ReviewPolicyDraft(Operations.TenantId, Operations.ProgramId,
-                    pending.Id, pending.Revision, "accept", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalPolicyDecisionTransportTests.SendHttpAsync(Provider, GuestUserId,
+                    new ReviewPolicyDraft(Operations.TenantId, Operations.ProgramId,
+                        pending.Id, pending.Revision, "accept", "Reviewed independently."), error);
             }
             else if (kind is "control" or "control_assigned")
             {

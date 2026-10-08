@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
@@ -11,6 +12,10 @@ public sealed class ReviewPolicyDraftHandler(IAggregateExecutor executor,
     public async ValueTask<Result<PolicyDecisionView>> HandleAsync(
         IRequestContext<ReviewPolicyDraft> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<PolicyDecisionView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Policy sign-off requires personal HTTP submission."));
         var request = context.Request;
         var actor = PolicyActor.From(context, request.TenantId);
         var waiver = await PolicySource.WaiverAsync(reader, request.TenantId,

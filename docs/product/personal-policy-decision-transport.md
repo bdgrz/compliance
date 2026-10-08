@@ -1,0 +1,7 @@
+# Personal policy decision transport
+
+ReviewPolicyDraft, ApprovePolicy, ApprovePolicyRetirement and ConfirmPolicyReview enforce their existing personal HTTP-only contracts before source, waiver or impact reads. Both pending draft and retirement reviews use ReviewPolicyDraft. Direct, MCP, system and noncanonical actors cannot submit these personal decisions. Ordinary current program management authority, exact revision/version, accepted review, author/reviewer/proposer separation, accountable owner and unchanged successor impact rules remain mandatory.
+
+Ten genuine production AddCompliance request-bus cases reproduced successful valid Direct/MCP decisions. They now return Forbidden without advancing retained source position, revision or decisions. Five native HTTP positives retain the canonical deciding member; six native HTTP conflicting-actor cases assert the exact original draft or retirement separation reason. Seven specific existing campaign decisions and one policy-specific reviewer test branch use a local explicit HTTP helper. Existing successor impact/projection assertions remain intact; global Scenario defaults are unchanged.
+
+This reserve correction for #277 changes no routes, MCP tools, contracts or event schemas. AcknowledgePolicy and ordinary management writes are outside this slice. It grants no professional acceptance or ratification and claims no parent criterion completion or forecast reduction.
