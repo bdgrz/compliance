@@ -1,4 +1,8 @@
+using System.Security.Claims;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Tests.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 
@@ -390,9 +394,51 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.Throws<InvalidOperationException>(replay);
     }
 
-    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice)
+    [Fact]
+    public async Task ShouldReadRetainedAcceptanceGivenProductionComposedClientAdministrationBus()
     {
-        var ledger = new IndependenceLedger(Tenant);
+        // Arrange
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
+            ["Fitz:ApplicationName"] = "compliance",
+        }).Build();
+        services.AddCompliance(configuration, developerAuthentication: true);
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(true));
+        services.AddSingleton<ITenantActivity>(new ActiveTenant());
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new FixedMembershipDirectory(true));
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        await using var scope = provider.CreateAsyncScope();
+        var actor = new ClaimsPrincipal(new ClaimsIdentity([
+            new Claim("iss", "bdgrz"), new Claim("sub", ClientUser.ToString())], "BdgrzSession"));
+        var seeded = await scope.ServiceProvider.GetRequiredService<IAggregateExecutor>().ExecuteAsync(
+            new IndependenceLedger(Tenant), ledger =>
+            {
+                var (_, proof, rules) = Fixture("attest", ledger);
+                return AggregateOutcome.CommitOnSuccess(ledger.AcceptEngagement(Uuid.CreateVersion4(), 2, proof, rules, Now));
+            }, new RequestDispatchContext(actor));
+        Assert.True(seeded.IsSuccess);
+        var engagement = seeded.Value!.EngagementId;
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+
+        // Act
+        var current = await bus.SendAsync(new GetServiceEngagementAcceptance(Tenant, engagement), actor);
+        var history = await bus.SendAsync(new GetServiceEngagementAcceptanceHistory(Tenant, engagement), actor);
+
+        // Assert
+        Assert.True(current.IsSuccess);
+        Assert.True(history.IsSuccess);
+        Assert.Equal(engagement, current.Value!.EngagementId);
+        Assert.Equal(current.Value, Assert.Single(history.Value!));
+        Assert.Equal("active", current.Value.Status);
+        Assert.Equal("allowed", current.Value.DecisionCode);
+    }
+
+    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice, IndependenceLedger? source = null)
+    {
+        var ledger = source ?? new IndependenceLedger(Tenant);
         var staff = new FirmStaffMemberView(Uuid.CreateVersion4(), Uuid.CreateVersion4(), practice,
             "Synthetic directory source", true, 1, ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), Now);
         var engagement = Uuid.CreateVersion4();
