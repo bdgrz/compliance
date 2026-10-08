@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Tests.Features.Evaluations;
 using Bdgrz.Compliance.Tests.Features.Policies;
+using Bdgrz.Compliance.Tests.Features.Commitments;
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -529,13 +530,10 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "commitment")
             {
-                var request = Scenario().When(new ReviewCommitmentDraft(Operations.TenantId, Operations.ProgramId,
-                    pending.Id, pending.Revision, "accept", "Reviewed independently.", "Security lead", "applicable",
-                    "supported", SourceVerifiedReference: "MSA 4.1", SourceEvidence: "Signed MSA section 4.1"));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalCommitmentDecisionTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewCommitmentDraft(Operations.TenantId, Operations.ProgramId,
+                        pending.Id, pending.Revision, "accept", "Reviewed independently.", "Security lead", "applicable",
+                        "supported", SourceVerifiedReference: "MSA 4.1", SourceEvidence: "Signed MSA section 4.1"), error);
                 await RefreshCommitmentAsync(pending.Id);
             }
             else if (kind == "risk_control_treatment")
