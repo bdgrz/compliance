@@ -32,6 +32,7 @@ sealed class EvidenceArtifactMetadataRead(IAggregateReader reader, IDomainEventR
         ulong expectedOffset = 0;
         string? state = null;
         string? reason = null;
+        DateTimeOffset? availabilityRecordedAt = null;
         await foreach (var source in events.ReadAsync(artifact.Stream, 0, ct).WithCancellation(ct).ConfigureAwait(false))
         {
             if (source.Stream != artifact.Stream || source.ResourceOffset != expectedOffset || source.ResourceOffset >= position)
@@ -50,6 +51,8 @@ sealed class EvidenceArtifactMetadataRead(IAggregateReader reader, IDomainEventR
                                                        state == EvidenceArtifactStates.PendingInspection && ValidInspection(ev):
                     state = ev.State;
                     reason = ev.Reason;
+                    if (ev.State == EvidenceArtifactStates.Available)
+                        availabilityRecordedAt = ev.InspectedAt;
                     break;
                 case EvidenceArtifactQuarantineReleased ev when ev.TenantId == tenantId && ev.ArtifactId == artifactId &&
                                                                 state == EvidenceArtifactStates.Quarantined && reason == EvidenceArtifactStates.Malware &&
@@ -57,6 +60,7 @@ sealed class EvidenceArtifactMetadataRead(IAggregateReader reader, IDomainEventR
                                                                 ev.DecidedBy is not null:
                     state = EvidenceArtifactStates.Available;
                     reason = null;
+                    availabilityRecordedAt = ev.DecidedAt;
                     break;
                 default:
                     return Missing();
@@ -75,7 +79,7 @@ sealed class EvidenceArtifactMetadataRead(IAggregateReader reader, IDomainEventR
             return Changed();
         var digest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(registration,
             ComplianceCoreJsonContext.Default.EvidenceArtifactRegistered)));
-        return Result<EvidenceArtifactMetadataSnapshot>.Success(new(view, registration.Metadata.EventId, digest));
+        return Result<EvidenceArtifactMetadataSnapshot>.Success(new(view, registration.Metadata.EventId, digest, availabilityRecordedAt));
     }
 
     public async ValueTask<Result> CheckAsync(EvidenceArtifactMetadataView original, CancellationToken ct)

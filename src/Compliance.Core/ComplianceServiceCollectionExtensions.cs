@@ -474,6 +474,11 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTeamRoleDirectoryReader>();
         services.AddScoped<ITeamRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
         services.AddScoped<ITeamRoleDirectoryReader>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
+        services.AddScoped<SeparationOfDutiesWaiverAuthorizer>();
+        services.AddScoped<EvidenceRedactionWaiverRead>();
+        services.AddScoped<EvidenceRedactionRead>();
+        services.AddScoped<EvidenceRedactionSources>();
+        services.AddScoped<EvidenceRedactionAccess>();
         services.AddScoped<EvidenceArtifactReadAccess>();
         services.AddScoped<EvidenceArtifactMetadataRead>();
         services.AddScoped<DirectoryReevaluationDiscovery>();
@@ -746,6 +751,11 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.OpenEvidenceRequestHandler>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.FulfilEvidenceRequestHandler>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.CancelEvidenceRequestHandler>()
+            .AddRequestHandler<GetEvidenceRedactionHandler>()
+            .AddRequestAuthorizer<EvidenceRedactionWaiverScopeAuthorizer>()
+            .AddRequestHandler<ApproveEvidenceRedactionHandler>()
+            .AddRequestHandler<PrepareEvidenceRedactionHandler>()
+            .AddRequestAuthorizer<EvidenceRedactionAccess>()
             .AddRequestHandler<GetEvidenceArtifactMetadataHandler>()
             .AddRequestAuthorizer<EvidenceArtifactMetadataAuthorizer>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.GetEvidenceRequestHandler>()
@@ -988,6 +998,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            .AddReactor<EvidenceRedactionPermissionsReactor>("EvidenceRedactionPermissionsV1", WorkloadScope.Global)
             .AddReactor<EvidenceArtifactReadPermissionReactor>("EvidenceArtifactReadPermissionV1", WorkloadScope.Global)
             .AddReactor<BuiltInRoleCatalogMigrationReactor>("BuiltInRoleCatalogV1", WorkloadScope.Global)
             // Creator activation follows its durable team assignment on a tenant workload,

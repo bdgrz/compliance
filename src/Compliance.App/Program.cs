@@ -332,6 +332,8 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListFindings>(tool => tool.ReadOnly())
         .AddMcpTool<OpenEvidenceRequest>()
         .AddMcpTool<CancelEvidenceRequest>()
+        .AddMcpTool<PrepareEvidenceRedaction>()
+        .AddMcpTool<GetEvidenceRedaction>(tool => tool.ReadOnly())
         .AddMcpTool<GetEvidenceArtifactMetadata>(tool => tool.ReadOnly())
         .AddMcpTool<GetEvidenceRequest>(tool => tool.ReadOnly())
         .AddMcpTool<ListEvidenceRequests>(tool => tool.ReadOnly())
@@ -1232,6 +1234,18 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Evidence requests");
+    app.MapPortiaPost<PrepareEvidenceRedaction, EvidenceRedactionView>(
+            "/api/v1/tenants/{tenant_id}/evidence-redactions/{redaction_id}/preparations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence redactions");
+    app.MapPortiaPost<ApproveEvidenceRedaction, EvidenceRedactionView>(
+            "/api/v1/tenants/{tenant_id}/evidence-redactions/{redaction_id}/approvals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence redactions");
+    app.MapPortiaGet<GetEvidenceRedaction, EvidenceRedactionView>(
+            "/api/v1/tenants/{tenant_id}/evidence-redactions/{redaction_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence redactions");
     app.MapPortiaGet<GetEvidenceArtifactMetadata, EvidenceArtifactMetadataView>(
             "/api/v1/tenants/{tenant_id}/evidence-artifacts/{artifact_id}/metadata")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
