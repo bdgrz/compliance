@@ -1,0 +1,15 @@
+# Exact artifact metadata access
+
+This partial #285 foundation exposes `GET /api/v1/tenants/{tenant_id}/evidence-artifacts/{artifact_id}/metadata` and the read-only MCP `GetEvidenceArtifactMetadata` request. Both require current canonical client membership, an active owning tenant and an explicit current access grant to the exact `evidence_artifact` shared resource with `evidence_artifact.read`. Organization, program, control and other resource visibility supply no artifact authority. UUID collisions with another resource type do not match.
+
+The existing fixed Viewer role gains the permission; no role is added. Fresh tenant bootstrap and the separately checkpointed `EvidenceArtifactReadPermissionV1` catalog migration install permission only. They issue no artifact grant or membership. The old `BuiltInRoleCatalogV1` checkpoint retains its meaning. An authorized administrator can issue an explicit artifact-scoped grant through the existing `GrantAccess` contract.
+
+The response preserves native classification and content provenance for pending, quarantined and available artifacts. Rejected artifacts expose a tombstone: artifact identity, retained hash and size, uploader attribution, registration time, rejected state and reason. Their `content` field is null, excluding the original title, description, source, period and handling class. This implements the M0-D16 rejected metadata boundary without returning content bytes.
+
+The shared reader validates exact registration ownership, complete contiguous retained source coverage and native lifecycle transitions. Duplicate registrations, repeated inspections, unknown verdict reasons and releases outside a malware quarantine fail closed. Its private capture also supplies exact registration event identity and typed business payload digest for subsequent lineage consumers; those event capsules are not public metadata fields. Grant issuance uses the same canonical source verification.
+
+Authorization runs before artifact hydration and again after capture, with current membership, tenant activity, grant and role permission source checks even when projections lag. A final artifact position reread returns a transient conflict if the source advances. These bounded rereads detect observed changes; they do not establish cross-stream atomic disclosure authority.
+
+Focused tests use actual `AddCompliance` request dispatch, retained aggregates, tenant bootstrap, explicit `GrantAccess` and Fitz projections. No authorization collaborators are replaced. Isolated event-reader fault wrappers reproduce missing source coverage and changes during capture. Inspector verdicts, registered content digests and the attributed malware release are synthetic lifecycle fixtures. Available state observes retained inspection/release facts; it does not qualify a scanner, rescan, release approval workflow or content store.
+
+Issue #285 remains open. This foundation adds no upload/download, disclosure, redaction approval, engagement hold, retention disposal or provider behavior. The existing byte-store and scanner acceptance gates remain.

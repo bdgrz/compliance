@@ -474,6 +474,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<FitzTeamRoleDirectoryReader>();
         services.AddScoped<ITeamRoleDirectoryProjection>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
         services.AddScoped<ITeamRoleDirectoryReader>(provider => provider.GetRequiredService<FitzTeamRoleDirectoryReader>());
+        services.AddScoped<EvidenceArtifactReadAccess>();
+        services.AddScoped<EvidenceArtifactMetadataRead>();
         services.AddScoped<DirectoryReevaluationDiscovery>();
         services.AddScoped<FitzActualStaffEngagementLocator>();
         services.AddScoped<IActualStaffEngagementLocatorProjection>(provider =>
@@ -744,6 +746,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.OpenEvidenceRequestHandler>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.FulfilEvidenceRequestHandler>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.CancelEvidenceRequestHandler>()
+            .AddRequestHandler<GetEvidenceArtifactMetadataHandler>()
+            .AddRequestAuthorizer<EvidenceArtifactMetadataAuthorizer>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.GetEvidenceRequestHandler>()
             .AddRequestHandler<Bdgrz.Compliance.Features.Evidence.ListEvidenceRequestsHandler>()
             .AddRequestHandler<ListWorkHandler>()
@@ -984,6 +988,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddProjector<IdentityDirectoryProjector>("UserIdentityDirectory", WorkloadScope.Global)
             .AddProjector<EmailAddressDirectoryProjector>("EmailAddressDirectory", WorkloadScope.Global)
             .AddReactor<TenantRbacBootstrapReactor>("TenantRbacBootstrap", WorkloadScope.Global)
+            .AddReactor<EvidenceArtifactReadPermissionReactor>("EvidenceArtifactReadPermissionV1", WorkloadScope.Global)
             .AddReactor<BuiltInRoleCatalogMigrationReactor>("BuiltInRoleCatalogV1", WorkloadScope.Global)
             // Creator activation follows its durable team assignment on a tenant workload,
             // so a stalled activation cannot hold the global RBAC bootstrap cursor.
