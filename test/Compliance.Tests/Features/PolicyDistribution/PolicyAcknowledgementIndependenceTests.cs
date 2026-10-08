@@ -284,7 +284,7 @@ public sealed class PolicyAcknowledgementIndependenceTests
 
         // Assert
         Assert.Equal("acknowledge", item.NextAction);
-        Assert.Equal(1, before.Value.Counts.Mine);
+        Assert.Equal(1, before.Value.Counts.Total);
         Assert.Contains("Only team work", claim.Error!.Message, StringComparison.Ordinal);
         Assert.True(recorded.IsSuccess, recorded.Error?.Message);
         Assert.False(recorded.Value.RecordedOnBehalf);
