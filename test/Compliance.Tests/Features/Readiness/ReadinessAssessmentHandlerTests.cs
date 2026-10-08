@@ -372,7 +372,7 @@ public sealed class ReadinessAssessmentHandlerTests
                 Kind: "catalog_support_gap", RuleId: "catalog_support_declared"));
 
         // Assert
-        Assert.Equal("readiness-rules/11", assessment.RuleVersion);
+        Assert.Equal("readiness-rules/12", assessment.RuleVersion);
         Assert.Equal(6, gaps.Items.Count);
         Assert.Equal(assessment.Gaps.Count, assessment.GapCount);
         foreach (var gap in gaps.Items)
@@ -523,6 +523,87 @@ public sealed class ReadinessAssessmentHandlerTests
         }
     }
 
+    [Fact]
+    public async Task ShouldSelectOnlyKnownInitialApprovalGivenExactAsOfInstant()
+    {
+        // Arrange
+        var approval = DateTimeOffset.UtcNow.AddHours(-2);
+        var fixture = await Fixture.CreateAsync(approvedAt: approval);
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var control = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new ControlDraft(fixture.TenantId, fixture.ControlId), CancellationToken.None);
+
+        // Act
+        var earlier = ReadinessControlSelection.EffectiveVersionAt(control, approval.AddTicks(-1));
+        var equal = ReadinessControlSelection.EffectiveVersionAt(control, approval.ToOffset(TimeSpan.FromHours(5)));
+
+        // Assert
+        Assert.Null(earlier);
+        Assert.Equal(fixture.ControlVersionId, equal?.VersionId);
+        Assert.NotNull(control.EffectiveVersion(DateOnly.FromDateTime(approval.UtcDateTime)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldUseHalfOpenUtcIntervalGivenKnownLifecycleDecision(bool retire)
+    {
+        // Arrange
+        var midnight = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero);
+        var fixture = await Fixture.CreateAsync(DateOnly.FromDateTime(midnight.AddDays(-3).UtcDateTime),
+            approvedAt: midnight.AddDays(-2));
+        await fixture.AdvanceControlAsync(retire, midnight.AddHours(-6),
+            DateOnly.FromDateTime(midnight.UtcDateTime));
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var control = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new ControlDraft(fixture.TenantId, fixture.ControlId), CancellationToken.None);
+
+        // Act
+        var before = ReadinessControlSelection.EffectiveVersionAt(control, midnight.AddTicks(-1));
+        var atBoundary = ReadinessControlSelection.EffectiveVersionAt(control,
+            midnight.ToOffset(TimeSpan.FromHours(-4)));
+
+        // Assert
+        Assert.Equal(fixture.ControlVersionId, before?.VersionId);
+        Assert.Equal(DateOnly.FromDateTime(midnight.UtcDateTime), before?.EffectiveUntil);
+        if (retire)
+            Assert.Null(atBoundary);
+        else
+            Assert.Equal(ControlVersionIds.Sequence(fixture.ControlId, 2), atBoundary?.VersionId);
+        Assert.Equal(control.EffectiveVersion(DateOnly.FromDateTime(midnight.UtcDateTime))?.VersionId,
+            atBoundary?.VersionId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldPreserveOriginalVersionGivenLaterBackdatedLifecycleDecision(bool retire)
+    {
+        // Arrange
+        var fixture = await Fixture.CreateAsync();
+        await fixture.MapAsync("CC6.1", fixture.ReviewedAt.AddMinutes(-10));
+        var asOf = fixture.ReviewedAt;
+        var before = await fixture.RunAsync(0, asOf);
+        var decision = asOf.AddMinutes(30);
+        var effectiveDate = DateOnly.FromDateTime(asOf.UtcDateTime);
+        await fixture.AdvanceControlAsync(retire, decision, effectiveDate);
+
+        // Act
+        var repeated = await fixture.RunAsync(1, asOf);
+        var atDecision = await fixture.RunAsync(2, decision.ToOffset(TimeSpan.FromHours(-4)));
+        var stored = await fixture.GetAsync(before.AssessmentId);
+
+        // Assert
+        Assert.Equal(before.InputFingerprint, repeated.InputFingerprint);
+        Assert.Equal(before.InputFingerprint, stored.InputFingerprint);
+        Assert.Contains(repeated.Findings.SelectMany(finding => finding.Sources), source =>
+            source.Kind == "control_version" && source.Id == fixture.ControlVersionId);
+        var current = Assert.Single(atDecision.Findings, finding =>
+            finding.CriterionIdentifier == "CC6.1" && finding.RuleId == ReadinessRules.MappedControlEffective);
+        Assert.Equal(retire ? "gap" : "rule_met", current.Outcome);
+        Assert.DoesNotContain(current.Sources, source => source.Id == fixture.ControlVersionId);
+    }
+
     static Result Command(CommandFailure? failure) => failure is null
         ? Result.Success
         : Result.Failure(new RequestError(RequestErrorKind.Conflict, failure.Message!));
@@ -541,7 +622,8 @@ public sealed class ReadinessAssessmentHandlerTests
 
         public static async Task<Fixture> CreateAsync(DateOnly? effectiveFrom = null,
             bool selectEdition = true, ICriteriaCatalog? catalog = null, Uuid? selectedEdition = null,
-            Func<Uuid, Uuid, DateTimeOffset, ReadinessSourceSet>? sourceFactory = null)
+            Func<Uuid, Uuid, DateTimeOffset, ReadinessSourceSet>? sourceFactory = null,
+            DateTimeOffset? approvedAt = null)
         {
             var provider = ProgramManagementServices.Build(
                 new RecordingPermissionAuthorizer(allowed: true),
@@ -562,7 +644,8 @@ public sealed class ReadinessAssessmentHandlerTests
                         new EventSourcedReadinessReadModel(
                             provider.GetRequiredService<IAggregateReader>())));
             var fixture = new Fixture { Provider = provider };
-            var now = DateTimeOffset.UtcNow.AddDays(-1);
+            var now = approvedAt is { } approved && approved < DateTimeOffset.UtcNow.AddDays(-1)
+                ? approved.AddDays(-1) : DateTimeOffset.UtcNow.AddDays(-1);
             var admin = Uuid.CreateVersion4();
             await ProgramManagementServices.SeedAsync(provider,
                 new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
@@ -592,10 +675,41 @@ public sealed class ReadinessAssessmentHandlerTests
                     return Command(control.Approve(fixture.ProgramId, 1, Uuid.CreateVersion4(),
                         reviewId, effectiveFrom ?? DateOnly.FromDateTime(now.UtcDateTime),
                         "Ready", new HashSet<Uuid> { owner }, Uuid.CreateVersion4(), "Approver",
-                        now));
+                        approvedAt ?? now));
                 });
             return fixture;
         }
+
+        public Task AdvanceControlAsync(bool retire, DateTimeOffset decidedAt, DateOnly effectiveAt) =>
+            ProgramManagementServices.SeedAsync(Provider,
+                new ControlDraft(TenantId, ControlId), control =>
+                {
+                    var author = Uuid.CreateVersion4();
+                    var reviewer = Uuid.CreateVersion4();
+                    var approver = Uuid.CreateVersion4();
+                    var review = Uuid.CreateVersion4();
+                    if (retire)
+                        Assert.Null(control.ProposeRetirement(ProgramId, ControlVersionId,
+                            effectiveAt, "Retire", author, "Author", decidedAt.AddMinutes(-2)));
+                    else
+                        Assert.Null(control.ProposeSuccessor(ProgramId, ControlVersionId,
+                            control.ApprovedVersion!.Content, author, "Author", decidedAt.AddMinutes(-2)));
+                    var revision = control.Revision;
+                    var owner = Uuid.CreateVersion4();
+                    if (!retire)
+                        Assert.Null(control.AssignResponsibility(new ResponsibilityScope("control",
+                                ControlId, control.PendingTargetId!.Value, revision), Uuid.CreateVersion4(),
+                            owner, ResponsibilityType.ControlOwner, author, "Author",
+                            decidedAt.AddMinutes(-2), decidedAt.AddMinutes(-2), null, []));
+                    Assert.Null(control.Review(ProgramId, revision, review, "accept", "Accepted",
+                        reviewer, "Reviewer", decidedAt.AddMinutes(-1)));
+                    return Command(retire
+                        ? control.Retire(ProgramId, revision, Uuid.CreateVersion4(), review,
+                            "source-history-fixture-impact", "Retired", approver, "Approver", decidedAt)
+                        : control.Approve(ProgramId, revision, Uuid.CreateVersion4(), review,
+                            effectiveAt, "Successor", new HashSet<Uuid> { owner }, approver,
+                            "Approver", decidedAt, impactDigest: "source-history-fixture-impact"));
+                });
 
         public Task MapAsync(string identifier, DateTimeOffset reviewedAt) =>
             ProgramManagementServices.SeedAsync(Provider,

@@ -43,7 +43,6 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
             request.TenantId, request.ProgramId), ct).ConfigureAwait(false);
         var mappings = ledger.ReadAll().Where(mapping => mapping.EditionId == editionId)
             .ToArray();
-        var effectiveOn = DateOnly.FromDateTime(asOf.UtcDateTime);
         var controls = new Dictionary<Uuid, ControlVersionView?>();
         foreach (var controlId in mappings
                      .Where(mapping => ReadinessRules.ActiveAt(mapping, asOf) is not null)
@@ -52,7 +51,7 @@ public sealed class RunReadinessAssessmentHandler(IAggregateExecutor executor,
             var control = await reader.HydrateAsync(new ControlDraft(request.TenantId,
                 controlId), ct).ConfigureAwait(false);
             controls[controlId] = control.IsVisible && control.ProgramId == request.ProgramId
-                ? control.EffectiveVersion(effectiveOn)
+                ? ReadinessControlSelection.EffectiveVersionAt(control, asOf)
                 : null;
         }
         var sourceResult = await sources.ReadAsync(request.TenantId, request.ProgramId, asOf, ct)

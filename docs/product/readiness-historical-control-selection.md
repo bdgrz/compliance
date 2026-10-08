@@ -1,0 +1,13 @@
+# Historical mapped-control selection for readiness
+
+Refs #489. Accepted M0-D23 gives R1-08 ownership of versioned readiness input selection and calculations. ADR 0007 requires reproducible recorded results rather than timestamp labels on current records.
+
+`readiness-rules/12` selects mapped control versions from original retained approval snapshots and retirement decisions. An approval or retirement is known when its decision instant is less than or equal to the requested `as_of`. Effective intervals use the UTC business date and include their start while excluding their end. A known successor ends its exact predecessor at the successor's effective date; a known retirement ends its exact target at its recorded effective-until date. Decisions recorded after the requested instant do not change that historical selection, even when their effective dates precede the requested date.
+
+The control aggregate retains these original lifecycle facts during source replay. Its existing current `EffectiveVersion(DateOnly)` operation keeps its existing behavior. Readiness alone uses the historical selector, after the existing tenant/program visibility and accepted-mapping fences. This does not establish bitemporal behavior for every record or a global immutable multi-source snapshot.
+
+New assessments record rule version 12. Existing assessment events and readiness projection resources retain their recorded rule version, fingerprint, source references, findings and gaps. The projection interpretation is unchanged: it reads recorded assessments and does not recompute them. No projector identity, event schema, HTTP/MCP operation, DTO or grant changes.
+
+Focused source-history tests first reproduced two failures: later backdated successor and retirement decisions changed a repeated assessment's fingerprint. The correction preserves that result and its earlier stored assessment, selects the new lifecycle state at the inclusive decision instant, and covers initial approval timing, equivalent non-UTC offsets, half-open UTC intervals and current-control compatibility. The existing projection replay test additionally preserves a historical rule-11 assessment and exact source references alongside a new rule-12 assessment. Test sources use real retained aggregate commands and hydration; synthetic catalogue, actor/grant and acknowledged-impact fixtures are test setup, not external licensing, impact-policy or owner approval evidence.
+
+Evidence handling, workforce completeness beyond verified snapshots, unresolved gap filter semantics (#492), campaign ownership (#646), and whole-parent acceptance remain outside this correction.

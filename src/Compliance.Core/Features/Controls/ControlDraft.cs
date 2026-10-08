@@ -35,6 +35,8 @@ public sealed class ControlDraft : Aggregate
     PendingRetirement? _pendingRetirement;
     bool _retired;
     readonly List<ControlVersionView> _versions = [];
+    readonly List<ControlVersionView> _approvedVersionHistory = [];
+    readonly List<ControlRetired> _retirementHistory = [];
     readonly List<ControlDecisionView> _decisions = [];
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
@@ -68,6 +70,10 @@ public sealed class ControlDraft : Aggregate
     public ControlVersionView? ApprovedVersion => _versions.LastOrDefault();
 
     public IReadOnlyList<ControlVersionView> ReadVersions() => _versions.ToArray();
+
+    // Original source facts, before subsequent decisions replace current effective intervals.
+    internal IReadOnlyList<ControlVersionView> ReadApprovedVersionHistory() => _approvedVersionHistory.ToArray();
+    internal IReadOnlyList<ControlRetired> ReadRetirementHistory() => _retirementHistory.ToArray();
     public IReadOnlyList<ControlDecisionView> ReadDecisions() => _decisions.ToArray();
     public bool IsVisible => _created && !_discarded;
     public long Revision => _revision;
@@ -163,6 +169,7 @@ public sealed class ControlDraft : Aggregate
             {
                 OwnerPersonId = ev.OwnerPersonId,
             });
+            _approvedVersionHistory.Add(_versions[^1]);
             _acceptedReviewDecisionId = Uuid.Empty;
             _acceptedReviewerMemberId = null;
             _draftVersionId = null;
@@ -180,6 +187,7 @@ public sealed class ControlDraft : Aggregate
         });
         On<ControlRetired>(ev =>
         {
+            _retirementHistory.Add(ev);
             _decisions.Add(new ControlDecisionView(ev.TenantId, ev.ProgramId, ev.ControlId,
                 ev.DecisionId, ev.RetirementId, ev.Revision, "retirement", "retire", ev.Actor,
                 ev.Rationale, ev.DecidedAt, null, ev.AcceptedReviewDecisionId,
