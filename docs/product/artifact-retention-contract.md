@@ -14,7 +14,7 @@ The policy and hold streams persist independently of the existing immutable sour
 - `POST /api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/legal-holds`
 - `POST /api/v1/tenants/{tenant_id}/artifact-retention/{source_kind}/{source_id}/legal-holds/{hold_id}/releases`
 
-The supported `source_kind` values are `evidence_artifact` and `application_import`. Bodies use `expected_content_sha256`, `expected_revision` and `reason`; basis can include `period_start` and `period_end`, and hold placement includes `hold_id`. There are no MCP decision tools.
+The supported `source_kind` values are `evidence_artifact` and `application_import`. Bodies use `expected_content_sha256`, `expected_revision` and `reason`; basis can include `period_start` and `period_end`, and hold placement includes `hold_id`. There are no MCP decision tools. Mutation handlers also require an explicit HTTP invocation and reject direct internal or MCP invocations; read handlers remain transport-independent.
 
 ## Admin-only reads and import consumer
 

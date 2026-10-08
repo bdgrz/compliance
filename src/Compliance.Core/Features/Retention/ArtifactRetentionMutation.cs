@@ -8,6 +8,8 @@ sealed class ArtifactRetentionMutation(IAggregateExecutor executor, IAggregateRe
         Func<ArtifactRetention, ArtifactRetentionSourceSnapshot, ActorReference, DateTimeOffset, Result> apply,
         CancellationToken ct) where T : IArtifactRetentionAdminRequest
     {
+        if (context.Invocation is not HttpInvocation)
+            return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "Retention decisions require a personal HTTP invocation."));
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var user) || RequestActor.IsSystem(context.Actor))
             return Result.Failure(new RequestError(RequestErrorKind.Forbidden, "Retention requires a personal Bdgrz user."));
         var source = await ArtifactRetentionSourceReader.LoadAsync(reader, context.Request.TenantId, kind, id, ct)
