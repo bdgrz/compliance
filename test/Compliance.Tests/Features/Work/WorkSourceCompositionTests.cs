@@ -294,6 +294,47 @@ public sealed class WorkSourceCompositionTests
     }
 
     [Fact]
+    public async Task ShouldFailClosedGivenRetainedMemberUserDisagreesWithCanonicalMemberIdentity()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var finding = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId, fixture.Today);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId);
+        {
+            var registrations = new List<DomainEvent>();
+            await foreach (var record in provider.GetRequiredService<IDomainEventReader>().ReadAsync(
+                               EventStreamPattern.ForPattern(fixture.TenantId.ToString(), "rbac-members",
+                                   fixture.OwnerMemberId.ToString()), ProjectionCheckpoint.Start.Cursor, CancellationToken.None))
+                registrations.Add(record.Event);
+            Assert.IsType<MemberRegistered>(Assert.Single(registrations));
+            // Deliberately malformed retained provenance: public registration cannot produce this identity.
+            DomainEvent malformed = new MemberRegistered(fixture.TenantId, fixture.OwnerMemberId,
+                fixture.OutsiderUserId, "client_personnel", Uuid.CreateVersion4());
+            malformed.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), fixture.OwnerMemberId,
+                2, DateTimeOffset.UtcNow));
+            await provider.GetRequiredService<IEventStore>().AppendAsync(new EventStreamAddress(
+                fixture.TenantId.ToString(), "rbac-members", fixture.OwnerMemberId.ToString()),
+                1, [malformed]);
+        }
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+
+        // Act
+        await Scenario().When(new CompleteCorrectiveAction(fixture.TenantId, fixture.ProgramId,
+            finding.FindingId, finding.Revision, Assert.Single(finding.CorrectiveActions).ActionId,
+            "Removed.", OperationsFixture.FullSupport)).ExpectFailure(RequestErrorKind.Forbidden);
+        var mine = await Scenario().When(new ListWork(fixture.TenantId, fixture.ProgramId, "mine"))
+            .ExpectSuccess();
+
+        // Assert
+        Assert.Empty(mine.Value.Items);
+        Assert.Equal(0, mine.Value.Counts.Total);
+    }
+
+    [Fact]
     public async Task ShouldCoverEveryProductionKindGivenSourceManagementRequestMapping()
     {
         // Arrange
