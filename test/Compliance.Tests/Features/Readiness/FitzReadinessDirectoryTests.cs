@@ -11,8 +11,10 @@ public sealed class FitzReadinessDirectoryTests
 {
     static readonly DateTimeOffset Now = new(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
 
-    [Fact]
-    public async Task ShouldPreserveOldRulesAndDeclaredSupportGapsGivenReplayAndFilteredReads()
+    [Theory]
+    [InlineData("readiness-rules/10")]
+    [InlineData("readiness-rules/11")]
+    public async Task ShouldPreserveOldRulesAndDeclaredSupportGapsGivenReplayAndFilteredReads(string historicalRule)
     {
         // Arrange
         var tenantId = Uuid.CreateVersion4();
@@ -30,11 +32,12 @@ public sealed class FitzReadinessDirectoryTests
         var evaluation = ReadinessRules.Evaluate(programId, Now, catalog.Edition.EditionId,
             [], [], new Dictionary<Uuid, ControlVersionView?>(), sources, catalog.Edition);
         var oldGap = new ReadinessGapView(Uuid.CreateVersion4(), "missing_input", "risks",
-            "risk_reviewed", "Original historical explanation.", []);
+            "risk_reviewed", "Original historical explanation.",
+            [new ReadinessSourceReference("control_version", Uuid.CreateVersion4(), "1")]);
         var old = Assessment(tenantId, programId, Uuid.CreateVersion4(), 1, [oldGap], runnerId, actor) with
         {
-            RuleVersion = "readiness-rules/10",
-            InputFingerprint = "recorded-version-10-fingerprint",
+            RuleVersion = historicalRule,
+            InputFingerprint = historicalRule + "-recorded-fingerprint",
         };
         var current = new ReadinessAssessmentRecorded(tenantId, programId, 2,
             Uuid.CreateVersion4(), ReadinessRules.Version, Now, catalog.Edition.EditionId,
@@ -83,11 +86,11 @@ public sealed class FitzReadinessDirectoryTests
 
         // Assert
         Assert.NotNull(storedOld);
-        Assert.Equal("readiness-rules/10", storedOld.RuleVersion);
+        Assert.Equal(historicalRule, storedOld.RuleVersion);
         Assert.Equal(old.InputFingerprint, storedOld.InputFingerprint);
         AssertGapEqual(oldGap, Assert.Single(storedOld.Gaps));
         Assert.NotNull(storedCurrent);
-        Assert.Equal("readiness-rules/11", storedCurrent.RuleVersion);
+        Assert.Equal("readiness-rules/12", storedCurrent.RuleVersion);
         Assert.Equal(evaluation.InputFingerprint, storedCurrent.InputFingerprint);
         Assert.Equal(current.Gaps.Count, storedCurrent.GapCount);
         Assert.Equal(6, storedCurrent.Gaps.Count(gap => gap.Kind == "catalog_support_gap"));
