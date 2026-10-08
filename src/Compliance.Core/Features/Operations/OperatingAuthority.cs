@@ -62,7 +62,7 @@ public sealed class OperatingAuthority(IAggregateReader reader,
             var approverMember = await reader.HydrateAsync(Member.ForVerification(tenantId, memberId), ct)
                 .ConfigureAwait(false);
             if (!approverMember.IsRegistered || approverMember.IsSuspended ||
-                approverMember.IsDeprovisioned || approverMember.Affiliation != "client_personnel" ||
+                approverMember.IsDeprovisioned || approverMember.Affiliation == "firm_staff" ||
                 approverMember.UserId == Uuid.Empty)
                 return false;
             var executive = await permissions.IsAllowedAsync(tenantId, approverMember.UserId,

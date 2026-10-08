@@ -21,7 +21,7 @@ cross-stream snapshot.
 | Commitments | Exact-revision assigned reviews/approvals | `commitment-drafts` | `FitzCommitmentDecisionWorkItemDirectoryTests`, `CommitmentDecisionWorkTests` |
 | Controls | Draft and retirement reviews/approvals | `controls` | `FitzControlDecisionWorkItemDirectoryTests`, `ControlDecisionWorkTests` |
 | Policy campaigns | Acknowledgements and training completion | `policy-distribution-campaigns` | `FitzPolicyCampaignWorkItemDirectoryTests`, `PolicyCampaignWorkTests`, `TrainingWorkAuthorityTests` |
-| Risk acceptance | Current residual-assessment acceptance | `risk-evaluations` | `RiskAcceptanceWorkTests` |
+| Risk acceptance | Current residual-assessment acceptance | `risk-evaluations` | `RiskAcceptanceWorkTests`, `RiskAcceptanceWorkAuthorityTests`, `RiskAcceptanceWorkCompositionTests` |
 
 Each production source reader is registered as an accountable-work reader and
 participates in the queue's capture and final confirmation of its own checkpoint.
@@ -117,6 +117,23 @@ The program/risk namespace introduced in #616 is retained. Historical assignment
 entries using the earlier submission-only identity remain audit records and
 do not authorize current namespaced work. A pending review needs an assignment
 through its current queue item; no compatibility fallback reads the old key.
+
+## Risk acceptance authority
+
+Risk acceptance requires both current `program.manage` and the applicable risk
+acceptance grant. Active non-firm-staff members, including explicitly authorized
+persisted guests, follow the source command's authority. An executive grant is
+required above appetite or when no appetite threshold is published. Current
+residual assessors and risk owners remain excluded from ordinary queue action;
+the source's approved owner-waiver path stays in its direct workflow.
+
+Projected and fallback candidates apply the same requirements. Grant loss removes
+assigned action visibility and counts immediately and leaves the pending item
+unassigned for eligible replacement. This correction preserves acceptance work
+identity, recorded responsibility, source revisions and expiry rules. Production
+composition tests verify the registered queue and acceptance authorization
+boundaries. An allowed acceptance also executes the production-registered
+handler and records its returned acceptance in the retained source aggregate.
 
 ## Remaining acceptance boundaries
 
