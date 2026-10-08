@@ -64,3 +64,22 @@ professional authority decision recorded on #269. No public acceptance or
 ratification operation is supplied by this draft capability. Actual firm
 ratification evidence remains #343; the directory or draft UI cannot generate
 it or remove that gate.
+
+## Personal client management acknowledgement
+
+An active owning-client Org Admin can submit `AcknowledgeEngagementManagement` over HTTP
+and read its retained history. Submission requires an authenticated personal HTTP invocation;
+MCP, direct queued calls and system actors are refused. The operation is not registered as an
+MCP tool. The read is available to the same client administration authority over HTTP and MCP.
+
+An acknowledgement records the canonical user and attributed client member, exact draft
+revision, complete immutable service-record identities, personal statement and timestamp.
+The ledger's shared sequence rejects concurrent new facts, amendments or stale lists; identity
+retries return the original record and changed intent conflicts. Histories are bounded to one
+hundred acknowledgements without truncation. Replay preserves the same source and attribution
+fences. Actual historical Attest assignees cannot acknowledge client management responsibilities.
+
+This is the client's own management decision. It does not ratify independence rules, designate
+an engagement partner, accept an engagement, or grant professional access. A later professional
+acceptance must independently verify designated partner authority, current source facts and
+this exact acknowledgement. No public professional acceptance operation exists yet.
