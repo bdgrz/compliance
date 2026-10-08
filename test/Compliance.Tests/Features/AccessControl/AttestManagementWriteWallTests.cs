@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Evidence;
+using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Fitz;
@@ -29,6 +31,8 @@ public sealed class AttestManagementWriteWallTests
     [InlineData("client_personnel", "evidence", false)]
     [InlineData("client_personnel", "attest", false)]
     [InlineData("client_personnel", "review", false)]
+    [InlineData("client_personnel", "evaluation", false)]
+    [InlineData("client_personnel", "corrective", false)]
     [InlineData("client_personnel", "control", true)]
     public async Task ShouldDenyManagementWriteGivenCanonicalActualAttestHistoryAndCurrentClientGrant(
         string affiliation, string operation, bool revoked)
@@ -55,12 +59,60 @@ public sealed class AttestManagementWriteWallTests
                 1, "performed", Now, null, null, null, null, []), Actor)).Error,
             "review" => (await bus.SendAsync(new ReviewControlOccurrence(Tenant, Program, control, occurrence,
                 1, Uuid.CreateVersion4(), "accept", "Review rationale"), Actor)).Error,
+            "evaluation" => (await bus.SendAsync(new StartControlEvaluation(Tenant, Program, control,
+                Uuid.CreateVersion4()), Actor)).Error,
+            "corrective" => (await bus.SendAsync(new CompleteCorrectiveAction(Tenant, Program,
+                Uuid.CreateVersion4(), 1, Uuid.CreateVersion4(), "Completed work", []), Actor)).Error,
             _ => throw new InvalidOperationException()
         };
 
         // Assert
         Assert.Equal(RequestErrorKind.Forbidden, error?.Kind);
         Assert.Contains("Attest", error!.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("get")]
+    [InlineData("list")]
+    public async Task ShouldAllowEvaluationPlanVersionReadGivenActualAttestHistory(string operation)
+    {
+        // Arrange
+        await using var provider = Compose("client_personnel");
+        await SeedProgramAsync(provider);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var control = await bus.SendAsync(new CreateControlDraft(Tenant, Program, "AC-1", Content), Actor);
+        Assert.True(control.IsSuccess, control.Error?.Message);
+        var version = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(provider, new ControlEvaluationPlan(Tenant, Program,
+            control.Value!.ControlId), plan =>
+        {
+            Assert.Null(plan.Define(0, Uuid.CreateVersion4(), version, "Review access",
+                [new EvaluationProcedureStep("design", "inspection",
+                    [new EvaluationInspectedItem("artifact", "synthetic-artifact", "1")], "Access is reviewed")],
+                true, RbacIds.Member(Tenant, User), ActorReference.ForMember(RbacIds.Member(Tenant, User),
+                    "Client author"), Now));
+            return Result.Success;
+        });
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, Tenant, User, true);
+
+        // Act
+        if (operation == "get")
+        {
+            var result = await bus.SendAsync(new GetControlEvaluationPlanVersion(Tenant, Program,
+                control.Value.ControlId, version), Actor);
+            // Assert
+            Assert.True(result.IsSuccess, result.Error?.Message);
+            Assert.Equal(version, result.Value!.PlanVersionId);
+        }
+        else
+        {
+            var result = await bus.SendAsync(new ListControlEvaluationPlanVersions(Tenant, Program,
+                control.Value.ControlId), Actor);
+            // Assert
+            Assert.True(result.IsSuccess, result.Error?.Message);
+            Assert.Equal(version, Assert.Single(result.Value!.Items).PlanVersionId);
+        }
     }
 
     [Theory]
@@ -179,6 +231,22 @@ public sealed class AttestManagementWriteWallTests
         Assert.DoesNotContain("Attest", result.Error!.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ShouldHideClientMutationGivenMembershipResponseFromAnotherTenant()
+    {
+        // Arrange
+        await using var provider = Compose("client_personnel", wrongTenantMembership: true);
+        await SeedProgramAsync(provider);
+        await using var scope = provider.CreateAsyncScope();
+
+        // Act
+        var result = await scope.ServiceProvider.GetRequiredService<IRequestBus>().SendAsync(
+            new CreateControlDraft(Tenant, Program, "AC-1", Content), Actor);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, result.Error?.Kind);
+    }
+
     static Task SeedProgramAsync(ServiceProvider provider) => ProgramManagementServices.SeedAsync(provider,
         new ComplianceProgram(Tenant, Program), program =>
         {
@@ -191,7 +259,7 @@ public sealed class AttestManagementWriteWallTests
         "Owners review access", ["Access review record"]);
 
     static ServiceProvider Compose(string affiliation, bool member = true, bool suspended = false,
-        bool deprovisioned = false, bool permitted = true)
+        bool deprovisioned = false, bool permitted = true, bool wrongTenantMembership = false)
     {
         var services = new ServiceCollection();
         services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -202,17 +270,19 @@ public sealed class AttestManagementWriteWallTests
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IKvClient>(new InMemoryKvClient());
         services.AddSingleton<ITenantActivity>(new ActiveTenant());
-        services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships(affiliation, member, suspended, deprovisioned));
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships(affiliation, member, suspended, deprovisioned, wrongTenantMembership));
         services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PermissionBackedAccessGrantPermissionAuthorizer(
             new RecordingPermissionAuthorizer(permitted)));
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
-    sealed class Memberships(string affiliation, bool member, bool suspended, bool deprovisioned) : ITenantMembershipDirectoryReader
+    sealed class Memberships(string affiliation, bool member, bool suspended, bool deprovisioned,
+        bool wrongTenantMembership) : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult<TenantMembershipView?>(member && tenantId == Tenant.ToString() && userId == User
-                ? new TenantMembershipView(userId, Tenant, affiliation, IsSuspended: suspended,
+                ? new TenantMembershipView(userId, wrongTenantMembership ? Uuid.CreateVersion4() : Tenant,
+                    affiliation, IsSuspended: suspended,
                     IsDeprovisioned: deprovisioned) : null);
         public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(member && tenantId == Tenant.ToString() && userId == User);

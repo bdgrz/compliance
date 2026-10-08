@@ -15,7 +15,8 @@ sealed class ClientManagementMutationAuthorizer(ClientManagementIndependenceGuar
                 "Client management authoring requires a Bdgrz user identity."));
         var membership = await memberships.GetAsync(context.Request.TenantId.ToString(), userId, ct)
             .ConfigureAwait(false);
-        if (membership is null || membership.IsSuspended || membership.IsDeprovisioned)
+        if (membership is null || membership.TenantId != context.Request.TenantId || membership.UserId != userId ||
+            membership.IsSuspended || membership.IsDeprovisioned)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));
         return await independence.CanAuthorAsync(context.Request.TenantId, userId, ct).ConfigureAwait(false)
             ? Result.Success

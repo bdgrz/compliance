@@ -15,7 +15,7 @@ authoritative client independence stream and refuses any actual historical
 Attest assignment for that canonical user. The guard grants no membership,
 permission, program authority or professional access.
 
-The first consumer subset contains 28 request types:
+The first consumer subset contains 34 request types:
 
 - control draft creation, revision, successor/proposal withdrawal, review,
   approval, owner designation, discard, retirement proposal and retirement;
@@ -23,7 +23,9 @@ The first consumer subset contains 28 request types:
   retirement proposal/approval and review confirmation;
 - evidence request opening, cancellation and fulfilment;
 - operating-plan proposal/approval and occurrence opening, personal attestation,
-  correction and review.
+  correction and review;
+- control evaluation starting, procedure-step recording, submission, review and
+  deviation disposition, and corrective-action completion.
 
 The occurrence and evidence-fulfilment writes deliberately use ordinary read
 permissions plus operating responsibility checks. Consequently permission names
@@ -32,6 +34,13 @@ inherit the mutation marker; shared management records retain their ordinary
 membership, resource ownership and grant requirements. Same-client actual
 Advisory history and another client's actual Attest history do not trigger this
 write wall.
+
+The shared `IControlOperationRequest` interface also carries evaluation-plan
+version reads and work-item queue commands; it is deliberately unmarked.
+Concrete management mutations carry the marker individually. Personal work-item
+claim/assignment/delegation/escalation cannot be classified solely from that
+shared interface because the queue includes allowed personal policy
+acknowledgements. Their source-specific management actions need a separate wall.
 
 Inventory, workforce, access-review and remaining program mutation families
 need their own explicit write annotations and acceptance evidence. Advisory

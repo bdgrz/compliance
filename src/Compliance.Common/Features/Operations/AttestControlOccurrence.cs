@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Operations;
@@ -11,4 +12,4 @@ public sealed record AttestControlOccurrence(Uuid TenantId, Uuid ProgramId, Uuid
     Uuid OccurrenceId, long ExpectedRevision, string Result, DateTimeOffset PerformedAt,
     DateOnly? CoveredFrom, DateOnly? CoveredUntil, string? Notes, string? Rationale,
     IReadOnlyList<EvidenceReference> Evidence, Uuid? PerformedByPersonId = null)
-    : IRequest<ControlOccurrenceView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlOccurrenceView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

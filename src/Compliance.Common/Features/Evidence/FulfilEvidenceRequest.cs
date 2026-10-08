@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
@@ -8,4 +9,4 @@ namespace Bdgrz.Compliance.Features.Evidence;
 [Discriminator("bdgrz.evidence.request.fulfil", 1)]
 public sealed record FulfilEvidenceRequest(Uuid TenantId, Uuid ProgramId, Uuid EvidenceRequestId,
     long ExpectedRevision, Uuid ArtifactId)
-    : IRequest<EvidenceRequestView>, IControlOperationRequest, ICallable;
+    : IRequest<EvidenceRequestView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;

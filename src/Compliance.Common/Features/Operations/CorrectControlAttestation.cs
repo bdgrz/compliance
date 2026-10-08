@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Operations;
@@ -9,4 +10,4 @@ public sealed record CorrectControlAttestation(Uuid TenantId, Uuid ProgramId, Uu
     DateOnly? CoveredFrom, DateOnly? CoveredUntil, string? Notes, string? Rationale,
     IReadOnlyList<EvidenceReference> Evidence, string CorrectionReason,
     Uuid? PerformedByPersonId = null)
-    : IRequest<ControlOccurrenceView>, IControlOperationRequest, ICallable;
+    : IRequest<ControlOccurrenceView>, IControlOperationRequest, IClientManagementMutationRequest, ICallable;
