@@ -144,7 +144,9 @@ original batch stream and cannot satisfy ledger-only lifecycle fencing. Worker
 execution is registered as the per-tenant `ApplicationImportExecutionV1` reactor;
 it consumes only the durable plan seal from the exact authoritative source stream.
 A trusted system actor cannot initiate acceptance. It rechecks tenant activity,
-replays exact frozen effects and writes one source-ledger commit. Process interruption
+dispatches each effect through the dedicated system-only `ApplyApplicationImportEffect`
+command and its persisted-plan/tenant/target authorizer, then writes one source-ledger
+commit. Child effects inherit the trusted actor and parent correlation/causation. Process interruption
 or transient failure leaves the checkpoint pending; resumption adds no duplicate
 applied effects. Inactive tenants return transient conflict and resume after reactivation.
 A permanent effect/verification rejection records a terminal `failed` marker under
@@ -367,7 +369,7 @@ The rejected report contains at most the 200 retained staged rows. Each row has
 include immutable validation, unresolved correlation and stale/missing/retired
 linked-target blockers. A failed or canceled batch reports every row as unapplied;
 no rejected report is partial acceptance. `batch_findings` includes complete-source
-retirement/impact and another-source-acceptance blockers. It returns no governed
+retirement/impact blockers and another accepting batch on the same source. It returns no governed
 target fields or exception text. Current target observations are advisory; acceptance
 and execution revalidate authoritative invariants. Both reads use the ordinary
 import-read grants, enforce tenant identity/minimum revision, and retain no extra

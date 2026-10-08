@@ -42,7 +42,7 @@ public sealed class ApplicationImportExecutionTests
         Assert.True((await new AcceptApplicationImportHandler(fixture.Executor, fixture.Reader, TimeProvider.System)
             .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, batchId, 2), fixture.Actor),
                 CancellationToken.None)).IsSuccess);
-        var handler = new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System);
+        var handler = new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor));
         var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
 
         // Act
@@ -103,7 +103,7 @@ public sealed class ApplicationImportExecutionTests
         var actor = condition == "user" ? fixture.Actor : condition == "anonymous" ? RequestActor.Anonymous :
             condition == "mixed" ? new ClaimsPrincipal(RequestActor.System.Identities.Concat(fixture.Actor.Identities)) : RequestActor.System;
         var handler = new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader,
-            new ActiveTenant(condition != "inactive"), TimeProvider.System);
+            new ActiveTenant(condition != "inactive"), TimeProvider.System, fixture.EffectBus(fixture.Executor));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<ExecuteApplicationImport>(
@@ -127,14 +127,14 @@ public sealed class ApplicationImportExecutionTests
             .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, batchId, 3), fixture.Actor),
                 CancellationToken.None)).IsSuccess);
         var interrupted = new ExecuteApplicationImportHandler(new InterruptedExecutor(fixture.Executor), fixture.Reader,
-            new ActiveTenant(), TimeProvider.System);
+            new ActiveTenant(), TimeProvider.System, fixture.EffectBus(new InterruptedExecutor(fixture.Executor)));
         var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
 
         // Act
         await Assert.ThrowsAsync<IOException>(async () => await interrupted.HandleAsync(context, CancellationToken.None));
         var before = await fixture.LedgerAsync();
         var firstTarget = await fixture.Reader.HydrateApplicationAsync(fixture.Tenant, before.GetFrozenPlan(batchId)!.Rows[0].ApplicationId);
-        var resumed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System)
+        var resumed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(context, CancellationToken.None);
         var after = await fixture.LedgerAsync();
 
@@ -163,7 +163,8 @@ public sealed class ApplicationImportExecutionTests
                 CancellationToken.None)).IsSuccess);
         var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
         await Assert.ThrowsAsync<IOException>(async () => await new ExecuteApplicationImportHandler(
-            new InterruptedExecutor(fixture.Executor), fixture.Reader, new ActiveTenant(), TimeProvider.System)
+            new InterruptedExecutor(fixture.Executor), fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(
+            new InterruptedExecutor(fixture.Executor)))
             .HandleAsync(context, CancellationToken.None));
         var accepting = await fixture.LedgerAsync();
         var batch = await fixture.Reader.HydrateAsync(new ImportBatch(fixture.Tenant, batchId));
@@ -172,7 +173,7 @@ public sealed class ApplicationImportExecutionTests
                 accepting.GetRevision(batch), "Withdrawn after interruption"), fixture.Actor), CancellationToken.None)).IsSuccess);
 
         // Act
-        var replay = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System)
+        var replay = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(context, CancellationToken.None);
         var ledger = await fixture.LedgerAsync();
 
@@ -195,11 +196,11 @@ public sealed class ApplicationImportExecutionTests
                 CancellationToken.None)).IsSuccess);
         var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
         var handler = new ExecuteApplicationImportHandler(new InterruptedExecutor(fixture.Executor, reject: true), fixture.Reader,
-            new ActiveTenant(), TimeProvider.System);
+            new ActiveTenant(), TimeProvider.System, fixture.EffectBus(new InterruptedExecutor(fixture.Executor, reject: true)));
 
         // Act
         var result = await handler.HandleAsync(context, CancellationToken.None);
-        var replay = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System)
+        var replay = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(context, CancellationToken.None);
         var ledger = await fixture.LedgerAsync();
         var batch = await fixture.Reader.HydrateAsync(new ImportBatch(fixture.Tenant, batchId));
@@ -223,7 +224,8 @@ public sealed class ApplicationImportExecutionTests
             .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, batchId, 3), fixture.Actor),
                 CancellationToken.None)).IsSuccess);
         await Assert.ThrowsAsync<IOException>(async () => await new ExecuteApplicationImportHandler(
-            new InterruptedExecutor(fixture.Executor), fixture.Reader, new ActiveTenant(), TimeProvider.System)
+            new InterruptedExecutor(fixture.Executor), fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(
+            new InterruptedExecutor(fixture.Executor)))
             .HandleAsync(new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System), CancellationToken.None));
 
         // Act
@@ -320,9 +322,9 @@ public sealed class ApplicationImportExecutionTests
         var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
 
         // Act
-        var suspended = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(false), TimeProvider.System)
+        var suspended = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(false), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(context, CancellationToken.None);
-        var resumed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System)
+        var resumed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(context, CancellationToken.None);
         var ledger = await fixture.LedgerAsync();
 
@@ -368,7 +370,7 @@ public sealed class ApplicationImportExecutionTests
             .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, firstBatch, 3), fixture.Actor),
                 CancellationToken.None)).IsSuccess);
         Assert.True((await new ExecuteApplicationImportHandler(new InterruptedExecutor(fixture.Executor, reject: true), fixture.Reader,
-            new ActiveTenant(), TimeProvider.System).HandleAsync(new RequestContext<ExecuteApplicationImport>(
+            new ActiveTenant(), TimeProvider.System, fixture.EffectBus(new InterruptedExecutor(fixture.Executor, reject: true))).HandleAsync(new RequestContext<ExecuteApplicationImport>(
                 new(fixture.Tenant, firstBatch), RequestActor.System), CancellationToken.None)).IsSuccess);
         var failed = await fixture.LedgerAsync();
         var failedTarget = failed.GetFrozenPlan(firstBatch)!.Rows[0].ApplicationId;
@@ -377,7 +379,7 @@ public sealed class ApplicationImportExecutionTests
         // Act
         var accepted = await new AcceptApplicationImportHandler(fixture.Executor, fixture.Reader, TimeProvider.System)
             .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, nextBatch, 2), fixture.Actor), CancellationToken.None);
-        var executed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System)
+        var executed = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, fixture.EffectBus(fixture.Executor))
             .HandleAsync(new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, nextBatch), RequestActor.System), CancellationToken.None);
         var ledger = await fixture.LedgerAsync();
         var nextTarget = ledger.GetFrozenPlan(nextBatch)!.Rows[0].ApplicationId;
@@ -448,7 +450,7 @@ public sealed class ApplicationImportExecutionTests
         Assert.True((await new AcceptApplicationImportHandler(fixture.Executor, fixture.Reader, TimeProvider.System)
             .HandleAsync(context, CancellationToken.None)).IsSuccess);
         Assert.True((await new ExecuteApplicationImportHandler(new InterruptedExecutor(fixture.Executor, reject: true), fixture.Reader,
-            new ActiveTenant(), TimeProvider.System).HandleAsync(new RequestContext<ExecuteApplicationImport>(
+            new ActiveTenant(), TimeProvider.System, fixture.EffectBus(new InterruptedExecutor(fixture.Executor, reject: true))).HandleAsync(new RequestContext<ExecuteApplicationImport>(
                 new(fixture.Tenant, batchId), RequestActor.System), CancellationToken.None)).IsSuccess);
 
         // Act
@@ -499,6 +501,90 @@ public sealed class ApplicationImportExecutionTests
         // Assert
         Assert.Contains(wrongTenant ? "tenant workload" : "source ledger", failure.Message);
         Assert.Single(scenario.SentRequests);
+    }
+
+    [Fact]
+    public async Task ShouldRejectWholeBatchGivenEffectCommandDeniedByPlanAuthorizer()
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+        var batchId = await fixture.StageAsync();
+        Assert.True((await new AcceptApplicationImportHandler(fixture.Executor, fixture.Reader, TimeProvider.System)
+            .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, batchId, 2), fixture.Actor),
+                CancellationToken.None)).IsSuccess);
+        var bus = fixture.EffectBus(fixture.Executor, rejectTarget: true);
+        var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId), RequestActor.System);
+
+        // Act
+        var result = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, bus)
+            .HandleAsync(context, CancellationToken.None);
+        var ledger = await fixture.LedgerAsync();
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(bus.Effects);
+        Assert.Equal("failed", ledger.GetState(await fixture.Reader.HydrateAsync(new ImportBatch(fixture.Tenant, batchId))));
+        Assert.Null(ledger.GetCommit(batchId));
+        var planned = Assert.Single(ledger.GetFrozenPlan(batchId)!.Rows);
+        Assert.Empty((await fixture.Reader.HydrateAsync(new DeclaredApplication(fixture.Tenant, planned.ApplicationId))).GetPendingImportEffects());
+    }
+
+    [Fact]
+    public async Task ShouldPreserveTrustedParentMetadataGivenPerEffectBusDispatch()
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+        var batchId = await fixture.StageAsync();
+        Assert.True((await new AcceptApplicationImportHandler(fixture.Executor, fixture.Reader, TimeProvider.System)
+            .HandleAsync(new RequestContext<AcceptApplicationImport>(new(fixture.Tenant, batchId, 2), fixture.Actor),
+                CancellationToken.None)).IsSuccess);
+        var bus = fixture.EffectBus(fixture.Executor, dispatchActual: true);
+        var context = new RequestContext<ExecuteApplicationImport>(new(fixture.Tenant, batchId),
+            RequestActor.CreateSystem("reactor:ApplicationImportExecutionV1", "bdgrz.system"));
+
+        // Act
+        var result = await new ExecuteApplicationImportHandler(fixture.Executor, fixture.Reader, new ActiveTenant(), TimeProvider.System, bus)
+            .HandleAsync(context, CancellationToken.None);
+        var ledger = await fixture.LedgerAsync();
+        var row = Assert.Single(ledger.GetFrozenPlan(batchId)!.Rows);
+        var target = await fixture.Reader.HydrateAsync(new DeclaredApplication(fixture.Tenant, row.ApplicationId));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var child = Assert.Single(bus.Contexts);
+        Assert.True(RequestActor.IsSystem(child.Actor));
+        Assert.Equal(context.CorrelationId, child.CorrelationId);
+        Assert.Equal(context.RequestId, child.CausationId);
+        Assert.Equal(context.CorrelationId, target.GetPendingImportEffect(batchId, row.RowId)!.Metadata.CorrelationId);
+        Assert.Equal(child.RequestId, target.GetPendingImportEffect(batchId, row.RowId)!.Metadata.CausationId);
+    }
+
+    sealed class EffectCommandBus(IRequestBus inner, IAggregateExecutor executor, IAggregateReader reader, bool rejectTarget, bool dispatchActual)
+        : IRequestBus
+    {
+        public List<ApplyApplicationImportEffect> Effects { get; } = [];
+        public List<RequestDispatchContext> Contexts { get; } = [];
+        public RequestDispatchContext CreateContext(ClaimsPrincipal actor, RequestMetadata? metadata = null) => inner.CreateContext(actor, metadata);
+        public ValueTask<Result> AuthorizeAsync(IRequestBase request, RequestDispatchContext context, CancellationToken ct = default) =>
+            inner.AuthorizeAsync(request, context, ct);
+        public async ValueTask<Result> DispatchAsync(IRequest request, RequestDispatchContext context, CancellationToken ct = default)
+        {
+            if (request is not ApplyApplicationImportEffect effect)
+                return await inner.DispatchAsync(request, context, ct);
+            Effects.Add(effect);
+            Contexts.Add(context);
+            var authorized = await inner.AuthorizeAsync(rejectTarget ? effect with { ApplicationId = Uuid.CreateVersion4() } : effect, context, ct);
+            if (!authorized.IsSuccess)
+                return authorized;
+            if (dispatchActual)
+                return await inner.DispatchAsync(effect, context, ct);
+            return await new ApplyApplicationImportEffectHandler(executor, reader, TimeProvider.System).HandleAsync(
+                new RequestContext<ApplyApplicationImportEffect>(effect, context.Actor), ct);
+        }
+        public ValueTask<Result<TOut>> DispatchAsync<TOut>(IRequest<TOut> request, RequestDispatchContext context, CancellationToken ct = default) =>
+            inner.DispatchAsync(request, context, ct);
+        public IAsyncEnumerable<TOut> DispatchStreamAsync<TOut>(IStreamRequest<TOut> request, RequestDispatchContext context,
+            CancellationToken ct = default) => inner.DispatchStreamAsync(request, context, ct);
     }
 
     sealed class MutableTenantActivity : ITenantActivity
@@ -552,7 +638,9 @@ public sealed class ApplicationImportExecutionTests
             services.AddSingleton(TimeProvider.System);
             services.AddSingleton<ITenantActivity>(Activity);
             services.AddPortia().AddRequestHandler<ExecuteApplicationImportHandler>()
-                .AddRequestAuthorizer<ExecuteApplicationImportAuthorizer>();
+                .AddRequestAuthorizer<ExecuteApplicationImportAuthorizer>()
+                .AddRequestHandler<ApplyApplicationImportEffectHandler>()
+                .AddRequestAuthorizer<ApplyApplicationImportEffectAuthorizer>();
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             _scope = _provider.CreateAsyncScope();
             Executor = _scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
@@ -561,6 +649,9 @@ public sealed class ApplicationImportExecutionTests
             Events = _scope.ServiceProvider.GetRequiredService<IEventStore>();
             Bus = _scope.ServiceProvider.GetRequiredService<IRequestBus>();
         }
+
+        public EffectCommandBus EffectBus(IAggregateExecutor executor, bool rejectTarget = false, bool dispatchActual = false) =>
+            new(Bus, executor, Reader, rejectTarget, dispatchActual);
 
         public ValueTask<ApplicationImportLedger> LedgerAsync() => Reader.HydrateAsync(
             new ApplicationImportLedger(Tenant, "manual", "applications"));

@@ -3,7 +3,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed class ExecuteApplicationImportHandler(IAggregateExecutor executor,
-    IAggregateReader reader, ITenantActivity tenants, TimeProvider clock) : IRequestHandler<ExecuteApplicationImport>
+    IAggregateReader reader, ITenantActivity tenants, TimeProvider clock, IRequestBus bus) : IRequestHandler<ExecuteApplicationImport>
 {
     public async ValueTask<Result> HandleAsync(IRequestContext<ExecuteApplicationImport> context, CancellationToken ct)
     {
@@ -28,10 +28,8 @@ public sealed class ExecuteApplicationImportHandler(IAggregateExecutor executor,
             source = await reader.HydrateAsync(new ApplicationImportLedger(request.TenantId, key, space), ct).ConfigureAwait(false);
             if (source.GetState(batch) is "canceled" or "committed" or "failed")
                 return Result.Success;
-            var target = await ApplicationImportWriteGuard.PrepareAsync(reader, request.TenantId,
-                row.ApplicationId, ct).ConfigureAwait(false);
-            var applied = await executor.ExecuteAsync(target, application => AggregateOutcome.CommitOnSuccess(
-                application.RecordPendingImportEffect(source, batch, row.RowId, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
+            var applied = await bus.SendAsync(new ApplyApplicationImportEffect(request.TenantId,
+                batch.Id, row.RowId, row.ApplicationId), context, ct).ConfigureAwait(false);
             if (!applied.IsSuccess)
                 return applied.Error.IsTransient ? applied : await FailAsync(row.RowId, "target_effect_rejected").ConfigureAwait(false);
         }

@@ -80,6 +80,8 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.application_import.rows.list",
             "bdgrz.application_import.preview",
             "bdgrz.application_import.missing.preview",
+            "bdgrz.application_import.progress",
+            "bdgrz.application_import.rejected_report",
             "bdgrz.system_instance.declare",
             "bdgrz.system_instance.get",
             "bdgrz.system_instance.list",
@@ -359,6 +361,13 @@ public sealed class RbacMcpScenarioTests
             tool.Name == "bdgrz.application_import.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.application_import.missing.preview").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.progress").ReadOnly);
+        Assert.True(Assert.Single(tools, tool =>
+            tool.Name == "bdgrz.application_import.rejected_report").ReadOnly);
+        Assert.DoesNotContain(tools, tool => tool.Name is
+            "bdgrz.application_import.accept" or "bdgrz.application_import.cancel" or
+            "bdgrz.application_import.execute" or "bdgrz.application_import.apply_effect");
         Assert.True(Assert.Single(tools, tool =>
             tool.Name == "bdgrz.responsibilities.conflicts.preview").ReadOnly);
         Assert.True(Assert.Single(tools, tool =>
