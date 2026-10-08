@@ -118,7 +118,10 @@ static class BoundaryDecisionWork
                 $"Boundary draft revision {state.DraftRevision} is awaiting an assigned {nextAction}.",
                 null, null, nextAction, prefix,
                 new OperatingHolder(OperatingAuthority.MemberHolder, assignment.MemberId), null,
-                new HashSet<Uuid>(), state.DraftChangedAt));
+                new HashSet<Uuid>(), state.DraftChangedAt)
+            {
+                RequiredManagementProgramId = state.ProgramId,
+            });
         }
 
         return Result<IReadOnlyList<WorkCandidate>>.Success(candidates);
