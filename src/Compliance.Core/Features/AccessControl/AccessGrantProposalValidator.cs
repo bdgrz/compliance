@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Features.TechnologyInventory;
@@ -24,7 +25,7 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
             return Invalid("Only a shared-resource scope may specify a resource type.");
         if (proposal.Scope.Kind == AccessGrantScopeKind.SharedResource &&
             proposal.Scope.ResourceType is not (TechnologyInventoryResourceTypes.InformationAsset or
-                TechnologyInventoryResourceTypes.DataFlow))
+                TechnologyInventoryResourceTypes.DataFlow or EvidenceArtifactResourceTypes.Artifact))
             return Invalid("This shared-resource access grant type is not supported.");
 
         var role = await roles.GetAsync(tenantId, proposal.RoleId, ct).ConfigureAwait(false);
@@ -78,11 +79,16 @@ sealed class AccessGrantProposalValidator(ITenantMembershipDirectoryReader membe
                 TechnologyInventoryResourceTypes.DataFlow =>
                     (await reader.HydrateAsync(new DataFlow(tenantId, proposal.Scope.Id), ct)
                         .ConfigureAwait(false)).IsCreated,
+                EvidenceArtifactResourceTypes.Artifact => events is not null &&
+                    (await EvidenceArtifactMetadataRead.CaptureAsync(reader, events, tenantId, proposal.Scope.Id, ct)
+                        .ConfigureAwait(false)).IsSuccess,
                 _ => false,
             };
             if (!exists)
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound,
-                    "The shared technology inventory resource was not found in this organization."));
+                    proposal.Scope.ResourceType == EvidenceArtifactResourceTypes.Artifact
+                        ? "The evidence artifact was not found in this organization."
+                        : "The shared technology inventory resource was not found in this organization."));
         }
         else if (proposal.Scope.Kind != AccessGrantScopeKind.Organization)
             return Invalid("This access grant scope is not supported.");

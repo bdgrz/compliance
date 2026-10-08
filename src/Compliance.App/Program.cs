@@ -332,6 +332,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListFindings>(tool => tool.ReadOnly())
         .AddMcpTool<OpenEvidenceRequest>()
         .AddMcpTool<CancelEvidenceRequest>()
+        .AddMcpTool<GetEvidenceArtifactMetadata>(tool => tool.ReadOnly())
         .AddMcpTool<GetEvidenceRequest>(tool => tool.ReadOnly())
         .AddMcpTool<ListEvidenceRequests>(tool => tool.ReadOnly())
         .AddMcpTool<OpenAccessPopulation>()
@@ -1231,6 +1232,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Evidence requests");
+    app.MapPortiaGet<GetEvidenceArtifactMetadata, EvidenceArtifactMetadataView>(
+            "/api/v1/tenants/{tenant_id}/evidence-artifacts/{artifact_id}/metadata")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Evidence artifacts");
     app.MapPortiaGet<GetEvidenceRequest, EvidenceRequestView>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/evidence-requests/{evidence_request_id}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

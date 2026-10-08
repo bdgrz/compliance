@@ -2,6 +2,7 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 
 public static class RbacPermissions
 {
+    public const string EvidenceArtifactRead = "evidence_artifact.read";
     public const string TenantAccess = "tenant.access";
     public const string TenantRbacManage = "tenant.rbac.manage";
     public const string ProgramManage = "program.manage";

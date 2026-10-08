@@ -53,6 +53,7 @@ public sealed partial class TenantRbacBootstrapReactor(
             new AssignRolePermission(tenantId, BuiltInRbac.ComplianceParticipationRoleId(tenantId),
                 RbacPermissions.TenantAccess),
             new AssignRolePermission(tenantId, BuiltInRbac.ViewerRoleId(tenantId), RbacPermissions.TenantAccess),
+            new AssignRolePermission(tenantId, BuiltInRbac.ViewerRoleId(tenantId), RbacPermissions.EvidenceArtifactRead),
         ];
 
         // Historic registrations without an invitation and verified self-service registrations

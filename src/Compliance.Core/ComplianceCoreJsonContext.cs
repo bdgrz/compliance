@@ -753,6 +753,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.OpenEvidenceRequest))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.FulfilEvidenceRequest))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.CancelEvidenceRequest))]
+[JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.GetEvidenceArtifactMetadata))]
+[JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceArtifactMetadataView))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.GetEvidenceRequest))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.ListEvidenceRequests))]
 [JsonSerializable(typeof(Bdgrz.Compliance.Features.Evidence.EvidenceRequestView))]
