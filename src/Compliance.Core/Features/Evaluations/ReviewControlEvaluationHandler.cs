@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Evaluations;
@@ -14,6 +15,10 @@ public sealed class ReviewControlEvaluationHandler(IAggregateExecutor executor,
     public async ValueTask<Result<ControlEvaluationView>> HandleAsync(
         IRequestContext<ReviewControlEvaluation> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ControlEvaluationView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Control evaluation sign-off requires personal HTTP submission."));
         var request = context.Request;
         var current = await reader.HydrateAsync(new ControlEvaluationLedger(request.TenantId,
             request.ProgramId), ct).ConfigureAwait(false);

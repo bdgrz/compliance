@@ -25,7 +25,7 @@ public sealed class ControlEvaluationTests
         new("evidence_sufficiency", "effective", "Evidence is sufficient."),
     ];
 
-    static async Task<ControlEvaluationView> StartAsync(OperationsFixture fixture,
+    internal static async Task<ControlEvaluationView> StartAsync(OperationsFixture fixture,
         Uuid? userId = null, Uuid? retestOf = null, Uuid? planVersionId = null)
     {
         var plan = await fixture.GetOrDefineEvaluationPlanAsync();
@@ -42,7 +42,7 @@ public sealed class ControlEvaluationTests
         evaluation.Steps[index].InspectedItems, classification,
         classification is null ? null : "Two leavers kept access.");
 
-    static async Task<ControlEvaluationView> RecordAllAsync(OperationsFixture fixture,
+    internal static async Task<ControlEvaluationView> RecordAllAsync(OperationsFixture fixture,
         ControlEvaluationView evaluation, Uuid? userId = null, string implementation = "met",
         string? classification = null)
     {
@@ -53,18 +53,18 @@ public sealed class ControlEvaluationTests
         return evaluation;
     }
 
-    static SubmitControlEvaluation Submit(OperationsFixture fixture,
+    internal static SubmitControlEvaluation Submit(OperationsFixture fixture,
         ControlEvaluationView evaluation,
         IReadOnlyList<EvaluationAssertionConclusion>? conclusions = null) => new(fixture.TenantId,
         fixture.ProgramId, fixture.ControlId, evaluation.EvaluationId, evaluation.Revision,
         conclusions ?? AllEffective);
 
-    static ReviewControlEvaluation Review(OperationsFixture fixture,
+    internal static ReviewControlEvaluation Review(OperationsFixture fixture,
         ControlEvaluationView evaluation, string decision, Uuid? waiverId = null) => new(
         fixture.TenantId, fixture.ProgramId, fixture.ControlId, evaluation.EvaluationId,
         evaluation.Revision, decision, "Reviewed independently.", waiverId);
 
-    static async Task<ControlEvaluationView> SubmittedAsync(OperationsFixture fixture)
+    internal static async Task<ControlEvaluationView> SubmittedAsync(OperationsFixture fixture)
     {
         var evaluation = await RecordAllAsync(fixture, await StartAsync(fixture));
         return await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture, evaluation));
@@ -171,18 +171,12 @@ public sealed class ControlEvaluationTests
         var evaluation = await RecordAllAsync(fixture, await StartAsync(fixture),
             implementation: "not_met", classification: "material");
 
-        await fixture.Scenario(fixture.OwnerUserId)
-            // Act
-            .When(Submit(fixture, evaluation))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(Submit(fixture, evaluation, [AllEffective[0], AllEffective[2]]))
-            .ExpectFailure(RequestErrorKind.Validation);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(Submit(fixture, evaluation, [.. AllEffective,
-                new("operating_effectiveness", "effective", "Type II.")]))
-            .ExpectFailure(RequestErrorKind.Validation);
+        // Act
+        // Assert
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, Submit(fixture, evaluation), RequestErrorKind.Validation);
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, Submit(fixture, evaluation, [AllEffective[0], AllEffective[2]]), RequestErrorKind.Validation);
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, Submit(fixture, evaluation, [.. AllEffective,
+                new("operating_effectiveness", "effective", "Type II.")]), RequestErrorKind.Validation);
     }
 
     [Fact]
@@ -198,8 +192,7 @@ public sealed class ControlEvaluationTests
             new("implementation", "effective_with_exceptions", "One minor exception."),
             AllEffective[2],
         ];
-        await fixture.Scenario(fixture.OwnerUserId).When(Submit(fixture, evaluation, conclusions))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, Submit(fixture, evaluation, conclusions), RequestErrorKind.Conflict);
         var deviation = Assert.Single(evaluation.Deviations);
         Assert.Equal("pending_disposition", deviation.Status);
 
@@ -225,14 +218,10 @@ public sealed class ControlEvaluationTests
             fixture.LeadUserId);
         var submitted = await fixture.AsAsync(fixture.LeadUserId, Submit(fixture, evaluation));
 
-        await fixture.Scenario(fixture.LeadUserId)
-            // Act
-            .When(Review(fixture, submitted, "accepted"))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(Review(fixture, submitted, "accepted"))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        // Assert
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.LeadUserId, Review(fixture, submitted, "accepted"), RequestErrorKind.Forbidden);
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.OwnerUserId, Review(fixture, submitted, "accepted"), RequestErrorKind.Forbidden);
         var waiverId = await fixture.ApprovedWaiverAsync(new SeparationOfDutiesWaiverScope(
             SeparationOfDutiesRecordTypes.ControlEvaluation, submitted.EvaluationId,
             submitted.EvaluationId, 1, SeparationOfDutiesActions.Review), fixture.LeadMemberId);
@@ -284,8 +273,7 @@ public sealed class ControlEvaluationTests
         Assert.All(returned.Steps, step => Assert.NotNull(step.Result));
         var resubmitted = await fixture.AsAsync(fixture.OwnerUserId, Submit(fixture, returned));
         Assert.Equal(2, resubmitted.Submissions.Count);
-        await fixture.Scenario(fixture.ApproverUserId).When(Review(fixture, submitted, "accepted"))
-            .ExpectFailure(RequestErrorKind.Conflict);
+        await PersonalControlEvaluationTransportTests.HttpAsync(fixture.Provider, fixture.ApproverUserId, Review(fixture, submitted, "accepted"), RequestErrorKind.Conflict);
     }
 
     [Fact]

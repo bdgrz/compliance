@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Evaluations;
 using Bdgrz.Compliance.Tests.Features.Policies;
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
@@ -570,12 +571,9 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "evaluation")
             {
-                var request = Scenario().When(new ReviewControlEvaluation(Operations.TenantId, Operations.ProgramId,
-                    Operations.ControlId, pending.Id, pending.Revision, "accepted", "Reviewed independently."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalControlEvaluationTransportTests.HttpAsync(Provider, GuestUserId,
+                    new ReviewControlEvaluation(Operations.TenantId, Operations.ProgramId,
+                        Operations.ControlId, pending.Id, pending.Revision, "accepted", "Reviewed independently."), error);
             }
             else if (kind == "operating_plan")
             {

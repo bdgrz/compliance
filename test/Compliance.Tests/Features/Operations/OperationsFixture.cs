@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Evaluations;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Controls;
@@ -254,6 +255,11 @@ sealed class OperationsFixture
 
     public async Task<TOut> AsAsync<TOut>(Uuid userId, IRequest<TOut> request)
     {
+        if (request is SubmitControlEvaluation or ReviewControlEvaluation)
+        {
+            var evaluation = await PersonalControlEvaluationTransportTests.HttpAsync(Provider, userId, request);
+            return evaluation.Value;
+        }
         if (request is ApproveControlOperatingPlan)
         {
             var approval = await PersonalOperatingPlanApprovalTransportTests.HttpAsync(Provider, userId, request);
