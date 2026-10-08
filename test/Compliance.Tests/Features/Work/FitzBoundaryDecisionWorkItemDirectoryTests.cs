@@ -69,6 +69,7 @@ public sealed class FitzBoundaryDecisionWorkItemDirectoryTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
         var boundaryId = Uuid.CreateVersion4();
         var draftVersionId = Uuid.CreateVersion4();
         var reviewerAssignmentId = Uuid.CreateVersion4();

@@ -47,6 +47,7 @@ public sealed class WorkQueueTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
         var boundaryId = Uuid.CreateVersion4();
         var draftVersionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
@@ -167,6 +168,8 @@ public sealed class WorkQueueTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
+        fixture.Permissions.Managers.Add(fixture.BackupMemberId);
         var boundaryId = Uuid.CreateVersion4();
         var draftVersionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
@@ -299,6 +302,7 @@ public sealed class WorkQueueTests
     {
         // Arrange
         var fixture = await OperationsFixture.CreateAsync();
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
         var boundaryId = Uuid.CreateVersion4();
         var draftVersionId = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;

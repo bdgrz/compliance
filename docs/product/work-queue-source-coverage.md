@@ -106,3 +106,5 @@ membership affiliation; the correction grants no closure exception or waiver.
   consuming issues. Search and in-app attention do not depend on email delivery.
 - Client and end-to-end acceptance remain in the owning repositories and later
   validation phase; this backend inventory does not claim that acceptance.
+
+Boundary review and approval require both the current named operating duty and the current source `program.manage` grant. A duty assignment alone does not authorize the source decision. Revoked grants remove action eligibility immediately while preserving responsibility history and work identity.
