@@ -70,6 +70,23 @@ routing never authorizes acknowledgement on that person's behalf. Source
 commands retain their existing grants, audience and version checks. Existing
 campaign projection records and work identities remain compatible.
 
+## Management decision authority
+
+Evaluation-round reviews, operating-plan approvals, control-mapping reviews,
+criterion-applicability reviews and independent finding closure use
+`program_manager` responsibility. Their source commands accept current active non-firm-staff members with explicit
+`program.manage`, including persisted guest memberships. Queue eligibility,
+assignment and scoped counts use that same authority. The shared source
+candidate factories keep projected and fallback reads aligned without changing
+work identity or persistence. Existing proposer/evaluator exclusions still
+apply; decisions retain their source version and independence checks.
+
+Other source roles keep their existing requirements. In particular,
+`program_reviewer` remains client-personnel-only where that existing queue role
+is used. Finding ownership, corrective-action ownership and recorded completer
+exclusions still deny ordinary closure work regardless of management grant or
+membership affiliation; the correction grants no closure exception or waiver.
+
 ## Remaining acceptance boundaries
 
 - Access-review campaigns remain tenant-scoped. Campaign placement,

@@ -80,7 +80,7 @@ public sealed class ControlMappingWorkTests
         Assert.Equal(fixture.ControlId, item.ControlId);
         Assert.Equal("review", item.NextAction);
         Assert.Null(item.AssigneeMemberId);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
                      $"control-mappings/{decisions.MappingId}/reviews", item.ActionPath);
@@ -119,7 +119,7 @@ public sealed class ControlMappingWorkTests
         Assert.Null(item.ControlId);
         Assert.Equal("review", item.NextAction);
         Assert.Null(item.AssigneeMemberId);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
                      $"criterion-applicability/{decisions.ApplicabilityId}/reviews",

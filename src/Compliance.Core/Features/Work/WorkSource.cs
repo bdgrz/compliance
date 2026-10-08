@@ -327,7 +327,7 @@ static class WorkSource
         "A control operating plan is awaiting independent approval.", null, null, "approve",
         $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/" +
         $"operating-plan/proposals/{planVersionId}/approvals",
-        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+        new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
         new HashSet<Uuid> { proposerMemberId }, proposedAt);
 
     public static WorkCandidate ControlEvaluationReviewCandidate(Uuid tenantId, Uuid programId,
@@ -337,7 +337,7 @@ static class WorkSource
         $"Control evaluation round {round} is awaiting independent review.", null, null, "review",
         $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/" +
         $"evaluations/{evaluationId}/reviews",
-        new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+        new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
         new HashSet<Uuid> { evaluatorMemberId }, submittedAt);
 
     public static Uuid ControlEvaluationReviewWorkItemId(Uuid evaluationId, int round)
@@ -355,7 +355,7 @@ static class WorkSource
             "A control-to-criteria mapping proposal is awaiting independent review.", null, null,
             "review", $"/api/v1/tenants/{tenantId}/programs/{programId}/" +
             $"control-mappings/{mappingId}/reviews",
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
             new HashSet<Uuid> { proposerMemberId }, proposedAt);
 
     public static Uuid ControlCriterionMappingReviewWorkItemId(Uuid mappingId, int versionNumber)
@@ -374,7 +374,7 @@ static class WorkSource
             "A criterion not-applicable proposal is awaiting independent review.", null, null,
             "review", $"/api/v1/tenants/{tenantId}/programs/{programId}/" +
             $"criterion-applicability/{decisionId}/reviews",
-            new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId), null,
+            new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId), null,
             new HashSet<Uuid> { proposerMemberId }, proposedAt);
 
     public static Uuid CriterionApplicabilityReviewWorkItemId(Uuid decisionId, int versionNumber)

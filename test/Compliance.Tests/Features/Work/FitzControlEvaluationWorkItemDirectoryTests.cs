@@ -114,7 +114,7 @@ public sealed class FitzControlEvaluationWorkItemDirectoryTests
         Assert.Equal("review", first.NextAction);
         Assert.Equal($"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/" +
             $"evaluations/{evaluationId}/reviews", first.ActionPath);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder, programId),
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder, programId),
             first.Responsible);
         Assert.Contains(evaluatorId, first.Excluded);
         Assert.Equal(startedAt.AddMinutes(2), first.CreatedAt);

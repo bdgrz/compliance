@@ -59,7 +59,7 @@ public sealed class FitzControlOperatingPlanWorkItemDirectoryTests
         Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/programs/{fixture.ProgramId}/" +
             $"controls/{fixture.ControlId}/operating-plan/proposals/{plan.PlanVersionId}/approvals",
             item.ActionPath);
-        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramReviewerHolder,
+        Assert.Equal(new OperatingHolder(OperatingAuthority.ProgramManagerHolder,
             fixture.ProgramId), item.Responsible);
         Assert.Contains(fixture.LeadMemberId, item.Excluded);
         Assert.Equal(plan.ProposedAt, item.CreatedAt);
