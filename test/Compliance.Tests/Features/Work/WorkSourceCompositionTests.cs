@@ -293,6 +293,185 @@ public sealed class WorkSourceCompositionTests
         Assert.Equal(fixture.Member(fixture.OutsiderUserId), claimed.Value.Item.AssigneeMemberId);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldPreserveReadAuthorizedTeamOversightGivenActionEligibilityLost(bool revoked)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await fixture.AddToTeamAsync(fixture.OwnerUserId);
+        await fixture.PlanAsync(new OperatingHolder(OperatingAuthority.TeamHolder, fixture.TeamId));
+        Assert.DoesNotContain(fixture.OwnerMemberId, fixture.Permissions.Managers);
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+        var initial = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var performedItem = initial.Value.Items[0];
+        var source = await Scenario().When(new GetControlOccurrence(fixture.TenantId,
+            fixture.ProgramId, performedItem.ControlId!.Value, performedItem.SourceId)).ExpectSuccess();
+        var performed = await Scenario().When(fixture.Attest(source.Value)).ExpectSuccess();
+        Assert.Equal(ControlOperationsLedger.Submitted, performed.Value.State);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var before = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var item = before.Value.Items[0];
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId,
+            fixture.OwnerUserId, revoked);
+
+        // Act
+        var readable = await Scenario().When(new GetControlOccurrence(fixture.TenantId,
+            fixture.ProgramId, item.ControlId!.Value, item.SourceId)).ExpectSuccess();
+        var denied = await Scenario().When(fixture.Attest(readable.Value))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+        var team = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var all = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "all")).ExpectSuccess();
+        var detail = await Scenario().When(new GetWorkItem(fixture.TenantId,
+            fixture.ProgramId, item.WorkItemId)).ExpectSuccess();
+        foreach (var scope in new[] { "mine", "unassigned" })
+        {
+            var actionable = await Scenario().When(new ListWork(fixture.TenantId,
+                fixture.ProgramId, scope)).ExpectSuccess();
+            Assert.Empty(actionable.Value.Items);
+            Assert.Equal(0, actionable.Value.Counts.Total);
+        }
+        await Scenario().When(new ClaimWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 0)).ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario().When(new AssignWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 0, fixture.OwnerMemberId)).ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario().When(new DelegateWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId, 0, fixture.BackupMemberId, "No source action authority."))
+            .ExpectFailure(RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.Empty(detail.Value.History);
+        Assert.Equal(item, detail.Value.Item);
+        Assert.Contains("Attest", denied.Error!.Message, StringComparison.Ordinal);
+        Assert.Equal(before.Value.Items, team.Value.Items);
+        Assert.Equal(before.Value.Counts, team.Value.Counts);
+        Assert.Equal(team.Value.Items, all.Value.Items);
+        Assert.Equal(team.Value.Counts, all.Value.Counts);
+    }
+
+    [Theory]
+    [InlineData("removed")]
+    [InlineData("suspended")]
+    [InlineData("deprovisioned")]
+    public async Task ShouldOmitTeamOversightGivenMembershipNoLongerCurrent(string membership)
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await fixture.AddToTeamAsync(fixture.OwnerUserId);
+        await fixture.PlanAsync(new OperatingHolder(OperatingAuthority.TeamHolder, fixture.TeamId));
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+        var before = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var item = before.Value.Items[0];
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId, true);
+        if (membership == "removed")
+            await fixture.RemoveFromTeamAsync(fixture.OwnerUserId);
+        else if (membership == "suspended")
+            await fixture.SuspendAsync(fixture.OwnerUserId);
+        else
+            await ProgramManagementServices.SeedAsync(provider, new Member(fixture.TenantId, fixture.OwnerUserId),
+                member => member.Deprovision(fixture.LeadMemberId, "Lead", DateTimeOffset.UtcNow, "Left."));
+
+        // Act
+        var team = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var all = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "all")).ExpectSuccess();
+        await Scenario().When(new GetWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId)).ExpectFailure(RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.Empty(team.Value.Items);
+        Assert.Equal(0, team.Value.Counts.Total);
+        Assert.Empty(all.Value.Items);
+        Assert.Equal(0, all.Value.Counts.Total);
+    }
+
+    [Fact]
+    public async Task ShouldRequireOrdinarySourceReadGrantGivenCurrentTeamOversight()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await fixture.AddToTeamAsync(fixture.OwnerUserId);
+        await fixture.PlanAsync(new OperatingHolder(OperatingAuthority.TeamHolder, fixture.TeamId));
+        var permissions = new ReadTogglePermissions(fixture.Permissions);
+        await using var provider = CreateProvider(fixture, permissions);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+        var before = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var item = before.Value.Items[0];
+        await AttestAssignmentHistoryFixture.SeedAsync(provider, fixture.TenantId, fixture.OwnerUserId, true);
+        permissions.CanRead = false;
+
+        // Act
+        var source = await Scenario().When(new GetControlOccurrence(fixture.TenantId,
+            fixture.ProgramId, item.ControlId!.Value, item.SourceId)).ExpectFailure(RequestErrorKind.Forbidden);
+        var team = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectFailure(RequestErrorKind.Forbidden);
+        await Scenario().When(new GetWorkItem(fixture.TenantId, fixture.ProgramId,
+            item.WorkItemId)).ExpectFailure(RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.Equal(source.Error!.Message, team.Error!.Message);
+    }
+
+    [Fact]
+    public async Task ShouldOmitTeamOversightGivenMalformedRetainedCanonicalMember()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await fixture.AddToTeamAsync(fixture.OwnerUserId);
+        await fixture.PlanAsync(new OperatingHolder(OperatingAuthority.TeamHolder, fixture.TeamId));
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.OwnerUserId));
+        var before = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+        var item = before.Value.Items[0];
+        var registrations = new List<DomainEvent>();
+        await foreach (var record in provider.GetRequiredService<IDomainEventReader>().ReadAsync(
+                           EventStreamPattern.ForPattern(fixture.TenantId.ToString(), "rbac-members",
+                               fixture.OwnerMemberId.ToString()), ProjectionCheckpoint.Start.Cursor, CancellationToken.None))
+            registrations.Add(record.Event);
+        var registered = Assert.IsType<MemberRegistered>(Assert.Single(registrations));
+        // Retain the current episode to prove the canonical actor fence, not an episode mismatch.
+        DomainEvent malformed = new MemberRegistered(fixture.TenantId, fixture.OwnerMemberId,
+            fixture.OutsiderUserId, "client_personnel", registered.MembershipEpisodeId);
+        malformed.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), fixture.OwnerMemberId,
+            2, DateTimeOffset.UtcNow));
+        await provider.GetRequiredService<IEventStore>().AppendAsync(new EventStreamAddress(
+            fixture.TenantId.ToString(), "rbac-members", fixture.OwnerMemberId.ToString()),
+            1, [malformed]);
+
+        // Act
+        await Scenario().When(new GetControlOccurrence(fixture.TenantId, fixture.ProgramId,
+            item.ControlId!.Value, item.SourceId)).ExpectSuccess();
+        var after = await Scenario().When(new ListWork(fixture.TenantId,
+            fixture.ProgramId, "team")).ExpectSuccess();
+
+        // Assert
+        Assert.Empty(after.Value.Items);
+        Assert.Equal(0, after.Value.Counts.Total);
+    }
+
     [Fact]
     public async Task ShouldFailClosedGivenRetainedMemberUserDisagreesWithCanonicalMemberIdentity()
     {
@@ -358,7 +537,7 @@ public sealed class WorkSourceCompositionTests
         Assert.False(typeof(IClientManagementMutationRequest).IsAssignableFrom(typeof(AcknowledgePolicy)));
     }
 
-    static ServiceProvider CreateProvider(OperationsFixture fixture)
+    static ServiceProvider CreateProvider(OperationsFixture fixture, IPermissionAuthorizer? permissions = null)
     {
         var events = fixture.Provider.GetRequiredService<IEventStore>();
         var services = new ServiceCollection();
@@ -372,11 +551,21 @@ public sealed class WorkSourceCompositionTests
         services.AddSingleton(events);
         services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
         services.AddSingleton<IAccessGrantPermissionAuthorizer>(
-            new PermissionBackedAccessGrantPermissionAuthorizer(fixture.Permissions));
+            new PermissionBackedAccessGrantPermissionAuthorizer(permissions ?? fixture.Permissions));
         services.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
         services.AddSingleton<ITenantActivity, ActiveTenant>();
         services.AddSingleton<ITenantMembershipDirectoryReader, AlwaysMemberDirectory>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    sealed class ReadTogglePermissions(IPermissionAuthorizer inner) : IPermissionAuthorizer
+    {
+        public bool CanRead { get; set; } = true;
+
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
+            CancellationToken ct = default) => permission == Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission && !CanRead
+            ? ValueTask.FromResult(false)
+            : inner.IsAllowedAsync(tenantId, userId, memberId, permission, ct);
     }
 
     static async Task CatchUpAsync(IServiceProvider provider, Uuid tenantId)
