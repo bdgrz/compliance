@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using Cntryl.Portia;
 
@@ -88,8 +87,7 @@ public sealed partial class IndependenceLedger
     }
 
     static string AcceptanceDigest(ServiceEngagementAcceptanceView acceptance) =>
-        Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(acceptance,
-            ComplianceCoreJsonContext.Default.ServiceEngagementAcceptanceView)));
+        IndependenceSourceDigest.Acceptance(acceptance);
 
     static ServiceIndependenceReevaluationView FreezeReevaluation(ServiceIndependenceReevaluationView receipt) => receipt with
     {

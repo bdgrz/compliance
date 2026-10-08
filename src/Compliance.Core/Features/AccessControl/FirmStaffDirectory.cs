@@ -19,6 +19,14 @@ public sealed class FirmStaffDirectory : Aggregate
 
     public long Sequence { get; private set; }
     public FirmStaffMemberView? Get(Uuid staffMemberId) => _staff.GetValueOrDefault(staffMemberId);
+
+    /// <summary>Verifies historical decision facts; trusted delivery must separately validate the source stream.</summary>
+    internal bool MatchesRetainedStatus(FirmStaffChangeRecorded change) =>
+        change.Operation == "status" && change.Staff is not null && Bounded(change.Reason!, 2000) &&
+        _decisions.TryGetValue(change.RequestId, out var previous) &&
+        previous.Actor == change.Staff.Actor && previous.Response == change.Staff &&
+        previous.Intent == Intent(new SetFirmStaffStatus(change.Staff.StaffMemberId,
+            change.Staff.IsActive, change.Reason!, change.ExpectedSequence));
     public FirmStaffDirectoryView View(bool activeOnly = false) => new(Sequence,
         Array.AsReadOnly(_staff.Values.Where(staff => !activeOnly || staff.IsActive)
             .OrderBy(staff => staff.StaffMemberId.ToString(), StringComparer.Ordinal).ToArray()));
