@@ -84,7 +84,7 @@ public sealed class ServiceEngagementAcceptanceTests
         var closed = ledger.CloseEngagement(Uuid.CreateVersion4(), proof.EngagementId, 3,
             "Client ended engagement", ClientActor, Now);
         var alias = original with { StaffMemberId = Uuid.CreateVersion4(), Practice = "attest" };
-        var attempted = ledger.CreateEngagement(Uuid.CreateVersion4(), Uuid.CreateVersion4(), 4,
+        var attempted = ledger.CreateEngagement(Uuid.CreateVersion4(), Uuid.CreateVersion4(), ledger.Sequence,
             new ServiceEngagementDraftContent("attest", "New scope", new DateOnly(2026, 1, 1), null, alias.StaffMemberId),
             alias, ClientActor, Now);
 
