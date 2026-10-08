@@ -36,6 +36,22 @@ finding-closure projections, reconciles source actions with item reads, and
 proves visible scoped counts under search. A search with no visible match still
 fails with a transient conflict while a required projection is behind.
 
+`WorkSourceCompositionTests` exercises the production `AddCompliance` registration
+with all 15 accountable readers. It replays retained source events through each
+reader's real transactional store, then reconciles a mixed evidence,
+corrective-action and finding-closure queue through the registered request bus.
+Actual source cancellation and independently assigned closure change counts from
+three to two to one; details and visible search agree, outsiders receive empty
+counts and absent details, and each source change conflicts until its required
+checkpoint catches up. This complements each source family's lifecycle tests;
+it does not claim that one mixed-source scenario covers every work kind.
+
+The runtime registration audit resolves 15 distinct checkpoint identities and
+28 current program work kinds, with each kind supplied once. Empty resources
+load their own start checkpoints and each reader uses a tenant-specific source
+pattern. Campaign routing remains outside that manifest pending #646; it is not
+silently counted as delivered or given an inferred program owner.
+
 ## Search contract
 
 `GET /api/v1/tenants/{tenant_id}/programs/{program_id}/work` and the existing
