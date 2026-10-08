@@ -179,9 +179,9 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
         // Arrange
         await using var scenario = await Scenario.CreateAsync(registrantId: Uuid.CreateVersion4());
         var decide = scenario.DecideHandler();
-        var context = new RequestContext<DecideAccessReviewScope>(new DecideAccessReviewScope(
+        var context = new Cntryl.Portia.RequestContext<DecideAccessReviewScope>(new DecideAccessReviewScope(
             scenario.TenantId, Uuid.CreateVersion4(), scenario.InstanceId, 1, 0, "included",
-            "Production", Now), Principal(Uuid.CreateVersion4()));
+            "Production", Now), PersonalHttp(Principal(Uuid.CreateVersion4())));
 
         // Act
         var result = await decide.HandleAsync(context, CancellationToken.None);
@@ -283,6 +283,9 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
         new(ev.TenantId, ev.ApplicationId, ev.SystemInstanceId, ev.SystemInstanceRevision,
             ev.DecisionId, ev.Sequence, ev.Decision, ev.Reason, ev.EffectiveFrom, ev.ReviewBy,
             ev.Actor, ev.DecidedAt, null);
+
+    static RequestDispatchContext PersonalHttp(ClaimsPrincipal actor) => new(actor,
+        new HttpInvocation("POST", "/synthetic/scope/decision", "/synthetic/scope/decision", "synthetic"));
 
     static ClaimsPrincipal Principal(Uuid userId) => new(new ClaimsIdentity(
         [new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "test"));
@@ -402,9 +405,9 @@ public sealed class AccessReviewScopeLegacyAndProjectionTests
             _scope.ServiceProvider.GetRequiredService<IAggregateExecutor>(), Reader, Events,
             new FixedClock());
 
-        public RequestContext<DecideAccessReviewScope> DecideContext(Uuid userId, Uuid? waiverId = null) => new(
+        public Cntryl.Portia.RequestContext<DecideAccessReviewScope> DecideContext(Uuid userId, Uuid? waiverId = null) => new(
             new DecideAccessReviewScope(TenantId, ApplicationId, InstanceId, 1, 0, "included",
-                "Production data", Now, SeparationOfDutiesWaiverId: waiverId), Principal(userId));
+                "Production data", Now, SeparationOfDutiesWaiverId: waiverId), PersonalHttp(Principal(userId)));
 
         public async ValueTask DisposeAsync()
         {
