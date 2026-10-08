@@ -2,6 +2,7 @@ using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Tests.Features.Operations;
+using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -18,7 +19,7 @@ public sealed class FindingTests
         var finding = await RaiseWithCompletedActionAsync(fixture);
 
         // Act
-        var closed = await fixture.AsAsync(fixture.ApproverUserId, Close(fixture, finding));
+        var closed = (await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.ApproverUserId, Close(fixture, finding))).Value;
         var reopened = await fixture.AsAsync(fixture.LeadUserId, new ReopenFinding(
             fixture.TenantId, fixture.ProgramId, finding.FindingId, closed.Revision,
             "A leaver regained access."));
@@ -46,11 +47,10 @@ public sealed class FindingTests
         var accepted = await fixture.AsAsync(fixture.LeadUserId, new LinkFindingAcceptance(
             fixture.TenantId, fixture.ProgramId, registration.FindingId, 1, "waiver", waiverId));
 
-        await fixture.Scenario(fixture.ApproverUserId)
-            // Act
-            .When(Close(fixture, accepted))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Conflict);
+        // Act
+        await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.ApproverUserId, Close(fixture, accepted), RequestErrorKind.Conflict);
+
+        // Assert
         Assert.Equal("accepted", accepted.ReadinessStatus);
         Assert.Equal("active", Assert.Single(accepted.Acceptances).State);
     }
@@ -88,14 +88,13 @@ public sealed class FindingTests
         var fixture = await OperationsFixture.CreateAsync();
         var finding = await RaiseWithCompletedActionAsync(fixture, fixture.LeadMemberId);
 
-        await fixture.Scenario(fixture.LeadUserId)
-            // Act
-            .When(Close(fixture, finding))
-            // Assert
-            .ExpectFailure(RequestErrorKind.Forbidden);
-        await fixture.Scenario(fixture.OwnerUserId)
-            .When(Close(fixture, finding))
-            .ExpectFailure(RequestErrorKind.Forbidden);
+        // Act
+        var owner = await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.LeadUserId, Close(fixture, finding), RequestErrorKind.Forbidden);
+        var performer = await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.OwnerUserId, Close(fixture, finding), RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.False(owner.IsSuccess);
+        Assert.False(performer.IsSuccess);
     }
 
     [Fact]
@@ -105,11 +104,11 @@ public sealed class FindingTests
         var fixture = await OperationsFixture.CreateAsync();
         var finding = await RaiseWithCompletedActionAsync(fixture);
 
-        await fixture.Scenario(fixture.ApproverUserId)
-            // Act
-            .When(Close(fixture, finding) with { ResolutionEvidence = [] })
-            // Assert
-            .ExpectFailure(RequestErrorKind.Validation);
+        // Act
+        var result = await PersonalReadinessClosureTransportTests.CloseHttpAsync(fixture.Provider, fixture.ApproverUserId, Close(fixture, finding) with { ResolutionEvidence = [] }, RequestErrorKind.Validation);
+
+        // Assert
+        Assert.False(result.IsSuccess);
     }
 
     [Fact]
@@ -232,7 +231,7 @@ public sealed class FindingTests
             .ExpectFailure(RequestErrorKind.Conflict);
     }
 
-    static async Task<FindingView> RaiseWithCompletedActionAsync(OperationsFixture fixture,
+    internal static async Task<FindingView> RaiseWithCompletedActionAsync(OperationsFixture fixture,
         Uuid? findingOwner = null)
     {
         var registration = await fixture.AsAsync(fixture.LeadUserId,
@@ -246,7 +245,7 @@ public sealed class FindingTests
             [new EvidenceReference(null, "record", "VPN-EXPORT-2026-09")]));
     }
 
-    static CloseFinding Close(OperationsFixture fixture, FindingView finding) => new(
+    internal static CloseFinding Close(OperationsFixture fixture, FindingView finding) => new(
         fixture.TenantId, fixture.ProgramId, finding.FindingId, finding.Revision,
         "Re-ran the VPN export; no leavers remain.",
         [new EvidenceReference(null, "external", "https://vpn.example/export")],

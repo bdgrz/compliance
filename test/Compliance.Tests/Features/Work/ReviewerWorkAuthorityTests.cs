@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.ControlMappings;
 using Bdgrz.Compliance.Features.Controls;
@@ -565,13 +566,9 @@ public sealed class ReviewerWorkAuthorityTests
             }
             else if (kind == "finding_closure")
             {
-                var request = Scenario().When(new CloseFinding(Operations.TenantId, Operations.ProgramId,
-                    pending.Id, pending.Revision, "Independently verified correction.",
-                    OperationsFixture.FullSupport, "Closure accepted."));
-                if (error is { } expected)
-                    await request.ExpectFailure(expected);
-                else
-                    await request.ExpectSuccess();
+                await PersonalReadinessClosureTransportTests.CloseHttpAsync(Provider, GuestUserId,
+                    new CloseFinding(Operations.TenantId, Operations.ProgramId, pending.Id, pending.Revision,
+                        "Independently verified correction.", OperationsFixture.FullSupport, "Closure accepted."), error);
             }
             else if (kind == "evaluation")
             {

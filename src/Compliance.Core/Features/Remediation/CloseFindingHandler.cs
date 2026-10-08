@@ -9,6 +9,10 @@ public sealed class CloseFindingHandler(IAggregateExecutor executor, IAggregateR
     public async ValueTask<Result<FindingView>> HandleAsync(IRequestContext<CloseFinding> context,
         CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<FindingView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Finding closure requires a personal HTTP invocation."));
         var request = context.Request;
         SeparationOfDutiesWaiver? waiver = null;
         if (request.SeparationOfDutiesWaiverId is { } waiverId)

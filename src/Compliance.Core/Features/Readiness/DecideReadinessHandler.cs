@@ -11,6 +11,10 @@ public sealed class DecideReadinessHandler(IAggregateExecutor executor, IAggrega
     public async ValueTask<Result<ReadinessDecisionView>> HandleAsync(
         IRequestContext<DecideReadiness> context, CancellationToken ct)
     {
+        if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor) ||
+            !UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out _))
+            return Result<ReadinessDecisionView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "Readiness sign-off requires a personal HTTP invocation."));
         var request = context.Request;
         SeparationOfDutiesWaiver? waiver = null;
         if (request.SeparationOfDutiesWaiverId is { } waiverId)
