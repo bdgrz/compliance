@@ -85,6 +85,18 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListCriteriaCatalogEntries>(tool => tool.ReadOnly())
         .AddMcpTool<GetCriteriaCatalogEntry>(tool => tool.ReadOnly())
         .AddMcpTool<ExportCriteriaCatalogEntries>(tool => tool.ReadOnly())
+        .AddMcpTool<RegisterFirmStaff>(tool => tool.Idempotent())
+        .AddMcpTool<SetFirmStaffStatus>(tool => tool.Idempotent())
+        .AddMcpTool<GetFirmStaffDirectory>(tool => tool.ReadOnly())
+        .AddMcpTool<ListAssignableFirmStaff>(tool => tool.ReadOnly())
+        .AddMcpTool<CreateServiceEngagement>(tool => tool.Idempotent())
+        .AddMcpTool<AmendServiceEngagement>(tool => tool.Idempotent())
+        .AddMcpTool<ProposeServiceEngagementStaff>(tool => tool.Idempotent())
+        .AddMcpTool<WithdrawServiceEngagementStaffProposal>(tool => tool.Idempotent())
+        .AddMcpTool<CloseServiceEngagement>(tool => tool.Idempotent())
+        .AddMcpTool<GetServiceEngagement>(tool => tool.ReadOnly())
+        .AddMcpTool<ListServiceEngagements>(tool => tool.ReadOnly())
+        .AddMcpTool<GetServiceEngagementHistory>(tool => tool.ReadOnly())
         .AddMcpTool<GetClientIndependenceRules>(tool => tool.ReadOnly())
         .AddMcpTool<GetIndependenceRuleVersions>(tool => tool.ReadOnly())
         .AddMcpTool<ReviseIndependenceRules>(tool => tool.Idempotent())
@@ -544,6 +556,54 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/criteria-editions/{edition_id}/entries/{identifier}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Criteria");
+    app.MapPortiaPut<RegisterFirmStaff, FirmStaffMemberView>(
+            "/api/v1/platform/firm-staff/{staff_member_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPut<SetFirmStaffStatus, FirmStaffMemberView>(
+            "/api/v1/platform/firm-staff/{staff_member_id}/status")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<GetFirmStaffDirectory, FirmStaffDirectoryView>(
+            "/api/v1/platform/firm-staff")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<ListAssignableFirmStaff, FirmStaffDirectoryView>(
+            "/api/v1/tenants/{tenant_id}/firm-staff")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPut<CreateServiceEngagement, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPut<AmendServiceEngagement, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/draft")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPut<ProposeServiceEngagementStaff, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/staff-proposals/{staff_member_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPost<WithdrawServiceEngagementStaffProposal, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/staff-proposals/{staff_member_id}/withdrawals")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPost<CloseServiceEngagement, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/closure")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<GetServiceEngagement, ServiceEngagementView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<ListServiceEngagements, IReadOnlyList<ServiceEngagementView>>(
+            "/api/v1/tenants/{tenant_id}/service-engagements")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<GetServiceEngagementHistory, IReadOnlyList<ServiceEngagementView>>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/history")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
     app.MapPortiaGet<GetClientIndependenceRules, IReadOnlyList<IndependenceRuleVersionView>>(
             "/api/v1/tenants/{tenant_id}/independence/rules")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

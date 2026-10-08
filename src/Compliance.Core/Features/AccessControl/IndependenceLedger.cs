@@ -4,7 +4,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 /// <summary>Serializes client-owned service facts and immutable, version-bound independence previews.</summary>
-public sealed class IndependenceLedger : Aggregate
+public sealed partial class IndependenceLedger : Aggregate
 {
     readonly Uuid _tenantId;
     readonly List<NonattestServiceView> _services = [];
@@ -15,6 +15,7 @@ public sealed class IndependenceLedger : Aggregate
         new EventStreamAddress(tenantId.ToString(), "client-independence", tenantId.ToString()))
     {
         _tenantId = tenantId;
+        InitializeEngagements();
         On<NonattestServiceRecorded>(Apply);
         On<ClientIndependenceEvaluated>(Apply);
     }
