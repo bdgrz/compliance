@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -11,4 +12,4 @@ namespace Bdgrz.Compliance.Features.Operations;
 public sealed record ApproveControlOperatingPlan(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
     long ExpectedRevision, Uuid PlanVersionId, string Rationale,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<ControlOperatingPlanView>, IProgramScopedRequest, ICallable;
+    : IRequest<ControlOperatingPlanView>, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

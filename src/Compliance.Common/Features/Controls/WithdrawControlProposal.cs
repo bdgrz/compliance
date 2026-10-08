@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
 
@@ -9,4 +10,4 @@ namespace Bdgrz.Compliance.Features.Controls;
 /// </summary>
 [Discriminator("bdgrz.control.proposal.withdraw", 1)]
 public sealed record WithdrawControlProposal(Uuid TenantId, Uuid ProgramId, Uuid ControlId,
-    long ExpectedRevision, string Rationale) : IRequest, IProgramScopedRequest, ICallable;
+    long ExpectedRevision, string Rationale) : IRequest, IProgramScopedRequest, IClientManagementMutationRequest, ICallable;

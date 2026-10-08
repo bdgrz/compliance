@@ -431,6 +431,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<RestrictedApplicationVisibility>();
         services.AddScoped<TechnologyInventoryRestrictedVisibility>();
         services.AddScoped<OperatingAuthority>();
+        services.AddScoped<ClientManagementIndependenceGuard>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
         services.AddScoped<BoundaryResponsibilityScopeValidator>();
@@ -905,6 +906,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListWorkforceRosterSnapshotsHandler>()
             .AddRequestHandler<RegenerateWorkforceRosterSnapshotManifestHandler>()
             .AddRequestAuthorizer<ProgramManagementAuthorizer>()
+            .AddRequestAuthorizer<ClientManagementMutationAuthorizer>()
             .AddRequestAuthorizer<SeparationOfDutiesWaiverAuthorizer>()
             .AddRequestHandler<RegisterTenantHandler>()
             .AddRequestAuthorizer<RegisterTenantAuthorizer>()
