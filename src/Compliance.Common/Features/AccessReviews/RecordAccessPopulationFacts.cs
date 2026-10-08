@@ -9,4 +9,4 @@ public sealed record RecordAccessPopulationFacts(Uuid TenantId, Uuid PopulationI
     IReadOnlyList<AccessEntitlementFact> Entitlements,
     IReadOnlyList<AccessGroupMemberFact> GroupMembers,
     IReadOnlyList<AccessAssignmentFact> Assignments)
-    : IRequest<AccessPopulationRegistration>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessPopulationRegistration>, IAccessReviewMutationRequest, ICallable;

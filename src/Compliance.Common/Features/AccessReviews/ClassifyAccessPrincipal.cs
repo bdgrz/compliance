@@ -8,4 +8,4 @@ public sealed record ClassifyAccessPrincipal(Uuid TenantId, Uuid PopulationId,
     string ProviderSubjectId, long ExpectedClassificationCount, string Classification,
     string Rationale, Uuid? PersonId = null, Uuid? ServiceIdentityId = null,
     Uuid? AccountableOwnerPersonId = null, string? SharedJustification = null)
-    : IRequest<AccessPrincipalClassificationView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessPrincipalClassificationView>, IAccessReviewMutationRequest, ICallable;

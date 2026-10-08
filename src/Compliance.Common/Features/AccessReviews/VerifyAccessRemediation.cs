@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_review.remediation.verify", 1)]
 public sealed record VerifyAccessRemediation(Uuid TenantId, Uuid CampaignId,
     Uuid ItemId, long ExpectedRevision, Uuid PopulationId)
-    : IRequest<AccessRemediationVerificationView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessRemediationVerificationView>, IAccessReviewMutationRequest, ICallable;

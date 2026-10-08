@@ -7,4 +7,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record OpenAccessPopulation(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, long ExpectedSystemInstanceRevision, DateTimeOffset ObservedAt,
     string Source)
-    : IRequest<AccessPopulationRegistration>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessPopulationRegistration>, IAccessReviewMutationRequest, ICallable;

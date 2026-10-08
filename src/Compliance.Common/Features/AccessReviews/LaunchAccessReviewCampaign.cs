@@ -10,4 +10,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record LaunchAccessReviewCampaign(Uuid TenantId, string Name,
     string Instructions, DateTimeOffset Deadline,
     IReadOnlyList<AccessReviewAssignment> Assignments)
-    : IRequest<AccessReviewCampaignRegistration>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessReviewCampaignRegistration>, IAccessReviewMutationRequest, ICallable;

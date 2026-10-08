@@ -10,4 +10,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record RecordAccessDecision(Uuid TenantId, Uuid CampaignId, Uuid ItemId,
     long ExpectedRevision, string Decision, string Rationale,
     Uuid? SeparationOfDutiesWaiverId = null)
-    : IRequest<AccessDecisionView>, IAccessReviewParticipantRequest, ICallable;
+    : IRequest<AccessDecisionView>, IAccessReviewParticipantRequest, IAccessReviewMutationRequest, ICallable;

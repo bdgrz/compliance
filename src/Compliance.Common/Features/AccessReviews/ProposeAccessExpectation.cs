@@ -8,4 +8,4 @@ public sealed record ProposeAccessExpectation(Uuid TenantId, Uuid ApplicationId,
     Uuid SystemInstanceId, long ExpectedLedgerRevision, string RuleKind,
     AccessExpectationParameters Parameters, string Rationale, DateTimeOffset EffectiveFrom,
     DateTimeOffset? EffectiveUntil = null, Uuid? SupersedesExpectationId = null)
-    : IRequest<AccessExpectationView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessExpectationView>, IAccessReviewMutationRequest, ICallable;

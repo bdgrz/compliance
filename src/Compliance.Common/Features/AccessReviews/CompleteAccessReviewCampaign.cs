@@ -10,4 +10,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_review.campaign.complete", 1)]
 public sealed record CompleteAccessReviewCampaign(Uuid TenantId, Uuid CampaignId,
     long ExpectedRevision, string Attestation)
-    : IRequest<AccessReviewCampaignCompletionView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessReviewCampaignCompletionView>, IAccessReviewMutationRequest, ICallable;

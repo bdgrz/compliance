@@ -10,4 +10,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record ExemptAccessExpectation(Uuid TenantId, Uuid SystemInstanceId,
     Uuid ExpectationId, long ExpectedLedgerRevision, string ProviderSubjectId,
     string Rationale, DateTimeOffset ExpiresAt, string? ProviderEntitlementId = null)
-    : IRequest<AccessExpectationExceptionView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessExpectationExceptionView>, IAccessReviewMutationRequest, ICallable;

@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_review.remediation.exception.record", 1)]
 public sealed record ExemptAccessRemediation(Uuid TenantId, Uuid CampaignId,
     Uuid ItemId, long ExpectedRevision, string Rationale, DateTimeOffset? ExpiresAt = null)
-    : IRequest<AccessRemediationExceptionView>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessRemediationExceptionView>, IAccessReviewMutationRequest, ICallable;

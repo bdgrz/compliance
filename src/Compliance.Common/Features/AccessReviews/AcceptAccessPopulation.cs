@@ -9,4 +9,4 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 [Discriminator("bdgrz.access_population.accept", 1)]
 public sealed record AcceptAccessPopulation(Uuid TenantId, Uuid PopulationId,
     long ExpectedRevision, string Attestation)
-    : IRequest<AccessPopulationAcceptance>, IAccessReviewRequest, ICallable;
+    : IRequest<AccessPopulationAcceptance>, IAccessReviewMutationRequest, ICallable;
