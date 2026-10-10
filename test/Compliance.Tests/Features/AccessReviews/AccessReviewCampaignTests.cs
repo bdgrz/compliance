@@ -369,6 +369,9 @@ public sealed class AccessReviewCampaignTests
             .When(request).ExpectSuccess()).Value;
         var replay = (await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
             .When(request).ExpectSuccess()).Value;
+        var conflictingRevisionReplay = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request with { ExpectedRevision = request.ExpectedRevision + 1 })
+            .ExpectFailure(RequestErrorKind.Conflict);
         var conflictingReplay = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
             .When(request with { DelegationReason = "Different delegate basis." })
             .ExpectFailure(RequestErrorKind.Conflict);
@@ -390,6 +393,7 @@ public sealed class AccessReviewCampaignTests
         Assert.Equal(fixture.ApproverMemberId, reassignment.PreviousMemberId);
         Assert.Equal(fixture.ReviewerMemberId, reassignment.AssignedMemberId);
         Assert.Equal(reassignment, replay);
+        Assert.Equal(RequestErrorKind.Conflict, conflictingRevisionReplay.Error!.Kind);
         Assert.Equal(RequestErrorKind.Conflict, conflictingReplay.Error!.Kind);
         var state = Assert.Single(reassigned.Items, item => item.Item.ItemId == itemId);
         Assert.Equal(fixture.ApproverMemberId, state.Item.ReviewerMemberId);
@@ -397,6 +401,11 @@ public sealed class AccessReviewCampaignTests
         Assert.Equal(reassignment, Assert.Single(state.ResponsibilityReassignments!));
         Assert.Equal("Appointed a trained member as a delegate for this system.",
             reassignment.DelegationReason);
+        var aggregateReplayWithChangedRevision = aggregate.ReassignResponsibility(itemId,
+            AccessReviewResponsibilityKind.Reviewer, request.ExpectedRevision + 1,
+            reassignment.ReassignmentId, request.AssignedMemberId, request.Reason,
+            reassignment.ReassignedBy, reassignment.ReassignedAt, request.DelegationReason);
+        Assert.Equal(RequestErrorKind.Conflict, aggregateReplayWithChangedRevision.Error?.Kind);
         Assert.Equal(RequestErrorKind.Conflict, staleRevision.Error!.Kind);
         Assert.NotNull(oldReviewerDecision);
     }
