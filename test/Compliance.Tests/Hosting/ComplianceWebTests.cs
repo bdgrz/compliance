@@ -108,6 +108,51 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldMapActualAssignmentRevocationGivenClientAdministrationApiRoute()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var route = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText ==
+                "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/actual-assignments/{staff_member_id}/revocations");
+
+        // Act
+        var methods = route.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods;
+        var authorization = route.Metadata.GetOrderedMetadata<IAuthorizeData>();
+
+        // Assert
+        Assert.Contains("POST", methods ?? []);
+        Assert.Equal("BdgrzApiUser", Assert.Single(authorization).Policy);
+        Assert.Equal(["tenant_id", "engagement_id", "staff_member_id"],
+            route.RoutePattern.Parameters.Select(parameter => parameter.Name));
+    }
+
+    [Fact]
+    public async Task ShouldMapServiceEngagementAcceptanceGivenPersonalHttpEndpoint()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var route = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText ==
+                "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/acceptance" &&
+                endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains("POST") == true);
+
+        // Act
+        var methods = route.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods;
+        var authorization = route.Metadata.GetOrderedMetadata<IAuthorizeData>();
+
+        // Assert
+        Assert.Contains("POST", methods ?? []);
+        Assert.Equal("BdgrzApiUser", Assert.Single(authorization).Policy);
+        Assert.Equal(["tenant_id", "engagement_id"],
+            route.RoutePattern.Parameters.Select(parameter => parameter.Name));
+    }
+
+    [Fact]
     public async Task ShouldRequireDualProofPolicyGivenIdentityLinkEndpoint()
     {
         // Arrange
