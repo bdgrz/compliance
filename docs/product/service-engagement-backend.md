@@ -146,7 +146,12 @@ client program grant when the tenant is active and the existing Program is corre
 it, the current firm-staff identity is active, and the exact accepted advisory assignment remains
 eligible. It uses the ratified rule version frozen in that acceptance, current directory revision,
 and effective UTC time; the general predicate does not grant access to other resources. The
-readiness annotation authorizer also applies the complete retained Attest compartment wall, which
+accepted examination-boundary binding limits this read to that boundary's program. Authorization
+hydrates the tenant's boundary source and matches the exact approved version, draft revision and
+approval decision retained in the acceptance. A missing or mismatched source denies access;
+a later boundary successor preserves the accepted historical version's scope. An acceptance
+without any boundary binding preserves the existing tenant-wide program-read eligibility.
+The readiness annotation authorizer also applies the complete retained Attest compartment wall, which
 continues to block that client's advisory notes after Attest closure or assignment removal.
 
 For that consumer, each authorization hydrates the current engagement, staff directory and

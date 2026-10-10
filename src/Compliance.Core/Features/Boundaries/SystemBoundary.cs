@@ -19,7 +19,7 @@ public sealed class SystemBoundary : Aggregate
     Uuid _acceptedReviewDecisionId;
     string? _latestReviewOutcome;
     Uuid _latestApprovedVersionId;
-    readonly HashSet<Uuid> _approvedVersionIds = [];
+    readonly Dictionary<Uuid, (long Revision, Uuid DecisionId)> _approvedVersions = [];
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
     DateOnly? _latestApprovedEffectiveFrom;
@@ -36,7 +36,11 @@ public sealed class SystemBoundary : Aggregate
     public DateTimeOffset? DraftChangedAt => _draftChangedAt;
     public string? LatestReviewOutcome => _latestReviewOutcome;
     public Uuid LatestApprovedVersionId => _latestApprovedVersionId;
-    public bool IsVersionApproved(Uuid versionId) => _approvedVersionIds.Contains(versionId);
+    public bool IsVersionApproved(Uuid versionId) => _approvedVersions.ContainsKey(versionId);
+
+    public bool IsVersionApproved(Uuid versionId, long revision, Uuid decisionId) =>
+        _approvedVersions.TryGetValue(versionId, out var approval) &&
+        approval.Revision == revision && approval.DecisionId == decisionId;
 
     /// <summary>The initial approved version; any later approval changes the boundary.</summary>
     public Uuid FirstApprovedVersionId { get; private set; }
@@ -97,9 +101,9 @@ public sealed class SystemBoundary : Aggregate
                     ev.DraftVersionId, ev.Revision), ev.ActorMemberId,
                 ResponsibilityType.PolicyApprover, ev.DecidedAt,
                 ev.SeparationOfDutiesWaiverId);
-            if (_approvedVersionIds.Count == 0)
+            if (_approvedVersions.Count == 0)
                 FirstApprovedVersionId = ev.DraftVersionId;
-            _approvedVersionIds.Add(ev.DraftVersionId);
+            _approvedVersions.Add(ev.DraftVersionId, (ev.Revision, ev.ApprovalDecisionId));
             _latestApprovedVersionId = ev.DraftVersionId;
             _latestApprovedEffectiveFrom = ev.EffectiveFrom;
             _draftVersionId = Uuid.Empty;
