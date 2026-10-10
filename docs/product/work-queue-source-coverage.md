@@ -40,9 +40,10 @@ fails with a transient conflict while a required projection is behind.
 `WorkSourceCompositionTests` exercises the production `AddCompliance` registration
 with all 16 accountable readers. It replays retained source events through each
 reader's real transactional store. The mixed evidence, access-review,
-corrective-action and finding-closure scenario proves source decisions and
-cancellation remove work after catch-up, updates the counts, and keeps visible
-details/search aligned. A second scenario seeds every registered production kind
+corrective-action and finding-closure scenario verifies initial item/detail/search
+agreement. After campaign decisions and evidence cancellation, it verifies
+per-source lag conflicts, updated lists and counts, and 404s for removed items.
+A second scenario seeds every registered production kind
 and reconciles list, detail, search, action metadata, and all four counts across
 the resulting 30-item queue. It cancels a source, verifies a transient conflict
 while projection is behind, then verifies catch-up removes the item from list and
