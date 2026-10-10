@@ -40,6 +40,13 @@ public sealed partial class ApplicationImportLedger
     public Result BeginAcceptance(ImportBatch batch, long expectedRevision,
         IReadOnlyDictionary<Uuid, DeclaredApplication> targets, Uuid approverMemberId,
         string approverDisplay, DateTimeOffset startedAt)
+        => BeginAcceptance(batch, expectedRevision, targets, approverMemberId,
+            approverDisplay, startedAt, null);
+
+    public Result BeginAcceptance(ImportBatch batch, long expectedRevision,
+        IReadOnlyDictionary<Uuid, DeclaredApplication> targets, Uuid approverMemberId,
+        string approverDisplay, DateTimeOffset startedAt,
+        IReadOnlyDictionary<Uuid, ApplicationChangePreview>? retirementImpacts)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(batch);
@@ -55,16 +62,20 @@ public sealed partial class ApplicationImportLedger
         if (_acceptingBatchId is not null)
             return Result.Failure(new RequestError(RequestErrorKind.Conflict,
                 "Another batch is accepting for this source.", isTransient: true));
-        var prepared = PrepareAcceptancePlan(batch, expectedRevision);
+        var prepared = PrepareAcceptancePlan(batch, expectedRevision, retirementImpacts);
         if (!prepared.IsSuccess)
             return Result.Failure(prepared.Error);
-        foreach (var row in prepared.Value.Where(row => row.Decision == "link_existing"))
+        foreach (var row in prepared.Value.Where(row => row.Decision is "link_existing" or "retire"))
         {
             if (!targets.TryGetValue(row.ApplicationId, out var target) || !target.IsCreated ||
                 target.Id != row.ApplicationId || target.Stream.Realm != _tenantId.ToString())
                 return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The linked application was not found."));
+            if (row.Decision == "retire" && target.CheckPendingImportChanges() is { } unsettled)
+                return Result.Failure(unsettled);
             if (target.IsRetired)
-                return Result.Failure(new RequestError(RequestErrorKind.Conflict, "The linked application is retired."));
+                return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                    row.Decision == "retire" ? "The retirement target is already retired." :
+                        "The linked application is retired."));
             if (target.Revision != row.ExpectedApplicationRevision)
                 return Result.Failure(VersionedRecordRules.StaleRevision("application", target.Revision).ToRequestError());
         }
@@ -91,7 +102,8 @@ public sealed partial class ApplicationImportLedger
         {
             if (ev.TenantId != _tenantId || ev.SourceKey != _sourceKey || ev.SourceNamespace != _sourceNamespace ||
                 _acceptingBatchId is not null || _planStarts.ContainsKey(ev.BatchId) || _canceledRevisions.ContainsKey(ev.BatchId) ||
-                ev.Revision != _revisions.GetValueOrDefault(ev.BatchId, 1) + 1 || ev.RowCount is < 1 or > 200)
+                ev.Revision != _revisions.GetValueOrDefault(ev.BatchId, 1) + 1 ||
+                ev.RowCount is < 1 or > MaximumCommitEffectRows)
                 throw new InvalidOperationException("The import plan does not belong to an available source.");
             _acceptingBatchId = ev.BatchId;
             _planStarts.Add(ev.BatchId, ev);
@@ -104,6 +116,11 @@ public sealed partial class ApplicationImportLedger
                 !_planRows.TryGetValue(ev.BatchId, out var rows) || _frozenPlans.ContainsKey(ev.BatchId) ||
                 rows.Count >= _planStarts[ev.BatchId].RowCount || ev.Revision != _revisions[ev.BatchId] + 1 ||
                 rows.Any(row => row.RowId == ev.Row.RowId || row.SourceRecordId == ev.Row.SourceRecordId) ||
+                (ev.Row.Decision == "retire" && !MatchesRetirementProposal(ev.BatchId,
+                    _planStarts[ev.BatchId], ev.Row)) ||
+                (ev.Row.Decision != "retire" && (ev.Row.RetirementSourceClaimId is not null ||
+                    ev.Row.RetirementProposalSha256 is not null || ev.Row.RetirementImpactDigest is not null ||
+                    ev.Row.RetirementReason is not null)) ||
                 ConflictsWithRecordedClaim(ev.Row))
                 throw new InvalidOperationException("The frozen import row does not belong to its plan.");
             rows.Add(ev.Row);
@@ -125,4 +142,17 @@ public sealed partial class ApplicationImportLedger
     static string Hash(IReadOnlyList<ApplicationImportPlannedRow> rows) =>
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(rows,
             ComplianceCoreJsonContext.Default.IReadOnlyListApplicationImportPlannedRow)));
+
+    bool MatchesRetirementProposal(Uuid batchId, ApplicationImportPlanStarted plan,
+        ApplicationImportPlannedRow row)
+    {
+        if (!ApplicationImportRetirementImpact.IsValidFrozenRow(plan, row) ||
+            !_retirementProposals.TryGetValue(batchId, out var proposal) ||
+            proposal.ProposalSha256 != row.RetirementProposalSha256 ||
+            proposal.Start.Reason != row.RetirementReason)
+            return false;
+        return proposal.Rows.Any(retirement => retirement.SourceClaimId == row.RetirementSourceClaimId &&
+            retirement.SourceRecordId == row.SourceRecordId && retirement.ApplicationId == row.ApplicationId &&
+            retirement.ExpectedApplicationRevision == row.ExpectedApplicationRevision);
+    }
 }

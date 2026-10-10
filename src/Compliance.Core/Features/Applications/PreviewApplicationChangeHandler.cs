@@ -12,12 +12,13 @@ public sealed class PreviewApplicationChangeHandler(
     RestrictedApplicationVisibility visibility,
     SystemInstanceReadConsistency instanceConsistency)
     : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>,
-      IApplicationChangeImpactReader
+      IApplicationChangeImpactReader, IApplicationImportRetirementImpactReader
 {
     static readonly string[] MissingContexts =
         ["application_relationships", "vendors", "approved_control_versions_and_lifecycle_impact",
             "system_instance_control_draft_references", "policies", "evidence_sources", "access_populations",
-            "review_campaigns", "open_work", "readiness", "engagements"];
+            "review_campaigns", "open_work", "readiness", "engagements",
+            "cross_source_manual_reliance"];
 
     public async ValueTask<Result<ApplicationChangePreview>> HandleAsync(
         IRequestContext<PreviewApplicationChange> context, CancellationToken ct)
@@ -31,6 +32,15 @@ public sealed class PreviewApplicationChangeHandler(
 
     public async ValueTask<Result<ApplicationChangePreview>> ReadAsync(
         PreviewApplicationChange request, Uuid userId, CancellationToken ct)
+        => await ReadCoreAsync(request, userId, requireActorVisibility: true, ct).ConfigureAwait(false);
+
+    public ValueTask<Result<ApplicationChangePreview>> ReadForImportWorkerAsync(
+        PreviewApplicationChange request, CancellationToken ct) =>
+        ReadCoreAsync(request, Uuid.Empty, requireActorVisibility: false, ct);
+
+    async ValueTask<Result<ApplicationChangePreview>> ReadCoreAsync(
+        PreviewApplicationChange request, Uuid userId, bool requireActorVisibility,
+        CancellationToken ct)
     {
         var inputError = Validate(request);
         if (inputError is not null)
@@ -40,7 +50,7 @@ public sealed class PreviewApplicationChangeHandler(
         if (!source.IsCreated)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
-        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+        if (requireActorVisibility && !await visibility.CanReadApplicationAsync(request.TenantId, userId,
                 request.ApplicationId, ct).ConfigureAwait(false))
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));

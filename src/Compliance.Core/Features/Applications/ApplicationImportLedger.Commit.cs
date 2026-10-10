@@ -29,6 +29,11 @@ public sealed partial class ApplicationImportLedger
 
     public Result Commit(ImportBatch batch, long expectedRevision,
         IReadOnlyDictionary<Uuid, DeclaredApplication> targets, DateTimeOffset committedAt)
+        => Commit(batch, expectedRevision, targets, committedAt, null);
+
+    public Result Commit(ImportBatch batch, long expectedRevision,
+        IReadOnlyDictionary<Uuid, DeclaredApplication> targets, DateTimeOffset committedAt,
+        IReadOnlyDictionary<Uuid, ApplicationChangePreview>? retirementImpacts)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(targets);
@@ -37,7 +42,7 @@ public sealed partial class ApplicationImportLedger
         if (_commits.TryGetValue(batch.Id, out var existing))
             return expectedRevision == existing.Revision || expectedRevision == existing.Revision - 1 ? Result.Success :
                 Result.Failure(VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());
-        var verified = VerifyPendingEffects(batch, expectedRevision, targets);
+        var verified = VerifyPendingEffects(batch, expectedRevision, targets, retirementImpacts);
         if (!verified.IsSuccess)
             return Result.Failure(verified.Error);
         var plan = _frozenPlans[batch.Id];

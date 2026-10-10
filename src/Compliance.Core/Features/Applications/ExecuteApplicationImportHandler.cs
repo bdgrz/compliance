@@ -3,7 +3,8 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.Applications;
 
 public sealed class ExecuteApplicationImportHandler(IAggregateExecutor executor,
-    IAggregateReader reader, ITenantActivity tenants, TimeProvider clock, IRequestBus bus) : IRequestHandler<ExecuteApplicationImport>
+    IAggregateReader reader, ITenantActivity tenants, TimeProvider clock, IRequestBus bus,
+    IApplicationImportRetirementImpactReader? retirementImpactReader = null) : IRequestHandler<ExecuteApplicationImport>
 {
     public async ValueTask<Result> HandleAsync(IRequestContext<ExecuteApplicationImport> context, CancellationToken ct)
     {
@@ -39,9 +40,22 @@ public sealed class ExecuteApplicationImportHandler(IAggregateExecutor executor,
         var targets = new Dictionary<Uuid, DeclaredApplication>();
         foreach (var id in plan.Rows.Select(row => row.ApplicationId).Distinct())
             targets.Add(id, await reader.HydrateApplicationAsync(request.TenantId, id, ct).ConfigureAwait(false));
+        var retirementImpacts = new Dictionary<Uuid, ApplicationChangePreview>();
+        foreach (var row in plan.Rows.Where(row => row.Decision == "retire"))
+        {
+            if (retirementImpactReader is null || row.ExpectedApplicationRevision is not { } revision)
+                return RetirementImpactUnavailable();
+            var impact = await retirementImpactReader.ReadForImportWorkerAsync(new PreviewApplicationChange(
+                request.TenantId, row.ApplicationId, revision, "retire"), ct).ConfigureAwait(false);
+            if (!impact.IsSuccess || !ApplicationImportRetirementImpact.MatchesFrozen(
+                    impact.Value, request.TenantId, row))
+                return RetirementImpactUnavailable();
+            retirementImpacts.Add(row.ApplicationId, impact.Value);
+        }
         var committed = await executor.ExecuteAsync(new ApplicationImportLedger(request.TenantId, key, space), ledger =>
             ledger.GetState(batch) is "canceled" or "committed" or "failed" ? AggregateOutcome.CommitOnSuccess(Result.Success) :
-                AggregateOutcome.CommitOnSuccess(ledger.Commit(batch, ledger.GetRevision(batch), targets, clock.GetUtcNow())),
+                AggregateOutcome.CommitOnSuccess(ledger.Commit(batch, ledger.GetRevision(batch), targets,
+                    clock.GetUtcNow(), retirementImpacts)),
             context, ct).ConfigureAwait(false);
         return committed.IsSuccess || committed.Error.IsTransient ? committed :
             await FailAsync(null, "commit_verification_rejected").ConfigureAwait(false);
@@ -50,4 +64,7 @@ public sealed class ExecuteApplicationImportHandler(IAggregateExecutor executor,
             new ApplicationImportLedger(request.TenantId, key, space), ledger => AggregateOutcome.CommitOnSuccess(
                 ledger.Fail(batch, plan.PlanSha256, rowId, code, clock.GetUtcNow())), context, ct);
     }
+
+    static Result RetirementImpactUnavailable() => Result.Failure(new RequestError(RequestErrorKind.Conflict,
+        "Current complete retirement impact is unavailable; the import remains pending.", isTransient: true));
 }

@@ -42,6 +42,37 @@ public sealed class ApplicationImportOmissionConsumerTests
         Assert.False(ledger.PrepareAcceptancePlan(batch, read.Value.Revision).IsSuccess);
     }
 
+    [Fact]
+    public async Task ShouldKeepAcceptancePendingGivenProductionImpactContextsAreUnresolved()
+    {
+        // Arrange
+        await using var fixture = new ApplicationImportCompositionTests.Fixture();
+        var (batchId, _, applicationId) = await fixture.SeedAsync();
+        var preview = await fixture.Bus.SendAsync(new PreviewApplicationImportOmissionProposal(
+            fixture.Tenant, batchId), fixture.Actor);
+        Assert.True(preview.IsSuccess, preview.Error?.Message);
+        Assert.True((await SendAsync(fixture, Freeze(preview.Value), "http")).IsSuccess);
+        var proposal = await fixture.Bus.SendAsync(new GetApplicationImportOmissionProposal(
+            fixture.Tenant, batchId), fixture.Actor);
+        Assert.True(proposal.IsSuccess, proposal.Error?.Message);
+        var before = await LedgerAsync(fixture);
+
+        // Act
+        var result = await SendAsync(fixture, new AcceptApplicationImport(fixture.Tenant,
+            batchId, proposal.Value.Revision), "http");
+        var after = await LedgerAsync(fixture);
+        var target = await fixture.Reader.HydrateApplicationAsync(fixture.Tenant, applicationId,
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
+        Assert.Contains("complete current impact", result.Error!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(before.CommittedStreamPosition, after.CommittedStreamPosition);
+        Assert.Null(after.GetFrozenPlan(batchId));
+        Assert.False(target.IsRetired);
+        Assert.Equal(1, target.Revision);
+    }
+
     [Theory]
     [InlineData("direct")]
     [InlineData("mcp")]
