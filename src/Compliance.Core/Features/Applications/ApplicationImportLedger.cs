@@ -7,6 +7,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 /// <summary>The post-staging lifecycle for one tenant-declared application source.</summary>
 public sealed partial class ApplicationImportLedger : Aggregate
 {
+    internal const int MaximumCommitEffectRows = 200;
+
     readonly Uuid _tenantId;
     readonly string _sourceKey;
     readonly string _sourceNamespace;
@@ -54,6 +56,10 @@ public sealed partial class ApplicationImportLedger : Aggregate
 
     public Result<IReadOnlyList<ApplicationImportPlannedRow>> PrepareAcceptancePlan(ImportBatch batch,
         long expectedRevision)
+        => PrepareAcceptancePlan(batch, expectedRevision, null);
+
+    public Result<IReadOnlyList<ApplicationImportPlannedRow>> PrepareAcceptancePlan(ImportBatch batch,
+        long expectedRevision, IReadOnlyDictionary<Uuid, ApplicationChangePreview>? retirementImpacts)
     {
         ArgumentNullException.ThrowIfNull(batch);
         if (!BelongsToSource(batch))
@@ -69,9 +75,42 @@ public sealed partial class ApplicationImportLedger : Aggregate
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
                 RequestErrorKind.Conflict, "The source commit must be durable before planning another batch.", isTransient: true));
         var missing = GetMissingSourceClaims(batch);
-        if (missing.IsSuccess && missing.Value.Count > 0)
+        if (!missing.IsSuccess)
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(missing.Error);
+        var retirementRows = new List<ApplicationImportPlannedRow>();
+        if (missing.Value.Count > 0)
+        {
+            var proposal = GetRetirementProposal(batch);
+            if (batch.Coverage != "declared_complete" || proposal is null ||
+                proposal.Rows.Count != missing.Value.Count || retirementImpacts is null ||
+                retirementImpacts.Count != proposal.Rows.Count)
+                return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                    RequestErrorKind.Conflict,
+                    "Missing source claims require a current sealed retirement proposal and complete impact evidence."));
+            foreach (var retirement in proposal.Rows)
+            {
+                if (!retirementImpacts.TryGetValue(retirement.ApplicationId, out var impact) ||
+                    !ApplicationImportRetirementImpact.IsUsable(impact, _tenantId, retirement))
+                    return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                        RequestErrorKind.Conflict,
+                        "Retirement requires complete current impact evidence with no known dependent records."));
+                retirementRows.Add(new ApplicationImportPlannedRow(
+                    Uuid.CreateVersion5(batch.Id, $"application_import_retirement:{retirement.SourceClaimId}"),
+                    retirement.SourceRecordId, "retire", retirement.ApplicationId,
+                    retirement.ExpectedApplicationRevision, string.Empty, string.Empty, null)
+                {
+                    RetirementSourceClaimId = retirement.SourceClaimId,
+                    RetirementProposalSha256 = proposal.ProposalSha256,
+                    RetirementImpactDigest = impact.ImpactDigest,
+                    RetirementReason = proposal.Start.Reason,
+                });
+            }
+        }
+        else if (retirementImpacts is { Count: > 0 })
+        {
             return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
-                RequestErrorKind.Conflict, "Missing source claims require a governed retirement plan before acceptance."));
+                RequestErrorKind.Conflict, "Retirement impact evidence does not match this source snapshot."));
+        }
         var claims = GetSourceClaims().ToDictionary(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal);
         var planned = new List<ApplicationImportPlannedRow>();
         foreach (var row in batch.GetRows())
@@ -89,6 +128,10 @@ public sealed partial class ApplicationImportLedger : Aggregate
                 targetId, choice is not null ? choice.ExpectedApplicationRevision : claim!.Observation.ExpectedApplicationRevision ?? 1,
                 row.Name!, row.Purpose!, row.OwnerReference));
         }
+        planned.AddRange(retirementRows);
+        if (planned.Count > MaximumCommitEffectRows)
+            return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Failure(new RequestError(
+                RequestErrorKind.Validation, $"A combined import plan cannot exceed {MaximumCommitEffectRows} committed effects."));
         return Result<IReadOnlyList<ApplicationImportPlannedRow>>.Success(planned.AsReadOnly());
     }
 

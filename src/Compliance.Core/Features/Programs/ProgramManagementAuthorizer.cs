@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Criteria;
+using Bdgrz.Compliance.Features.Readiness;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Programs;
@@ -8,7 +9,8 @@ namespace Bdgrz.Compliance.Features.Programs;
 sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader memberships,
     ITenantActivity tenants,
     IAccessGrantPermissionAuthorizer scopedPermissions,
-    IProgramResourceScopeResolver resourceScopes)
+    IProgramResourceScopeResolver resourceScopes,
+    ProfessionalAdvisoryReadAccess? professionalAdvisoryRead = null)
     : IRequestAuthorizer<IProgramManagementRequest>
 {
     public async ValueTask<Result> AuthorizeAsync(IRequestContext<IProgramManagementRequest> context,
@@ -18,6 +20,11 @@ sealed class ProgramManagementAuthorizer(ITenantMembershipDirectoryReader member
             return Result.Failure(new RequestError(RequestErrorKind.Unauthorized,
                 "Program administration requires a Bdgrz user identity."));
         var tenantId = context.Request.TenantId;
+        if (context.Request is ListReadinessAnnotations annotations && professionalAdvisoryRead is not null &&
+            await professionalAdvisoryRead.CanReadAsync(tenantId, annotations.ProgramId, userId, ct)
+                .ConfigureAwait(false))
+            return Result.Success;
+
         var membership = await memberships.GetAsync(tenantId.ToString(), userId, ct).ConfigureAwait(false);
         if (membership is null || membership.IsSuspended || membership.IsDeprovisioned)
             return Result.Failure(new RequestError(RequestErrorKind.NotFound, "The tenant was not found."));

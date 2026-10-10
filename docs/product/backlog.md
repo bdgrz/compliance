@@ -3567,6 +3567,11 @@ Acceptance criteria:
 - Bulk decisions require preview and shared rationale.
 - The launched population, reviewers, instructions, and deadline are frozen.
 
+Campaign queue placement follows the [#646 decision
+record](decisions/r2-access-review-campaign-routing.md); implementation and
+[#284](https://github.com/bdgrz/compliance/issues/284) queue acceptance remain
+pending.
+
 Not in this slice:
 
 - Remediation and verification (R2-06e).

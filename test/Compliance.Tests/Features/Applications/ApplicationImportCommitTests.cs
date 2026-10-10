@@ -3,11 +3,38 @@ using Bdgrz.Compliance.Features.AccessReviews;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
 using Cntryl.Fitz.Testing;
+using System.Text.Json;
 
 namespace Bdgrz.Compliance.Tests.Features.Applications;
 
 public sealed class ApplicationImportCommitTests
 {
+    [Fact]
+    public void ShouldCommitMaximumProofRowsGivenDurableExactEffects()
+    {
+        // Arrange
+        var (tenant, batch, _, ledger, targets, now) = Prepare(rowCount: ApplicationImportLedger.MaximumCommitEffectRows);
+
+        // Act
+        var result = ledger.Commit(batch, ledger.GetRevision(batch), targets, now);
+        var marker = ledger.GetCommit(batch.Id);
+        var worstCase = marker! with
+        {
+            Effects = Enumerable.Range(0, ApplicationImportLedger.MaximumCommitEffectRows)
+                .Select(index => new ApplicationImportEffectProof(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                    Uuid.CreateVersion4(), ulong.MaxValue)).ToArray(),
+        };
+        var worstCaseBytes = JsonSerializer.SerializeToUtf8Bytes(worstCase,
+            ComplianceCoreJsonContext.Default.ApplicationImportCommitted);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ApplicationImportLedger.MaximumCommitEffectRows, marker!.Effects.Count);
+        Assert.Equal(tenant, marker.TenantId);
+        Assert.True(worstCaseBytes.Length <= ImportBatch.MaximumStagedPayloadBytes,
+            $"Worst-case {ApplicationImportLedger.MaximumCommitEffectRows}-proof marker was {worstCaseBytes.Length} bytes.");
+    }
+
     [Fact]
     public void ShouldCommitWholePlanGivenDurableExactEffects()
     {
@@ -442,14 +469,16 @@ public sealed class ApplicationImportCommitTests
     }
 
     static (Uuid Tenant, ImportBatch Batch, ApplicationImportLedger Planned, ApplicationImportLedger Ledger,
-        Dictionary<Uuid, DeclaredApplication> Targets, DateTimeOffset Now) Prepare(Uuid? tenantId = null, bool padded = false)
+        Dictionary<Uuid, DeclaredApplication> Targets, DateTimeOffset Now) Prepare(Uuid? tenantId = null,
+        bool padded = false, int rowCount = 2)
     {
         var tenant = tenantId ?? Uuid.CreateVersion4();
         var actor = Uuid.CreateVersion4();
         var now = DateTimeOffset.UtcNow;
-        var request = new StageApplicationImport(tenant, Uuid.CreateVersion4(), "manual", "applications", "partial",
-            [new("app-1", padded ? " Payroll " : "Payroll", padded ? " Pay staff " : "Pay staff", null),
-                new("app-2", "CRM", "Manage customers", null)]);
+        var rows = Enumerable.Range(1, rowCount).Select(index => new ApplicationImportInputRow(
+            $"app-{index}", index == 1 && padded ? " Payroll " : $"Application {index}",
+            index == 1 && padded ? " Pay staff " : $"Purpose {index}", null)).ToArray();
+        var request = new StageApplicationImport(tenant, Uuid.CreateVersion4(), "manual", "applications", "partial", rows);
         var staged = new ImportBatch(tenant, ImportBatch.BatchIdFor(request));
         Assert.True(staged.Stage(request, actor, "Contributor", now).IsSuccess);
         var batch = new ImportBatch(tenant, staged.Id);
@@ -458,7 +487,8 @@ public sealed class ApplicationImportCommitTests
         foreach (var row in batch.GetRows())
             Assert.Null(planned.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id, row.RowId,
                 planned.GetRevision(batch), "create_new", null, null, "Reviewed"), null, actor, "Lead", now));
-        Assert.True(planned.BeginAcceptance(batch, 3, new Dictionary<Uuid, DeclaredApplication>(), actor, "Lead", now).IsSuccess);
+        Assert.True(planned.BeginAcceptance(batch, planned.GetRevision(batch),
+            new Dictionary<Uuid, DeclaredApplication>(), actor, "Lead", now).IsSuccess);
         var ledger = new ApplicationImportLedger(tenant, "manual", "applications");
         _ = new AggregateScenario<ApplicationImportLedger>(ledger).Given(new AggregateScenario<ApplicationImportLedger>(planned).PendingEvents.ToArray());
         var targets = new Dictionary<Uuid, DeclaredApplication>();

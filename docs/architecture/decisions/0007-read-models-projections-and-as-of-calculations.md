@@ -54,6 +54,26 @@ A read spanning multiple projections must check each required projection
 revision or use an immutable snapshot; one projector's counter does not prove
 that another projection or the whole tenant is current.
 
+The program work queue follows this per-source rule. Its accountable readers
+capture their own tenant source patterns and projection checkpoints, and the
+queue confirms those checkpoints around enumeration before returning list,
+search, count, detail, or assignment results. Access-review campaign work has
+its own tenant-scoped Fitz projection and checkpoint; the retained campaign
+stream remains authoritative for decisions, remediation, and audited
+responsibility changes, including the delegation basis for a replacement
+reviewer. Its queue projection stores only fields needed to identify and present
+pending work, current responsibility, restricted system scope, and source
+lifecycle state; it does not copy the frozen population, access paths, decision
+rationales, provider details, or verification evidence. A self-review candidate
+can remain visible to authorized oversight with a waiver-required signal, while
+ordinary queue action eligibility stays false and only the source command may
+accept an exact-scope waiver. A queue candidate, action path, or generic queue
+assignment grants no source-command permission. Actor-specific restricted
+visibility and current source eligibility are evaluated on each read. This
+fence detects lag and source movement during a read but does not create one
+atomic snapshot across source streams, nor prevent an ordinary write after the
+final confirmation.
+
 An authorized read may be eventually consistent only when its contract does
 not promise a source revision. A read that accepts an explicit source revision
 anchor returns a transient conflict if the source has not reached that revision
@@ -163,6 +183,17 @@ authorized HTTP/MCP transient results, outsider non-disclosure, and recovery
 after a worker restart. `ProgramRecoveryE2ETests` compares setup work before
 and after source restoration and replays both Program and Boundary projections
 in standalone and split hosts.
+
+For the program work queue, `FitzAccessReviewCampaignWorkItemDirectoryTests`
+proves separate stable review and remediation identities, event replay without
+duplicate projection revisions, campaign lifecycle changes, exception expiry,
+independent population verification, and audited responsibility reassignment.
+`AccessReviewWorkQueueVisibilityTests` covers current restricted visibility and
+orphaned responsibility, while `WorkSourceCompositionTests` exercises the
+registered campaign source alongside other work sources and proves transient
+conflict before campaign-source catch-up plus count, search, detail, and source
+action reconciliation. These checks establish per-source freshness and
+authorization behavior; they do not claim a global immutable queue snapshot.
 
 [PR #321](https://github.com/bdgrz/compliance/pull/321) adds separate retained-
 source recovery evidence: a fresh broker and fresh hosts restore Program source

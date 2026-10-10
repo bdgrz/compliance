@@ -108,6 +108,87 @@ public sealed class ComplianceWebTests
     }
 
     [Fact]
+    public async Task ShouldMapActualAssignmentRevocationGivenClientAdministrationApiRoute()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var route = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText ==
+                "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/actual-assignments/{staff_member_id}/revocations");
+
+        // Act
+        var methods = route.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods;
+        var authorization = route.Metadata.GetOrderedMetadata<IAuthorizeData>();
+
+        // Assert
+        Assert.Contains("POST", methods ?? []);
+        Assert.Equal("BdgrzApiUser", Assert.Single(authorization).Policy);
+        Assert.Equal(["tenant_id", "engagement_id", "staff_member_id"],
+            route.RoutePattern.Parameters.Select(parameter => parameter.Name));
+    }
+
+    [Fact]
+    public async Task ShouldMapServiceEngagementAcceptanceGivenPersonalHttpEndpoint()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var route = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.RoutePattern.RawText ==
+                "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/acceptance" &&
+                endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.Contains("POST") == true);
+
+        // Act
+        var methods = route.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods;
+        var authorization = route.Metadata.GetOrderedMetadata<IAuthorizeData>();
+
+        // Assert
+        Assert.Contains("POST", methods ?? []);
+        Assert.Equal("BdgrzApiUser", Assert.Single(authorization).Policy);
+        Assert.Equal(["tenant_id", "engagement_id"],
+            route.RoutePattern.Parameters.Select(parameter => parameter.Name));
+    }
+
+    [Fact]
+    public async Task ShouldMapApplicationRelationshipAndHttpOnlyApprovalEndpointsGivenApplicationApi()
+    {
+        // Arrange
+        await using var factory = CreateBrokerFreeFactory("Development");
+        using var client = factory.CreateClient();
+        var expectedMethods = new Dictionary<string, string[]>
+        {
+            ["/api/v1/tenants/{tenant_id}/applications/{source_application_id}/relationships"] =
+                ["POST"],
+            ["/api/v1/tenants/{tenant_id}/applications/{source_application_id}/relationships/{relationship_type}/{target_application_id}"] =
+                ["DELETE"],
+            ["/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships"] =
+                ["GET"],
+            ["/api/v1/tenants/{tenant_id}/applications/{predecessor_application_id}/successors/{successor_application_id}/approval"] =
+                ["POST"],
+        };
+
+        // Act
+        var endpoints = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => expectedMethods.ContainsKey(endpoint.RoutePattern.RawText ?? ""))
+            .ToDictionary(endpoint => endpoint.RoutePattern.RawText!);
+
+        // Assert
+        Assert.Equal(expectedMethods.Keys.OrderBy(static path => path, StringComparer.Ordinal),
+            endpoints.Keys.OrderBy(static path => path, StringComparer.Ordinal));
+        foreach (var (path, methods) in expectedMethods)
+        {
+            var endpoint = endpoints[path];
+            Assert.Equal(methods, endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods);
+            Assert.Equal("BdgrzApiUser",
+                Assert.Single(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()).Policy);
+        }
+    }
+
+    [Fact]
     public async Task ShouldRequireDualProofPolicyGivenIdentityLinkEndpoint()
     {
         // Arrange

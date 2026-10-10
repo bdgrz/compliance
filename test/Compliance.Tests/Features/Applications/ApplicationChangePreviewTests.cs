@@ -27,7 +27,9 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             references, new ApplicationBoundaryReferenceReadConsistency(references, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -90,7 +92,9 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -108,6 +112,7 @@ public sealed class ApplicationChangePreviewTests
             item => item.SubjectType == "system_instance");
         Assert.Contains("approved_control_versions_and_lifecycle_impact",
             result.Value.PendingContexts);
+        Assert.Contains("application_relationships", result.Value.PendingContexts);
         Assert.Contains("system_instance_control_draft_references", result.Value.PendingContexts);
         Assert.DoesNotContain("controls", result.Value.PendingContexts);
         Assert.False(result.Value.Complete);
@@ -146,7 +151,9 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             references, new ApplicationBoundaryReferenceReadConsistency(references, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
         var request = new RequestContext<PreviewApplicationChange>(
             new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
             new ClaimsPrincipal());
@@ -200,7 +207,9 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events),
             controls, new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -239,7 +248,9 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -285,7 +296,52 @@ public sealed class ApplicationChangePreviewTests
         var handler = new PreviewApplicationChangeHandler(new SourceReader(source), applications,
             boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
+            new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
+            new ClaimsPrincipal()), CancellationToken.None);
+
+        // Assert
+        var error = Assert.IsType<RequestError>(result.Error);
+        Assert.Equal(RequestErrorKind.Conflict, error.Kind);
+        Assert.True(error.IsTransient);
+    }
+
+    [Fact]
+    public async Task ShouldReturnTransientConflictGivenSystemInstanceSourceChangesDuringPreviewRead()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var instanceId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var source = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(source.Declare("Payroll", "Run payroll", null, actorId, "Manager", now)
+            .IsSuccess);
+        var projected = new FitzApplicationDirectory(new InMemoryKvClient());
+        await ProjectApplicationAsync(projected, tenantId, new ApplicationDeclared(
+            tenantId, applicationId, "Payroll", "Run payroll", null, actorId, "Manager", now));
+        var events = new InMemoryEventStore();
+        DomainEvent arriving = new SystemInstanceRegistered(tenantId, applicationId, instanceId,
+            1, "Production", "production", null, null, actorId, "Manager", now);
+        arriving.AttachMetadata(new DomainEventMetadata(Uuid.CreateVersion4(), instanceId, 1, now));
+        var applications = new InterleavingApplicationDirectory(projected, ct =>
+            events.AppendAsync(new EventStreamAddress(tenantId.ToString(), "system-instances",
+                instanceId.ToString()), 0, [arriving], ct));
+        var boundaries = new FitzApplicationBoundaryReferenceDirectory(new InMemoryKvClient());
+        var controls = new FitzApplicationControlDraftReferenceDirectory(new InMemoryKvClient());
+        var sourceReader = new SourceReader(source);
+        var handler = new PreviewApplicationChangeHandler(sourceReader, applications,
+            boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events),
+            controls, new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(sourceReader),
+            new SystemInstanceReadConsistency(applications, sourceReader,
+                new LegacySystemInstanceSource(applications, events), events));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -333,7 +389,10 @@ public sealed class ApplicationChangePreviewTests
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, new InMemoryEventStore()), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, new InMemoryEventStore()),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, new InMemoryEventStore()),
+                new InMemoryEventStore()));
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
@@ -374,7 +433,9 @@ public sealed class ApplicationChangePreviewTests
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
         var request = new PreviewApplicationChange(tenantId, applicationId, 1, "retire");
 
         // Act
@@ -439,7 +500,9 @@ public sealed class ApplicationChangePreviewTests
             applications, references, new ApplicationBoundaryReferenceReadConsistency(
                 references, events), controls,
             new ApplicationControlDraftReferenceReadConsistency(controls, events),
-            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)));
+            RestrictedApplicationVisibilityFixture.Create(new SourceReader(source)),
+            new SystemInstanceReadConsistency(applications, new SourceReader(source),
+                new LegacySystemInstanceSource(applications, events), events));
         var request = new RequestContext<PreviewApplicationChange>(
             new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
             new ClaimsPrincipal());
@@ -501,6 +564,39 @@ public sealed class ApplicationChangePreviewTests
 
         public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
             CancellationToken ct = default) => ValueTask.FromResult(ProjectionCheckpoint.Start);
+    }
+
+    sealed class InterleavingApplicationDirectory(IApplicationDirectoryReader inner,
+        Func<CancellationToken, ValueTask> onListInstancesAsync) : IApplicationDirectoryReader
+    {
+        public ValueTask<ProjectionCheckpoint> LoadCheckpointAsync(Uuid tenantId,
+            CancellationToken ct = default) => inner.LoadCheckpointAsync(tenantId, ct);
+
+        public ValueTask<ApplicationView?> GetAsync(Uuid tenantId, Uuid applicationId,
+            CancellationToken ct = default) => inner.GetAsync(tenantId, applicationId, ct);
+
+        public ValueTask<Page<ApplicationView>> ListAsync(Uuid tenantId, int limit,
+            string? cursor, CancellationToken ct = default) =>
+            inner.ListAsync(tenantId, limit, cursor, ct);
+
+        public ValueTask<ApplicationRevisionView?> GetRevisionAsync(Uuid tenantId,
+            Uuid applicationId, long revision, CancellationToken ct = default) =>
+            inner.GetRevisionAsync(tenantId, applicationId, revision, ct);
+
+        public ValueTask<Page<ApplicationRevisionView>?> ListRevisionsAsync(Uuid tenantId,
+            Uuid applicationId, int limit, string? cursor, CancellationToken ct = default) =>
+            inner.ListRevisionsAsync(tenantId, applicationId, limit, cursor, ct);
+
+        public ValueTask<SystemInstanceView?> GetInstanceAsync(Uuid tenantId, Uuid instanceId,
+            CancellationToken ct = default) => inner.GetInstanceAsync(tenantId, instanceId, ct);
+
+        public async ValueTask<Page<SystemInstanceView>> ListInstancesAsync(Uuid tenantId,
+            Uuid applicationId, int limit, string? cursor, CancellationToken ct = default)
+        {
+            await onListInstancesAsync(ct).ConfigureAwait(false);
+            return await inner.ListInstancesAsync(tenantId, applicationId, limit, cursor, ct)
+                .ConfigureAwait(false);
+        }
     }
 
     sealed class SourceReader(Aggregate source) : IAggregateReader

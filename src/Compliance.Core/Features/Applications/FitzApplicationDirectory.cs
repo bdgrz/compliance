@@ -112,7 +112,8 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
                     LastChangedBy = retired.Actor,
                     Lifecycle = "retired",
                     Retirement = new RetirementView(retired.EffectiveAt, retired.Reason,
-                        retired.MergedIntoApplicationId),
+                        retired.MergedIntoApplicationId,
+                        retired.MergedIntoApplicationRevision),
                 };
                 await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction, active,
                     retiredView, ct).ConfigureAwait(false);

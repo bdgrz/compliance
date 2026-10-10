@@ -135,7 +135,8 @@ public sealed partial class ApplicationImportLedger
         var claims = _commits.Values.OrderBy(marker => _commitVersions[marker.BatchId])
             .SelectMany(marker => _frozenPlans[marker.BatchId].Rows.Select(row =>
                 new ApplicationImportSourceClaim(_frozenPlans[marker.BatchId].Start, row, marker.CommittedAt)))
-            .GroupBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal).Select(group => group.Last()).ToArray();
+            .GroupBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal)
+            .Select(group => group.Last()).Where(claim => claim.Observation.Decision != "retire").ToArray();
         var missing = claims.Where(claim => !start.PresentSourceRecordIds.Contains(claim.Observation.SourceRecordId, StringComparer.Ordinal))
             .OrderBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal).ToArray();
         if (missing.Any(claim => claims.Count(other => other.Observation.ApplicationId == claim.Observation.ApplicationId) != 1) ||

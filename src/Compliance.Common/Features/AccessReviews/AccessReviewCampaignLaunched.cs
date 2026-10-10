@@ -8,4 +8,5 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record AccessReviewCampaignLaunched(Uuid TenantId,
     Uuid CampaignId, string Name, string Instructions, DateTimeOffset Deadline, Uuid SnapshotId,
     string ContentSha256, IReadOnlyList<AccessReviewerView> Reviewers,
-    IReadOnlyList<AccessReviewItemView> Items, ActorReference LaunchedBy, DateTimeOffset LaunchedAt) : DomainEvent;
+    IReadOnlyList<AccessReviewItemView> Items, ActorReference LaunchedBy, DateTimeOffset LaunchedAt,
+    Uuid? ProgramId = null, Uuid? RemediationOwnerMemberId = null) : DomainEvent;

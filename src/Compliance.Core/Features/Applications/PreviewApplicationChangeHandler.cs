@@ -9,18 +9,39 @@ public sealed class PreviewApplicationChangeHandler(
     ApplicationBoundaryReferenceReadConsistency boundaryConsistency,
     IApplicationControlDraftReferenceDirectory controls,
     ApplicationControlDraftReferenceReadConsistency controlConsistency,
-    RestrictedApplicationVisibility visibility)
-    : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>
+    RestrictedApplicationVisibility visibility,
+    SystemInstanceReadConsistency instanceConsistency)
+    : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>,
+      IApplicationChangeImpactReader, IApplicationImportRetirementImpactReader
 {
     static readonly string[] MissingContexts =
-        ["vendors", "approved_control_versions_and_lifecycle_impact",
+        ["application_relationships", "vendors", "approved_control_versions_and_lifecycle_impact",
             "system_instance_control_draft_references", "policies", "evidence_sources", "access_populations",
-            "review_campaigns", "open_work", "readiness", "engagements"];
+            "review_campaigns", "open_work", "readiness", "engagements",
+            "cross_source_manual_reliance"];
 
     public async ValueTask<Result<ApplicationChangePreview>> HandleAsync(
         IRequestContext<PreviewApplicationChange> context, CancellationToken ct)
     {
         var request = context.Request;
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        return await ReadAsync(request, userId, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask<Result<ApplicationChangePreview>> ReadAsync(
+        PreviewApplicationChange request, Uuid userId, CancellationToken ct)
+        => await ReadCoreAsync(request, userId, requireActorVisibility: true, ct).ConfigureAwait(false);
+
+    public ValueTask<Result<ApplicationChangePreview>> ReadForImportWorkerAsync(
+        PreviewApplicationChange request, CancellationToken ct) =>
+        ReadCoreAsync(request, Uuid.Empty, requireActorVisibility: false, ct);
+
+    async ValueTask<Result<ApplicationChangePreview>> ReadCoreAsync(
+        PreviewApplicationChange request, Uuid userId, bool requireActorVisibility,
+        CancellationToken ct)
+    {
         var inputError = Validate(request);
         if (inputError is not null)
             return Result<ApplicationChangePreview>.Failure(inputError);
@@ -29,10 +50,7 @@ public sealed class PreviewApplicationChangeHandler(
         if (!source.IsCreated)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
-        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
-            ? subject
-            : Uuid.Empty;
-        if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+        if (requireActorVisibility && !await visibility.CanReadApplicationAsync(request.TenantId, userId,
                 request.ApplicationId, ct).ConfigureAwait(false))
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.NotFound, "The application was not found."));
@@ -58,16 +76,18 @@ public sealed class PreviewApplicationChangeHandler(
                 RequestErrorKind.Conflict, "The application source and projection changed during preview.",
                 isTransient: true));
 
-        var caughtUp = await boundaryConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
+        var boundaryFence = await boundaryConsistency.CaptureAsync(request.TenantId, ct)
             .ConfigureAwait(false);
-        if (!caughtUp.IsSuccess)
-            return Result<ApplicationChangePreview>.Failure(new RequestError(
-                caughtUp.Error.Kind, caughtUp.Error.Message, isTransient: true));
-        var controlsCaughtUp = await controlConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
+        if (!boundaryFence.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(boundaryFence.Error);
+        var controlFence = await controlConsistency.CaptureAsync(request.TenantId, ct)
             .ConfigureAwait(false);
-        if (!controlsCaughtUp.IsSuccess)
-            return Result<ApplicationChangePreview>.Failure(new RequestError(
-                controlsCaughtUp.Error.Kind, controlsCaughtUp.Error.Message, isTransient: true));
+        if (!controlFence.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(controlFence.Error);
+        var instanceFence = await instanceConsistency.CaptureApplicationListAsync(
+            request.TenantId, ct).ConfigureAwait(false);
+        if (!instanceFence.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(instanceFence.Error);
         var page = await references.ListAsync(request.TenantId, "application",
             request.ApplicationId, 200, null, ct).ConfigureAwait(false);
         if (page.Items.Any(item => item.TenantId != request.TenantId ||
@@ -94,21 +114,21 @@ public sealed class PreviewApplicationChangeHandler(
                 RequestErrorKind.Conflict, "The system instance projection is inconsistent.",
                 isTransient: true));
 
-        var boundaryCaughtUpAfterRead = await boundaryConsistency.EnsureCaughtUpAsync(
-            request.TenantId, ct).ConfigureAwait(false);
-        if (!boundaryCaughtUpAfterRead.IsSuccess)
-            return Result<ApplicationChangePreview>.Failure(new RequestError(
-                boundaryCaughtUpAfterRead.Error.Kind, boundaryCaughtUpAfterRead.Error.Message,
-                isTransient: true));
-        var controlsCaughtUpAfterRead = await controlConsistency.EnsureCaughtUpAsync(
-            request.TenantId, ct).ConfigureAwait(false);
-        if (!controlsCaughtUpAfterRead.IsSuccess)
-            return Result<ApplicationChangePreview>.Failure(new RequestError(
-                controlsCaughtUpAfterRead.Error.Kind, controlsCaughtUpAfterRead.Error.Message,
-                isTransient: true));
+        var boundaryConfirmed = await boundaryConsistency.ConfirmUnchangedAndCaughtUpAsync(
+            request.TenantId, boundaryFence.Value, ct).ConfigureAwait(false);
+        if (!boundaryConfirmed.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(boundaryConfirmed.Error);
+        var controlsConfirmed = await controlConsistency.ConfirmUnchangedAndCaughtUpAsync(
+            request.TenantId, controlFence.Value, ct).ConfigureAwait(false);
+        if (!controlsConfirmed.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(controlsConfirmed.Error);
+        var instancesConfirmed = await instanceConsistency
+            .ConfirmApplicationListUnchangedAndCaughtUpAsync(request.TenantId,
+                instanceFence.Value, ct).ConfigureAwait(false);
+        if (!instancesConfirmed.IsSuccess)
+            return Result<ApplicationChangePreview>.Failure(instancesConfirmed.Error);
 
-        // Source rechecks catch a pending relationship write that raced either reverse-index read.
-        // This preview remains advisory; future approval must use a complete, exact-version impact gate.
+        // Source rechecks catch an application write that raced any of the bounded projection reads.
         var latest = await aggregates.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
         if (latest.Revision != source.Revision)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
@@ -123,12 +143,16 @@ public sealed class PreviewApplicationChangeHandler(
         if (instancePage.NextCursor is not null)
             pending.Add("system_instance_references_over_limit");
         pending.AddRange(MissingContexts);
-        return Result<ApplicationChangePreview>.Success(new ApplicationChangePreview(
+        var preview = new ApplicationChangePreview(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
             Changes(current, request), page.Items, pending, false)
         {
             ControlDraftReferences = controlPage.Items,
             SystemInstanceReferences = instancePage.Items,
+        };
+        return Result<ApplicationChangePreview>.Success(preview with
+        {
+            ImpactDigest = ApplicationChangeImpactDigest.Compute(preview),
         });
     }
 

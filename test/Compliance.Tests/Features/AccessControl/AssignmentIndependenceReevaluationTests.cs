@@ -77,6 +77,152 @@ public sealed class AssignmentIndependenceReevaluationTests
         Assert.True(receipt.ProductionAcceptanceBlocked);
     }
 
+    [Theory]
+    [InlineData("http")]
+    [InlineData("mcp")]
+    public async Task ShouldRevokeCurrentAssignmentAndRetainReevaluationGivenProductionTransport(string transport)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var before = await fixture.ReadAsync();
+        var target = before.Engagements[0];
+        var staff = fixture.Other;
+        var request = new RevokeServiceEngagementActualStaff(fixture.Tenant, target.EngagementId,
+            staff.StaffMemberId, before.Sequence, "Synthetic attributed actual-assignment revocation");
+        var path = $"/api/v1/tenants/{fixture.Tenant}/service-engagements/{target.EngagementId}/actual-assignments/{staff.StaffMemberId}/revocations";
+        RequestInvocation invocation = transport == "http"
+            ? new HttpInvocation("POST", path, path, "bdgrz.service-engagement.actual-staff.revoke")
+            : new McpInvocation("bdgrz.service-engagement.actual-staff.revoke");
+        var context = new RequestDispatchContext(ProgramManagementServices.Actor(fixture.User), invocation);
+
+        // Act
+        var result = await fixture.Bus.DispatchAsync(request, context, CancellationToken.None);
+        var retry = await fixture.Bus.DispatchAsync(request, context, CancellationToken.None);
+        var conflictingRetry = await fixture.Bus.DispatchAsync(request with { Reason = "Changed attribution" }, context,
+            CancellationToken.None);
+        var retained = await fixture.ReadAsync();
+        var history = await fixture.Bus.SendAsync(new GetClientIndependenceHistory(fixture.Tenant),
+            ProgramManagementServices.Actor(fixture.User));
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.True(retry.IsSuccess, retry.Error?.Message);
+        Assert.False(conflictingRetry.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, conflictingRetry.Error?.Kind);
+        Assert.True(history.IsSuccess, history.Error?.Message);
+        Assert.Equal("active", result.Value!.Status);
+        Assert.Equal(result.Value.Revision, retry.Value!.Revision);
+        Assert.Contains(result.Value.Assignments, assignment => assignment.StaffMemberId == staff.StaffMemberId && !assignment.IsCurrent);
+        var receipt = Assert.Single(history.Value!.AssignmentReevaluations);
+        Assert.Equal("assignment_removed", receipt.CauseCode);
+        Assert.Equal(staff.StaffMemberId, receipt.StaffMemberId);
+        Assert.Equal(result.Value.Revision, receipt.ResultingAcceptance.Revision);
+        Assert.Equal(before.Sequence + 1, receipt.SourceSequence);
+        Assert.Equal(before.Sequence + 2, retained.Sequence);
+        Assert.False(Fixture.Eligible(retained, target.EngagementId, staff));
+        Assert.True(Fixture.Eligible(retained, target.EngagementId, fixture.Lead));
+    }
+
+    [Theory]
+    [InlineData("mcp")]
+    [InlineData("http")]
+    public async Task ShouldDenyActualAssignmentRevocationGivenCurrentMemberWithoutClientManagerPermission(string transport)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var before = await fixture.ReadAsync();
+        var target = before.Engagements[0];
+        var request = new RevokeServiceEngagementActualStaff(fixture.Tenant, target.EngagementId,
+            fixture.Other.StaffMemberId, before.Sequence, "Synthetic unauthorized removal attempt");
+        var path = $"/api/v1/tenants/{fixture.Tenant}/service-engagements/{target.EngagementId}/actual-assignments/{fixture.Other.StaffMemberId}/revocations";
+        RequestInvocation invocation = transport == "http"
+            ? new HttpInvocation("POST", path, path, "bdgrz.service-engagement.actual-staff.revoke")
+            : new McpInvocation("bdgrz.service-engagement.actual-staff.revoke");
+
+        // Act
+        var result = await fixture.Bus.DispatchAsync(request, new RequestDispatchContext(
+            ProgramManagementServices.Actor(fixture.NonManager), invocation),
+            CancellationToken.None);
+        var retained = await fixture.ReadAsync();
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(before.CommittedStreamPosition, retained.CommittedStreamPosition);
+        Assert.Equal(before.Sequence, retained.Sequence);
+        Assert.Empty(retained.History().AssignmentReevaluations);
+        Assert.True(Fixture.Eligible(retained, target.EngagementId, fixture.Other));
+    }
+
+    [Fact]
+    public async Task ShouldCloseAcceptedEngagementGivenProductionLeadAssignmentRevocation()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var before = await fixture.ReadAsync();
+        var target = before.Engagements[0];
+        var path = $"/api/v1/tenants/{fixture.Tenant}/service-engagements/{target.EngagementId}/actual-assignments/{fixture.Lead.StaffMemberId}/revocations";
+        var request = new RevokeServiceEngagementActualStaff(fixture.Tenant, target.EngagementId,
+            fixture.Lead.StaffMemberId, before.Sequence, "Synthetic lead assignment revocation");
+        var context = new RequestDispatchContext(ProgramManagementServices.Actor(fixture.User),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.actual-staff.revoke"));
+
+        // Act
+        var result = await fixture.Bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await fixture.ReadAsync();
+        var history = await fixture.Bus.SendAsync(new GetClientIndependenceHistory(fixture.Tenant),
+            ProgramManagementServices.Actor(fixture.User));
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.True(history.IsSuccess, history.Error?.Message);
+        Assert.Equal("closed", result.Value!.Status);
+        Assert.Equal("closed", retained.Engagement(target.EngagementId)!.Status);
+        var receipt = Assert.Single(history.Value!.AssignmentReevaluations);
+        Assert.Equal("assignment_removed", receipt.CauseCode);
+        Assert.Equal(fixture.Lead.StaffMemberId, receipt.StaffMemberId);
+        Assert.Equal(before.Sequence + 2, retained.Sequence);
+        Assert.False(Fixture.Eligible(retained, target.EngagementId, fixture.Lead));
+        Assert.False(Fixture.Eligible(retained, target.EngagementId, fixture.Other));
+    }
+
+    [Fact]
+    public async Task ShouldCommitOneCausalRemovalGivenConcurrentProductionAssignmentRevocations()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var before = await fixture.ReadAsync();
+        var target = before.Engagements[0];
+        var requests = new[] { fixture.Lead, fixture.Other }.Select(staff =>
+            new RevokeServiceEngagementActualStaff(fixture.Tenant, target.EngagementId,
+                staff.StaffMemberId, before.Sequence, "Synthetic competing actual-assignment removal")).ToArray();
+        fixture.Gate.Enabled = true;
+
+        // Act
+        var results = await Task.WhenAll(requests.Select(async request =>
+        {
+            try
+            {
+                return (await fixture.Bus.SendAsync(request, ProgramManagementServices.Actor(fixture.User))).IsSuccess;
+            }
+            catch (EventStreamConcurrencyException)
+            {
+                return false;
+            }
+        }));
+        fixture.Gate.Enabled = false;
+        var retained = await fixture.ReadAsync();
+
+        // Assert
+        Assert.Single(results, success => success);
+        Assert.Single(results, success => !success);
+        Assert.Equal(before.CommittedStreamPosition + 2, retained.CommittedStreamPosition);
+        Assert.Equal(before.Sequence + 2, retained.Sequence);
+        var receipt = Assert.Single(retained.History().AssignmentReevaluations);
+        Assert.Equal("assignment_removed", receipt.CauseCode);
+        Assert.Equal(before.Sequence + 1, receipt.SourceSequence);
+    }
+
     [Fact]
     public async Task ShouldRefuseEntireLifecycleMutationGivenCompleteSnapshotReceiptExceedsBound()
     {
@@ -305,6 +451,7 @@ public sealed class AssignmentIndependenceReevaluationTests
         public Uuid Tenant { get; } = Uuid.CreateVersion4();
         public Uuid User { get; } = Uuid.CreateVersion4();
         public Uuid OtherUser { get; } = Uuid.CreateVersion4();
+        public Uuid NonManager { get; } = Uuid.CreateVersion4();
         public Faults Faults { get; } = new();
         public Gate Gate { get; } = new();
         public Clock Clock { get; } = new();
@@ -326,8 +473,8 @@ public sealed class AssignmentIndependenceReevaluationTests
             services.AddSingleton<IDomainEventReader>(events);
             services.AddSingleton<IKvClient>(new InMemoryKvClient());
             services.AddSingleton<ITenantActivity>(new Activity());
-            services.AddSingleton<IPermissionAuthorizer>(new Permissions());
-            services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships(Tenant, User, OtherUser));
+            services.AddSingleton<IPermissionAuthorizer>(new Permissions(RbacIds.Member(Tenant, NonManager)));
+            services.AddSingleton<ITenantMembershipDirectoryReader>(new Memberships(Tenant, User, OtherUser, NonManager));
             services.AddSingleton<TimeProvider>(Clock);
             var originalReader = services.Single(descriptor => descriptor.ServiceType == typeof(IAggregateReader));
             var readerFactory = originalReader.ImplementationFactory ?? throw new InvalidOperationException("An aggregate reader factory is required.");
@@ -449,16 +596,19 @@ public sealed class AssignmentIndependenceReevaluationTests
     {
         public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) => ValueTask.FromResult(true);
     }
-    sealed class Permissions : IPermissionAuthorizer
+    sealed class Permissions(Uuid deniedMember) : IPermissionAuthorizer
     {
-        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission, CancellationToken ct = default) => ValueTask.FromResult(true);
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
+            CancellationToken ct = default) => ValueTask.FromResult(memberId != deniedMember);
     }
-    sealed class Memberships(Uuid tenant, Uuid user, Uuid other) : ITenantMembershipDirectoryReader
+    sealed class Memberships(Uuid tenant, Uuid user, Uuid other, Uuid nonManager) : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-            ValueTask.FromResult<TenantMembershipView?>(tenantId == tenant.ToString() && (userId == user || userId == other)
+            ValueTask.FromResult<TenantMembershipView?>(tenantId == tenant.ToString() &&
+                (userId == user || userId == other || userId == nonManager)
                 ? new TenantMembershipView(userId, tenant, "client_personnel") : null);
-        public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) => ValueTask.FromResult(tenantId == tenant.ToString() && (userId == user || userId == other));
+        public ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
+            ValueTask.FromResult(tenantId == tenant.ToString() && (userId == user || userId == other || userId == nonManager));
         public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor, CancellationToken ct = default) => ValueTask.FromResult(new Page<TenantMembershipView>([], null));
     }
 }

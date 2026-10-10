@@ -10,6 +10,12 @@ public sealed partial class ApplicationImportLedger
     /// <summary>Verifies durable target records; this alone does not authorize the visibility commit.</summary>
     public Result<IReadOnlyList<ApplicationImportEffectPending>> VerifyPendingEffects(ImportBatch batch,
         long expectedRevision, IReadOnlyDictionary<Uuid, DeclaredApplication> targets)
+        => VerifyPendingEffects(batch, expectedRevision, targets, null);
+
+    /// <summary>Verifies durable target records and current retirement impact against the frozen plan.</summary>
+    public Result<IReadOnlyList<ApplicationImportEffectPending>> VerifyPendingEffects(ImportBatch batch,
+        long expectedRevision, IReadOnlyDictionary<Uuid, DeclaredApplication> targets,
+        IReadOnlyDictionary<Uuid, ApplicationChangePreview>? retirementImpacts)
     {
         ArgumentNullException.ThrowIfNull(batch);
         ArgumentNullException.ThrowIfNull(targets);
@@ -25,6 +31,14 @@ public sealed partial class ApplicationImportLedger
                 VersionedRecordRules.StaleRevision("import", GetRevision(batch)).ToRequestError());
         if (batch.CommittedStreamPosition == 0 || CommittedStreamPosition < _planSealVersions[batch.Id])
             return EffectsNotDurable();
+        var retirements = plan.Rows.Where(row => row.Decision == "retire").ToArray();
+        if ((retirements.Length == 0 && retirementImpacts is { Count: > 0 }) ||
+            (retirements.Length > 0 && (retirementImpacts is null || retirementImpacts.Count != retirements.Length ||
+                retirements.Any(row => !retirementImpacts.TryGetValue(row.ApplicationId, out var impact) ||
+                    !ApplicationImportRetirementImpact.MatchesFrozen(impact, _tenantId, row)))))
+            return Result<IReadOnlyList<ApplicationImportEffectPending>>.Failure(new RequestError(
+                RequestErrorKind.Conflict, "Current retirement impact does not match the frozen source plan.",
+                isTransient: true));
         var effects = new List<ApplicationImportEffectPending>(plan.Rows.Count);
         foreach (var row in plan.Rows)
         {
@@ -40,8 +54,11 @@ public sealed partial class ApplicationImportLedger
                     plan.Revision, plan.PlanSha256, plan.Start, row, effect.RecordedAt))
                 return Result<IReadOnlyList<ApplicationImportEffectPending>>.Failure(new RequestError(
                     RequestErrorKind.Conflict, "The durable import effect differs from its frozen plan."));
-            if (target.IsRetired || (row.Decision == "create_new" && (target.IsCreated || target.Revision != 0)) ||
-                (row.Decision == "link_existing" && (!target.IsCreated || target.Revision != row.ExpectedApplicationRevision)))
+            if ((row.Decision != "retire" && target.IsRetired) ||
+                (row.Decision == "create_new" && (target.IsCreated || target.Revision != 0)) ||
+                (row.Decision == "link_existing" && (!target.IsCreated || target.Revision != row.ExpectedApplicationRevision)) ||
+                (row.Decision == "retire" && (!target.IsCreated || target.IsRetired ||
+                    target.Revision != row.ExpectedApplicationRevision)))
                 return Result<IReadOnlyList<ApplicationImportEffectPending>>.Failure(new RequestError(
                     RequestErrorKind.Conflict, "The governed import target changed after its frozen plan."));
             effects.Add(effect);

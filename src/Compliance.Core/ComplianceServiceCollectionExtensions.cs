@@ -2,6 +2,8 @@ using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Retention;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Responsibilities;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Bdgrz.Compliance.Features.Work;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +53,18 @@ public static class ComplianceServiceCollectionExtensions
         var emailDeliverySettings = EmailChallengeDeliverySettings.FromConfiguration(configuration,
             requireRealEmailDelivery);
         services.AddSingleton(emailDeliverySettings);
+        var workDigestDeliverySettings = WorkDigestDeliverySettings.FromConfiguration(configuration,
+            requireRealEmailDelivery);
+        services.AddSingleton(workDigestDeliverySettings);
+        services.AddSingleton<MockWorkDigestDelivery>();
+        services.AddSingleton<IWorkDigestDelivery>(provider => emailDeliverySettings.Mode == "smtp"
+            ? new SmtpWorkDigestDelivery(emailDeliverySettings)
+            : provider.GetRequiredService<MockWorkDigestDelivery>());
+        services.AddScoped<WorkDigestContentReader>();
+        services.AddScoped<IWorkDigestContentReader>(provider =>
+            provider.GetRequiredService<WorkDigestContentReader>());
+        services.AddScoped<WorkDigestDispatchProcessor>();
+        services.AddScoped<WorkDigestDispatchSweep>();
         services.AddSingleton(EmailChallengeTokenKeys.FromConfiguration(configuration,
             emailDeliverySettings.Mode == "mock"));
         services.AddSingleton<MockEmailChallengeDelivery>();
@@ -136,6 +150,17 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ApplicationHistoryReadConsistency>();
         services.AddScoped<SystemInstanceReadConsistency>();
         services.AddScoped<LegacySystemInstanceSource>();
+        services.AddScoped<FitzApplicationRelationshipDirectory>();
+        services.AddScoped<IApplicationRelationshipProjection>(provider =>
+            provider.GetRequiredService<FitzApplicationRelationshipDirectory>());
+        services.AddScoped<IApplicationRelationshipDirectory>(provider =>
+            provider.GetRequiredService<FitzApplicationRelationshipDirectory>());
+        services.AddScoped<ApplicationRelationshipReadConsistency>();
+        services.AddScoped<PreviewApplicationChangeHandler>();
+        services.AddScoped<IApplicationChangeImpactReader>(provider =>
+            provider.GetRequiredService<PreviewApplicationChangeHandler>());
+        services.AddScoped<IApplicationImportRetirementImpactReader>(provider =>
+            provider.GetRequiredService<PreviewApplicationChangeHandler>());
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
         services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
@@ -395,7 +420,13 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
         services.AddScoped<IAccessReviewCampaignDirectoryReader>(
             provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
+        services.AddScoped<FitzAccessReviewCampaignWorkItemDirectory>();
+        services.AddScoped<IAccessReviewCampaignWorkItemProjection>(provider =>
+            provider.GetRequiredService<FitzAccessReviewCampaignWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzAccessReviewCampaignWorkItemDirectory>());
         services.AddScoped<IAccessReviewSources, GovernedAccessReviewSources>();
+        services.AddScoped<AccessReviewQueueEligibility>();
         services.AddScoped<FitzPopulationSnapshotDirectory>();
         services.AddScoped<IPopulationSnapshotDirectoryProjection>(
             provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
@@ -433,6 +464,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<ClientManagementIndependenceGuard>();
         services.AddScoped<ClientCompartmentIndependenceGuard>();
+        services.AddScoped<ProfessionalAdvisoryReadAccess>();
         services.AddScoped<PolicyAcknowledgementRecorderGuard>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
@@ -482,6 +514,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<EvidenceArtifactReadAccess>();
         services.AddScoped<EvidenceArtifactMetadataRead>();
         services.AddScoped<DirectoryReevaluationDiscovery>();
+        services.TryAddScoped<IServiceEngagementAcceptanceEvidenceReader,
+            UnconfiguredServiceEngagementAcceptanceEvidenceReader>();
         services.AddScoped<FitzActualStaffEngagementLocator>();
         services.AddScoped<IActualStaffEngagementLocatorProjection>(provider =>
             provider.GetRequiredService<FitzActualStaffEngagementLocator>());
@@ -528,8 +562,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AmendServiceEngagementHandler>()
             .AddRequestHandler<ProposeServiceEngagementStaffHandler>()
             .AddRequestHandler<WithdrawServiceEngagementStaffProposalHandler>()
+            .AddRequestHandler<RevokeServiceEngagementActualStaffHandler>()
             .AddRequestHandler<CloseServiceEngagementHandler>()
             .AddRequestHandler<GetServiceEngagementAcceptanceHandler>()
+            .AddRequestHandler<AcceptServiceEngagementHandler>()
             .AddRequestHandler<GetServiceEngagementAcceptanceHistoryHandler>()
             .AddRequestHandler<GetServiceEngagementHandler>()
             .AddRequestHandler<ListServiceEngagementsHandler>()
@@ -538,6 +574,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetEngagementManagementAcknowledgementsHandler>()
             .AddRequestAuthorizer<IndependenceRuleAdministrationAuthorizer>()
             .AddRequestAuthorizer<FirmStaffAdministrationAuthorizer>()
+            .AddRequestAuthorizer<ServiceEngagementAcceptanceAuthorizer>()
             .AddRequestAuthorizer<IndependenceAdministrationAuthorizer>()
             .AddRequestAuthorizer<RecordDirectoryIndependenceReevaluationAuthorizer>()
             .AddRequestHandler<RegisterMemberHandler>()
@@ -579,11 +616,15 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListApplicationRevisionsHandler>()
             .AddRequestHandler<GetSystemInstanceHandler>()
             .AddRequestHandler<ListSystemInstancesHandler>()
+            .AddRequestHandler<RecordApplicationRelationshipHandler>()
+            .AddRequestHandler<RemoveApplicationRelationshipHandler>()
+            .AddRequestHandler<ListApplicationRelationshipsHandler>()
             .AddRequestHandler<ListApplicationBoundaryReferencesHandler>()
             .AddRequestHandler<ListTechnologyComponentBoundaryReferencesHandler>()
             .AddRequestHandler<ListInformationAssetBoundaryReferencesHandler>()
             .AddRequestHandler<ListSystemInstanceBoundaryReferencesHandler>()
             .AddRequestHandler<PreviewApplicationChangeHandler>()
+            .AddRequestHandler<ApproveApplicationSuccessorHandler>()
             .AddRequestHandler<RetireApplicationHandler>()
             .AddRequestHandler<RetireSystemInstanceHandler>()
             .AddRequestHandler<DecideAccessReviewScopeHandler>()
@@ -768,6 +809,8 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<EscalateWorkItemHandler>()
             .AddRequestHandler<ListWorkRemindersHandler>()
             .AddRequestHandler<GetWorkDigestHandler>()
+            .AddRequestHandler<GetWorkDigestDispatchStatusHandler>()
+            .AddRequestHandler<AuthorizeWorkDigestUnknownRetryHandler>()
             .AddRequestHandler<SetWorkDigestPreferenceHandler>()
             .AddRequestHandler<GetWorkDigestPreferenceHandler>()
             .AddRequestAuthorizer<OperationsReactionAuthorizer>()
@@ -793,6 +836,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ExemptMissingAccessPopulationHandler>()
             .AddRequestHandler<RecordAccessPopulationFactsHandler>()
             .AddRequestHandler<RecordAccessRemediationChangeHandler>()
+            .AddRequestHandler<ReassignAccessReviewResponsibilityHandler>()
             .AddRequestHandler<ExemptAccessRemediationHandler>()
             .AddRequestHandler<RecordBulkAccessDecisionHandler>()
             .AddRequestHandler<VerifyAccessRemediationHandler>()
@@ -1102,10 +1146,14 @@ public static class ComplianceServiceCollectionExtensions
                 AccessReviewDirectorySchema.PopulationProjector, WorkloadScope.PerTenant)
             .AddProjector<AccessReviewCampaignDirectoryProjector>(
                 AccessReviewDirectorySchema.CampaignProjector, WorkloadScope.PerTenant)
+            .AddProjector<AccessReviewCampaignWorkItemProjector>(
+                FitzAccessReviewCampaignWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<AccessReviewScopeDirectoryProjector>(
                 AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
                 "ApplicationBoundaryReferencesV2", WorkloadScope.PerTenant)
+            .AddProjector<ApplicationRelationshipProjector>(
+                "ApplicationRelationshipsV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationControlDraftReferenceProjector>(
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ProviderProjector>(FitzProviderDirectory.ProjectorName, WorkloadScope.PerTenant)

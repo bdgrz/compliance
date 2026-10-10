@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.AccessControl;
 using Cntryl.Portia;
+using System.Globalization;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
@@ -17,6 +18,7 @@ public sealed class AccessReviewCampaign : Aggregate
     readonly Uuid _tenantId;
     readonly Dictionary<Uuid, ItemState> _items = [];
     readonly List<Uuid> _order = [];
+    readonly Dictionary<Uuid, long> _responsibilityReassignmentExpectedRevisions = [];
 
     public AccessReviewCampaign(Uuid tenantId, Uuid campaignId)
         : base(campaignId, new EventStreamAddress(tenantId.ToString(), Area, campaignId.ToString()))
@@ -53,6 +55,14 @@ public sealed class AccessReviewCampaign : Aggregate
             Revision = ev.Revision;
             _items[ev.ItemId].Exception = ev.Exception;
         });
+        On<AccessReviewResponsibilityReassigned>(ev =>
+        {
+            if (!_responsibilityReassignmentExpectedRevisions.TryAdd(
+                    ev.Reassignment.ReassignmentId, Revision))
+                throw new InvalidOperationException("A reassignment request ID can be retained only once per campaign.");
+            Revision = ev.Revision;
+            _items[ev.Reassignment.ItemId].Reassignments.Add(ev.Reassignment);
+        });
         On<AccessReviewCampaignCompleted>(ev =>
         {
             Revision = ev.Revision;
@@ -77,16 +87,66 @@ public sealed class AccessReviewCampaign : Aggregate
     public bool HasDecision(Uuid decisionId) => _items.Values.Any(state =>
         state.Decisions.Any(decision => decision.DecisionId == decisionId));
 
-    public bool IsReviewer(Uuid memberId) =>
-        Launched?.Reviewers.Any(reviewer => reviewer.ReviewerMemberId == memberId) == true;
+    public bool IsReviewer(Uuid memberId) => _items.Keys.Any(itemId =>
+        CurrentReviewerMemberId(itemId) == memberId);
+
+    public Uuid? CurrentReviewerMemberId(Uuid itemId) =>
+        _items.TryGetValue(itemId, out var state)
+            ? state.Reassignments.LastOrDefault(reassignment =>
+                reassignment.Responsibility == AccessReviewResponsibilityKind.Reviewer)?.AssignedMemberId
+              ?? state.Item.ReviewerMemberId
+            : null;
+
+    public Uuid? CurrentRemediationOwnerMemberId(Uuid itemId) =>
+        _items.TryGetValue(itemId, out var state)
+            ? state.Reassignments.LastOrDefault(reassignment =>
+                reassignment.Responsibility == AccessReviewResponsibilityKind.RemediationOwner)?.AssignedMemberId
+              ?? Launched?.RemediationOwnerMemberId
+            : null;
+
+    public AccessReviewResponsibilityReassignmentView? FindResponsibilityReassignment(
+        Uuid reassignmentId) => _items.Values.SelectMany(static state => state.Reassignments)
+        .FirstOrDefault(reassignment => reassignment.ReassignmentId == reassignmentId);
+
+    internal long? FindResponsibilityReassignmentExpectedRevision(Uuid reassignmentId) =>
+        _responsibilityReassignmentExpectedRevisions.TryGetValue(reassignmentId, out var expectedRevision)
+            ? expectedRevision
+            : null;
+
+    internal bool MatchesLaunchRequest(LaunchAccessReviewCampaign request)
+    {
+        if (Launched is not { } launched || request.Assignments is not { } assignments ||
+            string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instructions) ||
+            launched.Name != request.Name.Trim() || launched.Instructions != request.Instructions.Trim() ||
+            launched.Deadline != request.Deadline || launched.ProgramId != request.ProgramId ||
+            launched.RemediationOwnerMemberId != request.RemediationOwnerMemberId ||
+            assignments.Count != launched.Reviewers.Count)
+            return false;
+
+        var reviewers = launched.Reviewers.ToDictionary(static reviewer => reviewer.PopulationId);
+        foreach (var assignment in assignments)
+        {
+            if (!reviewers.Remove(assignment.PopulationId, out var reviewer) ||
+                reviewer.ReviewerMemberId != assignment.ReviewerMemberId ||
+                reviewer.Delegated &&
+                reviewer.DelegationReason != assignment.DelegationReason?.Trim())
+                return false;
+        }
+
+        return reviewers.Count == 0;
+    }
 
     public Result<AccessReviewCampaignRegistration> Launch(string name, string instructions,
         DateTimeOffset deadline, Uuid snapshotId, string contentSha256,
         IReadOnlyList<AccessReviewerView> reviewers, IReadOnlyList<AccessReviewItemView> items,
-        ActorReference launchedBy, DateTimeOffset now)
+        ActorReference launchedBy, DateTimeOffset now, Uuid? programId = null,
+        Uuid? remediationOwnerMemberId = null)
     {
         if (Launched is { } launched)
-            return launched.SnapshotId == snapshotId
+            return launched.Name == name.Trim() && launched.Instructions == instructions.Trim() &&
+                   launched.Deadline == deadline && launched.ContentSha256 == contentSha256 &&
+                   launched.ProgramId == programId &&
+                   launched.RemediationOwnerMemberId == remediationOwnerMemberId
                 ? Result<AccessReviewCampaignRegistration>.Success(new(Id, launched.SnapshotId,
                     launched.ContentSha256, launched.Items.Count))
                 : Failure<AccessReviewCampaignRegistration>(RequestErrorKind.Conflict,
@@ -102,9 +162,79 @@ public sealed class AccessReviewCampaign : Aggregate
             return Failure<AccessReviewCampaignRegistration>(RequestErrorKind.Validation,
                 "The assigned populations have no effective access to review.");
         RaiseEvent(new AccessReviewCampaignLaunched(_tenantId, Id, name.Trim(), instructions.Trim(),
-            deadline, snapshotId, contentSha256, reviewers, items, launchedBy, now));
+            deadline, snapshotId, contentSha256, reviewers, items, launchedBy, now, programId,
+            remediationOwnerMemberId));
         return Result<AccessReviewCampaignRegistration>.Success(new(Id, snapshotId, contentSha256,
             items.Count));
+    }
+
+    public Result<AccessReviewResponsibilityReassignmentView> ReassignResponsibility(
+        Uuid itemId, string responsibility, long expectedRevision, Uuid reassignmentId,
+        Uuid assignedMemberId, string reason, ActorReference reassignedBy,
+        DateTimeOffset reassignedAt, string? delegationReason = null)
+    {
+        if (Launched is not { ProgramId: not null, RemediationOwnerMemberId: not null } ||
+            !_items.TryGetValue(itemId, out var state))
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.NotFound,
+                "The review item was not found.");
+        var existing = state.Reassignments.FirstOrDefault(reassignment =>
+            reassignment.ReassignmentId == reassignmentId);
+        if (existing is not null)
+            return FindResponsibilityReassignmentExpectedRevision(reassignmentId) == expectedRevision &&
+                   existing.Responsibility == responsibility &&
+                   existing.AssignedMemberId == assignedMemberId && existing.Reason == reason.Trim() &&
+                   existing.ReassignedBy == reassignedBy &&
+                   existing.DelegationReason == delegationReason?.Trim()
+                ? Result<AccessReviewResponsibilityReassignmentView>.Success(existing)
+                : Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                    "The reassignment request ID already has different content.");
+        if (Completion is not null)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                "A completed campaign cannot change.");
+        if (expectedRevision != Revision)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                $"The campaign is at revision {Revision}; expected {expectedRevision}.");
+        if (!AccessReviewResponsibilityKind.IsKnown(responsibility) ||
+            assignedMemberId == Uuid.Empty ||
+            !AccessReviewVocabulary.IsBoundedText(reason, 2000) ||
+            responsibility == AccessReviewResponsibilityKind.Reviewer &&
+            !AccessReviewVocabulary.IsBoundedText(delegationReason, 2000) ||
+            responsibility == AccessReviewResponsibilityKind.RemediationOwner &&
+            delegationReason is not null ||
+            reassignedBy.Kind != "member" ||
+            !Uuid.TryParse(reassignedBy.Id, CultureInfo.InvariantCulture, out var actorMemberId) ||
+            actorMemberId == Uuid.Empty || string.IsNullOrWhiteSpace(reassignedBy.Display) ||
+            reassignedAt == default)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Validation,
+                "A reassignment requires a known responsibility, member, reason, actor, and timestamp.");
+        if (responsibility == AccessReviewResponsibilityKind.Reviewer &&
+            state.Decisions.Count > 0)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                "A decided review item no longer needs a reviewer reassignment.");
+        if (responsibility == AccessReviewResponsibilityKind.RemediationOwner &&
+            RemediationStatus(state, reassignedAt) is not ("pending" or "provider_changed"))
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                "Only open remediation work can change its owner.");
+
+        var previousMemberId = responsibility == AccessReviewResponsibilityKind.Reviewer
+            ? CurrentReviewerMemberId(itemId)!.Value
+            : CurrentRemediationOwnerMemberId(itemId)!.Value;
+        var otherMemberId = responsibility == AccessReviewResponsibilityKind.Reviewer
+            ? CurrentRemediationOwnerMemberId(itemId)
+            : CurrentReviewerMemberId(itemId);
+        if (previousMemberId == assignedMemberId)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Conflict,
+                "The responsibility is already assigned to this member.");
+        if (otherMemberId == assignedMemberId)
+            return Failure<AccessReviewResponsibilityReassignmentView>(RequestErrorKind.Validation,
+                "The reviewer and remediation owner must remain distinct.");
+
+        var reassignment = new AccessReviewResponsibilityReassignmentView(reassignmentId,
+            responsibility, itemId, previousMemberId, assignedMemberId, reason.Trim(),
+            reassignedBy, reassignedAt, delegationReason?.Trim());
+        RaiseEvent(new AccessReviewResponsibilityReassigned(_tenantId, Id, Revision + 1,
+            reassignment));
+        return Result<AccessReviewResponsibilityReassignmentView>.Success(reassignment);
     }
 
     /// <summary>Explains why the reviewer cannot decide an item, or null when they can.</summary>
@@ -112,7 +242,7 @@ public sealed class AccessReviewCampaign : Aggregate
     {
         if (!_items.TryGetValue(itemId, out var state))
             return "not_found";
-        if (state.Item.ReviewerMemberId != reviewerMemberId)
+        if (CurrentReviewerMemberId(itemId) != reviewerMemberId)
             return "not_assigned";
         if (state.Item.SubjectUserId == reviewerUserId)
             return "self_review";
@@ -218,7 +348,7 @@ public sealed class AccessReviewCampaign : Aggregate
             return Result<AccessRemediationExceptionView>.Success(existing);
         if (RemediableItem(itemId, expectedRevision) is { } failure)
             return Result<AccessRemediationExceptionView>.Failure(failure);
-        if (_items[itemId].Item.ReviewerMemberId == approverMemberId)
+        if (CurrentReviewerMemberId(itemId) == approverMemberId)
             return Failure<AccessRemediationExceptionView>(RequestErrorKind.Forbidden,
                 "The item's reviewer cannot approve an exception to its remediation.");
         if (!AccessReviewVocabulary.IsBoundedText(rationale, 4000) || expiresAt <= now)
@@ -282,7 +412,8 @@ public sealed class AccessReviewCampaign : Aggregate
                 state.Decisions.Count == 0 ? "unresolved" : "decided",
                 state.Decisions.Count == 0 ? null : state.Decisions[^1], [.. state.Decisions],
                 RemediationStatus(state, now), [.. state.Changes], state.Verification,
-                state.Exception))
+                state.Exception, CurrentReviewerMemberId(state.Item.ItemId),
+                CurrentRemediationOwnerMemberId(state.Item.ItemId), [.. state.Reassignments]))
             .ToArray();
 
     public AccessReviewCampaignView ToView(DateTimeOffset now,
@@ -296,7 +427,8 @@ public sealed class AccessReviewCampaign : Aggregate
                 items.Any(item => item.Item.PopulationId == reviewer.PopulationId)).ToArray(),
             items, items.Count(static item => item.Status == "unresolved"),
             items.Count(static item => item.RemediationStatus is "pending" or "provider_changed"),
-            launched.LaunchedBy, launched.LaunchedAt, Completion);
+            launched.LaunchedBy, launched.LaunchedAt, Completion, launched.ProgramId,
+            launched.RemediationOwnerMemberId);
     }
 
     static string RemediationStatus(ItemState state, DateTimeOffset now)
@@ -334,6 +466,7 @@ public sealed class AccessReviewCampaign : Aggregate
         public AccessReviewItemView Item { get; } = item;
         public List<AccessDecisionView> Decisions { get; } = [];
         public List<AccessRemediationChangeView> Changes { get; } = [];
+        public List<AccessReviewResponsibilityReassignmentView> Reassignments { get; } = [];
         public AccessRemediationVerificationView? Verification { get; set; }
         public AccessRemediationExceptionView? Exception { get; set; }
     }

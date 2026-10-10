@@ -107,7 +107,7 @@ The SPA uses Authorization Code with PKCE. It stores the access token in session
   `not_issued`, `pending`, `failed`, `delivered`, `expired`, or `verified` to the owner.
   Email ownership and verification are HTTP-only; they are not MCP tools.
 
-Development and tests use `MockEmailChallengeDelivery`. Other environments require
+Development and tests default to `MockEmailChallengeDelivery`. Other environments require
 `Compliance:EmailDelivery:Mode=smtp`, a STARTTLS SMTP host/port/sender, and an active 32-byte
 base64 token key under `Compliance:EmailDelivery:TokenKeys:<key-id>`. Set the same key ring and
 active key ID on API and worker hosts. The worker derives the token from the persisted challenge
@@ -127,9 +127,51 @@ may still deliver a duplicate after a crash. A recorded key or SMTP failure requ
 administrator to reissue; the tenant worker continues with later invitations. Reissue
 invalidates the previous token. Historical hash-only invitations cannot be delivered by the
 worker and must be reissued. Development and
-tests use `MockTenantInvitationDelivery` in the worker that sent the invitation. Invitation
+tests default to `MockTenantInvitationDelivery` in the worker that sent the invitation. Invitation
 acceptance and email verification are human HTTP flows and have no MCP tools; operator invitation
 management, organization queries, lifecycle, and slug operations use both HTTP and MCP.
+
+### Weekly work digest delivery
+
+Weekly digests use the same `Compliance:EmailDelivery:Mode=smtp` relay, sender, and optional
+paired SMTP username/password as email verification and tenant invitations. Development defaults
+to an in-process mock transport; explicitly setting `Mode=smtp` also selects SMTP there. In
+non-Development deployments, configure SMTP and the digest link settings on each API and worker
+host; startup validates these settings for both roles.
+
+The digest link settings are:
+
+| Setting | Requirement |
+| --- | --- |
+| `Compliance__WorkDigest__ApplicationOrigin` | Canonical HTTPS origin supplied by deployment, with no path, query, fragment, or user information |
+| `Compliance__WorkDigest__ClientWorkItemRouteTemplate` | Client-owned root-relative route template containing `{tenant_id}`, `{tenant_slug}`, `{program_id}`, and `{work_item_id}` |
+
+The client deployment must supply its actual route template and origin. The backend does not ship
+or assume a user-facing route. Do not use a queue `ActionPath` or an API URL as the email link; the
+client route should open the work item and obtain current authorized data from
+`GET /api/v1/tenants/{tenant_id}/programs/{program_id}/work/{work_item_id}`. Opening a link grants
+no access by itself.
+
+`COMPLIANCE_HOST_MODE=standalone` (the default) runs the API and digest worker together. Use
+`COMPLIANCE_HOST_MODE=api` for an API-only process and `COMPLIANCE_HOST_MODE=worker` for a
+dedicated worker. The digest sweep runs only in standalone and worker modes. It polls every
+60 seconds by default; retry defaults are three attempts, a five-minute retry delay, a six-day
+retry window, and a three-minute attempt lease. These values can be tuned with the corresponding
+`Compliance__WorkDigest__*` settings shown in `.env.example`. In Development, an absent origin or
+route leaves the digest worker inactive; other environments require both.
+
+Platform operators supporting IT operations can inspect a single tenant member and week through
+the read-only endpoint:
+`GET /api/v1/platform/tenants/{tenant_id}/members/{member_id}/work-digest-dispatches/{week_of}`
+(`week_of` is `YYYY-MM-DD`). The same read-only request is exposed to authorized platform
+operators through MCP as `GetWorkDigestDispatchStatus`. Tenant administrator or member privileges
+alone do not grant this cross-tenant operational view. The response contains delivery state and
+attempt metadata, but no recipient address, message body, SMTP/provider response, or source work
+content.
+An `unknown` status means the relay outcome may be ambiguous and is not automatically resent;
+an interrupted attempt can also be unresolved. Definite transient SMTP rejection is retried
+within the configured attempt and time limits. SMTP acceptance and ledger persistence cannot
+guarantee exactly-once physical delivery.
 
 ## Tests and containers
 

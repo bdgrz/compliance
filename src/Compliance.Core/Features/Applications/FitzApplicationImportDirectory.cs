@@ -42,7 +42,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                     State = "failed",
                     PendingCount = 0,
                     AppliedCount = 0,
-                    FailedCount = failedBatch.RowCount,
+                    FailedCount = failedBatch.PendingCount,
                     LastProgressAt = failed.FailedAt,
                 }, ct).ConfigureAwait(false);
                 break;
@@ -52,7 +52,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                 if (committed.TenantId != _batchTenantId || committedBatch is null || committedBatch.TenantId != committed.TenantId ||
                     committedBatch.SourceKey != committed.SourceKey || committedBatch.SourceNamespace != committed.SourceNamespace ||
                     committedBatch.Revision + 1 != committed.Revision || committedBatch.State != "accepting" ||
-                    committedBatch.RowCount != committed.Effects.Count)
+                    committedBatch.PendingCount != committed.Effects.Count)
                     throw new InvalidOperationException("An import commit cannot project before its complete source plan.");
                 await ApplicationImportDirectorySchema.Batches.ReplaceAsync(Transaction, committedBatch,
                     committedBatch with
@@ -77,13 +77,14 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
                     retirementSeal.Revision, null, null, ct).ConfigureAwait(false);
                 break;
             case ApplicationImportPlanStarted started:
-                await ApplyPlanRevisionAsync(started.TenantId, started.BatchId, started.Revision, started.StartedAt, ct).ConfigureAwait(false);
+                await ApplyPlanRevisionAsync(started.TenantId, started.BatchId, started.Revision,
+                    started.RowCount, started.StartedAt, ct).ConfigureAwait(false);
                 break;
             case ApplicationImportPlanRowFrozen frozen:
-                await ApplyPlanRevisionAsync(frozen.TenantId, frozen.BatchId, frozen.Revision, null, ct).ConfigureAwait(false);
+                await ApplyPlanRevisionAsync(frozen.TenantId, frozen.BatchId, frozen.Revision, null, null, ct).ConfigureAwait(false);
                 break;
             case ApplicationImportPlanSealed sealedPlan:
-                await ApplyPlanRevisionAsync(sealedPlan.TenantId, sealedPlan.BatchId, sealedPlan.Revision, null, ct).ConfigureAwait(false);
+                await ApplyPlanRevisionAsync(sealedPlan.TenantId, sealedPlan.BatchId, sealedPlan.Revision, null, null, ct).ConfigureAwait(false);
                 break;
             case ApplicationImportStaged staged:
                 var invalid = staged.Rows.Count(row => row.ValidationFindings.Count > 0);
@@ -139,7 +140,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
     }
 
     async ValueTask ApplyPlanRevisionAsync(Uuid tenantId, Uuid batchId, long revision,
-        DateTimeOffset? startedAt, CancellationToken ct)
+        int? plannedRowCount, DateTimeOffset? startedAt, CancellationToken ct)
     {
         var current = await ApplicationImportDirectorySchema.Batches.GetAsync(Transaction, batchId, ct).ConfigureAwait(false);
         if (current is null || current.TenantId != tenantId)
@@ -149,7 +150,7 @@ sealed class FitzApplicationImportDirectory(IKvClient client)
             {
                 Revision = revision,
                 State = "accepting",
-                PendingCount = current.RowCount,
+                PendingCount = plannedRowCount ?? current.PendingCount,
                 LastProgressAt = startedAt ?? current.LastProgressAt,
             }, ct).ConfigureAwait(false);
     }
