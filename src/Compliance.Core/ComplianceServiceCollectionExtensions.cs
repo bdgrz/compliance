@@ -453,6 +453,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<OperatingAuthority>();
         services.AddScoped<ClientManagementIndependenceGuard>();
         services.AddScoped<ClientCompartmentIndependenceGuard>();
+        services.AddScoped<ProfessionalAdvisoryReadAccess>();
         services.AddScoped<PolicyAcknowledgementRecorderGuard>();
         services.AddScoped<WorkQueueReader>();
         services.AddScoped<IProgramResourceScopeResolver, ProgramResourceScopeResolver>();
