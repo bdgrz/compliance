@@ -6,6 +6,15 @@ public sealed partial class IndependenceLedger
 {
     readonly List<EngagementManagementAcknowledgementView> _managementAcknowledgements = [];
 
+    public IReadOnlyList<EngagementManagementAcknowledgementView> AllManagementAcknowledgements =>
+        Array.AsReadOnly(_managementAcknowledgements.ToArray());
+
+    public IReadOnlyList<HistoricalEngagementAssignmentView> ClientActualAssignmentHistory =>
+        Array.AsReadOnly(_assignmentHistory.Select(assignment => new HistoricalEngagementAssignmentView(
+            assignment.ClientTenantId, assignment.EngagementId, assignment.FirmStaffMemberId,
+            assignment.UserId, assignment.Practice == EngagementPractice.Attest ? "attest" : "advisory"))
+            .ToArray());
+
     public IReadOnlyList<EngagementManagementAcknowledgementView> ManagementAcknowledgements(Uuid engagementId) =>
         Array.AsReadOnly(_managementAcknowledgements.Where(ack => ack.EngagementId == engagementId).ToArray());
 

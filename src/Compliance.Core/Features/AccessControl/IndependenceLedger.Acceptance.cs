@@ -8,8 +8,14 @@ public sealed partial class IndependenceLedger
     readonly Dictionary<Uuid, List<ServiceEngagementAcceptanceView>> _acceptanceHistory = [];
 
     public ServiceEngagementAcceptanceView? Acceptance(Uuid engagementId) => _acceptances.GetValueOrDefault(engagementId);
+    internal ServiceEngagementAcceptanceRecorded? AcceptanceSourceForRequest(Uuid requestId) =>
+        _acceptanceSources.GetValueOrDefault(requestId);
     public IReadOnlyList<ServiceEngagementAcceptanceView> AcceptanceHistory(Uuid engagementId) =>
         Array.AsReadOnly(_acceptanceHistory.GetValueOrDefault(engagementId)?.ToArray() ?? []);
+    public IReadOnlyList<ServiceEngagementAcceptanceView> AllAcceptanceHistory => Array.AsReadOnly(
+        _acceptanceHistory.Values.SelectMany(history => history)
+            .OrderBy(item => item.RecordedAt)
+            .ThenBy(item => item.EngagementId.ToString(), StringComparer.Ordinal).ToArray());
     public IReadOnlyList<EngagementAssignment> ActualAssignmentHistory => Array.AsReadOnly(_assignmentHistory.ToArray());
 
     internal Result<ServiceEngagementAcceptanceView> AcceptEngagement(Uuid requestId, long expectedSequence,
@@ -19,7 +25,9 @@ public sealed partial class IndependenceLedger
             proof.TenantId != _tenantId || proof.EngagementId == Uuid.Empty || proof.ReviewTaskId == Uuid.Empty ||
             proof.PartnerStaffMemberId == Uuid.Empty || proof.PartnerUserId == Uuid.Empty ||
             !ValidPartner(proof) || !ValidProofTimes(proof, rules, recordedAt) || !BoundedEngagement(proof.AuthorityReference) || proof.PartnerEvaluationReference is not null &&
-            !BoundedEngagement(proof.PartnerEvaluationReference) || !rules.IsRatified || rules.Version <= 0 ||
+            !BoundedEngagement(proof.PartnerEvaluationReference) ||
+            proof.PartnerEvaluationReference != proof.PartnerEvaluation?.EvaluationId.ToString() ||
+            !rules.IsRatified || rules.Version <= 0 ||
             !IndependenceRecordValidation.ValidRules(rules.Content) || !ValidApprovedBoundary(proof))
             return RefuseAcceptance("Verified scoped partner authority, approved boundary and ratified rules are required.");
         var actor = new ActorReference("firm_staff", proof.PartnerUserId.ToString(), "Verified engagement partner");
@@ -37,6 +45,10 @@ public sealed partial class IndependenceLedger
             !MatchingAcknowledgement(proof.ManagementAcknowledgementId, engagement, proof.PartnerUserId, recordedAt) ||
             _engagementHistory[proof.EngagementId].Any(view => view.Actor.Id == RbacIds.Member(_tenantId, proof.PartnerUserId).ToString()))
             return RefuseAcceptance("Acceptance requires current client management acknowledgement and a separate reviewer.");
+        if (!MatchingPartnerEvaluation(proof.PartnerEvaluation, engagement, rules,
+                proof.PartnerStaffMemberId, proof.PartnerUserId, proof.CurrentPartner.Revision,
+                proof.PartnerDutyRevision, recordedAt))
+            return RefuseAcceptance("Conditional independence requires the exact current partner evaluation for this draft and complete client facts.");
         var proposed = engagement.Staff.Where(staff => staff.IsCurrent).ToArray();
         if (proof.CurrentStaff is null || proposed.Length != proof.CurrentStaff.Count || proposed.Any(staff =>
             !proof.CurrentStaff.Any(current => current.StaffMemberId == staff.StaffMemberId &&
@@ -47,7 +59,7 @@ public sealed partial class IndependenceLedger
         foreach (var staff in proof.CurrentStaff)
             if (AssignmentFailure(proof.EngagementId, staff) is { } conflict)
                 return Result<ServiceEngagementAcceptanceView>.Failure(conflict.Error!);
-        var policyResult = AcceptancePolicy(engagement, rules, proof.PartnerEvaluationReference);
+        var policyResult = AcceptancePolicy(engagement, rules, proof.PartnerEvaluation);
         if (policyResult.Decision.Code != IndependenceDecisionCode.Allowed)
             return RefuseAcceptance("Independence policy refuses acceptance; impairment and unclassified services cannot be overridden.");
         var view = new ServiceEngagementAcceptanceView(_tenantId, proof.EngagementId, engagement.Revision, 1,
@@ -59,7 +71,10 @@ public sealed partial class IndependenceLedger
             "allowed", AcceptanceOutcome(policyResult.Decision), policyResult.ConsideredIds,
             Array.AsReadOnly(proposed.Select(staff => new EngagementActualAssignmentView(staff.StaffMemberId, staff.UserId,
                 staff.Practice, staff.DirectoryStaffRevision,
-                proof.CurrentStaff.Single(current => current.StaffMemberId == staff.StaffMemberId).RecordedAt, true, actor, recordedAt)).ToArray()), "active", actor, recordedAt);
+                proof.CurrentStaff.Single(current => current.StaffMemberId == staff.StaffMemberId).RecordedAt, true, actor, recordedAt)).ToArray()), "active", actor, recordedAt)
+        {
+            PartnerEvaluation = proof.PartnerEvaluation
+        };
         var ev = new ServiceEngagementAcceptanceRecorded(_tenantId, requestId, Sequence, intent, view);
         if (!Fits(ev))
             return RefuseAcceptance("The complete accepted snapshot exceeds the bounded event payload; sources were not truncated.");
@@ -91,7 +106,8 @@ public sealed partial class IndependenceLedger
             ack.UserId != partnerUserId && ack.RecordedAt <= acceptedAt && CompleteFacts(ack.CompleteServiceRecordIds));
 
     (IndependenceDecision Decision, IReadOnlyList<Uuid> ConsideredIds) AcceptancePolicy(
-        ServiceEngagementView engagement, IndependenceRuleVersionView rules, string? evaluationReference)
+        ServiceEngagementView engagement, IndependenceRuleVersionView rules,
+        PartnerIndependenceEvaluationView? partnerEvaluation)
     {
         if (engagement.Content.Practice == "advisory")
             return (IndependenceDecision.Allow, Array.AsReadOnly(Array.Empty<Uuid>()));
@@ -102,7 +118,7 @@ public sealed partial class IndependenceLedger
             service.Content.ServiceEngagementId, service.Content.ServiceType, service.Content.StartedOn,
             service.Content.EndedOn, service.Content.FirmStaffMemberIds, service.Content.InvolvedManagementFunctions)).ToArray();
         var decision = IndependenceCompartments.CanAcceptAttestEngagement(_tenantId, policy, sources,
-            engagement.Content.PeriodStart, evaluationReference is not null);
+            engagement.Content.PeriodStart, partnerEvaluation is not null);
         var considered = decision.ConsideredServices.Select(assessment => assessment.Service).ToHashSet();
         return (decision, Array.AsReadOnly(_services.Where((_, index) => considered.Contains(sources[index]))
             .Select(service => service.ServiceRecordId).ToArray()));
@@ -176,6 +192,7 @@ public sealed partial class IndependenceLedger
             acceptance.ChangedBy is not null || acceptance.ChangedAt is not null ||
             acceptance.ChangeReason is not null || !MatchingAcceptedBoundary(engagement, acceptance) ||
             acceptance.PartnerEvaluationReference is not null && !BoundedEngagement(acceptance.PartnerEvaluationReference) ||
+            acceptance.PartnerEvaluationReference != acceptance.PartnerEvaluation?.EvaluationId.ToString() ||
             !MatchingAcknowledgement(acceptance.ManagementAcknowledgementId, engagement, acceptance.PartnerUserId, acceptance.RecordedAt) ||
             !SameServiceSnapshots(acceptance.CompleteServiceHistory) ||
             !MatchingAcceptancePolicy(engagement, acceptance) ||
@@ -187,6 +204,7 @@ public sealed partial class IndependenceLedger
         acceptance = acceptance with
         {
             Rules = IndependenceRecordValidation.Freeze(acceptance.Rules),
+            PartnerEvaluation = FreezePartnerEvaluation(acceptance.PartnerEvaluation),
             CompleteServiceHistory = Array.AsReadOnly(acceptance.CompleteServiceHistory.Select(IndependenceRecordValidation.Freeze).ToArray()),
             Assignments = Array.AsReadOnly(acceptance.Assignments.ToArray()),
             ConsideredServiceRecordIds = Array.AsReadOnly(acceptance.ConsideredServiceRecordIds.ToArray())
@@ -210,10 +228,49 @@ public sealed partial class IndependenceLedger
 
     bool MatchingAcceptancePolicy(ServiceEngagementView engagement, ServiceEngagementAcceptanceView acceptance)
     {
-        var result = AcceptancePolicy(engagement, acceptance.Rules, acceptance.PartnerEvaluationReference);
+        if (!MatchingPartnerEvaluation(acceptance.PartnerEvaluation, engagement, acceptance.Rules,
+                acceptance.PartnerStaffMemberId, acceptance.PartnerUserId,
+                acceptance.PartnerDirectoryStaffRevision, acceptance.PartnerDutyRevision, acceptance.RecordedAt))
+            return false;
+        var result = AcceptancePolicy(engagement, acceptance.Rules, acceptance.PartnerEvaluation);
         return result.Decision.Code == IndependenceDecisionCode.Allowed && acceptance.DecisionCode == "allowed" &&
             acceptance.EvaluationOutcome == AcceptanceOutcome(result.Decision) && acceptance.ConsideredServiceRecordIds is not null &&
             acceptance.ConsideredServiceRecordIds.SequenceEqual(result.ConsideredIds);
+    }
+
+    bool MatchingPartnerEvaluation(PartnerIndependenceEvaluationView? evaluation,
+        ServiceEngagementView engagement, IndependenceRuleVersionView rules, Uuid partnerStaffMemberId,
+        Uuid partnerUserId, long partnerDirectoryStaffRevision, long partnerDutyRevision,
+        DateTimeOffset acceptedAt)
+    {
+        if (evaluation is null)
+            return true;
+        var retained = _partnerEvaluations.SingleOrDefault(item => item.EvaluationId == evaluation.EvaluationId);
+        return retained is not null && Intent(retained) == Intent(evaluation) &&
+            evaluation.TenantId == _tenantId && evaluation.EngagementId == engagement.EngagementId &&
+            evaluation.DraftRevision == engagement.Revision && evaluation.RuleVersion == rules.Version &&
+            evaluation.RuleContentDigest == IndependenceSourceDigest.RuleContent(rules.Content) &&
+            evaluation.ServiceHistoryDigest == IndependenceSourceDigest.Services(_services) &&
+            SameServiceSnapshots(evaluation.CompleteServiceHistory) &&
+            evaluation.PartnerStaffMemberId == partnerStaffMemberId && evaluation.PartnerUserId == partnerUserId &&
+            evaluation.PartnerDirectoryStaffRevision == partnerDirectoryStaffRevision &&
+            evaluation.PartnerDutyRevision == partnerDutyRevision && evaluation.RecordedAt <= acceptedAt &&
+            evaluation.DecisionCode == "partner_evaluation_required" &&
+            evaluation.Outcome == "conditionally_compatible" &&
+            evaluation.Actor is { Kind: "firm_staff" } && evaluation.Actor.Id == partnerUserId.ToString();
+    }
+
+    static PartnerIndependenceEvaluationView? FreezePartnerEvaluation(
+        PartnerIndependenceEvaluationView? evaluation)
+    {
+        if (evaluation is null)
+            return null;
+        return evaluation with
+        {
+            CompleteServiceHistory = Array.AsReadOnly(evaluation.CompleteServiceHistory
+                .Select(IndependenceRecordValidation.Freeze).ToArray()),
+            ConsideredServiceRecordIds = Array.AsReadOnly(evaluation.ConsideredServiceRecordIds.ToArray())
+        };
     }
 
     bool SameServiceSnapshots(IReadOnlyList<NonattestServiceView> history) => history is not null &&

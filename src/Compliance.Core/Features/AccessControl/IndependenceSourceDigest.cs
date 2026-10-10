@@ -18,6 +18,12 @@ static class IndependenceSourceDigest
     public static string DirectoryEvent(FirmStaffChangeRecorded change) =>
         Digest(change, ComplianceCoreJsonContext.Default.FirmStaffChangeRecorded);
 
+    public static string RuleContent(IndependenceRuleContent content) =>
+        Digest(content, ComplianceCoreJsonContext.Default.IndependenceRuleContent);
+
+    public static string Services(IReadOnlyList<NonattestServiceView> services) =>
+        Digest(services, ComplianceCoreJsonContext.Default.IReadOnlyListNonattestServiceView);
+
     static string Digest<T>(T value, JsonTypeInfo<T> typeInfo) =>
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value, typeInfo)));
 }

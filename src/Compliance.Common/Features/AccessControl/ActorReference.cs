@@ -11,6 +11,9 @@ public sealed record ActorReference(string Kind, string Id, string Display)
     public static ActorReference ForPlatformOperator(Uuid userId, string display) =>
         new("platform_operator", userId.ToString(), display);
 
+    public static ActorReference ForFirmStaff(Uuid userId, string display) =>
+        new("firm_staff", userId.ToString(), display);
+
     public static ActorReference ForSystemProcess(string processId, string display) =>
         new("system_process", processId, display);
 

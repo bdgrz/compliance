@@ -4,9 +4,11 @@ using Bdgrz.Compliance.Features.UserIdentities;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
+sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
     IAggregateReader reader, IServiceEngagementAcceptanceEvidenceReader evidenceReader,
-    IPlatformUserDirectoryReader platformUsers, ITenantActivity tenants, TimeProvider clock)
+    IPlatformUserDirectoryReader platformUsers, ITenantActivity tenants,
+    ProfessionalDutyAuthorityReader duties, CurrentRatifiedIndependenceRulesReader rulesReader,
+    TimeProvider clock)
     : IRequestHandler<AcceptServiceEngagement, ServiceEngagementAcceptanceView>
 {
     public async ValueTask<Result<ServiceEngagementAcceptanceView>> HandleAsync(
@@ -24,6 +26,25 @@ public sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
             return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "The client tenant or canonical platform user is not currently eligible for professional acceptance."));
 
+        var currentDuty = await duties.ReadCurrentAsync(actorUserId,
+            FirmProfessionalDuty.EngagementPartner, request.TenantId, ct).ConfigureAwait(false);
+        if (currentDuty is null)
+            return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Forbidden,
+                "The actor no longer has a current partner designation for this client."));
+
+        var currentLedger = await reader.HydrateAsync(new IndependenceLedger(request.TenantId), ct)
+            .ConfigureAwait(false);
+        if (currentLedger.AcceptanceSourceForRequest(context.RequestId) is { } prior)
+        {
+            if (prior.ExpectedSequence != request.ExpectedSequence ||
+                prior.Acceptance.TenantId != request.TenantId ||
+                prior.Acceptance.EngagementId != request.EngagementId ||
+                prior.Acceptance.PartnerUserId != actorUserId)
+                return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                    "The request identity already records a different engagement acceptance."));
+            return Result<ServiceEngagementAcceptanceView>.Success(prior.Acceptance);
+        }
+
         var evidence = await evidenceReader.ReadCurrentAsync(request.TenantId, request.EngagementId,
                 actorUserId, ct)
             .ConfigureAwait(false);
@@ -36,7 +57,10 @@ public sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
                 "Current scoped engagement authority and ratified rules could not be verified; acceptance was not recorded.", true));
 
         if (proof.PartnerUserId != actorUserId || proof.CurrentPartner is not { IsActive: true } currentPartner ||
-            currentPartner.UserId != actorUserId)
+            currentPartner.UserId != actorUserId || currentDuty.Staff != currentPartner ||
+            proof.PartnerDutyRevision != currentDuty.Designation.Revision ||
+            proof.AuthorityReference != currentDuty.Designation.SourceReference ||
+            proof.PartnerEvaluation is { } evaluation && evaluation.DutyDesignationId != currentDuty.Designation.DesignationId)
             return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Forbidden,
                 "Only the currently designated partner may accept this engagement."));
 
@@ -52,6 +76,19 @@ public sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
                 !MatchesCurrentDirectoryAssignment(assigned, currentDirectoryStaff)))
             return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "An assigned team member no longer matches the same active current directory record; acceptance was not recorded.", true));
+
+        var activeRules = await rulesReader.ReadActiveAsync(ct).ConfigureAwait(false);
+        if (activeRules is null || activeRules.Version != current.RatifiedRules.Version ||
+            IndependenceSourceDigest.RuleContent(activeRules.Content) !=
+                IndependenceSourceDigest.RuleContent(current.RatifiedRules.Content) ||
+            activeRules.Ratification?.RatificationId != current.RatifiedRules.Ratification?.RatificationId)
+            return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "Ratified independence rules changed after evidence was read; reload before accepting.", true));
+        var confirmedDuty = await duties.ReadCurrentAsync(actorUserId,
+            FirmProfessionalDuty.EngagementPartner, request.TenantId, ct).ConfigureAwait(false);
+        if (confirmedDuty != currentDuty)
+            return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The partner designation changed after evidence was read; reload before accepting.", true));
 
         return await executor.ExecuteAsync(new IndependenceLedger(request.TenantId), ledger =>
             AggregateOutcome.CommitOnSuccess(ledger.AcceptEngagement(context.RequestId,

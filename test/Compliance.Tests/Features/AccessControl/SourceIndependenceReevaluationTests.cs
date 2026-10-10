@@ -401,8 +401,8 @@ public sealed class SourceIndependenceReevaluationTests
         Assert.True(receipt.ProductionAcceptanceBlocked);
         Assert.Equal(new DateOnly(2026, 1, 1), receipt.ExaminationPeriodStart);
         Assert.Equal(receipt.ExaminationPeriodStart, receipt.PolicyReferenceDate);
-        Assert.Equal("allowed", receipt.PeriodStartLookbackDecisionCode);
-        Assert.Equal("during_period_service_requires_review", receipt.DecisionCode);
+        Assert.Equal("partner_evaluation_required", receipt.PeriodStartLookbackDecisionCode);
+        Assert.Equal("partner_evaluation_required", receipt.DecisionCode);
         Assert.True(receipt.RequiresDuringPeriodReview);
     }
 
@@ -608,16 +608,53 @@ public sealed class SourceIndependenceReevaluationTests
                     Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, ledger.Sequence,
                         new ServiceEngagementDraftContent(practice, "Synthetic scope", new DateOnly(2026, 1, 1),
                             openEnded ? null : new DateOnly(2026, 12, 31), staff.StaffMemberId), staff, client, now).IsSuccess);
-                    Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
-                        fixture.Tenant, engagement, acknowledgement, ledger.Sequence, 1, [], "I retain management responsibility"),
-                        fixture.User, client, now).IsSuccess);
-                    var proof = new VerifiedEngagementAcceptance(fixture.Tenant, engagement, 1, Uuid.CreateVersion4(),
-                        partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY",
-                        priorPartnerReference ? "Synthetic historical partner reference ONLY" : null,
-                        acknowledgement, null, null, [staff], partner, 1, now);
+                    var partnerDutyId = Uuid.CreateVersion4();
+                    var partnerDutyActor = ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic duty registrar");
+                    var partnerDuty = new FirmProfessionalDutyDesignationView(partnerDutyId, partner.StaffMemberId,
+                        partner.UserId, FirmProfessionalDuty.EngagementPartner, fixture.Tenant,
+                        "Synthetic partner duty source ONLY", partner.Revision, true, 1, partnerDutyActor, now,
+                        partnerDutyActor, now, null);
                     var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
                         [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
                         "Synthetic ratified test rules ONLY"), staff.Actor, now, true);
+                    PartnerIndependenceEvaluationView? partnerEvaluation = null;
+                    if (priorPartnerReference)
+                    {
+                        var readiness = ledger.RecordService(Uuid.CreateVersion4(), Uuid.CreateVersion4(), ledger.Sequence,
+                            new NonattestServiceContent(Uuid.CreateVersion4(), "readiness", new DateOnly(2025, 11, 1),
+                                new DateOnly(2025, 12, 1), [staff.StaffMemberId], false,
+                                "Synthetic client-owned service source ONLY"), client, now);
+                        Assert.True(readiness.IsSuccess, readiness.Error?.Message);
+                        var ruleActor = ActorReference.ForFirmStaff(partner.UserId, "Synthetic partner");
+                        var ruleDigest = IndependenceSourceDigest.RuleContent(rules.Content);
+                        var ratification = new IndependenceRuleRatificationView(Uuid.CreateVersion4(), rules.Version,
+                            1, ruleDigest, "Synthetic ratification evidence ONLY", partner.StaffMemberId,
+                            partner.UserId, partner.Revision, partnerDutyId, partnerDuty.Revision, ruleActor, now);
+                        rules = rules with { Ratification = ratification };
+                    }
+                    Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
+                        fixture.Tenant, engagement, acknowledgement, ledger.Sequence, 1,
+                        ledger.History().Services.Select(item => item.ServiceRecordId).ToArray(),
+                        "I retain management responsibility"),
+                        fixture.User, client, now).IsSuccess);
+                    if (priorPartnerReference)
+                    {
+                        var evaluationRequest = new RecordPartnerIndependenceEvaluation(fixture.Tenant, engagement,
+                            Uuid.CreateVersion4(), ledger.Sequence, 1, rules.Version,
+                            IndependenceSourceDigest.RuleContent(rules.Content),
+                            IndependenceSourceDigest.Services(ledger.History().Services),
+                            "Synthetic exact partner evaluation ONLY");
+                        var recorded = ledger.RecordPartnerIndependenceEvaluation(Uuid.CreateVersion4(),
+                            evaluationRequest, rules, new CurrentProfessionalDuty(partner, partnerDuty),
+                            ActorReference.ForFirmStaff(partner.UserId, "Synthetic partner"), now);
+                        Assert.True(recorded.IsSuccess, recorded.Error?.Message);
+                        partnerEvaluation = recorded.Value;
+                    }
+                    var proof = new VerifiedEngagementAcceptance(fixture.Tenant, engagement, 1, Uuid.CreateVersion4(),
+                        partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY",
+                        partnerEvaluation?.EvaluationId.ToString(),
+                        acknowledgement, null, null, [staff], partner, 1, now);
+                    proof = proof with { PartnerEvaluation = partnerEvaluation };
                     Assert.True(ledger.AcceptEngagement(Uuid.CreateVersion4(), ledger.Sequence, proof, rules, now).IsSuccess);
                     if (closed)
                         Assert.True(ledger.CloseEngagement(Uuid.CreateVersion4(), engagement, ledger.Sequence, "Synthetic client closure", client, now).IsSuccess);
