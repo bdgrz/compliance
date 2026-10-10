@@ -119,31 +119,31 @@ Operators can inspect the member/week dispatch identity, status, attempt time,
 stable message identity, and redacted failure category without seeing source
 payloads or provider secrets.
 
-## Current implementation boundary
+## Backend implementation boundary
 
-This is a product policy, not a claim that digest dispatch is implemented.
+The #292 implementation keeps the existing Program-scoped in-product
 [GetWorkDigestHandler](../../../src/Compliance.Core/Features/Work/GetWorkDigestHandler.cs)
-exposes Program-scoped content,
-[WorkDigestView.DigestId](../../../src/Compliance.Common/Features/Work/WorkDigestView.cs)
-includes the Program, and
-[WorkDigestPreference](../../../src/Compliance.Core/Features/Work/WorkDigestPreference.cs)
-supplies email opt-out. There is no weekly dispatcher or cross-Program
-delivery ledger, and no member time-zone field. A validated member time-zone
-source with UTC fallback is a prerequisite for member-local scheduling under
-#292.
+and adds a separate tenant/member/week dispatch ledger. The worker freezes the
+member's local week and schedule, checks the current tenant membership,
+`tenant.access` Program visibility, verified destination, email opt-out, and
+member-authorized work queue immediately before composing each message. It
+claims the dispatch before SMTP and records accepted, skipped, retryable,
+permanent, or ambiguous outcomes without changing in-app reminders or source
+due dates.
+
+The shared configured STARTTLS relay remains the transport. Production hosts
+also require a deployment-supplied HTTPS application origin and the scoped
+client work-item route owned by #121; the backend does not invent or serve
+that route. IT can read the durable dispatch status through the platform
+operator-only HTTP/MCP operation. The status omits the recipient, body,
+provider response, and source payload.
 
 The existing [email-challenge reactor](../../../src/Compliance.Core/Features/UserIdentities/EmailChallengeDeliveryReactor.cs)
 and [tenant-invitation reactor](../../../src/Compliance.Core/Features/Tenants/TenantInvitationDeliveryReactor.cs)
-call SMTP before recording the outcome. A non-cancellation transport
-exception is recorded as generic `delivery_failed`; it does not distinguish
-definite non-acceptance from ambiguous acceptance. If SMTP accepts a message
-and the subsequent sent-outcome write fails, the reactor throws and can replay
-the source event, sending again. Those reactors and their retry behavior
-cannot be reused unchanged for digests. Digest delivery needs a durable
-reservation and transport outcomes that distinguish definite non-acceptance
-from ambiguity. No separate email provider is justified by the current
-evidence; the concrete gap is the missing outcome distinction and dispatch
-ledger, not SMTP configuration or relay selection.
+retain their own delivery and replay behavior. Digest dispatch does not reuse
+those reactors because its retry rule must distinguish definite SMTP
+non-acceptance from ambiguous acceptance. No separate email provider is
+justified by the current evidence.
 
 ## Source decisions and Jev judgment
 

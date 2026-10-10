@@ -2,6 +2,8 @@ using Bdgrz.Compliance.Features.Criteria;
 using Bdgrz.Compliance.Features.Retention;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Responsibilities;
+using Bdgrz.Compliance.Features.UserIdentities;
+using Bdgrz.Compliance.Features.Work;
 using Cntryl.Portia;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,6 +53,18 @@ public static class ComplianceServiceCollectionExtensions
         var emailDeliverySettings = EmailChallengeDeliverySettings.FromConfiguration(configuration,
             requireRealEmailDelivery);
         services.AddSingleton(emailDeliverySettings);
+        var workDigestDeliverySettings = WorkDigestDeliverySettings.FromConfiguration(configuration,
+            requireRealEmailDelivery);
+        services.AddSingleton(workDigestDeliverySettings);
+        services.AddSingleton<MockWorkDigestDelivery>();
+        services.AddSingleton<IWorkDigestDelivery>(provider => emailDeliverySettings.Mode == "smtp"
+            ? new SmtpWorkDigestDelivery(emailDeliverySettings)
+            : provider.GetRequiredService<MockWorkDigestDelivery>());
+        services.AddScoped<WorkDigestContentReader>();
+        services.AddScoped<IWorkDigestContentReader>(provider =>
+            provider.GetRequiredService<WorkDigestContentReader>());
+        services.AddScoped<WorkDigestDispatchProcessor>();
+        services.AddScoped<WorkDigestDispatchSweep>();
         services.AddSingleton(EmailChallengeTokenKeys.FromConfiguration(configuration,
             emailDeliverySettings.Mode == "mock"));
         services.AddSingleton<MockEmailChallengeDelivery>();
@@ -774,6 +788,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<EscalateWorkItemHandler>()
             .AddRequestHandler<ListWorkRemindersHandler>()
             .AddRequestHandler<GetWorkDigestHandler>()
+            .AddRequestHandler<GetWorkDigestDispatchStatusHandler>()
             .AddRequestHandler<SetWorkDigestPreferenceHandler>()
             .AddRequestHandler<GetWorkDigestPreferenceHandler>()
             .AddRequestAuthorizer<OperationsReactionAuthorizer>()
