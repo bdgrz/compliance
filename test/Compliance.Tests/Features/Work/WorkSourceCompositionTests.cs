@@ -1283,7 +1283,7 @@ public sealed class WorkSourceCompositionTests
             var search = await Scenario().When(request with { Search = item.Summary }).ExpectSuccess();
             Assert.Equal(item, detail.Value.Item);
             Assert.Contains(item, search.Value.Items);
-            Assert.Equal(search.Value.Items.Count, search.Value.Counts.Total);
+            Assert.Equal(CountsFor(search.Value), search.Value.Counts);
         }
         await Scenario().When(new CancelEvidenceRequest(fixture.TenantId, fixture.ProgramId,
             openEvidence.EvidenceRequestId, openEvidence.Revision, "Evidence is no longer required."))
@@ -1302,7 +1302,7 @@ public sealed class WorkSourceCompositionTests
         Assert.Equal(expectedKinds.Length, initial.Value.Items.Count);
         Assert.Equal(initial.Value.Items.Count,
             initial.Value.Items.Select(static item => item.WorkItemId).Distinct().Count());
-        Assert.Equal(initial.Value.Items.Count, initial.Value.Counts.Total);
+        Assert.Equal(CountsFor(initial.Value), initial.Value.Counts);
         Assert.All(initial.Value.Items, item =>
         {
             Assert.NotEqual(Uuid.Empty, item.SourceId);
@@ -1312,10 +1312,16 @@ public sealed class WorkSourceCompositionTests
                 StringComparison.Ordinal);
         });
         Assert.True(lag.Error!.IsTransient);
+        Assert.Equal(CountsFor(reconciled.Value), reconciled.Value.Counts);
         Assert.Equal(initial.Value.Items.Count - 1, reconciled.Value.Counts.Total);
         Assert.Equal(RequestErrorKind.NotFound, removedDetail.Error!.Kind);
         Assert.DoesNotContain(reconciled.Value.Items,
             item => item.Kind == WorkSource.EvidenceRequest);
+
+        static WorkCountsView CountsFor(WorkQueueView view) => new(view.Items.Count,
+            view.Items.Count(static item => item.Overdue),
+            view.Items.Count(item => item.DueOn == view.AsOf),
+            view.Items.Count(static item => item.Escalated));
     }
 
     static ServiceProvider CreateProvider(OperationsFixture fixture,
