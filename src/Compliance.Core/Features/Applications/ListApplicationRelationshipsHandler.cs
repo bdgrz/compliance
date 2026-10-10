@@ -35,44 +35,40 @@ public sealed class ListApplicationRelationshipsHandler(IAggregateReader reader,
         Page<ApplicationRelationshipView> page;
         try
         {
-            page = await directory.ListAsync(request.TenantId, request.ApplicationId,
-                request.Direction, request.Limit, request.Cursor, ct).ConfigureAwait(false);
+            page = await VisibleApplicationPage.ReadAsync(request.Limit, request.Cursor,
+                (limit, cursor) => directory.ListAsync(request.TenantId,
+                    request.ApplicationId, request.Direction, limit, cursor, ct),
+                async relationship =>
+                {
+                    var counterpartId = request.Direction == "outgoing"
+                        ? relationship.TargetApplicationId
+                        : relationship.SourceApplicationId;
+                    var counterpart = await reader.HydrateApplicationAsync(request.TenantId,
+                        counterpartId, ct).ConfigureAwait(false);
+                    return counterpart.IsCreated && !counterpart.IsRetired &&
+                           await visibility.CanReadApplicationAsync(request.TenantId,
+                               userId, counterpartId, ct).ConfigureAwait(false);
+                }, relationship => relationship.TenantId == request.TenantId &&
+                    (request.Direction == "outgoing"
+                        ? relationship.SourceApplicationId
+                        : relationship.TargetApplicationId) == request.ApplicationId)
+                .ConfigureAwait(false);
         }
         catch (KvDirectoryQueryException)
         {
             return Result<Page<ApplicationRelationshipView>>.Failure(new RequestError(
                 RequestErrorKind.Validation, "The application relationship cursor is invalid."));
         }
-
-        var visible = new List<ApplicationRelationshipView>(page.Items.Count);
-        var omittedHiddenRelationship = false;
-        foreach (var relationship in page.Items)
+        catch (VisibleApplicationPage.ForeignDirectoryItemException)
         {
-            var counterpartId = request.Direction == "outgoing"
-                ? relationship.TargetApplicationId
-                : relationship.SourceApplicationId;
-            if (relationship.TenantId != request.TenantId ||
-                request.Direction == "outgoing" && relationship.SourceApplicationId != request.ApplicationId ||
-                request.Direction == "incoming" && relationship.TargetApplicationId != request.ApplicationId)
-                return Result<Page<ApplicationRelationshipView>>.Failure(new RequestError(
-                    RequestErrorKind.NotFound, "The application was not found."));
-            var counterpart = await reader.HydrateApplicationAsync(request.TenantId,
-                counterpartId, ct).ConfigureAwait(false);
-            if (!counterpart.IsCreated || counterpart.IsRetired ||
-                !await visibility.CanReadApplicationAsync(request.TenantId, userId,
-                    counterpartId, ct).ConfigureAwait(false))
-            {
-                omittedHiddenRelationship = true;
-                continue;
-            }
-            visible.Add(relationship);
+            return Result<Page<ApplicationRelationshipView>>.Failure(new RequestError(
+                RequestErrorKind.NotFound, "The application was not found."));
         }
 
         var confirmed = await consistency.ConfirmUnchangedAndCaughtUpAsync(request.TenantId,
             fence.Value, ct).ConfigureAwait(false);
         if (!confirmed.IsSuccess)
             return Result<Page<ApplicationRelationshipView>>.Failure(confirmed.Error);
-        return Result<Page<ApplicationRelationshipView>>.Success(new Page<ApplicationRelationshipView>(
-            visible, omittedHiddenRelationship ? null : page.NextCursor));
+        return Result<Page<ApplicationRelationshipView>>.Success(page);
     }
 }

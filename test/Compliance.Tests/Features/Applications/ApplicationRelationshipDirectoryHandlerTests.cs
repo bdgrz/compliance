@@ -241,15 +241,24 @@ public sealed class ApplicationRelationshipDirectoryHandlerTests
         var userId = Uuid.CreateVersion4();
         var actorMemberId = RbacIds.Member(tenantId, Uuid.CreateVersion4());
         var sourceId = Uuid.CreateVersion4();
-        var restrictedTargetId = Uuid.CreateVersion4();
+        var targetIds = Enumerable.Range(0, 3).Select(_ => Uuid.CreateVersion4())
+            .OrderBy(id => ApplicationRelationshipIdentityForTest(sourceId, "depends_on", id)
+                .ToString(), StringComparer.Ordinal).ToArray();
+        var restrictedTargetId = targetIds[0];
+        var visibleTargetIds = targetIds[1..];
         var now = DateTimeOffset.UtcNow;
         var source = Application(tenantId, sourceId, actorMemberId, false, now);
         var target = Application(tenantId, restrictedTargetId, actorMemberId, true, now);
-        var reader = new SourceMapReader(source, target);
+        var visibleTargets = visibleTargetIds.Select((id, index) =>
+            Application(tenantId, id, actorMemberId, false, now.AddMinutes(index + 1)));
+        var reader = new SourceMapReader([source, target, .. visibleTargets]);
         var directory = new FitzApplicationRelationshipDirectory(new InMemoryKvClient());
         var identity = Identity(tenantId);
         await ApplyAsync(directory, identity, Recorded(tenantId, sourceId,
             restrictedTargetId, now));
+        foreach (var (targetId, index) in visibleTargetIds.Select((id, index) => (id, index)))
+            await ApplyAsync(directory, identity, Recorded(tenantId, sourceId, targetId,
+                now.AddMinutes(index + 1)));
         var events = new InMemoryEventStore();
         var handler = new ListApplicationRelationshipsHandler(reader, directory,
             new ApplicationRelationshipReadConsistency(directory, events),
@@ -257,13 +266,19 @@ public sealed class ApplicationRelationshipDirectoryHandlerTests
 
         // Act
         var result = await handler.HandleAsync(new RequestContext<ListApplicationRelationships>(
-            new ListApplicationRelationships(tenantId, sourceId, "outgoing"), Actor(userId)),
+            new ListApplicationRelationships(tenantId, sourceId, "outgoing", 1), Actor(userId)),
             CancellationToken.None);
+        var nextPage = await handler.HandleAsync(new RequestContext<ListApplicationRelationships>(
+            new ListApplicationRelationships(tenantId, sourceId, "outgoing", 1,
+                result.Value.NextCursor), Actor(userId)), CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Empty(result.Value.Items);
-        Assert.Null(result.Value.NextCursor);
+        Assert.Equal(visibleTargetIds[0], Assert.Single(result.Value.Items).TargetApplicationId);
+        Assert.NotNull(result.Value.NextCursor);
+        Assert.True(nextPage.IsSuccess, nextPage.Error?.Message);
+        Assert.Equal(visibleTargetIds[1], Assert.Single(nextPage.Value.Items).TargetApplicationId);
+        Assert.Null(nextPage.Value.NextCursor);
     }
 
     static Uuid ApplicationRelationshipIdentityForTest(Uuid sourceId, string type,
