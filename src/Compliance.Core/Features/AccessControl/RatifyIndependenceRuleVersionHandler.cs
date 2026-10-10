@@ -34,11 +34,20 @@ sealed class RatifyIndependenceRuleVersionHandler(IAggregateExecutor executor,
             request.RuleVersion <= (ratifications.Active?.RuleVersion ?? 0))
             return Refuse(RequestErrorKind.Conflict,
                 "The ratification sequence changed or a newer version is already active; reload before ratifying.", true);
+        var confirmedDuty = await duties.ReadCurrentAsync(userId, FirmProfessionalDuty.RuleRatifier, null, ct)
+            .ConfigureAwait(false);
+        if (confirmedDuty is null ||
+            confirmedDuty.Staff.StaffMemberId != currentDuty.Staff.StaffMemberId ||
+            confirmedDuty.Staff.Revision != currentDuty.Staff.Revision ||
+            confirmedDuty.Designation.DesignationId != currentDuty.Designation.DesignationId ||
+            confirmedDuty.Designation.Revision != currentDuty.Designation.Revision)
+            return Refuse(RequestErrorKind.Conflict,
+                "The rule-ratifier authority changed during this request; reload before ratifying.", true);
         return await executor.ExecuteAsync(new IndependenceRuleRatificationCatalog(), catalog =>
             AggregateOutcome.CommitOnSuccess(catalog.Ratify(context.RequestId, request.RatificationId,
                 request.RuleVersion, request.ExpectedRuleCatalogSequence, request.ExpectedRatificationSequence,
-                request.ExpectedContentDigest, request.SourceReference, currentDuty.Staff,
-                currentDuty.Designation, actor, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
+                request.ExpectedContentDigest, request.SourceReference, confirmedDuty.Staff,
+                confirmedDuty.Designation, actor, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
     }
 
     static Result<IndependenceRuleRatificationView> Refuse(RequestErrorKind kind, string message,

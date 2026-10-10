@@ -59,11 +59,39 @@ reusing a request identity for another mutation conflicts. Closed drafts cannot
 be reopened or edited. A draft amendment cannot rewrite its practice identity,
 and the proposed lead must remain selected until another lead is recorded.
 
-Partner-duty designation and personal HTTP-only acceptance require the real
-professional authority decision recorded on #269. The public acceptance
-operation is separate from this draft capability. Actual firm ratification
-evidence remains #343; the directory or draft UI cannot generate it or remove
-that gate.
+Professional duties are never inferred from this metadata. The platform duty
+catalog accepts only a signed assertion from the deployment-configured firm
+authority. A current platform operator may relay a signed assertion over
+personal HTTP, but operator status and attribution do not establish its
+professional facts. The request carries the signed assertion and stable
+designation ID; it cannot supply a subject, duty, tenant, source reference or
+issuer. A missing or invalid trust configuration denies duty changes, and all
+professional reads fail closed when the retained signed assertion is invalid,
+expired, superseded or revoked.
+
+The configured issuer is pinned outside the API under
+`Compliance:ProfessionalAuthority`: HTTPS `Issuer`, exact `Audience`, `KeyId`,
+RSA SubjectPublicKeyInfo `PublicKeyBase64`, and a bounded
+`MaximumAssertionLifetimeSeconds` (at most 86,400 seconds). Assertions use
+RS256 compact JWS with exact canonical platform-user `sub`, unique assertion
+`jti`, stable `designation_id`, supported `duty`, monotonic
+`authority_revision`, and `iat`, `nbf` and `exp`. Engagement-partner assertions
+must carry one `tenant_id`; global rule-ratifier assertions must omit it.
+Successor assertions bind `supersedes_assertion_id` to the exact prior
+assertion; revocation is a signed `status: revoked` successor. The application
+retains the signed assertion and its digest with the duty event, rejects replayed
+assertion IDs, and re-verifies the current assertion against the active staff
+directory before granting authority. There is no API or platform-operator
+operation that changes the trusted issuer or key.
+
+The repository does not configure a real firm issuer or public key. Identifying
+the accountable issuer and supplying its production trust configuration remain
+external #343/deployment inputs; synthetic signed assertions are test evidence
+only. The current configuration pins one key ID at a time. Replacing that key
+makes assertions signed by the old key fail closed, so the authority owner must
+reissue/reingest current duties as part of a key rotation before relying on the
+new configuration. Actual firm rule ratification evidence also remains #343;
+the directory or draft UI cannot generate it or remove that gate.
 
 ## Personal client management acknowledgement
 
@@ -96,10 +124,11 @@ actor is the currently designated partner and that the directory snapshot is sti
 requires the applicable ratified rules. No partner duty designation or production ratification is
 inferred from platform operator, directory practice or client administration authority.
 
-Production composition currently installs a fail-closed evidence reader: until an authoritative
-partner-duty and ratified-rule provider is configured, acceptance returns a transient conflict
-without appending an event. Synthetic fixture proofs are test evidence, never real professional
-ratification.
+Production composition reads partner duty from the configured signed issuer and reads rule
+ratification from the retained personal-ratification source. Without a configured, valid duty
+assertion or a current ratified rule version, acceptance returns a denial/conflict without
+appending an event. No issuer or ratification source is preconfigured by this repository.
+Synthetic fixture proofs are test evidence, never real professional ratification.
 
 Acceptance recomputes policy from the complete immutable retained service history. An impaired
 or unclassified Attest service cannot be overridden; conditional compatibility requires a

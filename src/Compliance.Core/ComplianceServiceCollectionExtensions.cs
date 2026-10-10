@@ -31,6 +31,9 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(new DeveloperUserRegistration(developerAuthentication));
         services.AddSingleton(PlatformOperatorAuthority.FromConfiguration(configuration, developerAuthentication));
         services.AddScoped<IPlatformOperatorAccess, EventSourcedPlatformOperatorAccess>();
+        var professionalAuthorityTrust = FirmProfessionalAuthorityTrustSettings.FromConfiguration(configuration);
+        services.TryAddScoped<IFirmProfessionalDutyAssertionVerifier>(_ =>
+            new SignedFirmProfessionalDutyAssertionVerifier(professionalAuthorityTrust));
         services.AddSingleton(ControlDraftDiscardReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(ControlActivationReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));

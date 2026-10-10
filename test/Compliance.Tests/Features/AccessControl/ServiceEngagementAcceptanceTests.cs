@@ -425,11 +425,13 @@ public sealed class ServiceEngagementAcceptanceTests
     {
         // Arrange
         var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        var configurationValues = new Dictionary<string, string?>
         {
             ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
             ["Fitz:ApplicationName"] = "compliance",
-        }).Build();
+        };
+        ProfessionalDutyAssertionTestIssuer.AddConfiguration(configurationValues);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(configurationValues).Build();
         services.AddCompliance(configuration, developerAuthentication: true);
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(true));
@@ -1002,11 +1004,13 @@ public sealed class ServiceEngagementAcceptanceTests
     static ServiceProvider ComposeAcceptanceProvider(IServiceEngagementAcceptanceEvidenceReader? evidenceReader = null)
     {
         var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        var configurationValues = new Dictionary<string, string?>
         {
             ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
             ["Fitz:ApplicationName"] = "compliance",
-        }).Build();
+        };
+        ProfessionalDutyAssertionTestIssuer.AddConfiguration(configurationValues);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(configurationValues).Build();
         services.AddCompliance(configuration, developerAuthentication: true);
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(true));
@@ -1054,11 +1058,16 @@ public sealed class ServiceEngagementAcceptanceTests
         var directory = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
             .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None);
         var partnerStaff = directory.View().Staff.Single(item => item.StaffMemberId == proof.PartnerStaffMemberId);
-        const string PartnerDutySource = "Synthetic partner duty evidence";
+        var authorityIssuedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var authorityExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30);
+        var partnerDesignationId = Uuid.CreateVersion4();
+        var partnerAssertion = ProfessionalDutyAssertionTestIssuer.Issue(partnerDesignationId,
+            proof.PartnerUserId, FirmProfessionalDuty.EngagementPartner, Tenant, 1, "active", null,
+            authorityIssuedAt, authorityExpiresAt);
         var partnerDesignation = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
-            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
-                partnerStaff, FirmProfessionalDuty.EngagementPartner, Tenant, PartnerDutySource,
-                catalog.Sequence, operatorActor, Now)), new RequestDispatchContext(RequestActor.System),
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), partnerAssertion.Evidence,
+                partnerAssertion.Token, partnerStaff, catalog.Sequence, operatorActor, Now)),
+            new RequestDispatchContext(RequestActor.System),
             CancellationToken.None);
         Assert.True(partnerDesignation.IsSuccess, partnerDesignation.Error?.Message);
 
@@ -1074,10 +1083,14 @@ public sealed class ServiceEngagementAcceptanceTests
         directory = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
             .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None);
         var ratifier = directory.View().Staff.Single(item => item.StaffMemberId == ratifierStaffId);
+        var ratifierDesignationId = Uuid.CreateVersion4();
+        var ratifierAssertion = ProfessionalDutyAssertionTestIssuer.Issue(ratifierDesignationId,
+            ratifierUser, FirmProfessionalDuty.RuleRatifier, null, 1, "active", null,
+            authorityIssuedAt, authorityExpiresAt);
         var ratifierDesignation = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
-            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
-                ratifier, FirmProfessionalDuty.RuleRatifier, null, "Synthetic ratifier duty source",
-                catalog.Sequence, operatorActor, Now.AddMinutes(-2))), new RequestDispatchContext(RequestActor.System),
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), ratifierAssertion.Evidence,
+                ratifierAssertion.Token, ratifier, catalog.Sequence, operatorActor, Now.AddMinutes(-2))),
+            new RequestDispatchContext(RequestActor.System),
             CancellationToken.None);
         Assert.True(ratifierDesignation.IsSuccess, ratifierDesignation.Error?.Message);
 
@@ -1121,7 +1134,7 @@ public sealed class ServiceEngagementAcceptanceTests
             Assert.Equal(IndependenceSourceDigest.RuleContent(nextContent),
                 IndependenceSourceDigest.RuleContent(rules.Content));
         }
-        proof = proof with { AuthorityReference = PartnerDutySource };
+        proof = proof with { AuthorityReference = partnerDesignation.Value!.SourceReference };
         return (proof, rules, retained.Sequence, retained.CommittedStreamPosition);
     }
 

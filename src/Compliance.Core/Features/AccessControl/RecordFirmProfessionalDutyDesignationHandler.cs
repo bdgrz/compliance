@@ -2,32 +2,40 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-public sealed class RecordFirmProfessionalDutyDesignationHandler(IAggregateExecutor executor,
-    IAggregateReader reader, IPlatformUserDirectoryReader users, TimeProvider clock)
+sealed class RecordFirmProfessionalDutyDesignationHandler(IAggregateExecutor executor,
+    IAggregateReader reader, IPlatformUserDirectoryReader users,
+    IFirmProfessionalDutyAssertionVerifier assertions, TimeProvider clock)
     : IRequestHandler<RecordFirmProfessionalDutyDesignation, FirmProfessionalDutyDesignationView>
 {
     public async ValueTask<Result<FirmProfessionalDutyDesignationView>> HandleAsync(
         IRequestContext<RecordFirmProfessionalDutyDesignation> context, CancellationToken ct)
     {
         var request = context.Request;
-        if (request.StaffMemberId == Uuid.Empty)
-            return Result<FirmProfessionalDutyDesignationView>.Failure(new RequestError(RequestErrorKind.NotFound,
-                "A current canonical firm-staff identity is required before recording a duty designation."));
+        var now = clock.GetUtcNow();
+        if (!assertions.TryVerify(request.SignedAssertion, now, out var evidence) ||
+            evidence.Status != "active" || evidence.DesignationId != request.DesignationId)
+            return Failure(RequestErrorKind.Forbidden,
+                "A valid, current signed active-duty assertion from the configured issuer is required.");
         var directory = await reader.HydrateAsync(new FirmStaffDirectory(), ct).ConfigureAwait(false);
-        if (directory.Get(request.StaffMemberId) is not { IsActive: true } staff)
-            return Result<FirmProfessionalDutyDesignationView>.Failure(new RequestError(RequestErrorKind.Conflict,
-                "The firm-staff identity is missing or inactive; reload before designating a professional duty.", true));
+        var staffMatches = directory.View().Staff.Where(item => item.UserId == evidence.UserId).ToArray();
+        if (staffMatches is not [{ IsActive: true } staff])
+            return Failure(RequestErrorKind.Conflict,
+                "The firm-staff identity is missing or inactive; reload before designating a professional duty.", true);
         if (!await users.ExistsAsync(staff.UserId, ct).ConfigureAwait(false))
-            return Result<FirmProfessionalDutyDesignationView>.Failure(new RequestError(RequestErrorKind.NotFound,
-                "The canonical platform user is unavailable; wait for directory recovery."));
+            return Failure(RequestErrorKind.Conflict,
+                "The canonical platform user is unavailable; wait for directory recovery.", true);
 
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var operatorId))
             throw new InvalidOperationException("ProfessionalDutyAdministrationAuthorizer must reject this actor.");
         var actor = ActorReference.ForPlatformOperator(operatorId,
             UserIdentityClaims.BdgrzDisplay(context.Actor, operatorId));
         return await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
-            AggregateOutcome.CommitOnSuccess(catalog.Designate(context.RequestId, request.DesignationId,
-                staff, request.Duty, request.TenantId, request.SourceReference, request.ExpectedSequence,
-                actor, clock.GetUtcNow())), context, ct).ConfigureAwait(false);
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(context.RequestId, evidence,
+                request.SignedAssertion, staff, request.ExpectedSequence, actor, now)), context, ct)
+            .ConfigureAwait(false);
     }
+
+    static Result<FirmProfessionalDutyDesignationView> Failure(RequestErrorKind kind, string message,
+        bool transient = false) =>
+        Result<FirmProfessionalDutyDesignationView>.Failure(new RequestError(kind, message, transient));
 }
