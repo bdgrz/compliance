@@ -4,35 +4,27 @@ using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessControl;
 
-/// <summary>Requires a personal, current firm identity; client administration grants do not authorize acceptance.</summary>
-sealed class ServiceEngagementAcceptanceAuthorizer(ProfessionalDutyAuthorityReader duties,
-    IPlatformUserDirectoryReader platformUsers, ITenantActivity tenants)
-    : IRequestAuthorizer<IServiceEngagementAcceptanceRequest>
+/// <summary>Restricts partner workflow requests to personal HTTP calls by the current designated client partner.</summary>
+sealed class ProfessionalEngagementPartnerAuthorizer(ProfessionalDutyAuthorityReader duties,
+    ITenantActivity tenants) : IRequestAuthorizer<IPersonalEngagementPartnerRequest>
 {
-    public async ValueTask<Result> AuthorizeAsync(IRequestContext<IServiceEngagementAcceptanceRequest> context,
-        CancellationToken ct)
+    public async ValueTask<Result> AuthorizeAsync(
+        IRequestContext<IPersonalEngagementPartnerRequest> context, CancellationToken ct)
     {
         if (context.Invocation is not HttpInvocation || RequestActor.IsSystem(context.Actor))
             return Deny(RequestErrorKind.Forbidden,
-                "Professional acceptance requires a personal HTTP request.");
-
+                "Professional partner review requires a personal HTTP request.");
         if (!UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var userId))
             return Deny(RequestErrorKind.Unauthorized,
-                "Professional acceptance requires a canonical Bdgrz user identity.");
-
+                "Professional partner review requires a canonical signed-in firm-staff identity.");
         var tenantId = context.Request.TenantId;
         if (tenantId == Uuid.Empty || !await tenants.IsActiveAsync(tenantId, ct).ConfigureAwait(false))
             return Deny(RequestErrorKind.Forbidden, "The client tenant is not active.");
-
-        if (!await platformUsers.ExistsAsync(userId, ct).ConfigureAwait(false))
-            return Deny(RequestErrorKind.Forbidden,
-                "Professional acceptance requires a current platform user identity.");
-
         return await duties.ReadCurrentAsync(userId, FirmProfessionalDuty.EngagementPartner, tenantId, ct)
             .ConfigureAwait(false) is not null
             ? Result.Success
             : Deny(RequestErrorKind.Forbidden,
-                "Professional acceptance requires the current partner designation for this client.");
+                "Only the current, active partner designated for this client may review the engagement.");
     }
 
     static Result Deny(RequestErrorKind kind, string message) =>

@@ -11,4 +11,7 @@ public sealed record ServiceEngagementAcceptanceView(Uuid TenantId, Uuid Engagem
     IReadOnlyList<Uuid> ConsideredServiceRecordIds,
     IReadOnlyList<EngagementActualAssignmentView> Assignments, string Status,
     ActorReference Actor, DateTimeOffset RecordedAt,
-    ActorReference? ChangedBy = null, DateTimeOffset? ChangedAt = null, string? ChangeReason = null);
+    ActorReference? ChangedBy = null, DateTimeOffset? ChangedAt = null, string? ChangeReason = null)
+{
+    public PartnerIndependenceEvaluationView? PartnerEvaluation { get; init; }
+}

@@ -68,6 +68,7 @@ public sealed partial class IndependenceLedger
     static ServiceEngagementAcceptanceView FreezeAcceptedSnapshot(ServiceEngagementAcceptanceView acceptance) => acceptance with
     {
         Rules = IndependenceRecordValidation.Freeze(acceptance.Rules),
+        PartnerEvaluation = FreezePartnerEvaluation(acceptance.PartnerEvaluation),
         CompleteServiceHistory = Array.AsReadOnly(acceptance.CompleteServiceHistory.Select(IndependenceRecordValidation.Freeze).ToArray()),
         Assignments = Array.AsReadOnly(acceptance.Assignments.ToArray()),
         ConsideredServiceRecordIds = Array.AsReadOnly(acceptance.ConsideredServiceRecordIds.ToArray())

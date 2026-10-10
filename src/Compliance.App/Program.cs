@@ -592,6 +592,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/platform/firm-staff/{staff_member_id}/status")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Service engagements");
+    app.MapPortiaPut<RecordFirmProfessionalDutyDesignation, FirmProfessionalDutyDesignationView>(
+            "/api/v1/platform/firm-professional-duties/{designation_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPost<RevokeFirmProfessionalDutyDesignation, FirmProfessionalDutyDesignationView>(
+            "/api/v1/platform/firm-professional-duties/{designation_id}/revocation")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaGet<GetFirmProfessionalDutyCatalog, FirmProfessionalDutyCatalogView>(
+            "/api/v1/platform/firm-professional-duties")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPost<RecordPartnerIndependenceEvaluation, PartnerIndependenceEvaluationView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/partner-evaluations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaGet<GetServiceEngagementPartnerReviewContext, ServiceEngagementPartnerReviewContextView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/partner-review-context")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
     app.MapPortiaGet<GetFirmStaffDirectory, FirmStaffDirectoryView>(
             "/api/v1/platform/firm-staff")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
@@ -666,6 +686,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithTags("Firm independence");
     app.MapPortiaPut<ReviseIndependenceRules, IndependenceRuleVersionView>(
             "/api/v1/platform/independence/rules")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Firm independence");
+    app.MapPortiaPost<RatifyIndependenceRuleVersion, IndependenceRuleRatificationView>(
+            "/api/v1/platform/independence/rules/{rule_version}/ratification")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Firm independence");
     app.MapPortiaPut<RecordNonattestService, NonattestServiceView>(

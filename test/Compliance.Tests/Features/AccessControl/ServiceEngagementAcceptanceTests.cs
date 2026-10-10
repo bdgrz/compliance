@@ -196,22 +196,46 @@ public sealed class ServiceEngagementAcceptanceTests
         var acknowledgement = Uuid.CreateVersion4();
         Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(Tenant,
             proof.EngagementId, acknowledgement, 3, 1, [serviceId], "I retain management responsibility."), ClientUser, ClientActor, Now).IsSuccess);
-        proof = proof with
+        proof = proof with { ManagementAcknowledgementId = acknowledgement };
+        var updatedContent = rules.Content with
         {
-            ManagementAcknowledgementId = acknowledgement,
-            PartnerEvaluationReference = evaluation ? "Synthetic recorded partner evaluation" : null
+            ServiceRules = [new IndependenceServiceRuleContent("readiness", classification, "impairing")]
         };
+        var updatedDigest = IndependenceSourceDigest.RuleContent(updatedContent);
+        var ratifierUserId = Uuid.CreateVersion4();
         rules = rules with
         {
-            Content = rules.Content with
-            {
-                ServiceRules =
-            [new IndependenceServiceRuleContent("readiness", classification, "impairing")]
-            }
+            Content = updatedContent,
+            Ratification = new IndependenceRuleRatificationView(Uuid.CreateVersion4(), rules.Version,
+                rules.Version, updatedDigest, "Synthetic ratification evidence", Uuid.CreateVersion4(),
+                ratifierUserId, 1, Uuid.CreateVersion4(), 1,
+                ActorReference.ForFirmStaff(ratifierUserId, "Synthetic rule ratifier"), Now)
         };
+        if (evaluation && classification == "conditionally_compatible")
+        {
+            var duty = new FirmProfessionalDutyDesignationView(Uuid.CreateVersion4(),
+                proof.PartnerStaffMemberId, proof.PartnerUserId, FirmProfessionalDuty.EngagementPartner,
+                Tenant, "Synthetic partner duty evidence", proof.CurrentPartner.Revision, true, 1,
+                ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic registrar"), Now,
+                ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic registrar"), Now, null);
+            var currentPartner = new CurrentProfessionalDuty(proof.CurrentPartner, duty);
+            var partnerActor = ActorReference.ForFirmStaff(proof.PartnerUserId, "Synthetic designated partner");
+            var evaluationRequest = new RecordPartnerIndependenceEvaluation(Tenant, proof.EngagementId,
+                Uuid.CreateVersion4(), ledger.Sequence, proof.ReviewedDraftRevision, rules.Version,
+                updatedDigest, IndependenceSourceDigest.Services(ledger.History().Services),
+                "Synthetic evaluation rationale");
+            var recorded = ledger.RecordPartnerIndependenceEvaluation(Uuid.CreateVersion4(), evaluationRequest,
+                rules, currentPartner, partnerActor, Now);
+            Assert.True(recorded.IsSuccess, recorded.Error?.Message);
+            proof = proof with
+            {
+                PartnerEvaluation = recorded.Value,
+                PartnerEvaluationReference = recorded.Value!.EvaluationId.ToString()
+            };
+        }
 
         // Act
-        var result = ledger.AcceptEngagement(Uuid.CreateVersion4(), 4, proof, rules, Now);
+        var result = ledger.AcceptEngagement(Uuid.CreateVersion4(), ledger.Sequence, proof, rules, Now);
 
         // Assert
         Assert.Equal(expectedAllowed, result.IsSuccess);
@@ -472,31 +496,129 @@ public sealed class ServiceEngagementAcceptanceTests
     }
 
     [Fact]
-    public async Task ShouldDenyAcceptanceGivenProductionCompositionWithoutAuthoritativeEvidenceProvider()
+    public async Task ShouldAcceptGivenProductionEvidenceReaderAndRecordedGovernanceSources()
     {
         // Arrange
         await using var provider = ComposeAcceptanceProvider();
-        var seeded = await SeedDraftAsync(provider);
+        var seeded = await SeedDraftAsync(provider, recordNextDraftAndRatification: true);
         await using var scope = provider.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
-        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var reader = scope.ServiceProvider.GetRequiredService<IAggregateReader>();
+        var serviceId = Uuid.CreateVersion4();
+        var serviceRecorded = await executor.ExecuteAsync(new IndependenceLedger(Tenant), ledger =>
+            AggregateOutcome.CommitOnSuccess(ledger.RecordService(Uuid.CreateVersion4(), serviceId,
+                ledger.Sequence, new NonattestServiceContent(seeded.Proof.EngagementId, "readiness",
+                new DateOnly(2025, 12, 1), null, [seeded.Proof.PartnerStaffMemberId], false,
+                "Synthetic current client service source"), ClientActor, Now)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(serviceRecorded.IsSuccess, serviceRecorded.Error?.Message);
+        var afterService = await reader.HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+        var acknowledgementId = Uuid.CreateVersion4();
+        var acknowledgement = await executor.ExecuteAsync(new IndependenceLedger(Tenant), ledger =>
+            AggregateOutcome.CommitOnSuccess(ledger.AcknowledgeManagement(Uuid.CreateVersion4(),
+                new AcknowledgeEngagementManagement(Tenant, seeded.Proof.EngagementId, acknowledgementId,
+                    ledger.Sequence, 1, [serviceId], "I retain management responsibility."),
+                ClientUser, ClientActor, Now)), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(acknowledgement.IsSuccess, acknowledgement.Error?.Message);
+        var readyForEvaluation = await reader.HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+        var evaluationPath = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/partner-evaluations";
+        var evaluation = await bus.DispatchAsync(new RecordPartnerIndependenceEvaluation(Tenant,
+                seeded.Proof.EngagementId, Uuid.CreateVersion4(), readyForEvaluation.Sequence, 1,
+                seeded.Rules.Version, IndependenceSourceDigest.RuleContent(seeded.Rules.Content),
+                IndependenceSourceDigest.Services(readyForEvaluation.History().Services),
+                "Synthetic partner evaluation of the complete client service history"),
+            new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+                new HttpInvocation("POST", evaluationPath, evaluationPath,
+                    "bdgrz.service-engagement.partner-evaluation.record")), CancellationToken.None);
+        Assert.True(evaluation.IsSuccess, evaluation.Error?.Message);
+        Assert.Equal(seeded.Rules.Version, evaluation.Value!.RuleVersion);
+        var afterEvaluation = await reader.HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId,
+            afterEvaluation.Sequence);
         var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
         var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
             new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
 
         // Act
         var result = await bus.DispatchAsync(request, context, CancellationToken.None);
-        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
-            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+        var retained = await reader.HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(seeded.CommittedStreamPosition + 4UL, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Sequence + 4, retained.Sequence);
+        Assert.Equal("accepted", retained.Engagement(request.EngagementId)!.Status);
+        Assert.Equal(seeded.Proof.PartnerUserId, result.Value!.PartnerUserId);
+        Assert.Equal(seeded.Proof.PartnerDutyRevision, result.Value.PartnerDutyRevision);
+        Assert.Equal(seeded.Rules.Version, result.Value.Rules.Version);
+        Assert.Equal("conditionally_compatible", result.Value.EvaluationOutcome);
+        Assert.Equal(evaluation.Value!.EvaluationId, result.Value.PartnerEvaluation!.EvaluationId);
+        Assert.Single(result.Value.CompleteServiceHistory);
+
+        var additionalStaffId = Uuid.CreateVersion4();
+        var additionalUserId = Uuid.CreateVersion4();
+        await SeedCurrentStaffAsync(provider, additionalStaffId, additionalUserId);
+        var directory = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None);
+        var additionalStaff = directory.View().Staff.Single(item => item.StaffMemberId == additionalStaffId);
+        var additionalEngagementId = Uuid.CreateVersion4();
+        var created = await scope.ServiceProvider.GetRequiredService<IAggregateExecutor>().ExecuteAsync(
+            new IndependenceLedger(Tenant), ledger => AggregateOutcome.CommitOnSuccess(ledger.CreateEngagement(
+                Uuid.CreateVersion4(), additionalEngagementId, ledger.Sequence,
+                new ServiceEngagementDraftContent("attest", "Synthetic second portfolio engagement",
+                    new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), additionalStaffId),
+                additionalStaff, ClientActor, Now)), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Error?.Message);
+
+        var reviewPath = $"/api/v1/tenants/{Tenant}/service-engagements/{request.EngagementId}/partner-review-context";
+        var review = await bus.DispatchAsync(new GetServiceEngagementPartnerReviewContext(Tenant,
+                request.EngagementId), new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+                new HttpInvocation("GET", reviewPath, reviewPath, "bdgrz.service-engagement.partner-review-context")),
+            CancellationToken.None);
+        Assert.True(review.IsSuccess, review.Error?.Message);
+        Assert.Equal(Tenant, review.Value!.TenantId);
+        Assert.Equal(2, review.Value.ClientEngagements.Count);
+        Assert.Single(review.Value.ClientAcceptanceHistory);
+        Assert.Single(review.Value.ClientActualAssignmentHistory);
+        Assert.Single(review.Value.CompleteNonattestServices);
+        Assert.Equal(2, review.Value.ClientManagementAcknowledgements.Count);
+        Assert.Equal(2, review.Value.TargetManagementAcknowledgements.Count);
+        Assert.NotNull(review.Value.ActiveRatifiedRules);
+        Assert.Single(review.Value.ClientPartnerEvaluations);
+    }
+
+    [Theory]
+    [InlineData("client_manager")]
+    [InlineData("partner_mcp")]
+    [InlineData("partner_direct")]
+    [InlineData("foreign_tenant")]
+    public async Task ShouldDenyPartnerPortfolioContextGivenNonPartnerOrNonHttpInvocation(string caller)
+    {
+        // Arrange
+        await using var provider = ComposeAcceptanceProvider();
+        var seeded = await SeedDraftAsync(provider);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/partner-review-context";
+        var actor = caller == "client_manager" ? ActorFor(ClientUser) : ActorFor(seeded.Proof.PartnerUserId);
+        var tenantId = caller == "foreign_tenant" ? Uuid.CreateVersion4() : Tenant;
+        RequestInvocation invocation = caller switch
+        {
+            "partner_mcp" => new McpInvocation("bdgrz.service-engagement.partner-review-context"),
+            "partner_direct" => new DirectInvocation(),
+            _ => new HttpInvocation("GET", path, path, "bdgrz.service-engagement.partner-review-context")
+        };
+
+        // Act
+        var result = await bus.DispatchAsync(new GetServiceEngagementPartnerReviewContext(tenantId,
+            seeded.Proof.EngagementId), new RequestDispatchContext(actor, invocation), CancellationToken.None);
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
-        Assert.True(result.Error!.IsTransient);
-        Assert.Equal(seeded.CommittedStreamPosition, retained.CommittedStreamPosition);
-        Assert.Equal(seeded.Sequence, retained.Sequence);
-        Assert.Equal("draft", retained.Engagement(request.EngagementId)!.Status);
-        Assert.Null(retained.Acceptance(request.EngagementId));
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
     }
 
     [Theory]
@@ -754,8 +876,7 @@ public sealed class ServiceEngagementAcceptanceTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
-        Assert.Equal(1, evidenceReader.Reads);
-        Assert.Equal(unrelatedUser, evidenceReader.LastActorUserId);
+        Assert.Equal(0, evidenceReader.Reads);
         Assert.Equal(seeded.Sequence, retained.Sequence);
         Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
     }
@@ -843,7 +964,9 @@ public sealed class ServiceEngagementAcceptanceTests
         Assert.Throws<InvalidOperationException>(replay);
     }
 
-    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(string practice, IndependenceLedger? source = null, DateTimeOffset? sourceRecordedAt = null)
+    static (IndependenceLedger Ledger, VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules) Fixture(
+        string practice, IndependenceLedger? source = null, DateTimeOffset? sourceRecordedAt = null,
+        bool selectBoundary = true)
     {
         var ledger = source ?? new IndependenceLedger(Tenant);
         var sourceTime = sourceRecordedAt ?? Now;
@@ -854,7 +977,7 @@ public sealed class ServiceEngagementAcceptanceTests
         var versionId = Uuid.CreateVersion4();
         var approvalId = Uuid.CreateVersion4();
         var content = new ServiceEngagementDraftContent(practice, "Synthetic scope", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), staff.StaffMemberId,
-            new ServiceEngagementBoundaryReference(boundaryId, versionId, 1));
+            selectBoundary ? new ServiceEngagementBoundaryReference(boundaryId, versionId, 1) : null);
         Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, 0, content, staff, ClientActor, Now).IsSuccess);
         var acknowledgement = Uuid.CreateVersion4();
         Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
@@ -866,8 +989,9 @@ public sealed class ServiceEngagementAcceptanceTests
             Uuid.CreateVersion4(), "Synthetic reviewer", "Synthetic approval", sourceTime, null, null, "synthetic-digest");
         var partner = staff with { StaffMemberId = Uuid.CreateVersion4(), UserId = Uuid.CreateVersion4() };
         var proof = new VerifiedEngagementAcceptance(Tenant, engagement, 1, Uuid.CreateVersion4(),
-            partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY; not production evidence", null,
-            acknowledgement, boundary, approval, [staff], partner, 1, sourceTime);
+            partner.StaffMemberId, partner.UserId, "Synthetic partner duty source", null,
+            acknowledgement, selectBoundary ? boundary : null, selectBoundary ? approval : null,
+            [staff], partner, 1, sourceTime);
         var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
             [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
             "Synthetic ratified test fixture ONLY; not production evidence"),
@@ -899,7 +1023,8 @@ public sealed class ServiceEngagementAcceptanceTests
     }
 
     static async Task<(VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules,
-        long Sequence, ulong CommittedStreamPosition)> SeedDraftAsync(IServiceProvider provider)
+        long Sequence, ulong CommittedStreamPosition)> SeedDraftAsync(IServiceProvider provider,
+        bool recordNextDraftAndRatification = false)
     {
         VerifiedEngagementAcceptance proof = null!;
         IndependenceRuleVersionView rules = null!;
@@ -907,7 +1032,7 @@ public sealed class ServiceEngagementAcceptanceTests
         var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
         var seeded = await executor.ExecuteAsync(new IndependenceLedger(Tenant), ledger =>
         {
-            (_, proof, rules) = Fixture("attest", ledger);
+            (_, proof, rules) = Fixture("attest", ledger, selectBoundary: false);
             return AggregateOutcome.Commit(Result.Success);
         }, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
         Assert.True(seeded.IsSuccess, seeded.Error?.Message);
@@ -923,7 +1048,80 @@ public sealed class ServiceEngagementAcceptanceTests
                 CancellationToken.None);
             Assert.True(directorySeeded.IsSuccess, directorySeeded.Error?.Message);
         }
-        scope.ServiceProvider.GetRequiredService<TestPlatformUserDirectoryReader>().Add(proof.PartnerUserId);
+        var users = scope.ServiceProvider.GetRequiredService<TestPlatformUserDirectoryReader>();
+        users.Add(proof.PartnerUserId);
+        var operatorActor = ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic registrar");
+        var directory = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None);
+        var partnerStaff = directory.View().Staff.Single(item => item.StaffMemberId == proof.PartnerStaffMemberId);
+        const string PartnerDutySource = "Synthetic partner duty evidence";
+        var partnerDesignation = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                partnerStaff, FirmProfessionalDuty.EngagementPartner, Tenant, PartnerDutySource,
+                catalog.Sequence, operatorActor, Now)), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(partnerDesignation.IsSuccess, partnerDesignation.Error?.Message);
+
+        var ratifierUser = Uuid.CreateVersion4();
+        var ratifierStaffId = Uuid.CreateVersion4();
+        var ratifierRegistration = await executor.ExecuteAsync(new FirmStaffDirectory(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Register(Uuid.CreateVersion4(), ratifierStaffId,
+                ratifierUser, "attest", "Synthetic ratifier directory source", catalog.Sequence,
+                operatorActor, Now.AddMinutes(-3))), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(ratifierRegistration.IsSuccess, ratifierRegistration.Error?.Message);
+        users.Add(ratifierUser);
+        directory = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None);
+        var ratifier = directory.View().Staff.Single(item => item.StaffMemberId == ratifierStaffId);
+        var ratifierDesignation = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                ratifier, FirmProfessionalDuty.RuleRatifier, null, "Synthetic ratifier duty source",
+                catalog.Sequence, operatorActor, Now.AddMinutes(-2))), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(ratifierDesignation.IsSuccess, ratifierDesignation.Error?.Message);
+
+        var ruleRecorded = await executor.ExecuteAsync(new IndependenceRuleCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.ReviseRules(Uuid.CreateVersion4(), catalog.Sequence,
+                rules.Content, operatorActor, Now.AddMinutes(-1))), new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        Assert.True(ruleRecorded.IsSuccess, ruleRecorded.Error?.Message);
+        var ratification = await executor.ExecuteAsync(new IndependenceRuleRatificationCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Ratify(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                1, 1, catalog.Sequence, IndependenceSourceDigest.RuleContent(rules.Content),
+                "Synthetic ratification evidence", ratifier, ratifierDesignation.Value!,
+                ActorReference.ForFirmStaff(ratifierUser, "Synthetic rule ratifier"), Now)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(ratification.IsSuccess, ratification.Error?.Message);
+        var rulesReader = scope.ServiceProvider.GetRequiredService<CurrentRatifiedIndependenceRulesReader>();
+        rules = Assert.IsType<IndependenceRuleVersionView>(await rulesReader.ReadActiveAsync(CancellationToken.None));
+        if (recordNextDraftAndRatification)
+        {
+            var nextContent = rules.Content with { SourceReference = "Synthetic explicitly ratified next version" };
+            var nextDraft = await executor.ExecuteAsync(new IndependenceRuleCatalog(), catalog =>
+                AggregateOutcome.CommitOnSuccess(catalog.ReviseRules(Uuid.CreateVersion4(), catalog.Sequence,
+                    nextContent, operatorActor, Now.AddMinutes(1))),
+                new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+            Assert.True(nextDraft.IsSuccess, nextDraft.Error?.Message);
+            var stillActive = Assert.IsType<IndependenceRuleVersionView>(
+                await rulesReader.ReadActiveAsync(CancellationToken.None));
+            Assert.Equal(rules.Version, stillActive.Version);
+            Assert.Equal(IndependenceSourceDigest.RuleContent(rules.Content),
+                IndependenceSourceDigest.RuleContent(stillActive.Content));
+
+            var nextRatification = await executor.ExecuteAsync(new IndependenceRuleRatificationCatalog(), catalog =>
+                AggregateOutcome.CommitOnSuccess(catalog.Ratify(Uuid.CreateVersion4(), Uuid.CreateVersion4(),
+                    rules.Version + 1, 2, catalog.Sequence, IndependenceSourceDigest.RuleContent(nextContent),
+                    "Synthetic next rule ratification evidence", ratifier, ratifierDesignation.Value!,
+                    ActorReference.ForFirmStaff(ratifierUser, "Synthetic rule ratifier"), Now.AddMinutes(2))),
+                new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+            Assert.True(nextRatification.IsSuccess, nextRatification.Error?.Message);
+            rules = Assert.IsType<IndependenceRuleVersionView>(await rulesReader.ReadActiveAsync(CancellationToken.None));
+            Assert.Equal(stillActive.Version + 1, rules.Version);
+            Assert.Equal(IndependenceSourceDigest.RuleContent(nextContent),
+                IndependenceSourceDigest.RuleContent(rules.Content));
+        }
+        proof = proof with { AuthorityReference = PartnerDutySource };
         return (proof, rules, retained.Sequence, retained.CommittedStreamPosition);
     }
 
