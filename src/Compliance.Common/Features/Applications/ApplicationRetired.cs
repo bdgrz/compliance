@@ -8,7 +8,8 @@ namespace Bdgrz.Compliance.Features.Applications;
 [Discriminator("bdgrz.application.retired", 1)]
 public sealed record ApplicationRetired(Uuid TenantId, Uuid ApplicationId, long Revision,
     DateTimeOffset EffectiveAt, string Reason, Uuid? MergedIntoApplicationId,
-    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt) : DomainEvent
+    Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt,
+    long? MergedIntoApplicationRevision = null) : DomainEvent
 {
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }

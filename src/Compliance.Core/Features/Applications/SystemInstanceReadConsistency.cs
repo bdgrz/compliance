@@ -6,6 +6,28 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
     IAggregateReader reader, LegacySystemInstanceSource legacy,
     IDomainEventReader events)
 {
+    public async ValueTask<Result<ProjectionCheckpoint>> CaptureApplicationListAsync(
+        Uuid tenantId, CancellationToken ct)
+    {
+        var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        return await HasPendingApplicationDirectorySourceAsync(tenantId, checkpoint, ct)
+                .ConfigureAwait(false)
+            ? Result<ProjectionCheckpoint>.Failure(ApplicationListBehindSourceError())
+            : Result<ProjectionCheckpoint>.Success(checkpoint);
+    }
+
+    public async ValueTask<Result> ConfirmApplicationListUnchangedAndCaughtUpAsync(
+        Uuid tenantId, ProjectionCheckpoint fence, CancellationToken ct)
+    {
+        var checkpoint = await directory.LoadCheckpointAsync(tenantId, ct)
+            .ConfigureAwait(false);
+        if (checkpoint != fence || await HasPendingApplicationDirectorySourceAsync(
+                tenantId, checkpoint, ct).ConfigureAwait(false))
+            return Result.Failure(ApplicationListBehindSourceError());
+        return Result.Success;
+    }
+
     public async ValueTask<Result> EnsureAsync(Uuid tenantId, Uuid applicationId,
         long? minimumApplicationRevision, Uuid? systemInstanceId,
         long? minimumInstanceRevision, CancellationToken ct)
@@ -79,4 +101,26 @@ public sealed class SystemInstanceReadConsistency(IApplicationDirectoryReader di
         }
         return Result.Success;
     }
+
+    async ValueTask<bool> HasPendingApplicationDirectorySourceAsync(Uuid tenantId,
+        ProjectionCheckpoint checkpoint, CancellationToken ct)
+    {
+        var scanned = 0;
+        await foreach (var pending in events.ReadAsync(
+                           EventStreamPattern.ForPattern(tenantId.ToString()),
+                           checkpoint.Cursor, ct).ConfigureAwait(false))
+        {
+            if (scanned++ == ApplicationDirectoryBacklog.ScanLimit)
+                return true;
+            if (pending.Event is ApplicationDeclared or ApplicationRevised or ApplicationRetired or
+                SystemInstanceDeclared or SystemInstanceRegistered or SystemInstanceRetired or
+                ApplicationImportCommitted)
+                return true;
+        }
+        return false;
+    }
+
+    static RequestError ApplicationListBehindSourceError() => new(RequestErrorKind.Conflict,
+        "The system instance list projection has not reached a stable source checkpoint.",
+        isTransient: true);
 }
