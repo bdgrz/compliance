@@ -6,4 +6,4 @@ namespace Bdgrz.Compliance.Features.AccessControl;
 [Discriminator("bdgrz.independence.evaluate", 1)]
 public sealed record EvaluateClientIndependence(Uuid TenantId,
     Uuid EvaluationId, long ExpectedSequence, long RuleSetVersion, DateOnly ExaminationPeriodStart)
-    : IRequest<IndependenceEvaluationView>, IIndependenceAdministrationRequest, ICallable;
+    : IRequest<IndependenceEvaluationView>, IIndependenceAdministrationRequest, IClientManagementMutationRequest, ICallable;
