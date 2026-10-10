@@ -1,14 +1,21 @@
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Commitments;
+using Bdgrz.Compliance.Features.Controls;
+using Bdgrz.Compliance.Features.ControlMappings;
+using Bdgrz.Compliance.Features.Evaluations;
 using Bdgrz.Compliance.Features.AccessReviews;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Policies;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Evidence;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Remediation;
+using Bdgrz.Compliance.Features.Responsibilities;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Bdgrz.Compliance.Tests.Features.AccessReviews;
@@ -201,6 +208,71 @@ public sealed class WorkSourceCompositionTests
     }
 
     [Fact]
+    public async Task ShouldRecoverPolicyCampaignWorkGivenProjectionLagAndCatchUp()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        await using var provider = CreateProvider(fixture);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var campaignId = Uuid.CreateVersion4();
+        var personId = fixture.PersonId;
+        var launchedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var launchedOn = DateOnly.FromDateTime(launchedAt.UtcDateTime);
+        var dueOn = launchedOn.AddDays(7);
+        var subject = new CampaignSubject("policy", Uuid.CreateVersion4(), "POL-WORK",
+            "Access Control Policy", 2, "policy-content-hash");
+        var match = new RosterMatch(personId, "Pat Offline", "employee", "Engineering",
+            launchedOn.AddYears(-1));
+        var audience = new RosterAudience(new Dictionary<Uuid, RosterMatch>
+        {
+            [personId] = match,
+        }, new HashSet<Uuid> { personId });
+        await ProgramManagementServices.SeedAsync<PolicyDistributionCampaign,
+            CampaignRegistration>(fixture.Provider,
+            new PolicyDistributionCampaign(fixture.TenantId, campaignId), campaign =>
+                campaign.Launch(fixture.ProgramId, subject, "core_security", [],
+                    Uuid.CreateVersion4(), new string('a', 64), audience, dueOn,
+                    "Read and acknowledge this policy.",
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"),
+                    fixture.LeadMemberId, launchedAt));
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.ApproverUserId));
+        var request = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
+
+        // Act
+        var launchLag = await Scenario().When(request).ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpPolicyCampaignProjectionAsync(provider, fixture.TenantId);
+        var pending = await Scenario().When(request).ExpectSuccess();
+        var campaignWork = Assert.Single(pending.Value.Items,
+            item => item.Kind == PolicyCampaignWork.Acknowledgement);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new PolicyDistributionCampaign(fixture.TenantId, campaignId), campaign =>
+            {
+                Assert.Null(campaign.Acknowledge(fixture.ProgramId, Uuid.CreateVersion4(), personId,
+                    subject.Version, subject.ContentSha256,
+                    PolicyDistributionCampaign.DefaultAcknowledgementText,
+                    new ActorReference("workforce_person", personId.ToString(), "Pat Offline"),
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), true,
+                    DateTimeOffset.UtcNow));
+                return Result.Success;
+            });
+        var acknowledgementLag = await Scenario().When(request)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpPolicyCampaignProjectionAsync(provider, fixture.TenantId);
+        var reconciled = await Scenario().When(request).ExpectSuccess();
+
+        // Assert
+        Assert.True(launchLag.Error!.IsTransient);
+        Assert.Equal(PolicyCampaignWork.Acknowledgement, campaignWork.Kind);
+        Assert.Equal(Uuid.CreateVersion5(campaignId, "participant:" + personId),
+            campaignWork.SourceId);
+        Assert.True(acknowledgementLag.Error!.IsTransient);
+        Assert.DoesNotContain(reconciled.Value.Items,
+            item => item.WorkItemId == campaignWork.WorkItemId);
+    }
+
+    [Fact]
     public async Task ShouldHideProductionProjectedRestrictedRemediationGivenNoCurrentSystemVisibility()
     {
         // Arrange
@@ -293,6 +365,429 @@ public sealed class WorkSourceCompositionTests
                 snapshotId, new string('a', 64), [reviewer], [item], actor, now,
                 fixture.ProgramId, fixture.ApproverMemberId));
         return (campaignId, itemId, systemInstanceId);
+    }
+
+    static async Task<EvidenceRequestView> SeedOperationsWorkAsync(OperationsFixture fixture)
+    {
+        var cadence = new ControlCadence("ad_hoc", DueWithinDays: 10);
+        await fixture.PlanAsync(cadence: cadence, effectiveFrom: fixture.Today.AddDays(-1));
+        var first = await fixture.AsAsync(fixture.OwnerUserId, new OpenControlOccurrence(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, "First independent check.",
+            fixture.Today));
+        _ = await fixture.AsAsync(fixture.OwnerUserId, new OpenControlOccurrence(
+            fixture.TenantId, fixture.ProgramId, fixture.ControlId, "Second independent check.",
+            fixture.Today));
+        await fixture.AsAsync(fixture.OwnerUserId, fixture.Attest(first));
+        var planSet = await fixture.GetPlansAsync();
+        await fixture.ProposeAsync(planSet.Revision, cadence: cadence,
+            effectiveFrom: fixture.Today);
+
+        _ = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId,
+            fixture.Today.AddDays(7));
+        var completed = await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId,
+            fixture.Today.AddDays(7));
+        var completedAction = Assert.Single(completed.CorrectiveActions);
+        await fixture.AsAsync(fixture.OwnerUserId, new CompleteCorrectiveAction(fixture.TenantId,
+            fixture.ProgramId, completed.FindingId, completed.Revision,
+            completedAction.ActionId, "Removed the unsafe behavior.", OperationsFixture.FullSupport));
+
+        return await fixture.AsAsync(fixture.LeadUserId, new OpenEvidenceRequest(fixture.TenantId,
+            fixture.ProgramId, "Quarterly evidence", "Upload the approved export.",
+            fixture.OwnerMemberId, fixture.Today.AddDays(7)));
+    }
+
+    static async Task SeedAccessReviewWorkAsync(OperationsFixture fixture,
+        IServiceProvider provider)
+    {
+        var unresolved = await SeedReviewCampaignAsync(fixture);
+        var remediation = await SeedReviewCampaignAsync(fixture);
+        var result = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.LeadUserId, new RecordAccessDecision(fixture.TenantId,
+                remediation.CampaignId, remediation.ItemId, 1, "revoke",
+                "The assignment is no longer required."));
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.NotEqual(unresolved.ItemId, remediation.ItemId);
+    }
+
+    static async Task SeedRiskGovernanceWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var actionRiskId = Uuid.CreateVersion4();
+        var actionId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(actionRiskId, 0, actionId, "mitigate",
+                    "Enforce MFA", "MFA is required", "Identity provider export.",
+                    fixture.Today.AddDays(10), fixture.OwnerMemberId, [],
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), now));
+                return Result.Success;
+            });
+
+        var reviewRiskId = Uuid.CreateVersion4();
+        var reviewActionId = Uuid.CreateVersion4();
+        var submissionId = Uuid.CreateVersion4();
+        var evidenceId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.AddTreatmentAction(reviewRiskId, 0, reviewActionId, "mitigate",
+                    "Rotate credentials", "Credentials are rotated quarterly",
+                    "The credential rotation record.", fixture.Today.AddDays(10),
+                    fixture.OwnerMemberId, [], ActorReference.ForMember(fixture.LeadMemberId,
+                        "Lead"), now));
+                Assert.Null(ledger.SubmitActionCompletion(reviewRiskId, reviewActionId, 1,
+                    submissionId, "Rotated all active credentials.", [evidenceId],
+                    new HashSet<Uuid> { evidenceId }, fixture.OwnerMemberId,
+                    ActorReference.ForMember(fixture.OwnerMemberId, "Owner"), now.AddMinutes(1)));
+                return Result.Success;
+            });
+
+        var treatmentRiskId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.ProposeControlTreatment(treatmentRiskId, 0,
+                    Uuid.CreateVersion4(), "mitigate", fixture.ControlId,
+                    fixture.ControlVersionId, "This control treats the risk.",
+                    fixture.LeadMemberId,
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), now));
+                return Result.Success;
+            });
+    }
+
+    static async Task SeedRiskAcceptanceWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var riskId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskDraft(fixture.TenantId, riskId), draft =>
+            {
+                Assert.True(draft.Create(fixture.ProgramId, Uuid.CreateVersion4(), "R-MIXED",
+                    new RiskDraftContent("Data exposure", "Customer records could be exposed.",
+                        "Loss of customer trust.", null), fixture.LeadMemberId, "Lead", now)
+                    .IsSuccess);
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskGovernanceLedger(fixture.TenantId, fixture.ProgramId), governance =>
+            {
+                Assert.Null(governance.AssignOwner(riskId, 0, fixture.PersonId,
+                    fixture.OwnerMemberId, "Owns the service risk.",
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), now));
+                return Result.Success;
+            });
+        RiskMethodVersionView? method = null;
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskMethod(fixture.TenantId, fixture.ProgramId), riskMethod =>
+            {
+                Assert.Null(riskMethod.Publish(fixture.ProgramId, 0,
+                    ["rare", "unlikely", "possible", "likely", "almost certain"],
+                    ["low", "minor", "moderate", "major", "severe"], 20,
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"), now));
+                method = riskMethod.Current;
+                return Result.Success;
+            });
+        var residualId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new RiskEvaluation(fixture.TenantId, riskId), evaluation =>
+            {
+                Assert.Null(evaluation.RecordAssessment(fixture.ProgramId, 0,
+                    Uuid.CreateVersion4(), method!, RiskEvaluation.Inherent, 2, 2,
+                    "The baseline exposure is limited.", fixture.LeadMemberId, "Lead", now));
+                Assert.Null(evaluation.ChooseTreatment(fixture.ProgramId, 1, "accept",
+                    "The residual exposure is within appetite.", fixture.LeadMemberId, "Lead",
+                    now.AddMinutes(1)));
+                Assert.Null(evaluation.RecordAssessment(fixture.ProgramId, 2, residualId,
+                    method!, RiskEvaluation.Residual, 3, 3,
+                    "The residual exposure remains within appetite.", fixture.LeadMemberId,
+                    "Lead", now.AddMinutes(2)));
+                return Result.Success;
+            });
+    }
+
+    static async Task SeedPolicyCampaignWorkAsync(OperationsFixture fixture, string kind)
+    {
+        var campaignId = Uuid.CreateVersion4();
+        var launchedAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var launchedOn = DateOnly.FromDateTime(launchedAt.UtcDateTime);
+        var subject = new CampaignSubject(kind, Uuid.CreateVersion4(),
+            kind == "training" ? "TR-MIXED" : "POL-MIXED",
+            kind == "training" ? "Security awareness" : "Access control policy", 1,
+            new string(kind == "training" ? 'b' : 'a', 64));
+        var match = new RosterMatch(fixture.PersonId, "Pat Offline", "employee", "Engineering",
+            launchedOn.AddYears(-1));
+        var audience = new RosterAudience(new Dictionary<Uuid, RosterMatch>
+        {
+            [fixture.PersonId] = match,
+        }, new HashSet<Uuid> { fixture.PersonId });
+        await ProgramManagementServices.SeedAsync<PolicyDistributionCampaign,
+            CampaignRegistration>(fixture.Provider,
+            new PolicyDistributionCampaign(fixture.TenantId, campaignId), campaign =>
+                campaign.Launch(fixture.ProgramId, subject, "core_security", [],
+                    Uuid.CreateVersion4(), new string('c', 64), audience,
+                    launchedOn.AddDays(10), "Read the material and record completion.",
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"),
+                    fixture.LeadMemberId, launchedAt));
+    }
+
+    static async Task SeedControlDecisionWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-3);
+        await SeedControlAsync(fixture, "AC-MIXED-REVIEW", approve: false,
+            retirement: false, acceptRetirementReview: false, now);
+        await SeedControlAsync(fixture, "AC-MIXED-APPROVAL", approve: true,
+            retirement: false, acceptRetirementReview: false, now.AddMinutes(1));
+        await SeedControlAsync(fixture, "AC-MIXED-RETIRE-REVIEW", approve: true,
+            retirement: true, acceptRetirementReview: false, now.AddMinutes(2));
+        await SeedControlAsync(fixture, "AC-MIXED-RETIRE-APPROVAL", approve: true,
+            retirement: true, acceptRetirementReview: true, now.AddMinutes(3));
+    }
+
+    static async Task SeedControlMappingWorkAsync(OperationsFixture fixture)
+    {
+        var editionId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow.AddMinutes(-2);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ControlCriterionMappingLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Propose(fixture.ControlId, fixture.ControlVersionId,
+                    editionId, "CC6.1", "criterion", 0,
+                    "The control addresses access review.",
+                    "Applies to production systems.", fixture.LeadMemberId, "Lead", now,
+                    out _));
+                return Result.Success;
+            });
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new CriterionApplicabilityLedger(fixture.TenantId, fixture.ProgramId), ledger =>
+            {
+                Assert.Null(ledger.Propose(editionId, "CC6.2", 0,
+                    "The requirement does not apply to this organization.",
+                    fixture.LeadMemberId, ActorReference.ForMember(fixture.LeadMemberId,
+                        "Lead"), now, out _));
+                return Result.Success;
+            });
+    }
+
+    static async Task SeedControlEvaluationWorkAsync(OperationsFixture fixture)
+    {
+        EvaluationProcedureStep[] steps =
+        [
+            new("design", "inspection",
+                [new EvaluationInspectedItem("record", "policy/access-review", "v3")],
+                "Policy requires a monthly signed review."),
+            new("implementation", "reperformance",
+                [new EvaluationInspectedItem("artifact", "exports/q3.csv", "sha256:ab12")],
+                "Every leaver was removed."),
+            new("evidence_sufficiency", "inspection",
+                [new EvaluationInspectedItem("artifact", "exports/q3.csv", "sha256:ab12")],
+                "Export is complete and dated."),
+        ];
+        var plan = await fixture.GetOrDefineEvaluationPlanAsync(steps);
+        var evaluation = await fixture.AsAsync(fixture.OwnerUserId,
+            new StartControlEvaluation(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                plan.PlanVersionId));
+        for (var index = 0; index < evaluation.Steps.Count; index++)
+            evaluation = await fixture.AsAsync(fixture.OwnerUserId,
+                new RecordControlEvaluationStep(fixture.TenantId, fixture.ProgramId,
+                    fixture.ControlId, evaluation.EvaluationId, evaluation.Steps[index].StepId,
+                    evaluation.Revision, "met", "Inspected the exact items.",
+                    evaluation.Steps[index].InspectedItems));
+        await fixture.AsAsync(fixture.OwnerUserId,
+            new SubmitControlEvaluation(fixture.TenantId, fixture.ProgramId, fixture.ControlId,
+                evaluation.EvaluationId, evaluation.Revision,
+                [new("design", "effective", "Design meets the objective."),
+                    new("implementation", "effective", "Operates as designed."),
+                    new("evidence_sufficiency", "effective", "Evidence is sufficient.")]));
+    }
+
+    static async Task SeedControlAsync(OperationsFixture fixture, string identifier, bool approve,
+        bool retirement, bool acceptRetirementReview, DateTimeOffset now)
+    {
+        var controlId = ControlDraft.IdFor(fixture.TenantId, fixture.ProgramId, identifier);
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ControlDraft(fixture.TenantId, controlId), control =>
+            {
+                var content = new ControlDraftContent("Mixed work control", "Protect access",
+                    "Review access on a schedule.", "The owner records the review.",
+                    ["Signed review record"]);
+                Assert.True(control.Create(fixture.ProgramId, Uuid.CreateVersion4(), identifier,
+                    content, fixture.LeadMemberId, "Lead", now).IsSuccess);
+                var initialScope = new ResponsibilityScope("control", controlId,
+                    ControlVersionIds.Initial(controlId), control.Revision);
+                AssignControl(control, fixture, initialScope, fixture.ReviewerMemberId,
+                    ResponsibilityType.AssignedReviewer, now);
+                AssignControl(control, fixture, initialScope, fixture.ApproverMemberId,
+                    ResponsibilityType.PolicyApprover, now);
+                AssignControl(control, fixture, initialScope, fixture.OwnerMemberId,
+                    ResponsibilityType.ControlOwner, now);
+                if (!approve && !retirement)
+                    return Result.Success;
+
+                var reviewId = Uuid.CreateVersion4();
+                Assert.Null(control.Review(fixture.ProgramId, control.Revision, reviewId,
+                    "accept", "The draft is ready.", fixture.ReviewerMemberId, "Reviewer",
+                    now.AddMinutes(1)));
+                if (!retirement)
+                    return Result.Success;
+
+                Assert.Null(control.Approve(fixture.ProgramId, control.Revision,
+                    Uuid.CreateVersion4(), reviewId, fixture.Today.AddDays(-30),
+                    "Approved for operations.", new HashSet<Uuid> { fixture.OwnerMemberId },
+                    fixture.ApproverMemberId, "Approver", now.AddMinutes(2)));
+                Assert.Null(control.ProposeRetirement(fixture.ProgramId,
+                    control.ApprovedVersion!.VersionId, fixture.Today.AddDays(30),
+                    "The control is replaced.", fixture.LeadMemberId, "Lead",
+                    now.AddMinutes(3)));
+                var retirementScope = new ResponsibilityScope("control", controlId,
+                    control.PendingTargetId!.Value, control.Revision);
+                AssignControl(control, fixture, retirementScope, fixture.ReviewerMemberId,
+                    ResponsibilityType.AssignedReviewer, now.AddMinutes(3));
+                AssignControl(control, fixture, retirementScope, fixture.ApproverMemberId,
+                    ResponsibilityType.PolicyApprover, now.AddMinutes(3));
+                if (acceptRetirementReview)
+                    Assert.Null(control.Review(fixture.ProgramId, control.Revision,
+                        Uuid.CreateVersion4(), "accept", "Retirement is appropriate.",
+                        fixture.ReviewerMemberId, "Reviewer", now.AddMinutes(4)));
+                return Result.Success;
+            });
+    }
+
+    static void AssignControl(ControlDraft control, OperationsFixture fixture,
+        ResponsibilityScope scope, Uuid memberId, ResponsibilityType type, DateTimeOffset at) =>
+        Assert.Null(control.AssignResponsibility(scope, Uuid.CreateVersion4(), memberId, type,
+            fixture.LeadMemberId, "Lead", at, at.AddMinutes(-1), null, []));
+
+    static async Task SeedPolicyDecisionWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-4);
+        await SeedPolicyAsync(fixture, "POL-MIXED-DRAFT-REVIEW", false, false, false, false,
+            fixture.Today, now);
+        await SeedPolicyAsync(fixture, "POL-MIXED-DRAFT-APPROVAL", true, false, false, false,
+            fixture.Today, now.AddMinutes(1));
+        await SeedPolicyAsync(fixture, "POL-MIXED-RETIRE-REVIEW", true, true, true, false,
+            fixture.Today.AddDays(-30), now.AddMinutes(2));
+        await SeedPolicyAsync(fixture, "POL-MIXED-RETIRE-APPROVAL", true, true, true, true,
+            fixture.Today.AddDays(-30), now.AddMinutes(3));
+        await SeedPolicyAsync(fixture, "POL-MIXED-PERIODIC", true, true, false, false,
+            fixture.Today.AddMonths(-13), now.AddMonths(-13));
+    }
+
+    static Task SeedPolicyAsync(OperationsFixture fixture, string identifier,
+        bool acceptInitialReview, bool publishVersion, bool retirement,
+        bool acceptRetirementReview, DateOnly approvedOn, DateTimeOffset now)
+    {
+        var policyId = Policy.IdFor(fixture.TenantId, fixture.ProgramId, identifier);
+        return ProgramManagementServices.SeedAsync(fixture.Provider,
+            new Policy(fixture.TenantId, policyId), policy =>
+            {
+                Assert.True(policy.Create(fixture.ProgramId, Uuid.CreateVersion4(), identifier,
+                    MixedPolicyContent(identifier),
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"),
+                    fixture.LeadMemberId, now).IsSuccess);
+                if (!acceptInitialReview)
+                    return Result.Success;
+                var reviewId = Uuid.CreateVersion4();
+                Assert.Null(policy.Review(fixture.ProgramId, policy.Revision, reviewId, "accept",
+                    "The draft is ready.", ActorReference.ForMember(fixture.ReviewerMemberId,
+                        "Reviewer"), fixture.ReviewerMemberId, now.AddMinutes(1)));
+                if (!publishVersion)
+                    return Result.Success;
+                Assert.Null(policy.Approve(fixture.ProgramId, policy.Revision,
+                    Uuid.CreateVersion4(), reviewId, approvedOn, true,
+                    "Approve the policy.", null,
+                    ActorReference.ForMember(fixture.ApproverMemberId, "Approver"),
+                    fixture.ApproverMemberId, now.AddMinutes(2)));
+                if (!retirement)
+                    return Result.Success;
+                Assert.Null(policy.ProposeRetirement(fixture.ProgramId,
+                    policy.CurrentVersion!.Version, fixture.Today.AddDays(30),
+                    "The policy is replaced.",
+                    ActorReference.ForMember(fixture.LeadMemberId, "Lead"),
+                    fixture.LeadMemberId, now.AddMinutes(3)));
+                if (acceptRetirementReview)
+                    Assert.Null(policy.Review(fixture.ProgramId, policy.Revision,
+                        Uuid.CreateVersion4(), "accept", "Retirement is appropriate.",
+                        ActorReference.ForMember(fixture.ReviewerMemberId, "Reviewer"),
+                        fixture.ReviewerMemberId, now.AddMinutes(4)));
+                return Result.Success;
+            });
+    }
+
+    static PolicyContent MixedPolicyContent(string title) => new(title, "Govern access",
+        PolicyAudience.CoreSecurity, null, 12, "Body of the mixed-source policy.", null,
+        "Security owner", []);
+
+    static async Task SeedBoundaryDecisionWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-4);
+        await SeedBoundaryAsync(fixture, approveReview: false, now);
+        await SeedBoundaryAsync(fixture, approveReview: true, now.AddMinutes(1));
+    }
+
+    static Task SeedBoundaryAsync(OperationsFixture fixture, bool approveReview,
+        DateTimeOffset now)
+    {
+        var boundaryId = Uuid.CreateVersion4();
+        var draftVersionId = Uuid.CreateVersion4();
+        var scope = new ResponsibilityScope("boundary", boundaryId, draftVersionId, 1);
+        var content = new BoundaryContent("SOC 2 system boundary", "readiness",
+            ["security"], []);
+        return ProgramManagementServices.SeedAsync(fixture.Provider,
+            new SystemBoundary(fixture.TenantId, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(fixture.ProgramId, draftVersionId, content,
+                    fixture.LeadMemberId, "Lead", now).IsSuccess);
+                Assert.Null(boundary.AssignResponsibility(scope, Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now, now, null, []));
+                Assert.Null(boundary.AssignResponsibility(scope, Uuid.CreateVersion4(),
+                    fixture.ApproverMemberId, ResponsibilityType.PolicyApprover,
+                    fixture.LeadMemberId, "Lead", now, now, null, []));
+                if (approveReview)
+                    Assert.Null(boundary.Review(draftVersionId, 1, Uuid.CreateVersion4(),
+                        "accept", "Reviewed independently.", fixture.ReviewerMemberId,
+                        "Reviewer", now.AddMinutes(1)));
+                return Result.Success;
+            });
+    }
+
+    static async Task SeedCommitmentDecisionWorkAsync(OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-4);
+        await SeedCommitmentAsync(fixture, acceptReview: false, now);
+        await SeedCommitmentAsync(fixture, acceptReview: true, now.AddMinutes(1));
+    }
+
+    static Task SeedCommitmentAsync(OperationsFixture fixture, bool acceptReview,
+        DateTimeOffset now)
+    {
+        var draftId = Uuid.CreateVersion4();
+        var scope = new ResponsibilityScope("commitment", draftId, draftId, 1);
+        const string sourceReference = "MSA 4.1";
+        return ProgramManagementServices.SeedAsync(fixture.Provider,
+            new CommitmentDraft(fixture.TenantId, draftId), draft =>
+            {
+                Assert.True(draft.Create(fixture.ProgramId, Uuid.CreateVersion4(),
+                    Uuid.CreateVersion4(), "service_commitment", "SC-MIXED",
+                    "The service protects customer data.", "Security commitment.",
+                    sourceReference, fixture.LeadMemberId, "Lead", now).IsSuccess);
+                Assert.Null(draft.AssignResponsibility(scope, Uuid.CreateVersion4(),
+                    fixture.ReviewerMemberId, ResponsibilityType.AssignedReviewer,
+                    fixture.LeadMemberId, "Lead", now, now, null, []));
+                Assert.Null(draft.AssignResponsibility(scope, Uuid.CreateVersion4(),
+                    fixture.ApproverMemberId, ResponsibilityType.PolicyApprover,
+                    fixture.LeadMemberId, "Lead", now, now, null, []));
+                if (acceptReview)
+                {
+                    var reviewId = Uuid.CreateVersion4();
+                    Assert.Null(draft.Review(fixture.ProgramId, draft.Revision, reviewId,
+                        "accept", "Security owner", "applicable", "supported", null,
+                        "Verified against the source.", fixture.ReviewerMemberId, "Reviewer",
+                        now.AddMinutes(1), null, sourceReference, "Signed MSA section 4.1"));
+                }
+                return Result.Success;
+            });
     }
 
     [Fact]
@@ -742,6 +1237,87 @@ public sealed class WorkSourceCompositionTests
         Assert.False(typeof(IClientManagementMutationRequest).IsAssignableFrom(typeof(AcknowledgePolicy)));
     }
 
+    [Fact]
+    public async Task ShouldReconcileEveryProductionKindGivenMixedSourceQueue()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        fixture.Permissions.Managers.Add(fixture.ReviewerMemberId);
+        fixture.Permissions.RiskApprovers.Add((fixture.ApproverMemberId,
+            RbacPermissions.RiskAcceptComplianceLead));
+        fixture.Permissions.RiskApprovers.Add((fixture.ApproverMemberId,
+            RbacPermissions.RiskAcceptExecutive));
+        await using var provider = CreateProvider(fixture,
+            accessReviewPermissions: fixture.Permissions);
+        var openEvidence = await SeedOperationsWorkAsync(fixture);
+        await SeedAccessReviewWorkAsync(fixture, provider);
+        await SeedControlMappingWorkAsync(fixture);
+        await SeedControlDecisionWorkAsync(fixture);
+        await SeedControlEvaluationWorkAsync(fixture);
+        await SeedPolicyDecisionWorkAsync(fixture);
+        await SeedBoundaryDecisionWorkAsync(fixture);
+        await SeedCommitmentDecisionWorkAsync(fixture);
+        await SeedRiskGovernanceWorkAsync(fixture);
+        await SeedRiskAcceptanceWorkAsync(fixture);
+        await SeedPolicyCampaignWorkAsync(fixture, "policy");
+        await SeedPolicyCampaignWorkAsync(fixture, "training");
+        await CatchUpRiskDraftProjectionAsync(provider, fixture.TenantId);
+        await CatchUpPolicyCampaignProjectionAsync(provider, fixture.TenantId);
+        await CatchUpAccountableProjectorsAsync(provider, fixture.TenantId);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.ApproverUserId));
+        var request = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
+        var expectedKinds = WorkSourceManagement.SourceRequests.Keys
+            .Order(StringComparer.Ordinal).ToArray();
+
+        // Act
+        var initial = await Scenario().When(request).ExpectSuccess();
+        var evidenceWorkItem = Assert.Single(initial.Value.Items,
+            item => item.Kind == WorkSource.EvidenceRequest &&
+                    item.SourceId == openEvidence.EvidenceRequestId);
+        foreach (var item in initial.Value.Items)
+        {
+            var detail = await Scenario().When(new GetWorkItem(fixture.TenantId,
+                fixture.ProgramId, item.WorkItemId)).ExpectSuccess();
+            var search = await Scenario().When(request with { Search = item.Summary }).ExpectSuccess();
+            Assert.Equal(item, detail.Value.Item);
+            Assert.Contains(item, search.Value.Items);
+            Assert.Equal(search.Value.Items.Count, search.Value.Counts.Total);
+        }
+        await Scenario().When(new CancelEvidenceRequest(fixture.TenantId, fixture.ProgramId,
+            openEvidence.EvidenceRequestId, openEvidence.Revision, "Evidence is no longer required."))
+            .ExpectSuccess();
+        var lag = await Scenario().When(request).ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAccountableProjectorsAsync(provider, fixture.TenantId);
+        var reconciled = await Scenario().When(request).ExpectSuccess();
+        var removedDetail = await Scenario().When(new GetWorkItem(fixture.TenantId,
+            fixture.ProgramId, evidenceWorkItem.WorkItemId)).ExpectFailure(RequestErrorKind.NotFound);
+
+        // Assert
+        var actualKinds = initial.Value.Items.Select(static item => item.Kind)
+            .Order(StringComparer.Ordinal).ToArray();
+        Assert.True(expectedKinds.SequenceEqual(actualKinds),
+            $"Expected {string.Join(',', expectedKinds)}; actual {string.Join(',', actualKinds)}");
+        Assert.Equal(expectedKinds.Length, initial.Value.Items.Count);
+        Assert.Equal(initial.Value.Items.Count,
+            initial.Value.Items.Select(static item => item.WorkItemId).Distinct().Count());
+        Assert.Equal(initial.Value.Items.Count, initial.Value.Counts.Total);
+        Assert.All(initial.Value.Items, item =>
+        {
+            Assert.NotEqual(Uuid.Empty, item.SourceId);
+            Assert.False(string.IsNullOrWhiteSpace(item.NextAction));
+            Assert.False(string.IsNullOrWhiteSpace(item.ActionPath));
+            Assert.StartsWith($"/api/v1/tenants/{fixture.TenantId}/", item.ActionPath,
+                StringComparison.Ordinal);
+        });
+        Assert.True(lag.Error!.IsTransient);
+        Assert.Equal(initial.Value.Items.Count - 1, reconciled.Value.Counts.Total);
+        Assert.Equal(RequestErrorKind.NotFound, removedDetail.Error!.Kind);
+        Assert.DoesNotContain(reconciled.Value.Items,
+            item => item.Kind == WorkSource.EvidenceRequest);
+    }
+
     static ServiceProvider CreateProvider(OperationsFixture fixture,
         IPermissionAuthorizer? permissions = null,
         IPermissionAuthorizer? accessReviewPermissions = null)
@@ -751,7 +1327,9 @@ public sealed class WorkSourceCompositionTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
-            ["Fitz:ApplicationName"] = "compliance"
+            ["Fitz:ApplicationName"] = "compliance",
+            ["Compliance:Controls:ActivationEnabled"] = "true",
+            ["Compliance:Controls:LifecycleEnabled"] = "true",
         }).Build();
         _ = services.AddCompliance(configuration, developerAuthentication: true);
         services.AddSingleton<IKvClient>(new InMemoryKvClient());
@@ -814,6 +1392,74 @@ public sealed class WorkSourceCompositionTests
                 cursor = record.NextCursor;
             }
             await batch.CommitAsync(new ProjectionCheckpoint(cursor));
+        }
+    }
+
+    static async Task CatchUpPolicyCampaignProjectionAsync(IServiceProvider provider,
+        Uuid tenantId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var reader = Assert.Single(services.GetServices<IAccountableWorkItemDirectoryReader>(),
+            candidate => candidate.ProjectorName ==
+                         FitzPolicyCampaignWorkItemDirectory.ProjectorName);
+        var registration = Assert.Single(services.GetServices<WorkloadRegistration>(),
+            candidate => candidate.Name == reader.ProjectorName);
+        var projector = (Projector)services.GetRequiredService(registration.ComponentType);
+        await new ProjectorScenario(new TenantId(tenantId.ToString())).RunAsync(projector);
+        var checkpoint = await reader.LoadCheckpointAsync(tenantId);
+        var runner = new ProjectorRunner(services.GetRequiredService<IDomainEventReader>());
+        while (true)
+        {
+            var next = await runner.RunAsync(projector, checkpoint);
+            if (next == checkpoint)
+                break;
+            checkpoint = next;
+        }
+    }
+
+    static async Task CatchUpRiskDraftProjectionAsync(IServiceProvider provider,
+        Uuid tenantId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var registration = Assert.Single(services.GetServices<WorkloadRegistration>(),
+            candidate => candidate.Name == "RiskDraftDirectory");
+        var projector = (Projector)services.GetRequiredService(registration.ComponentType);
+        await new ProjectorScenario(new TenantId(tenantId.ToString())).RunAsync(projector);
+        var reader = services.GetRequiredService<IRiskDraftDirectoryReader>();
+        var checkpoint = await reader.LoadCheckpointAsync(tenantId);
+        var runner = new ProjectorRunner(services.GetRequiredService<IDomainEventReader>());
+        while (true)
+        {
+            var next = await runner.RunAsync(projector, checkpoint);
+            if (next == checkpoint)
+                break;
+            checkpoint = next;
+        }
+    }
+
+    static async Task CatchUpAccountableProjectorsAsync(IServiceProvider provider,
+        Uuid tenantId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var registrations = services.GetServices<WorkloadRegistration>().ToArray();
+        var runner = new ProjectorRunner(services.GetRequiredService<IDomainEventReader>());
+        foreach (var reader in services.GetServices<IAccountableWorkItemDirectoryReader>())
+        {
+            var registration = Assert.Single(registrations,
+                candidate => candidate.Name == reader.ProjectorName);
+            var projector = (Projector)services.GetRequiredService(registration.ComponentType);
+            await new ProjectorScenario(new TenantId(tenantId.ToString())).RunAsync(projector);
+            var checkpoint = await reader.LoadCheckpointAsync(tenantId);
+            while (true)
+            {
+                var next = await runner.RunAsync(projector, checkpoint);
+                if (next == checkpoint)
+                    break;
+                checkpoint = next;
+            }
         }
     }
 }
