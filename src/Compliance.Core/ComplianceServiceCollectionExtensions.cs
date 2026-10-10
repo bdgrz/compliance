@@ -150,6 +150,15 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<ApplicationHistoryReadConsistency>();
         services.AddScoped<SystemInstanceReadConsistency>();
         services.AddScoped<LegacySystemInstanceSource>();
+        services.AddScoped<FitzApplicationRelationshipDirectory>();
+        services.AddScoped<IApplicationRelationshipProjection>(provider =>
+            provider.GetRequiredService<FitzApplicationRelationshipDirectory>());
+        services.AddScoped<IApplicationRelationshipDirectory>(provider =>
+            provider.GetRequiredService<FitzApplicationRelationshipDirectory>());
+        services.AddScoped<ApplicationRelationshipReadConsistency>();
+        services.AddScoped<PreviewApplicationChangeHandler>();
+        services.AddScoped<IApplicationChangeImpactReader>(provider =>
+            provider.GetRequiredService<PreviewApplicationChangeHandler>());
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
         services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());
@@ -605,11 +614,15 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListApplicationRevisionsHandler>()
             .AddRequestHandler<GetSystemInstanceHandler>()
             .AddRequestHandler<ListSystemInstancesHandler>()
+            .AddRequestHandler<RecordApplicationRelationshipHandler>()
+            .AddRequestHandler<RemoveApplicationRelationshipHandler>()
+            .AddRequestHandler<ListApplicationRelationshipsHandler>()
             .AddRequestHandler<ListApplicationBoundaryReferencesHandler>()
             .AddRequestHandler<ListTechnologyComponentBoundaryReferencesHandler>()
             .AddRequestHandler<ListInformationAssetBoundaryReferencesHandler>()
             .AddRequestHandler<ListSystemInstanceBoundaryReferencesHandler>()
             .AddRequestHandler<PreviewApplicationChangeHandler>()
+            .AddRequestHandler<ApproveApplicationSuccessorHandler>()
             .AddRequestHandler<RetireApplicationHandler>()
             .AddRequestHandler<RetireSystemInstanceHandler>()
             .AddRequestHandler<DecideAccessReviewScopeHandler>()
@@ -1137,6 +1150,8 @@ public static class ComplianceServiceCollectionExtensions
                 AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(
                 "ApplicationBoundaryReferencesV2", WorkloadScope.PerTenant)
+            .AddProjector<ApplicationRelationshipProjector>(
+                "ApplicationRelationshipsV1", WorkloadScope.PerTenant)
             .AddProjector<ApplicationControlDraftReferenceProjector>(
                 "ApplicationControlDraftReferencesV1", WorkloadScope.PerTenant)
             .AddProjector<ProviderProjector>(FitzProviderDirectory.ProjectorName, WorkloadScope.PerTenant)

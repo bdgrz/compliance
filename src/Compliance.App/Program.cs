@@ -195,6 +195,9 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<ListApplicationRevisions>(tool => tool.ReadOnly())
         .AddMcpTool<GetSystemInstance>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstances>(tool => tool.ReadOnly())
+        .AddMcpTool<RecordApplicationRelationship>(tool => tool.Idempotent())
+        .AddMcpTool<RemoveApplicationRelationship>(tool => tool.Idempotent())
+        .AddMcpTool<ListApplicationRelationships>(tool => tool.ReadOnly())
         .AddMcpTool<ListApplicationBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<ListSystemInstanceBoundaryReferences>(tool => tool.ReadOnly())
         .AddMcpTool<PreviewApplicationChange>(tool => tool.ReadOnly())
@@ -1758,6 +1761,26 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     app.MapPortiaGet<ListApplicationRevisions, Page<ApplicationRevisionView>>(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaPost<RecordApplicationRelationship, ApplicationRelationshipRegistration>(
+            "/api/v1/tenants/{tenant_id}/applications/{source_application_id}/relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Record a directed application dependency or proposed successor")
+        .WithTags("Applications");
+    app.MapPortiaDelete<RemoveApplicationRelationship>(
+            "/api/v1/tenants/{tenant_id}/applications/{source_application_id}/relationships/{relationship_type}/{target_application_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Remove a directed application relationship")
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplicationRelationships, Page<ApplicationRelationshipView>>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List incoming or outgoing application relationships")
+        .WithTags("Applications");
+    app.MapPortiaPost<ApproveApplicationSuccessor>(
+            "/api/v1/tenants/{tenant_id}/applications/{predecessor_application_id}/successors/{successor_application_id}/approval")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("Approve a proposed successor after a complete current impact review")
         .WithTags("Applications");
     app.MapPortiaPost<DeclareSystemInstance, SystemInstanceRegistration>(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/system-instances")

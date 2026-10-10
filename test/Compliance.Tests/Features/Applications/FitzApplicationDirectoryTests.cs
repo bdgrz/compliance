@@ -8,6 +8,38 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class FitzApplicationDirectoryTests
 {
     [Fact]
+    public async Task ShouldRetainApprovedSuccessorRevisionGivenRetirementProjection()
+    {
+        // Arrange
+        var directory = new FitzApplicationDirectory(new InMemoryKvClient());
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var successorId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var identity = new CheckpointIdentity("ApplicationDirectoryV2",
+            EventStreamPattern.ForPattern(tenantId.ToString()));
+
+        // Act
+        await using (var batch = await directory.BeginAsync(new ProjectionBatchContext(
+                         identity, ProjectionCheckpoint.Start)))
+        {
+            await directory.ApplyAsync(new ApplicationDeclared(tenantId, applicationId,
+                "Payroll", "Run payroll", null, actorId, "Org Admin", now));
+            await directory.ApplyAsync(new ApplicationRetired(tenantId, applicationId, 2,
+                now.AddDays(7), "Duplicate", successorId, actorId, "Org Admin", now,
+                MergedIntoApplicationRevision: 4));
+            await batch.CommitAsync(ProjectionCheckpoint.Start);
+        }
+        var current = await directory.GetAsync(tenantId, applicationId);
+
+        // Assert
+        Assert.Equal("retired", current?.Lifecycle);
+        Assert.Equal(successorId, current?.Retirement?.MergedIntoApplicationId);
+        Assert.Equal(4, current?.Retirement?.MergedIntoApplicationRevision);
+    }
+
+    [Fact]
     public async Task ShouldRetainRestrictionFlagGivenApplicationHistoryProjection()
     {
         // Arrange

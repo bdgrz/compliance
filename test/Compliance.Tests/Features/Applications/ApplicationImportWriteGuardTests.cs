@@ -209,8 +209,17 @@ public sealed class ApplicationImportWriteGuardTests
             return change == "revise"
                 ? await new ReviseApplicationHandler(executor, reader, TimeProvider.System).HandleAsync(
                     new RequestContext<ReviseApplication>(new ReviseApplication(Tenant, Target.Id, 1, "Changed", "Governed", null), Actor), CancellationToken.None)
-                : await new RetireApplicationHandler(executor, reader, TimeProvider.System).HandleAsync(
+                : await new RetireApplicationHandler(executor, reader,
+                    new UnusedImpactReader(), TimeProvider.System).HandleAsync(
                     new RequestContext<RetireApplication>(new RetireApplication(Tenant, Target.Id, 1, Now, "Retired"), Actor), CancellationToken.None);
+        }
+
+        sealed class UnusedImpactReader : IApplicationChangeImpactReader
+        {
+            public ValueTask<Result<ApplicationChangePreview>> ReadAsync(
+                PreviewApplicationChange request, Uuid userId, CancellationToken ct) =>
+                ValueTask.FromResult(Result<ApplicationChangePreview>.Failure(
+                    new RequestError(RequestErrorKind.Conflict, "Impact preview was not expected.")));
         }
 
         public static async Task<Fixture> CreateAsync(bool persistEffect = true)
