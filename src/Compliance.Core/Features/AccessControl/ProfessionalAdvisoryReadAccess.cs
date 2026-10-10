@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Tenants;
 using Cntryl.Portia;
@@ -25,12 +26,40 @@ sealed class ProfessionalAdvisoryReadAccess(IAggregateReader reader, ITenantActi
         var staff = identities[0];
         var ledger = await reader.HydrateAsync(new IndependenceLedger(tenantId), ct).ConfigureAwait(false);
         var effectiveAt = clock.GetUtcNow();
-        return ledger.Engagements.Any(engagement => engagement.TenantId == tenantId &&
-            engagement.Content.Practice == "advisory" && engagement.Status == "accepted" &&
-            ledger.Acceptance(engagement.EngagementId) is { Status: "active" } acceptance &&
-            acceptance.TenantId == tenantId && acceptance.Rules.IsRatified &&
-            ledger.IsEligibleForProfessionalAccess(engagement.EngagementId, staff.StaffMemberId,
+        foreach (var engagement in ledger.Engagements)
+        {
+            if (engagement.TenantId != tenantId || engagement.Content.Practice != "advisory" ||
+                engagement.Status != "accepted" ||
+                ledger.Acceptance(engagement.EngagementId) is not { Status: "active" } acceptance ||
+                acceptance.TenantId != tenantId || !acceptance.Rules.IsRatified ||
+                !ledger.IsEligibleForProfessionalAccess(engagement.EngagementId, staff.StaffMemberId,
                 userId, currentRuleVersion: acceptance.Rules.Version,
-                currentDirectoryStaffRevision: staff.Revision, effectiveAt: effectiveAt));
+                currentDirectoryStaffRevision: staff.Revision, effectiveAt: effectiveAt))
+                continue;
+
+            if (await MatchesProgramScopeAsync(tenantId, programId, acceptance, ct).ConfigureAwait(false))
+                return true;
+        }
+
+        return false;
+    }
+
+    async ValueTask<bool> MatchesProgramScopeAsync(Uuid tenantId, Uuid programId,
+        ServiceEngagementAcceptanceView acceptance, CancellationToken ct)
+    {
+        if (acceptance.BoundaryId is null && acceptance.BoundaryVersionId is null &&
+            acceptance.BoundaryRevision is null && acceptance.BoundaryApprovalDecisionId is null)
+            return true;
+
+        if (acceptance.BoundaryId is not { } boundaryId || boundaryId == Uuid.Empty ||
+            acceptance.BoundaryVersionId is not { } versionId || versionId == Uuid.Empty ||
+            acceptance.BoundaryRevision is not > 0 ||
+            acceptance.BoundaryApprovalDecisionId is not { } decisionId || decisionId == Uuid.Empty)
+            return false;
+
+        var boundary = await reader.HydrateAsync(new SystemBoundary(tenantId, boundaryId), ct)
+            .ConfigureAwait(false);
+        return boundary.IsCreated && boundary.ProgramId == programId &&
+            boundary.IsVersionApproved(versionId, acceptance.BoundaryRevision.Value, decisionId);
     }
 }

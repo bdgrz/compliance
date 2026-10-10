@@ -1,6 +1,7 @@
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Readiness;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Bdgrz.Compliance.Tests.Testing;
@@ -90,6 +91,115 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
 
         // Act
         var notes = await fixture.NotesAsync(mcp);
+
+        // Assert
+        Assert.True(notes.IsSuccess, notes.Error?.Message);
+        Assert.Equal("Advisor working feedback", Assert.Single(notes.Value!.Items).Body);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAssignedAdvisorReadGivenAcceptanceBoundToAnotherProgram()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var binding = await fixture.SeedApprovedBoundaryAsync(Uuid.CreateVersion4());
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory", boundary: binding.Version, boundaryApproval: binding.Approval);
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldAllowAssignedAdvisorReadGivenExactApprovedBoundaryInRequestedProgram()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var binding = await fixture.SeedApprovedBoundaryAsync(fixture.Program);
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory", boundary: binding.Version, boundaryApproval: binding.Approval);
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync(true);
+
+        // Assert
+        Assert.True(notes.IsSuccess, notes.Error?.Message);
+        Assert.Equal("Advisor working feedback", Assert.Single(notes.Value!.Items).Body);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("unapproved")]
+    [InlineData("foreign_tenant")]
+    [InlineData("version")]
+    [InlineData("revision")]
+    [InlineData("approval")]
+    public async Task ShouldDenyAssignedAdvisorReadGivenMissingOrMismatchedApprovedBoundarySource(string mismatch)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var binding = await fixture.SeedApprovedBoundaryAsync(fixture.Program,
+            seedApproval: mismatch != "unapproved",
+            sourceTenantId: mismatch == "foreign_tenant" ? Uuid.CreateVersion4() : null);
+        var version = binding.Version;
+        var approval = binding.Approval;
+        if (mismatch == "missing")
+        {
+            var missingId = Uuid.CreateVersion4();
+            version = version with { BoundaryId = missingId };
+            approval = approval with { BoundaryId = missingId };
+        }
+        else if (mismatch == "version")
+        {
+            var otherVersion = Uuid.CreateVersion4();
+            version = version with { VersionId = otherVersion };
+            approval = approval with { VersionId = otherVersion };
+        }
+        else if (mismatch == "revision")
+        {
+            version = version with { Revision = 2 };
+            approval = approval with { Revision = 2 };
+        }
+        else if (mismatch == "approval")
+            approval = approval with { DecisionId = Uuid.CreateVersion4() };
+        // Synthetic acceptance capsules exercise current authoritative source verification.
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory", boundary: version, boundaryApproval: approval);
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveAssignedAdvisorReadGivenSuccessorToAcceptedBoundaryVersion()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var binding = await fixture.SeedApprovedBoundaryAsync(fixture.Program);
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory", boundary: binding.Version, boundaryApproval: binding.Approval);
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+        await fixture.SeedBoundarySuccessorAsync(binding.Version);
+
+        // Act
+        var notes = await fixture.NotesAsync();
 
         // Assert
         Assert.True(notes.IsSuccess, notes.Error?.Message);
@@ -327,6 +437,61 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
 
         public Task<Result<Page<ReadinessAnnotationView>>> NotesAsync(bool mcp = false) =>
             SendAsync(new ListReadinessAnnotations(Tenant, Program, Assessment), mcp);
+
+        public async Task<(BoundaryVersionView Version, BoundaryDecisionView Approval)> SeedApprovedBoundaryAsync(
+            Uuid programId, bool seedApproval = true, Uuid? sourceTenantId = null)
+        {
+            var at = new DateTimeOffset(2026, 10, 7, 11, 0, 0, TimeSpan.Zero);
+            var author = Uuid.CreateVersion4();
+            var reviewer = Uuid.CreateVersion4();
+            var boundaryId = Uuid.CreateVersion4();
+            var versionId = Uuid.CreateVersion4();
+            var reviewId = Uuid.CreateVersion4();
+            var approvalId = Uuid.CreateVersion4();
+            var sourceTenant = sourceTenantId ?? Tenant;
+            var content = new BoundaryContent("Synthetic scoped advisory work", "readiness", ["security"], []);
+            if (programId != Program)
+                await ProgramManagementServices.SeedAsync(Provider, new ComplianceProgram(sourceTenant, programId), program =>
+                {
+                    Assert.Null(program.Create("Other program", new ProgramPlan(null, null, null, null, null, null),
+                        author, "Synthetic author", at));
+                    return Result.Success;
+                });
+            await ProgramManagementServices.SeedAsync(Provider, new SystemBoundary(sourceTenant, boundaryId), boundary =>
+            {
+                Assert.True(boundary.Create(programId, versionId, content, author, "Synthetic author", at).IsSuccess);
+                Assert.Null(boundary.Review(versionId, 1, reviewId, "accept", "Synthetic review", reviewer,
+                    "Synthetic reviewer", at));
+                if (seedApproval)
+                    Assert.Null(boundary.Approve(versionId, 1, approvalId, reviewId, new DateOnly(2026, 1, 1),
+                        "Synthetic approval", "synthetic-digest", reviewer, "Synthetic reviewer", at));
+                return Result.Success;
+            });
+            return (new BoundaryVersionView(Tenant, boundaryId, programId, versionId, 1, content, "approved",
+                new DateOnly(2026, 1, 1), author, "Synthetic author", at),
+                new BoundaryDecisionView(Tenant, boundaryId, approvalId, versionId, 1, "approve", reviewer,
+                    "Synthetic reviewer", "Synthetic approval", at, null, null, "synthetic-digest"));
+        }
+
+        public async Task SeedBoundarySuccessorAsync(BoundaryVersionView original)
+        {
+            var at = original.ChangedAt.AddDays(1);
+            var successor = Uuid.CreateVersion4();
+            var review = Uuid.CreateVersion4();
+            var reviewer = Uuid.CreateVersion4();
+            await ProgramManagementServices.SeedAsync(Provider, new SystemBoundary(Tenant, original.BoundaryId), boundary =>
+            {
+                Assert.Null(boundary.ProposeSuccessor(original.VersionId, successor,
+                    original.Content with { Statement = "Synthetic successor scope" }, original.AuthorMemberId,
+                    original.AuthorDisplay, at));
+                Assert.Null(boundary.Review(successor, 1, review, "accept", "Synthetic successor review",
+                    reviewer, "Synthetic reviewer", at));
+                Assert.Null(boundary.Approve(successor, 1, Uuid.CreateVersion4(), review, new DateOnly(2026, 1, 2),
+                    "Synthetic successor approval", "synthetic-successor-digest", reviewer, "Synthetic reviewer", at));
+                Assert.Equal(successor, boundary.LatestApprovedVersionId);
+                return Result.Success;
+            });
+        }
 
         public async Task SeedStaffDirectoryAsync(FirmStaffMemberView staff, bool active = true,
             Uuid? userId = null)

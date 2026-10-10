@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Boundaries;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Tests.Testing;
@@ -13,7 +14,8 @@ static class AttestAssignmentHistoryFixture
         _ = await SeedAndReturnAsync(provider, tenant, canonicalUserId, revoked, practice);
 
     public static async Task<FirmStaffMemberView> SeedAndReturnAsync(IServiceProvider provider, Uuid tenant,
-        Uuid canonicalUserId, bool revoked = false, string practice = "attest")
+        Uuid canonicalUserId, bool revoked = false, string practice = "attest",
+        BoundaryVersionView? boundary = null, BoundaryDecisionView? boundaryApproval = null)
     {
         // Explicit synthetic internal evidence exercises retained history; it grants no public acceptance authority.
         var administrator = Uuid.CreateVersion4();
@@ -27,13 +29,15 @@ static class AttestAssignmentHistoryFixture
         {
             Assert.True(ledger.CreateEngagement(Uuid.CreateVersion4(), engagement, 0,
                 new ServiceEngagementDraftContent(practice, "Synthetic scope", new DateOnly(2026, 1, 1),
-                    new DateOnly(2026, 12, 31), staff.StaffMemberId), staff, client, Now).IsSuccess);
+                    new DateOnly(2026, 12, 31), staff.StaffMemberId,
+                    boundary is null ? null : new ServiceEngagementBoundaryReference(
+                        boundary.BoundaryId, boundary.VersionId, boundary.Revision)), staff, client, Now).IsSuccess);
             Assert.True(ledger.AcknowledgeManagement(Uuid.CreateVersion4(), new AcknowledgeEngagementManagement(
                 tenant, engagement, acknowledgement, 1, 1, [], "I retain management responsibility"),
                 administrator, client, Now).IsSuccess);
             var proof = new VerifiedEngagementAcceptance(tenant, engagement, 1, Uuid.CreateVersion4(),
                 partner.StaffMemberId, partner.UserId, "Synthetic verified authority ONLY", null,
-                acknowledgement, null, null, [staff], partner, 1, Now);
+                acknowledgement, boundary, boundaryApproval, [staff], partner, 1, Now);
             var rules = new IndependenceRuleVersionView(1, new IndependenceRuleContent(12,
                 [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
                 "Synthetic ratified test rules ONLY"), staff.Actor, Now, true);
