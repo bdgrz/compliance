@@ -129,14 +129,7 @@ historical Attest actors even if they have a client-role identity. Immutable acc
 retains original approvals and separately attributed revocation reason and time.
 
 Current client administration grants allow acceptance metadata/history reads and closure. The
-client-administration endpoint and MCP tool
-`bdgrz.service-engagement.actual-staff.revoke` remove one current accepted assignment with an
-expected client sequence and attributed reason. Both use the existing active-tenant,
-current-client-membership, and `tenant.rbac.manage` authorization; neither platform operators nor
-professional staff receive client authority from this operation. Removing the accepted lead
-closes the engagement and revokes the entire team; removing another assignee revokes only that
-assignment and leaves the engagement accepted. Immutable accepted history retains original
-approvals and separately attributed revocation reason and time.
+actual-assignment revocation endpoint and MCP tool are described above.
 
 `IsEligibleForProfessionalAccess` remains a deny-only prerequisite: callers supply the ratified
 rules version frozen into the accepted engagement, the current directory revision, and an
