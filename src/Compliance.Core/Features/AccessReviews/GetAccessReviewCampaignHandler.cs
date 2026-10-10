@@ -10,7 +10,7 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 /// </summary>
 public sealed class GetAccessReviewCampaignHandler(IAggregateReader reader,
     IPermissionAuthorizer permissions, TimeProvider clock,
-    RestrictedApplicationVisibility visibility)
+    RestrictedApplicationVisibility visibility, AccessReviewQueueEligibility eligibility)
     : IRequestHandler<GetAccessReviewCampaign, AccessReviewCampaignView>
 {
     public async ValueTask<Result<AccessReviewCampaignView>> HandleAsync(
@@ -29,13 +29,17 @@ public sealed class GetAccessReviewCampaignHandler(IAggregateReader reader,
 
         var permittedItems = isManager
             ? launched.Items
-            : launched.Items.Where(item => item.ReviewerMemberId == actor.MemberId).ToArray();
+            : launched.Items.Where(item =>
+                campaign.CurrentReviewerMemberId(item.ItemId) == actor.MemberId).ToArray();
         var visibleInstances = new HashSet<Uuid>();
         foreach (var systemInstanceId in permittedItems.Select(static item => item.SystemInstanceId)
                      .Distinct())
         {
             if (await visibility.CanReadSystemInstanceAsync(request.TenantId, actor.UserId,
-                    systemInstanceId, ct).ConfigureAwait(false))
+                    systemInstanceId, ct).ConfigureAwait(false) &&
+                (isManager || launched.ProgramId is not { } programId ||
+                 await eligibility.CanReviewAsync(request.TenantId, programId, actor.MemberId,
+                     systemInstanceId, ct).ConfigureAwait(false)))
                 visibleInstances.Add(systemInstanceId);
         }
 

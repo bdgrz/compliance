@@ -25,6 +25,8 @@ static class WorkSource
     public const string ControlOperatingPlanApproval = "control_operating_plan_approval";
     public const string ControlCriterionMappingReview = "control_criterion_mapping_review";
     public const string CriterionApplicabilityReview = "criterion_applicability_review";
+    public const string AccessReviewReview = "access_review_review";
+    public const string AccessReviewRemediation = "access_review_remediation";
 
     /// <summary>Loads open work; <paramref name="workItemId" /> narrows the result to one item.</summary>
     public static async ValueTask<Result<IReadOnlyList<WorkCandidate>>> LoadAsync(

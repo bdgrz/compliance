@@ -7,9 +7,11 @@ namespace Bdgrz.Compliance.Tests.Features.AccessReviews;
 sealed class MemberPermissions : IPermissionAuthorizer
 {
     readonly HashSet<Uuid> _allowed = [];
+    readonly HashSet<(Uuid UserId, string Permission)> _denied = [];
     readonly HashSet<Uuid> _restrictedReadAllowed = [];
 
     public void Allow(Uuid userId) => _allowed.Add(userId);
+    public void Deny(Uuid userId, string permission) => _denied.Add((userId, permission));
     public void AllowRestrictedRead(Uuid userId) => _restrictedReadAllowed.Add(userId);
     public void DenyRestrictedRead(Uuid userId) => _restrictedReadAllowed.Remove(userId);
 
@@ -17,5 +19,5 @@ sealed class MemberPermissions : IPermissionAuthorizer
         string permission, CancellationToken ct = default) =>
         ValueTask.FromResult(permission == RbacPermissions.ApplicationRestrictedRead
             ? _restrictedReadAllowed.Contains(userId)
-            : _allowed.Contains(userId));
+            : _allowed.Contains(userId) && !_denied.Contains((userId, permission)));
 }

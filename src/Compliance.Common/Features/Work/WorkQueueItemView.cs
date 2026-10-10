@@ -16,4 +16,11 @@ public sealed record WorkQueueItemView(Uuid WorkItemId, string Kind, Uuid Source
     Uuid? ControlId, Uuid? FindingId, string Summary, string Reason, DateOnly? DueOn,
     bool Overdue, string? Materiality, string NextAction, string ActionPath,
     OperatingHolder Responsible, Uuid? AssigneeMemberId, long AssignmentRevision, bool Escalated,
-    string? EscalatedBy, DateTimeOffset CreatedAt);
+    string? EscalatedBy, DateTimeOffset CreatedAt)
+{
+    /// <summary>True when the source responsibility has lost current action eligibility.</summary>
+    public bool IsOrphaned { get; init; }
+
+    /// <summary>True when self-review requires the source's exact-scope waiver path.</summary>
+    public bool RequiresSeparationOfDutiesWaiver { get; init; }
+}

@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.AccessReviews;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.Controls;
@@ -31,7 +32,8 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     IRiskDraftDirectoryReader? risks = null,
     RiskDraftListReadConsistency? riskConsistency = null,
     CampaignDirectoryReadConsistency? campaignConsistency = null,
-    IEnumerable<IAccountableWorkItemDirectoryReader>? accountableWorkItems = null)
+    IEnumerable<IAccountableWorkItemDirectoryReader>? accountableWorkItems = null,
+    AccessReviewQueueEligibility? accessReviewQueueEligibility = null)
 {
     public const int SystemEscalationDays = 7;
     public const int DefaultHorizonDays = 30;
@@ -151,18 +153,29 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         foreach (var candidate in candidates)
         {
             var state = ledger.Read(candidate.WorkItemId);
+            var accessReviewWork = AccessReviewCampaignWork.IsReview(candidate.Kind) ||
+                                   AccessReviewCampaignWork.IsRemediation(candidate.Kind);
+            var responsibilityEligible = accessReviewWork &&
+                                         candidate.Responsible.Kind == OperatingAuthority.MemberHolder &&
+                                         await IsResponsibilityAvailableAsync(tenantId, candidate,
+                                             candidate.Responsible.Id, ct).ConfigureAwait(false);
             var assignee = await AssigneeAsync(tenantId, candidate, state, ct).ConfigureAwait(false);
-            var item = Compose(candidate, state, assignee, today);
+            var item = Compose(candidate, state, assignee, today) with
+            {
+                IsOrphaned = accessReviewWork && !responsibilityEligible,
+            };
             var eligible = await IsEligibleAsync(tenantId, candidate, actor.MemberId, ct)
+                .ConfigureAwait(false);
+            var sourceVisible = await CanReadSourceAsync(tenantId, candidate, actor.MemberId, ct)
                 .ConfigureAwait(false);
             var inTeam = candidate.Responsible.Kind == OperatingAuthority.TeamHolder &&
                          await HoldsAsync(tenantId, candidate.Responsible, actor.MemberId, ct)
                              .ConfigureAwait(false);
             var oversees = manages || inTeam &&
                 await CanOverseeTeamAsync(tenantId, actor, ct).ConfigureAwait(false);
-            if (eligible || assignee == actor.MemberId ||
+            if (sourceVisible && (eligible || assignee == actor.MemberId ||
                 oversees && !RiskAcceptanceWork.HasRestrictedAuthority(candidate) &&
-                (candidate.Kind != FindingClosureWork.Kind || eligible))
+                (candidate.Kind != FindingClosureWork.Kind || eligible)))
                 entries.Add(new WorkQueueEntry(candidate, state, item, eligible, inTeam));
         }
         var ordered = entries
@@ -179,6 +192,21 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         return Result<WorkQueueSnapshot>.Success(new WorkQueueSnapshot(today, manages, ordered));
     }
 
+    async ValueTask<bool> CanReadSourceAsync(Uuid tenantId, WorkCandidate candidate,
+        Uuid memberId, CancellationToken ct)
+    {
+        if (!AccessReviewCampaignWork.IsReview(candidate.Kind) &&
+            !AccessReviewCampaignWork.IsRemediation(candidate.Kind))
+            return candidate.RestrictedSystemInstanceId is null;
+
+        if (accessReviewQueueEligibility is null || candidate.ProgramId is not { } programId ||
+            candidate.RestrictedSystemInstanceId is not { } systemInstanceId)
+            return false;
+
+        return await accessReviewQueueEligibility.CanReadAsync(tenantId, programId, memberId,
+            systemInstanceId, ct).ConfigureAwait(false);
+    }
+
     /// <summary>
     ///     A recorded assignee who is still eligible, otherwise the direct member holder when
     ///     eligible, otherwise unassigned.
@@ -190,10 +218,20 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             await IsEligibleAsync(tenantId, candidate, recorded, ct).ConfigureAwait(false))
             return recorded;
         if (candidate.Responsible.Kind == OperatingAuthority.MemberHolder &&
-            await IsEligibleAsync(tenantId, candidate, candidate.Responsible.Id, ct)
+            await IsResponsibilityAvailableAsync(tenantId, candidate, candidate.Responsible.Id, ct)
                 .ConfigureAwait(false))
             return candidate.Responsible.Id;
         return null;
+    }
+
+    async ValueTask<bool> IsResponsibilityAvailableAsync(Uuid tenantId, WorkCandidate candidate,
+        Uuid memberId, CancellationToken ct)
+    {
+        if (!candidate.RequiresSeparationOfDutiesWaiver || !candidate.Excluded.Contains(memberId))
+            return await IsEligibleAsync(tenantId, candidate, memberId, ct).ConfigureAwait(false);
+
+        return await IsEligibleWithoutSeparationOfDutiesAsync(tenantId, candidate, memberId, ct)
+            .ConfigureAwait(false);
     }
 
     /// <summary>Whether the source workflow would accept this member performing the work.</summary>
@@ -205,7 +243,16 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         if (_eligible.TryGetValue(key, out var known))
             return known;
         var eligible = !candidate.Excluded.Contains(memberId) &&
-                       (await HoldsAsync(tenantId, candidate.Responsible, memberId, ct)
+                       await IsEligibleWithoutSeparationOfDutiesAsync(tenantId, candidate,
+                           memberId, ct).ConfigureAwait(false);
+        _eligible[key] = eligible;
+        return eligible;
+    }
+
+    async ValueTask<bool> IsEligibleWithoutSeparationOfDutiesAsync(Uuid tenantId,
+        WorkCandidate candidate, Uuid memberId, CancellationToken ct)
+    {
+        var eligible = (await HoldsAsync(tenantId, candidate.Responsible, memberId, ct)
                             .ConfigureAwait(false) ||
                         candidate.Backup is { } backup &&
                         await HoldsAsync(tenantId, backup, memberId, ct).ConfigureAwait(false)) &&
@@ -217,9 +264,22 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             eligible = await HoldsAsync(tenantId,
                 new OperatingHolder(OperatingAuthority.ProgramManagerHolder, requiredProgram), memberId, ct)
                 .ConfigureAwait(false);
+        if (eligible && (AccessReviewCampaignWork.IsReview(candidate.Kind) ||
+                         AccessReviewCampaignWork.IsRemediation(candidate.Kind)))
+        {
+            if (accessReviewQueueEligibility is null ||
+                candidate.ProgramId is not { } programId ||
+                candidate.RestrictedSystemInstanceId is not { } systemInstanceId)
+                eligible = false;
+            else if (AccessReviewCampaignWork.IsReview(candidate.Kind))
+                eligible = await accessReviewQueueEligibility.CanReviewAsync(tenantId,
+                    programId, memberId, systemInstanceId, ct).ConfigureAwait(false);
+            else
+                eligible = await accessReviewQueueEligibility.CanRemediateAsync(tenantId,
+                    programId, memberId, systemInstanceId, ct).ConfigureAwait(false);
+        }
         if (eligible)
             eligible = await CanAssignAsync(tenantId, candidate, memberId, ct).ConfigureAwait(false);
-        _eligible[key] = eligible;
         return eligible;
     }
 
@@ -308,7 +368,10 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
             candidate.ControlId, candidate.FindingId, candidate.Summary, candidate.Reason,
             candidate.DueOn, candidate.DueOn < today, candidate.Materiality,
             candidate.NextAction, candidate.ActionPath, candidate.Responsible, assignee,
-            state.Revision, escalatedBy is not null, escalatedBy, candidate.CreatedAt);
+            state.Revision, escalatedBy is not null, escalatedBy, candidate.CreatedAt)
+        {
+            RequiresSeparationOfDutiesWaiver = candidate.RequiresSeparationOfDutiesWaiver,
+        };
     }
 
     static int MaterialityRank(string? materiality) => materiality switch

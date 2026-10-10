@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.AccessReviews;
 using Bdgrz.Compliance.Features.Boundaries;
 using Bdgrz.Compliance.Features.Commitments;
 using Bdgrz.Compliance.Features.ControlMappings;
@@ -29,6 +30,8 @@ static class WorkSourceManagement
         [WorkSource.ControlOperatingPlanApproval] = [typeof(ApproveControlOperatingPlan)],
         [WorkSource.ControlCriterionMappingReview] = [typeof(ReviewControlCriterionMapping)],
         [WorkSource.CriterionApplicabilityReview] = [typeof(ReviewCriterionApplicability)],
+        [WorkSource.AccessReviewReview] = [typeof(RecordAccessDecision)],
+        [WorkSource.AccessReviewRemediation] = [typeof(RecordAccessRemediationChange)],
         [FindingClosureWork.Kind] = [typeof(CloseFinding)],
         [ControlDecisionWork.DraftReview] = [typeof(ReviewControl)],
         [ControlDecisionWork.DraftApproval] = [typeof(ApproveControl)],

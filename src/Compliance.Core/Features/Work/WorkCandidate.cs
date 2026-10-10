@@ -12,6 +12,15 @@ public sealed record WorkCandidate(Uuid WorkItemId, string Kind, Uuid SourceId, 
     string NextAction, string ActionPath, OperatingHolder Responsible, OperatingHolder? Backup,
     IReadOnlySet<Uuid> Excluded, DateTimeOffset CreatedAt)
 {
+    /// <summary>The owning Program of a source candidate, when the source carries one.</summary>
+    public Uuid? ProgramId { get; init; }
+
+    /// <summary>Current source system whose visibility must be checked for each actor read.</summary>
+    public Uuid? RestrictedSystemInstanceId { get; init; }
+
+    /// <summary>Whether the current reviewer needs an exact-scope source waiver to decide.</summary>
+    public bool RequiresSeparationOfDutiesWaiver { get; init; }
+
     /// <summary>Source-management permission required in addition to the named operating duty.</summary>
     public Uuid? RequiredManagementProgramId { get; init; }
 

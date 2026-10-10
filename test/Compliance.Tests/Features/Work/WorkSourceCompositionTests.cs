@@ -1,13 +1,17 @@
 using Bdgrz.Compliance.Tests.Features.Readiness;
 using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.AccessReviews;
+using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.PolicyDistribution;
 using Bdgrz.Compliance.Features.Work;
 using Bdgrz.Compliance.Features.Evidence;
+using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Risks;
 using Bdgrz.Compliance.Features.Remediation;
 using Bdgrz.Compliance.Tests.Features.Operations;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
+using Bdgrz.Compliance.Tests.Features.AccessReviews;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Portia.Testing;
 using Cntryl.Fitz;
@@ -34,6 +38,7 @@ public sealed class WorkSourceCompositionTests
         var evidenceRequest = await fixture.AsAsync(fixture.LeadUserId, new OpenEvidenceRequest(
             fixture.TenantId, fixture.ProgramId, "Quarterly evidence", "Reviewed export", fixture.OwnerMemberId,
             fixture.Today));
+        var (reviewCampaignId, reviewItemId) = await SeedReviewCampaignAsync(fixture);
         await using var provider = CreateProvider(fixture);
         var actor = ProgramManagementServices.Actor(fixture.ApproverUserId);
         RequestScenario Scenario() => RequestScenario.For(provider).GivenActor(actor);
@@ -57,9 +62,33 @@ public sealed class WorkSourceCompositionTests
         Assert.Empty(outsider.Value.Items);
         Assert.Equal(0, outsider.Value.Counts.Total);
         var evidenceItem = Assert.Single(before.Value.Items, item => item.Kind == "evidence_request");
+        var reviewItem = Assert.Single(before.Value.Items,
+            item => item.Kind == WorkSource.AccessReviewReview);
+        Assert.Equal(reviewItemId, reviewItem.SourceId);
+        Assert.Equal("record_decision", reviewItem.NextAction);
+        Assert.Equal($"/api/v1/tenants/{fixture.TenantId}/access-review-campaigns/" +
+                     $"{reviewCampaignId}/items/{reviewItemId}/decisions", reviewItem.ActionPath);
+        var reviewDetail = await Scenario().When(new GetWorkItem(fixture.TenantId, fixture.ProgramId,
+            reviewItem.WorkItemId)).ExpectSuccess();
+        Assert.Equal(reviewItem, reviewDetail.Value.Item);
+        var reviewSearch = await Scenario().When(list with { Search = WorkSource.AccessReviewReview })
+            .ExpectSuccess();
+        Assert.Equal(reviewItem, Assert.Single(reviewSearch.Value.Items));
+        Assert.Equal(1, reviewSearch.Value.Counts.Total);
         await RequestScenario.For(provider).GivenActor(ProgramManagementServices.Actor(fixture.OutsiderUserId))
             .When(new GetWorkItem(fixture.TenantId, fixture.ProgramId, evidenceItem.WorkItemId))
             .ExpectFailure(RequestErrorKind.NotFound);
+
+        var decision = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.LeadUserId, new RecordAccessDecision(fixture.TenantId, reviewCampaignId,
+                reviewItemId, 1, "keep", "The access is still required."));
+        Assert.True(decision.IsSuccess, decision.Error?.Message);
+        var campaignChanged = await Scenario().When(list).ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var afterCampaignDecision = await Scenario().When(list).ExpectSuccess();
+        await Scenario().When(new GetWorkItem(fixture.TenantId, fixture.ProgramId,
+            reviewItem.WorkItemId)).ExpectFailure(RequestErrorKind.NotFound);
+
         await Scenario().When(new CancelEvidenceRequest(fixture.TenantId, fixture.ProgramId,
             evidenceRequest.EvidenceRequestId, evidenceRequest.Revision, "No longer required")).ExpectSuccess();
         var changed = await Scenario().When(list).ExpectFailure(RequestErrorKind.Conflict);
@@ -80,15 +109,58 @@ public sealed class WorkSourceCompositionTests
 
         // Assert
         Assert.True(lag.Error!.IsTransient);
+        Assert.True(campaignChanged.Error!.IsTransient);
         Assert.True(changed.Error!.IsTransient);
-        Assert.Equal(new WorkCountsView(3, 1, 1, 1), before.Value.Counts);
-        Assert.Equal(3, before.Value.Items.Select(item => item.WorkItemId).Distinct().Count());
+        Assert.Equal(new WorkCountsView(4, 1, 1, 1), before.Value.Counts);
+        Assert.Equal(4, before.Value.Items.Select(item => item.WorkItemId).Distinct().Count());
+        Assert.Equal(new WorkCountsView(3, 1, 1, 1), afterCampaignDecision.Value.Counts);
+        Assert.DoesNotContain(afterCampaignDecision.Value.Items,
+            item => item.WorkItemId == reviewItem.WorkItemId);
         Assert.Equal(new WorkCountsView(2, 1, 0, 1), after.Value.Counts);
         Assert.DoesNotContain(after.Value.Items, item => item.SourceId == evidenceRequest.EvidenceRequestId);
         Assert.Equal(new WorkCountsView(1, 1, 0, 1), final.Value.Counts);
         Assert.Equal("corrective_action", Assert.Single(final.Value.Items).Kind);
         Assert.Contains(after.Value.Items, item => item.Kind == "corrective_action" && item.NextAction == "complete");
         Assert.Contains(after.Value.Items, item => item.Kind == "finding_closure_review" && item.NextAction == "close");
+    }
+
+    static async Task<(Uuid CampaignId, Uuid ItemId)> SeedReviewCampaignAsync(
+        OperationsFixture fixture)
+    {
+        var now = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var applicationId = Uuid.CreateVersion4();
+        var systemInstanceId = Uuid.CreateVersion4();
+        var campaignId = Uuid.CreateVersion4();
+        var populationId = Uuid.CreateVersion4();
+        var snapshotId = Uuid.CreateVersion4();
+        var itemId = Uuid.CreateVersion4();
+        var actor = ActorReference.ForMember(fixture.LeadMemberId, "Lead");
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new DeclaredApplication(fixture.TenantId, applicationId), application =>
+                application.Declare("Payroll", "Payroll administration", null,
+                    fixture.LeadMemberId, "Lead", now));
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new DeclaredSystemInstance(fixture.TenantId, systemInstanceId), instance =>
+                instance.Declare(applicationId, "Production", "aws_account", null, null,
+                    Uuid.CreateVersion4(), "Seeder", now));
+        await ProgramManagementServices.SeedAsync(fixture.Provider,
+            new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
+                program.Create("Security", new ProgramPlan(null, null, null, null, null, null),
+                    fixture.LeadMemberId, "Lead", now) is null
+                    ? Result.Success
+                    : Result.Failure(new RequestError(RequestErrorKind.Conflict, "program")));
+        var item = new AccessReviewItemView(itemId, populationId, snapshotId, systemInstanceId,
+            fixture.LeadMemberId, "ada", "user_account", "Ada Lovelace", "human", null, null,
+            "deploy", "permission", "Deploy", false, "expected", [], null);
+        var reviewer = new AccessReviewerView(populationId, systemInstanceId,
+            fixture.LeadMemberId, false, null);
+        await ProgramManagementServices.SeedAsync<AccessReviewCampaign,
+            AccessReviewCampaignRegistration>(fixture.Provider,
+            new AccessReviewCampaign(fixture.TenantId, campaignId), campaign => campaign.Launch(
+                "Quarterly access review", "Review each frozen assignment.", now.AddDays(14),
+                snapshotId, new string('a', 64), [reviewer], [item], actor, now,
+                fixture.ProgramId, fixture.ApproverMemberId));
+        return (campaignId, itemId);
     }
 
     [Fact]
