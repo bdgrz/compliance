@@ -74,6 +74,9 @@ public sealed class FitzAccessReviewCampaignWorkItemDirectoryTests
         Assert.NotEqual(review.WorkItemId, remediation.WorkItemId);
         Assert.Equal(remediation.WorkItemId, providerChanged.WorkItemId);
         Assert.Contains("verification", providerChanged.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("verify_remediation", providerChanged.NextAction);
+        Assert.EndsWith("/remediation-verifications", providerChanged.ActionPath,
+            StringComparison.Ordinal);
         Assert.Equal(revisionAfterProviderChange, await directory.LoadRevisionAsync(fixture.TenantId));
         Assert.Single(replayed.Value, candidate => candidate.WorkItemId == remediation.WorkItemId);
         Assert.Empty(otherProgram.Value);

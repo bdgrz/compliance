@@ -68,6 +68,97 @@ public sealed class AccessReviewCampaignTests
     }
 
     [Fact]
+    public async Task ShouldRequireCurrentProgramManagementGivenIdempotentLaunchReplay()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.ClassifyStandardAsync(populationId);
+        var request = new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 AWS review",
+            "Keep only access each person still needs.", DateTimeOffset.UtcNow.AddDays(14),
+            [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+            fixture.ProgramId, fixture.RemediationOwnerMemberId);
+        var requestId = Uuid.CreateVersion4();
+        var metadata = new RequestMetadata(requestId, requestId, null);
+        await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess();
+        fixture.Permissions.Deny(fixture.ManagerUserId, RbacPermissions.ProgramManage);
+
+        // Act
+        var refused = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectFailure(RequestErrorKind.Forbidden);
+
+        // Assert
+        Assert.Contains("currently manage", refused.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShouldRejectChangedFrozenContentGivenIdempotentLaunchReplay()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.ClassifyStandardAsync(populationId);
+        fixture.Sources.AccessOwner = fixture.ApproverMemberId;
+        var assignment = new AccessReviewAssignment(populationId, fixture.ReviewerMemberId,
+            "Assigned as the trained access-review delegate.");
+        var request = new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 AWS review",
+            "Keep only access each person still needs.", DateTimeOffset.UtcNow.AddDays(14),
+            [assignment], fixture.ProgramId, fixture.RemediationOwnerMemberId);
+        var requestId = Uuid.CreateVersion4();
+        var metadata = new RequestMetadata(requestId, requestId, null);
+        var launched = (await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess()).Value;
+        var replay = (await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess()).Value;
+        var changedRequests = new[]
+        {
+            request with { Name = "Changed name" },
+            request with { Instructions = "Changed instructions" },
+            request with { Deadline = request.Deadline.AddDays(1) },
+            request with
+            {
+                Assignments = [assignment with { ReviewerMemberId = fixture.ApproverMemberId }],
+            },
+            request with
+            {
+                Assignments = [assignment with { DelegationReason = "Changed delegation basis." }],
+            },
+            request with { Assignments = [assignment with { PopulationId = Uuid.CreateVersion4() }] },
+            request with { ProgramId = Uuid.CreateVersion4() },
+            request with { RemediationOwnerMemberId = Uuid.CreateVersion4() },
+        };
+        var aggregate = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new AccessReviewCampaign(fixture.TenantId, launched.CampaignId));
+        var launch = aggregate.Launched!;
+        var changedHash = launch.ContentSha256 == new string('0', 64)
+            ? new string('1', 64)
+            : new string('0', 64);
+        var exactAggregateReplay = aggregate.Launch(launch.Name, launch.Instructions,
+            launch.Deadline, Uuid.CreateVersion4(), launch.ContentSha256, launch.Reviewers,
+            launch.Items, launch.LaunchedBy, launch.LaunchedAt, launch.ProgramId,
+            launch.RemediationOwnerMemberId);
+        var changedHashReplay = aggregate.Launch(launch.Name, launch.Instructions,
+            launch.Deadline, launch.SnapshotId, changedHash, launch.Reviewers, launch.Items,
+            launch.LaunchedBy, launch.LaunchedAt, launch.ProgramId,
+            launch.RemediationOwnerMemberId);
+
+        // Act
+        var conflicts = new List<RequestError>();
+        foreach (var changedRequest in changedRequests)
+            conflicts.Add((await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+                .When(changedRequest).ExpectFailure(RequestErrorKind.Conflict)).Error!);
+
+        // Assert
+        Assert.Equal(launched, replay);
+        Assert.Equal(changedRequests.Length, conflicts.Count);
+        Assert.All(conflicts, conflict => Assert.Contains("different", conflict.Message,
+            StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(launched.SnapshotId, exactAggregateReplay.Value.SnapshotId);
+        Assert.Equal(RequestErrorKind.Conflict, changedHashReplay.Error!.Kind);
+    }
+
+    [Fact]
     public async Task ShouldRequireDelegationReasonGivenReviewerOtherThanAccessOwner()
     {
         // Arrange

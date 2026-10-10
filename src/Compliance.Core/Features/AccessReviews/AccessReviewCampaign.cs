@@ -104,6 +104,29 @@ public sealed class AccessReviewCampaign : Aggregate
         Uuid reassignmentId) => _items.Values.SelectMany(static state => state.Reassignments)
         .FirstOrDefault(reassignment => reassignment.ReassignmentId == reassignmentId);
 
+    internal bool MatchesLaunchRequest(LaunchAccessReviewCampaign request)
+    {
+        if (Launched is not { } launched || request.Assignments is not { } assignments ||
+            string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instructions) ||
+            launched.Name != request.Name.Trim() || launched.Instructions != request.Instructions.Trim() ||
+            launched.Deadline != request.Deadline || launched.ProgramId != request.ProgramId ||
+            launched.RemediationOwnerMemberId != request.RemediationOwnerMemberId ||
+            assignments.Count != launched.Reviewers.Count)
+            return false;
+
+        var reviewers = launched.Reviewers.ToDictionary(static reviewer => reviewer.PopulationId);
+        foreach (var assignment in assignments)
+        {
+            if (!reviewers.Remove(assignment.PopulationId, out var reviewer) ||
+                reviewer.ReviewerMemberId != assignment.ReviewerMemberId ||
+                reviewer.Delegated &&
+                reviewer.DelegationReason != assignment.DelegationReason?.Trim())
+                return false;
+        }
+
+        return reviewers.Count == 0;
+    }
+
     public Result<AccessReviewCampaignRegistration> Launch(string name, string instructions,
         DateTimeOffset deadline, Uuid snapshotId, string contentSha256,
         IReadOnlyList<AccessReviewerView> reviewers, IReadOnlyList<AccessReviewItemView> items,
@@ -111,7 +134,9 @@ public sealed class AccessReviewCampaign : Aggregate
         Uuid? remediationOwnerMemberId = null)
     {
         if (Launched is { } launched)
-            return launched.SnapshotId == snapshotId && launched.ProgramId == programId &&
+            return launched.Name == name.Trim() && launched.Instructions == instructions.Trim() &&
+                   launched.Deadline == deadline && launched.ContentSha256 == contentSha256 &&
+                   launched.ProgramId == programId &&
                    launched.RemediationOwnerMemberId == remediationOwnerMemberId
                 ? Result<AccessReviewCampaignRegistration>.Success(new(Id, launched.SnapshotId,
                     launched.ContentSha256, launched.Items.Count))

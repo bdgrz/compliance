@@ -28,10 +28,21 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
             ct).ConfigureAwait(false);
         if (existing.Launched is { } launched)
         {
-            if (launched.ProgramId != request.ProgramId ||
-                launched.RemediationOwnerMemberId != request.RemediationOwnerMemberId)
+            if (launched.ProgramId is not { } ownerProgramId || ownerProgramId == Uuid.Empty)
                 return Failure(RequestErrorKind.Conflict,
-                    "The campaign already exists with different owner Program or remediation owner content.");
+                    "The campaign already exists without a routed owner Program.");
+            var ownerProgram = await reader.HydrateAsync(
+                new ComplianceProgram(request.TenantId, ownerProgramId), ct).ConfigureAwait(false);
+            if (!ownerProgram.IsCreated)
+                return Failure(RequestErrorKind.NotFound, "The owner Program was not found in this tenant.");
+            var existingActor = AccessReviewActor.From(context);
+            if (!await authority.HasProgramManagementPermissionAsync(request.TenantId, ownerProgramId,
+                    existingActor.MemberId, ct).ConfigureAwait(false))
+                return Failure(RequestErrorKind.Forbidden,
+                    "The launching actor must currently manage the owner Program.");
+            if (!existing.MatchesLaunchRequest(request))
+                return Failure(RequestErrorKind.Conflict,
+                    "The campaign already exists with different frozen launch content.");
             return Result<AccessReviewCampaignRegistration>.Success(new(campaignId,
                 launched.SnapshotId, launched.ContentSha256, launched.Items.Count));
         }

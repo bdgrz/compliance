@@ -45,13 +45,15 @@ static class AccessReviewCampaignWork
             ownerMemberId == Uuid.Empty)
             return [];
 
-        var remediationCandidate = CreateCandidate(state, ownerMemberId,
-            WorkSource.AccessReviewRemediation,
-            "record_remediation_change", "remediation-changes",
-            "Remediate a frozen access assignment",
-            state.HasProviderChange
-                ? "A provider change is recorded; accepted-population verification is still required."
-                : "The review decision requires provider-side remediation.");
+        var remediationCandidate = state.HasProviderChange
+            ? CreateCandidate(state, ownerMemberId, WorkSource.AccessReviewRemediation,
+                "verify_remediation", "remediation-verifications",
+                "Verify a provider-side remediation",
+                "A provider change is recorded; accepted-population verification is still required.")
+            : CreateCandidate(state, ownerMemberId, WorkSource.AccessReviewRemediation,
+                "record_remediation_change", "remediation-changes",
+                "Remediate a frozen access assignment",
+                "The review decision requires provider-side remediation.");
         return workItemId is null || remediationCandidate.WorkItemId == workItemId
             ? [remediationCandidate]
             : [];
