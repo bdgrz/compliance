@@ -49,8 +49,9 @@ it does not claim that one mixed-source scenario covers every work kind.
 The runtime registration audit resolves 15 distinct checkpoint identities and
 28 current program work kinds, with each kind supplied once. Empty resources
 load their own start checkpoints and each reader uses a tenant-specific source
-pattern. Campaign routing remains outside that manifest pending #646; it is not
-silently counted as delivered or given an inferred program owner.
+pattern. Campaign routing remains outside that manifest. The [#646 decision
+record](decisions/r2-access-review-campaign-routing.md) defines placement, but
+campaign work is not yet delivered or silently given an inferred program owner.
 
 ## Search contract
 
@@ -153,9 +154,11 @@ handler and records its returned acceptance in the retained source aggregate.
 
 ## Remaining acceptance boundaries
 
-- Access-review campaigns remain tenant-scoped. Campaign placement,
-  reviewer/remediation ownership and no-eligible-owner behavior require the
-  decision tracked on #646 before that work can enter this program queue.
+- Access-review campaigns remain tenant-scoped. The [#646 decision
+  record](decisions/r2-access-review-campaign-routing.md) selects the owner
+  Program, reviewer/remediation ownership, and no-eligible-owner behavior.
+  Program-queue delivery and its [#284](https://github.com/bdgrz/compliance/issues/284)
+  acceptance remain open.
 - Access expectations and pending SoD-waiver approval records are tenant-owned
   decisions without an assigned owning program. Their existence alone cannot
   authorize inferred program placement. They remain in their direct workflows;
@@ -179,7 +182,16 @@ Queue action eligibility and management assignment use the source request's `ICl
 
 A recorded assignee who loses source eligibility becomes effectively unassigned without rewriting the retained assignment history. Mine and eligible-unassigned counts, claim, delegation, escalation and management assignment follow that source eligibility. Authorized program-manager and current-team read oversight retain the existing All/Team/detail visibility; a `next_action` describes the source workflow and grants no authority, as for existing separation-of-duties exclusions. Eligible replacement members can still claim or receive the orphaned work.
 
-Personal policy acknowledgement remains unmarked and usable by its correlated audience member. Its existing direct-member assignment and team-only claim validation remain unchanged. Conditional manager proxy acknowledgement has a shared request with personal acknowledgement and requires a separately accepted source-aware guard; this metadata slice does not invent a denial before that source contract exists. Campaign routing under #646 and complete parent acceptance remain open. Source projection fences and retained source history are independent checks; this is not a cross-stream atomic snapshot or authorization/write guarantee.
+Personal policy acknowledgement remains unmarked and usable by its correlated
+audience member. Its existing direct-member assignment and team-only claim
+validation remain unchanged. Conditional manager proxy acknowledgement has a
+shared request with personal acknowledgement and requires a separately accepted
+source-aware guard; this metadata slice does not invent a denial before that
+source contract exists. The [#646 placement rule](decisions/r2-access-review-campaign-routing.md)
+is recorded, while campaign routing delivery and complete parent acceptance
+remain open. Source projection fences and retained source history are
+independent checks; this is not a cross-stream atomic snapshot or
+authorization/write guarantee.
 
 Conditional policy proxy recording uses `PolicyAcknowledgementRecorderGuard.EvaluateCapturedAsync` with the exact
 runtime Person snapshot captured while deriving audience membership. The projected reader and retained-source fallback
