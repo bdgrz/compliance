@@ -48,3 +48,6 @@ jobs:
 
       - name: Test
         run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
+
+      - name: Test canonical browser sessions
+        run: dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "FullyQualifiedName~UserIdentityContinuationWebTests"

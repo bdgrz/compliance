@@ -25,6 +25,57 @@ public sealed class UserIdentityContinuationWebTests
     const string ProviderSecret = "oidc-provider-test-signing-key-000001";
 
     [Fact]
+    public async Task ShouldRejectBrowserSessionGivenOnlyProviderBearer()
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/auth/session");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer", Token("https://issuer.example/", "compliance-api",
+                ProviderSecret, "provider-subject"));
+
+        // Act
+        using var response = await client.SendAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldReturnCanonicalUserGivenOidcContinuationAndOptionalProviderBearer(
+        bool includeProviderBearer)
+    {
+        // Arrange
+        await using var factory = CreateExternalFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer", Token("https://issuer.example/", "compliance-api",
+                ProviderSecret, "provider-subject"));
+        using var continuationResponse = await client.PostAsJsonAsync(
+            "/api/v1/oidc-user-sessions", new { }, CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, continuationResponse.StatusCode);
+        var continuation = await continuationResponse.Content.ReadFromJsonAsync<LinkedIdentityDocument>(
+            CancellationToken.None);
+        Assert.NotNull(continuation);
+        Assert.Contains("bdgrz_session=", Assert.Single(continuationResponse.Headers.GetValues("Set-Cookie")),
+            StringComparison.Ordinal);
+        if (!includeProviderBearer)
+            client.DefaultRequestHeaders.Authorization = null;
+
+        // Act
+        using var response = await client.GetAsync("/auth/session", CancellationToken.None);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var session = await response.Content.ReadFromJsonAsync<SessionDocument>(CancellationToken.None);
+        Assert.Equal(continuation.UserId, session?.Id);
+        Assert.NotEqual("provider-subject", session?.Id);
+    }
+
+    [Fact]
     public async Task ShouldRequireAuthenticationGivenOidcContinuation()
     {
         // Arrange
@@ -101,8 +152,11 @@ public sealed class UserIdentityContinuationWebTests
         Assert.Equal(link, replay);
     }
 
-    [Fact]
-    public async Task ShouldRejectExistingSessionGivenItsProviderIdentityWasRevoked()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRejectExistingSessionGivenItsProviderIdentityWasRevoked(
+        bool includeProviderBearer)
     {
         // Arrange
         await using var factory = CreateExternalFactory();
@@ -121,6 +175,10 @@ public sealed class UserIdentityContinuationWebTests
             .HydrateAsync(new UserIdentity(retired.Id), CancellationToken.None);
         Assert.True(retired.Revoke(replacement.Id, DateTimeOffset.UtcNow).IsSuccess);
         await writer.SaveAsync(retired, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        if (includeProviderBearer)
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", Token("https://issuer.example/", "compliance-api",
+                    ProviderSecret, "retired-subject"));
 
         // Act
         using var after = await GetSessionAsync(client, token);
