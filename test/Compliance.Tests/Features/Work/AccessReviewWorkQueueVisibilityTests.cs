@@ -51,6 +51,46 @@ public sealed class AccessReviewWorkQueueVisibilityTests
     }
 
     [Fact]
+    public async Task ShouldHideRestrictedRemediationFromListSearchCountDetailAndAssignmentGivenNoCurrentSystemVisibility()
+    {
+        // Arrange
+        await using var scenario = await CreateScenarioAsync(allowSystemRead: false,
+            workKind: WorkSource.AccessReviewRemediation);
+        var actorUserId = scenario.Fixture.LeadUserId;
+        var actor = ProgramManagementServices.Actor(actorUserId);
+        var list = await new ListWorkHandler(scenario.CreateQueue()).HandleAsync(
+            new RequestContext<ListWork>(new ListWork(scenario.Fixture.TenantId,
+                scenario.Fixture.ProgramId, "all"), actor), CancellationToken.None);
+        var search = await ReadQueueAsync(scenario, actorUserId);
+        var detail = await new GetWorkItemHandler(scenario.CreateQueue()).HandleAsync(
+            new RequestContext<GetWorkItem>(new GetWorkItem(scenario.Fixture.TenantId,
+                scenario.Fixture.ProgramId, scenario.Source.Candidate.WorkItemId), actor),
+            CancellationToken.None);
+        var assignmentHandler = new AssignWorkItemHandler(
+            scenario.Scope.ServiceProvider.GetRequiredService<IAggregateExecutor>(),
+            scenario.CreateQueue(), TimeProvider.System);
+
+        // Act
+        var assignment = await assignmentHandler.HandleAsync(new RequestContext<AssignWorkItem>(
+            new AssignWorkItem(scenario.Fixture.TenantId, scenario.Fixture.ProgramId,
+                scenario.Source.Candidate.WorkItemId, 0, scenario.Fixture.OwnerMemberId),
+            actor), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(WorkSource.AccessReviewRemediation, scenario.Source.Candidate.Kind);
+        Assert.True(list.IsSuccess);
+        Assert.Empty(list.Value.Items);
+        Assert.Equal(new WorkCountsView(0, 0, 0, 0), list.Value.Counts);
+        Assert.True(search.IsSuccess);
+        Assert.Empty(search.Value.Items);
+        Assert.Equal(new WorkCountsView(0, 0, 0, 0), search.Value.Counts);
+        Assert.False(detail.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, detail.Error.Kind);
+        Assert.False(assignment.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, assignment.Error.Kind);
+    }
+
+    [Fact]
     public async Task ShouldExposeOrphanedCampaignWorkGivenResponsibleReviewerLosesProgramRead()
     {
         // Arrange
@@ -134,7 +174,8 @@ public sealed class AccessReviewWorkQueueVisibilityTests
                 ProgramManagementServices.Actor(actorUserId)), CancellationToken.None);
 
     static async Task<QueueScenario> CreateScenarioAsync(bool allowSystemRead,
-        bool requiresSeparationOfDutiesWaiver = false)
+        bool requiresSeparationOfDutiesWaiver = false,
+        string workKind = WorkSource.AccessReviewReview)
     {
         var fixture = await OperationsFixture.CreateAsync();
         var systemInstanceId = Uuid.CreateVersion4();
@@ -146,7 +187,7 @@ public sealed class AccessReviewWorkQueueVisibilityTests
         Assert.True(instance.Declare(applicationId, "Production", "aws_account", null, null,
             fixture.LeadMemberId, "Lead", DateTimeOffset.UtcNow).IsSuccess);
         var source = new AccessReviewWorkItems(Candidate(fixture, systemInstanceId,
-            requiresSeparationOfDutiesWaiver));
+            requiresSeparationOfDutiesWaiver, workKind));
         var scope = fixture.Provider.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var aggregateReader = new ScopedAggregateReader(
@@ -170,25 +211,30 @@ public sealed class AccessReviewWorkQueueVisibilityTests
     }
 
     static WorkCandidate Candidate(OperationsFixture fixture, Uuid systemInstanceId,
-        bool requiresSeparationOfDutiesWaiver)
+        bool requiresSeparationOfDutiesWaiver, string kind)
     {
         var campaignId = Uuid.CreateVersion4();
         var itemId = Uuid.CreateVersion4();
         var identity = Uuid.CreateVersion5(campaignId, itemId.ToString());
+        var isReview = kind == WorkSource.AccessReviewReview;
         HashSet<Uuid> excluded = [];
-        if (requiresSeparationOfDutiesWaiver)
+        if (isReview && requiresSeparationOfDutiesWaiver)
             excluded.Add(fixture.OwnerMemberId);
-        return new WorkCandidate(WorkCandidate.IdFor(identity, WorkSource.AccessReviewReview),
-            WorkSource.AccessReviewReview, itemId, null, null, "Restricted payroll review",
-            "Review restricted payroll access.", fixture.Today.AddDays(7), null,
-            "record_decision", $"/api/v1/tenants/{fixture.TenantId}/" +
-            $"access-review-campaigns/{campaignId}/items/{itemId}/decisions",
+        return new WorkCandidate(WorkCandidate.IdFor(identity, kind),
+            kind, itemId, null, null, isReview ? "Restricted payroll review" :
+                "Restricted payroll remediation",
+            isReview ? "Review restricted payroll access." :
+                "Remediate restricted payroll access.", fixture.Today.AddDays(7), null,
+            isReview ? "record_decision" : "record_remediation_change",
+            $"/api/v1/tenants/{fixture.TenantId}/" +
+            $"access-review-campaigns/{campaignId}/items/{itemId}/" +
+            (isReview ? "decisions" : "remediation-changes"),
             new OperatingHolder(OperatingAuthority.MemberHolder, fixture.OwnerMemberId), null,
             excluded, DateTimeOffset.UtcNow)
         {
             ProgramId = fixture.ProgramId,
             RestrictedSystemInstanceId = systemInstanceId,
-            RequiresSeparationOfDutiesWaiver = requiresSeparationOfDutiesWaiver,
+            RequiresSeparationOfDutiesWaiver = isReview && requiresSeparationOfDutiesWaiver,
         };
     }
 

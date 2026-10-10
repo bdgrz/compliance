@@ -38,7 +38,7 @@ public sealed class WorkSourceCompositionTests
         var evidenceRequest = await fixture.AsAsync(fixture.LeadUserId, new OpenEvidenceRequest(
             fixture.TenantId, fixture.ProgramId, "Quarterly evidence", "Reviewed export", fixture.OwnerMemberId,
             fixture.Today));
-        var (reviewCampaignId, reviewItemId) = await SeedReviewCampaignAsync(fixture);
+        var (reviewCampaignId, reviewItemId, _) = await SeedReviewCampaignAsync(fixture);
         await using var provider = CreateProvider(fixture);
         var actor = ProgramManagementServices.Actor(fixture.ApproverUserId);
         RequestScenario Scenario() => RequestScenario.For(provider).GivenActor(actor);
@@ -124,8 +124,140 @@ public sealed class WorkSourceCompositionTests
         Assert.Contains(after.Value.Items, item => item.Kind == "finding_closure_review" && item.NextAction == "close");
     }
 
-    static async Task<(Uuid CampaignId, Uuid ItemId)> SeedReviewCampaignAsync(
-        OperationsFixture fixture)
+    [Fact]
+    public async Task ShouldReconcileAccessReviewRemediationQueueGivenRevocationAndProviderChange()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var (campaignId, itemId, _) = await SeedReviewCampaignAsync(fixture);
+        await using var provider = CreateProvider(fixture,
+            accessReviewPermissions: fixture.Permissions);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario(Uuid userId) => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(userId));
+        var request = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
+
+        var before = await Scenario(fixture.ApproverUserId).When(request).ExpectSuccess();
+        var review = Assert.Single(before.Value.Items);
+
+        // Act
+        var decision = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.LeadUserId, new RecordAccessDecision(fixture.TenantId, campaignId,
+                itemId, 1, "revoke", "The access is no longer required."));
+        Assert.True(decision.IsSuccess, decision.Error?.Message);
+        var decisionLag = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var pending = await Scenario(fixture.ApproverUserId).When(request).ExpectSuccess();
+        var remediation = Assert.Single(pending.Value.Items);
+        var remediationDetail = await Scenario(fixture.ApproverUserId).When(new GetWorkItem(
+            fixture.TenantId, fixture.ProgramId, remediation.WorkItemId)).ExpectSuccess();
+        var remediationSearch = await Scenario(fixture.ApproverUserId).When(request with
+        {
+            Search = WorkSource.AccessReviewRemediation,
+        }).ExpectSuccess();
+
+        var providerChange = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.ApproverUserId, new RecordAccessRemediationChange(fixture.TenantId,
+                campaignId, itemId, 2, "CASE-42", "Removed the provider-side grant.",
+                DateTimeOffset.UtcNow));
+        Assert.True(providerChange.IsSuccess, providerChange.Error?.Message);
+        var providerChangeLag = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var afterProviderChange = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectSuccess();
+        var verified = Assert.Single(afterProviderChange.Value.Items);
+        var verifiedDetail = await Scenario(fixture.ApproverUserId).When(new GetWorkItem(
+            fixture.TenantId, fixture.ProgramId, verified.WorkItemId)).ExpectSuccess();
+        var verifiedSearch = await Scenario(fixture.ApproverUserId).When(request with
+        {
+            Search = WorkSource.AccessReviewRemediation,
+        }).ExpectSuccess();
+
+        // Assert
+        Assert.True(decisionLag.Error!.IsTransient);
+        Assert.True(providerChangeLag.Error!.IsTransient);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), before.Value.Counts);
+        Assert.Equal(WorkSource.AccessReviewReview, review.Kind);
+        Assert.Equal("record_decision", review.NextAction);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), pending.Value.Counts);
+        Assert.Equal(WorkSource.AccessReviewRemediation, remediation.Kind);
+        Assert.Equal("record_remediation_change", remediation.NextAction);
+        Assert.EndsWith("/remediation-changes", remediation.ActionPath, StringComparison.Ordinal);
+        Assert.NotEqual(review.WorkItemId, remediation.WorkItemId);
+        Assert.Equal(remediation, remediationDetail.Value.Item);
+        Assert.Equal(remediation, Assert.Single(remediationSearch.Value.Items));
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), remediationSearch.Value.Counts);
+        Assert.Equal(remediation.WorkItemId, verified.WorkItemId);
+        Assert.Equal(WorkSource.AccessReviewRemediation, verified.Kind);
+        Assert.Equal("verify_remediation", verified.NextAction);
+        Assert.EndsWith("/remediation-verifications", verified.ActionPath, StringComparison.Ordinal);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), afterProviderChange.Value.Counts);
+        Assert.Equal(verified, verifiedDetail.Value.Item);
+        Assert.Equal(verified, Assert.Single(verifiedSearch.Value.Items));
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), verifiedSearch.Value.Counts);
+    }
+
+    [Fact]
+    public async Task ShouldHideProductionProjectedRestrictedRemediationGivenNoCurrentSystemVisibility()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var (campaignId, itemId, systemInstanceId) = await SeedReviewCampaignAsync(fixture,
+            applicationRestricted: true);
+        var permissions = new RestrictedReadPermissions(fixture.Permissions, fixture.LeadUserId);
+        await using var provider = CreateProvider(fixture, permissions, permissions);
+        var decision = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.LeadUserId, new RecordAccessDecision(fixture.TenantId, campaignId,
+                itemId, 1, "revoke", "The access is no longer required."));
+        Assert.True(decision.IsSuccess, decision.Error?.Message);
+        await CatchUpAsync(provider, fixture.TenantId);
+
+        await using var scope = provider.CreateAsyncScope();
+        var source = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
+            .Single(reader => reader.ProjectedKinds.Contains(WorkSource.AccessReviewRemediation));
+        var projected = await source.LoadProgramAsync(fixture.TenantId, fixture.ProgramId);
+        Assert.True(projected.IsSuccess, projected.Error?.Message);
+        var candidate = Assert.Single(projected.Value);
+        RequestScenario Scenario() => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(fixture.ApproverUserId));
+        var list = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
+
+        // Act
+        var all = await Scenario().When(list).ExpectSuccess();
+        var search = await Scenario().When(list with
+        {
+            Search = WorkSource.AccessReviewRemediation,
+        }).ExpectSuccess();
+        var detail = await Scenario().When(new GetWorkItem(fixture.TenantId,
+            fixture.ProgramId, candidate.WorkItemId)).ExpectFailure(RequestErrorKind.NotFound);
+        var assignment = await Scenario().When(new AssignWorkItem(fixture.TenantId,
+            fixture.ProgramId, candidate.WorkItemId, 0, fixture.LeadMemberId))
+            .ExpectFailure(RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.Equal(WorkSource.AccessReviewRemediation, candidate.Kind);
+        Assert.Equal(itemId, candidate.SourceId);
+        Assert.Equal(fixture.ProgramId, candidate.ProgramId);
+        Assert.Equal(systemInstanceId, candidate.RestrictedSystemInstanceId);
+        Assert.Equal("record_remediation_change", candidate.NextAction);
+        Assert.True(all.IsSuccess);
+        Assert.Empty(all.Value.Items);
+        Assert.Equal(new WorkCountsView(0, 0, 0, 0), all.Value.Counts);
+        Assert.True(search.IsSuccess);
+        Assert.Empty(search.Value.Items);
+        Assert.Equal(new WorkCountsView(0, 0, 0, 0), search.Value.Counts);
+        Assert.False(detail.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, detail.Error.Kind);
+        Assert.False(assignment.IsSuccess);
+        Assert.Equal(RequestErrorKind.NotFound, assignment.Error.Kind);
+    }
+
+    static async Task<(Uuid CampaignId, Uuid ItemId, Uuid SystemInstanceId)>
+        SeedReviewCampaignAsync(OperationsFixture fixture, bool applicationRestricted = false)
     {
         var now = DateTimeOffset.UtcNow.AddMinutes(-1);
         var applicationId = Uuid.CreateVersion4();
@@ -138,7 +270,7 @@ public sealed class WorkSourceCompositionTests
         await ProgramManagementServices.SeedAsync(fixture.Provider,
             new DeclaredApplication(fixture.TenantId, applicationId), application =>
                 application.Declare("Payroll", "Payroll administration", null,
-                    fixture.LeadMemberId, "Lead", now));
+                    fixture.LeadMemberId, "Lead", now, isRestricted: applicationRestricted));
         await ProgramManagementServices.SeedAsync(fixture.Provider,
             new DeclaredSystemInstance(fixture.TenantId, systemInstanceId), instance =>
                 instance.Declare(applicationId, "Production", "aws_account", null, null,
@@ -160,7 +292,7 @@ public sealed class WorkSourceCompositionTests
                 "Quarterly access review", "Review each frozen assignment.", now.AddDays(14),
                 snapshotId, new string('a', 64), [reviewer], [item], actor, now,
                 fixture.ProgramId, fixture.ApproverMemberId));
-        return (campaignId, itemId);
+        return (campaignId, itemId, systemInstanceId);
     }
 
     [Fact]
@@ -593,14 +725,15 @@ public sealed class WorkSourceCompositionTests
         await using var ownedSource = fixture.Provider;
         await using var provider = CreateProvider(fixture);
         await using var scope = provider.CreateAsyncScope();
-        var kinds = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
-            .SelectMany(reader => reader.ProjectedKinds).Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal);
+        var projectedKinds = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
+            .SelectMany(reader => reader.ProjectedKinds).ToArray();
+        var kinds = projectedKinds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
         // Act
         var mapped = WorkSourceManagement.SourceRequests.Keys.Order(StringComparer.Ordinal);
 
         // Assert
+        Assert.Equal(projectedKinds.Length, projectedKinds.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(kinds, mapped);
         Assert.All(WorkSourceManagement.SourceRequests.Values.SelectMany(types => types),
             type => Assert.True(typeof(IRequestBase).IsAssignableFrom(type)));
@@ -609,7 +742,9 @@ public sealed class WorkSourceCompositionTests
         Assert.False(typeof(IClientManagementMutationRequest).IsAssignableFrom(typeof(AcknowledgePolicy)));
     }
 
-    static ServiceProvider CreateProvider(OperationsFixture fixture, IPermissionAuthorizer? permissions = null)
+    static ServiceProvider CreateProvider(OperationsFixture fixture,
+        IPermissionAuthorizer? permissions = null,
+        IPermissionAuthorizer? accessReviewPermissions = null)
     {
         var events = fixture.Provider.GetRequiredService<IEventStore>();
         var services = new ServiceCollection();
@@ -622,6 +757,8 @@ public sealed class WorkSourceCompositionTests
         services.AddSingleton<IKvClient>(new InMemoryKvClient());
         services.AddSingleton(events);
         services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
+        if (accessReviewPermissions is not null)
+            services.AddSingleton(accessReviewPermissions);
         services.AddSingleton<IAccessGrantPermissionAuthorizer>(
             new PermissionBackedAccessGrantPermissionAuthorizer(permissions ?? fixture.Permissions));
         services.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
@@ -638,6 +775,16 @@ public sealed class WorkSourceCompositionTests
             CancellationToken ct = default) => permission == Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission && !CanRead
             ? ValueTask.FromResult(false)
             : inner.IsAllowedAsync(tenantId, userId, memberId, permission, ct);
+    }
+
+    sealed class RestrictedReadPermissions(IPermissionAuthorizer inner, Uuid allowedUserId)
+        : IPermissionAuthorizer
+    {
+        public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId,
+            string permission, CancellationToken ct = default) =>
+            permission == RbacPermissions.ApplicationRestrictedRead
+                ? ValueTask.FromResult(userId == allowedUserId)
+                : inner.IsAllowedAsync(tenantId, userId, memberId, permission, ct);
     }
 
     static async Task CatchUpAsync(IServiceProvider provider, Uuid tenantId)
