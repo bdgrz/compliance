@@ -204,10 +204,11 @@ validation remain unchanged. Conditional manager proxy acknowledgement has a
 shared request with personal acknowledgement and requires a separately accepted
 source-aware guard; this metadata slice does not invent a denial before that
 source contract exists. The [#646 placement rule](decisions/r2-access-review-campaign-routing.md)
-is recorded, while campaign routing delivery and complete parent acceptance
-remain open. Source projection fences and retained source history are
-independent checks; this is not a cross-stream atomic snapshot or
-authorization/write guarantee.
+is delivered through the campaign projection in [PR #884](https://github.com/bdgrz/compliance/pull/884).
+Any remaining #284 queue-wide source reconciliation, count/action, and ADR
+acceptance stays open until its evidence is recorded. Source projection fences
+and retained source history are independent checks; this is not a cross-stream
+atomic snapshot or authorization/write guarantee.
 
 Conditional policy proxy recording uses `PolicyAcknowledgementRecorderGuard.EvaluateCapturedAsync` with the exact
 runtime Person snapshot captured while deriving audience membership. The projected reader and retained-source fallback
