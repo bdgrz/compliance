@@ -9,14 +9,23 @@ public sealed record AccountableWorkItemView(Uuid TenantId, Uuid ProgramId, Uuid
     OperatingHolder Responsible, OperatingHolder? Backup, Uuid[] Excluded,
     DateTimeOffset CreatedAt, Uuid? RiskId = null)
 {
+    public Uuid? RestrictedSystemInstanceId { get; init; }
+
     public static AccountableWorkItemView FromCandidate(Uuid tenantId, Uuid programId,
         WorkCandidate candidate, Uuid? riskId = null) => new(tenantId, programId, candidate.WorkItemId,
         candidate.Kind, candidate.SourceId, candidate.ControlId, candidate.FindingId,
         candidate.Summary, candidate.Reason, candidate.DueOn, candidate.Materiality,
         candidate.NextAction, candidate.ActionPath, candidate.Responsible, candidate.Backup,
-        candidate.Excluded.ToArray(), candidate.CreatedAt, riskId);
+        candidate.Excluded.ToArray(), candidate.CreatedAt, riskId)
+        {
+            RestrictedSystemInstanceId = candidate.RestrictedSystemInstanceId,
+        };
 
     public WorkCandidate ToCandidate() => new(WorkItemId, Kind, SourceId, ControlId, FindingId,
         Summary, Reason, DueOn, Materiality, NextAction, ActionPath, Responsible, Backup,
-        Excluded.ToHashSet(), CreatedAt);
+        Excluded.ToHashSet(), CreatedAt)
+    {
+        ProgramId = this.ProgramId,
+        RestrictedSystemInstanceId = this.RestrictedSystemInstanceId,
+    };
 }

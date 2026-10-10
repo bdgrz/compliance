@@ -9,7 +9,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 ///     eligible items and presents the preview token for the current campaign revision. HTTP-only.
 /// </summary>
 public sealed class RecordBulkAccessDecisionHandler(IAggregateExecutor executor,
-    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility)
+    IAggregateReader reader, TimeProvider clock, RestrictedApplicationVisibility visibility,
+    AccessReviewQueueEligibility eligibility)
     : IRequestHandler<RecordBulkAccessDecision, BulkAccessDecisionResult>
 {
     public async ValueTask<Result<BulkAccessDecisionResult>> HandleAsync(
@@ -28,6 +29,16 @@ public sealed class RecordBulkAccessDecisionHandler(IAggregateExecutor executor,
                 request.TenantId, actor.UserId, campaign, itemIds, ct).ConfigureAwait(false))
             return AccessReviewOutcome.Failure<BulkAccessDecisionResult>(RequestErrorKind.NotFound,
                 "The review items were not found.");
+        foreach (var itemId in itemIds.Distinct())
+        {
+            if (campaign.FindItem(itemId) is not { } item ||
+                campaign.CurrentReviewerMemberId(itemId) != actor.MemberId ||
+                campaign.Launched?.ProgramId is { } programId &&
+                !await eligibility.CanReviewAsync(request.TenantId, programId, actor.MemberId,
+                    item.SystemInstanceId, ct).ConfigureAwait(false))
+                return AccessReviewOutcome.Failure<BulkAccessDecisionResult>(RequestErrorKind.NotFound,
+                    "The review items were not found among the reviewer's current queue access.");
+        }
         var result = await executor.ExecuteAsync(new AccessReviewCampaign(request.TenantId,
                 request.CampaignId),
             campaign =>

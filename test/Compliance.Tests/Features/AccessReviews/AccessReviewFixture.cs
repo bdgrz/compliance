@@ -1,5 +1,8 @@
 using Bdgrz.Compliance.Features.AccessReviews;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
+using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Operations;
 using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Workforce;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
@@ -36,6 +39,7 @@ sealed class AccessReviewFixture : IAsyncDisposable
     public FakeApplicationDirectory Applications { get; }
     public bool ApplicationRestricted { get; }
     public Uuid TenantId { get; } = Uuid.CreateVersion4();
+    public Uuid ProgramId { get; } = Uuid.CreateVersion4();
     public Uuid ApplicationId { get; } = Uuid.CreateVersion4();
     public Uuid InstanceId { get; } = Uuid.CreateVersion4();
     public Uuid ManagerUserId { get; } = Uuid.CreateVersion4();
@@ -44,6 +48,8 @@ sealed class AccessReviewFixture : IAsyncDisposable
     public Uuid OutsiderUserId { get; } = Uuid.CreateVersion4();
     public Uuid ReviewerMemberId => RbacIds.Member(TenantId, ReviewerUserId);
     public Uuid ManagerMemberId => RbacIds.Member(TenantId, ManagerUserId);
+    public Uuid ApproverMemberId => RbacIds.Member(TenantId, ApproverUserId);
+    public Uuid RemediationOwnerMemberId => ManagerMemberId;
     public Uuid AdaPersonId { get; } = Uuid.CreateVersion4();
     public Uuid ReviewerPersonId { get; } = Uuid.CreateVersion4();
     public Uuid BotIdentityId { get; } = Uuid.CreateVersion4();
@@ -75,6 +81,7 @@ sealed class AccessReviewFixture : IAsyncDisposable
                 .AddRequestHandler<PreviewBulkAccessDecisionHandler>()
                 .AddRequestHandler<RecordBulkAccessDecisionHandler>()
                 .AddRequestHandler<RecordAccessRemediationChangeHandler>()
+                .AddRequestHandler<ReassignAccessReviewResponsibilityHandler>()
                 .AddRequestHandler<VerifyAccessRemediationHandler>()
                 .AddRequestHandler<ExemptAccessRemediationHandler>()
                 .AddRequestHandler<CompleteAccessReviewCampaignHandler>(),
@@ -84,6 +91,8 @@ sealed class AccessReviewFixture : IAsyncDisposable
                 services.AddSingleton<IEventStore>(store);
                 services.AddSingleton<IDomainEventReader>(store);
                 services.AddScoped<PopulationSnapshotFreezer>();
+                services.AddScoped<OperatingAuthority>();
+                services.AddScoped<AccessReviewQueueEligibility>();
                 services.AddScoped(provider => RestrictedApplicationVisibilityFixture.Create(
                     provider.GetRequiredService<IAggregateReader>(),
                     provider.GetRequiredService<IPermissionAuthorizer>(),
@@ -97,6 +106,7 @@ sealed class AccessReviewFixture : IAsyncDisposable
             applicationRestricted);
         permissions.Allow(fixture.ManagerUserId);
         permissions.Allow(fixture.ApproverUserId);
+        permissions.Allow(fixture.ReviewerUserId);
         sources.AccessOwner = fixture.ReviewerMemberId;
         var actor = ActorReference.ForMember(Uuid.CreateVersion4(), "Seeder");
         var now = DateTimeOffset.UtcNow.AddDays(-10);
@@ -114,6 +124,16 @@ sealed class AccessReviewFixture : IAsyncDisposable
             new DeclaredSystemInstance(fixture.TenantId, fixture.InstanceId), instance =>
                 instance.Declare(fixture.ApplicationId, "Production", "aws_account", null, null,
                     Uuid.CreateVersion4(), "Seeder", now));
+        await ProgramManagementServices.SeedAsync(provider,
+            new ComplianceProgram(fixture.TenantId, fixture.ProgramId), program =>
+                program.Create("Security", new ProgramPlan(null, null, null, null, null, null),
+                    fixture.ManagerMemberId, "Manager", now) is null
+                    ? Result.Success
+                    : Result.Failure(new RequestError(RequestErrorKind.Conflict, "program")));
+        foreach (var userId in new[]
+                 { fixture.ManagerUserId, fixture.ApproverUserId, fixture.ReviewerUserId })
+            await ProgramManagementServices.SeedAsync(provider,
+                new Member(fixture.TenantId, userId), member => member.Register());
         foreach (var (personId, name, email) in new[]
                  {
                      (fixture.AdaPersonId, "Ada", "ada@example.com"),
@@ -258,10 +278,29 @@ sealed class AccessReviewFixture : IAsyncDisposable
     }
 
     public Task<AccessReviewCampaignRegistration> LaunchAsync(Uuid populationId,
-        Uuid? reviewerMemberId = null, string? delegation = null) =>
+        Uuid? reviewerMemberId = null, string? delegation = null,
+        Uuid? remediationOwnerMemberId = null) =>
         SendAsync(ManagerUserId, new LaunchAccessReviewCampaign(TenantId, "Q3 AWS review",
             "Keep only access each person still needs.", DateTimeOffset.UtcNow.AddDays(14),
-            [new AccessReviewAssignment(populationId, reviewerMemberId ?? ReviewerMemberId, delegation)]));
+            [new AccessReviewAssignment(populationId, reviewerMemberId ?? ReviewerMemberId, delegation)],
+            ProgramId, remediationOwnerMemberId ?? RemediationOwnerMemberId));
+
+    public async Task<(Uuid CampaignId, Uuid ItemId)> SeedLegacyCampaignAsync(Uuid sourceCampaignId)
+    {
+        var source = await CampaignAsync(sourceCampaignId);
+        var campaignId = Uuid.CreateVersion4();
+        await ProgramManagementServices.SeedAsync<AccessReviewCampaign,
+            AccessReviewCampaignRegistration>(Provider,
+            new AccessReviewCampaign(TenantId, campaignId), campaign => campaign.Launch(
+                source.Name, source.Instructions, source.Deadline, source.SnapshotId,
+                source.ContentSha256, source.Reviewers,
+                source.Items.Select(static item => item.Item).ToArray(), source.LaunchedBy,
+                source.LaunchedAt));
+        var itemId = Assert.Single(source.Items, static item =>
+            item.Item.ProviderSubjectId == "ada" && item.Item.ProviderEntitlementId == "deploy")
+            .Item.ItemId;
+        return (campaignId, itemId);
+    }
 
     public Task<AccessReviewCampaignView> CampaignAsync(Uuid campaignId, Uuid? userId = null) =>
         SendAsync(userId ?? ManagerUserId, new GetAccessReviewCampaign(TenantId, campaignId));

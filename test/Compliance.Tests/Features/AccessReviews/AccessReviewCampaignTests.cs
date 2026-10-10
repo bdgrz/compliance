@@ -19,7 +19,8 @@ public sealed class AccessReviewCampaignTests
         var denied = await fixture.FailAsync(fixture.ManagerUserId,
             new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 review", "Review access.",
                 DateTimeOffset.UtcNow.AddDays(14),
-                [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)]),
+                [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+                fixture.ProgramId, fixture.RemediationOwnerMemberId),
             RequestErrorKind.NotFound);
 
         // Assert
@@ -53,6 +54,17 @@ public sealed class AccessReviewCampaignTests
         Assert.Equal(AccessReviewCampaignContent.LaunchKind, snapshot.Kind);
         Assert.Equal(launched.ContentSha256, campaign.ContentSha256);
         Assert.Contains(snapshot.Rows, row => row.Key == "header");
+        Assert.Contains(fixture.ProgramId.ToString(),
+            snapshot.Rows.Single(row => row.Key == "header").Content.GetRawText(),
+            StringComparison.Ordinal);
+        Assert.Contains(fixture.RemediationOwnerMemberId.ToString(),
+            snapshot.Rows.Single(row => row.Key == "header").Content.GetRawText(),
+            StringComparison.Ordinal);
+        var aggregate = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new AccessReviewCampaign(fixture.TenantId, launched.CampaignId));
+        Assert.Equal(fixture.ProgramId, aggregate.Launched!.ProgramId);
+        Assert.Equal(fixture.RemediationOwnerMemberId,
+            aggregate.Launched.RemediationOwnerMemberId);
     }
 
     [Fact]
@@ -62,17 +74,81 @@ public sealed class AccessReviewCampaignTests
         await using var fixture = await AccessReviewFixture.CreateAsync();
         var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
         var launch = new LaunchAccessReviewCampaign(fixture.TenantId, "Review", "Instructions",
-            DateTimeOffset.UtcNow.AddDays(7), [new AccessReviewAssignment(populationId, fixture.ManagerMemberId)]);
+            DateTimeOffset.UtcNow.AddDays(7),
+            [new AccessReviewAssignment(populationId, fixture.ApproverMemberId)],
+            fixture.ProgramId, fixture.RemediationOwnerMemberId);
 
         // Act
         var refused = await fixture.FailAsync(fixture.ManagerUserId, launch, RequestErrorKind.Validation);
-        var delegated = await fixture.LaunchAsync(populationId, fixture.ManagerMemberId,
+        var delegated = await fixture.LaunchAsync(populationId, fixture.ApproverMemberId,
             "Access owner on leave.");
         var campaign = await fixture.CampaignAsync(delegated.CampaignId);
 
         // Assert
         Assert.Contains("delegat", refused.Message, StringComparison.Ordinal);
         Assert.True(Assert.Single(campaign.Reviewers).Delegated);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task ShouldRejectCampaignLaunchGivenMissingOwnerProgramOrRemediationOwner(
+        bool includeProgram, bool includeRemediationOwner)
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        var launch = new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 review", "Review access.",
+            DateTimeOffset.UtcNow.AddDays(14),
+            [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+            includeProgram ? fixture.ProgramId : null,
+            includeRemediationOwner ? fixture.RemediationOwnerMemberId : null);
+
+        // Act
+        var refused = await fixture.FailAsync(fixture.ManagerUserId, launch, RequestErrorKind.Validation);
+
+        // Assert
+        Assert.Contains("owner Program", refused.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ShouldRejectCampaignLaunchGivenReviewerLacksCurrentQueueRead()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        fixture.Permissions.Deny(fixture.ReviewerUserId,
+            Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission);
+
+        // Act
+        var refused = await fixture.FailAsync(fixture.ManagerUserId,
+            new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 review", "Review access.",
+                DateTimeOffset.UtcNow.AddDays(14),
+                [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+                fixture.ProgramId, fixture.RemediationOwnerMemberId), RequestErrorKind.Validation);
+
+        // Assert
+        Assert.Contains("program queue", refused.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ShouldRejectCampaignLaunchGivenRemediationOwnerLacksAccessReviewPermission()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        fixture.Permissions.Deny(fixture.ManagerUserId,
+            Bdgrz.Compliance.Features.AccessControl.RbacPermissions.AccessReviewManage);
+
+        // Act
+        var refused = await fixture.FailAsync(fixture.ApproverUserId,
+            new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 review", "Review access.",
+                DateTimeOffset.UtcNow.AddDays(14),
+                [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+                fixture.ProgramId, fixture.RemediationOwnerMemberId), RequestErrorKind.Validation);
+
+        // Assert
+        Assert.Contains("remediation owner", refused.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -107,6 +183,136 @@ public sealed class AccessReviewCampaignTests
         Assert.NotNull(outsiderRead);
         Assert.Equal("decided", Assert.Single(reviewerView.Items, item => item.Item.ItemId == adaDeploy).Status);
         Assert.Equal(campaign.Items.Count - 1, reviewerView.UnresolvedCount);
+    }
+
+    [Fact]
+    public async Task ShouldReassignFrozenReviewerOnlyAfterEligibilityLossGivenRoutedCampaign()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.ClassifyStandardAsync(populationId);
+        fixture.Sources.AccessOwner = fixture.ApproverMemberId;
+        var launched = await fixture.LaunchAsync(populationId, fixture.ApproverMemberId);
+        var campaign = await fixture.CampaignAsync(launched.CampaignId);
+        var itemId = ItemId(campaign, "ada", "deploy");
+        var request = new ReassignAccessReviewResponsibility(fixture.TenantId, launched.CampaignId,
+            itemId, AccessReviewResponsibilityKind.Reviewer, 1, fixture.ReviewerMemberId,
+            "Original reviewer lost current queue access.",
+            "Appointed a trained member as a delegate for this system.");
+
+        // Act
+        var eligibleOwner = await fixture.FailAsync(fixture.ManagerUserId, request,
+            RequestErrorKind.Conflict);
+        fixture.Permissions.Deny(fixture.ApproverUserId,
+            Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission);
+        var missingDelegation = await fixture.FailAsync(fixture.ManagerUserId,
+            request with { DelegationReason = null }, RequestErrorKind.Validation);
+        var requestId = Uuid.CreateVersion4();
+        var metadata = new RequestMetadata(requestId, requestId, null);
+        var reassignment = (await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess()).Value;
+        var replay = (await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess()).Value;
+        var conflictingReplay = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request with { DelegationReason = "Different delegate basis." })
+            .ExpectFailure(RequestErrorKind.Conflict);
+        var reassigned = await fixture.CampaignAsync(launched.CampaignId);
+        var oldReviewerDecision = await fixture.FailAsync(fixture.ApproverUserId,
+            new RecordAccessDecision(fixture.TenantId, launched.CampaignId, itemId, 2,
+                "keep", "Still required."), RequestErrorKind.NotFound);
+        var aggregate = await ProgramManagementServices.HydrateAsync(fixture.Provider,
+            new AccessReviewCampaign(fixture.TenantId, launched.CampaignId));
+        var staleRevision = aggregate.ReassignResponsibility(itemId,
+            AccessReviewResponsibilityKind.Reviewer, 1, Uuid.CreateVersion4(),
+            fixture.ApproverMemberId, "Revision changed.",
+            ActorReference.ForMember(fixture.ManagerMemberId, "Manager"), DateTimeOffset.UtcNow,
+            "The delegate has the current system access owner authority.");
+
+        // Assert
+        Assert.Contains("loses eligibility", eligibleOwner.Message, StringComparison.Ordinal);
+        Assert.Contains("delegate", missingDelegation.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(fixture.ApproverMemberId, reassignment.PreviousMemberId);
+        Assert.Equal(fixture.ReviewerMemberId, reassignment.AssignedMemberId);
+        Assert.Equal(reassignment, replay);
+        Assert.Equal(RequestErrorKind.Conflict, conflictingReplay.Error!.Kind);
+        var state = Assert.Single(reassigned.Items, item => item.Item.ItemId == itemId);
+        Assert.Equal(fixture.ApproverMemberId, state.Item.ReviewerMemberId);
+        Assert.Equal(fixture.ReviewerMemberId, state.CurrentReviewerMemberId);
+        Assert.Equal(reassignment, Assert.Single(state.ResponsibilityReassignments!));
+        Assert.Equal("Appointed a trained member as a delegate for this system.",
+            reassignment.DelegationReason);
+        Assert.Equal(RequestErrorKind.Conflict, staleRevision.Error!.Kind);
+        Assert.NotNull(oldReviewerDecision);
+    }
+
+    [Fact]
+    public async Task ShouldRequireCurrentRemediationOwnerAfterAuditedReassignmentGivenLostEligibility()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.ClassifyStandardAsync(populationId);
+        var launched = await fixture.LaunchAsync(populationId, fixture.ApproverMemberId,
+            "Remediation test reviewer.");
+        var campaign = await fixture.CampaignAsync(launched.CampaignId);
+        var itemId = ItemId(campaign, "ada", "deploy");
+        await fixture.SendAsync(fixture.ApproverUserId, new RecordAccessDecision(fixture.TenantId,
+            launched.CampaignId, itemId, 1, "revoke", "No longer required."));
+        fixture.Permissions.Deny(fixture.ManagerUserId,
+            Bdgrz.Compliance.Features.AccessControl.RbacPermissions.AccessReviewManage);
+        var reassign = new ReassignAccessReviewResponsibility(fixture.TenantId, launched.CampaignId,
+            itemId, AccessReviewResponsibilityKind.RemediationOwner, 2,
+            fixture.ReviewerMemberId, "Original owner lost access-review authority.");
+
+        // Act
+        var assignment = await fixture.SendAsync(fixture.ApproverUserId, reassign);
+        var oldOwnerChange = await fixture.FailAsync(fixture.ApproverUserId,
+            new RecordAccessRemediationChange(fixture.TenantId, launched.CampaignId, itemId, 3,
+                "ticket-1", "Disable access.", DateTimeOffset.UtcNow), RequestErrorKind.NotFound);
+        var change = await fixture.SendAsync(fixture.ReviewerUserId,
+            new RecordAccessRemediationChange(fixture.TenantId, launched.CampaignId, itemId, 3,
+                "ticket-1", "Disable access.", DateTimeOffset.UtcNow));
+        var updated = await fixture.CampaignAsync(launched.CampaignId, fixture.ApproverUserId);
+
+        // Assert
+        Assert.Equal(fixture.ManagerMemberId, assignment.PreviousMemberId);
+        Assert.Equal(fixture.ReviewerMemberId, assignment.AssignedMemberId);
+        Assert.NotNull(oldOwnerChange);
+        var item = Assert.Single(updated.Items, state => state.Item.ItemId == itemId);
+        Assert.Equal(fixture.ManagerMemberId, updated.RemediationOwnerMemberId);
+        Assert.Equal(fixture.ReviewerMemberId, item.CurrentRemediationOwnerMemberId);
+        Assert.Equal(fixture.ReviewerMemberId.ToString(), change.RecordedBy.Id);
+    }
+
+    [Fact]
+    public async Task ShouldKeepLegacyCampaignTenantDirectGivenNoProgramQueueReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync();
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        await fixture.ClassifyStandardAsync(populationId);
+        var routed = await fixture.LaunchAsync(populationId);
+        var (campaignId, itemId) = await fixture.SeedLegacyCampaignAsync(routed.CampaignId);
+        fixture.Permissions.Deny(fixture.ReviewerUserId,
+            Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission);
+        fixture.Permissions.Deny(fixture.ManagerUserId,
+            Bdgrz.Compliance.Features.Programs.IProgramReadRequest.ReadPermission);
+
+        // Act
+        var visible = await fixture.CampaignAsync(campaignId, fixture.ReviewerUserId);
+        var decision = await fixture.SendAsync(fixture.ReviewerUserId,
+            new RecordAccessDecision(fixture.TenantId, campaignId, itemId, 1, "revoke",
+                "No longer required."));
+        var change = await fixture.SendAsync(fixture.ManagerUserId,
+            new RecordAccessRemediationChange(fixture.TenantId, campaignId, itemId, 2,
+                "ticket-legacy", "Disable the old grant.", DateTimeOffset.UtcNow));
+
+        // Assert
+        Assert.Equal(fixture.ReviewerMemberId, Assert.Single(visible.Items,
+            item => item.Item.ItemId == itemId).CurrentReviewerMemberId);
+        Assert.Equal(fixture.ReviewerMemberId, decision.ReviewerMemberId);
+        Assert.Equal(fixture.ManagerMemberId.ToString(), change.RecordedBy.Id);
     }
 
     [Fact]

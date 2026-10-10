@@ -21,6 +21,7 @@ cross-stream snapshot.
 | Commitments | Exact-revision assigned reviews/approvals | `commitment-drafts` | `FitzCommitmentDecisionWorkItemDirectoryTests`, `CommitmentDecisionWorkTests` |
 | Controls | Draft and retirement reviews/approvals | `controls` | `FitzControlDecisionWorkItemDirectoryTests`, `ControlDecisionWorkTests` |
 | Policy campaigns | Acknowledgements and training completion | `policy-distribution-campaigns` | `FitzPolicyCampaignWorkItemDirectoryTests`, `PolicyCampaignWorkTests`, `TrainingWorkAuthorityTests` |
+| Access-review campaigns | Frozen reviewer decisions and pending remediation verification | `access-review-campaigns` | `FitzAccessReviewCampaignWorkItemDirectoryTests`, `AccessReviewWorkQueueVisibilityTests`, `WorkSourceCompositionTests` |
 | Risk acceptance | Current residual-assessment acceptance | `risk-evaluations` | `RiskAcceptanceWorkTests`, `RiskAcceptanceWorkAuthorityTests`, `RiskAcceptanceWorkCompositionTests` |
 
 Each production source reader is registered as an accountable-work reader and
@@ -37,21 +38,35 @@ proves visible scoped counts under search. A search with no visible match still
 fails with a transient conflict while a required projection is behind.
 
 `WorkSourceCompositionTests` exercises the production `AddCompliance` registration
-with all 15 accountable readers. It replays retained source events through each
+with all 16 accountable readers. It replays retained source events through each
 reader's real transactional store, then reconciles a mixed evidence,
-corrective-action and finding-closure queue through the registered request bus.
-Actual source cancellation and independently assigned closure change counts from
-three to two to one; details and visible search agree, outsiders receive empty
+access-review, corrective-action and finding-closure queue through the registered
+request bus. A source decision removes review work after catch-up; evidence
+cancellation and independently assigned closure then change counts from four to
+three to two to one. Details and visible search agree, outsiders receive empty
 counts and absent details, and each source change conflicts until its required
 checkpoint catches up. This complements each source family's lifecycle tests;
 it does not claim that one mixed-source scenario covers every work kind.
 
-The runtime registration audit resolves 15 distinct checkpoint identities and
-28 current program work kinds, with each kind supplied once. Empty resources
+The runtime registration audit resolves 16 distinct checkpoint identities and
+30 current program work kinds, with each kind supplied once. Empty resources
 load their own start checkpoints and each reader uses a tenant-specific source
-pattern. Campaign routing remains outside that manifest. The [#646 decision
-record](decisions/r2-access-review-campaign-routing.md) defines placement, but
-campaign work is not yet delivered or silently given an inferred program owner.
+pattern. The campaign reader uses only the Program and remediation owner frozen
+in a routed launch; legacy tenant-direct campaigns remain unrouted and are not
+placed by inference. The [#646 decision record](decisions/r2-access-review-campaign-routing.md)
+defines this placement and the current eligibility-loss path.
+
+Campaign Fitz rows retain only queue-required scope and status: tenant, Program,
+campaign, item, system instance, due date, current reviewer/remediation owner,
+decision kind, verification and exception state, provider-change presence, and
+the member key needed to detect self-review. They do not duplicate frozen
+population contents, access paths, identities, rationales, provider descriptions,
+or verification evidence. A self-review candidate stays visible to authorized
+oversight with an explicit exact-scope waiver signal; ordinary action eligibility
+and queue assignment remain false, while the source command continues to enforce
+M0-D07 and its existing waiver checks. An audited reviewer reassignment records
+both why the prior owner lost eligibility and why the replacement qualifies as
+a delegate.
 
 ## Search contract
 
@@ -154,11 +169,12 @@ handler and records its returned acceptance in the retained source aggregate.
 
 ## Remaining acceptance boundaries
 
-- Access-review campaigns remain tenant-scoped. The [#646 decision
-  record](decisions/r2-access-review-campaign-routing.md) selects the owner
-  Program, reviewer/remediation ownership, and no-eligible-owner behavior.
-  Program-queue delivery and its [#284](https://github.com/bdgrz/compliance/issues/284)
-  acceptance remain open.
+- `ComplianceProgram` currently exposes creation but no inactive or archived
+  lifecycle state. Campaign launch therefore requires an existing Program in
+  the active tenant and current Program-management authorization, matching the
+  available source contract. Whether a created Program can become inactive is
+  unresolved; this slice does not invent lifecycle state. The [#646 decision
+  record](decisions/r2-access-review-campaign-routing.md) captures this limit.
 - Access expectations and pending SoD-waiver approval records are tenant-owned
   decisions without an assigned owning program. Their existence alone cannot
   authorize inferred program placement. They remain in their direct workflows;
@@ -166,9 +182,9 @@ handler and records its returned acceptance in the retained source aggregate.
 - Campaign waiver approval is an immediate personal decision without a pending
   request stage; provider coverage closure is a tenant-owned provider operation.
   Neither supplies a pending program reviewer assignment to copy into the queue.
-- Queue-wide ADR 0007 acceptance remains under #284 until all required source
-  coverage and reconciliation are established. Per-source checkpoint fencing
-  does not promise cross-stream atomicity.
+- Per-source checkpoint fencing does not promise cross-stream atomicity. A queue
+  read captures and confirms each required source checkpoint around enumeration;
+  ordinary writes after the final confirmation can still race the response.
 - Weekly email scheduling and delivery policy remain under #647 and their
   consuming issues. Search and in-app attention do not depend on email delivery.
 - Client and end-to-end acceptance remain in the owning repositories and later

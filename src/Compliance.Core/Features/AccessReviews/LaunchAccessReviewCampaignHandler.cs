@@ -1,6 +1,8 @@
 using Bdgrz.Compliance.Features.Snapshots;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Workforce;
+using Bdgrz.Compliance.Features.Programs;
+using Bdgrz.Compliance.Features.Operations;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.AccessReviews;
@@ -13,7 +15,8 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 /// </summary>
 public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
     IAggregateExecutor executor, PopulationSnapshotFreezer freezer, IAccessReviewSources sources,
-    TimeProvider clock, RestrictedApplicationVisibility visibility)
+    TimeProvider clock, RestrictedApplicationVisibility visibility,
+    AccessReviewQueueEligibility queueEligibility, OperatingAuthority authority)
     : IRequestHandler<LaunchAccessReviewCampaign, AccessReviewCampaignRegistration>
 {
     public async ValueTask<Result<AccessReviewCampaignRegistration>> HandleAsync(
@@ -24,9 +27,30 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
         var existing = await reader.HydrateAsync(new AccessReviewCampaign(request.TenantId, campaignId),
             ct).ConfigureAwait(false);
         if (existing.Launched is { } launched)
+        {
+            if (launched.ProgramId != request.ProgramId ||
+                launched.RemediationOwnerMemberId != request.RemediationOwnerMemberId)
+                return Failure(RequestErrorKind.Conflict,
+                    "The campaign already exists with different owner Program or remediation owner content.");
             return Result<AccessReviewCampaignRegistration>.Success(new(campaignId,
                 launched.SnapshotId, launched.ContentSha256, launched.Items.Count));
+        }
         var now = clock.GetUtcNow();
+        if (request.ProgramId is not { } programId || programId == Uuid.Empty ||
+            request.RemediationOwnerMemberId is not { } remediationOwnerMemberId ||
+            remediationOwnerMemberId == Uuid.Empty)
+            return Failure(RequestErrorKind.Validation,
+                "A routed campaign requires an explicit owner Program and remediation owner.");
+        var program = await reader.HydrateAsync(new ComplianceProgram(request.TenantId, programId), ct)
+            .ConfigureAwait(false);
+        if (!program.IsCreated)
+            return Failure(RequestErrorKind.NotFound,
+                "The owner Program was not found in this tenant.");
+        var actor = AccessReviewActor.From(context);
+        if (!await authority.HasProgramManagementPermissionAsync(request.TenantId, programId,
+                actor.MemberId, ct).ConfigureAwait(false))
+            return Failure(RequestErrorKind.Forbidden,
+                "The launching actor must currently manage the owner Program.");
         if (request.Assignments is not { Count: > 0 } ||
             request.Assignments.Select(static assignment => assignment.PopulationId).Distinct().Count() !=
             request.Assignments.Count)
@@ -37,7 +61,6 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
             return Failure(RequestErrorKind.Validation,
                 "A campaign requires a name, instructions, and a future deadline.");
 
-        var actor = AccessReviewActor.From(context);
         var reviewers = new List<AccessReviewerView>();
         var items = new List<AccessReviewItemView>();
         var correlated = new Dictionary<Uuid, Uuid?>();
@@ -56,6 +79,19 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
             if (!loaded.IsSuccess)
                 return Result<AccessReviewCampaignRegistration>.Failure(loaded.Error);
             var accepted = loaded.Value;
+            if (!await queueEligibility.CanRemediateAsync(request.TenantId, programId,
+                    remediationOwnerMemberId, accepted.Header.SystemInstanceId, ct)
+                    .ConfigureAwait(false))
+                return Failure(RequestErrorKind.Validation,
+                    "The remediation owner must be active, have program-queue read and access-review management authority, and see every restricted system.");
+            if (assignment.ReviewerMemberId == remediationOwnerMemberId)
+                return Failure(RequestErrorKind.Validation,
+                    "The remediation owner must be distinct from every frozen reviewer.");
+            if (!await queueEligibility.CanReviewAsync(request.TenantId, programId,
+                    assignment.ReviewerMemberId, accepted.Header.SystemInstanceId, ct)
+                    .ConfigureAwait(false))
+                return Failure(RequestErrorKind.Validation,
+                    "Each reviewer must be an active tenant member who can read the program queue and every assigned restricted system.");
             var owner = await sources.AccessOwnerMemberAsync(request.TenantId,
                 accepted.Header.ApplicationId, ct).ConfigureAwait(false);
             if (!owner.IsSuccess)
@@ -105,7 +141,7 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
                 "The assigned populations have no effective access to review.");
 
         var header = new AccessReviewCampaignHeader(campaignId, request.Name.Trim(),
-            request.Instructions.Trim(), request.Deadline);
+            request.Instructions.Trim(), request.Deadline, programId, remediationOwnerMemberId);
         var frozen = await freezer.FreezeAsync(context, request.TenantId,
             AccessReviewCampaignContent.LaunchKind,
             AccessReviewCampaignContent.LaunchRows(header, reviewers, items), null, null,
@@ -115,7 +151,8 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
         return await executor.ExecuteAsync(new AccessReviewCampaign(request.TenantId, campaignId),
             campaign => AccessReviewOutcome.From(campaign.Launch(request.Name, request.Instructions,
                 request.Deadline, frozen.Value.SnapshotId, frozen.Value.ContentSha256, reviewers,
-                items, actor.Reference, now)), context, ct).ConfigureAwait(false);
+                items, actor.Reference, now, programId, remediationOwnerMemberId)), context, ct)
+            .ConfigureAwait(false);
     }
 
     static Uuid ItemId(Uuid campaignId, Uuid populationId, EffectiveAccessView row) =>

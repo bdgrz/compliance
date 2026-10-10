@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.AccessReviews;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Snapshots;
@@ -147,6 +148,8 @@ public sealed class PersonalAccessReviewTransportTests
             services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
             services.AddSingleton<IKvClient>(new InMemoryKvClient());
             services.AddSingleton<IPermissionAuthorizer>(source.Permissions);
+            services.AddSingleton<IAccessGrantPermissionAuthorizer>(
+                new PermissionBackedAccessGrantPermissionAuthorizer(source.Permissions));
             services.AddSingleton<IAccessReviewSources>(source.Sources);
             services.AddSingleton<IApplicationDirectoryReader>(source.Applications);
             services.AddSingleton<ITenantActivity, ActiveTenant>();
@@ -183,7 +186,8 @@ public sealed class PersonalAccessReviewTransportTests
                 var (population, _) = await source.AcceptAsync(AccessReviewFixture.StandardFacts());
                 await source.ClassifyStandardAsync(population);
                 var launched = await source.LaunchAsync(population, action == "completion" ? source.ManagerMemberId : null,
-                    action == "completion" ? "Named delegate for source preparation" : null);
+                    action == "completion" ? "Named delegate for source preparation" : null,
+                    action == "completion" ? source.ApproverMemberId : null);
                 fixture._sourceId = launched.CampaignId;
                 var campaign = await source.CampaignAsync(launched.CampaignId);
                 fixture._itemId = AccessReviewCampaignTests.ItemId(campaign, "ada", "deploy");

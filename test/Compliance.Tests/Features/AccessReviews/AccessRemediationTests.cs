@@ -14,7 +14,8 @@ public sealed class AccessRemediationTests
         await using var fixture = await AccessReviewFixture.CreateAsync();
         var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
         await fixture.ClassifyStandardAsync(populationId);
-        var launched = await fixture.LaunchAsync(populationId, fixture.ManagerMemberId, "Owner away.");
+        var launched = await fixture.LaunchAsync(populationId, fixture.ManagerMemberId, "Owner away.",
+            fixture.ApproverMemberId);
         var campaign = await fixture.CampaignAsync(launched.CampaignId);
         var raeAdmin = AccessReviewCampaignTests.ItemId(campaign, "rae", "admin");
         var revision = 1L;
@@ -27,7 +28,7 @@ public sealed class AccessRemediationTests
             fixture.TenantId, launched.CampaignId, revision, "Complete."), RequestErrorKind.Conflict);
         await fixture.SendAsync(fixture.ManagerUserId, new RecordAccessDecision(fixture.TenantId,
             launched.CampaignId, raeAdmin, revision++, "revoke", "Rae changed teams."));
-        await fixture.SendAsync(fixture.ManagerUserId, new RecordAccessRemediationChange(
+        await fixture.SendAsync(fixture.ApproverUserId, new RecordAccessRemediationChange(
             fixture.TenantId, launched.CampaignId, raeAdmin, revision++, "JIRA-42",
             "Removed AdministratorAccess in the console.", DateTimeOffset.UtcNow));
         var stillBlocked = await fixture.FailAsync(fixture.ManagerUserId, new CompleteAccessReviewCampaign(
@@ -70,7 +71,8 @@ public sealed class AccessRemediationTests
         await using var fixture = await AccessReviewFixture.CreateAsync();
         var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
         await fixture.ClassifyStandardAsync(populationId);
-        var launched = await fixture.LaunchAsync(populationId, fixture.ManagerMemberId, "Owner away.");
+        var launched = await fixture.LaunchAsync(populationId, fixture.ManagerMemberId, "Owner away.",
+            fixture.ApproverMemberId);
         var campaign = await fixture.CampaignAsync(launched.CampaignId);
         var revision = 1L;
         var botDeploy = AccessReviewCampaignTests.ItemId(campaign, "bot", "deploy");

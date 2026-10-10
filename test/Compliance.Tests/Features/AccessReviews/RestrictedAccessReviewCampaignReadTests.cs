@@ -17,7 +17,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
         var scenario = Scenario();
         var handler = new GetAccessReviewCampaignHandler(scenario.Reader,
             new AccessReviewManagerPermissions(), TimeProvider.System,
-            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader), null!);
         var context = new RequestContext<GetAccessReviewCampaign>(new GetAccessReviewCampaign(
             scenario.TenantId, scenario.CampaignId), Actor(scenario.UserId));
 
@@ -38,7 +38,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
             allowedScopes: [new AccessGrantScope(AccessGrantScopeKind.SystemInstance,
                 scenario.InstanceId)]);
         var handler = new GetAccessReviewCampaignHandler(scenario.Reader,
-            new AccessReviewManagerPermissions(), TimeProvider.System, visibility);
+            new AccessReviewManagerPermissions(), TimeProvider.System, visibility, null!);
         var context = new RequestContext<GetAccessReviewCampaign>(new GetAccessReviewCampaign(
             scenario.TenantId, scenario.CampaignId), Actor(scenario.UserId));
 
@@ -102,7 +102,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
         // Arrange
         var scenario = Scenario();
         var handler = new PreviewBulkAccessDecisionHandler(scenario.Reader,
-            RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
+            RestrictedApplicationVisibilityFixture.Create(scenario.Reader), null!);
         var context = new RequestContext<PreviewBulkAccessDecision>(
             new PreviewBulkAccessDecision(scenario.TenantId, scenario.CampaignId,
                 [scenario.ItemId], "keep"), Actor(scenario.UserId));
@@ -121,7 +121,7 @@ public sealed class RestrictedAccessReviewCampaignReadTests
         // Arrange
         var scenario = Scenario();
         var handler = new RecordAccessDecisionHandler(null!, scenario.Reader,
-            TimeProvider.System, RestrictedApplicationVisibilityFixture.Create(scenario.Reader));
+            TimeProvider.System, RestrictedApplicationVisibilityFixture.Create(scenario.Reader), null!);
         var context = PersonalAccessReviewTransportTests.HttpContext<RecordAccessDecision>(new RecordAccessDecision(
             scenario.TenantId, scenario.CampaignId, scenario.ItemId, 1, "keep",
             "Still required."), Actor(scenario.UserId));

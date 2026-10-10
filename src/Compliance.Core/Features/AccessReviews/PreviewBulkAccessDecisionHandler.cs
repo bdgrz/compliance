@@ -4,7 +4,7 @@ using Bdgrz.Compliance.Features.Applications;
 namespace Bdgrz.Compliance.Features.AccessReviews;
 
 public sealed class PreviewBulkAccessDecisionHandler(IAggregateReader reader,
-    RestrictedApplicationVisibility visibility)
+    RestrictedApplicationVisibility visibility, AccessReviewQueueEligibility eligibility)
     : IRequestHandler<PreviewBulkAccessDecision, BulkAccessDecisionPreview>
 {
     public async ValueTask<Result<BulkAccessDecisionPreview>> HandleAsync(
@@ -21,7 +21,11 @@ public sealed class PreviewBulkAccessDecisionHandler(IAggregateReader reader,
         {
             var item = launched.Items.FirstOrDefault(candidate => candidate.ItemId == itemId);
             if (item is null || !await visibility.CanReadSystemInstanceAsync(request.TenantId,
-                    actor.UserId, item.SystemInstanceId, ct).ConfigureAwait(false))
+                    actor.UserId, item.SystemInstanceId, ct).ConfigureAwait(false) ||
+                campaign.CurrentReviewerMemberId(itemId) != actor.MemberId ||
+                launched.ProgramId is { } programId &&
+                !await eligibility.CanReviewAsync(request.TenantId, programId, actor.MemberId,
+                    item.SystemInstanceId, ct).ConfigureAwait(false))
                 return AccessReviewOutcome.Failure<BulkAccessDecisionPreview>(
                     RequestErrorKind.NotFound, "The campaign was not found.");
         }

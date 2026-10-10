@@ -10,4 +10,6 @@ namespace Bdgrz.Compliance.Features.AccessReviews;
 public sealed record AccessReviewItemStateView(AccessReviewItemView Item, string Status,
     AccessDecisionView? Decision, IReadOnlyList<AccessDecisionView> DecisionHistory,
     string RemediationStatus, IReadOnlyList<AccessRemediationChangeView> ProviderChanges,
-    AccessRemediationVerificationView? Verification, AccessRemediationExceptionView? Exception);
+    AccessRemediationVerificationView? Verification, AccessRemediationExceptionView? Exception,
+    Uuid? CurrentReviewerMemberId = null, Uuid? CurrentRemediationOwnerMemberId = null,
+    IReadOnlyList<AccessReviewResponsibilityReassignmentView>? ResponsibilityReassignments = null);

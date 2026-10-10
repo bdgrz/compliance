@@ -1386,6 +1386,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/remediation-changes")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("AccessReviews");
+    app.MapPortiaPost<ReassignAccessReviewResponsibility, AccessReviewResponsibilityReassignmentView>(
+            "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/responsibility-reassignments")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("AccessReviews");
     app.MapPortiaPost<VerifyAccessRemediation, AccessRemediationVerificationView>(
             "/api/v1/tenants/{tenant_id}/access-review-campaigns/{campaign_id}/items/{item_id}/remediation-verifications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)

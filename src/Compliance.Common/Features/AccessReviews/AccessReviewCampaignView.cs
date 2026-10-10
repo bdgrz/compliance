@@ -12,4 +12,5 @@ public sealed record AccessReviewCampaignView(Uuid TenantId, Uuid CampaignId, lo
     string ContentSha256, IReadOnlyList<AccessReviewerView> Reviewers,
     IReadOnlyList<AccessReviewItemStateView> Items, int UnresolvedCount,
     int RemediationOpenCount, ActorReference LaunchedBy, DateTimeOffset LaunchedAt,
-    AccessReviewCampaignCompletionView? Completion);
+    AccessReviewCampaignCompletionView? Completion,
+    Uuid? ProgramId = null, Uuid? RemediationOwnerMemberId = null);

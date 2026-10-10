@@ -395,7 +395,13 @@ public static class ComplianceServiceCollectionExtensions
             provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
         services.AddScoped<IAccessReviewCampaignDirectoryReader>(
             provider => provider.GetRequiredService<FitzAccessReviewCampaignDirectory>());
+        services.AddScoped<FitzAccessReviewCampaignWorkItemDirectory>();
+        services.AddScoped<IAccessReviewCampaignWorkItemProjection>(provider =>
+            provider.GetRequiredService<FitzAccessReviewCampaignWorkItemDirectory>());
+        services.AddScoped<IAccountableWorkItemDirectoryReader>(provider =>
+            provider.GetRequiredService<FitzAccessReviewCampaignWorkItemDirectory>());
         services.AddScoped<IAccessReviewSources, GovernedAccessReviewSources>();
+        services.AddScoped<AccessReviewQueueEligibility>();
         services.AddScoped<FitzPopulationSnapshotDirectory>();
         services.AddScoped<IPopulationSnapshotDirectoryProjection>(
             provider => provider.GetRequiredService<FitzPopulationSnapshotDirectory>());
@@ -793,6 +799,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ExemptMissingAccessPopulationHandler>()
             .AddRequestHandler<RecordAccessPopulationFactsHandler>()
             .AddRequestHandler<RecordAccessRemediationChangeHandler>()
+            .AddRequestHandler<ReassignAccessReviewResponsibilityHandler>()
             .AddRequestHandler<ExemptAccessRemediationHandler>()
             .AddRequestHandler<RecordBulkAccessDecisionHandler>()
             .AddRequestHandler<VerifyAccessRemediationHandler>()
@@ -1102,6 +1109,8 @@ public static class ComplianceServiceCollectionExtensions
                 AccessReviewDirectorySchema.PopulationProjector, WorkloadScope.PerTenant)
             .AddProjector<AccessReviewCampaignDirectoryProjector>(
                 AccessReviewDirectorySchema.CampaignProjector, WorkloadScope.PerTenant)
+            .AddProjector<AccessReviewCampaignWorkItemProjector>(
+                FitzAccessReviewCampaignWorkItemDirectory.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<AccessReviewScopeDirectoryProjector>(
                 AccessReviewScopeStreams.ProjectorName, WorkloadScope.PerTenant)
             .AddProjector<ApplicationBoundaryReferenceProjector>(

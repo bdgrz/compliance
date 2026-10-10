@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.AccessReviews;
+using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Bdgrz.Compliance.Tests.Testing;
@@ -181,6 +182,8 @@ public sealed class AttestAccessReviewWriteWallTests
             services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
             services.AddSingleton<IKvClient>(new InMemoryKvClient());
             services.AddSingleton<IPermissionAuthorizer>(source.Permissions);
+            services.AddSingleton<IAccessGrantPermissionAuthorizer>(
+                new PermissionBackedAccessGrantPermissionAuthorizer(source.Permissions));
             services.AddSingleton<IAccessReviewSources>(source.Sources);
             services.AddSingleton<IApplicationDirectoryReader>(source.Applications);
             services.AddSingleton<ITenantActivity>(new ActiveTenant());
