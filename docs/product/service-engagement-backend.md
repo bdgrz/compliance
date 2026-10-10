@@ -118,12 +118,22 @@ retains original approvals and separately attributed revocation reason and time.
 
 Current client administration grants allow acceptance metadata/history reads and the existing
 closure operation consumes accepted state when it exists. Actual removal is internal pending
-its professional lifecycle contract. No public acceptance writer or professional access grant
-is introduced. `IsEligibleForProfessionalAccess` is only a deny-only prerequisite: callers must
-supply trusted current rule and directory versions and an effective UTC instant, then apply
-ordinary grants and active directory/tenant conditions independently. It refuses before the
-recorded acceptance/assignment, outside the engagement period, after closure/removal, and when
-new service facts or changed supplied source versions invalidate the accepted snapshot. Runtime
+its professional lifecycle contract. No public acceptance writer or generic professional access
+grant is introduced. One narrow professional read consumer is supported: `ListReadinessAnnotations`
+allows a canonical assigned advisory professional to read annotation bodies without client
+membership or a client program grant when the tenant is active and the existing Program is
+correctly scoped to it, the current firm-staff identity is active, and the exact accepted
+advisory assignment remains eligible. It uses the ratified rule version frozen in that
+acceptance, current directory revision and effective UTC time; the general predicate remains
+denial-only and does not grant access to other resources. The readiness annotation authorizer
+also applies the complete retained Attest
+compartment wall, which continues to block that client's advisory notes after Attest closure or
+assignment removal.
+
+For that consumer, each authorization hydrates the current engagement, staff directory and
+assignment history. A closure, assignment removal, changed directory revision or retained source
+or directory reevaluation receipt denies the next read. Cross-stream changes are not atomic with
+the annotation request, and no cross-stream freshness or concurrency guarantee is claimed. Other
 professional-access authorizers and compartment search/count/export/notification consumers
 remain unfinished.
 
