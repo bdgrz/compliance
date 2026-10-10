@@ -8,6 +8,165 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationImportRetirementPlanTests
 {
     [Fact]
+    public void ShouldReject201ProofRowsGiven200SourceRowsAndOneRetirement()
+    {
+        // Arrange
+        var history = new List<DomainEvent>();
+        var (tenant, ledger, target, _) = Committed(ledgerHistory: history);
+        target.ResolveImportVisibility(ledger);
+        var actor = Uuid.CreateVersion4();
+        var rows = Enumerable.Range(1, ApplicationImportLedger.MaximumCommitEffectRows)
+            .Select(index => new ApplicationImportInputRow($"new-{index}", $"Application {index}",
+                "Observed purpose", null)).ToArray();
+        var request = new StageApplicationImport(tenant, Uuid.CreateVersion4(), "manual", "applications",
+            "declared_complete", rows);
+        var staged = new ImportBatch(tenant, ImportBatch.BatchIdFor(request));
+        Assert.True(staged.Stage(request, actor, "Lead", DateTimeOffset.UtcNow).IsSuccess);
+        var batch = new ImportBatch(tenant, staged.Id);
+        _ = new AggregateScenario<ImportBatch>(batch).Given(new AggregateScenario<ImportBatch>(staged).PendingEvents.ToArray());
+        foreach (var row in batch.GetRows())
+            Assert.Null(ledger.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id, row.RowId,
+                ledger.GetRevision(batch), "create_new", null, null, "Reviewed new identity"), null,
+                actor, "Lead", DateTimeOffset.UtcNow));
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
+        var correlated = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(correlated).Given(history.ToArray());
+        Assert.True(correlated.FreezeRetirementProposal(batch, correlated.GetRevision(batch),
+            correlated.CommittedStreamPosition, new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target },
+            actor, "Lead", "Reviewed source omission", DateTimeOffset.UtcNow).IsSuccess);
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(correlated).PendingEvents);
+        var proposalLedger = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(proposalLedger).Given(history.ToArray());
+        var proposal = Assert.IsType<ApplicationImportRetirementProposal>(proposalLedger.GetRetirementProposal(batch));
+        var impact = new ApplicationChangePreview(tenant, target.Id, target.Revision, "retire", [], [], [], true)
+        { ImpactDigest = new string('a', 64) };
+        var before = new AggregateScenario<ApplicationImportLedger>(proposalLedger).PendingEvents.Count;
+        var targetEffectsBefore = target.GetPendingImportEffects().Count;
+
+        // Act
+        var result = proposalLedger.BeginAcceptance(batch, proposal.Revision,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target }, actor, "Lead",
+            DateTimeOffset.UtcNow, new Dictionary<Uuid, ApplicationChangePreview> { [target.Id] = impact });
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Equal(before, new AggregateScenario<ApplicationImportLedger>(proposalLedger).PendingEvents.Count);
+        Assert.Equal(targetEffectsBefore, target.GetPendingImportEffects().Count);
+        Assert.Null(proposalLedger.GetFrozenPlan(batch.Id));
+    }
+
+    [Fact]
+    public void ShouldIncludeRetirementGivenSealedProposalAndCompleteCurrentImpact()
+    {
+        // Arrange
+        var history = new List<DomainEvent>();
+        var (tenant, ledger, target, _) = Committed(ledgerHistory: history);
+        target.ResolveImportVisibility(ledger);
+        var batch = Stage(tenant, "app-2", "Another source record", "declared_complete");
+        var row = Assert.Single(batch.GetRows());
+        Assert.Null(ledger.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id,
+            row.RowId, 1, "create_new", null, null, "Reviewed new application"), null,
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow));
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
+        var saved = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(saved).Given(history.ToArray());
+        Assert.True(saved.FreezeRetirementProposal(batch, 2, saved.CommittedStreamPosition,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target },
+            Uuid.CreateVersion4(), "Lead", "Reviewed omission", DateTimeOffset.UtcNow).IsSuccess);
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(saved).PendingEvents);
+        var frozen = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(frozen).Given(history.ToArray());
+        var proposal = Assert.IsType<ApplicationImportRetirementProposal>(frozen.GetRetirementProposal(batch));
+        var impact = new ApplicationChangePreview(tenant, target.Id, target.Revision, "retire",
+            [], [], [], true)
+        { ImpactDigest = new string('a', 64) };
+
+        // Act
+        var result = frozen.PrepareAcceptancePlan(batch, proposal.Revision,
+            new Dictionary<Uuid, ApplicationChangePreview> { [target.Id] = impact });
+
+        // Assert
+        Assert.True(result.IsSuccess, result.IsSuccess ? null : result.Error.Message);
+        var retirement = Assert.Single(result.Value, row => row.Decision == "retire");
+        Assert.Equal(target.Id, retirement.ApplicationId);
+        Assert.Equal(target.Revision, retirement.ExpectedApplicationRevision);
+    }
+
+    [Fact]
+    public void ShouldRejectAcceptanceGivenCompetingSourceEffectAfterRetirementProposal()
+    {
+        // Arrange
+        var (tenant, source, target, batch, proposal, impact) = PrepareFrozenRetirement();
+        var competing = PrepareCompetingLink(tenant, target);
+        Assert.True(target.RecordPendingImportEffect(competing.Ledger, competing.Batch,
+            competing.Row.RowId, DateTimeOffset.UtcNow).IsSuccess);
+        var before = new AggregateScenario<ApplicationImportLedger>(source).PendingEvents.Count;
+
+        // Act
+        var result = source.BeginAcceptance(batch, proposal.Revision,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target },
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow,
+            new Dictionary<Uuid, ApplicationChangePreview> { [target.Id] = impact });
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.True(Assert.IsType<RequestError>(result.Error).IsTransient);
+        Assert.Equal(before, new AggregateScenario<ApplicationImportLedger>(source).PendingEvents.Count);
+    }
+
+    [Fact]
+    public void ShouldRejectRetirementReservationGivenCompetingSourceEffectAfterAcceptance()
+    {
+        // Arrange
+        var (tenant, source, target, batch, proposal, impact) = PrepareFrozenRetirement();
+        Assert.True(source.BeginAcceptance(batch, proposal.Revision,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target },
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow,
+            new Dictionary<Uuid, ApplicationChangePreview> { [target.Id] = impact }).IsSuccess);
+        var frozenRow = Assert.Single(source.GetFrozenPlan(batch.Id)!.Rows,
+            row => row.Decision == "retire");
+        var competing = PrepareCompetingLink(tenant, target);
+        Assert.True(target.RecordPendingImportEffect(competing.Ledger, competing.Batch,
+            competing.Row.RowId, DateTimeOffset.UtcNow).IsSuccess);
+        var before = new AggregateScenario<DeclaredApplication>(target).PendingEvents.Count;
+
+        // Act
+        var result = target.RecordPendingImportEffect(source, batch, frozenRow.RowId, DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.True(Assert.IsType<RequestError>(result.Error).IsTransient);
+        Assert.Equal(before, new AggregateScenario<DeclaredApplication>(target).PendingEvents.Count);
+    }
+
+    [Fact]
+    public void ShouldRejectCompetingSourceEffectGivenUnsettledRetirementReservation()
+    {
+        // Arrange
+        var (tenant, source, target, batch, proposal, impact) = PrepareFrozenRetirement();
+        Assert.True(source.BeginAcceptance(batch, proposal.Revision,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target },
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow,
+            new Dictionary<Uuid, ApplicationChangePreview> { [target.Id] = impact }).IsSuccess);
+        var retirement = Assert.Single(source.GetFrozenPlan(batch.Id)!.Rows,
+            row => row.Decision == "retire");
+        Assert.True(target.RecordPendingImportEffect(source, batch, retirement.RowId,
+            DateTimeOffset.UtcNow).IsSuccess);
+        var competing = PrepareCompetingLink(tenant, target);
+        var before = new AggregateScenario<DeclaredApplication>(target).PendingEvents.Count;
+
+        // Act
+        var result = target.RecordPendingImportEffect(competing.Ledger, competing.Batch,
+            competing.Row.RowId, DateTimeOffset.UtcNow);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.True(Assert.IsType<RequestError>(result.Error).IsTransient);
+        Assert.Equal(before, new AggregateScenario<DeclaredApplication>(target).PendingEvents.Count);
+    }
+
+    [Fact]
     public void ShouldFreezeProposalGivenCompleteSourceOmission()
     {
         // Arrange
@@ -389,9 +548,10 @@ public sealed class ApplicationImportRetirementPlanTests
             new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target }, actor ?? Uuid.CreateVersion4(),
             "Lead", "Reviewed omission", DateTimeOffset.UtcNow);
 
-    static ImportBatch Stage(Uuid tenant, string sourceRecordId, string name, string coverage = "partial")
+    static ImportBatch Stage(Uuid tenant, string sourceRecordId, string name, string coverage = "partial",
+        string sourceKey = "manual")
     {
-        var request = new StageApplicationImport(tenant, Uuid.CreateVersion4(), "manual", "applications", coverage,
+        var request = new StageApplicationImport(tenant, Uuid.CreateVersion4(), sourceKey, "applications", coverage,
             [new(sourceRecordId, name, "Observed purpose", "Observed owner")]);
         var batch = new ImportBatch(tenant, ImportBatch.BatchIdFor(request));
         Assert.True(batch.Stage(request, Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow).IsSuccess);
@@ -431,5 +591,49 @@ public sealed class ApplicationImportRetirementPlanTests
         _ = new AggregateScenario<ApplicationImportLedger>(savedLedger).Given(
             [.. planEvents, .. new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents]);
         return (tenant, savedLedger, savedTarget, batch);
+    }
+
+    static (Uuid Tenant, ApplicationImportLedger Source, DeclaredApplication Target,
+        ImportBatch Batch, ApplicationImportRetirementProposal Proposal, ApplicationChangePreview Impact)
+        PrepareFrozenRetirement()
+    {
+        var history = new List<DomainEvent>();
+        var (tenant, ledger, target, _) = Committed(ledgerHistory: history);
+        target.ResolveImportVisibility(ledger);
+        var batch = Stage(tenant, "app-2", "Another source record", "declared_complete");
+        var row = Assert.Single(batch.GetRows());
+        Assert.Null(ledger.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id,
+            row.RowId, 1, "create_new", null, null, "Reviewed new application"), null,
+            Uuid.CreateVersion4(), "Lead", DateTimeOffset.UtcNow));
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(ledger).PendingEvents);
+        var correlated = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(correlated).Given(history.ToArray());
+        Assert.True(correlated.FreezeRetirementProposal(batch, 2, correlated.CommittedStreamPosition,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target }, Uuid.CreateVersion4(),
+            "Lead", "Reviewed omission", DateTimeOffset.UtcNow).IsSuccess);
+        history.AddRange(new AggregateScenario<ApplicationImportLedger>(correlated).PendingEvents);
+        var source = new ApplicationImportLedger(tenant, "manual", "applications");
+        _ = new AggregateScenario<ApplicationImportLedger>(source).Given(history.ToArray());
+        var proposal = Assert.IsType<ApplicationImportRetirementProposal>(source.GetRetirementProposal(batch));
+        var impact = new ApplicationChangePreview(tenant, target.Id, target.Revision, "retire",
+            [], [], [], true)
+        { ImpactDigest = new string('a', 64) };
+        return (tenant, source, target, batch, proposal, impact);
+    }
+
+    static (ApplicationImportLedger Ledger, ImportBatch Batch, ApplicationImportStagedRow Row)
+        PrepareCompetingLink(Uuid tenant, DeclaredApplication target)
+    {
+        var batch = Stage(tenant, "competitor", "Competing import", sourceKey: "other");
+        var row = Assert.Single(batch.GetRows());
+        var ledger = new ApplicationImportLedger(tenant, "other", "applications");
+        var actor = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        Assert.Null(ledger.Correlate(batch, new CorrelateApplicationImportRow(tenant, batch.Id,
+            row.RowId, 1, "link_existing", target.Id, target.Revision, "Reviewed current target"),
+            target, actor, "Lead", now));
+        Assert.True(ledger.BeginAcceptance(batch, 2,
+            new Dictionary<Uuid, DeclaredApplication> { [target.Id] = target }, actor, "Lead", now).IsSuccess);
+        return (ledger, batch, row);
     }
 }

@@ -43,6 +43,28 @@ sealed partial class FitzApplicationDirectory
                     throw new InvalidOperationException("The linked import target differs from its frozen governed revision.");
                 continue;
             }
+            if (row.Decision == "retire")
+            {
+                var retiring = await RequireApplicationAsync(row.ApplicationId, ct).ConfigureAwait(false);
+                if (retiring.TenantId != marker.TenantId || retiring.Revision != row.ExpectedApplicationRevision ||
+                    retiring.Lifecycle != "active" || string.IsNullOrWhiteSpace(row.RetirementReason))
+                    throw new InvalidOperationException("The retirement import target differs from its frozen governed revision.");
+                var retired = retiring with
+                {
+                    Revision = checked(retiring.Revision + 1),
+                    LastChangedByMemberId = plan.Start.ApproverMemberId,
+                    LastChangedByDisplay = plan.Start.ApproverDisplay,
+                    LastChangedAt = marker.CommittedAt,
+                    LastChangedBy = ActorReference.ForMember(plan.Start.ApproverMemberId,
+                        plan.Start.ApproverDisplay),
+                    Lifecycle = "retired",
+                    Retirement = new RetirementView(marker.CommittedAt, row.RetirementReason, null),
+                };
+                await ApplicationDirectorySchema.Applications.ReplaceAsync(Transaction, retiring,
+                    retired, ct).ConfigureAwait(false);
+                await InsertRevisionAsync(retired, "retired", null, ct).ConfigureAwait(false);
+                continue;
+            }
             if (row.Decision != "create_new")
                 throw new InvalidOperationException("The import projection has an unsupported row decision.");
             var view = new ApplicationView(marker.TenantId, row.ApplicationId, 1, row.Name.Trim(),

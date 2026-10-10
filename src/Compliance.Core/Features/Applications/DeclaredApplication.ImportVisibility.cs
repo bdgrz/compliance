@@ -14,7 +14,7 @@ public sealed partial class DeclaredApplication
                 continue;
             if (ledger.IsEffectCommitted(effect))
             {
-                ApplyCommittedImportCreation(effect);
+                ApplyCommittedImportEffect(effect);
                 _settledImportBatches = _settledImportBatches.Append(effect.Plan.BatchId).ToFrozenSet();
             }
             else if (ledger.IsRollbackDurable(effect.Plan.BatchId))
@@ -22,14 +22,21 @@ public sealed partial class DeclaredApplication
         }
     }
 
-    void ApplyCommittedImportCreation(ApplicationImportEffectPending effect)
+    void ApplyCommittedImportEffect(ApplicationImportEffectPending effect)
     {
-        if (effect.Row.Decision != "create_new" || _created)
-            return;
-        _created = true;
-        _initialName = effect.Row.Name.Trim();
-        _initialPurpose = effect.Row.Purpose.Trim();
-        _initialOwnerReference = NormalizeOptional(effect.Row.OwnerReference);
-        _revision = Math.Max(1, _revision);
+        if (effect.Row.Decision == "create_new" && !_created)
+        {
+            _created = true;
+            _initialName = effect.Row.Name.Trim();
+            _initialPurpose = effect.Row.Purpose.Trim();
+            _initialOwnerReference = NormalizeOptional(effect.Row.OwnerReference);
+            _revision = Math.Max(1, _revision);
+        }
+        else if (effect.Row.Decision == "retire" && !_retired &&
+                 effect.Row.ExpectedApplicationRevision == _revision)
+        {
+            _retired = true;
+            _revision = checked(_revision + 1);
+        }
     }
 }

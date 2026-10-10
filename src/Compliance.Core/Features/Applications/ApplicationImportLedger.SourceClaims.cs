@@ -11,7 +11,8 @@ public sealed partial class ApplicationImportLedger
             .SelectMany(marker => _frozenPlans[marker.BatchId].Rows.Select(row =>
                 new ApplicationImportSourceClaim(_frozenPlans[marker.BatchId].Start, row, marker.CommittedAt)))
             .GroupBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal)
-            .Select(group => group.Last()).OrderBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal)
+            .Select(group => group.Last()).Where(claim => claim.Observation.Decision != "retire")
+            .OrderBy(claim => claim.Observation.SourceRecordId, StringComparer.Ordinal)
             .ToArray());
 
     public ApplicationImportSourceClaim? GetSourceClaim(string sourceRecordId) =>
@@ -37,5 +38,8 @@ public sealed partial class ApplicationImportLedger
 
     bool ConflictsWithRecordedClaim(ApplicationImportPlannedRow row) => _commits.Keys.Any(batchId =>
         _frozenPlans[batchId].Rows.Any(previous => previous.SourceRecordId == row.SourceRecordId &&
-                                                (previous.ApplicationId != row.ApplicationId || row.Decision != "link_existing")));
+            !(row.Decision == "retire" && row.RetirementSourceClaimId ==
+                Uuid.CreateVersion5(Id, $"application_import_claim:{row.SourceRecordId}") &&
+              previous.ApplicationId == row.ApplicationId) &&
+            (previous.ApplicationId != row.ApplicationId || row.Decision != "link_existing")));
 }

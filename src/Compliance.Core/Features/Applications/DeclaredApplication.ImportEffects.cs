@@ -62,6 +62,21 @@ public sealed partial class DeclaredApplication
             if (_revision != row.ExpectedApplicationRevision)
                 return Result.Failure(VersionedRecordRules.StaleRevision("application", _revision).ToRequestError());
         }
+        if (row.Decision == "retire" && (!_created || _retired ||
+            row.ExpectedApplicationRevision != _revision ||
+            !ApplicationImportRetirementImpact.IsValidFrozenRow(plan.Start, row)))
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The retirement target or its frozen source proof changed."));
+        if (row.Decision == "retire" && _pendingImportEffects.Values.Any(existing =>
+                existing.Plan.BatchId != plan.Start.BatchId &&
+                !_settledImportBatches.Contains(existing.Plan.BatchId)))
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The retirement target has another unsettled import effect.", isTransient: true));
+        if (row.Decision != "retire" && _pendingImportEffects.Values.Any(existing =>
+                existing.Row.Decision == "retire" && existing.Plan.BatchId != plan.Start.BatchId &&
+                !_settledImportBatches.Contains(existing.Plan.BatchId)))
+            return Result.Failure(new RequestError(RequestErrorKind.Conflict,
+                "The target has an unsettled import retirement.", isTransient: true));
         if (JsonSerializer.SerializeToUtf8Bytes(effect, ComplianceCoreJsonContext.Default.ApplicationImportEffectPending).Length >
             ImportBatch.MaximumStagedPayloadBytes)
             return Result.Failure(new RequestError(RequestErrorKind.Validation, "The import effect exceeds its event payload bounds."));
@@ -75,19 +90,26 @@ public sealed partial class DeclaredApplication
             ev.Row.ApplicationId != Id || ev.Plan.BatchId == Uuid.Empty || ev.Row.RowId == Uuid.Empty ||
             ev.Plan.ApproverMemberId == Uuid.Empty || ev.Plan.SubmitterMemberId == Uuid.Empty ||
             string.IsNullOrWhiteSpace(ev.Plan.ApproverDisplay) || string.IsNullOrWhiteSpace(ev.Plan.SubmitterDisplay) ||
-            ev.Plan.RowCount is < 1 or > 200 || ev.PlanRevision != ev.Plan.Revision + ev.Plan.RowCount + 1 ||
+            ev.Plan.RowCount is < 1 or > ApplicationImportLedger.MaximumCommitEffectRows ||
+            ev.PlanRevision != ev.Plan.Revision + ev.Plan.RowCount + 1 ||
             string.IsNullOrWhiteSpace(ev.Plan.SourceKey) || string.IsNullOrWhiteSpace(ev.Plan.SourceNamespace) ||
             ev.PlanSha256.Length != 64 || ev.PlanSha256.Any(c => c is not (>= '0' and <= '9' or >= 'a' and <= 'f')) ||
-            ev.Row.Decision is not ("create_new" or "link_existing") ||
+            ev.Row.Decision is not ("create_new" or "link_existing" or "retire") ||
             (ev.Row.Decision == "create_new" && (_created || _pendingImportEffects.Count > 0 ||
                 ev.Row.ExpectedApplicationRevision is not null)) ||
             (ev.Row.Decision == "link_existing" && ((!_created &&
                 !_pendingImportEffects.Values.Any(effect => effect.Row.Decision == "create_new")) || _retired ||
                 ev.Row.ExpectedApplicationRevision != (_revision == 0 ? 1 : _revision))) ||
+            (ev.Row.Decision == "retire" && (!_created || _retired ||
+                ev.Row.ExpectedApplicationRevision != _revision ||
+                !ApplicationImportRetirementImpact.IsValidFrozenRow(ev.Plan, ev.Row))) ||
+            (ev.Row.Decision != "retire" && (ev.Row.RetirementSourceClaimId is not null ||
+                ev.Row.RetirementProposalSha256 is not null || ev.Row.RetirementImpactDigest is not null ||
+                ev.Row.RetirementReason is not null)) ||
             _pendingImportEffects.ContainsKey((ev.Plan.BatchId, ev.Row.RowId)))
             throw new InvalidOperationException("The pending import effect does not belong to its target.");
         _pendingImportEffects.Add((ev.Plan.BatchId, ev.Row.RowId), ev);
         if (_committedImportEvents.Contains(ev.Metadata.EventId))
-            ApplyCommittedImportCreation(ev);
+            ApplyCommittedImportEffect(ev);
     });
 }

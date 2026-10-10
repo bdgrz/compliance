@@ -159,6 +159,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<PreviewApplicationChangeHandler>();
         services.AddScoped<IApplicationChangeImpactReader>(provider =>
             provider.GetRequiredService<PreviewApplicationChangeHandler>());
+        services.AddScoped<IApplicationImportRetirementImpactReader>(provider =>
+            provider.GetRequiredService<PreviewApplicationChangeHandler>());
         services.AddScoped<FitzApplicationBoundaryReferenceDirectory>();
         services.AddScoped<IApplicationBoundaryReferenceProjection>(provider =>
             provider.GetRequiredService<FitzApplicationBoundaryReferenceDirectory>());

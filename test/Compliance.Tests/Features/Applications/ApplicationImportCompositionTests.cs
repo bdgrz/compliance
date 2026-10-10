@@ -116,6 +116,7 @@ public sealed class ApplicationImportCompositionTests
             var ledger = await Reader.HydrateAsync(new ApplicationImportLedger(Tenant, "manual", "applications"));
             Assert.Equal("committed", ledger.GetState(originalBatch));
             var applicationId = Assert.Single(ledger.GetFrozenPlan(originalBatch.Id)!.Rows).ApplicationId;
+            await CatchUpApplicationDirectoryAsync();
             var staged = await Bus.SendAsync(new StageApplicationImport(Tenant, Uuid.CreateVersion4(),
                 "manual", "applications", coverage, [new("present", invalid ? "" : "Present application", "Purpose", null)]), Actor);
             Assert.True(staged.IsSuccess, staged.Error?.Message);
@@ -126,6 +127,25 @@ public sealed class ApplicationImportCompositionTests
             await directory.ApplyAsync(Assert.IsType<ApplicationImportStaged>(batch.SourceObservation));
             await projection.CommitAsync(ProjectionCheckpoint.Start);
             return (batch.Id, originalBatch.Id, applicationId);
+        }
+
+        async Task CatchUpApplicationDirectoryAsync()
+        {
+            var services = _scope.ServiceProvider;
+            var registration = Assert.Single(services.GetServices<WorkloadRegistration>(),
+                candidate => candidate.Name == "ApplicationDirectoryV2");
+            var projector = (Projector)services.GetRequiredService(registration.ComponentType);
+            await new ProjectorScenario(new TenantId(Tenant.ToString())).RunAsync(projector);
+            var directory = services.GetRequiredService<IApplicationDirectoryReader>();
+            var runner = new ProjectorRunner(services.GetRequiredService<IDomainEventReader>());
+            var checkpoint = await directory.LoadCheckpointAsync(Tenant);
+            while (true)
+            {
+                var next = await runner.RunAsync(projector, checkpoint);
+                if (next == checkpoint)
+                    break;
+                checkpoint = next;
+            }
         }
 
         public async ValueTask DisposeAsync()
