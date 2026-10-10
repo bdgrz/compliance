@@ -126,6 +126,64 @@ public sealed class WorkDigestUnknownRetryHandlerTests
         Assert.Equal(RequestErrorKind.Validation, result.Error.Kind);
     }
 
+    [Fact]
+    public async Task ShouldReturnConflictGivenConcurrentUnknownRetryAuthorizations()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var memberId = Uuid.CreateVersion4();
+        var operatorId = Uuid.CreateVersion4();
+        var weekOf = new DateOnly(2026, 10, 5);
+        var scheduledAt = new DateTimeOffset(2026, 10, 5, 13, 0, 0, TimeSpan.Zero);
+        var authorizedAt = scheduledAt.AddHours(2);
+        var messageId = Uuid.CreateVersion4();
+        await using var provider = BuildProvider(operatorId, authorizedAt);
+        await SeedUnknownDispatchAsync(provider, tenantId, memberId, weekOf, scheduledAt,
+            messageId);
+        await using var scope = provider.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var innerReader = services.GetRequiredService<IAggregateReader>();
+        var writer = services.GetRequiredService<IAggregateWriter>();
+        var gatedReader = new ConcurrentDispatchReader(innerReader, memberId);
+        var executor = new AggregateExecutor(gatedReader, writer);
+        var handler = new AuthorizeWorkDigestUnknownRetryHandler(executor,
+            services.GetRequiredService<TimeProvider>(),
+            services.GetRequiredService<WorkDigestDeliverySettings>());
+        var authorizer = new PlatformOperatorAuthorizer(
+            services.GetRequiredService<IPlatformOperatorAccess>());
+        var request = new AuthorizeWorkDigestUnknownRetry(tenantId, memberId, weekOf,
+            "smtp-record:INC-4201", "Relay logs confirm the message was not accepted.");
+        var contexts = new[] { HttpContext(Actor(operatorId)), HttpContext(Actor(operatorId)) };
+        foreach (var context in contexts)
+        {
+            var authorization = await authorizer.AuthorizeAsync(
+                new Cntryl.Portia.RequestContext<IPlatformOperatorRequest>(request, context),
+                CancellationToken.None);
+            Assert.True(authorization.IsSuccess);
+        }
+
+        // Act
+        var results = await Task.WhenAll(contexts.Select(context => handler.HandleAsync(
+            new Cntryl.Portia.RequestContext<AuthorizeWorkDigestUnknownRetry>(request, context),
+            CancellationToken.None).AsTask()));
+        var persisted = await innerReader.HydrateAsync(new WorkDigestDispatch(tenantId, memberId));
+        var records = new List<DomainEventRecord>();
+        await foreach (var record in services.GetRequiredService<IEventStore>().ReadAsync(
+                           new WorkDigestDispatch(tenantId, memberId).Stream, 0,
+                           CancellationToken.None))
+            records.Add(record);
+
+        // Assert
+        Assert.Single(results, static result => result.IsSuccess);
+        var conflict = Assert.Single(results, static result => !result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, conflict.Error!.Kind);
+        Assert.Equal(WorkDigestDispatch.RetryPending, persisted.Read(weekOf).Status);
+        Assert.Equal(messageId, persisted.Read(weekOf).MessageId);
+        Assert.Equal(1, records.Count(static record =>
+            record.Event is WorkDigestUnknownRetryAuthorized));
+        Assert.Equal(2, gatedReader.Arrivals);
+    }
+
     static ServiceProvider BuildProvider(Uuid operatorId, DateTimeOffset now) =>
         ProgramManagementServices.Build(new DigestRetryPermissions(), portia => portia
                 .AddRequestHandler<AuthorizeWorkDigestUnknownRetryHandler>()
@@ -170,6 +228,29 @@ public sealed class WorkDigestUnknownRetryHandlerTests
     {
         public ValueTask<bool> IsOperatorAsync(Uuid userId, CancellationToken ct = default) =>
             ValueTask.FromResult(operatorId == userId);
+    }
+
+    sealed class ConcurrentDispatchReader(IAggregateReader inner, Uuid memberId)
+        : IAggregateReader
+    {
+        readonly TaskCompletionSource _bothHydrated =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int _arrivals;
+
+        public int Arrivals => _arrivals;
+
+        public async ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            var hydrated = await inner.HydrateAsync(aggregate, ct);
+            if (hydrated is WorkDigestDispatch && hydrated.Id == memberId)
+            {
+                if (Interlocked.Increment(ref _arrivals) == 2)
+                    _bothHydrated.TrySetResult();
+                await _bothHydrated.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            }
+            return hydrated;
+        }
     }
 
     sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
