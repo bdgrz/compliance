@@ -19,6 +19,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(Uuid))]
 [JsonSerializable(typeof(IReadOnlyList<Uuid>))]
 [JsonSerializable(typeof(AssignResponsibility))]
+[JsonSerializable(typeof(AcceptServiceEngagement))]
+[JsonSerializable(typeof(RevokeServiceEngagementActualStaff))]
 [JsonSerializable(typeof(RevokeResponsibility))]
 [JsonSerializable(typeof(GrantAccess))]
 [JsonSerializable(typeof(RevokeAccessGrant))]

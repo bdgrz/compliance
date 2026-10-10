@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.UserIdentities;
 using Bdgrz.Compliance.Tests.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -439,6 +440,355 @@ public sealed class ServiceEngagementAcceptanceTests
     }
 
     [Fact]
+    public async Task ShouldAcceptExactDraftGivenTrustedHttpEvidenceReader()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+        var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(1, evidenceReader.Reads);
+        Assert.Equal("active", result.Value!.Status);
+        Assert.Equal("accepted", retained.Engagement(request.EngagementId)!.Status);
+        Assert.Equal(seeded.Sequence + 1, retained.Sequence);
+        Assert.Equal(seeded.CommittedStreamPosition + 1UL, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Proof.PartnerStaffMemberId, result.Value.PartnerStaffMemberId);
+        Assert.Equal(seeded.Proof.PartnerDutyRevision, result.Value.PartnerDutyRevision);
+        Assert.Equal(seeded.Proof.PartnerUserId, evidenceReader.LastActorUserId);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenProductionCompositionWithoutAuthoritativeEvidenceProvider()
+    {
+        // Arrange
+        await using var provider = ComposeAcceptanceProvider();
+        var seeded = await SeedDraftAsync(provider);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
+        Assert.True(result.Error!.IsTransient);
+        Assert.Equal(seeded.CommittedStreamPosition, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Equal("draft", retained.Engagement(request.EngagementId)!.Status);
+        Assert.Null(retained.Acceptance(request.EngagementId));
+    }
+
+    [Theory]
+    [InlineData("scope")]
+    [InlineData("draft_revision")]
+    [InlineData("unratified_rules")]
+    [InlineData("unavailable")]
+    public async Task ShouldDenyAcceptanceWithoutAppendGivenStaleOrUnavailableEvidence(string failure)
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        var proof = failure switch
+        {
+            "scope" => seeded.Proof with { TenantId = Uuid.CreateVersion4() },
+            "draft_revision" => seeded.Proof with { ReviewedDraftRevision = seeded.Proof.ReviewedDraftRevision + 1 },
+            _ => seeded.Proof
+        };
+        var rules = failure == "unratified_rules" ? seeded.Rules with { IsRatified = false } : seeded.Rules;
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(proof, rules);
+        if (failure == "unavailable")
+            evidenceReader.Failure = new RequestError(RequestErrorKind.Conflict,
+                "Synthetic trusted source unavailable.", true);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
+        Assert.Equal(seeded.CommittedStreamPosition, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Equal("draft", retained.Engagement(request.EngagementId)!.Status);
+        Assert.Null(retained.Acceptance(request.EngagementId));
+    }
+
+    [Theory]
+    [InlineData("direct")]
+    [InlineData("mcp")]
+    public async Task ShouldNotReadEvidenceOrAcceptGivenNonHttpInvocation(string transport)
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        RequestInvocation invocation = transport == "mcp"
+            ? new McpInvocation("bdgrz.service-engagement.accept")
+            : new DirectInvocation();
+        var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId), invocation);
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+
+        // Act
+        var result = await bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(0, evidenceReader.Reads);
+        Assert.Equal(seeded.CommittedStreamPosition, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(request.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenClientAdministratorWithoutCurrentFirmStaffIdentity()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        provider.GetRequiredService<TestPlatformUserDirectoryReader>().Add(ClientUser);
+        var context = new RequestDispatchContext(ActorFor(ClientUser),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(0, evidenceReader.Reads);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenInactiveTenantBeforeReadingEvidence()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        provider.GetRequiredService<TestTenantActivity>().IsActive = false;
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), new RequestDispatchContext(
+                ActorFor(seeded.Proof.PartnerUserId),
+                new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept")),
+            CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(0, evidenceReader.Reads);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenInactiveFirmDirectoryIdentityBeforeReadingEvidence()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await SetFirmStaffStatusAsync(provider, seeded.Proof.PartnerStaffMemberId, isActive: false);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), new RequestDispatchContext(
+                ActorFor(seeded.Proof.PartnerUserId),
+                new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept")),
+            CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(0, evidenceReader.Reads);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldRecheckPartnerDirectoryAfterEvidenceReadGivenConcurrentDeactivation()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        evidenceReader.BeforeReturnAsync = _ => SetFirmStaffStatusAsync(provider,
+            seeded.Proof.PartnerStaffMemberId, isActive: false);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), new RequestDispatchContext(
+                ActorFor(seeded.Proof.PartnerUserId),
+                new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept")),
+            CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
+        Assert.Equal(1, evidenceReader.Reads);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenTeamMemberDirectoryChangesAfterEvidenceRead()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        var teamMember = Assert.Single(seeded.Proof.CurrentStaff);
+        evidenceReader.BeforeReturnAsync = _ => SetFirmStaffStatusAsync(provider,
+            teamMember.StaffMemberId, isActive: false);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var request = new AcceptServiceEngagement(Tenant, seeded.Proof.EngagementId, seeded.Sequence);
+        var context = new RequestDispatchContext(ActorFor(seeded.Proof.PartnerUserId),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(request, context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Conflict, result.Error?.Kind);
+        Assert.True(result.Error!.IsTransient);
+        Assert.Equal(1, evidenceReader.Reads);
+        Assert.Equal(seeded.CommittedStreamPosition, retained.CommittedStreamPosition);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Equal("draft", retained.Engagement(request.EngagementId)!.Status);
+        Assert.Null(retained.Acceptance(request.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenStandingFirmStaffWhoIsNotTheVerifiedPartner()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        var unrelatedUser = Uuid.CreateVersion4();
+        var unrelatedStaff = Uuid.CreateVersion4();
+        await SeedCurrentStaffAsync(provider, unrelatedStaff, unrelatedUser);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var context = new RequestDispatchContext(ActorFor(unrelatedUser),
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(1, evidenceReader.Reads);
+        Assert.Equal(unrelatedUser, evidenceReader.LastActorUserId);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
+    public async Task ShouldDenyAcceptanceGivenSystemActorOverHttp()
+    {
+        // Arrange
+        var evidenceReader = new TestAcceptanceEvidenceReader();
+        await using var provider = ComposeAcceptanceProvider(evidenceReader);
+        var seeded = await SeedDraftAsync(provider);
+        evidenceReader.Evidence = new ServiceEngagementAcceptanceEvidence(seeded.Proof, seeded.Rules);
+        await using var scope = provider.CreateAsyncScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IRequestBus>();
+        var path = $"/api/v1/tenants/{Tenant}/service-engagements/{seeded.Proof.EngagementId}/acceptance";
+        var context = new RequestDispatchContext(RequestActor.System,
+            new HttpInvocation("POST", path, path, "bdgrz.service-engagement.accept"));
+
+        // Act
+        var result = await bus.DispatchAsync(new AcceptServiceEngagement(Tenant,
+            seeded.Proof.EngagementId, seeded.Sequence), context, CancellationToken.None);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+        Assert.Equal(0, evidenceReader.Reads);
+        Assert.Equal(seeded.Sequence, retained.Sequence);
+        Assert.Null(retained.Acceptance(seeded.Proof.EngagementId));
+    }
+
+    [Fact]
     public void ShouldRefuseBackdatedAcceptanceGivenLaterTimestampInRetainedDraftHistory()
     {
         // Arrange
@@ -523,5 +873,127 @@ public sealed class ServiceEngagementAcceptanceTests
             "Synthetic ratified test fixture ONLY; not production evidence"),
             ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), sourceTime, true);
         return (ledger, proof, rules);
+    }
+
+    static ServiceProvider ComposeAcceptanceProvider(IServiceEngagementAcceptanceEvidenceReader? evidenceReader = null)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
+            ["Fitz:ApplicationName"] = "compliance",
+        }).Build();
+        services.AddCompliance(configuration, developerAuthentication: true);
+        services.AddSingleton<IEventStore>(new InMemoryEventStore());
+        services.AddSingleton<IPermissionAuthorizer>(new RecordingPermissionAuthorizer(true));
+        var tenants = new TestTenantActivity();
+        services.AddSingleton(tenants);
+        services.AddSingleton<ITenantActivity>(tenants);
+        services.AddSingleton<ITenantMembershipDirectoryReader>(new FixedMembershipDirectory(true));
+        var platformUsers = new TestPlatformUserDirectoryReader();
+        services.AddSingleton(platformUsers);
+        services.AddSingleton<IPlatformUserDirectoryReader>(platformUsers);
+        if (evidenceReader is not null)
+            services.AddSingleton<IServiceEngagementAcceptanceEvidenceReader>(evidenceReader);
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    static async Task<(VerifiedEngagementAcceptance Proof, IndependenceRuleVersionView Rules,
+        long Sequence, ulong CommittedStreamPosition)> SeedDraftAsync(IServiceProvider provider)
+    {
+        VerifiedEngagementAcceptance proof = null!;
+        IndependenceRuleVersionView rules = null!;
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var seeded = await executor.ExecuteAsync(new IndependenceLedger(Tenant), ledger =>
+        {
+            (_, proof, rules) = Fixture("attest", ledger);
+            return AggregateOutcome.Commit(Result.Success);
+        }, new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(seeded.IsSuccess, seeded.Error?.Message);
+        var retained = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new IndependenceLedger(Tenant), CancellationToken.None);
+        foreach (var staff in proof.CurrentStaff.Append(proof.CurrentPartner)
+                     .DistinctBy(member => member.StaffMemberId))
+        {
+            var directorySeeded = await executor.ExecuteAsync(new FirmStaffDirectory(), directory =>
+                AggregateOutcome.CommitOnSuccess(directory.Register(Uuid.CreateVersion4(), staff.StaffMemberId,
+                    staff.UserId, staff.Practice, staff.SourceReference, directory.Sequence,
+                    staff.Actor, staff.RecordedAt)), new RequestDispatchContext(RequestActor.System),
+                CancellationToken.None);
+            Assert.True(directorySeeded.IsSuccess, directorySeeded.Error?.Message);
+        }
+        scope.ServiceProvider.GetRequiredService<TestPlatformUserDirectoryReader>().Add(proof.PartnerUserId);
+        return (proof, rules, retained.Sequence, retained.CommittedStreamPosition);
+    }
+
+    static async Task SeedCurrentStaffAsync(IServiceProvider provider, Uuid staffMemberId, Uuid userId)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var recordedAt = Now;
+        await executor.ExecuteAsync(new FirmStaffDirectory(), directory => AggregateOutcome.CommitOnSuccess(
+            directory.Register(Uuid.CreateVersion4(), staffMemberId, userId, "attest",
+                "Synthetic current staff directory source", directory.Sequence,
+                ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), recordedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        scope.ServiceProvider.GetRequiredService<TestPlatformUserDirectoryReader>().Add(userId);
+    }
+
+    static async Task SetFirmStaffStatusAsync(IServiceProvider provider, Uuid staffMemberId, bool isActive)
+    {
+        await using var scope = provider.CreateAsyncScope();
+        var executor = scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        var result = await executor.ExecuteAsync(new FirmStaffDirectory(), directory => AggregateOutcome.CommitOnSuccess(
+            directory.SetStatus(Uuid.CreateVersion4(), staffMemberId, isActive,
+                isActive ? "Synthetic reactivation" : "Synthetic deactivation", directory.Sequence,
+                ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic operator"), Now.AddSeconds(1))),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(result.IsSuccess, result.Error?.Message);
+    }
+
+    static ClaimsPrincipal ActorFor(Uuid userId) => new(new ClaimsIdentity([
+        new Claim("iss", "bdgrz"), new Claim("sub", userId.ToString())], "BdgrzSession"));
+
+    sealed class TestAcceptanceEvidenceReader : IServiceEngagementAcceptanceEvidenceReader
+    {
+        public ServiceEngagementAcceptanceEvidence? Evidence { get; set; }
+        public RequestError? Failure { get; set; }
+        public int Reads { get; private set; }
+        public Uuid LastActorUserId { get; private set; }
+        public Func<CancellationToken, Task>? BeforeReturnAsync { get; set; }
+
+        public async ValueTask<Result<ServiceEngagementAcceptanceEvidence>> ReadCurrentAsync(Uuid tenantId,
+            Uuid engagementId, Uuid actorUserId, CancellationToken ct)
+        {
+            Reads++;
+            LastActorUserId = actorUserId;
+            if (BeforeReturnAsync is { } beforeReturn)
+                await beforeReturn(ct).ConfigureAwait(false);
+            if (Failure is { } failure)
+                return Result<ServiceEngagementAcceptanceEvidence>.Failure(failure);
+            if (Evidence is not { } evidence)
+                return Result<ServiceEngagementAcceptanceEvidence>.Failure(
+                    new RequestError(RequestErrorKind.NotFound, "Synthetic acceptance evidence missing."));
+            return Result<ServiceEngagementAcceptanceEvidence>.Success(evidence);
+        }
+    }
+
+    sealed class TestPlatformUserDirectoryReader : IPlatformUserDirectoryReader
+    {
+        readonly HashSet<Uuid> _users = [];
+
+        public void Add(Uuid userId) => _users.Add(userId);
+
+        public ValueTask<bool> ExistsAsync(Uuid userId, CancellationToken ct = default) =>
+            ValueTask.FromResult(_users.Contains(userId));
+    }
+
+    sealed class TestTenantActivity : ITenantActivity
+    {
+        public bool IsActive { get; set; } = true;
+
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(IsActive);
     }
 }

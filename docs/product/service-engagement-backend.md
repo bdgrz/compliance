@@ -60,10 +60,10 @@ be reopened or edited. A draft amendment cannot rewrite its practice identity,
 and the proposed lead must remain selected until another lead is recorded.
 
 Partner-duty designation and personal HTTP-only acceptance require the real
-professional authority decision recorded on #269. No public acceptance or
-ratification operation is supplied by this draft capability. Actual firm
-ratification evidence remains #343; the directory or draft UI cannot generate
-it or remove that gate.
+professional authority decision recorded on #269. The public acceptance
+operation is separate from this draft capability. Actual firm ratification
+evidence remains #343; the directory or draft UI cannot generate it or remove
+that gate.
 
 ## Personal client management acknowledgement
 
@@ -80,19 +80,26 @@ hundred acknowledgements without truncation. Replay preserves the same source an
 fences. Actual historical Attest assignees cannot acknowledge client management responsibilities.
 
 This is the client's own management decision. It does not ratify independence rules, designate
-an engagement partner, accept an engagement, or grant professional access. A later professional
-acceptance must independently verify designated partner authority, current source facts and
-this exact acknowledgement. No public professional acceptance operation exists yet.
+an engagement partner, accept an engagement, or grant professional access. The separate
+acceptance operation must independently verify designated partner authority, current source
+facts and this exact acknowledgement.
 
 ## Accepted-state domain boundary
 
-The ledger has an internal acceptance command that consumes verified named-partner review
-proof, current active directory snapshots and designated-duty revision, a ratified rule
-snapshot, and the exact personal client acknowledgement. This command is deliberately absent
-from public HTTP and MCP write contracts. No partner duty designation or production ratification
-is inferred from platform operator, directory practice or client administration authority.
-The production verified-partner authorizer and cross-source acceptance handler remain unfinished;
-synthetic fixture proofs are test evidence, never real professional ratification.
+The HTTP-only `POST /api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/acceptance`
+operation accepts only the tenant, engagement and expected client sequence. It does not accept
+caller-supplied partner, authority, directory, boundary or rule evidence, and it is not registered
+as an MCP tool. A dedicated firm-professional authorizer requires an authenticated personal HTTP
+request, an active tenant, a current canonical platform user and one active firm-staff identity.
+The handler then resolves trusted evidence for the exact actor and engagement, rechecks that the
+actor is the currently designated partner and that the directory snapshot is still current, and
+requires the applicable ratified rules. No partner duty designation or production ratification is
+inferred from platform operator, directory practice or client administration authority.
+
+Production composition currently installs a fail-closed evidence reader: until an authoritative
+partner-duty and ratified-rule provider is configured, acceptance returns a transient conflict
+without appending an event. Synthetic fixture proofs are test evidence, never real professional
+ratification.
 
 Acceptance recomputes policy from the complete immutable retained service history. An impaired
 or unclassified Attest service cannot be overridden; conditional compatibility requires a
@@ -111,24 +118,36 @@ ratification detail for issue #343.
 
 Actual assignments create permanent client-specific person history by canonical user and staff
 identity. Client closure and assignment revocation preserve it through aliases and later
-engagements. Removing the accepted lead closes the engagement and revokes the entire team;
-other removals revoke the named assignment. Client management acknowledgements refuse actual
+engagements. The client-administration endpoint and MCP tool
+`bdgrz.service-engagement.actual-staff.revoke` remove one current accepted assignment with an
+expected client sequence and attributed reason. Both use the existing active-tenant, current
+client-membership, and `tenant.rbac.manage` authorization; neither platform operators nor
+professional staff receive client authority from this operation. Removing the accepted lead
+closes the engagement and revokes the entire team; removing another assignee revokes only that
+assignment and leaves the engagement accepted. Client management acknowledgements refuse actual
 historical Attest actors even if they have a client-role identity. Immutable accepted history
 retains original approvals and separately attributed revocation reason and time.
 
-Current client administration grants allow acceptance metadata/history reads and the existing
-closure operation consumes accepted state when it exists. Actual removal is internal pending
-its professional lifecycle contract. No public acceptance writer or generic professional access
-grant is introduced. One narrow professional read consumer is supported: `ListReadinessAnnotations`
-allows a canonical assigned advisory professional to read annotation bodies without client
-membership or a client program grant when the tenant is active and the existing Program is
-correctly scoped to it, the current firm-staff identity is active, and the exact accepted
-advisory assignment remains eligible. It uses the ratified rule version frozen in that
-acceptance, current directory revision and effective UTC time; the general predicate remains
-denial-only and does not grant access to other resources. The readiness annotation authorizer
-also applies the complete retained Attest
-compartment wall, which continues to block that client's advisory notes after Attest closure or
-assignment removal.
+Current client administration grants allow acceptance metadata/history reads and closure. The
+actual-assignment revocation endpoint and MCP tool are described above.
+
+`IsEligibleForProfessionalAccess` remains a deny-only prerequisite: callers supply the ratified
+rules version frozen into the accepted engagement, the current directory revision, and an
+effective UTC instant. The frozen acceptance snapshot governs that engagement; later unratified
+catalog drafts do not silently replace its rules. Runtime authorization must also prove an active
+tenant, current staff-directory identity/status, and the exact accepted assignment, then apply the
+independence wall. The predicate refuses before the recorded acceptance/assignment, outside the
+engagement period, after closure/removal, and when retained service, assignment, or directory
+reevaluation receipts invalidate the accepted snapshot.
+
+One narrow professional read consumer is supported: `ListReadinessAnnotations` allows a
+canonical assigned advisory professional to read annotation bodies without client membership or a
+client program grant when the tenant is active and the existing Program is correctly scoped to
+it, the current firm-staff identity is active, and the exact accepted advisory assignment remains
+eligible. It uses the ratified rule version frozen in that acceptance, current directory revision,
+and effective UTC time; the general predicate does not grant access to other resources. The
+readiness annotation authorizer also applies the complete retained Attest compartment wall, which
+continues to block that client's advisory notes after Attest closure or assignment removal.
 
 For that consumer, each authorization hydrates the current engagement, staff directory and
 assignment history. A closure, assignment removal, changed directory revision or retained source

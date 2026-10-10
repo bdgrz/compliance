@@ -503,6 +503,8 @@ public static class ComplianceServiceCollectionExtensions
         services.AddScoped<EvidenceArtifactReadAccess>();
         services.AddScoped<EvidenceArtifactMetadataRead>();
         services.AddScoped<DirectoryReevaluationDiscovery>();
+        services.TryAddScoped<IServiceEngagementAcceptanceEvidenceReader,
+            UnconfiguredServiceEngagementAcceptanceEvidenceReader>();
         services.AddScoped<FitzActualStaffEngagementLocator>();
         services.AddScoped<IActualStaffEngagementLocatorProjection>(provider =>
             provider.GetRequiredService<FitzActualStaffEngagementLocator>());
@@ -549,8 +551,10 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<AmendServiceEngagementHandler>()
             .AddRequestHandler<ProposeServiceEngagementStaffHandler>()
             .AddRequestHandler<WithdrawServiceEngagementStaffProposalHandler>()
+            .AddRequestHandler<RevokeServiceEngagementActualStaffHandler>()
             .AddRequestHandler<CloseServiceEngagementHandler>()
             .AddRequestHandler<GetServiceEngagementAcceptanceHandler>()
+            .AddRequestHandler<AcceptServiceEngagementHandler>()
             .AddRequestHandler<GetServiceEngagementAcceptanceHistoryHandler>()
             .AddRequestHandler<GetServiceEngagementHandler>()
             .AddRequestHandler<ListServiceEngagementsHandler>()
@@ -559,6 +563,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<GetEngagementManagementAcknowledgementsHandler>()
             .AddRequestAuthorizer<IndependenceRuleAdministrationAuthorizer>()
             .AddRequestAuthorizer<FirmStaffAdministrationAuthorizer>()
+            .AddRequestAuthorizer<ServiceEngagementAcceptanceAuthorizer>()
             .AddRequestAuthorizer<IndependenceAdministrationAuthorizer>()
             .AddRequestAuthorizer<RecordDirectoryIndependenceReevaluationAuthorizer>()
             .AddRequestHandler<RegisterMemberHandler>()

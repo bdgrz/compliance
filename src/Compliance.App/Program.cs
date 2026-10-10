@@ -99,6 +99,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<AmendServiceEngagement>(tool => tool.Idempotent())
         .AddMcpTool<ProposeServiceEngagementStaff>(tool => tool.Idempotent())
         .AddMcpTool<WithdrawServiceEngagementStaffProposal>(tool => tool.Idempotent())
+        .AddMcpTool<RevokeServiceEngagementActualStaff>(tool => tool.Idempotent())
         .AddMcpTool<CloseServiceEngagement>(tool => tool.Idempotent())
         .AddMcpTool<GetServiceEngagement>(tool => tool.ReadOnly())
         .AddMcpTool<ListServiceEngagements>(tool => tool.ReadOnly())
@@ -611,7 +612,15 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/staff-proposals/{staff_member_id}/withdrawals")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Service engagements");
+    app.MapPortiaPost<RevokeServiceEngagementActualStaff, ServiceEngagementAcceptanceView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/actual-assignments/{staff_member_id}/revocations")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
     app.MapPortiaGet<GetServiceEngagementAcceptance, ServiceEngagementAcceptanceView>(
+            "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/acceptance")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Service engagements");
+    app.MapPortiaPost<AcceptServiceEngagement, ServiceEngagementAcceptanceView>(
             "/api/v1/tenants/{tenant_id}/service-engagements/{engagement_id}/acceptance")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Service engagements");
