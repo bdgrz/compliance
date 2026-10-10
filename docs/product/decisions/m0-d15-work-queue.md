@@ -78,6 +78,8 @@ reject.
 - **Digest:** one weekly email per member, listing their overdue items and
   items due in the next 7 days. It is the only email for R2. Per-item email is
   not sent. Members may opt out of the digest but not out of in-app reminders.
+  The schedule, cross-Program aggregation, and delivery-outcome policy are
+  specified by the [R2 weekly work digest decision](r2-weekly-work-digest-delivery.md).
 - **Escalation:** an item 7 days overdue escalates automatically to the
   Compliance Lead, recorded as a system-actor escalation. Escalation adds
   visibility; it does not reassign the item.
