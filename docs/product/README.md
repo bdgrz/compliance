@@ -71,6 +71,7 @@ delay core organization creation or administration.
 | Risks and provider oversight | [Risk drafts](risk-draft-v1.md), [risk assessment](risk-assessment-v1.md), [provider register](provider-register-v1.md), [provider assurance](provider-assurance-v1.md) |
 | Evidence and membership lifecycle | [Evidence intake/recovery](evidence-intake-recovery-v1.md), [member deprovisioning](decisions/member-deprovisioning.md) |
 | Recurring reviews, changes, and incidents | [Periodic review rules](decisions/m0-d19-periodic-reviews.md), [compliance change/incident facts](decisions/m0-d21-significant-change.md) |
+| Work queue and notifications | [M0-D15 work queue](decisions/m0-d15-work-queue.md), [R2 weekly digest delivery policy](decisions/r2-weekly-work-digest-delivery.md) |
 | Client experience requirements | [Accessibility and browser support](accessibility-and-browser-support.md) |
 | Organization management and commercial operations | [Business operations](business-operations.md) |
 
