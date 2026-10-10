@@ -93,6 +93,37 @@ public sealed class AccessReviewCampaignTests
     }
 
     [Fact]
+    public async Task ShouldHideRestrictedCampaignGivenIdempotentLaunchReplayWithoutSystemReadGrant()
+    {
+        // Arrange
+        await using var fixture = await AccessReviewFixture.CreateAsync(applicationRestricted: true);
+        var (populationId, _) = await fixture.AcceptAsync(AccessReviewFixture.StandardFacts());
+        fixture.AllowManagerRestrictedRead();
+        fixture.Permissions.AllowRestrictedRead(fixture.ReviewerUserId);
+        await fixture.ClassifyStandardAsync(populationId);
+        var request = new LaunchAccessReviewCampaign(fixture.TenantId, "Q3 AWS review",
+            "Keep only access each person still needs.", DateTimeOffset.UtcNow.AddDays(14),
+            [new AccessReviewAssignment(populationId, fixture.ReviewerMemberId)],
+            fixture.ProgramId, fixture.RemediationOwnerMemberId);
+        var requestId = Uuid.CreateVersion4();
+        var metadata = new RequestMetadata(requestId, requestId, null);
+        await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectSuccess();
+        fixture.DenyManagerRestrictedRead();
+
+        // Act
+        var replay = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request).ExpectFailure(RequestErrorKind.NotFound);
+        var changedReplay = await fixture.As(fixture.ManagerUserId).GivenMetadata(metadata)
+            .When(request with { Name = "Changed campaign" })
+            .ExpectFailure(RequestErrorKind.NotFound);
+
+        // Assert
+        Assert.Contains("not found", replay.Error!.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not found", changedReplay.Error!.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ShouldRejectChangedFrozenContentGivenIdempotentLaunchReplay()
     {
         // Arrange

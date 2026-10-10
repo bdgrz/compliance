@@ -40,6 +40,9 @@ public sealed class LaunchAccessReviewCampaignHandler(IAggregateReader reader,
                     existingActor.MemberId, ct).ConfigureAwait(false))
                 return Failure(RequestErrorKind.Forbidden,
                     "The launching actor must currently manage the owner Program.");
+            if (!await RestrictedAccessReviewVisibility.CanReadCampaignItemsAsync(visibility,
+                    request.TenantId, existingActor.UserId, existing, ct: ct).ConfigureAwait(false))
+                return Failure(RequestErrorKind.NotFound, "The campaign was not found.");
             if (!existing.MatchesLaunchRequest(request))
                 return Failure(RequestErrorKind.Conflict,
                     "The campaign already exists with different frozen launch content.");
