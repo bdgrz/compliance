@@ -124,6 +124,82 @@ public sealed class WorkSourceCompositionTests
         Assert.Contains(after.Value.Items, item => item.Kind == "finding_closure_review" && item.NextAction == "close");
     }
 
+    [Fact]
+    public async Task ShouldReconcileAccessReviewRemediationQueueGivenRevocationAndProviderChange()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        await using var ownedSource = fixture.Provider;
+        var (campaignId, itemId) = await SeedReviewCampaignAsync(fixture);
+        await using var provider = CreateProvider(fixture,
+            accessReviewPermissions: fixture.Permissions);
+        await CatchUpAsync(provider, fixture.TenantId);
+        RequestScenario Scenario(Uuid userId) => RequestScenario.For(provider)
+            .GivenActor(ProgramManagementServices.Actor(userId));
+        var request = new ListWork(fixture.TenantId, fixture.ProgramId, "all");
+
+        var before = await Scenario(fixture.ApproverUserId).When(request).ExpectSuccess();
+        var review = Assert.Single(before.Value.Items);
+
+        // Act
+        var decision = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.LeadUserId, new RecordAccessDecision(fixture.TenantId, campaignId,
+                itemId, 1, "revoke", "The access is no longer required."));
+        Assert.True(decision.IsSuccess, decision.Error?.Message);
+        var decisionLag = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var pending = await Scenario(fixture.ApproverUserId).When(request).ExpectSuccess();
+        var remediation = Assert.Single(pending.Value.Items);
+        var remediationDetail = await Scenario(fixture.ApproverUserId).When(new GetWorkItem(
+            fixture.TenantId, fixture.ProgramId, remediation.WorkItemId)).ExpectSuccess();
+        var remediationSearch = await Scenario(fixture.ApproverUserId).When(request with
+        {
+            Search = WorkSource.AccessReviewRemediation,
+        }).ExpectSuccess();
+
+        var providerChange = await PersonalAccessReviewTransportTests.SendHttpAsync(provider,
+            fixture.ApproverUserId, new RecordAccessRemediationChange(fixture.TenantId,
+                campaignId, itemId, 2, "CASE-42", "Removed the provider-side grant.",
+                DateTimeOffset.UtcNow));
+        Assert.True(providerChange.IsSuccess, providerChange.Error?.Message);
+        var providerChangeLag = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectFailure(RequestErrorKind.Conflict);
+        await CatchUpAsync(provider, fixture.TenantId);
+        var afterProviderChange = await Scenario(fixture.ApproverUserId).When(request)
+            .ExpectSuccess();
+        var verified = Assert.Single(afterProviderChange.Value.Items);
+        var verifiedDetail = await Scenario(fixture.ApproverUserId).When(new GetWorkItem(
+            fixture.TenantId, fixture.ProgramId, verified.WorkItemId)).ExpectSuccess();
+        var verifiedSearch = await Scenario(fixture.ApproverUserId).When(request with
+        {
+            Search = WorkSource.AccessReviewRemediation,
+        }).ExpectSuccess();
+
+        // Assert
+        Assert.True(decisionLag.Error!.IsTransient);
+        Assert.True(providerChangeLag.Error!.IsTransient);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), before.Value.Counts);
+        Assert.Equal(WorkSource.AccessReviewReview, review.Kind);
+        Assert.Equal("record_decision", review.NextAction);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), pending.Value.Counts);
+        Assert.Equal(WorkSource.AccessReviewRemediation, remediation.Kind);
+        Assert.Equal("record_remediation_change", remediation.NextAction);
+        Assert.EndsWith("/remediation-changes", remediation.ActionPath, StringComparison.Ordinal);
+        Assert.NotEqual(review.WorkItemId, remediation.WorkItemId);
+        Assert.Equal(remediation, remediationDetail.Value.Item);
+        Assert.Equal(remediation, Assert.Single(remediationSearch.Value.Items));
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), remediationSearch.Value.Counts);
+        Assert.Equal(remediation.WorkItemId, verified.WorkItemId);
+        Assert.Equal(WorkSource.AccessReviewRemediation, verified.Kind);
+        Assert.Equal("verify_remediation", verified.NextAction);
+        Assert.EndsWith("/remediation-verifications", verified.ActionPath, StringComparison.Ordinal);
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), afterProviderChange.Value.Counts);
+        Assert.Equal(verified, verifiedDetail.Value.Item);
+        Assert.Equal(verified, Assert.Single(verifiedSearch.Value.Items));
+        Assert.Equal(new WorkCountsView(1, 0, 0, 0), verifiedSearch.Value.Counts);
+    }
+
     static async Task<(Uuid CampaignId, Uuid ItemId)> SeedReviewCampaignAsync(
         OperationsFixture fixture)
     {
@@ -593,14 +669,15 @@ public sealed class WorkSourceCompositionTests
         await using var ownedSource = fixture.Provider;
         await using var provider = CreateProvider(fixture);
         await using var scope = provider.CreateAsyncScope();
-        var kinds = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
-            .SelectMany(reader => reader.ProjectedKinds).Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal);
+        var projectedKinds = scope.ServiceProvider.GetServices<IAccountableWorkItemDirectoryReader>()
+            .SelectMany(reader => reader.ProjectedKinds).ToArray();
+        var kinds = projectedKinds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
 
         // Act
         var mapped = WorkSourceManagement.SourceRequests.Keys.Order(StringComparer.Ordinal);
 
         // Assert
+        Assert.Equal(projectedKinds.Length, projectedKinds.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(kinds, mapped);
         Assert.All(WorkSourceManagement.SourceRequests.Values.SelectMany(types => types),
             type => Assert.True(typeof(IRequestBase).IsAssignableFrom(type)));
@@ -609,7 +686,9 @@ public sealed class WorkSourceCompositionTests
         Assert.False(typeof(IClientManagementMutationRequest).IsAssignableFrom(typeof(AcknowledgePolicy)));
     }
 
-    static ServiceProvider CreateProvider(OperationsFixture fixture, IPermissionAuthorizer? permissions = null)
+    static ServiceProvider CreateProvider(OperationsFixture fixture,
+        IPermissionAuthorizer? permissions = null,
+        IPermissionAuthorizer? accessReviewPermissions = null)
     {
         var events = fixture.Provider.GetRequiredService<IEventStore>();
         var services = new ServiceCollection();
@@ -622,6 +701,8 @@ public sealed class WorkSourceCompositionTests
         services.AddSingleton<IKvClient>(new InMemoryKvClient());
         services.AddSingleton(events);
         services.AddSingleton<IDomainEventReader>((IDomainEventReader)events);
+        if (accessReviewPermissions is not null)
+            services.AddSingleton(accessReviewPermissions);
         services.AddSingleton<IAccessGrantPermissionAuthorizer>(
             new PermissionBackedAccessGrantPermissionAuthorizer(permissions ?? fixture.Permissions));
         services.AddSingleton<IProgramResourceScopeResolver, TestProgramResourceScopeResolver>();
