@@ -1,5 +1,7 @@
 using Bdgrz.Compliance.Features.Programs;
 using Bdgrz.Compliance.Features.Readiness;
+using Bdgrz.Compliance.Features.AccessControl;
+using Bdgrz.Compliance.Features.Tenants;
 using Bdgrz.Compliance.Tests.Features.AccessControl;
 using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz;
@@ -74,6 +76,158 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldAllowAssignedAdvisorToReadAdvisoryNotesGivenNoClientMembershipOrProgramGrant(bool mcp)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync(mcp);
+
+        // Assert
+        Assert.True(notes.IsSuccess, notes.Error?.Message);
+        Assert.Equal("Advisor working feedback", Assert.Single(notes.Value!.Items).Body);
+    }
+
+    [Fact]
+    public async Task ShouldPreserveAcceptedAdvisorAccessGivenLaterUnratifiedRuleDraft()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff);
+        await fixture.SeedLaterUnratifiedRuleDraftAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.True(notes.IsSuccess, notes.Error?.Message);
+        Assert.Equal("Advisor working feedback", Assert.Single(notes.Value!.Items).Body);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAssignedAdvisorReadGivenRetainedAttestHistoryForTheSameClient()
+    {
+        // Arrange
+        await using var advisorFixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(advisorFixture.Provider,
+            advisorFixture.Tenant, advisorFixture.User, practice: "advisory");
+        await advisorFixture.SeedStaffDirectoryAsync(staff);
+        advisorFixture.Memberships.State = "absent";
+        advisorFixture.Permissions.Allowed = false;
+        await using var attestFixture = await Fixture.CreateAsync(advisorFixture.Tenant, advisorFixture.User);
+        await AttestAssignmentHistoryFixture.SeedAsync(attestFixture.Provider, advisorFixture.Tenant,
+            advisorFixture.User);
+        await using var advisorScope = advisorFixture.Provider.CreateAsyncScope();
+        await using var attestScope = attestFixture.Provider.CreateAsyncScope();
+        var professionalAccess = advisorScope.ServiceProvider.GetRequiredService<ProfessionalAdvisoryReadAccess>();
+        var authorizer = new ReadinessAnnotationCompartmentAuthorizer(
+            advisorScope.ServiceProvider.GetRequiredService<ITenantMembershipDirectoryReader>(),
+            attestScope.ServiceProvider.GetRequiredService<ClientCompartmentIndependenceGuard>(),
+            professionalAccess);
+        var request = new ListReadinessAnnotations(advisorFixture.Tenant, advisorFixture.Program,
+            advisorFixture.Assessment);
+
+        // Act
+        var isAssignedAndCurrent = await professionalAccess.CanReadAsync(advisorFixture.Tenant,
+            advisorFixture.Program, advisorFixture.User);
+        var result = await authorizer.AuthorizeAsync(new RequestContext<ListReadinessAnnotations>(request,
+            ProgramManagementServices.Actor(advisorFixture.User)), CancellationToken.None);
+
+        // Assert
+        Assert.True(isAssignedAndCurrent);
+        Assert.Equal(RequestErrorKind.Forbidden, result.Error?.Kind);
+    }
+
+    [Theory]
+    [InlineData("inactive")]
+    [InlineData("mismatched")]
+    public async Task ShouldDenyAssignedAdvisorReadGivenInactiveOrMismatchedCurrentDirectoryIdentity(string state)
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff, active: state != "inactive",
+            userId: state == "mismatched" ? Uuid.CreateVersion4() : staff.UserId);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAssignedAdvisorReadGivenInactiveTenant()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+        fixture.Tenants.IsActive = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAssignedAdvisorReadGivenClosedAcceptedEngagement()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, revoked: true, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Fact]
+    public async Task ShouldDenyAssignedAdvisorReadGivenExpiredEngagementPeriod()
+    {
+        // Arrange
+        await using var fixture = await Fixture.CreateAsync();
+        var staff = await AttestAssignmentHistoryFixture.SeedAndReturnAsync(fixture.Provider, fixture.Tenant,
+            fixture.User, practice: "advisory");
+        await fixture.SeedStaffDirectoryAsync(staff);
+        fixture.Memberships.State = "absent";
+        fixture.Permissions.Allowed = false;
+        fixture.Clock.UtcNow = new DateTimeOffset(2027, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        // Act
+        var notes = await fixture.NotesAsync();
+
+        // Assert
+        Assert.Equal(RequestErrorKind.NotFound, notes.Error?.Kind);
+    }
+
+    [Theory]
     [InlineData("absent")]
     [InlineData("suspended")]
     [InlineData("deprovisioned")]
@@ -116,17 +270,25 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
 
     sealed class Fixture : IAsyncDisposable
     {
-        public Uuid Tenant { get; } = Uuid.CreateVersion4();
-        public Uuid User { get; } = Uuid.CreateVersion4();
+        Fixture(Uuid? tenant = null, Uuid? user = null)
+        {
+            Tenant = tenant ?? Uuid.CreateVersion4();
+            User = user ?? Uuid.CreateVersion4();
+        }
+
+        public Uuid Tenant { get; }
+        public Uuid User { get; }
         public Uuid Program { get; } = Uuid.CreateVersion4();
         public Uuid Assessment { get; } = Uuid.CreateVersion4();
         public ServiceProvider Provider { get; private set; } = null!;
         public Permissions Permissions { get; } = new();
         public Memberships Memberships { get; private set; } = null!;
+        public TenantActivity Tenants { get; } = new();
+        public MutableTimeProvider Clock { get; } = new();
 
-        public static async Task<Fixture> CreateAsync()
+        public static async Task<Fixture> CreateAsync(Uuid? tenant = null, Uuid? user = null)
         {
-            var fixture = new Fixture();
+            var fixture = new Fixture(tenant, user);
             var services = new ServiceCollection();
             services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -137,7 +299,8 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
             services.AddSingleton<IEventStore>(events);
             services.AddSingleton<IDomainEventReader>(events);
             services.AddSingleton<IKvClient>(new InMemoryKvClient());
-            services.AddSingleton<ITenantActivity>(new ActiveTenant());
+            services.AddSingleton<ITenantActivity>(fixture.Tenants);
+            services.AddSingleton<TimeProvider>(fixture.Clock);
             fixture.Memberships = new Memberships(fixture.Tenant, fixture.User);
             services.AddSingleton<ITenantMembershipDirectoryReader>(fixture.Memberships);
             services.AddSingleton<IAccessGrantPermissionAuthorizer>(new PermissionBackedAccessGrantPermissionAuthorizer(fixture.Permissions));
@@ -164,6 +327,46 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
 
         public Task<Result<Page<ReadinessAnnotationView>>> NotesAsync(bool mcp = false) =>
             SendAsync(new ListReadinessAnnotations(Tenant, Program, Assessment), mcp);
+
+        public async Task SeedStaffDirectoryAsync(FirmStaffMemberView staff, bool active = true,
+            Uuid? userId = null)
+        {
+            await ProgramManagementServices.SeedAsync(Provider, new FirmStaffDirectory(), directory =>
+            {
+                var registered = directory.Register(Uuid.CreateVersion4(), staff.StaffMemberId,
+                    userId ?? staff.UserId, staff.Practice, "Synthetic current directory identity",
+                    directory.Sequence, staff.Actor, staff.RecordedAt);
+                Assert.True(registered.IsSuccess, registered.Error?.Message);
+                if (!active)
+                {
+                    var disabled = directory.SetStatus(Uuid.CreateVersion4(), staff.StaffMemberId, false,
+                        "Synthetic inactive directory state", directory.Sequence, staff.Actor,
+                        staff.RecordedAt.AddSeconds(1));
+                    Assert.True(disabled.IsSuccess, disabled.Error?.Message);
+                }
+                return Result.Success;
+            });
+        }
+
+        public async Task SeedLaterUnratifiedRuleDraftAsync(FirmStaffMemberView staff)
+        {
+            await ProgramManagementServices.SeedAsync(Provider, new IndependenceRuleCatalog(), catalog =>
+            {
+                var content = new IndependenceRuleContent(12,
+                    [new("design", "impairing", "impairing"),
+                     new("readiness", "conditionally_compatible", "impairing")],
+                    "Synthetic unratified rule draft");
+                var first = catalog.ReviseRules(Uuid.CreateVersion4(), catalog.Sequence, content,
+                    staff.Actor, staff.RecordedAt.AddMinutes(1));
+                Assert.True(first.IsSuccess, first.Error?.Message);
+                var second = catalog.ReviseRules(Uuid.CreateVersion4(), catalog.Sequence,
+                    content with { SourceReference = "Synthetic later unratified rule draft" },
+                    staff.Actor, staff.RecordedAt.AddMinutes(2));
+                Assert.True(second.IsSuccess, second.Error?.Message);
+                Assert.False(second.Value!.IsRatified);
+                return Result.Success;
+            });
+        }
 
         public async Task<Result<T>> SendAsync<T>(IRequest<T> request, bool mcp = false)
         {
@@ -212,5 +415,20 @@ public sealed class AdvisoryReadinessNoteIndependenceTests
             ValueTask.FromResult(tenantId == tenant.ToString() && userId == user);
         public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,
             CancellationToken ct = default) => ValueTask.FromResult(new Page<TenantMembershipView>([], null));
+    }
+
+    sealed class TenantActivity : ITenantActivity
+    {
+        public bool IsActive { get; set; } = true;
+
+        public ValueTask<bool> IsActiveAsync(Uuid tenantId, CancellationToken ct = default) =>
+            ValueTask.FromResult(IsActive);
+    }
+
+    sealed class MutableTimeProvider : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 10, 10, 12, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 }

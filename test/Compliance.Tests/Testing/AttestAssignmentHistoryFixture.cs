@@ -8,7 +8,12 @@ static class AttestAssignmentHistoryFixture
 {
     static readonly DateTimeOffset Now = new(2026, 10, 7, 12, 0, 0, TimeSpan.Zero);
 
-    public static async Task SeedAsync(IServiceProvider provider, Uuid tenant, Uuid canonicalUserId, bool revoked = false, string practice = "attest")
+    public static async Task SeedAsync(IServiceProvider provider, Uuid tenant, Uuid canonicalUserId,
+        bool revoked = false, string practice = "attest") =>
+        _ = await SeedAndReturnAsync(provider, tenant, canonicalUserId, revoked, practice);
+
+    public static async Task<FirmStaffMemberView> SeedAndReturnAsync(IServiceProvider provider, Uuid tenant,
+        Uuid canonicalUserId, bool revoked = false, string practice = "attest")
     {
         // Explicit synthetic internal evidence exercises retained history; it grants no public acceptance authority.
         var administrator = Uuid.CreateVersion4();
@@ -38,6 +43,7 @@ static class AttestAssignmentHistoryFixture
                     "Synthetic client closure", client, Now).IsSuccess);
             return Result.Success;
         });
+        return staff;
     }
 
 }
