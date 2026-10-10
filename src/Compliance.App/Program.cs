@@ -429,7 +429,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
 
                 return Results.Ok(new BrowserSession(id, email, verified));
             })
-        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .RequireAuthorization(ComplianceAuthorizationPolicies.Session)
         .ExcludeFromDescription();
     app.MapPost(
             "/auth/logout",
