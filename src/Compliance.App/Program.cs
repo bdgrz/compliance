@@ -1,4 +1,5 @@
 using Bdgrz.Compliance.Features.Retention;
+using Bdgrz.Compliance.Hosting;
 using System.Globalization;
 using System.Text.Json;
 using Bdgrz.Compliance;
@@ -71,6 +72,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .AddMcpTool<GrantPlatformOperator>()
         .AddMcpTool<RevokePlatformOperator>(tool => tool.Destructive())
         .AddMcpTool<ListPlatformOperators>(tool => tool.ReadOnly())
+        .AddMcpTool<GetWorkDigestDispatchStatus>(tool => tool.ReadOnly())
         .AddMcpTool<InviteTenantMember>()
         .AddMcpTool<InviteOrganizationMember>()
         .AddMcpTool<ListTenantInvitations>(tool => tool.ReadOnly())
@@ -374,6 +376,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
     if (hostMode.RunsWorkers())
     {
         portia.AddWorkers();
+        builder.Services.AddHostedService<WorkDigestDispatchBackgroundService>();
     }
 
     builder.Services.AddHostedService<ReservedTenantRouteCollisionCheck>();
@@ -491,6 +494,14 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Platform operators");
     app.MapPortiaGet<ListPlatformOperators, PlatformOperatorRosterView>("/api/v1/platform/operators")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Platform operators");
+    app.MapPortiaGet<GetWorkDigestDispatchStatus, WorkDigestDispatchStatusView>(
+            "/api/v1/platform/tenants/{tenant_id}/members/{member_id}/work-digest-dispatches/{week_of}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Platform operators");
+    app.MapPortiaPost<AuthorizeWorkDigestUnknownRetry, WorkDigestDispatchStatusView>(
+            "/api/v1/platform/tenants/{tenant_id}/members/{member_id}/work-digest-dispatches/{week_of}/retry-authorizations")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Platform operators");
     app.MapPortiaPost<InviteTenantMember>("/api/v1/tenants/{tenant_id}/invitations")
@@ -2154,6 +2165,7 @@ static async Task RunWorkerAsync(string[] args)
         .AddCompliance(builder.Configuration, developerAuthentication,
             requireRealEmailDelivery: !builder.Environment.IsDevelopment())
         .AddWorkers();
+    builder.Services.AddHostedService<WorkDigestDispatchBackgroundService>();
     builder.Services.AddComplianceHealthChecks();
     builder.Services.AddTenantPathLogRedaction();
 

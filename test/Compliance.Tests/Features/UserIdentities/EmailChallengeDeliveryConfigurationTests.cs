@@ -69,6 +69,9 @@ public sealed class EmailChallengeDeliveryConfigurationTests
             ["Compliance:EmailDelivery:Smtp:FromAddress"] = "verify@example.com",
             ["Compliance:EmailDelivery:ActiveTokenKeyId"] = key is null ? null : "current",
             ["Compliance:EmailDelivery:TokenKeys:current"] = key,
+            ["Compliance:WorkDigest:ApplicationOrigin"] = "https://app.example",
+            ["Compliance:WorkDigest:ClientWorkItemRouteTemplate"] =
+                "/tenants/{tenant_id}/{tenant_slug}/programs/{program_id}/work/{work_item_id}",
         };
         return new ConfigurationBuilder().AddInMemoryCollection(values).Build();
     }

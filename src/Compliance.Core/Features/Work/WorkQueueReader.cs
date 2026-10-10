@@ -50,7 +50,12 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
 
     internal ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
         OperationsActor actor, int horizonDays, CancellationToken ct) =>
-        ReadAsync(tenantId, programId, actor, horizonDays, null, ct);
+        ReadAsync(tenantId, programId, actor, horizonDays, null, null, ct);
+
+    /// <summary>Reads current source state using the digest's frozen member-local selection date.</summary>
+    internal ValueTask<Result<WorkQueueSnapshot>> ReadForDigestAsync(Uuid tenantId, Uuid programId,
+        OperationsActor actor, DateOnly selectionDate, int horizonDays, CancellationToken ct) =>
+        ReadAsync(tenantId, programId, actor, horizonDays, null, selectionDate, ct);
 
     /// <summary>Resolves one work item the actor may see, loading only that item's eligibility.</summary>
     internal async ValueTask<Result<(WorkQueueSnapshot Snapshot, WorkQueueEntry Entry)>> FindAsync(
@@ -58,7 +63,7 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
         CancellationToken ct)
     {
         var result = await ReadAsync(tenantId, programId, actor,
-            ControlCadenceSchedule.MaximumDueWithinDays, workItemId, ct).ConfigureAwait(false);
+            ControlCadenceSchedule.MaximumDueWithinDays, workItemId, null, ct).ConfigureAwait(false);
         if (!result.IsSuccess)
             return Result<(WorkQueueSnapshot, WorkQueueEntry)>.Failure(result.Error);
         var snapshot = result.Value;
@@ -68,14 +73,15 @@ public sealed class WorkQueueReader(IAggregateReader reader, OperatingAuthority 
     }
 
     async ValueTask<Result<WorkQueueSnapshot>> ReadAsync(Uuid tenantId, Uuid programId,
-        OperationsActor actor, int horizonDays, Uuid? workItemId, CancellationToken ct)
+        OperationsActor actor, int horizonDays, Uuid? workItemId, DateOnly? todayOverride,
+        CancellationToken ct)
     {
         var captured = await queueConsistency.CaptureAsync(tenantId, ct).ConfigureAwait(false);
         if (!captured.IsSuccess)
             return Result<WorkQueueSnapshot>.Failure(captured.Error);
 
         var now = clock.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = todayOverride ?? DateOnly.FromDateTime(now.UtcDateTime);
         var projectedKinds = _accountableWorkItems.SelectMany(static reader =>
                 reader.ProjectedKinds).ToHashSet(StringComparer.Ordinal);
         var work = await WorkSource.LoadAsync(reader, tenantId, programId, today,

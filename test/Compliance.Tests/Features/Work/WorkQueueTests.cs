@@ -17,6 +17,33 @@ namespace Bdgrz.Compliance.Tests.Features.Work;
 public sealed class WorkQueueTests
 {
     [Fact]
+    public async Task ShouldUseFrozenLocalSelectionDateGivenDigestQueueRead()
+    {
+        // Arrange
+        var fixture = await OperationsFixture.CreateAsync();
+        var selectionDate = new DateOnly(2026, 10, 5);
+        await WorkTestData.AddActionsAsync(fixture, fixture.OwnerMemberId,
+            selectionDate.AddDays(-1), selectionDate, selectionDate.AddDays(7),
+            selectionDate.AddDays(8));
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var queue = scope.ServiceProvider.GetRequiredService<WorkQueueReader>();
+
+        // Act
+        var read = await queue.ReadForDigestAsync(fixture.TenantId, fixture.ProgramId,
+            new OperationsActor(fixture.OwnerUserId, fixture.OwnerMemberId, "Owner"),
+            selectionDate, 7, CancellationToken.None);
+
+        // Assert
+        Assert.True(read.IsSuccess);
+        Assert.Equal(selectionDate, read.Value.Today);
+        Assert.True(Assert.Single(read.Value.Entries,
+            entry => entry.Item.DueOn == selectionDate.AddDays(-1)).Item.Overdue);
+        Assert.False(Assert.Single(read.Value.Entries,
+            entry => entry.Item.DueOn == selectionDate).Item.Overdue);
+        Assert.Contains(read.Value.Entries, entry => entry.Item.DueOn == selectionDate.AddDays(7));
+    }
+
+    [Fact]
     public async Task ShouldShowIndependentClosureWorkGivenCompletedCorrectiveActions()
     {
         // Arrange
