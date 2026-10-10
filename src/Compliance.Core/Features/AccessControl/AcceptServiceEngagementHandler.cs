@@ -41,15 +41,33 @@ public sealed class AcceptServiceEngagementHandler(IAggregateExecutor executor,
                 "Only the currently designated partner may accept this engagement."));
 
         var directory = await reader.HydrateAsync(new FirmStaffDirectory(), ct).ConfigureAwait(false);
-        var identities = directory.View().Staff.Where(staff => staff.UserId == actorUserId).ToArray();
+        var currentDirectoryStaff = directory.View().Staff;
+        var identities = currentDirectoryStaff.Where(staff => staff.UserId == actorUserId).ToArray();
         if (identities.Length != 1 || !identities[0].IsActive || identities[0] != currentPartner ||
             proof.PartnerStaffMemberId != currentPartner.StaffMemberId || proof.PartnerDutyRevision <= 0)
             return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The partner identity or directory source changed; reload before accepting this engagement.", true));
 
+        if (proof.CurrentStaff is null || proof.CurrentStaff.Any(assigned =>
+                !MatchesCurrentDirectoryAssignment(assigned, currentDirectoryStaff)))
+            return Result<ServiceEngagementAcceptanceView>.Failure(new RequestError(RequestErrorKind.Conflict,
+                "An assigned team member no longer matches the same active current directory record; acceptance was not recorded.", true));
+
         return await executor.ExecuteAsync(new IndependenceLedger(request.TenantId), ledger =>
             AggregateOutcome.CommitOnSuccess(ledger.AcceptEngagement(context.RequestId,
                 request.ExpectedSequence, proof, current.RatifiedRules, clock.GetUtcNow())), context, ct)
             .ConfigureAwait(false);
+    }
+
+    static bool MatchesCurrentDirectoryAssignment(FirmStaffMemberView? assigned,
+        IReadOnlyList<FirmStaffMemberView> currentDirectoryStaff)
+    {
+        if (assigned is null)
+            return false;
+
+        var matches = currentDirectoryStaff.Where(directoryStaff =>
+            directoryStaff.StaffMemberId == assigned.StaffMemberId || directoryStaff.UserId == assigned.UserId)
+            .ToArray();
+        return matches.Length == 1 && matches[0].IsActive && matches[0] == assigned;
     }
 }
