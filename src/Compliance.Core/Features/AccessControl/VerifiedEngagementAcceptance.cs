@@ -12,7 +12,8 @@ public sealed record VerifiedEngagementAcceptance(Uuid TenantId, Uuid Engagement
     long ReviewedDraftRevision, Uuid ReviewTaskId, Uuid PartnerStaffMemberId, Uuid PartnerUserId,
     string AuthorityReference, string? PartnerEvaluationReference, Uuid ManagementAcknowledgementId,
     BoundaryVersionView? Boundary, BoundaryDecisionView? BoundaryApproval,
-    IReadOnlyList<FirmStaffMemberView> CurrentStaff, FirmStaffMemberView CurrentPartner, long PartnerDutyRevision, DateTimeOffset PartnerAuthorityVerifiedAt);
+    IReadOnlyList<FirmStaffMemberView> CurrentStaff, FirmStaffMemberView CurrentPartner, long PartnerDutyRevision,
+    DateTimeOffset PartnerAuthorityVerifiedAt, PartnerIndependenceEvaluationView? PartnerEvaluation = null);
 
 /// <summary>Trusted server-side evidence resolved for one exact draft; never populated from request body fields.</summary>
 public sealed record ServiceEngagementAcceptanceEvidence(VerifiedEngagementAcceptance Proof,

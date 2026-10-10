@@ -13,6 +13,14 @@ public sealed record IndependenceHistoryView(Uuid TenantId, long Sequence,
 
     readonly IReadOnlyList<DirectoryIndependenceReevaluationView> _directoryReevaluations =
         Array.Empty<DirectoryIndependenceReevaluationView>();
+    readonly IReadOnlyList<PartnerIndependenceEvaluationView> _partnerEvaluations =
+        Array.Empty<PartnerIndependenceEvaluationView>();
+
+    public IReadOnlyList<PartnerIndependenceEvaluationView> PartnerEvaluations
+    {
+        get => _partnerEvaluations;
+        init => _partnerEvaluations = Array.AsReadOnly((value ?? []).ToArray());
+    }
 
     public IReadOnlyList<DirectoryIndependenceReevaluationView> DirectoryReevaluations
     {

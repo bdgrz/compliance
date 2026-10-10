@@ -9,6 +9,8 @@ public sealed class GetClientIndependenceRulesHandler(IAggregateReader reader)
         IRequestContext<GetClientIndependenceRules> context, CancellationToken ct)
     {
         var catalog = await reader.HydrateAsync(new IndependenceRuleCatalog(), ct).ConfigureAwait(false);
-        return Result<IReadOnlyList<IndependenceRuleVersionView>>.Success(catalog.Versions);
+        var ratifications = await reader.HydrateAsync(new IndependenceRuleRatificationCatalog(), ct).ConfigureAwait(false);
+        return Result<IReadOnlyList<IndependenceRuleVersionView>>.Success(
+            IndependenceRuleVersionProjection.ApplyRatifications(catalog.Versions, ratifications.Ratifications));
     }
 }

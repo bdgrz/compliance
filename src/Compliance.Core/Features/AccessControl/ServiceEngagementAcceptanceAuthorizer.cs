@@ -5,7 +5,7 @@ using Cntryl.Portia;
 namespace Bdgrz.Compliance.Features.AccessControl;
 
 /// <summary>Requires a personal, current firm identity; client administration grants do not authorize acceptance.</summary>
-sealed class ServiceEngagementAcceptanceAuthorizer(IAggregateReader reader,
+sealed class ServiceEngagementAcceptanceAuthorizer(ProfessionalDutyAuthorityReader duties,
     IPlatformUserDirectoryReader platformUsers, ITenantActivity tenants)
     : IRequestAuthorizer<IServiceEngagementAcceptanceRequest>
 {
@@ -28,12 +28,11 @@ sealed class ServiceEngagementAcceptanceAuthorizer(IAggregateReader reader,
             return Deny(RequestErrorKind.Forbidden,
                 "Professional acceptance requires a current platform user identity.");
 
-        var directory = await reader.HydrateAsync(new FirmStaffDirectory(), ct).ConfigureAwait(false);
-        var identities = directory.View().Staff.Where(staff => staff.UserId == userId).ToArray();
-        return identities.Length == 1 && identities[0].IsActive
+        return await duties.ReadCurrentAsync(userId, FirmProfessionalDuty.EngagementPartner, tenantId, ct)
+            .ConfigureAwait(false) is not null
             ? Result.Success
             : Deny(RequestErrorKind.Forbidden,
-                "Professional acceptance requires one current active firm-staff identity.");
+                "Professional acceptance requires the current partner designation for this client.");
     }
 
     static Result Deny(RequestErrorKind kind, string message) =>
