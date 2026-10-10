@@ -39,14 +39,18 @@ fails with a transient conflict while a required projection is behind.
 
 `WorkSourceCompositionTests` exercises the production `AddCompliance` registration
 with all 16 accountable readers. It replays retained source events through each
-reader's real transactional store, then reconciles a mixed evidence,
-access-review, corrective-action and finding-closure queue through the registered
-request bus. A source decision removes review work after catch-up; evidence
-cancellation and independently assigned closure then change counts from four to
-three to two to one. Details and visible search agree, outsiders receive empty
-counts and absent details, and each source change conflicts until its required
-checkpoint catches up. This complements each source family's lifecycle tests;
-it does not claim that one mixed-source scenario covers every work kind.
+reader's real transactional store. The mixed evidence, access-review,
+corrective-action and finding-closure scenario verifies initial item/detail/search
+agreement. After campaign decisions and evidence cancellation, it verifies
+per-source lag conflicts, updated lists and counts, and 404s for removed items.
+A second scenario seeds every registered production kind
+and reconciles list, detail, search, action metadata, and all four counts across
+the resulting 30-item queue. It cancels a source, verifies a transient conflict
+while projection is behind, then verifies catch-up removes the item from list and
+detail and decrements the count. These mixed-source tests complement the
+source-specific lifecycle, ordering, authorization, and projection-freshness
+tests; per-source checkpoint fencing still does not imply a global atomic
+snapshot.
 
 The runtime registration audit resolves 16 distinct checkpoint identities and
 30 current program work kinds, with each kind supplied once. Empty resources
@@ -133,8 +137,9 @@ use V2 only and return a transient conflict until its policy source cursor is
 caught up, even when V1 is current. V2 rows require the exact owning program's
 `program_manager` holder; legacy, unknown and wrong-program holders fail closed.
 API and worker must run the matching V2 implementation for catch-up to complete.
-This is the ADR 0007 generation rule for this interpretation correction; broader
-queue-wide source reconciliation and ADR acceptance remain under #284.
+This is the ADR 0007 generation rule for this interpretation correction. The
+all-kind queue reconciliation evidence is recorded in PR #889; each source still
+uses its own transactional checkpoint, without a global atomic snapshot.
 
 ## Risk completion assignment identity
 
@@ -205,10 +210,10 @@ shared request with personal acknowledgement and requires a separately accepted
 source-aware guard; this metadata slice does not invent a denial before that
 source contract exists. The [#646 placement rule](decisions/r2-access-review-campaign-routing.md)
 is delivered through the campaign projection in [PR #884](https://github.com/bdgrz/compliance/pull/884).
-Any remaining #284 queue-wide source reconciliation, count/action, and ADR
-acceptance stays open until its evidence is recorded. Source projection fences
-and retained source history are independent checks; this is not a cross-stream
-atomic snapshot or authorization/write guarantee.
+PR #889 reconciles every registered source kind through the queue's list, detail,
+search, action metadata, and count views. Source projection fences and retained
+source history remain independent checks; this is not a cross-stream atomic
+snapshot or authorization/write guarantee.
 
 Conditional policy proxy recording uses `PolicyAcknowledgementRecorderGuard.EvaluateCapturedAsync` with the exact
 runtime Person snapshot captured while deriving audience membership. The projected reader and retained-source fallback
