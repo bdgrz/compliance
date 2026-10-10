@@ -108,7 +108,10 @@ full message bodies, and source payloads out of diagnostic logs.
   relay may have accepted the message, or the worker stops before persisting a
   successful outcome—persist an `unknown` outcome for IT. Never automatically
   resend it. IT may authorize a same-window retry only after relay evidence
-  establishes non-acceptance; otherwise leave the outcome unresolved.
+  establishes non-acceptance; otherwise leave the outcome unresolved. That
+  authorization resumes the same dispatch and stable message identity, counts
+  against the configured total attempt limit, and records the operator, time,
+  scope, prior attempt, evidence reference, and rationale.
 - A confirmed acceptance is recorded as sent. If that outcome write fails,
   recovery treats the claimed attempt as ambiguous and does not send again.
 
@@ -135,8 +138,12 @@ The shared configured STARTTLS relay remains the transport. Production hosts
 also require a deployment-supplied HTTPS application origin and the scoped
 client work-item route owned by #121; the backend does not invent or serve
 that route. IT can read the durable dispatch status through the platform
-operator-only HTTP/MCP operation. The status omits the recipient, body,
-provider response, and source payload.
+operator-only HTTP/MCP operation. A human platform operator authorizes an
+evidence-backed same-window retry through the HTTP operation; its immutable
+event stores the operator, time, tenant/member/week, message identity, prior
+attempt, evidence reference, and rationale. The retry operation is not exposed
+through MCP. The status omits the recipient, body, provider response, and
+source payload.
 
 The existing [email-challenge reactor](../../../src/Compliance.Core/Features/UserIdentities/EmailChallengeDeliveryReactor.cs)
 and [tenant-invitation reactor](../../../src/Compliance.Core/Features/Tenants/TenantInvitationDeliveryReactor.cs)

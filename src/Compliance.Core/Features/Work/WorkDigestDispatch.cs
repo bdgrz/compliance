@@ -25,16 +25,23 @@ public sealed class WorkDigestDispatch : Aggregate
         On<WorkDigestDispatchScheduled>(Apply);
         On<WorkDigestDispatchAttemptStarted>(Apply);
         On<WorkDigestDispatchOutcomeRecorded>(Apply);
+        On<WorkDigestUnknownRetryAuthorized>(Apply);
     }
 
     internal bool Schedule(WorkDigestScheduleWindow window, Uuid messageId,
         TimeSpan retryWindow, DateTimeOffset recordedAt)
     {
-        if (_dispatches.ContainsKey(window.WeekOf) || retryWindow <= TimeSpan.Zero)
+        if (_dispatches.ContainsKey(window.WeekOf) ||
+            _dispatches.Keys.Any(existingWeek => existingWeek > window.WeekOf) ||
+            retryWindow <= TimeSpan.Zero)
             return false;
+        var retryDeadline = window.ScheduledAt + retryWindow;
+        var nextWeek = WorkDigestSchedule.NextWeekStartUtc(window.WeekOf, window.TimeZoneId);
+        if (nextWeek < retryDeadline)
+            retryDeadline = nextWeek;
         RaiseEvent(new WorkDigestDispatchScheduled(_tenantId, Id, window.WeekOf,
             WorkDigestSchedule.NormalizeTimeZoneId(window.TimeZoneId), window.ScheduledAt,
-            messageId, window.ScheduledAt + retryWindow, recordedAt));
+            messageId, retryDeadline, recordedAt));
         return true;
     }
 
@@ -43,7 +50,7 @@ public sealed class WorkDigestDispatch : Aggregate
             ? state.View(_tenantId, Id)
             : new WorkDigestDispatchStatusView(_tenantId, Id, weekOf, "UTC",
                 DateTimeOffset.MinValue, "not_scheduled", 0, null, Uuid.Empty,
-                DateTimeOffset.MinValue, null, null);
+                DateTimeOffset.MinValue, null, null, null, null, null);
 
     public WorkDigestDispatchStatusView? FindCurrentWindow(DateTimeOffset now) =>
         _dispatches.Values.OrderByDescending(static item => item.ScheduledAt)
@@ -65,6 +72,7 @@ public sealed class WorkDigestDispatch : Aggregate
     {
         if (!_dispatches.TryGetValue(weekOf, out var state) || startedAt < state.ScheduledAt ||
             startedAt >= state.RetryDeadline ||
+            !WorkDigestSchedule.IsCurrentWeek(state.WeekOf, state.TimeZoneId, startedAt) ||
             state.Status != Scheduled &&
             (state.Status != RetryPending || state.NextAttemptAt is not { } next || startedAt < next))
             return false;
@@ -91,6 +99,23 @@ public sealed class WorkDigestDispatch : Aggregate
         _dispatches.TryGetValue(weekOf, out var state) && state.Status == InFlight &&
         Record(weekOf, Unknown, recordedAt, null, "worker_interrupted");
 
+    public bool AuthorizeUnknownRetry(DateOnly weekOf, Uuid authorizedBy,
+        string evidenceReference, string rationale, DateTimeOffset authorizedAt,
+        int maximumAttempts)
+    {
+        if (!_dispatches.TryGetValue(weekOf, out var state) || state.Status != Unknown ||
+            authorizedBy == Uuid.Empty || state.Attempts >= maximumAttempts ||
+            authorizedAt < state.ScheduledAt || authorizedAt >= state.RetryDeadline ||
+            !WorkDigestSchedule.IsCurrentWeek(state.WeekOf, state.TimeZoneId, authorizedAt) ||
+            !IsValidAuditValue(evidenceReference, 256) || !IsValidAuditValue(rationale, 512))
+            return false;
+
+        RaiseEvent(new WorkDigestUnknownRetryAuthorized(_tenantId, Id, weekOf,
+            state.MessageId, state.Attempts, authorizedBy, evidenceReference.Trim(),
+            rationale.Trim(), authorizedAt));
+        return true;
+    }
+
     public bool RecordTransientRejection(DateOnly weekOf, DateTimeOffset recordedAt,
         int maximumAttempts, TimeSpan retryDelay)
     {
@@ -102,10 +127,19 @@ public sealed class WorkDigestDispatch : Aggregate
             "transient_rejection");
     }
 
-    public bool RecordRetryWindowExpired(DateOnly weekOf, DateTimeOffset recordedAt) =>
-        _dispatches.TryGetValue(weekOf, out var state) &&
-        (state.Status is Scheduled or RetryPending) && recordedAt >= state.RetryDeadline &&
-        RecordOutcome(weekOf, RetryExhausted, recordedAt, null, "retry_window_expired");
+    public bool RecordRetryWindowExpired(DateOnly weekOf, DateTimeOffset recordedAt)
+    {
+        if (!_dispatches.TryGetValue(weekOf, out var state) ||
+            state.Status is not (Scheduled or RetryPending))
+            return false;
+        var expired = recordedAt >= state.RetryDeadline;
+        var localWeekEnded = !WorkDigestSchedule.IsCurrentWeek(state.WeekOf,
+            state.TimeZoneId, recordedAt);
+        if (!expired && !localWeekEnded)
+            return false;
+        return RecordOutcome(weekOf, RetryExhausted, recordedAt, null,
+            expired ? "retry_window_expired" : "local_week_ended");
+    }
 
     public bool RecordMissedWeek(DateOnly weekOf, DateTimeOffset recordedAt) =>
         _dispatches.TryGetValue(weekOf, out var state) && state.Status == Scheduled &&
@@ -127,6 +161,10 @@ public sealed class WorkDigestDispatch : Aggregate
             recordedAt, nextAttemptAt, failureCode));
         return true;
     }
+
+    static bool IsValidAuditValue(string? value, int maxLength) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maxLength &&
+        !value.Any(char.IsControl);
 
     void Apply(WorkDigestDispatchScheduled scheduled)
     {
@@ -161,13 +199,31 @@ public sealed class WorkDigestDispatch : Aggregate
         };
     }
 
+    void Apply(WorkDigestUnknownRetryAuthorized authorized)
+    {
+        var state = _dispatches[authorized.WeekOf];
+        _dispatches[authorized.WeekOf] = state with
+        {
+            Status = RetryPending,
+            LastUpdatedAt = authorized.AuthorizedAt,
+            NextAttemptAt = authorized.AuthorizedAt,
+            FailureCode = "operator_authorized_retry",
+            RetryAuthorizedBy = authorized.AuthorizedBy,
+            RetryAuthorizedAt = authorized.AuthorizedAt,
+            RetryEvidenceReference = authorized.EvidenceReference,
+        };
+    }
+
     sealed record DispatchState(DateOnly WeekOf, string TimeZoneId, DateTimeOffset ScheduledAt,
         DateTimeOffset RetryDeadline, Uuid MessageId, string Status, int Attempts,
         DateTimeOffset? LastAttemptAt,
-        DateTimeOffset LastUpdatedAt, DateTimeOffset? NextAttemptAt, string? FailureCode)
+        DateTimeOffset LastUpdatedAt, DateTimeOffset? NextAttemptAt, string? FailureCode,
+        Uuid? RetryAuthorizedBy = null, DateTimeOffset? RetryAuthorizedAt = null,
+        string? RetryEvidenceReference = null)
     {
         public WorkDigestDispatchStatusView View(Uuid tenantId, Uuid memberId) =>
             new(tenantId, memberId, WeekOf, TimeZoneId, ScheduledAt, Status, Attempts,
-                LastAttemptAt, MessageId, LastUpdatedAt, NextAttemptAt, FailureCode);
+                LastAttemptAt, MessageId, LastUpdatedAt, NextAttemptAt, FailureCode,
+                RetryAuthorizedBy, RetryAuthorizedAt, RetryEvidenceReference);
     }
 }

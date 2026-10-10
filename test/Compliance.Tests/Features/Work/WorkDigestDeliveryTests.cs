@@ -56,6 +56,19 @@ public sealed class WorkDigestDeliveryTests
         };
         var missingScope = missingScopeSettings
             .CreateWorkItemUri(tenantId, "acme", programId, workItemId);
+        var dotSegmentSettings = settings with
+        {
+            ClientWorkItemRouteTemplate = "/tenants/{tenant_id}/{tenant_slug}/programs/{program_id}/work/{work_item_id}/../../../../../../../admin",
+        };
+        var dotSegment = dotSegmentSettings
+            .CreateWorkItemUri(tenantId, "acme", programId, workItemId);
+        var encodedDotSegmentSettings = settings with
+        {
+            ClientWorkItemRouteTemplate = "/tenants/{tenant_id}/{tenant_slug}/programs/{program_id}/work/{work_item_id}/%252e%252e/admin",
+        };
+        var encodedDotSegment = encodedDotSegmentSettings
+            .CreateWorkItemUri(tenantId, "acme", programId, workItemId);
+        var unsafeSlug = settings.CreateWorkItemUri(tenantId, "..", programId, workItemId);
 
         // Assert
         Assert.NotNull(link);
@@ -67,5 +80,8 @@ public sealed class WorkDigestDeliveryTests
         Assert.Contains(workItemId.ToString(), link.AbsoluteUri, StringComparison.Ordinal);
         Assert.Null(insecure);
         Assert.Null(missingScope);
+        Assert.Null(dotSegment);
+        Assert.Null(encodedDotSegment);
+        Assert.Null(unsafeSlug);
     }
 }

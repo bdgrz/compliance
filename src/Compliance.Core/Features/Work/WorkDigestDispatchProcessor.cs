@@ -78,7 +78,8 @@ sealed class WorkDigestDispatchProcessor(IAggregateReader reader, IAggregateExec
                     return;
                 break;
             case WorkDigestDispatch.RetryPending:
-                if (now >= dispatch.RetryDeadline(pending.WeekOf))
+                if (!WorkDigestSchedule.IsCurrentWeek(pending.WeekOf, pending.TimeZoneId, now) ||
+                    now >= dispatch.RetryDeadline(pending.WeekOf))
                 {
                     await ExpireAsync(tenantId, pending, now, ct).ConfigureAwait(false);
                     return;

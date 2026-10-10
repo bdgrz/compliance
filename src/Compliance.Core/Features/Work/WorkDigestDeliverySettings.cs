@@ -35,7 +35,7 @@ public sealed record WorkDigestDeliverySettings(string? ApplicationOrigin,
     public Uri? CreateWorkItemUri(Cntryl.Portia.Uuid tenantId, string tenantSlug,
         Cntryl.Portia.Uuid programId, Cntryl.Portia.Uuid workItemId)
     {
-        if (!IsReady)
+        if (!IsReady || !IsSafePathSegment(tenantSlug))
             return null;
         var path = ClientWorkItemRouteTemplate!
             .Replace("{tenant_id}", Uri.EscapeDataString(tenantId.ToString()),
@@ -45,8 +45,17 @@ public sealed record WorkDigestDeliverySettings(string? ApplicationOrigin,
                 StringComparison.Ordinal)
             .Replace("{work_item_id}", Uri.EscapeDataString(workItemId.ToString()),
                 StringComparison.Ordinal);
-        return Uri.TryCreate(new Uri(ApplicationOrigin!, UriKind.Absolute), path,
-            out var link) && link.Scheme == Uri.UriSchemeHttps ? link : null;
+        if (!Uri.TryCreate(new Uri(ApplicationOrigin!, UriKind.Absolute), path, out var link) ||
+            link.Scheme != Uri.UriSchemeHttps)
+            return null;
+        var pathSegments = link.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(Uri.UnescapeDataString).ToArray();
+        var scopeSegments = new[]
+        {
+            tenantId.ToString(), tenantSlug, programId.ToString(), workItemId.ToString(),
+        };
+        return scopeSegments.All(expected => pathSegments.Count(segment =>
+            string.Equals(segment, expected, StringComparison.Ordinal)) == 1) ? link : null;
     }
 
     static int ReadInt(string? value, int fallback, int minimum, int maximum, string description)
@@ -65,12 +74,55 @@ public sealed record WorkDigestDeliverySettings(string? ApplicationOrigin,
         origin.AbsolutePath == "/" && string.IsNullOrEmpty(origin.Query) &&
         string.IsNullOrEmpty(origin.Fragment);
 
-    static bool HasScopedClientRoute(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') &&
-        !value.StartsWith("//", StringComparison.Ordinal) &&
-        !value.Contains('?') && !value.Contains('#') && !value.Contains('\\') &&
-        value.Contains("{tenant_id}", StringComparison.Ordinal) &&
-        value.Contains("{tenant_slug}", StringComparison.Ordinal) &&
-        value.Contains("{program_id}", StringComparison.Ordinal) &&
-        value.Contains("{work_item_id}", StringComparison.Ordinal);
+    static bool HasScopedClientRoute(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/') ||
+            value.StartsWith("//", StringComparison.Ordinal) || value.Contains('?') ||
+            value.Contains('#') || value.Contains('\\'))
+            return false;
+
+        var segments = value[1..].Split('/');
+        if (segments.Any(static segment => segment.Length == 0 || IsDotSegment(segment)))
+            return false;
+        var requiredSegments = new[]
+        {
+            "{tenant_id}", "{tenant_slug}", "{program_id}", "{work_item_id}",
+        };
+        return requiredSegments.All(required =>
+            segments.Count(segment => string.Equals(segment, required,
+                StringComparison.Ordinal)) == 1);
+    }
+
+    static bool IsDotSegment(string segment)
+    {
+        var decoded = segment;
+        for (var pass = 0; pass <= segment.Length; pass++)
+        {
+            if (decoded is "." or ".." || decoded.Contains('/') || decoded.Contains('\\'))
+                return true;
+            var next = Uri.UnescapeDataString(decoded);
+            if (string.Equals(next, decoded, StringComparison.Ordinal))
+                return false;
+            decoded = next;
+        }
+        return true;
+    }
+
+    static bool IsSafePathSegment(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var decoded = value;
+        for (var pass = 0; pass <= value.Length; pass++)
+        {
+            if (decoded is "." or ".." || decoded.Contains('/') || decoded.Contains('\\') ||
+                decoded.Any(char.IsControl))
+                return false;
+            var next = Uri.UnescapeDataString(decoded);
+            if (string.Equals(next, decoded, StringComparison.Ordinal))
+                return true;
+            decoded = next;
+        }
+        return false;
+    }
 }

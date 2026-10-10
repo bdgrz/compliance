@@ -43,6 +43,22 @@ static class WorkDigestSchedule
     public static string NormalizeTimeZoneId(string? timeZoneId) =>
         string.IsNullOrWhiteSpace(timeZoneId) ? TimeZoneInfo.Utc.Id : Resolve(timeZoneId).Id;
 
+    public static DateTimeOffset NextWeekStartUtc(DateOnly weekOf, string? timeZoneId)
+    {
+        var zone = Resolve(timeZoneId);
+        var localBoundary = DateTime.SpecifyKind(
+            weekOf.AddDays(7).ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified);
+        for (var minute = 0; zone.IsInvalidTime(localBoundary) && minute < 48 * 60; minute++)
+            localBoundary = localBoundary.AddMinutes(1);
+        if (zone.IsInvalidTime(localBoundary))
+            throw new InvalidOperationException("The next local work-week boundary is invalid.");
+
+        var offset = zone.IsAmbiguousTime(localBoundary)
+            ? zone.GetAmbiguousTimeOffsets(localBoundary).Max()
+            : zone.GetUtcOffset(localBoundary);
+        return new DateTimeOffset(localBoundary, offset).ToUniversalTime();
+    }
+
     public static bool IsCurrentWeek(DateOnly weekOf, string? timeZoneId, DateTimeOffset now)
     {
         var localDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Resolve(timeZoneId)).DateTime);

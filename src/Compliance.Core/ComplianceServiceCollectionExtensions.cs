@@ -789,6 +789,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ListWorkRemindersHandler>()
             .AddRequestHandler<GetWorkDigestHandler>()
             .AddRequestHandler<GetWorkDigestDispatchStatusHandler>()
+            .AddRequestHandler<AuthorizeWorkDigestUnknownRetryHandler>()
             .AddRequestHandler<SetWorkDigestPreferenceHandler>()
             .AddRequestHandler<GetWorkDigestPreferenceHandler>()
             .AddRequestAuthorizer<OperationsReactionAuthorizer>()
