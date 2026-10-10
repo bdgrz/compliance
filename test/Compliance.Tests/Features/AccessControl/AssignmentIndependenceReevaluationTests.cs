@@ -123,8 +123,10 @@ public sealed class AssignmentIndependenceReevaluationTests
         Assert.True(Fixture.Eligible(retained, target.EngagementId, fixture.Lead));
     }
 
-    [Fact]
-    public async Task ShouldDenyActualAssignmentRevocationGivenCurrentMemberWithoutClientManagerPermission()
+    [Theory]
+    [InlineData("mcp")]
+    [InlineData("http")]
+    public async Task ShouldDenyActualAssignmentRevocationGivenCurrentMemberWithoutClientManagerPermission(string transport)
     {
         // Arrange
         await using var fixture = await Fixture.CreateAsync();
@@ -132,10 +134,14 @@ public sealed class AssignmentIndependenceReevaluationTests
         var target = before.Engagements[0];
         var request = new RevokeServiceEngagementActualStaff(fixture.Tenant, target.EngagementId,
             fixture.Other.StaffMemberId, before.Sequence, "Synthetic unauthorized removal attempt");
+        var path = $"/api/v1/tenants/{fixture.Tenant}/service-engagements/{target.EngagementId}/actual-assignments/{fixture.Other.StaffMemberId}/revocations";
+        RequestInvocation invocation = transport == "http"
+            ? new HttpInvocation("POST", path, path, "bdgrz.service-engagement.actual-staff.revoke")
+            : new McpInvocation("bdgrz.service-engagement.actual-staff.revoke");
 
         // Act
         var result = await fixture.Bus.DispatchAsync(request, new RequestDispatchContext(
-            ProgramManagementServices.Actor(fixture.NonManager), new McpInvocation("bdgrz.service-engagement.actual-staff.revoke")),
+            ProgramManagementServices.Actor(fixture.NonManager), invocation),
             CancellationToken.None);
         var retained = await fixture.ReadAsync();
 
