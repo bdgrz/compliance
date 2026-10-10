@@ -31,6 +31,9 @@ sealed class ProfessionalDutyAuthorityReader(IAggregateReader reader,
             evidence.IssuedAt != designation.AssertionIssuedAt || evidence.NotBefore != designation.NotBefore ||
             evidence.ExpiresAt != designation.ExpiresAt || evidence.EvidenceDigest != designation.EvidenceDigest)
             return null;
-        return new CurrentProfessionalDuty(staff, designation);
+        var continuityStart = catalog.ActiveContinuityStartRevision(designation.DesignationId);
+        return continuityStart is { } revision && revision > 0 && revision <= designation.Revision
+            ? new CurrentProfessionalDuty(staff, designation, revision)
+            : null;
     }
 }

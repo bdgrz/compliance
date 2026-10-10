@@ -11,6 +11,7 @@ public sealed class FirmProfessionalDutyCatalog : Aggregate
 {
     static readonly Uuid CatalogId = Uuid.Parse("c1f97f68-a902-4dc2-9e8e-b5fd28e34f5d", CultureInfo.InvariantCulture);
     readonly Dictionary<Uuid, FirmProfessionalDutyDesignationView> _designations = [];
+    readonly Dictionary<Uuid, long> _activeContinuityStartRevisions = [];
     readonly Dictionary<Uuid, string> _signedAssertions = [];
     readonly HashSet<Uuid> _seenAssertions = [];
     readonly Dictionary<Uuid, (string Intent, ActorReference Actor, FirmProfessionalDutyDesignationView Response)> _decisions = [];
@@ -28,6 +29,13 @@ public sealed class FirmProfessionalDutyCatalog : Aggregate
     public FirmProfessionalDutyCatalogView View() => new(Sequence, Designations);
 
     internal string? SignedAssertion(Uuid designationId) => _signedAssertions.GetValueOrDefault(designationId);
+
+    internal long? ActiveContinuityStartRevision(Uuid designationId) =>
+        _designations.TryGetValue(designationId, out var designation) && designation.IsActive &&
+        designation.AuthorityStatus == "active" &&
+        _activeContinuityStartRevisions.TryGetValue(designationId, out var revision)
+            ? revision
+            : null;
 
     public FirmProfessionalDutyDesignationView? ActiveDesignation(Uuid userId, string duty, Uuid? tenantId,
         DateTimeOffset at) => _designations.Values.SingleOrDefault(item => item.IsActive &&
@@ -154,6 +162,10 @@ public sealed class FirmProfessionalDutyCatalog : Aggregate
 
         var request = new RecordFirmProfessionalDutyDesignation(item.DesignationId, ev.SignedAssertion,
             ev.ExpectedSequence);
+        // Rebuild this boundary from the ordered event stream; it is intentionally not a public event field.
+        if (!ContinuesActiveAuthority(current, item) ||
+            !_activeContinuityStartRevisions.ContainsKey(item.DesignationId))
+            _activeContinuityStartRevisions[item.DesignationId] = item.Revision;
         _designations[item.DesignationId] = item;
         _signedAssertions[item.DesignationId] = ev.SignedAssertion;
         _seenAssertions.Add(item.AssertionId);
@@ -178,12 +190,25 @@ public sealed class FirmProfessionalDutyCatalog : Aggregate
 
         var request = new RevokeFirmProfessionalDutyDesignation(item.DesignationId, ev.SignedAssertion,
             ev.ExpectedSequence);
+        _activeContinuityStartRevisions.Remove(item.DesignationId);
         _designations[item.DesignationId] = item;
         _signedAssertions[item.DesignationId] = ev.SignedAssertion;
         _seenAssertions.Add(item.AssertionId);
         _decisions.Add(ev.RequestId, (Intent(request), item.LastChangedBy, item));
         Sequence++;
     }
+
+    static bool ContinuesActiveAuthority(FirmProfessionalDutyDesignationView? previous,
+        FirmProfessionalDutyDesignationView current) => previous is
+        { IsActive: true, AuthorityStatus: "active" } &&
+        previous.DesignationId == current.DesignationId && previous.UserId == current.UserId &&
+        previous.StaffMemberId == current.StaffMemberId &&
+        previous.DirectoryStaffRevision == current.DirectoryStaffRevision &&
+        previous.Duty == current.Duty && previous.TenantId == current.TenantId &&
+        previous.AuthorityIssuer == current.AuthorityIssuer &&
+        previous.AssertionIssuedAt <= previous.LastChangedAt && previous.NotBefore <= previous.LastChangedAt &&
+        previous.ExpiresAt > current.LastChangedAt && current.AssertionIssuedAt <= current.LastChangedAt &&
+        current.NotBefore <= current.LastChangedAt;
 
     Result<FirmProfessionalDutyDesignationView>? Retry(Uuid requestId, object request, ActorReference actor) =>
         _decisions.TryGetValue(requestId, out var previous)

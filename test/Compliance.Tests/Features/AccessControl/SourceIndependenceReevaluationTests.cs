@@ -645,7 +645,7 @@ public sealed class SourceIndependenceReevaluationTests
                             IndependenceSourceDigest.Services(ledger.History().Services),
                             "Synthetic exact partner evaluation ONLY");
                         var recorded = ledger.RecordPartnerIndependenceEvaluation(Uuid.CreateVersion4(),
-                            evaluationRequest, rules, new CurrentProfessionalDuty(partner, partnerDuty),
+                            evaluationRequest, rules, new CurrentProfessionalDuty(partner, partnerDuty, 1),
                             ActorReference.ForFirmStaff(partner.UserId, "Synthetic partner"), now);
                         Assert.True(recorded.IsSuccess, recorded.Error?.Message);
                         partnerEvaluation = recorded.Value;

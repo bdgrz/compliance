@@ -83,7 +83,7 @@ public sealed class PartnerIndependenceEvaluationTests
         {
             Ratification = ratification
         };
-        var partner = new CurrentProfessionalDuty(partnerStaff, duty);
+        var partner = new CurrentProfessionalDuty(partnerStaff, duty, 1);
         var request = new RecordPartnerIndependenceEvaluation(Tenant, engagementId, Uuid.CreateVersion4(),
             ledger.Sequence, 1, 1, digest, IndependenceSourceDigest.Services(ledger.History().Services),
             "Synthetic partner evaluation rationale");

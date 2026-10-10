@@ -16,8 +16,12 @@ sealed class CurrentRatifiedIndependenceRulesReader(IAggregateReader reader,
             .ConfigureAwait(false);
         if (currentDuty is null || currentDuty.Staff.StaffMemberId != active.StaffMemberId ||
             currentDuty.Staff.Revision != active.DirectoryStaffRevision ||
+            currentDuty.Designation.UserId != active.UserId ||
+            currentDuty.Designation.Duty != FirmProfessionalDuty.RuleRatifier ||
+            currentDuty.Designation.TenantId is not null ||
             currentDuty.Designation.DesignationId != active.DutyDesignationId ||
-            currentDuty.Designation.Revision != active.DutyRevision)
+            active.DutyRevision < currentDuty.ContinuityStartRevision ||
+            active.DutyRevision > currentDuty.Designation.Revision)
             return null;
         var draft = rules.Versions.SingleOrDefault(item => item.Version == active.RuleVersion);
         if (draft is null)

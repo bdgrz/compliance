@@ -218,7 +218,7 @@ public sealed class ServiceEngagementAcceptanceTests
                 Tenant, "Synthetic partner duty evidence", proof.CurrentPartner.Revision, true, 1,
                 ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic registrar"), Now,
                 ActorReference.ForPlatformOperator(Uuid.CreateVersion4(), "Synthetic registrar"), Now, null);
-            var currentPartner = new CurrentProfessionalDuty(proof.CurrentPartner, duty);
+            var currentPartner = new CurrentProfessionalDuty(proof.CurrentPartner, duty, 1);
             var partnerActor = ActorReference.ForFirmStaff(proof.PartnerUserId, "Synthetic designated partner");
             var evaluationRequest = new RecordPartnerIndependenceEvaluation(Tenant, proof.EngagementId,
                 Uuid.CreateVersion4(), ledger.Sequence, proof.ReviewedDraftRevision, rules.Version,

@@ -114,7 +114,158 @@ public sealed class ProfessionalDutyGovernanceCompositionTests
     }
 
     [Fact]
-    public async Task ShouldNotExposeRatifiedRulesGivenExactRatifierDesignationIsRevoked()
+    public async Task ShouldNotReviveRatifiedRulesGivenRevokedAndReactivatedOrReplacedDutyLineage()
+    {
+        // Arrange
+        var at = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        await using var provider = Compose();
+        await using var scope = provider.CreateAsyncScope();
+        var source = await SeedRatifiedRulesAsync(scope.ServiceProvider, at, at.AddMinutes(59));
+        Assert.NotNull(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+
+        // Act: a signed revocation ends the captured lineage.
+        var revokedAt = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var revocation = ProfessionalDutyAssertionTestIssuer.Issue(source.DesignationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 2, "revoked", source.InitialAssertion.Evidence.AssertionId,
+            revokedAt.AddMinutes(-1), revokedAt.AddMinutes(29));
+        var revoked = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Revoke(Uuid.CreateVersion4(), revocation.Evidence,
+                revocation.Token, catalog.Sequence, source.OperatorActor, revokedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+
+        // Assert: neither reactivation of the same designation nor a replacement designation restores it.
+        Assert.True(revoked.IsSuccess, revoked.Error?.Message);
+        Assert.Null(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+        var reactivatedAt = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var reactivation = ProfessionalDutyAssertionTestIssuer.Issue(source.DesignationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 3, "active", revocation.Evidence.AssertionId,
+            reactivatedAt.AddMinutes(-1), reactivatedAt.AddMinutes(59));
+        var reactivated = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), reactivation.Evidence,
+                reactivation.Token, source.Staff, catalog.Sequence, source.OperatorActor, reactivatedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(reactivated.IsSuccess, reactivated.Error?.Message);
+        var currentReactivatedDuty = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        Assert.NotNull(currentReactivatedDuty);
+        Assert.Equal(source.DesignationId, currentReactivatedDuty.Designation.DesignationId);
+        Assert.Equal(3, currentReactivatedDuty.ContinuityStartRevision);
+        Assert.Null(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+
+        var reRevokedAt = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var reRevocation = ProfessionalDutyAssertionTestIssuer.Issue(source.DesignationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 4, "revoked", reactivation.Evidence.AssertionId,
+            reRevokedAt.AddMinutes(-1), reRevokedAt.AddMinutes(29));
+        var revokedAgain = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Revoke(Uuid.CreateVersion4(), reRevocation.Evidence,
+                reRevocation.Token, catalog.Sequence, source.OperatorActor, reRevokedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(revokedAgain.IsSuccess, revokedAgain.Error?.Message);
+        var replacementId = Uuid.CreateVersion4();
+        var replacementAt = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var replacement = ProfessionalDutyAssertionTestIssuer.Issue(replacementId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 1, "active", null,
+            replacementAt.AddMinutes(-1), replacementAt.AddMinutes(59));
+        var replacementRecorded = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), replacement.Evidence,
+                replacement.Token, source.Staff, catalog.Sequence, source.OperatorActor, replacementAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.True(replacementRecorded.IsSuccess, replacementRecorded.Error?.Message);
+        var currentReplacement = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        Assert.NotNull(currentReplacement);
+        Assert.Equal(replacementId, currentReplacement.Designation.DesignationId);
+        Assert.Null(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ShouldNotPreserveRatifiedRulesGivenDutyExpiresBeforeRenewal()
+    {
+        // Arrange
+        var at = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var expiresAt = at.AddMinutes(5);
+        var clock = new MutableTimeProvider(at);
+        await using var provider = Compose(clock);
+        await using var scope = provider.CreateAsyncScope();
+        var source = await SeedRatifiedRulesAsync(scope.ServiceProvider, at, expiresAt);
+        Assert.NotNull(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+
+        // Act
+        clock.UtcNow = expiresAt.AddSeconds(1);
+        var expiredDuty = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        var renewedAt = clock.GetUtcNow();
+        var renewal = ProfessionalDutyAssertionTestIssuer.Issue(source.DesignationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 2, "active", source.InitialAssertion.Evidence.AssertionId,
+            renewedAt.AddMinutes(-1), renewedAt.AddMinutes(59));
+        var renewed = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), renewal.Evidence,
+                renewal.Token, source.Staff, catalog.Sequence, source.OperatorActor, renewedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.Null(expiredDuty);
+        Assert.True(renewed.IsSuccess, renewed.Error?.Message);
+        var currentDuty = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        Assert.NotNull(currentDuty);
+        Assert.Equal(2, currentDuty.ContinuityStartRevision);
+        Assert.Null(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ShouldNotPreserveRatifiedRulesGivenStaffDirectoryRevisionChangesBeforeRenewal()
+    {
+        // Arrange
+        var at = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var clock = new MutableTimeProvider(at);
+        await using var provider = Compose(clock);
+        await using var scope = provider.CreateAsyncScope();
+        var source = await SeedRatifiedRulesAsync(scope.ServiceProvider, at, at.AddMinutes(59));
+        Assert.NotNull(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+        var directoryExecutor = source.Executor;
+
+        // Act
+        var deactivatedAt = at.AddMinutes(1);
+        var deactivated = await directoryExecutor.ExecuteAsync(new FirmStaffDirectory(), directory =>
+            AggregateOutcome.CommitOnSuccess(directory.SetStatus(Uuid.CreateVersion4(), Staff, false,
+                "Synthetic deactivation", directory.Sequence, source.OperatorActor, deactivatedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(deactivated.IsSuccess, deactivated.Error?.Message);
+        var reactivatedAt = at.AddMinutes(2);
+        var reactivated = await directoryExecutor.ExecuteAsync(new FirmStaffDirectory(), directory =>
+            AggregateOutcome.CommitOnSuccess(directory.SetStatus(Uuid.CreateVersion4(), Staff, true,
+                "Synthetic reactivation", directory.Sequence, source.OperatorActor, reactivatedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(reactivated.IsSuccess, reactivated.Error?.Message);
+        var updatedStaff = (await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new FirmStaffDirectory(), CancellationToken.None)).Get(Staff)!;
+        clock.UtcNow = reactivatedAt;
+        var dutyBeforeRenewal = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        var renewedAssertion = ProfessionalDutyAssertionTestIssuer.Issue(source.DesignationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 2, "active", source.InitialAssertion.Evidence.AssertionId,
+            reactivatedAt.AddMinutes(-1), reactivatedAt.AddMinutes(59));
+        var renewed = await source.Executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), renewedAssertion.Evidence,
+                renewedAssertion.Token, updatedStaff, catalog.Sequence, source.OperatorActor, reactivatedAt)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+
+        // Assert
+        Assert.Null(dutyBeforeRenewal);
+        Assert.True(renewed.IsSuccess, renewed.Error?.Message);
+        var currentDuty = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        Assert.NotNull(currentDuty);
+        Assert.Equal(updatedStaff.Revision, currentDuty.Staff.Revision);
+        Assert.Equal(2, currentDuty.ContinuityStartRevision);
+        Assert.Null(await source.RulesReader.ReadActiveAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ShouldPreserveRatifiedRulesGivenUninterruptedSignedRatifierRenewal()
     {
         // Arrange
         await using var provider = Compose();
@@ -151,22 +302,77 @@ public sealed class ProfessionalDutyGovernanceCompositionTests
         Assert.True(seededRatification.IsSuccess, seededRatification.Error?.Message);
         var rulesReader = scope.ServiceProvider.GetRequiredService<CurrentRatifiedIndependenceRulesReader>();
         Assert.NotNull(await rulesReader.ReadActiveAsync(CancellationToken.None));
+        var renewedAt = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var renewedAssertion = ProfessionalDutyAssertionTestIssuer.Issue(designationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 2, "active", assertion.Evidence.AssertionId,
+            renewedAt.AddMinutes(-1), renewedAt.AddMinutes(59));
 
         // Act
-        var revocation = ProfessionalDutyAssertionTestIssuer.Issue(designationId, User,
-            FirmProfessionalDuty.RuleRatifier, null, 2, "revoked", assertion.Evidence.AssertionId,
-            Now.AddMinutes(1), Now.AddHours(1));
-        var revoked = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
-            AggregateOutcome.CommitOnSuccess(catalog.Revoke(Uuid.CreateVersion4(), revocation.Evidence,
-                revocation.Token, catalog.Sequence, operatorActor, Now.AddMinutes(1))),
+        var renewal = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), renewedAssertion.Evidence,
+                renewedAssertion.Token, staff, catalog.Sequence, operatorActor, renewedAt)),
             new RequestDispatchContext(RequestActor.System), CancellationToken.None);
 
         // Assert
-        Assert.True(revoked.IsSuccess, revoked.Error?.Message);
-        Assert.Null(await rulesReader.ReadActiveAsync(CancellationToken.None));
+        Assert.True(renewal.IsSuccess, renewal.Error?.Message);
+        var currentCatalog = await reader.HydrateAsync(new FirmProfessionalDutyCatalog(), CancellationToken.None);
+        var currentDesignation = Assert.IsType<FirmProfessionalDutyDesignationView>(currentCatalog.ActiveDesignation(
+            User, FirmProfessionalDuty.RuleRatifier, null, DateTimeOffset.UtcNow));
+        Assert.Equal(2, currentDesignation.Revision);
+        Assert.True(scope.ServiceProvider.GetRequiredService<IFirmProfessionalDutyAssertionVerifier>()
+            .TryVerify(currentCatalog.SignedAssertion(designationId), DateTimeOffset.UtcNow, out _));
+        var currentDuty = await scope.ServiceProvider.GetRequiredService<ProfessionalDutyAuthorityReader>()
+            .ReadCurrentAsync(User, FirmProfessionalDuty.RuleRatifier, null, CancellationToken.None);
+        Assert.NotNull(currentDuty);
+        Assert.Equal(1, currentDuty.ContinuityStartRevision);
+        var preservedRules = Assert.IsType<IndependenceRuleVersionView>(
+            await rulesReader.ReadActiveAsync(CancellationToken.None));
+        Assert.Equal(1, preservedRules.Ratification?.DutyRevision);
+        Assert.Equal(designationId, preservedRules.Ratification?.DutyDesignationId);
+        Assert.Equal(User, preservedRules.Ratification?.UserId);
+        Assert.Equal(Staff, preservedRules.Ratification?.StaffMemberId);
+        Assert.Equal(staff.Revision, preservedRules.Ratification?.DirectoryStaffRevision);
     }
 
-    static ServiceProvider Compose()
+    static async Task<SeededRuleSource> SeedRatifiedRulesAsync(IServiceProvider services, DateTimeOffset at,
+        DateTimeOffset expiresAt)
+    {
+        var executor = services.GetRequiredService<IAggregateExecutor>();
+        var reader = services.GetRequiredService<IAggregateReader>();
+        var operatorActor = ActorReference.ForPlatformOperator(User, "Synthetic operator");
+        var seededStaff = await executor.ExecuteAsync(new FirmStaffDirectory(), directory =>
+            AggregateOutcome.CommitOnSuccess(directory.Register(Uuid.CreateVersion4(), Staff, User, "attest",
+                "Synthetic staff source", directory.Sequence, operatorActor, at)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(seededStaff.IsSuccess, seededStaff.Error?.Message);
+        var staff = (await reader.HydrateAsync(new FirmStaffDirectory(), CancellationToken.None)).Get(Staff)!;
+        var designationId = Uuid.CreateVersion4();
+        var assertion = ProfessionalDutyAssertionTestIssuer.Issue(designationId, User,
+            FirmProfessionalDuty.RuleRatifier, null, 1, "active", null, at, expiresAt);
+        var seededDuty = await executor.ExecuteAsync(new FirmProfessionalDutyCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Designate(Uuid.CreateVersion4(), assertion.Evidence,
+                assertion.Token, staff, catalog.Sequence, operatorActor, at)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(seededDuty.IsSuccess, seededDuty.Error?.Message);
+        var content = new IndependenceRuleContent(12,
+            [new IndependenceServiceRuleContent("readiness", "conditionally_compatible", "impairing")],
+            "Synthetic rules");
+        var seededRules = await executor.ExecuteAsync(new IndependenceRuleCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.ReviseRules(Uuid.CreateVersion4(), catalog.Sequence,
+                content, operatorActor, at)), new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(seededRules.IsSuccess, seededRules.Error?.Message);
+        var seededRatification = await executor.ExecuteAsync(new IndependenceRuleRatificationCatalog(), catalog =>
+            AggregateOutcome.CommitOnSuccess(catalog.Ratify(Uuid.CreateVersion4(), Uuid.CreateVersion4(), 1, 1,
+                catalog.Sequence, IndependenceSourceDigest.RuleContent(content), "Synthetic ratification evidence",
+                staff, seededDuty.Value!, ActorReference.ForFirmStaff(User, "Synthetic ratifier"), at)),
+            new RequestDispatchContext(RequestActor.System), CancellationToken.None);
+        Assert.True(seededRatification.IsSuccess, seededRatification.Error?.Message);
+        return new SeededRuleSource(executor,
+            services.GetRequiredService<CurrentRatifiedIndependenceRulesReader>(), operatorActor,
+            staff, designationId, assertion);
+    }
+
+    static ServiceProvider Compose(TimeProvider? clock = null)
     {
         var services = new ServiceCollection();
         var configurationValues = new Dictionary<string, string?>
@@ -180,7 +386,20 @@ public sealed class ProfessionalDutyGovernanceCompositionTests
         services.AddSingleton<IEventStore>(new InMemoryEventStore());
         services.AddSingleton<IPlatformOperatorAccess>(new OperatorAccess(true));
         services.AddSingleton<IPlatformUserDirectoryReader>(new UserDirectory());
+        if (clock is not null)
+            services.AddSingleton<TimeProvider>(clock);
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    sealed record SeededRuleSource(IAggregateExecutor Executor,
+        CurrentRatifiedIndependenceRulesReader RulesReader, ActorReference OperatorActor,
+        FirmStaffMemberView Staff, Uuid DesignationId,
+        ProfessionalDutyAssertionTestIssuer.SignedAssertion InitialAssertion);
+
+    sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
     sealed class OperatorAccess(bool allowed) : IPlatformOperatorAccess
