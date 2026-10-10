@@ -18,6 +18,7 @@ public sealed class AccessReviewCampaign : Aggregate
     readonly Uuid _tenantId;
     readonly Dictionary<Uuid, ItemState> _items = [];
     readonly List<Uuid> _order = [];
+    readonly Dictionary<Uuid, long> _responsibilityReassignmentExpectedRevisions = [];
 
     public AccessReviewCampaign(Uuid tenantId, Uuid campaignId)
         : base(campaignId, new EventStreamAddress(tenantId.ToString(), Area, campaignId.ToString()))
@@ -56,6 +57,9 @@ public sealed class AccessReviewCampaign : Aggregate
         });
         On<AccessReviewResponsibilityReassigned>(ev =>
         {
+            if (!_responsibilityReassignmentExpectedRevisions.TryAdd(
+                    ev.Reassignment.ReassignmentId, Revision))
+                throw new InvalidOperationException("A reassignment request ID can be retained only once per campaign.");
             Revision = ev.Revision;
             _items[ev.Reassignment.ItemId].Reassignments.Add(ev.Reassignment);
         });
@@ -103,6 +107,11 @@ public sealed class AccessReviewCampaign : Aggregate
     public AccessReviewResponsibilityReassignmentView? FindResponsibilityReassignment(
         Uuid reassignmentId) => _items.Values.SelectMany(static state => state.Reassignments)
         .FirstOrDefault(reassignment => reassignment.ReassignmentId == reassignmentId);
+
+    internal long? FindResponsibilityReassignmentExpectedRevision(Uuid reassignmentId) =>
+        _responsibilityReassignmentExpectedRevisions.TryGetValue(reassignmentId, out var expectedRevision)
+            ? expectedRevision
+            : null;
 
     internal bool MatchesLaunchRequest(LaunchAccessReviewCampaign request)
     {
@@ -171,7 +180,8 @@ public sealed class AccessReviewCampaign : Aggregate
         var existing = state.Reassignments.FirstOrDefault(reassignment =>
             reassignment.ReassignmentId == reassignmentId);
         if (existing is not null)
-            return existing.Responsibility == responsibility &&
+            return FindResponsibilityReassignmentExpectedRevision(reassignmentId) == expectedRevision &&
+                   existing.Responsibility == responsibility &&
                    existing.AssignedMemberId == assignedMemberId && existing.Reason == reason.Trim() &&
                    existing.ReassignedBy == reassignedBy &&
                    existing.DelegationReason == delegationReason?.Trim()

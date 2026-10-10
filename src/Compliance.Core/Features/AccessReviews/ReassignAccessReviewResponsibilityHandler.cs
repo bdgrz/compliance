@@ -44,7 +44,9 @@ public sealed class ReassignAccessReviewResponsibilityHandler(IAggregateReader r
             return Failure(RequestErrorKind.Validation,
                 "A remediation-owner reassignment cannot include a reviewer delegation reason.");
         if (campaign.FindResponsibilityReassignment(context.RequestId) is { } existing)
-            return existing.Responsibility == request.Responsibility &&
+            return campaign.FindResponsibilityReassignmentExpectedRevision(context.RequestId) ==
+                   request.ExpectedRevision &&
+                   existing.Responsibility == request.Responsibility &&
                    existing.ItemId == request.ItemId &&
                    existing.AssignedMemberId == request.AssignedMemberId &&
                    existing.Reason == request.Reason.Trim() && existing.ReassignedBy == actor.Reference &&
