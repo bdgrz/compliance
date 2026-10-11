@@ -140,7 +140,7 @@ public sealed class SmtpTenantInvitationDeliveryTests
         Assert.DoesNotContain(token, failure.ToString(), StringComparison.Ordinal);
     }
 
-    sealed record SmtpMessage(string Sender, string Recipient, string Data)
+    internal sealed record SmtpMessage(string Sender, string Recipient, string Data)
     {
         public string Header(string name) => Data.Split("\r\n", StringSplitOptions.None)
             .TakeWhile(line => line.Length != 0)
@@ -163,14 +163,19 @@ public sealed class SmtpTenantInvitationDeliveryTests
         }
     }
 
-    sealed class LoopbackSmtpInbox : IAsyncDisposable
+    internal sealed class LoopbackSmtpInbox : IAsyncDisposable
     {
         readonly TcpListener _listener = new(IPAddress.Loopback, 0);
-        readonly CancellationTokenSource _lifetime = new(TimeSpan.FromSeconds(15));
+        readonly CancellationTokenSource _lifetime;
         readonly bool _expectTlsRejection;
 
-        public LoopbackSmtpInbox(int connectionCount, bool expectTlsRejection = false)
+        public LoopbackSmtpInbox(int connectionCount, bool expectTlsRejection = false,
+            TimeSpan? lifetime = null)
         {
+            var timeout = lifetime ?? TimeSpan.FromSeconds(15);
+            if (timeout <= TimeSpan.Zero || timeout > TimeSpan.FromMinutes(3))
+                throw new ArgumentOutOfRangeException(nameof(lifetime));
+            _lifetime = new CancellationTokenSource(timeout);
             _expectTlsRejection = expectTlsRejection;
             Certificate = CreateCertificate();
             _listener.Start();
