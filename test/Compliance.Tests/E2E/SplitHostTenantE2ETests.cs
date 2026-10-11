@@ -399,6 +399,113 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
     }
 
     [Fact]
+    public async Task ShouldReopenVerifiedWorkspaceAndHideItFromOutsiderGivenCreatorRegistration()
+    {
+        // Arrange
+        var applicationName = $"compliance-org-reopen-{Guid.NewGuid():N}";
+        var creatorEmail = $"creator-{Guid.NewGuid():N}@example.com";
+        var slug = $"reopen-{Guid.NewGuid():N}"[..24];
+        using var worker = CreateActivationWorker(applicationName);
+        await worker.StartAsync();
+
+        try
+        {
+            await using var factory = E2EAppFactory.Create(broker, applicationName)
+                .WithWebHostBuilder(host => host.ConfigureTestServices(services =>
+                    services.AddSingleton(new PlatformOperatorAuthority([Uuid.CreateVersion4()]))));
+            using var creator = factory.CreateClient();
+            var creatorId = await TenantInvitationE2ETests.LoginAsync(creator, creatorEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, creator, creatorId, creatorEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
+
+            using var registered = await creator.PostAsJsonAsync("/api/v1/tenants", new
+            {
+                name = "Reopened Organization",
+                slug,
+                legal_name = "Reopened Organization LLC",
+            });
+
+            // Act
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+            var registration = await registered.Content.ReadFromJsonAsync<Registration>();
+            Assert.NotNull(registration);
+            var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            var administratorsTeamId = BuiltInRbac.AdministratorsTeamId(tenantId);
+            var administratorAccess = HttpStatusCode.Forbidden;
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var response = await creator.GetAsync(
+                    $"/api/v1/tenants/{tenantId}/teams/{administratorsTeamId}");
+                administratorAccess = response.StatusCode;
+                if (administratorAccess == HttpStatusCode.OK)
+                    break;
+                await Task.Delay(250);
+            }
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, administratorAccess);
+            using var reopenedCreator = factory.CreateClient();
+            var reopenedCreatorId = await TenantInvitationE2ETests.LoginAsync(reopenedCreator, creatorEmail);
+            Assert.Equal(creatorId, reopenedCreatorId);
+
+            var creatorMembershipFound = false;
+            var membershipStatus = HttpStatusCode.NotFound;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var memberships = await reopenedCreator.GetAsync("/api/v1/tenants/mine");
+                membershipStatus = memberships.StatusCode;
+                if (memberships.StatusCode == HttpStatusCode.OK)
+                {
+                    using var document = JsonDocument.Parse(await memberships.Content.ReadAsStringAsync());
+                    creatorMembershipFound = document.RootElement.GetProperty("items").EnumerateArray()
+                        .Any(item => item.GetProperty("tenant_id").GetString() == tenantId.ToString() &&
+                                     item.GetProperty("slug").GetString() == slug);
+                    if (creatorMembershipFound)
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.True(creatorMembershipFound,
+                $"Fresh creator sign-in did not list the workspace; last membership status was {membershipStatus}.");
+
+            using var resolvedSlug = await reopenedCreator.GetAsync(
+                $"/api/v1/tenant-slugs/{slug}/mine");
+            Assert.Equal(HttpStatusCode.OK, resolvedSlug.StatusCode);
+            using var resolution = JsonDocument.Parse(await resolvedSlug.Content.ReadAsStringAsync());
+            Assert.Equal(tenantId.ToString(), resolution.RootElement.GetProperty("tenant_id").GetString());
+            Assert.Equal(slug, resolution.RootElement.GetProperty("current_slug").GetString());
+            Assert.False(resolution.RootElement.GetProperty("redirect").GetBoolean());
+
+            using var reopenedTenant = await reopenedCreator.GetAsync($"/api/v1/tenants/{tenantId}");
+            Assert.Equal(HttpStatusCode.OK, reopenedTenant.StatusCode);
+            var tenant = await reopenedTenant.Content.ReadFromJsonAsync<Tenant>();
+            Assert.Equal("active", tenant?.Status);
+            Assert.Equal("Reopened Organization LLC", tenant?.LegalName);
+
+            using var outsider = factory.CreateClient();
+            var outsiderEmail = $"outsider-{Guid.NewGuid():N}@example.com";
+            var outsiderId = await TenantInvitationE2ETests.LoginAsync(outsider, outsiderEmail);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, outsider, outsiderId, outsiderEmail,
+                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
+            using var outsiderMemberships = await outsider.GetAsync("/api/v1/tenants/mine");
+            Assert.Equal(HttpStatusCode.OK, outsiderMemberships.StatusCode);
+            using var outsiderList = JsonDocument.Parse(await outsiderMemberships.Content.ReadAsStringAsync());
+            Assert.Empty(outsiderList.RootElement.GetProperty("items").EnumerateArray());
+
+            using var deniedSlug = await outsider.GetAsync($"/api/v1/tenant-slugs/{slug}/mine");
+            using var deniedTenant = await outsider.GetAsync($"/api/v1/tenants/{tenantId}");
+            Assert.Equal(HttpStatusCode.NotFound, deniedSlug.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, deniedTenant.StatusCode);
+        }
+        finally
+        {
+            await worker.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task ShouldDeliverLaterInvitationGivenEarlierFailureAndExplicitReissue()
     {
         // Arrange
