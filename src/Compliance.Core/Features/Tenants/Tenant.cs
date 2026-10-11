@@ -13,6 +13,7 @@ public sealed class Tenant : Aggregate
     bool _requiresActivation;
     bool _creatorIsAdministrator;
     bool _activated;
+    bool _slugEverConfirmed;
     string? _firstAdministratorEmail;
     Uuid _ownerUserId;
     Uuid _operatorUserId;
@@ -70,6 +71,13 @@ public sealed class Tenant : Aggregate
     public Uuid OperatorUserId => _operatorUserId;
     public bool IsSuspended => _suspended;
     public bool IsOffboarding => _offboarding;
+
+    public bool WasRegisteredByCreator(Uuid userId) => _creatorIsAdministrator && _ownerUserId == userId;
+
+    /// <summary>Initial provisioning outcome; completion grants no current workspace access.</summary>
+    public TenantProvisioningStatusView GetProvisioningStatus() => IsRegistrationRejected
+        ? new(Id, "rejected", "slug_unavailable")
+        : new(Id, _activated || (_slugEverConfirmed && !_requiresActivation) ? "completed" : "provisioning", null);
 
     public Result<TenantRegistration> Register(Uuid ownerUserId, string name, string slug,
         string? legalName = null, string? firstAdministratorEmail = null,
@@ -271,7 +279,11 @@ public sealed class Tenant : Aggregate
         _ownerUserId = registered.OwnerUserId;
         _operatorUserId = registered.CreatorIsAdministrator ? Uuid.Empty : registered.OwnerUserId;
     }
-    void Apply(TenantSlugConfirmed _) => _slugState = TenantSlugState.Confirmed;
+    void Apply(TenantSlugConfirmed _)
+    {
+        _slugState = TenantSlugState.Confirmed;
+        _slugEverConfirmed = true;
+    }
     void Apply(TenantSlugRejected _) => _slugState = TenantSlugState.Rejected;
     void Apply(TenantSlugSurrenderRequested _) => _slugState = TenantSlugState.Surrendering;
     void Apply(TenantSlugSurrenderConfirmed _) { _slug = null; _slugState = TenantSlugState.None; }

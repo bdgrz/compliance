@@ -1033,6 +1033,8 @@ namespace Bdgrz.Compliance;
 [JsonSerializable(typeof(TenantInvitationDeliveryFailed))]
 [JsonSerializable(typeof(TenantInvitationAccepted))]
 [JsonSerializable(typeof(GetTenant))]
+[JsonSerializable(typeof(GetTenantProvisioningStatus))]
+[JsonSerializable(typeof(TenantProvisioningStatusView))]
 [JsonSerializable(typeof(ListTenants))]
 [JsonSerializable(typeof(Page<TenantView>))]
 [JsonSerializable(typeof(ListTenantMembers))]

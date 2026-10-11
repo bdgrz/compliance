@@ -266,6 +266,7 @@ public sealed class RbacMcpScenarioTests
             "bdgrz.organization-member.invite",
             "bdgrz.tenant-invitation.list",
             "bdgrz.tenant.get",
+            "bdgrz.tenant.provisioning_status.get",
             "bdgrz.provider.get",
             "bdgrz.provider.record",
             "bdgrz.provider.revision.get",
