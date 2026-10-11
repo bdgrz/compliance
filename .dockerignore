@@ -9,9 +9,6 @@
 .vs
 **/bin/
 **/obj/
-**/obj\\*/
-**/node_modules/
-**/dist/
 .dotnet/
 .nuget/
 packages/
@@ -28,7 +25,6 @@ test/
 *.nupkg
 *.snupkg
 *.trx
-*.tsbuildinfo
 .env
 .env.*
 !.env.example

@@ -24,22 +24,24 @@ The normative standard is the [W3C Web Content Accessibility Guidelines
 
 ## Validation strategy
 
-Frontend feature work follows TDD with focused unit tests in the owning client
-repository. Unit tests are the current feature and PR test gate. The client
-unit suite can render a page in jsdom for axe-core checks; browser and manual
-accessibility checks are deferred until the later end-to-end validation phase,
-after frontend features work independently.
+The web repository owns the current frontend automation. Frontend feature work
+follows TDD with focused unit tests there. Unit tests are the current feature
+and PR test gate. The web client unit suite can render a page in jsdom for
+axe-core checks; browser and manual accessibility checks are deferred until the
+later end-to-end validation phase, after frontend features work independently.
 
 ### Automated
 
-`ui/src/accessibility/axe.ts` runs axe-core with the
+[The web repository's `src/accessibility/axe.ts`](https://github.com/bdgrz/compliance-web/blob/develop/src/accessibility/axe.ts)
+runs axe-core with the
 WCAG 2.2 AA rule tags (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`,
 `wcag22aa`) against a rendered page, and runs the document-level rules
 (`html-has-lang`, `html-lang-valid`, `document-title`, `meta-viewport`)
-against `index.html`. Each new page or workflow adds a case to
-`accessibility.test.tsx` that renders it through `@askrjs/askr/testing` and
+against the web repository's [`index.html`](https://github.com/bdgrz/compliance-web/blob/develop/index.html). Each new page or workflow adds a case to
+[`src/accessibility/accessibility.test.tsx`](https://github.com/bdgrz/compliance-web/blob/develop/src/accessibility/accessibility.test.tsx)
+that renders it through `@askrjs/askr/testing` and
 asserts zero violations. A fixture test proves that the check reports an
-injected violation. This runs as part of the client unit suite.
+injected violation. This runs as part of the web client unit suite.
 
 jsdom has no layout engine, so the `color-contrast` and `target-size` rules
 are disabled in the automated unit check, and results axe reports as

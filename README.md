@@ -1,6 +1,6 @@
 # Compliance
 
-Compliance is a Native AOT ASP.NET Core backend built on Portia, with a separate AskrJS single-page application. This repository intentionally contains foundation code only; compliance domain behavior will be added behind the established boundaries.
+Compliance is a Native AOT ASP.NET Core backend built on Portia. The web client is maintained separately in [bdgrz/compliance-web](https://github.com/bdgrz/compliance-web).
 
 ## Repository layout
 
@@ -9,14 +9,13 @@ Compliance is a Native AOT ASP.NET Core backend built on Portia, with a separate
 | `src/Compliance.Common` | Contracts and primitives shared across process boundaries |
 | `src/Compliance.Core` | Application composition and Portia/Fitz infrastructure |
 | `src/Compliance.App` | ASP.NET Core API and worker host |
-| `ui` | Independent AskrJS single-page application |
 | `test/Compliance.Tests` | Backend tests; the fast gate runs unit tests only |
+| [bdgrz/compliance-web](https://github.com/bdgrz/compliance-web) | Web client source and client-specific tests in a separate repository |
 
 Dependencies point inward: App references Core and Common; Core references Common; Common does not reference either host layer. All code uses the `Bdgrz.Compliance` root namespace and `Bdgrz.Compliance.*` assembly names.
 
-The SPA follows a thin-page, vertical-feature layout documented in
-[`ui/README.md`](ui/README.md). It is outside the .NET solution, project graph,
-and build/test flow.
+The web client consumes the backend API contract and owns its source, build, and
+test configuration in its separate repository.
 
 Product discovery and delivery are governed by the
 [product brief](docs/product/product-brief.md),
@@ -30,7 +29,6 @@ contract.
 ## Prerequisites
 
 - .NET SDK 10.0.400 (pinned by `global.json`)
-- Node.js 24 and npm 12
 - Docker with Compose
 - A GitHub token that can read the Cntryl package registry
 
@@ -40,13 +38,6 @@ Copy `.env.example` to `.env` and set `GITHUB_ACTOR` and `GITHUB_TOKEN` for .NET
 dotnet restore Compliance.slnx --locked-mode
 dotnet build Compliance.slnx --configuration Release --no-restore
 dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
-```
-
-Run the UI unit tests separately from the .NET build and test flow:
-
-```console
-npm ci
-npm test
 ```
 
 ## Running locally
@@ -91,8 +82,6 @@ Badgers delegates authentication to an external OpenID Connect provider such as 
 
 For Entra, put the delegated API scope (for example, `api://.../Compliance.Read`) in `Scopes`. For Auth0, set the API identifier in both the server `Audience` and, when needed, `AuthorizationAudience`.
 
-The SPA uses Authorization Code with PKCE. It stores the access token in session storage, never persists a refresh token, validates callback state/nonce and the ID token through `@askrjs/auth`, and sends the access token to the OIDC identity-registration command. A successful registration establishes the signed Badgers session cookie. Client route guards are navigation ergonomics; ASP.NET Core remains the authorization boundary.
-
 ## HTTP boundaries and operations
 
 - Application APIs live under `/api/v1`.
@@ -133,17 +122,17 @@ management, organization queries, lifecycle, and slug operations use both HTTP a
 
 ## Tests and containers
 
-Feature development uses TDD with unit tests in the owning backend or client
-repository. The backend unit-test command is:
+Backend feature development uses TDD with unit tests. The backend unit-test
+command is:
 
 ```console
 dotnet test Compliance.slnx --configuration Release --no-build --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
 ```
 
-Client repositories run their own unit-test suites. This repository's pull
-request CI runs formatting, build, and backend unit tests. After successful CI
-on `main`, `containers.yml` builds and publishes Native AOT images on native
-AMD64 and ARM64 runners; it does not run as a feature pull-request check.
+This repository's pull request CI runs formatting, build, and backend unit
+tests. After successful CI on `main`, `containers.yml` builds and publishes
+Native AOT images on native AMD64 and ARM64 runners; it does not run as a
+feature pull-request check.
 End-to-end validation is planned for a later phase after features work
 independently. See [CONTRIBUTING.md](CONTRIBUTING.md) for the current delivery
 loop.
