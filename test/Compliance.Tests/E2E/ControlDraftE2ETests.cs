@@ -18,6 +18,280 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldPublishImmutablePersonOwnedControlGivenConfiguredPersonalHttpAndActivationGate(
+        bool activationEnabled)
+    {
+        // Arrange
+        await using var factory = E2EAppFactory.Create(broker).WithWebHostBuilder(host =>
+        {
+            host.UseSetting("COMPLIANCE_HOST_MODE", "standalone");
+            host.UseSetting("Compliance:Controls:ActivationEnabled", activationEnabled.ToString());
+            host.UseSetting("Compliance:Controls:LifecycleEnabled", "true");
+        });
+        using var author = factory.CreateClient();
+        using var reviewer = factory.CreateClient();
+        using var approver = factory.CreateClient();
+        using var outsider = factory.CreateClient();
+        var authorEmail = $"control-publication-author-{Guid.NewGuid():N}@example.com";
+        var authorUserId = await TenantInvitationE2ETests.LoginAsync(author, authorEmail);
+        await TenantInvitationE2ETests.VerifyEmailAsync(factory, author, authorUserId, authorEmail);
+        var (tenantId, programId) = await CreateProgramAsync(author);
+        var tenant = Uuid.Parse(tenantId.ToString(), CultureInfo.InvariantCulture);
+        var tenantPath = $"/api/v1/tenants/{tenantId}";
+        await TenantInvitationE2ETests.WaitForMemberAccessReadyAsync(factory, author, tenant,
+            authorUserId, BuiltInRbac.AdministratorsTeamId(tenant), RbacPermissions.TenantRbacManage,
+            $"{tenantPath}/members/{authorUserId}");
+        var (reviewerUserId, reviewerEmail) = await InvitePersonalMemberAsync(reviewer, "reviewer");
+        var (approverUserId, approverEmail) = await InvitePersonalMemberAsync(approver, "approver");
+        Assert.NotEqual(authorUserId, reviewerUserId);
+        Assert.NotEqual(authorUserId, approverUserId);
+        Assert.NotEqual(reviewerUserId, approverUserId);
+        await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(author, tenant);
+        var outsiderEmail = $"control-publication-outsider-{Guid.NewGuid():N}@example.com";
+        var outsiderUserId = await TenantInvitationE2ETests.LoginAsync(outsider, outsiderEmail);
+        await TenantInvitationE2ETests.VerifyEmailAsync(factory, outsider, outsiderUserId,
+            outsiderEmail);
+        var (outsiderTenantId, _) = await CreateProgramAsync(outsider);
+        Assert.NotEqual(tenantId, outsiderTenantId);
+        using var personResponse = await author.PostAsJsonAsync($"{tenantPath}/people", new
+        {
+            display_name = "Access review owner",
+        });
+        Assert.Equal(HttpStatusCode.OK, personResponse.StatusCode);
+        var personId = (await ReadAsync(personResponse)).GetProperty("person_id").GetGuid();
+        var controlsPath = $"{tenantPath}/programs/{programId}/controls";
+        using var created = await author.PostAsJsonAsync(controlsPath, new
+        {
+            identifier = "AC-PUBLICATION-01",
+            content = Content("Review access monthly"),
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var controlId = (await ReadAsync(created)).GetProperty("control_id").GetGuid();
+        var controlPath = $"{controlsPath}/{controlId}";
+        var draftPath = $"{controlPath}/draft";
+        var decisionsPath = $"{controlPath}/decisions";
+        var original = await WaitForRevisionAsync(author, draftPath, 1);
+        var versionId = original.GetProperty("draft_version_id").GetGuid();
+        Assert.NotEqual(Guid.Empty, versionId);
+        using var designated = await author.PutAsJsonAsync($"{draftPath}/owner-person", new
+        {
+            expected_revision = 1,
+            person_id = personId,
+            rationale = "The workforce person owns the monthly access review without signing in.",
+        });
+        Assert.Equal(HttpStatusCode.NoContent, designated.StatusCode);
+        var owner = await ReadOkAsync(author, $"{draftPath}/owner-person");
+        Assert.Equal(versionId, owner.GetProperty("draft_version_id").GetGuid());
+        Assert.Equal(1, owner.GetProperty("revision").GetInt32());
+        Assert.Equal(personId, owner.GetProperty("designation").GetProperty("person_id").GetGuid());
+        var designationId = owner.GetProperty("designation").GetProperty("designation_id").GetGuid();
+        Assert.NotEqual(Guid.Empty, designationId);
+        await TenantInvitationE2ETests.WaitForMemberAccessReadyAsync(factory, reviewer, tenant,
+            reviewerUserId, BuiltInRbac.PowerUsersTeamId(tenant), RbacPermissions.ProgramManage,
+            draftPath);
+        await TenantInvitationE2ETests.WaitForMemberAccessReadyAsync(factory, approver, tenant,
+            approverUserId, BuiltInRbac.PowerUsersTeamId(tenant), RbacPermissions.ProgramManage,
+            draftPath);
+        var reviewerMemberId = RbacIds.Member(tenant,
+            Uuid.Parse(reviewerUserId, CultureInfo.InvariantCulture)).ToString();
+        var approverMemberId = RbacIds.Member(tenant,
+            Uuid.Parse(approverUserId, CultureInfo.InvariantCulture)).ToString();
+        var initialHistory = await ReadOkAsync(author, decisionsPath);
+        Assert.Empty(initialHistory.GetProperty("items").EnumerateArray());
+        const string effectiveFrom = "2026-10-01";
+        const string approvalRationale = "The independent review confirms this control is ready to operate.";
+        var currentPath = $"{controlPath}/current-version";
+        var exactPath = $"{controlPath}/versions/{versionId}";
+        var effectivePath = $"{controlPath}/effective-version?effective_on={effectiveFrom}";
+
+        if (!activationEnabled)
+        {
+            // Act: this placeholder only reaches the release gate; it is not an accepted review.
+            using var refused = await approver.PostAsJsonAsync($"{draftPath}/approvals", new
+            {
+                expected_revision = 1,
+                accepted_review_decision_id = Guid.NewGuid(),
+                effective_from = effectiveFrom,
+                rationale = approvalRationale,
+            });
+
+            // Assert
+            Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+            Assert.Contains(
+                "Control review and activation are unavailable until all active event readers are upgraded.",
+                await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            Assert.Equal(initialHistory.GetRawText(),
+                (await ReadOkAsync(author, decisionsPath)).GetRawText());
+            Assert.Empty((await ReadOkAsync(author, $"{controlPath}/versions"))
+                .GetProperty("items").EnumerateArray());
+            foreach (var path in new[] { currentPath, exactPath, effectivePath })
+            {
+                using var absent = await author.GetAsync(path);
+                Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
+            }
+            Assert.Equal(original.GetRawText(),
+                (await WaitForRevisionAsync(author, draftPath, 1)).GetRawText());
+            Assert.Equal(owner.GetRawText(),
+                (await ReadOkAsync(author, $"{draftPath}/owner-person")).GetRawText());
+            return;
+        }
+
+        // Act
+        const string reviewRationale = "The monthly review and retained access listing are complete.";
+        var reviewStartedAt = DateTimeOffset.UtcNow;
+        using var reviewed = await reviewer.PostAsJsonAsync($"{draftPath}/reviews", new
+        {
+            expected_revision = 1,
+            outcome = "accept",
+            rationale = reviewRationale,
+        });
+        var reviewCompletedAt = DateTimeOffset.UtcNow;
+        Assert.Equal(HttpStatusCode.NoContent, reviewed.StatusCode);
+        var reviewDecision = Assert.Single((await ReadOkAsync(author, decisionsPath))
+            .GetProperty("items").EnumerateArray());
+        AssertDecision(reviewDecision, "review", "accept", reviewerMemberId, reviewerEmail, reviewRationale,
+            reviewStartedAt, reviewCompletedAt);
+        var reviewId = reviewDecision.GetProperty("decision_id").GetGuid();
+        var approvalStartedAt = DateTimeOffset.UtcNow;
+        using var approved = await approver.PostAsJsonAsync($"{draftPath}/approvals", new
+        {
+            expected_revision = 1,
+            accepted_review_decision_id = reviewId,
+            effective_from = effectiveFrom,
+            rationale = approvalRationale,
+        });
+        var approvalCompletedAt = DateTimeOffset.UtcNow;
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NoContent, approved.StatusCode);
+        var publication = await ReadOkAsync(author, currentPath);
+        Assert.Equal(tenantId, publication.GetProperty("tenant_id").GetGuid());
+        Assert.Equal(programId, publication.GetProperty("program_id").GetGuid());
+        Assert.Equal(controlId, publication.GetProperty("control_id").GetGuid());
+        Assert.Equal("AC-PUBLICATION-01", publication.GetProperty("identifier").GetString());
+        Assert.Equal(versionId, publication.GetProperty("version_id").GetGuid());
+        Assert.Equal(1, publication.GetProperty("revision").GetInt32());
+        Assert.Equal("approved", publication.GetProperty("status").GetString());
+        Assert.Equal("verified_person", publication.GetProperty("owner_resolution").GetString());
+        Assert.Equal(personId, publication.GetProperty("owner_person_id").GetGuid());
+        Assert.Equal(Guid.Empty, publication.GetProperty("owner_member_id").GetGuid());
+        Assert.Equal(designationId, publication.GetProperty("owner_assignment_id").GetGuid());
+        Assert.Equal(original.GetProperty("content").GetRawText(),
+            publication.GetProperty("content").GetRawText());
+        var content = publication.GetProperty("content");
+        Assert.Equal("Review access monthly", content.GetProperty("title").GetString());
+        Assert.Equal("Ensure access is reviewed", content.GetProperty("objective").GetString());
+        Assert.Equal("People with privileged access are reviewed.",
+            content.GetProperty("description").GetString());
+        Assert.Equal("The security lead reviews the access listing.",
+            content.GetProperty("implementation_narrative").GetString());
+        Assert.Collection(content.GetProperty("expected_evidence_descriptions").EnumerateArray(),
+            item => Assert.Equal("Review record", item.GetString()),
+            item => Assert.Equal("Access listing", item.GetString()));
+        Assert.Equal(effectiveFrom, publication.GetProperty("effective_from").GetString());
+        Assert.Equal(JsonValueKind.Null, publication.GetProperty("effective_until").ValueKind);
+        Assert.Equal(JsonValueKind.Null, publication.GetProperty("predecessor_version_id").ValueKind);
+        Assert.Equal(reviewId, publication.GetProperty("accepted_review_decision_id").GetGuid());
+        var approvalId = publication.GetProperty("approval_decision_id").GetGuid();
+        Assert.NotEqual(Guid.Empty, approvalId);
+        Assert.NotEqual(reviewId, approvalId);
+        Assert.Equal("member", publication.GetProperty("approved_by").GetProperty("kind").GetString());
+        Assert.Equal(approverMemberId, publication.GetProperty("approved_by").GetProperty("id").GetString());
+        Assert.Equal(approverEmail, publication.GetProperty("approved_by").GetProperty("display").GetString());
+        Assert.Equal(approvalRationale, publication.GetProperty("approval_rationale").GetString());
+        Assert.InRange(publication.GetProperty("approved_at").GetDateTimeOffset(),
+            approvalStartedAt, approvalCompletedAt);
+        var history = await ReadOkAsync(author, decisionsPath);
+        var decisions = history.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(2, decisions.Length);
+        Assert.Equal(reviewDecision.GetRawText(), decisions[0].GetRawText());
+        var approvalDecision = decisions[1];
+        AssertDecision(approvalDecision, "approval", "approve", approverMemberId, approverEmail, approvalRationale,
+            approvalStartedAt, approvalCompletedAt);
+        Assert.Equal(approvalId, approvalDecision.GetProperty("decision_id").GetGuid());
+        Assert.Equal(reviewId, approvalDecision.GetProperty("relies_on_decision_id").GetGuid());
+        Assert.Equal(publication.GetProperty("approved_by").GetRawText(),
+            approvalDecision.GetProperty("actor").GetRawText());
+        Assert.Equal(publication.GetProperty("approved_at").GetDateTimeOffset(),
+            approvalDecision.GetProperty("decided_at").GetDateTimeOffset());
+        await AssertPublicationUnchangedAsync();
+        Assert.Equal(publication.GetRawText(),
+            (await ReadOkAsync(reviewer, effectivePath)).GetRawText());
+        using var beforeStart = await author.GetAsync(
+            $"{controlPath}/effective-version?effective_on=2026-09-30");
+        Assert.Equal(HttpStatusCode.NotFound, beforeStart.StatusCode);
+
+        using var edit = await author.PutAsJsonAsync(draftPath, new
+        {
+            expected_revision = 1,
+            content = Content("Attempt to rewrite the approved control"),
+        });
+        Assert.Equal(HttpStatusCode.Conflict, edit.StatusCode);
+        Assert.Contains("The approved control version is immutable. Propose a successor draft.",
+            await edit.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await AssertPublicationUnchangedAsync();
+        foreach (var path in new[] { currentPath, exactPath, effectivePath })
+        {
+            using var denied = await outsider.GetAsync(path);
+            Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+        }
+        await AssertPublicationUnchangedAsync();
+
+        async Task<(string UserId, string Email)> InvitePersonalMemberAsync(HttpClient client, string role)
+        {
+            var email = $"control-publication-{role}-{Guid.NewGuid():N}@example.com";
+            using var invited = await author.PostAsJsonAsync($"{tenantPath}/member-invitations", new
+            {
+                email_address = email,
+                built_in_role = BuiltInRbac.ComplianceManagementRole,
+            });
+            Assert.Equal(HttpStatusCode.NoContent, invited.StatusCode);
+            var token = await TenantInvitationE2ETests.WaitForInvitationDeliveryReadyAsync(factory,
+                tenant, email);
+            var userId = await TenantInvitationE2ETests.LoginAsync(client, email);
+            await TenantInvitationE2ETests.VerifyEmailAsync(factory, client, userId, email);
+            using var accepted = await client.PostAsJsonAsync($"{tenantPath}/invitations/acceptance",
+                new { email_address = email, token });
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+            return (userId, email);
+        }
+
+        static async Task<JsonElement> ReadOkAsync(HttpClient client, string path)
+        {
+            using var response = await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return await ReadAsync(response);
+        }
+
+        void AssertDecision(JsonElement decision, string kind, string outcome, string memberId,
+            string display, string rationale, DateTimeOffset startedAt, DateTimeOffset completedAt)
+        {
+            Assert.Equal(tenantId, decision.GetProperty("tenant_id").GetGuid());
+            Assert.Equal(programId, decision.GetProperty("program_id").GetGuid());
+            Assert.Equal(controlId, decision.GetProperty("control_id").GetGuid());
+            Assert.NotEqual(Guid.Empty, decision.GetProperty("decision_id").GetGuid());
+            Assert.Equal(versionId, decision.GetProperty("version_id").GetGuid());
+            Assert.Equal(1, decision.GetProperty("revision").GetInt32());
+            Assert.Equal(kind, decision.GetProperty("kind").GetString());
+            Assert.Equal(outcome, decision.GetProperty("outcome").GetString());
+            Assert.Equal(rationale, decision.GetProperty("rationale").GetString());
+            Assert.Equal("member", decision.GetProperty("actor").GetProperty("kind").GetString());
+            Assert.Equal(memberId, decision.GetProperty("actor").GetProperty("id").GetString());
+            Assert.Equal(display, decision.GetProperty("actor").GetProperty("display").GetString());
+            Assert.InRange(decision.GetProperty("decided_at").GetDateTimeOffset(), startedAt, completedAt);
+        }
+
+        async Task AssertPublicationUnchangedAsync()
+        {
+            foreach (var path in new[] { currentPath, exactPath, effectivePath })
+                Assert.Equal(publication.GetRawText(), (await ReadOkAsync(author, path)).GetRawText());
+            Assert.Equal(history.GetRawText(), (await ReadOkAsync(author, decisionsPath)).GetRawText());
+        }
+    }
+
     [Fact]
     public async Task ShouldRetainIndependentReviewHistoryGivenConfiguredPersonalHttpDraftJourney()
     {
