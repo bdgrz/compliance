@@ -1,12 +1,13 @@
 # Autonomous delivery cycle
 
-Status: adopted for backlog triage on 2026-09-28, reconciled with accepted
-product direction on 2026-10-04. The [GitHub Project](https://github.com/orgs/bdgrz/projects/1)
-and issue bodies hold live priorities, dependencies, queues, and completion;
-this document defines exits and the execution rules that keep that state useful.
-The [product brief](product-brief.md) defines business outcomes, and
-[triage](triage.md) records their dependency rationale rather than a live work
-queue.
+Status: adopted 2026-09-28; execution policy reconciled 2026-10-11.
+[Project 2 — Incremental product delivery](https://github.com/orgs/bdgrz/projects/2)
+and linked issues hold current sprint scope, dependencies and acceptance.
+[Legacy Project 1](https://github.com/orgs/bdgrz/projects/1) preserves the broader
+backlog and its acceptance; it is not the active execution queue. The
+[product brief](product-brief.md) and [triage](triage.md) retain product direction
+and dependency rationale. [Sprint planning](sprint-planning.md) defines the
+current commitments, forecasts and measurement baseline.
 
 ## Milestone exits
 
@@ -69,44 +70,53 @@ the IDs do not create a new live milestone. The complete manual SOC 2 workflow
 has its product acceptance gates, while paid SaaS has its additional commercial
 gates. Free self-hosted use does not require a hosted billing workflow.
 
-## Project fields
+## Project fields and selection
 
-Every open issue belongs to the project and has a priority and one **Delivery queue** value:
+Project 2 separates **Level** (Epic, Story or Task), **Commitment** (Committed,
+Stretch, Forecast or Unscheduled), **Readiness**, relative **Size**, and remaining
+work **Mix**. The field meanings are defined in [sprint planning](sprint-planning.md#fields-and-sizing). Status is Todo, In Progress or Done; Sprint and Order express the
+current sequence. A date or high priority does not make an item ready.
 
-| Queue | Meaning | Selection rule |
-| --- | --- | --- |
-| Active | An independent capability bundle is being implemented or verified in its own branch/worktree. Multiple bundles may be Active concurrently. | Keep each lane isolated; start another Ready bundle when a lane has capacity and its dependencies are closed. |
-| Ready | An implementation issue with known inputs and no open prerequisite. | Select the lowest Run order when a lane opens. |
-| Blocked | An implementation issue waiting on a named upstream issue or external platform capability. | Move to Ready only after checking the actual dependency and remaining acceptance. |
-| Later | Approved future-stage backend work or frontend work parked during the backend-first pass. | Re-triage when its consuming workflow enters the near horizon. |
-| Discovery | A real-world fact, professional decision, measurement, or unvalidated P2 hypothesis. | Record who or what supplies the evidence; do not treat it as implementation-ready. |
-| Outcome | Product or enabler parent that tracks the complete user outcome across owning repositories. | Keep open until its children are complete; end-to-end validation belongs to a later phase. |
+- A story describes one observable user outcome. Its tasks may belong to separate repositories; tasks and epics do not count as completed stories.
+- **Ready** means acceptance and inputs are known, dependencies are accepted, and one small first task can be selected. **Sequenced** names a predecessor that must finish first. Needs refinement and blocked items retain their exact missing scope or input; they cannot fill an active slot or ready stretch slot.
+- Committed stories define the selected sprint scope. Stretch can be promoted only after every original commitment is accepted. Forecasts remain conditional and can move after refinement; no unfinished item carries over automatically.
+- Backend, web and native clients own their code and tests. Link API gaps and client consumers; keep one owning repository per PR. Working implementation needs acceptance evidence rather than rebuilding.
 
-**Status** is Todo, In Progress, or Done. Every Active capability is In Progress; other queues remain Todo until their work starts. **Run order** is a short, dependency-aware launch order sized to keep available lanes fed, not a fixed roadmap; update it after each merge or material discovery. Priority is urgency for the product release, not permission to bypass a blocker.
+## One bounded delivery loop
 
-## One delivery loop
+1. Read the live issue, direct dependencies, relevant acceptance evidence, open PRs and checkout state. Keep one clean checkout per repository and WIP = 1 across backend and clients. Preserve unrelated local work; do not create worktrees or additional implementation lanes.
+2. Architect, coder and reviewer work sequentially on the same bounded task. Before In Progress, record the observable gap, owning issue/repository, allowed files and change, exclusions, direct dependencies, focused acceptance check and stopping point. Read only the contracts, files and tests needed for that brief.
+3. Cap discovery at 20 minutes. A second workflow, another repository, unplanned contract change, unrelated refactor or unresolved scope requires a stop and re-scope before implementation. Record unrelated findings in the backlog. A dependency gates only the acceptance it directly blocks; do not follow its entire epic.
+4. For a behavior change, write and run a focused failing unit test, make the smallest change that passes it, then run the owning repository's full unit suite and applicable format/build checks. Evidence-only or documentation tasks do not manufacture a failing test. Check their actual evidence, links and consistency instead. Personal proofs, decisions and sign-offs retain their existing HTTP-only rules.
+5. Open one focused PR. Review the immutable head for contract, authority, tenant isolation, replay and failure gaps. Resolve findings, rerun affected checks and repeat review after changes. Require hosted CI on the final head, then squash merge and read back the merged commit and issue acceptance.
+6. Close only proved acceptance; leave remaining gaps explicit. Update the story and project fields, stop at the task boundary, and hand off in at most 10 lines: outcome, commit, evidence, remaining acceptance and next action. Select the next ready task only after that readback.
 
-1. Refresh the issue, its dependencies and comments, open PRs, the current branch, and the project fields. Preserve unrelated worktrees and uncommitted changes. Give each Active lane its own branch/worktree. If a dependency is already closed, inspect its acceptance evidence before removing the edge.
-2. Fill available lanes from Ready in Run order. Before coding, state each bundle's user or operator outcome, exact acceptance, upstream contract, non-goals, and every existing child the PR can close. Keep related backend, web, iOS, and Android issues under the same product outcome when they share a contract, but deliver code through separate PRs in each owning repository. If an issue only describes a test or technical layer, fold its proof into the owning capability issue. Split an issue only to break a real dependency cycle or make an independently useful result closable.
-3. Follow the same TDD loop in backend and client repositories: write a focused failing unit test for the behavior, implement the smallest change, and get that test green. Personal proofs, attestations, approvals, and sign-offs remain HTTP-only.
-4. Run the focused test and full unit-test suite before opening a PR. Adversarially review the exact PR head, refine or refactor in response to findings, and rerun the focused test and unit-test suite. Require repository CI on the final head before squash merge. End-to-end validation is deferred until backend and frontend features work independently.
-5. Read back each merged commit and every linked issue. Close only acceptance that actually passed. Record remaining gaps on partial issues, update the product parent if the integrated outcome advanced, move completed project items to Done, and refill open lanes from the next unblocked Ready items.
+Ordinary issue/topic PRs target the owning repository's `develop` and deliver a
+functional slice or keep unfinished behavior behind a default-off flag. A flag
+does not bypass authorization or count as a completed user outcome. A genuinely
+multi-story feature may use `feat/<feature>` only after fixing its included
+stories, acceptance and exit; review/check both child PRs and the final feature
+PR. Sprints need no branches or aggregate PRs.
 
-Jev can classify issue shape, spot likely blockers, and challenge a proposed bundle. Its probabilities are triage signals. GitHub issue state, product decisions, code, tests, and exact-head CI determine closure and readiness. Recheck Jev disagreements against those sources; do not turn a model judgment into an automatic issue closure.
+Current backend/client acceptance uses focused and full unit evidence. A directly
+required configured integration check can supplement that evidence, as with
+actual delivered-invitation acceptance. Broad browser/E2E, native-client and
+release validation remain separately scoped; do not silently make them gates
+for unrelated implementation or count them as completed.
 
-### Jev-assisted triage
+## Jev-assisted decisions
 
-`scripts/backlog-jev.mjs` runs these judgments over the live backlog. The script owns the dependency graph, thresholds, and ranking; Jev answers only the semantic questions. It reads GitHub and never edits it. Load the TypeSafe key only into the command's environment:
+Use TypeSafe System One's Jev model for bounded triage, criteria and PR-preflight
+questions when it can resolve scope or ordering quickly. Supply the actual issue,
+accepted decisions and relevant evidence. Load the API key only into the command
+environment from `~/.config/typesafe/jev.key`; never print it or copy it to a file.
 
-```sh
-TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs triage --milestone R1
-TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs criteria 209 211
-TYPESAFE_API_KEY="$(tr -d '[:space:]' < ~/.config/typesafe/jev.key)" node scripts/backlog-jev.mjs preflight 437
-```
+The former `scripts/backlog-jev.mjs` wrapper is absent from this repository.
+Use the direct API workflow rather than documenting commands that cannot run;
+do not rebuild tooling inside a feature task. Jev does not mutate GitHub. Record
+decisions and dependencies with `gh` and read them back.
 
-- Run `triage` in step 5 after each merge. It reports Blocked issues whose recorded blockers are all closed, a Ready ranking by release value and downstream fanout, issues to split before starting, possibly satisfied issues, bundle candidates, parents whose children are all closed, and whether Discovery issues block the manual path.
-- Promote to Ready only when every recorded blocker is closed and the unrecorded-blocker probability is below 0.5. At 0.5 or above, read the cited text and either record the missing dependency or clear the flag.
-- Split an issue before starting it when Jev classifies it `split_needed` with confidence of at least 0.7. Each part must be independently closable.
-- Before closing an issue, or when it has absorbed partial PRs, run `criteria`. It extracts acceptance criteria from the issue body and judges each against merged PR descriptions and progress comments. Use its remaining list for the gap comment or the split; a `close candidate` verdict still requires reading the linked evidence.
-- Before opening a PR, run `preflight <issue>` on the branch. Path rules identify relevant repository checks; Jev's test judgments are review signals and never expand the current fast loop beyond focused and full unit tests. For each acceptance criterion, preflight names the one changed unit test that proves it, or `none`; read each match before relying on it. A `none` on a compound criterion that several tests prove together is expected; a `none` on a single claim is a coverage gap to close before pushing. It also flags changed files that may not serve the issue; confirm a flag before moving work out, because borderline files can change verdict between runs.
-- When a UI needs data or an action the API lacks, run `api-gap "<need> :: <current client workaround>"` instead of building a lasting client-side workaround. Jev names the owning operation, judges from its real response fields whether it already serves the need, and recommends whether an idiomatic REST API should add a subresource collection, query filter, representation field, or command. Record each recommended change as a backend issue with the evidence; keep a client workaround only until that issue lands.
+Jev probabilities are advisory review signals. GitHub issues, accepted product
+decisions, code, tests, independent review and exact-head CI govern readiness
+and closure. Inspect disagreements against those sources. A model confidence
+threshold does not authorize closure, a new dependency chain or expanded scope.

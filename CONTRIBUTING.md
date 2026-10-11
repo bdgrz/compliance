@@ -7,6 +7,12 @@ chore branches from `develop`, then open pull requests back to `develop`. Do not
 push directly to `develop` or `main`. Merge topic branches into `develop` with
 a squash merge after the required checks pass.
 
+Ordinary PRs deliver one functional slice or keep unfinished behavior behind a
+default-off flag. Sprints do not need branches. A genuinely multi-story feature
+may use a short-lived `feat/<feature>` branch only with fixed included stories,
+acceptance and exit; its child PRs and final PR to `develop` each require review
+and final-head checks. Keep WIP = 1 throughout.
+
 `main` is the release branch. Promote only by opening a pull request from this
 repository's `develop` branch to `main`. The promotion must pass the regular
 validation, dependency review, and native AMD64 and ARM64 container checks. Use
@@ -21,56 +27,53 @@ builds. Pushes to `main` and manual CI dispatch also run the native matrix.
 
 ## Change workflow
 
-Use the [delivery cycle](docs/product/delivery-cycle.md) and the GitHub Project
-delivery queue to select the next capability. Milestones describe product
-outcomes; the queue describes whether an issue can be worked now. Keep one
-capability bundle active at a time. An issue marked P0 is not automatically
-ready when an upstream implementation or external decision remains open.
+Use [Project 2](https://github.com/orgs/bdgrz/projects/2), the
+[delivery cycle](docs/product/delivery-cycle.md) and
+[sprint planning](docs/product/sprint-planning.md) to select work. Stories carry
+user outcomes; epics retain broader acceptance and tasks carry bounded gaps.
+Ready means known scope and accepted prerequisites; Sequenced waits for its
+named predecessor. High priority or a sprint date does not bypass readiness.
 
-Create one outcome issue for a new validated product need. Add a child only when
-it has independent acceptance, a useful review boundary, and a reason to close
-separately. Existing backend and frontend children remain valid acceptance
-records; a reviewable capability PR may satisfy several of them. Do not create
-one PR per technical layer or per test. Do not create delivery children for an
-unvalidated P2 hypothesis. A product parent tracks the complete API-to-UI
-outcome; backend and frontend children can close independently when their own
-behavior and unit tests are complete. End-to-end validation is deferred to a
-later phase and does not block current child PRs. A backend dependency points
-to the upstream backend capability, not an open product parent waiting for UI.
-A frontend issue depends on the contracts it consumes and the accepted
-accessibility/browser behavior baseline.
+Keep one clean checkout per repository, WIP = 1 across backend and clients, and
+architect → coder → reviewer sequential. Preserve unrelated dirty work; do not
+create worktrees or concurrent implementation lanes. Before In Progress, record
+the observable gap, owner/repository, allowed change, exclusions, direct
+dependencies, focused check and stopping point. Cap discovery at 20 minutes.
+Another workflow/repository, unplanned contract change, unrelated refactor or
+unknown scope requires a stop and re-scope.
 
-Close a backend child only after linking its merged PR, focused and full unit
-test results, and exact-head CI checks. A previously merged PR can satisfy part
-of a child's criteria, but record the remaining gaps explicitly. Client issues
-are completed in their owning web or mobile repositories after their contract,
-accessible workflow, required UI states, and unit-test results are evidenced.
-Both backend and frontend feature acceptance uses focused and full unit tests
-in this phase. End-to-end validation is deferred until features work
-independently. Clients consume backend contracts; they do not redefine
-authorization or domain policy.
+Create a child task only for a confirmed gap with useful independent acceptance
+and a focused PR boundary. Reuse working code and existing evidence. Backend
+API behavior and client implementation use separate owning repositories and
+PRs; clients consume contracts and do not redefine authorization or domain
+policy. Backend dependencies identify the actual upstream capability rather
+than a product parent waiting on client acceptance.
 
-1. Take the lowest Run order item marked Ready, move its capability bundle to Active, and open a branch for that reviewable backend outcome. Link related client issues in their separate repositories; do not combine cross-repository code in one PR. Keep domain code within the ownership boundaries documented in `README.md`.
-2. Follow the fast TDD loop in both backend and frontend repositories: add a focused failing unit test (red), make the smallest correction that passes it (green), and run the repository's unit-test suite before opening the PR.
-   Name tests `Should<ExpectedBehavior>Given<Condition>` (or `<Method>Should<ExpectedBehavior>Given<Condition>` when the method name adds clarity).
-3. For backend changes, run the focused test through the .NET framework. Its build runs Portia generation, Cntryl.Conventions, and the .NET AOT analyzer with warnings-as-errors, without publishing a native image. For client changes, run the focused unit test through that repository's test runner. Native publish still checks trimming and architecture-specific runtime behavior:
+1. Select the next Ready task in Order, move it In Progress and create an issue/topic branch from `develop`. Keep code inside the owning repository and documented module boundaries.
+2. For a behavior change, add and run a focused failing unit test, make the smallest correction that passes it, and run the owning repository's full unit suite plus applicable format/build checks. Use `Should<ExpectedBehavior>Given<Condition>` names. Evidence-only and documentation tasks do not manufacture RED; verify their actual evidence, links and consistency.
+3. Open a focused PR after those checks pass. Review the immutable head adversarially for contract, authorization, isolation, replay and failure gaps. Address findings, rerun affected checks, and repeat review after changes until clear.
+4. Require CI on the final PR head, squash merge, and read back the merged commit and each linked issue's acceptance. Record contract, security, persistence and operational effects; never commit credentials or weaken production authentication for tests.
+5. Close only proved acceptance, leave explicit gaps on partial stories, update project fields and stop at the task boundary before selecting another task. Keep the handoff to outcome, commit, evidence, remaining acceptance and next action.
 
-   ```console
-   dotnet restore Compliance.slnx --locked-mode # once per dependency change or fresh checkout
-   dotnet test test/Compliance.Tests/Compliance.Tests.csproj --configuration Release --no-restore --filter 'FullyQualifiedName~ShouldRejectChangedCreateGivenExistingProgramAndPreserveReplay&Category!=BrokerIntegration&Category!=WebIntegration'
-   ```
+For backend behavior, the focused .NET test build runs Portia generation,
+Cntryl.Conventions and analyzers with warnings as errors. Current acceptance
+uses focused and full units; directly required configured integration checks
+supplement them. Broad E2E/browser and native-client validation remain separately
+scoped. Native publish checks trimming and architecture-specific runtime
+behavior during release qualification.
 
-   Keep working on the same branch and commit related slices together. Do not push each red/green correction.
+```console
+dotnet restore Compliance.slnx --locked-mode
+dotnet format whitespace Compliance.slnx --verify-no-changes --no-restore
+dotnet build Compliance.slnx --configuration Release --no-restore
+dotnet test Compliance.slnx --configuration Release --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
+```
 
-4. Open a PR after the unit-test suite passes. Adversarially review the exact PR head, then refine or refactor in response to findings. Rerun the focused test and unit-test suite after changes, and repeat review until the final head is clear.
-
-   ```console
-   dotnet test Compliance.slnx --configuration Release --no-restore --filter "Category!=BrokerIntegration&Category!=WebIntegration"
-   ```
-
-5. Squash-merge after exact-head CI and adversarial review pass. This repository's CI is one five-minute job for formatting, build, and backend unit tests. Native AOT images are built by `containers.yml`, not by the feature PR checks.
-6. Explain contract, security, AOT, and operational effects in the pull request. Do not commit credentials or weaken production authentication to simplify a test.
-7. After merge, read back each covered issue against its own acceptance evidence. Close satisfied children, leave explicit gaps on partial children, update the parent only when the integrated outcome is proven, and refresh project queue and Run order before selecting another capability.
+This repository's feature CI checks formatting, build and backend units. Native
+AOT images are built by `containers.yml`; retain the release checks above.
+Client unit/build checks run in their owning repositories. A default-off feature
+flag preserves unfinished behavior without changing authority or proving the
+complete user outcome.
 
 Dependency lock files are part of the change. Keep the tree formatted and warning-free; CI treats analyzer warnings as errors.
 
