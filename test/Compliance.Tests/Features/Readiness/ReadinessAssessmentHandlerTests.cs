@@ -580,7 +580,8 @@ public sealed class ReadinessAssessmentHandlerTests
     public async Task ShouldPreserveOriginalVersionGivenLaterBackdatedLifecycleDecision(bool retire)
     {
         // Arrange
-        var fixture = await Fixture.CreateAsync();
+        var fixture = await Fixture.CreateAsync(
+            effectiveFrom: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-2));
         await fixture.MapAsync("CC6.1", fixture.ReviewedAt.AddMinutes(-10));
         var asOf = fixture.ReviewedAt;
         var before = await fixture.RunAsync(0, asOf);
