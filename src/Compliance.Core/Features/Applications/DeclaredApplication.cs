@@ -14,6 +14,8 @@ public sealed partial class DeclaredApplication : Aggregate
     string? _initialPurpose;
     string? _initialOwnerReference;
     string? _initialClassification;
+    string? _initialApplicationKind;
+    string? _initialCriticality;
     Uuid? _initialSystemOwner;
     Uuid? _initialAccessOwner;
     bool _initialIsRestricted;
@@ -41,6 +43,8 @@ public sealed partial class DeclaredApplication : Aggregate
             _initialPurpose = ev.Purpose;
             _initialOwnerReference = ev.OwnerReference;
             _initialClassification = ev.Classification;
+            _initialApplicationKind = ev.ApplicationKind;
+            _initialCriticality = ev.Criticality;
             _initialSystemOwner = ev.SystemOwnerPersonId;
             _initialAccessOwner = ev.AccessOwnerPersonId;
             _initialIsRestricted = ev.IsRestricted;
@@ -67,10 +71,13 @@ public sealed partial class DeclaredApplication : Aggregate
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt, string? classification = null,
         Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null,
-        bool isRestricted = false)
+        bool isRestricted = false, string? applicationKind = null,
+        string? criticality = null, bool governedDeclarationsEnabled = false)
     {
         var normalizedOwner = NormalizeOptional(ownerReference);
         var normalizedClassification = NormalizeOptional(classification);
+        var normalizedKind = NormalizeOptional(applicationKind);
+        var normalizedCriticality = NormalizeOptional(criticality);
         if (!_created && _pendingImportEffects.Values.Any(ev => ev.Row.Decision == "create_new"))
             return Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Conflict,
                 "The application identity is reserved by an import plan."));
@@ -78,6 +85,8 @@ public sealed partial class DeclaredApplication : Aggregate
             return _initialName == name?.Trim() && _initialPurpose == purpose?.Trim() &&
                    _initialOwnerReference == normalizedOwner &&
                    _initialClassification == normalizedClassification &&
+                   _initialApplicationKind == normalizedKind &&
+                   _initialCriticality == normalizedCriticality &&
                    _initialSystemOwner == systemOwnerPersonId &&
                    _initialAccessOwner == accessOwnerPersonId &&
                    _initialIsRestricted == isRestricted
@@ -87,9 +96,18 @@ public sealed partial class DeclaredApplication : Aggregate
         var validation = Validate(name, purpose, ownerReference, classification);
         if (validation is not null)
             return Result<ApplicationRegistration>.Failure(validation);
+        if (applicationKind is { Length: > 200 } || criticality is { Length: > 200 })
+            return Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
+                "Application kind and criticality cannot exceed 200 characters each."));
+        if (governedDeclarationsEnabled && (normalizedClassification is null ||
+            systemOwnerPersonId is null || systemOwnerPersonId == Uuid.Empty ||
+            accessOwnerPersonId is null || accessOwnerPersonId == Uuid.Empty ||
+            normalizedKind is null || normalizedCriticality is null))
+            return Result<ApplicationRegistration>.Failure(new RequestError(RequestErrorKind.Validation,
+                "An application requires classification, system and access owners, application kind and criticality."));
         RaiseEvent(new ApplicationDeclared(_tenantId, Id, name.Trim(), purpose.Trim(),
             normalizedOwner, actorMemberId, actorDisplay, changedAt, normalizedClassification,
-            systemOwnerPersonId, accessOwnerPersonId, isRestricted)
+            systemOwnerPersonId, accessOwnerPersonId, isRestricted, normalizedKind, normalizedCriticality)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });

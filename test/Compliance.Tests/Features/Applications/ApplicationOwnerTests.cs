@@ -4,6 +4,7 @@ using Bdgrz.Compliance.Features.Workforce;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bdgrz.Compliance.Tests.Features.Applications;
@@ -11,6 +12,136 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationOwnerTests
 {
     static readonly DateTimeOffset Now = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task ShouldRejectIncompleteFreshDeclarationGivenGovernedDeclarationsEnabled()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var applicationId = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, "Payroll", "Run payroll");
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, applicationId),
+            CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(await scenario.ApplicationEventsAsync(applicationId));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    public async Task ShouldAcceptLegacyDeclarationShapeGivenDisabledOrAbsentGate(bool? enabled)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(enabled);
+        var applicationId = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, "Payroll", "Run payroll");
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, applicationId), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var declared = Assert.IsType<ApplicationDeclared>(
+            Assert.Single(await scenario.ApplicationEventsAsync(applicationId)).Event);
+        Assert.Null(declared.ApplicationKind);
+        Assert.Null(declared.Criticality);
+        Assert.Null(declared.SystemOwnerPersonId);
+        Assert.Null(declared.AccessOwnerPersonId);
+    }
+
+    [Fact]
+    public async Task ShouldKeepLegacyRetryIdempotentGivenEnabledDeclarationHandler()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var request = new DeclareApplication(scenario.TenantId, "Existing", "Existing app");
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, scenario.ExistingApplicationId),
+            CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(await scenario.ApplicationEventsAsync(scenario.ExistingApplicationId));
+    }
+
+    [Fact]
+    public async Task ShouldRecordTrimmedCompleteDeclarationGivenSameTenantPersonForBothOwners()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var ownerId = await scenario.RecordPersonAsync("Owner");
+        var applicationId = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, " Payroll ", " Run payroll ",
+            " Attribution ", " internal ", ownerId, ownerId, true, " service ", " critical ");
+        var context = new FixedRequestContext<DeclareApplication>(request, applicationId);
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(context, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        var declared = Assert.IsType<ApplicationDeclared>(
+            Assert.Single(await scenario.ApplicationEventsAsync(applicationId)).Event);
+        Assert.Equal(applicationId, declared.ApplicationId);
+        Assert.Equal(scenario.TenantId, declared.TenantId);
+        Assert.Equal("Payroll", declared.Name);
+        Assert.Equal("Run payroll", declared.Purpose);
+        Assert.Equal("Attribution", declared.OwnerReference);
+        Assert.Equal("internal", declared.Classification);
+        Assert.Equal("service", declared.ApplicationKind);
+        Assert.Equal("critical", declared.Criticality);
+        Assert.Equal(ownerId, declared.SystemOwnerPersonId);
+        Assert.Equal(ownerId, declared.AccessOwnerPersonId);
+        Assert.True(declared.IsRestricted);
+        Assert.Equal(Now, declared.ChangedAt);
+        Assert.Equal(ActorReference.ForMember(declared.ActorMemberId, declared.ActorDisplay),
+            declared.StoredActor);
+    }
+
+    [Theory]
+    [InlineData("missing", false)]
+    [InlineData("missing", true)]
+    [InlineData("foreign", false)]
+    [InlineData("foreign", true)]
+    [InlineData("empty", false)]
+    [InlineData("empty", true)]
+    public async Task ShouldRejectUnrecordedOwnerWithoutAppendGivenEnabledDeclaration(string state,
+        bool invalidAccessOwner)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var validOwner = await scenario.RecordPersonAsync("Owner");
+        var invalidOwner = state == "empty" ? Uuid.Empty : Uuid.CreateVersion4();
+        if (state == "foreign")
+        {
+            var person = new Person(Uuid.CreateVersion4(), invalidOwner);
+            Assert.True(person.Record("Foreign Owner", null,
+                ActorReference.ForMember(Uuid.CreateVersion4(), "Manager"), Now).IsSuccess);
+            await scenario.Writer.SaveAsync(person, new RequestDispatchContext(RequestActor.System),
+                CancellationToken.None);
+        }
+        var applicationId = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, "Payroll", "Run payroll",
+            Classification: "internal", SystemOwnerPersonId: invalidAccessOwner ? validOwner : invalidOwner,
+            AccessOwnerPersonId: invalidAccessOwner ? invalidOwner : validOwner,
+            ApplicationKind: "service", Criticality: "critical");
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, applicationId), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, Assert.IsType<RequestError>(result.Error).Kind);
+        Assert.Empty(await scenario.ApplicationEventsAsync(applicationId));
+    }
 
     [Fact]
     public void ShouldReplayOnlyIdenticalOwnersGivenDeclaredApplication()
@@ -189,15 +320,23 @@ public sealed class ApplicationOwnerTests
         public IAggregateExecutor Executor => _scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
         IEventStore Events => _scope.ServiceProvider.GetRequiredService<IEventStore>();
         public DeclareApplicationHandler DeclareHandler =>
-            new(Executor, Reader, TimeProvider.System);
+            ActivatorUtilities.CreateInstance<DeclareApplicationHandler>(_scope.ServiceProvider);
         public ReviseApplicationHandler ReviseHandler =>
             new(Executor, Reader, TimeProvider.System);
 
-        public static async Task<Scenario> CreateAsync()
+        public static async Task<Scenario> CreateAsync(bool? governedDeclarationsEnabled = null)
         {
             var services = new ServiceCollection();
+            services.AddCompliance(new ConfigurationBuilder().AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
+                    ["Fitz:ApplicationName"] = "compliance",
+                    ["Compliance:Applications:GovernedDeclarationsEnabled"] =
+                        governedDeclarationsEnabled?.ToString(),
+                }).Build(), developerAuthentication: true);
             services.AddSingleton<IEventStore>(new InMemoryEventStore());
-            services.AddPortia();
+            services.AddSingleton<TimeProvider>(new FixedClock());
             var existingId = Uuid.CreateVersion4();
             var scenario = new Scenario(services.BuildServiceProvider(
                     new ServiceProviderOptions { ValidateScopes = true }), Uuid.CreateVersion4(),
@@ -243,6 +382,11 @@ public sealed class ApplicationOwnerTests
             await _scope.DisposeAsync();
             await _provider.DisposeAsync();
         }
+    }
+
+    sealed class FixedClock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     sealed class FixedRequestContext<TRequest>(TRequest request, Uuid requestId)

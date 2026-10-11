@@ -9,7 +9,8 @@ public sealed record ApplicationDeclared(Uuid TenantId, Uuid ApplicationId,
     string Name, string Purpose, string? OwnerReference,
     Uuid ActorMemberId, string ActorDisplay, DateTimeOffset ChangedAt,
     string? Classification = null, Uuid? SystemOwnerPersonId = null,
-    Uuid? AccessOwnerPersonId = null, bool IsRestricted = false) : DomainEvent
+    Uuid? AccessOwnerPersonId = null, bool IsRestricted = false,
+    string? ApplicationKind = null, string? Criticality = null) : DomainEvent
 {
     [JsonPropertyName("actor")]
     public ActorReference? StoredActor { get; init; }
