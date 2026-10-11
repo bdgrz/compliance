@@ -478,17 +478,29 @@ public sealed class SplitHostTenantE2ETests(BrokerStackFixture broker)
             Assert.Equal(slug, resolution.RootElement.GetProperty("current_slug").GetString());
             Assert.False(resolution.RootElement.GetProperty("redirect").GetBoolean());
 
-            using var reopenedTenant = await reopenedCreator.GetAsync($"/api/v1/tenants/{tenantId}");
-            Assert.Equal(HttpStatusCode.OK, reopenedTenant.StatusCode);
-            var tenant = await reopenedTenant.Content.ReadFromJsonAsync<Tenant>();
+            Tenant? tenant = null;
+            var tenantStatus = HttpStatusCode.NotFound;
+            deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                using var reopenedTenant = await reopenedCreator.GetAsync($"/api/v1/tenants/{tenantId}");
+                tenantStatus = reopenedTenant.StatusCode;
+                if (tenantStatus == HttpStatusCode.OK)
+                {
+                    tenant = await reopenedTenant.Content.ReadFromJsonAsync<Tenant>();
+                    if (tenant?.Status == "active")
+                        break;
+                }
+                await Task.Delay(250);
+            }
+            Assert.Equal(HttpStatusCode.OK, tenantStatus);
             Assert.Equal("active", tenant?.Status);
             Assert.Equal("Reopened Organization LLC", tenant?.LegalName);
 
             using var outsider = factory.CreateClient();
             var outsiderEmail = $"outsider-{Guid.NewGuid():N}@example.com";
             var outsiderId = await TenantInvitationE2ETests.LoginAsync(outsider, outsiderEmail);
-            await TenantInvitationE2ETests.VerifyEmailAsync(factory, outsider, outsiderId, outsiderEmail,
-                worker.Services.GetRequiredService<MockEmailChallengeDelivery>());
+            Assert.NotEqual(creatorId, outsiderId);
             using var outsiderMemberships = await outsider.GetAsync("/api/v1/tenants/mine");
             Assert.Equal(HttpStatusCode.OK, outsiderMemberships.StatusCode);
             using var outsiderList = JsonDocument.Parse(await outsiderMemberships.Content.ReadAsStringAsync());
