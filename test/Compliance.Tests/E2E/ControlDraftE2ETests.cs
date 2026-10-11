@@ -94,6 +94,14 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
             $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/controls/{controlId}/draft");
         using var otherTenantHistory = await owner.GetAsync(
             $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/controls/{controlId}/draft/revisions");
+        using var otherTenantRevise = await owner.PutAsJsonAsync(
+            $"/api/v1/tenants/{otherTenant.TenantId}/programs/{otherTenant.ProgramId}/controls/{controlId}/draft",
+            new
+            {
+                expected_revision = 2,
+                content = Content("Cross-organization edit"),
+            });
+        var afterOtherTenantRevise = await WaitForRevisionAsync(owner, draftPath, 2);
         using var oversized = await owner.PostAsJsonAsync(path, new
         {
             identifier = "OVERSIZED-01",
@@ -154,6 +162,18 @@ public sealed class ControlDraftE2ETests(BrokerStackFixture broker)
         Assert.Equal(HttpStatusCode.NotFound, otherProgram.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherTenantRead.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, otherTenantHistory.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, otherTenantRevise.StatusCode);
+        Assert.Equal(2, afterOtherTenantRevise.GetProperty("revision").GetInt32());
+        var unchangedContent = afterOtherTenantRevise.GetProperty("content");
+        Assert.Equal("Review access monthly", unchangedContent.GetProperty("title").GetString());
+        Assert.Equal("Ensure access is reviewed", unchangedContent.GetProperty("objective").GetString());
+        Assert.Equal("People with privileged access are reviewed.",
+            unchangedContent.GetProperty("description").GetString());
+        Assert.Equal("The security lead reviews the access listing.",
+            unchangedContent.GetProperty("implementation_narrative").GetString());
+        Assert.Equal(["Review record", "Access listing"],
+            unchangedContent.GetProperty("expected_evidence_descriptions").EnumerateArray()
+                .Select(item => item.GetString()));
         Assert.Equal(HttpStatusCode.BadRequest, oversized.StatusCode);
         Assert.Equal(2, controlEvents.Count);
         await using (var mcp = await McpScenario.ConnectAsync(owner,
