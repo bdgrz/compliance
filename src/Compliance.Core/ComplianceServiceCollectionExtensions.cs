@@ -693,6 +693,7 @@ public static class ComplianceServiceCollectionExtensions
             .AddRequestHandler<ReviseControlDraftHandler>()
             .AddRequestHandler<DiscardControlDraftHandler>()
             .AddRequestHandler<GetControlDraftHandler>()
+            .AddRequestHandler<GetControlDraftOwnerPersonHandler>()
             .AddRequestHandler<ListControlDraftsHandler>()
             .AddRequestHandler<ListControlDraftRevisionsHandler>()
             .AddRequestHandler<GetControlDraftRevisionHandler>()
