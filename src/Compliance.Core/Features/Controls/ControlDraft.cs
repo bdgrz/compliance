@@ -41,6 +41,7 @@ public sealed class ControlDraft : Aggregate
     readonly Dictionary<ResponsibilityScope, ResponsibilitySet> _responsibilitySets = [];
     readonly Dictionary<ResponsibilityScope, List<ResponsibilityDecisionFact>> _responsibilityDecisions = [];
     readonly Dictionary<ResponsibilityScope, ControlPersonOwner> _personOwners = [];
+    readonly Dictionary<ResponsibilityScope, ControlPersonOwnerDesignationView> _personOwnerDesignations = [];
 
     public bool IsCreated => _created;
     public Uuid TenantId => _tenantId;
@@ -210,10 +211,17 @@ public sealed class ControlDraft : Aggregate
         {
             var scope = Scope(ev.VersionId, ev.Revision);
             if (ev.PersonId is { } personId)
+            {
                 _personOwners[scope] = new ControlPersonOwner(personId, ev.CorrelatedMemberId,
                     ev.DesignationId);
+                _personOwnerDesignations[scope] = new ControlPersonOwnerDesignationView(personId,
+                    ev.DesignationId, ev.Rationale, ev.Actor, ev.DesignatedAt);
+            }
             else
+            {
                 _personOwners.Remove(scope);
+                _personOwnerDesignations.Remove(scope);
+            }
         });
         On<ControlProposalWithdrawn>(ev =>
         {
@@ -251,6 +259,13 @@ public sealed class ControlDraft : Aggregate
         HasOpenDraft && _personOwners.TryGetValue(Scope(_draftVersionId!.Value, _revision),
             out var owner)
             ? owner
+            : null;
+
+    /// <summary>The recorded designation metadata of the exact open draft version and revision.</summary>
+    public ControlPersonOwnerDesignationView? CurrentPersonOwnerDesignation =>
+        HasOpenDraft && _personOwnerDesignations.TryGetValue(
+            Scope(_draftVersionId!.Value, _revision), out var designation)
+            ? designation
             : null;
 
     /// <summary>

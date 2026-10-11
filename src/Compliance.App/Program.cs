@@ -802,6 +802,10 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/owner-person")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Controls");
+    app.MapPortiaGet<GetControlDraftOwnerPerson, ControlDraftOwnerPersonView>(
+            "/api/v1/tenants/{tenant_id}/programs/{program_id}/controls/{control_id}/draft/owner-person")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Controls");
     // Criterion applicability decisions are human decisions; writes stay HTTP-only.
     app.MapPortiaPost<ProposeCriterionNotApplicable, CriterionApplicabilityRegistration>(
             "/api/v1/tenants/{tenant_id}/programs/{program_id}/criterion-applicability")
