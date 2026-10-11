@@ -1,16 +1,22 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Security;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Boundaries;
+using Bdgrz.Compliance.Features.Controls;
 using Bdgrz.Compliance.Features.Tenants;
+using Bdgrz.Compliance.Features.UserIdentities;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using LoopbackSmtpInbox = Bdgrz.Compliance.Tests.Features.Tenants.SmtpTenantInvitationDeliveryTests.LoopbackSmtpInbox;
 
 namespace Bdgrz.Compliance.Tests.E2E;
 
@@ -19,6 +25,165 @@ namespace Bdgrz.Compliance.Tests.E2E;
 public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
     : IClassFixture<BrokerStackFixture>
 {
+    [Fact]
+    public async Task ShouldApplyExplicitFirstControlAuthorityGivenPersonallyAcceptedDeliveredLeadInvitation()
+    {
+        // Arrange
+        await using var inbox = new LoopbackSmtpInbox(connectionCount: 1, lifetime: TimeSpan.FromMinutes(3));
+        var tokenKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+#pragma warning disable SYSLIB0014
+        var previousValidation = ServicePointManager.ServerCertificateValidationCallback;
+        ServicePointManager.ServerCertificateValidationCallback = (_, certificate, _, errors) =>
+            certificate is not null
+            && errors is SslPolicyErrors.None or SslPolicyErrors.RemoteCertificateChainErrors
+            && certificate.GetRawCertData().AsSpan().SequenceEqual(inbox.Certificate.RawData);
+#pragma warning restore SYSLIB0014
+        try
+        {
+            // This nonparallel broker collection owns the callback until the standalone
+            // host and its delivery worker stop. Only identity verification is mocked.
+            await using var factory = E2EAppFactory.Create(broker).WithWebHostBuilder(host =>
+            {
+                host.UseSetting("COMPLIANCE_HOST_MODE", "standalone");
+                host.UseSetting("Compliance:EmailDelivery:Mode", "smtp");
+                host.UseSetting("Compliance:EmailDelivery:Smtp:Host", "127.0.0.1");
+                host.UseSetting("Compliance:EmailDelivery:Smtp:Port", inbox.Port.ToString(CultureInfo.InvariantCulture));
+                host.UseSetting("Compliance:EmailDelivery:Smtp:FromAddress", "sender@example.com");
+                host.UseSetting("Compliance:EmailDelivery:ActiveTokenKeyId", "delivered-invitation-test");
+                host.UseSetting("Compliance:EmailDelivery:TokenKeys:delivered-invitation-test", tokenKey);
+                host.ConfigureTestServices(services => services.AddSingleton<IEmailChallengeDelivery>(
+                    provider => provider.GetRequiredService<MockEmailChallengeDelivery>()));
+            });
+            using var administrator = factory.CreateClient();
+            Assert.IsType<SmtpTenantInvitationDelivery>(factory.Services.GetRequiredService<ITenantInvitationDelivery>());
+            Assert.IsType<MockEmailChallengeDelivery>(factory.Services.GetRequiredService<IEmailChallengeDelivery>());
+            var administratorEmail = $"delivered-admin-{Guid.NewGuid():N}@example.com";
+            var administratorId = await LoginAsync(administrator, administratorEmail);
+            await VerifyEmailAsync(factory, administrator, administratorId, administratorEmail);
+            var registration = await RegisterJourneyTenantAsync(administrator, "Delivered invitation");
+            var tenantId = Uuid.Parse(registration.TenantId, CultureInfo.InvariantCulture);
+            await WaitForMemberAccessReadyAsync(factory, administrator, tenantId, administratorId,
+                BuiltInRbac.AdministratorsTeamId(tenantId), RbacPermissions.TenantRbacManage,
+                $"/api/v1/tenants/{tenantId}/members/{administratorId}");
+            var programId = await CreateJourneyProgramAsync(administrator, tenantId);
+            var originalContent = JourneyControlContent("Review access quarterly");
+            var changedContent = JourneyControlContent("Review access monthly");
+            using var created = await administrator.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/programs/{programId}/controls",
+                new { identifier = "INVITE-01", content = JourneyContentRequest(originalContent) });
+            Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+            var controlId = (await created.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("control_id").GetString();
+            Assert.NotNull(controlId);
+            var draftPath = $"/api/v1/tenants/{tenantId}/programs/{programId}/controls/{controlId}/draft";
+            var originalDraft = await WaitForJourneyDraftAsync(administrator, draftPath, 1);
+            var sourceBeforeInvitation = await ReadJourneyEventsAsync(factory, tenantId, "controls");
+            var grantsBeforeInvitation = await ReadJourneyEventsAsync(factory, tenantId, "access-grants");
+            Assert.Single(sourceBeforeInvitation);
+            Assert.Single(grantsBeforeInvitation);
+            var otherRegistration = await RegisterJourneyTenantAsync(administrator, "Other invitation organization");
+            var otherTenantId = Uuid.Parse(otherRegistration.TenantId, CultureInfo.InvariantCulture);
+            var recipientEmail = $"delivered-lead-{Guid.NewGuid():N}@example.com";
+
+            // Act
+            using var invited = await administrator.PostAsJsonAsync(
+                $"/api/v1/tenants/{tenantId}/member-invitations",
+                new { email_address = recipientEmail, built_in_role = BuiltInRbac.ComplianceManagementRole });
+            Assert.Equal(HttpStatusCode.NoContent, invited.StatusCode);
+            await inbox.Completion;
+            var message = Assert.Single(inbox.CompletedMessages);
+            Assert.Equal(1, inbox.StartTlsRequests);
+            Assert.Equal("MAIL FROM:<sender@example.com>", message.Sender);
+            Assert.Equal($"RCPT TO:<{recipientEmail}>", message.Recipient);
+            var deliveredTenantId = Uuid.Parse(ReadDeliveredValue(message.Body, "organization "),
+                CultureInfo.InvariantCulture);
+            var deliveredCode = ReadDeliveredValue(message.Body, "Your invitation code is ");
+            Assert.Equal(tenantId, deliveredTenantId);
+            _ = await WaitForJourneyInvitationAsync(administrator, tenantId, recipientEmail, "pending");
+
+            using var wrongIdentity = factory.CreateClient();
+            var wrongEmail = $"delivered-wrong-{Guid.NewGuid():N}@example.com";
+            var wrongUserId = await LoginAsync(wrongIdentity, wrongEmail);
+            await VerifyEmailAsync(factory, wrongIdentity, wrongUserId, wrongEmail);
+            var acceptancePath = $"/api/v1/tenants/{deliveredTenantId}/invitations/acceptance";
+            using var wrongIdentityAcceptance = await wrongIdentity.PostAsJsonAsync(acceptancePath,
+                new { email_address = recipientEmail, token = deliveredCode });
+            Assert.Equal(HttpStatusCode.Forbidden, wrongIdentityAcceptance.StatusCode);
+            _ = await WaitForJourneyInvitationAsync(administrator, tenantId, recipientEmail, "pending");
+            await AssertJourneyNonmemberAsync(factory, tenantId, wrongUserId);
+
+            using var recipient = factory.CreateClient();
+            var recipientUserId = await LoginAsync(recipient, recipientEmail);
+            await VerifyEmailAsync(factory, recipient, recipientUserId, recipientEmail);
+            using var wrongOrganizationAcceptance = await recipient.PostAsJsonAsync(
+                $"/api/v1/tenants/{otherTenantId}/invitations/acceptance",
+                new { email_address = recipientEmail, token = deliveredCode });
+            Assert.Equal(HttpStatusCode.BadRequest, wrongOrganizationAcceptance.StatusCode);
+            await AssertJourneyNonmemberAsync(factory, otherTenantId, recipientUserId);
+            await AssertTenantDiscoveryAsync(recipient, otherTenantId, otherRegistration.Slug, false);
+            using var accepted = await recipient.PostAsJsonAsync(acceptancePath,
+                new { email_address = recipientEmail, token = deliveredCode });
+            Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+            var teamId = BuiltInRbac.PowerUsersTeamId(tenantId);
+            await WaitForMemberAccessReadyAsync(factory, recipient, tenantId, recipientUserId, teamId,
+                RbacPermissions.TenantAccess, $"/api/v1/tenants/{tenantId}/teams/{teamId}");
+            _ = await WaitForAcceptedInvitationReadyAsync(factory, administrator, tenantId,
+                recipientEmail, recipientUserId);
+            await AssertTenantDiscoveryAsync(recipient, tenantId, registration.Slug, true);
+
+            using var deniedRead = await recipient.GetAsync(draftPath);
+            using var deniedWrite = await recipient.PutAsJsonAsync(draftPath,
+                new { expected_revision = 1, content = JourneyContentRequest(changedContent) });
+            Assert.Equal(HttpStatusCode.Forbidden, deniedRead.StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, deniedWrite.StatusCode);
+            var afterDeniedWrite = await WaitForJourneyDraftAsync(administrator, draftPath, 1);
+            Assert.Equal(originalDraft.GetProperty("content").GetRawText(),
+                afterDeniedWrite.GetProperty("content").GetRawText());
+            Assert.Equal(sourceBeforeInvitation.Select(ev => ev.Metadata.EventId),
+                (await ReadJourneyEventsAsync(factory, tenantId, "controls")).Select(ev => ev.Metadata.EventId));
+            Assert.Equal(grantsBeforeInvitation.Select(ev => ev.Metadata.EventId),
+                (await ReadJourneyEventsAsync(factory, tenantId, "access-grants")).Select(ev => ev.Metadata.EventId));
+
+            await AccessGrantE2ESupport.IssuePowerUserTeamOrganizationGrantAsync(administrator, tenantId);
+            await WaitForMemberAccessReadyAsync(factory, recipient, tenantId, recipientUserId, teamId,
+                RbacPermissions.ProgramManage, draftPath);
+            var grantedRead = await WaitForJourneyDraftAsync(recipient, draftPath, 1);
+            Assert.Equal(originalDraft.GetProperty("content").GetRawText(),
+                grantedRead.GetProperty("content").GetRawText());
+            using var revised = await recipient.PutAsJsonAsync(draftPath,
+                new { expected_revision = 1, content = JourneyContentRequest(changedContent) });
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, revised.StatusCode);
+            var revisedDraft = await WaitForJourneyDraftAsync(recipient, draftPath, 2);
+            Assert.Equal(2, revisedDraft.GetProperty("revision").GetInt32());
+            AssertJourneyContent(changedContent, revisedDraft.GetProperty("content"));
+            var controlEvents = await ReadJourneyEventsAsync(factory, tenantId, "controls");
+            Assert.Equal(2, controlEvents.Count);
+            Assert.IsType<ControlDraftCreated>(controlEvents[0]);
+            var revision = Assert.IsType<ControlDraftRevised>(controlEvents[1]);
+            Assert.Equal(tenantId, revision.TenantId);
+            Assert.Equal(programId, revision.ProgramId);
+            Assert.Equal(Uuid.Parse(controlId, CultureInfo.InvariantCulture), revision.ControlId);
+            Assert.Equal(2, revision.Revision);
+            Assert.Equivalent(changedContent, revision.Content, strict: true);
+            var memberId = RbacIds.Member(tenantId, Uuid.Parse(recipientUserId, CultureInfo.InvariantCulture));
+            Assert.Equal(memberId, revision.ActorMemberId);
+            Assert.Equal("member", revision.Actor.Kind);
+            Assert.Equal(memberId.ToString(), revision.Actor.Id);
+            Assert.NotEmpty(revision.Actor.Display);
+            Assert.Equal(recipientUserId, revision.Metadata.Actor?.Subject);
+            Assert.Equal(2, (await ReadJourneyEventsAsync(factory, tenantId, "access-grants")).Count);
+            await AssertJourneyNonmemberAsync(factory, otherTenantId, recipientUserId);
+        }
+        finally
+        {
+#pragma warning disable SYSLIB0014
+            ServicePointManager.ServerCertificateValidationCallback = previousValidation;
+#pragma warning restore SYSLIB0014
+        }
+    }
+
     [Fact]
     public async Task ShouldSuspendAndReinstateMemberGivenAdministratorAndIndependentLifecycleHistory()
     {
@@ -419,6 +584,142 @@ public sealed class TenantInvitationE2ETests(BrokerStackFixture broker)
         using var reuse = await operatorClient.PostAsJsonAsync("/api/v1/tenants",
             new { name = "Reuse", slug = registration.Slug });
         Assert.Equal(HttpStatusCode.Conflict, reuse.StatusCode);
+    }
+
+    static async Task<TenantRegistrationDocument> RegisterJourneyTenantAsync(HttpClient administrator,
+        string name)
+    {
+        using var response = await administrator.PostAsJsonAsync("/api/v1/tenants",
+            new { name, slug = $"delivered-{Guid.NewGuid():N}"[..24] });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var registration = await response.Content.ReadFromJsonAsync<TenantRegistrationDocument>();
+        Assert.NotNull(registration);
+        return registration;
+    }
+
+    static async Task<Uuid> CreateJourneyProgramAsync(HttpClient administrator, Uuid tenantId)
+    {
+        await AccessGrantE2ESupport.IssueFounderOrganizationGrantAsync(administrator, tenantId);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administrator.PostAsJsonAsync($"/api/v1/tenants/{tenantId}/programs", new
+            {
+                name = "SOC 2",
+                plan = new
+                {
+                    target_readiness_date = (string?)null,
+                    target_type_i_as_of_date = (string?)null,
+                    target_type_ii_start_date = (string?)null,
+                    target_type_ii_end_date = (string?)null,
+                    readiness_advisor = (string?)null,
+                    audit_firm = (string?)null,
+                },
+            });
+            if (response.StatusCode == HttpStatusCode.OK)
+                return Uuid.Parse((await response.Content.ReadFromJsonAsync<JsonElement>())
+                    .GetProperty("program_id").GetString()!, CultureInfo.InvariantCulture);
+            Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden,
+                await response.Content.ReadAsStringAsync());
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The founder's explicit grant did not authorize program creation.");
+    }
+
+    static ControlDraftContent JourneyControlContent(string title) => new(title,
+        "Ensure access is reviewed", "People with privileged access are reviewed.",
+        "The security lead reviews the access listing.", ["Review record", "Access listing"], Applicability: []);
+
+    static object JourneyContentRequest(ControlDraftContent content) => new
+    {
+        title = content.Title,
+        objective = content.Objective,
+        description = content.Description,
+        implementation_narrative = content.ImplementationNarrative,
+        expected_evidence_descriptions = content.ExpectedEvidenceDescriptions,
+    };
+
+    static void AssertJourneyContent(ControlDraftContent expected, JsonElement actual)
+    {
+        Assert.Equal(expected.Title, actual.GetProperty("title").GetString());
+        Assert.Equal(expected.Objective, actual.GetProperty("objective").GetString());
+        Assert.Equal(expected.Description, actual.GetProperty("description").GetString());
+        Assert.Equal(expected.ImplementationNarrative, actual.GetProperty("implementation_narrative").GetString());
+        Assert.Equal(expected.ExpectedEvidenceDescriptions, actual.GetProperty("expected_evidence_descriptions")
+            .EnumerateArray().Select(value => value.GetString()));
+    }
+
+    static async Task<JsonElement> WaitForJourneyDraftAsync(HttpClient client, string path, int revision)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await client.GetAsync($"{path}?minimum_revision={revision}");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                var draft = await response.Content.ReadFromJsonAsync<JsonElement>();
+                Assert.Equal(revision, draft.GetProperty("revision").GetInt32());
+                return draft;
+            }
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            await Task.Delay(250);
+        }
+        throw new TimeoutException("The delivered-invitation journey's control draft did not project.");
+    }
+
+    static string ReadDeliveredValue(string body, string prefix)
+    {
+        Assert.Contains(prefix, body, StringComparison.Ordinal);
+        var start = body.IndexOf(prefix, StringComparison.Ordinal) + prefix.Length;
+        var end = body.IndexOf('.', start);
+        Assert.True(end > start);
+        return body[start..end];
+    }
+
+    static async Task<JsonElement> WaitForJourneyInvitationAsync(HttpClient administrator, Uuid tenantId,
+        string emailAddress, string status)
+    {
+        var path = $"/api/v1/tenants/{tenantId}/member-invitations?email_address=" + Uri.EscapeDataString(emailAddress);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            using var response = await administrator.GetAsync(path);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var items = page.GetProperty("items").EnumerateArray().ToArray();
+            if (items.Length == 1 && items[0].GetProperty("status").GetString() == status &&
+                items[0].GetProperty("delivery_status").GetString() == "delivered")
+            {
+                Assert.Equal(BuiltInRbac.ComplianceManagementRole, items[0].GetProperty("built_in_role").GetString());
+                return items[0];
+            }
+            await Task.Delay(250);
+        }
+        throw new TimeoutException($"The delivered invitation did not project status {status}.");
+    }
+
+    static async Task AssertJourneyNonmemberAsync(WebApplicationFactory<Program> factory, Uuid tenantId,
+        string userId)
+    {
+        var parsedUserId = Uuid.Parse(userId, CultureInfo.InvariantCulture);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var source = await scope.ServiceProvider.GetRequiredService<IAggregateReader>()
+            .HydrateAsync(new Member(tenantId, parsedUserId));
+        Assert.False(source.IsRegistered);
+        Assert.Null(await scope.ServiceProvider.GetRequiredService<ITenantMembershipDirectoryReader>()
+            .GetAsync(tenantId.ToString(), parsedUserId));
+    }
+
+    static async Task<List<DomainEvent>> ReadJourneyEventsAsync(WebApplicationFactory<Program> factory,
+        Uuid tenantId, string area)
+    {
+        var events = new List<DomainEvent>();
+        await using var scope = factory.Services.CreateAsyncScope();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await foreach (var record in scope.ServiceProvider.GetRequiredService<IEventStore>().ReadAsync(
+                           EventStreamPattern.ForPattern(tenantId.ToString(), area), EventCursor.Start, timeout.Token))
+            events.Add(record.Event);
+        return events;
     }
 
     static async Task<string> WaitForAcceptedInvitationReadyAsync(
