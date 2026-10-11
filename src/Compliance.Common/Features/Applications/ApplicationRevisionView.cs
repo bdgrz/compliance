@@ -24,6 +24,10 @@ public sealed record ApplicationRevisionView(Uuid TenantId, Uuid ApplicationId, 
 
     public string? Classification { get; init; }
 
+    public string? ApplicationKind { get; init; }
+
+    public string? Criticality { get; init; }
+
     /// <summary>Whether this application revision required restricted-read authority.</summary>
     public bool IsRestricted { get; init; }
 

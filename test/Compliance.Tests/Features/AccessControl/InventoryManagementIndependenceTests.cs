@@ -15,6 +15,62 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 public sealed class InventoryManagementIndependenceTests
 {
     [Theory]
+    [InlineData(false, RequestErrorKind.Forbidden, "The actor may not inspect or manage this inventory.")]
+    [InlineData(true, RequestErrorKind.NotFound, "The tenant was not found.")]
+    public async Task ShouldRefuseDeclarationWithoutAppendGivenUnauthorizedCallerAndEnabledGovernance(
+        bool foreignTenantCaller, RequestErrorKind expectedError, string expectedMessage)
+    {
+        // Arrange
+        await using var fixture = new Fixture("client_personnel", governedDeclarationsEnabled: true);
+        await fixture.SeedPersonAsync();
+        var request = new DeclareApplication(fixture.Tenant, "Governed application", "Business purpose",
+            Classification: "internal", SystemOwnerPersonId: fixture.PersonId,
+            AccessOwnerPersonId: fixture.PersonId, IsRestricted: true,
+            ApplicationKind: "service", Criticality: "critical");
+        Assert.Empty(await fixture.ApplicationEventsAsync(fixture.Tenant));
+        Assert.Empty(await fixture.ApplicationEventsAsync(fixture.ForeignTenant));
+        var authorized = await fixture.Bus.SendAsync(request, fixture.Actor);
+        Assert.True(authorized.IsSuccess, authorized.Error?.Message);
+        var targetBefore = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        var foreignBefore = await fixture.ApplicationEventsAsync(fixture.ForeignTenant);
+        var declared = Assert.IsType<ApplicationDeclared>(Assert.Single(targetBefore));
+        Assert.Equal(authorized.Value!.ApplicationId, declared.ApplicationId);
+        Assert.Equal(fixture.Tenant, declared.TenantId);
+        Assert.Equal(RbacIds.Member(fixture.Tenant, fixture.User), declared.ActorMemberId);
+        Assert.Equal(ActorReference.ForMember(declared.ActorMemberId, declared.ActorDisplay), declared.StoredActor);
+        Assert.Equal(fixture.PersonId, declared.SystemOwnerPersonId);
+        Assert.Equal(fixture.PersonId, declared.AccessOwnerPersonId);
+        Assert.Equal("service", declared.ApplicationKind);
+        Assert.Equal("critical", declared.Criticality);
+        Assert.True(declared.IsRestricted);
+        Assert.Empty(foreignBefore);
+        if (foreignTenantCaller)
+        {
+            Assert.NotNull(await fixture.Memberships.GetAsync(fixture.ForeignTenant.ToString(), fixture.ForeignUser));
+            Assert.Null(await fixture.Memberships.GetAsync(fixture.Tenant.ToString(), fixture.ForeignUser));
+        }
+        else
+        {
+            fixture.Permissions.Allowed = false;
+        }
+
+        // Act
+        var refused = await fixture.Bus.SendAsync(request with { Name = "Refused application" },
+            foreignTenantCaller ? fixture.ForeignActor : fixture.Actor);
+        var targetAfter = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        var foreignAfter = await fixture.ApplicationEventsAsync(fixture.ForeignTenant);
+
+        // Assert
+        Assert.False(refused.IsSuccess);
+        Assert.Equal(expectedError, refused.Error!.Kind);
+        Assert.Equal(expectedMessage, refused.Error.Message);
+        Assert.Equal(targetBefore.Count, targetAfter.Count);
+        Assert.Equal(foreignBefore.Count, foreignAfter.Count);
+        Assert.Equal(declared.ApplicationId, Assert.IsType<ApplicationDeclared>(Assert.Single(targetAfter)).ApplicationId);
+        Assert.Empty(foreignAfter);
+    }
+
+    [Theory]
     [InlineData("client_personnel", false, false)]
     [InlineData("client_personnel", true, false)]
     [InlineData("guest", false, false)]
@@ -129,6 +185,8 @@ public sealed class InventoryManagementIndependenceTests
         readonly Uuid _administrator = Uuid.CreateVersion4();
         public Uuid Tenant { get; } = Uuid.CreateVersion4();
         public Uuid User { get; } = Uuid.CreateVersion4();
+        public Uuid ForeignTenant { get; } = Uuid.CreateVersion4();
+        public Uuid ForeignUser { get; } = Uuid.CreateVersion4();
         public Uuid PersonId { get; } = Uuid.CreateVersion4();
         public Uuid ApplicationId { get; private set; }
         public Uuid ComponentId { get; private set; }
@@ -136,15 +194,18 @@ public sealed class InventoryManagementIndependenceTests
         public IAggregateReader Reader { get; }
         public IAggregateExecutor Executor { get; }
         public Permissions Permissions { get; } = new();
+        public MembershipDirectory Memberships { get; }
         public ClaimsPrincipal Actor => PersonalActor(User);
+        public ClaimsPrincipal ForeignActor => PersonalActor(ForeignUser);
 
-        public Fixture(string affiliation)
+        public Fixture(string affiliation, bool governedDeclarationsEnabled = false)
         {
             var services = new ServiceCollection();
             var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Fitz:Endpoint"] = "ws://fitz:4090/ws",
-                ["Fitz:ApplicationName"] = "compliance"
+                ["Fitz:ApplicationName"] = "compliance",
+                ["Compliance:Applications:GovernedDeclarationsEnabled"] = governedDeclarationsEnabled.ToString()
             }).Build();
             services.AddCompliance(configuration, developerAuthentication: true);
             var events = new InMemoryEventStore();
@@ -153,7 +214,8 @@ public sealed class InventoryManagementIndependenceTests
             services.AddSingleton<IKvClient>(new InMemoryKvClient());
             services.AddSingleton<IPermissionAuthorizer>(Permissions);
             services.AddSingleton<ITenantActivity>(new ActiveTenant());
-            services.AddSingleton<ITenantMembershipDirectoryReader>(new MembershipDirectory(Tenant, User, _administrator, affiliation));
+            Memberships = new MembershipDirectory(Tenant, User, _administrator, affiliation, ForeignTenant, ForeignUser);
+            services.AddSingleton<ITenantMembershipDirectoryReader>(Memberships);
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             _scope = _provider.CreateAsyncScope();
             Bus = _scope.ServiceProvider.GetRequiredService<IRequestBus>();
@@ -167,18 +229,34 @@ public sealed class InventoryManagementIndependenceTests
 
         public async Task SeedRecordsAsync()
         {
+            await SeedPersonAsync();
             var admin = PersonalActor(_administrator);
-            var person = await Executor.ExecuteAsync(new Person(Tenant, PersonId), source =>
-                AggregateOutcome.CommitOnSuccess(source.Record("Synthetic owner", null,
-                    ActorReference.ForMember(RbacIds.Member(Tenant, _administrator), "Client administrator"), DateTimeOffset.UtcNow)),
-                new RequestDispatchContext(admin));
-            Assert.True(person.IsSuccess);
             var application = await Bus.SendAsync(new DeclareApplication(Tenant, "Original application", "Purpose"), admin);
             Assert.True(application.IsSuccess, application.Error?.Message);
             ApplicationId = application.Value!.ApplicationId;
             var component = await Bus.SendAsync(new RecordTechnologyComponent(Tenant, "repository", "Original component", PersonId), admin);
             Assert.True(component.IsSuccess, component.Error?.Message);
             ComponentId = component.Value!.ComponentId;
+        }
+
+        public async Task SeedPersonAsync()
+        {
+            var admin = PersonalActor(_administrator);
+            var person = await Executor.ExecuteAsync(new Person(Tenant, PersonId), source =>
+                AggregateOutcome.CommitOnSuccess(source.Record("Synthetic owner", null,
+                    ActorReference.ForMember(RbacIds.Member(Tenant, _administrator), "Client administrator"), DateTimeOffset.UtcNow)),
+                new RequestDispatchContext(admin));
+            Assert.True(person.IsSuccess);
+        }
+
+        public async Task<List<DomainEvent>> ApplicationEventsAsync(Uuid tenant)
+        {
+            var events = new List<DomainEvent>();
+            await foreach (var record in _scope.ServiceProvider.GetRequiredService<IDomainEventReader>().ReadAsync(
+                EventStreamPattern.ForPattern(tenant.ToString(), "applications"), ProjectionCheckpoint.Start.Cursor,
+                CancellationToken.None))
+                events.Add(record.Event);
+            return events;
         }
 
         public async Task SeedHistoryAsync(string practice, Uuid tenant, bool closed)
@@ -228,11 +306,14 @@ public sealed class InventoryManagementIndependenceTests
             CancellationToken ct = default) => ValueTask.FromResult(Allowed);
     }
 
-    sealed class MembershipDirectory(Uuid tenant, Uuid user, Uuid administrator, string affiliation) : ITenantMembershipDirectoryReader
+    sealed class MembershipDirectory(Uuid tenant, Uuid user, Uuid administrator, string affiliation,
+        Uuid foreignTenant, Uuid foreignUser) : ITenantMembershipDirectoryReader
     {
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-            ValueTask.FromResult<TenantMembershipView?>(tenantId == tenant.ToString() && (userId == user || userId == administrator)
-                ? new TenantMembershipView(userId, tenant, userId == user ? affiliation : "client_personnel") : null);
+            ValueTask.FromResult<TenantMembershipView?>(tenantId == foreignTenant.ToString() && userId == foreignUser
+                ? new TenantMembershipView(userId, foreignTenant, "client_personnel")
+                : tenantId == tenant.ToString() && (userId == user || userId == administrator)
+                    ? new TenantMembershipView(userId, tenant, userId == user ? affiliation : "client_personnel") : null);
         public async ValueTask<bool> IsMemberAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
             await GetAsync(tenantId, userId, ct) is not null;
         public ValueTask<Page<TenantMembershipView>> ListAsync(Uuid tenantId, int limit, string? cursor,

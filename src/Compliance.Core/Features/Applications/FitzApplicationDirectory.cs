@@ -17,10 +17,13 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
                     declared.ApplicationId, 1, declared.Name, declared.Purpose,
                     declared.OwnerReference, "manual", declared.ApplicationId.ToString(),
                     false, Gaps(declared.OwnerReference, declared.Classification, false,
-                        declared.SystemOwnerPersonId, declared.AccessOwnerPersonId),
+                        declared.SystemOwnerPersonId, declared.AccessOwnerPersonId,
+                        declared.ApplicationKind, declared.Criticality),
                     declared.ActorMemberId, declared.ActorDisplay, declared.ChangedAt)
                 {
                     Classification = declared.Classification,
+                    ApplicationKind = declared.ApplicationKind,
+                    Criticality = declared.Criticality,
                     IsRestricted = declared.IsRestricted,
                     SystemOwnerPersonId = declared.SystemOwnerPersonId,
                     AccessOwnerPersonId = declared.AccessOwnerPersonId,
@@ -46,7 +49,7 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
                     AccessOwnerPersonId = revised.AccessOwnerPersonId,
                     Unresolved = Gaps(revised.OwnerReference, revised.Classification,
                         before.HasSystemInstances, revised.SystemOwnerPersonId,
-                        revised.AccessOwnerPersonId),
+                        revised.AccessOwnerPersonId, before.ApplicationKind, before.Criticality),
                     LastChangedByMemberId = revised.ActorMemberId,
                     LastChangedByDisplay = revised.ActorDisplay,
                     LastChangedAt = revised.ChangedAt,
@@ -191,6 +194,8 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
                     changeKind, systemInstance?.SystemInstanceId, systemInstance)
                 {
                     Classification = view.Classification,
+                    ApplicationKind = view.ApplicationKind,
+                    Criticality = view.Criticality,
                     IsRestricted = view.IsRestricted,
                     SystemOwnerPersonId = view.SystemOwnerPersonId,
                     AccessOwnerPersonId = view.AccessOwnerPersonId,
@@ -202,17 +207,38 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
 
     static IReadOnlyList<string> Gaps(ApplicationView view, bool hasInstances) =>
         Gaps(view.OwnerReference, view.Classification, hasInstances,
-            view.SystemOwnerPersonId, view.AccessOwnerPersonId);
+            view.SystemOwnerPersonId, view.AccessOwnerPersonId, view.ApplicationKind, view.Criticality);
 
     // M0-D05: every active application names a system owner and an access owner.
     static IReadOnlyList<string> Gaps(string? owner, string? classification, bool hasInstances,
-        Uuid? systemOwnerPersonId, Uuid? accessOwnerPersonId) =>
+        Uuid? systemOwnerPersonId, Uuid? accessOwnerPersonId,
+        string? applicationKind = null, string? criticality = null) =>
     [string.IsNullOrWhiteSpace(owner) ? "owner_missing" : "owner_unverified",
         string.IsNullOrWhiteSpace(classification)
             ? "classification_unresolved" : "classification_unverified",
         hasInstances ? "access_boundary_review_pending" : "system_instances_missing",
         .. systemOwnerPersonId is null ? ["system_owner_missing"] : Array.Empty<string>(),
-        .. accessOwnerPersonId is null ? ["access_owner_missing"] : Array.Empty<string>()];
+        .. accessOwnerPersonId is null ? ["access_owner_missing"] : Array.Empty<string>(),
+        .. string.IsNullOrWhiteSpace(applicationKind) ? ["application_kind_missing"] : Array.Empty<string>(),
+        .. string.IsNullOrWhiteSpace(criticality) ? ["criticality_missing"] : Array.Empty<string>()];
+
+    static IReadOnlyList<string> DeclarationGaps(IReadOnlyList<string> unresolved,
+        string? applicationKind, string? criticality) =>
+    [.. unresolved,
+        .. string.IsNullOrWhiteSpace(applicationKind) && !unresolved.Contains("application_kind_missing")
+            ? ["application_kind_missing"] : Array.Empty<string>(),
+        .. string.IsNullOrWhiteSpace(criticality) && !unresolved.Contains("criticality_missing")
+            ? ["criticality_missing"] : Array.Empty<string>()];
+
+    static ApplicationView AdaptDeclarationGaps(ApplicationView view) => view with
+    {
+        Unresolved = DeclarationGaps(view.Unresolved, view.ApplicationKind, view.Criticality),
+    };
+
+    static ApplicationRevisionView AdaptDeclarationGaps(ApplicationRevisionView view) => view with
+    {
+        Unresolved = DeclarationGaps(view.Unresolved, view.ApplicationKind, view.Criticality),
+    };
 
     async ValueTask<ApplicationView> RequireApplicationAsync(Uuid applicationId, CancellationToken ct) =>
         await ApplicationDirectorySchema.Applications.GetAsync(Transaction, applicationId, ct)
@@ -228,8 +254,9 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
         CancellationToken ct = default)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
-        return await ApplicationDirectorySchema.Applications.GetAsync(tx, applicationId, ct)
+        var view = await ApplicationDirectorySchema.Applications.GetAsync(tx, applicationId, ct)
             .ConfigureAwait(false);
+        return view is null ? null : AdaptDeclarationGaps(view);
     }
 
     public async ValueTask<Page<ApplicationView>> ListAsync(Uuid tenantId, int limit,
@@ -240,16 +267,18 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
         var page = await ApplicationDirectorySchema.Applications.QueryAsync(tx,
             ApplicationDirectorySchema.ByName.Query().Take(limit)
                 .After(ApplicationImportVisibilityPaging.Decode(tenantId, epoch, cursor)), ct).ConfigureAwait(false);
-        return new Page<ApplicationView>(page.Items, ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
+        return new Page<ApplicationView>(page.Items.Select(AdaptDeclarationGaps).ToArray(),
+            ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
     }
 
     public async ValueTask<ApplicationRevisionView?> GetRevisionAsync(Uuid tenantId,
         Uuid applicationId, long revision, CancellationToken ct = default)
     {
         await using var tx = await BeginReadAsync(tenantId.ToString(), ct).ConfigureAwait(false);
-        return await ApplicationDirectorySchema.Revisions.GetAsync(tx,
+        var view = await ApplicationDirectorySchema.Revisions.GetAsync(tx,
                 ApplicationDirectorySchema.RevisionKey(applicationId, revision), ct)
             .ConfigureAwait(false);
+        return view is null ? null : AdaptDeclarationGaps(view);
     }
 
     public async ValueTask<Page<ApplicationRevisionView>?> ListRevisionsAsync(Uuid tenantId,
@@ -264,7 +293,8 @@ sealed partial class FitzApplicationDirectory(IKvClient client)
             ApplicationDirectorySchema.RevisionsByApplication.Query()
                 .WithPrefix(applicationId.ToString()).Take(Math.Clamp(limit, 1, 200))
                 .After(ApplicationImportVisibilityPaging.Decode(tenantId, epoch, cursor)), ct).ConfigureAwait(false);
-        return new Page<ApplicationRevisionView>(page.Items, ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
+        return new Page<ApplicationRevisionView>(page.Items.Select(AdaptDeclarationGaps).ToArray(),
+            ApplicationImportVisibilityPaging.Encode(tenantId, epoch, page.NextCursor));
     }
 
     public async ValueTask<SystemInstanceView?> GetInstanceAsync(Uuid tenantId,

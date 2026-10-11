@@ -23,6 +23,10 @@ public sealed record ApplicationView(Uuid TenantId, Uuid ApplicationId, long Rev
 
     public string? Classification { get; init; }
 
+    public string? ApplicationKind { get; init; }
+
+    public string? Criticality { get; init; }
+
     /// <summary>Whether this application's inventory requires restricted-read authority.</summary>
     public bool IsRestricted { get; init; }
 
