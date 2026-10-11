@@ -17,6 +17,13 @@ public sealed class RestrictedApplicationVisibility(IPermissionAuthorizer permis
             return false;
         if (!application.IsRestricted)
             return true;
+        return await HasRestrictedApplicationPermissionAsync(tenantId, userId, applicationId, ct)
+            .ConfigureAwait(false);
+    }
+
+    internal async ValueTask<bool> HasRestrictedApplicationPermissionAsync(Uuid tenantId,
+        Uuid userId, Uuid applicationId, CancellationToken ct)
+    {
         if (await HasOrganizationPermissionAsync(tenantId, userId, ct).ConfigureAwait(false))
             return true;
         return await scopedPermissions.IsAllowedAtAnyScopeAsync(tenantId, userId,

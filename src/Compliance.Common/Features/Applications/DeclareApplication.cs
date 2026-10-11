@@ -6,5 +6,5 @@ namespace Bdgrz.Compliance.Features.Applications;
 public sealed record DeclareApplication(Uuid TenantId, string Name, string Purpose,
     string? OwnerReference = null, string? Classification = null, Uuid? SystemOwnerPersonId = null,
     Uuid? AccessOwnerPersonId = null, bool IsRestricted = false,
-    string? ApplicationKind = null, string? Criticality = null)
+    string? ApplicationKind = null, string? Criticality = null, Uuid? DeclarationKey = null)
     : IRequest<ApplicationRegistration>, IApplicationInventoryWriteRequest, ICallable;

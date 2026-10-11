@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.TechnologyInventory;
 using Bdgrz.Compliance.Features.Workforce;
@@ -14,6 +15,43 @@ namespace Bdgrz.Compliance.Tests.Features.AccessControl;
 
 public sealed class InventoryManagementIndependenceTests
 {
+    [Fact]
+    public async Task ShouldReuseOriginalDeclarationGivenSameWireKeyAndFreshRequestContexts()
+    {
+        // Arrange
+        await using var fixture = new Fixture("client_personnel", governedDeclarationsEnabled: true);
+        await fixture.SeedPersonAsync();
+        var key = Uuid.CreateVersion4();
+        var json = $$"""
+            {"tenant_id":"{{fixture.Tenant}}","name":"Governed application","purpose":"Business purpose",
+             "classification":"internal","system_owner_person_id":"{{fixture.PersonId}}",
+             "access_owner_person_id":"{{fixture.PersonId}}","is_restricted":false,
+             "application_kind":"service","criticality":"critical","declaration_key":"{{key}}"}
+            """;
+        var firstRequest = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.DeclareApplication)!;
+        var retryRequest = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.DeclareApplication)!;
+        var firstContext = fixture.Context(false);
+        var retryContext = fixture.Context(false);
+        Assert.NotEqual(firstContext.RequestId, retryContext.RequestId);
+
+        // Act
+        var first = await fixture.Bus.DispatchAsync(firstRequest, firstContext);
+        var retry = await fixture.Bus.DispatchAsync(retryRequest, retryContext);
+        var events = await fixture.ApplicationEventsAsync(fixture.Tenant);
+
+        // Assert
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        Assert.True(retry.IsSuccess, retry.Error?.Message);
+        var declared = Assert.IsType<ApplicationDeclared>(Assert.Single(events));
+        Assert.Equal(first.Value!.ApplicationId, retry.Value!.ApplicationId);
+        Assert.Equal(first.Value.ApplicationId, declared.ApplicationId);
+        Assert.Equal(RbacIds.Member(fixture.Tenant, fixture.User), declared.ActorMemberId);
+        Assert.Equal(fixture.PersonId, declared.SystemOwnerPersonId);
+        Assert.Equal(fixture.PersonId, declared.AccessOwnerPersonId);
+        Assert.Equal("service", declared.ApplicationKind);
+        Assert.Equal("critical", declared.Criticality);
+    }
+
     [Theory]
     [InlineData(false, RequestErrorKind.Forbidden, "The actor may not inspect or manage this inventory.")]
     [InlineData(true, RequestErrorKind.NotFound, "The tenant was not found.")]
@@ -26,7 +64,7 @@ public sealed class InventoryManagementIndependenceTests
         var request = new DeclareApplication(fixture.Tenant, "Governed application", "Business purpose",
             Classification: "internal", SystemOwnerPersonId: fixture.PersonId,
             AccessOwnerPersonId: fixture.PersonId, IsRestricted: true,
-            ApplicationKind: "service", Criticality: "critical");
+            ApplicationKind: "service", Criticality: "critical", DeclarationKey: Uuid.CreateVersion4());
         Assert.Empty(await fixture.ApplicationEventsAsync(fixture.Tenant));
         Assert.Empty(await fixture.ApplicationEventsAsync(fixture.ForeignTenant));
         var authorized = await fixture.Bus.SendAsync(request, fixture.Actor);
@@ -62,12 +100,149 @@ public sealed class InventoryManagementIndependenceTests
 
         // Assert
         Assert.False(refused.IsSuccess);
+        Assert.Throws<InvalidOperationException>(() => refused.Value);
         Assert.Equal(expectedError, refused.Error!.Kind);
         Assert.Equal(expectedMessage, refused.Error.Message);
         Assert.Equal(targetBefore.Count, targetAfter.Count);
         Assert.Equal(foreignBefore.Count, foreignAfter.Count);
         Assert.Equal(declared.ApplicationId, Assert.IsType<ApplicationDeclared>(Assert.Single(targetAfter)).ApplicationId);
         Assert.Empty(foreignAfter);
+    }
+
+    [Fact]
+    public async Task ShouldKeepDeclarationsSeparateGivenSameKeyAndDifferentMembersOrTenants()
+    {
+        // Arrange
+        await using var fixture = new Fixture("client_personnel");
+        fixture.Memberships.AllowUserInForeignTenant = true;
+        var request = new DeclareApplication(fixture.Tenant, "Application", "Purpose",
+            DeclarationKey: Uuid.CreateVersion4());
+        var first = await fixture.Bus.DispatchAsync(request, fixture.Context(false));
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        var original = Assert.Single(await fixture.ApplicationEventsAsync(fixture.Tenant));
+
+        // Act
+        var otherMember = await fixture.Bus.SendAsync(request, fixture.AdministratorActor);
+        var otherTenant = await fixture.Bus.SendAsync(request with { TenantId = fixture.ForeignTenant }, fixture.Actor);
+        var originalTenantEvents = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        var foreignTenantEvents = await fixture.ApplicationEventsAsync(fixture.ForeignTenant);
+
+        // Assert
+        Assert.True(otherMember.IsSuccess, otherMember.Error?.Message);
+        Assert.True(otherTenant.IsSuccess, otherTenant.Error?.Message);
+        Assert.NotEqual(first.Value!.ApplicationId, otherMember.Value!.ApplicationId);
+        Assert.NotEqual(first.Value.ApplicationId, otherTenant.Value!.ApplicationId);
+        Assert.NotEqual(otherMember.Value.ApplicationId, otherTenant.Value.ApplicationId);
+        Assert.Contains(original, originalTenantEvents);
+        Assert.Collection(originalTenantEvents,
+            ev => Assert.Equal(first.Value.ApplicationId, Assert.IsType<ApplicationDeclared>(ev).ApplicationId),
+            ev => Assert.Equal(otherMember.Value.ApplicationId, Assert.IsType<ApplicationDeclared>(ev).ApplicationId));
+        var foreign = Assert.IsType<ApplicationDeclared>(Assert.Single(foreignTenantEvents));
+        Assert.Equal(fixture.ForeignTenant, foreign.TenantId);
+        Assert.Equal(otherTenant.Value.ApplicationId, foreign.ApplicationId);
+        Assert.Equal(RbacIds.Member(fixture.ForeignTenant, fixture.User), foreign.ActorMemberId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldHideRestrictedDeclarationWithoutAppendGivenMatchingOrChangedKeyedRetry(bool changedContent)
+    {
+        // Arrange
+        await using var fixture = new Fixture("client_personnel", governedDeclarationsEnabled: true);
+        await fixture.SeedPersonAsync();
+        fixture.Permissions.RestrictedReadAllowed = false;
+        var key = Uuid.CreateVersion4();
+        var targetId = fixture.DeclarationTarget(key);
+        var original = new DeclareApplication(fixture.Tenant, "Restricted application", "Private purpose",
+            Classification: "confidential", SystemOwnerPersonId: fixture.PersonId,
+            AccessOwnerPersonId: fixture.PersonId, IsRestricted: true,
+            ApplicationKind: "service", Criticality: "critical", DeclarationKey: key);
+        await fixture.SeedApplicationAsync(targetId, original);
+        Assert.Null(await fixture.Applications.GetAsync(fixture.Tenant, targetId));
+        var before = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        var retry = changedContent ? original with { Name = "Different private application" } : original;
+
+        // Act
+        var refused = await fixture.Bus.DispatchAsync(retry, fixture.Context(false));
+        var after = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        fixture.Permissions.RestrictedReadAllowed = true;
+        var allowed = await fixture.Bus.DispatchAsync(original, fixture.Context(false));
+
+        // Assert
+        Assert.False(refused.IsSuccess);
+        Assert.Throws<InvalidOperationException>(() => refused.Value);
+        Assert.Equal(RequestErrorKind.NotFound, refused.Error!.Kind);
+        Assert.Equal("The application was not found.", refused.Error.Message);
+        Assert.Equal(before, after);
+        Assert.True(allowed.IsSuccess, allowed.Error?.Message);
+        Assert.Equal(targetId, allowed.Value!.ApplicationId);
+        Assert.Equal(before, await fixture.ApplicationEventsAsync(fixture.Tenant));
+        Assert.Empty(await fixture.ApplicationEventsAsync(fixture.ForeignTenant));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldDenyRestrictedDeclarationGivenTargetChangesAfterEarlierVisibilityRead(bool initiallyExists)
+    {
+        // Arrange
+        await using var fixture = new Fixture("client_personnel", governedDeclarationsEnabled: true);
+        await fixture.SeedPersonAsync();
+        fixture.Permissions.RestrictedReadAllowed = false;
+        var key = Uuid.CreateVersion4();
+        var targetId = fixture.DeclarationTarget(key);
+        var request = new DeclareApplication(fixture.Tenant, "Application", "Purpose",
+            Classification: "internal", SystemOwnerPersonId: fixture.PersonId,
+            AccessOwnerPersonId: fixture.PersonId, IsRestricted: !initiallyExists,
+            ApplicationKind: "service", Criticality: "critical", DeclarationKey: key);
+        if (initiallyExists)
+        {
+            await fixture.SeedApplicationAsync(targetId, request);
+            await fixture.ProjectRecordsAsync();
+            Assert.False((await fixture.Applications.GetAsync(fixture.Tenant, targetId))!.IsRestricted);
+        }
+        else
+        {
+            Assert.Null(await fixture.Applications.GetAsync(fixture.Tenant, targetId));
+        }
+        Assert.Equal(initiallyExists, await fixture.Visibility.CanReadApplicationAsync(
+            fixture.Tenant, fixture.User, targetId));
+        List<DomainEvent>? atExecution = null;
+        fixture.ExecutionGate.BeforeApplicationExecution = async () =>
+        {
+            if (initiallyExists)
+                await fixture.RestrictApplicationAsync(targetId, request);
+            else
+                await fixture.SeedApplicationAsync(targetId, request);
+            atExecution = await fixture.ApplicationEventsAsync(fixture.Tenant);
+        };
+
+        // Act
+        var refused = await fixture.Bus.DispatchAsync(request, fixture.Context(false));
+        var current = await fixture.Reader.HydrateAsync(new DeclaredApplication(fixture.Tenant, targetId));
+        var after = await fixture.ApplicationEventsAsync(fixture.Tenant);
+
+        // Assert
+        Assert.NotNull(atExecution);
+        Assert.True(current.IsCreated);
+        Assert.True(current.IsRestricted);
+        Assert.False(refused.IsSuccess);
+        Assert.Throws<InvalidOperationException>(() => refused.Value);
+        Assert.Equal(RequestErrorKind.NotFound, refused.Error!.Kind);
+        Assert.Equal("The application was not found.", refused.Error.Message);
+        Assert.Equal(atExecution, after);
+        if (initiallyExists)
+        {
+            Assert.Collection(after, ev => Assert.IsType<ApplicationDeclared>(ev),
+                ev => Assert.IsType<ApplicationRevised>(ev));
+            Assert.False((await fixture.Applications.GetAsync(fixture.Tenant, targetId))!.IsRestricted);
+        }
+        else
+        {
+            Assert.Single(after);
+            Assert.Null(await fixture.Applications.GetAsync(fixture.Tenant, targetId));
+        }
     }
 
     [Theory]
@@ -193,9 +368,14 @@ public sealed class InventoryManagementIndependenceTests
         public IRequestBus Bus { get; }
         public IAggregateReader Reader { get; }
         public IAggregateExecutor Executor { get; }
+        public IAggregateWriter Writer => _scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
+        public IApplicationDirectoryReader Applications => _scope.ServiceProvider.GetRequiredService<IApplicationDirectoryReader>();
+        public RestrictedApplicationVisibility Visibility => _scope.ServiceProvider.GetRequiredService<RestrictedApplicationVisibility>();
+        public ExecutionGate ExecutionGate => _scope.ServiceProvider.GetRequiredService<ExecutionGate>();
         public Permissions Permissions { get; } = new();
         public MembershipDirectory Memberships { get; }
         public ClaimsPrincipal Actor => PersonalActor(User);
+        public ClaimsPrincipal AdministratorActor => PersonalActor(_administrator);
         public ClaimsPrincipal ForeignActor => PersonalActor(ForeignUser);
 
         public Fixture(string affiliation, bool governedDeclarationsEnabled = false)
@@ -216,6 +396,9 @@ public sealed class InventoryManagementIndependenceTests
             services.AddSingleton<ITenantActivity>(new ActiveTenant());
             Memberships = new MembershipDirectory(Tenant, User, _administrator, affiliation, ForeignTenant, ForeignUser);
             services.AddSingleton<ITenantMembershipDirectoryReader>(Memberships);
+            services.AddScoped(provider => new ExecutionGate(new AggregateExecutor(
+                provider.GetRequiredService<IAggregateReader>(), provider.GetRequiredService<IAggregateWriter>())));
+            services.AddScoped<IAggregateExecutor>(provider => provider.GetRequiredService<ExecutionGate>());
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             _scope = _provider.CreateAsyncScope();
             Bus = _scope.ServiceProvider.GetRequiredService<IRequestBus>();
@@ -226,6 +409,28 @@ public sealed class InventoryManagementIndependenceTests
         public RequestDispatchContext Context(bool mcp) => new(Actor, mcp
             ? new McpInvocation("synthetic-inventory-command")
             : new HttpInvocation("POST", "/synthetic", "/synthetic", "synthetic-inventory-command"));
+
+        public Uuid DeclarationTarget(Uuid key) => Uuid.CreateVersion5(Tenant,
+            $"application_declaration_v1:{RbacIds.Member(Tenant, User)}:{key}");
+
+        public async Task SeedApplicationAsync(Uuid applicationId, DeclareApplication request)
+        {
+            var application = new DeclaredApplication(Tenant, applicationId);
+            Assert.True(application.Declare(request.Name, request.Purpose, request.OwnerReference,
+                RbacIds.Member(Tenant, User), "Original manager", DateTimeOffset.UtcNow,
+                request.Classification, request.SystemOwnerPersonId, request.AccessOwnerPersonId,
+                request.IsRestricted, request.ApplicationKind, request.Criticality).IsSuccess);
+            await Writer.SaveAsync(application, new RequestDispatchContext(Actor), CancellationToken.None);
+        }
+
+        public async Task RestrictApplicationAsync(Uuid applicationId, DeclareApplication request)
+        {
+            var application = await Reader.HydrateAsync(new DeclaredApplication(Tenant, applicationId));
+            Assert.Null(application.Revise(application.Revision, request.Name, request.Purpose,
+                request.OwnerReference, RbacIds.Member(Tenant, User), "Original manager", DateTimeOffset.UtcNow,
+                request.Classification, request.SystemOwnerPersonId, request.AccessOwnerPersonId, true));
+            await Writer.SaveAsync(application, new RequestDispatchContext(Actor), CancellationToken.None);
+        }
 
         public async Task SeedRecordsAsync()
         {
@@ -302,15 +507,50 @@ public sealed class InventoryManagementIndependenceTests
     sealed class Permissions : IPermissionAuthorizer
     {
         public bool Allowed { get; set; } = true;
+        public bool RestrictedReadAllowed { get; set; } = true;
         public ValueTask<bool> IsAllowedAsync(Uuid tenantId, Uuid userId, Uuid memberId, string permission,
-            CancellationToken ct = default) => ValueTask.FromResult(Allowed);
+            CancellationToken ct = default) => ValueTask.FromResult(Allowed &&
+                (permission != RbacPermissions.ApplicationRestrictedRead || RestrictedReadAllowed));
+    }
+
+    sealed class ExecutionGate(IAggregateExecutor inner) : IAggregateExecutor
+    {
+        public Func<ValueTask>? BeforeApplicationExecution { get; set; }
+
+        public async ValueTask<Result> ExecuteAsync<TAggregate>(TAggregate aggregate,
+            Func<TAggregate, AggregateOutcome> operation, IExecutionContext context,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            await BeforeExecutionAsync(aggregate);
+            return await inner.ExecuteAsync(aggregate, operation, context, ct);
+        }
+
+        public async ValueTask<Result<TOut>> ExecuteAsync<TAggregate, TOut>(TAggregate aggregate,
+            Func<TAggregate, AggregateOutcome<TOut>> operation, IExecutionContext context,
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            await BeforeExecutionAsync(aggregate);
+            return await inner.ExecuteAsync(aggregate, operation, context, ct);
+        }
+
+        async ValueTask BeforeExecutionAsync(Aggregate aggregate)
+        {
+            if (aggregate is DeclaredApplication && BeforeApplicationExecution is { } before)
+            {
+                BeforeApplicationExecution = null;
+                await before();
+            }
+        }
     }
 
     sealed class MembershipDirectory(Uuid tenant, Uuid user, Uuid administrator, string affiliation,
         Uuid foreignTenant, Uuid foreignUser) : ITenantMembershipDirectoryReader
     {
+        public bool AllowUserInForeignTenant { get; set; }
+
         public ValueTask<TenantMembershipView?> GetAsync(string tenantId, Uuid userId, CancellationToken ct = default) =>
-            ValueTask.FromResult<TenantMembershipView?>(tenantId == foreignTenant.ToString() && userId == foreignUser
+            ValueTask.FromResult<TenantMembershipView?>(tenantId == foreignTenant.ToString() &&
+                (userId == foreignUser || AllowUserInForeignTenant && userId == user)
                 ? new TenantMembershipView(userId, foreignTenant, "client_personnel")
                 : tenantId == tenant.ToString() && (userId == user || userId == administrator)
                     ? new TenantMembershipView(userId, tenant, userId == user ? affiliation : "client_personnel") : null);
