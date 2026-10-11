@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Bdgrz.Compliance.Features.Applications;
 using Bdgrz.Compliance.Features.Workforce;
+using Bdgrz.Compliance.Tests.Testing;
 using Cntryl.Fitz.Testing;
 using Cntryl.Portia;
 using Cntryl.Portia.Testing;
@@ -12,6 +14,177 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationOwnerTests
 {
     static readonly DateTimeOffset Now = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task ShouldPreserveOriginalDeclarationGivenNormalizedKeyedRetryAndChangedDisplay()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var ownerId = await scenario.RecordPersonAsync("Owner");
+        var userId = Uuid.CreateVersion4();
+        var key = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, " Payroll ", " Run payroll ",
+            " Attribution ", " internal ", ownerId, ownerId, true, " service ", " critical ", key);
+        var firstContext = new FixedRequestContext<DeclareApplication>(request, Uuid.CreateVersion4(),
+            BdgrzActor(userId, "Original manager"));
+        var first = await scenario.DeclareHandler.HandleAsync(firstContext, CancellationToken.None);
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        var original = Assert.Single(await scenario.ApplicationEventsAsync(first.Value!.ApplicationId));
+        var originalEventCount = await scenario.TenantApplicationEventCountAsync();
+        scenario.Clock.UtcNow = Now.AddHours(1);
+        var normalized = request with
+        {
+            Name = "Payroll",
+            Purpose = "Run payroll",
+            OwnerReference = "Attribution",
+            Classification = "internal",
+            ApplicationKind = "service",
+            Criticality = "critical",
+        };
+        var retryContext = new FixedRequestContext<DeclareApplication>(normalized, Uuid.CreateVersion4(),
+            BdgrzActor(userId, "Renamed manager"));
+
+        // Act
+        var retry = await scenario.DeclareHandler.HandleAsync(retryContext, CancellationToken.None);
+
+        // Assert
+        Assert.True(retry.IsSuccess, retry.Error?.Message);
+        Assert.NotEqual(firstContext.RequestId, retryContext.RequestId);
+        Assert.NotEqual(firstContext.RequestId, first.Value.ApplicationId);
+        Assert.Equal(first.Value.ApplicationId, retry.Value!.ApplicationId);
+        var retained = Assert.Single(await scenario.ApplicationEventsAsync(first.Value.ApplicationId));
+        Assert.Equal(original, retained);
+        Assert.Equal(originalEventCount, await scenario.TenantApplicationEventCountAsync());
+        var declared = Assert.IsType<ApplicationDeclared>(retained.Event);
+        Assert.Equal("Payroll", declared.Name);
+        Assert.Equal("Run payroll", declared.Purpose);
+        Assert.Equal("Attribution", declared.OwnerReference);
+        Assert.Equal("internal", declared.Classification);
+        Assert.Equal("service", declared.ApplicationKind);
+        Assert.Equal("critical", declared.Criticality);
+        Assert.Equal(ownerId, declared.SystemOwnerPersonId);
+        Assert.Equal(ownerId, declared.AccessOwnerPersonId);
+        Assert.True(declared.IsRestricted);
+        Assert.Equal(RbacIds.Member(scenario.TenantId, userId), declared.ActorMemberId);
+        Assert.Equal("Original manager", declared.ActorDisplay);
+        Assert.Equal(Now, declared.ChangedAt);
+        Assert.Equal(firstContext.RequestId, declared.Metadata.CorrelationId);
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("purpose")]
+    [InlineData("owner_reference")]
+    [InlineData("classification")]
+    [InlineData("system_owner")]
+    [InlineData("access_owner")]
+    [InlineData("kind")]
+    [InlineData("criticality")]
+    [InlineData("restriction")]
+    public async Task ShouldConflictWithoutAppendGivenChangedContentAtDeclarationKey(string changedField)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(true);
+        var ownerId = await scenario.RecordPersonAsync("Owner");
+        var otherOwner = await scenario.RecordPersonAsync("Other owner");
+        var actor = BdgrzActor();
+        var request = new DeclareApplication(scenario.TenantId, "Payroll", "Run payroll",
+            "Attribution", "internal", ownerId, ownerId, false, "service", "critical",
+            Uuid.CreateVersion4());
+        var first = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, Uuid.CreateVersion4(), actor),
+            CancellationToken.None);
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        var original = Assert.Single(await scenario.ApplicationEventsAsync(first.Value!.ApplicationId));
+        var originalEventCount = await scenario.TenantApplicationEventCountAsync();
+        var changed = changedField switch
+        {
+            "name" => request with { Name = "Changed" },
+            "purpose" => request with { Purpose = "Changed" },
+            "owner_reference" => request with { OwnerReference = "Changed" },
+            "classification" => request with { Classification = "confidential" },
+            "system_owner" => request with { SystemOwnerPersonId = otherOwner },
+            "access_owner" => request with { AccessOwnerPersonId = otherOwner },
+            "kind" => request with { ApplicationKind = "tool" },
+            "criticality" => request with { Criticality = "low" },
+            "restriction" => request with { IsRestricted = true },
+            _ => throw new InvalidOperationException("Unknown changed declaration field."),
+        };
+
+        // Act
+        var retry = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(changed, Uuid.CreateVersion4(), actor),
+            CancellationToken.None);
+
+        // Assert
+        Assert.False(retry.IsSuccess);
+        Assert.Throws<InvalidOperationException>(() => retry.Value);
+        Assert.Equal(RequestErrorKind.Conflict, retry.Error!.Kind);
+        Assert.Equal("The application already exists with different content.", retry.Error.Message);
+        Assert.Equal(original, Assert.Single(await scenario.ApplicationEventsAsync(first.Value.ApplicationId)));
+        Assert.Equal(originalEventCount, await scenario.TenantApplicationEventCountAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldKeepLegacyRequestIdentityGivenOmittedOrNullDeclarationKey(bool explicitNull)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+        var keyProperty = explicitNull ? ",\"declaration_key\":null" : string.Empty;
+        var json = $$"""
+            {"tenant_id":"{{scenario.TenantId}}","name":"Payroll","purpose":"Run payroll"{{keyProperty}}}
+            """;
+        var request = JsonSerializer.Deserialize(json, ComplianceCoreJsonContext.Default.DeclareApplication)!;
+        var actor = BdgrzActor();
+        var firstId = Uuid.CreateVersion4();
+        var secondId = Uuid.CreateVersion4();
+        var context = new FixedRequestContext<DeclareApplication>(request, firstId, actor);
+
+        // Act
+        var first = await scenario.DeclareHandler.HandleAsync(context, CancellationToken.None);
+        var replay = await scenario.DeclareHandler.HandleAsync(context, CancellationToken.None);
+        var separate = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, secondId, actor), CancellationToken.None);
+
+        // Assert
+        Assert.Null(request.DeclarationKey);
+        Assert.True(first.IsSuccess, first.Error?.Message);
+        Assert.True(replay.IsSuccess, replay.Error?.Message);
+        Assert.True(separate.IsSuccess, separate.Error?.Message);
+        Assert.Equal(firstId, first.Value!.ApplicationId);
+        Assert.Equal(firstId, replay.Value!.ApplicationId);
+        Assert.Equal(secondId, separate.Value!.ApplicationId);
+        Assert.Single(await scenario.ApplicationEventsAsync(firstId));
+        Assert.Single(await scenario.ApplicationEventsAsync(secondId));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShouldRejectEmptyDeclarationKeyWithoutAppendGivenEitherGovernanceMode(bool enabled)
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync(enabled);
+        var requestId = Uuid.CreateVersion4();
+        var request = new DeclareApplication(scenario.TenantId, "Payroll", "Run payroll",
+            DeclarationKey: Uuid.Empty);
+        var originalEventCount = await scenario.TenantApplicationEventCountAsync();
+
+        // Act
+        var result = await scenario.DeclareHandler.HandleAsync(
+            new FixedRequestContext<DeclareApplication>(request, requestId), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Throws<InvalidOperationException>(() => result.Value);
+        Assert.Equal(RequestErrorKind.Validation, result.Error!.Kind);
+        Assert.Equal("An application declaration key cannot be empty.", result.Error.Message);
+        Assert.Empty(await scenario.ApplicationEventsAsync(requestId));
+        Assert.Empty(await scenario.ApplicationEventsAsync(Uuid.Empty));
+        Assert.Equal(originalEventCount, await scenario.TenantApplicationEventCountAsync());
+    }
 
     [Fact]
     public async Task ShouldRejectIncompleteFreshDeclarationGivenGovernedDeclarationsEnabled()
@@ -318,6 +491,7 @@ public sealed class ApplicationOwnerTests
         public IAggregateReader Reader => _scope.ServiceProvider.GetRequiredService<IAggregateReader>();
         public IAggregateWriter Writer => _scope.ServiceProvider.GetRequiredService<IAggregateWriter>();
         public IAggregateExecutor Executor => _scope.ServiceProvider.GetRequiredService<IAggregateExecutor>();
+        public FixedClock Clock => (FixedClock)_scope.ServiceProvider.GetRequiredService<TimeProvider>();
         IEventStore Events => _scope.ServiceProvider.GetRequiredService<IEventStore>();
         public DeclareApplicationHandler DeclareHandler =>
             ActivatorUtilities.CreateInstance<DeclareApplicationHandler>(_scope.ServiceProvider);
@@ -337,6 +511,8 @@ public sealed class ApplicationOwnerTests
                 }).Build(), developerAuthentication: true);
             services.AddSingleton<IEventStore>(new InMemoryEventStore());
             services.AddSingleton<TimeProvider>(new FixedClock());
+            services.AddScoped(provider => RestrictedApplicationVisibilityFixture.Create(
+                provider.GetRequiredService<IAggregateReader>(), organizationPermission: true));
             var existingId = Uuid.CreateVersion4();
             var scenario = new Scenario(services.BuildServiceProvider(
                     new ServiceProviderOptions { ValidateScopes = true }), Uuid.CreateVersion4(),
@@ -377,6 +553,16 @@ public sealed class ApplicationOwnerTests
             return records;
         }
 
+        public async Task<int> TenantApplicationEventCountAsync()
+        {
+            var count = 0;
+            await foreach (var record in ((IDomainEventReader)Events).ReadAsync(
+                               EventStreamPattern.ForPattern(TenantId.ToString(), "applications"),
+                               ProjectionCheckpoint.Start.Cursor, CancellationToken.None))
+                count++;
+            return count;
+        }
+
         public async ValueTask DisposeAsync()
         {
             await _scope.DisposeAsync();
@@ -386,14 +572,16 @@ public sealed class ApplicationOwnerTests
 
     sealed class FixedClock : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => Now;
+        public DateTimeOffset UtcNow { get; set; } = Now;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
-    sealed class FixedRequestContext<TRequest>(TRequest request, Uuid requestId)
+    sealed class FixedRequestContext<TRequest>(TRequest request, Uuid requestId,
+        ClaimsPrincipal? actor = null)
         : IRequestContext<TRequest> where TRequest : notnull
     {
         public TRequest Request => request;
-        public ClaimsPrincipal Actor { get; } = BdgrzActor();
+        public ClaimsPrincipal Actor { get; } = actor ?? BdgrzActor();
         public Uuid ExecutionId { get; } = Uuid.CreateVersion4();
         public Uuid RequestId => requestId;
         public Uuid CorrelationId => requestId;
@@ -403,7 +591,8 @@ public sealed class ApplicationOwnerTests
         public RequestInvocation Invocation { get; } = new DirectInvocation();
     }
 
-    static ClaimsPrincipal BdgrzActor() => new(new ClaimsIdentity(
-        [new Claim("iss", "bdgrz"), new Claim("sub", Uuid.CreateVersion4().ToString())],
+    static ClaimsPrincipal BdgrzActor(Uuid? userId = null, string display = "Manager") => new(new ClaimsIdentity(
+        [new Claim("iss", "bdgrz"), new Claim("sub", (userId ?? Uuid.CreateVersion4()).ToString()),
+            new Claim("email", display)],
         "BdgrzSession"));
 }
