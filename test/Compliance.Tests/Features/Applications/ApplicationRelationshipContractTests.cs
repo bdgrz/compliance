@@ -35,6 +35,17 @@ public sealed class ApplicationRelationshipContractTests
         Assert.Equal("listApplicationRelationships", list.GetProperty("operationId").GetString());
         Assert.Equal("addApplicationRelationship", add.GetProperty("operationId").GetString());
         Assert.Equal("removeApplicationRelationship", remove.GetProperty("operationId").GetString());
+        var description = list.GetProperty("description").GetString();
+        Assert.Contains("minimum_revision is a read-your-own-writes lower bound", description,
+            StringComparison.Ordinal);
+        Assert.Contains("current canonical relationship snapshot", description,
+            StringComparison.Ordinal);
+        Assert.Contains("retryable 409", description, StringComparison.Ordinal);
+        Assert.Contains("requested and current relationship revisions", description,
+            StringComparison.Ordinal);
+        Assert.Contains("never returns a lower snapshot", description, StringComparison.Ordinal);
+        Assert.Contains("reconstructs an exact historical revision", description,
+            StringComparison.Ordinal);
 
         var addSchema = ResolveSchema(document.RootElement, add.GetProperty("requestBody")
             .GetProperty("content").GetProperty("application/json").GetProperty("schema"));

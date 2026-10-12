@@ -28,7 +28,8 @@ public sealed class ListApplicationRelationshipsHandler(IAggregateReader reader,
         if (request.MinimumRevision is { } minimum && minimum > source.RelationshipRevision)
             return Result<ApplicationRelationshipPage>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
-                $"The application relationship source has not reached revision {minimum}.",
+                $"The application relationship source is at revision {source.RelationshipRevision}, " +
+                $"below requested minimum revision {minimum}; retry the read.",
                 isTransient: true));
 
         var visible = new List<ApplicationRelationshipView>();
