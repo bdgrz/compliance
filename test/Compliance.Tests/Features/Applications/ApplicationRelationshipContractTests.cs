@@ -36,7 +36,9 @@ public sealed class ApplicationRelationshipContractTests
         Assert.Equal("addApplicationRelationship", add.GetProperty("operationId").GetString());
         Assert.Equal("removeApplicationRelationship", remove.GetProperty("operationId").GetString());
         var description = list.GetProperty("description").GetString();
-        Assert.Contains("minimum_revision is a read-your-own-writes lower bound", description,
+        Assert.Contains("minimum_revision is a nonnegative read-your-own-writes lower bound",
+            description, StringComparison.Ordinal);
+        Assert.Contains("read-your-own-writes lower bound", description,
             StringComparison.Ordinal);
         Assert.Contains("current canonical relationship snapshot", description,
             StringComparison.Ordinal);

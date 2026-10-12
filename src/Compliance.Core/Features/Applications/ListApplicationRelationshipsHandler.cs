@@ -11,7 +11,7 @@ public sealed class ListApplicationRelationshipsHandler(IAggregateReader reader,
     {
         var request = context.Request;
         if (request.TenantId == Uuid.Empty || request.ApplicationId == Uuid.Empty ||
-            request.Limit is < 1 or > 200 || request.MinimumRevision is < 1 ||
+            request.Limit is < 1 or > 200 || request.MinimumRevision is < 0 ||
             request.Cursor is { Length: > 1024 })
             return Result<ApplicationRelationshipPage>.Failure(new RequestError(
                 RequestErrorKind.Validation,

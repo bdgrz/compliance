@@ -1758,7 +1758,7 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("List directed relationships from an application")
-        .WithDescription("minimum_revision is a read-your-own-writes lower bound. The endpoint " +
+        .WithDescription("minimum_revision is a nonnegative read-your-own-writes lower bound. The endpoint " +
             "returns the current canonical relationship snapshot when its revision is at least " +
             "the requested minimum. If the source is behind, it returns a retryable 409 with the " +
             "requested and current relationship revisions. It never returns a lower snapshot or " +
