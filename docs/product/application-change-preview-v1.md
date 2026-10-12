@@ -21,10 +21,43 @@ registered `ReadOnly`; all arguments are flat scalars.
 
 The JSON body has `expected_application_revision` (positive), `change_kind`
 (`revise` or `retire`), and, for `revise`, `name`, `purpose`, and optional
-`owner_reference` and `classification`. Names and descriptions use the same
-bounds as the existing
-manual Application revision. A `retire` preview rejects revised fields. The
-operation emits no event and changes no Application or boundary record.
+`owner_reference`, `classification`, `system_owner_person_id`,
+`access_owner_person_id`, `application_kind`, and `criticality`. The four added
+fields are optional, default to null, and preserve discriminator version 1 and
+the existing `expected_application_revision` wire name. Owner IDs are nullable
+UUIDs referencing recorded workforce Persons in this tenant; they grant no
+membership or authority. The same Person can fill both roles. Free-text
+`owner_reference` is separate attribution and cannot substitute for either ID.
+A `retire` preview rejects every supplied revised field, including empty UUIDs
+and blank new strings. The operation emits no event and changes no Application
+or boundary record.
+
+For `revise`, the handler uses the same resulting-content rule as
+`ReviseApplication`, against the authoritative Application at the expected
+revision. `Compliance:Applications:GovernedRevisionsEnabled` remains false in
+committed configuration. With this independent gate off, omitted/null owner
+IDs and classification clear their existing values; blank classification also
+clears. With the gate on, omitted/null owner IDs and classification retain their
+recorded values, explicit blank classification rejects, and all required
+resulting metadata must be present. Both modes retain omitted/null application
+kind and criticality. Supplied kind and criticality trim first, must be nonblank,
+and allow at most 200 characters after trimming. Name (200), purpose (2000),
+owner reference (2000), and classification (200) preserve the revision rule's
+raw-input bounds before trimming. Owner reference trims and clears on blank or
+null in either mode. Empty owner UUIDs reject; both supplied and gate-on retained
+effective owner IDs are revalidated against same-tenant Person source records.
+
+`changes` contains only actual differences between the exact-revision projection
+and normalized resulting content across `name`, `purpose`, `owner_reference`,
+`classification`, `system_owner_person_id`, `access_owner_person_id`,
+`application_kind`, and `criticality`. Owner before/after values are canonical
+UUID strings or null, never Person names. Retained or equal normalized values
+produce no change. Restriction editing and comparison are excluded. Applying
+these changes to that baseline yields the content a successful save of identical
+submitted values, gate mode and expected Application revision records in its
+single `ApplicationRevised` event. The save still performs its own authorization,
+owner validation and expected-revision checks; preview gives no approval token
+or frozen observation.
 
 The 200 result contains `tenant_id`, `application_id`,
 `application_revision`, `change_kind`, a list of changed content fields with
