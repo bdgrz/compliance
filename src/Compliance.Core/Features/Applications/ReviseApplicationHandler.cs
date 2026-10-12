@@ -54,7 +54,8 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor,
                 request.Name, request.Purpose, request.OwnerReference,
                 memberId, display, clock.GetUtcNow(), request.Classification,
                 request.SystemOwnerPersonId, request.AccessOwnerPersonId,
-                request.IsRestricted, request.ApplicationKind, request.Criticality, governed));
+                request.IsRestricted, request.ApplicationKind, request.Criticality, governed,
+                request.ClassificationIntent, request.SystemOwnerIntent, request.AccessOwnerIntent));
             }, context, ct)
             .ConfigureAwait(false);
     }
@@ -64,5 +65,6 @@ public sealed class ReviseApplicationHandler(IAggregateExecutor executor,
         app.ResolveRevisionContent(request.ExpectedRevision, request.Name, request.Purpose,
             request.OwnerReference, request.Classification, request.SystemOwnerPersonId,
             request.AccessOwnerPersonId, request.IsRestricted, request.ApplicationKind,
-            request.Criticality, governed, out content);
+            request.Criticality, governed, request.ClassificationIntent,
+            request.SystemOwnerIntent, request.AccessOwnerIntent, out content);
 }
