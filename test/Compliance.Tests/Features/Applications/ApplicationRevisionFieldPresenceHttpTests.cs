@@ -24,6 +24,38 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 /// <summary>Exercises production HTTP and registered MCP binding with local event and permission observations.</summary>
 public sealed class ApplicationRevisionFieldPresenceHttpTests
 {
+    [Fact]
+    public async Task ShouldEnableGovernedRevisionsAndKeepDeclarationsDisabledGivenDefaultHostConfiguration()
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+
+        // Act
+        var revisions = fixture.RevisionGate;
+        var declarations = fixture.DeclarationGate;
+
+        // Assert
+        Assert.True(revisions.IsEnabled);
+        Assert.False(declarations.IsEnabled);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("invalid")]
+    [InlineData("false")]
+    public async Task ShouldKeepRevisionsDisabledGivenMissingInvalidOrDisabledHostSetting(string? setting)
+    {
+        // Arrange
+        await using var fixture = new Fixture(configureHost: host =>
+            host.UseSetting("Compliance:Applications:GovernedRevisionsEnabled", setting));
+
+        // Act
+        var revisions = fixture.RevisionGate;
+
+        // Assert
+        Assert.False(revisions.IsEnabled);
+    }
+
     [Theory]
     [InlineData(false, "classification")]
     [InlineData(false, "system_owner_person_id")]
@@ -516,10 +548,13 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
         public Uuid Application { get; } = Uuid.CreateVersion4();
         public Uuid Owner { get; } = Uuid.CreateVersion4();
         public List<BusCall> Calls { get; } = [];
+        public ApplicationGovernedRevisionGate RevisionGate => _factory.Services.GetRequiredService<ApplicationGovernedRevisionGate>();
+        public ApplicationGovernedDeclarationGate DeclarationGate => _factory.Services.GetRequiredService<ApplicationGovernedDeclarationGate>();
         readonly InMemoryEventStore _events = new();
         string _cookie = "";
 
-        public Fixture(bool enabled, bool inventoryAllowed = true, bool previewAllowed = true)
+        public Fixture(bool? enabled = null, bool inventoryAllowed = true, bool previewAllowed = true,
+            Action<IWebHostBuilder>? configureHost = null)
         {
             _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             {
@@ -527,7 +562,9 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
                 builder.UseSetting("BDGRZ_DEVELOPER_AUTH", "true");
                 builder.UseSetting("Fitz:Endpoint", "ws://127.0.0.1:4090/ws");
                 builder.UseSetting("Fitz:ApplicationName", "application-field-presence-tests");
-                builder.UseSetting("Compliance:Applications:GovernedRevisionsEnabled", enabled.ToString());
+                if (enabled.HasValue)
+                    builder.UseSetting("Compliance:Applications:GovernedRevisionsEnabled", enabled.Value.ToString());
+                configureHost?.Invoke(builder);
                 builder.ConfigureServices(services =>
                 {
                     foreach (var descriptor in services.Where(descriptor => descriptor.ServiceType == typeof(IHostedService) &&
