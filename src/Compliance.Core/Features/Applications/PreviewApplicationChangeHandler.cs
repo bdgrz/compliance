@@ -1,3 +1,4 @@
+using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -9,7 +10,7 @@ public sealed class PreviewApplicationChangeHandler(
     ApplicationBoundaryReferenceReadConsistency boundaryConsistency,
     IApplicationControlDraftReferenceDirectory controls,
     ApplicationControlDraftReferenceReadConsistency controlConsistency,
-    RestrictedApplicationVisibility visibility)
+    RestrictedApplicationVisibility visibility, ApplicationGovernedRevisionGate? gate = null)
     : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>
 {
     static readonly string[] MissingContexts =
@@ -43,6 +44,24 @@ public sealed class PreviewApplicationChangeHandler(
             return Result<ApplicationChangePreview>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
                 $"The application is at revision {source.Revision}; preview revision {request.ExpectedApplicationRevision} is stale."));
+
+        ApplicationRevisionContent? content = null;
+        if (request.ChangeKind == "revise")
+        {
+            var invalid = source.ResolveRevisionContent(request.ExpectedApplicationRevision,
+                request.Name!, request.Purpose!, request.OwnerReference, request.Classification,
+                request.SystemOwnerPersonId, request.AccessOwnerPersonId, null,
+                request.ApplicationKind, request.Criticality, gate?.IsEnabled ?? false,
+                out var resolved);
+            if (invalid is not null)
+                return Result<ApplicationChangePreview>.Failure(invalid.ToRequestError());
+            var owners = await ApplicationOwnerReferences.ValidateAsync(aggregates,
+                request.TenantId, resolved.SystemOwnerPersonId, resolved.AccessOwnerPersonId, ct)
+                .ConfigureAwait(false);
+            if (owners is not null)
+                return Result<ApplicationChangePreview>.Failure(owners);
+            content = resolved;
+        }
 
         var current = await applications.GetAsync(request.TenantId, request.ApplicationId, ct)
             .ConfigureAwait(false);
@@ -125,7 +144,7 @@ public sealed class PreviewApplicationChangeHandler(
         pending.AddRange(MissingContexts);
         return Result<ApplicationChangePreview>.Success(new ApplicationChangePreview(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
-            Changes(current, request), page.Items, pending, false)
+            Changes(current, content), page.Items, pending, false)
         {
             ControlDraftReferences = controlPage.Items,
             SystemInstanceReferences = instancePage.Items,
@@ -139,35 +158,33 @@ public sealed class PreviewApplicationChangeHandler(
                 "The expected application revision must be positive.");
         if (request.ChangeKind == "retire")
             return request.Name is null && request.Purpose is null &&
-                   request.OwnerReference is null && request.Classification is null ? null :
+                   request.OwnerReference is null && request.Classification is null &&
+                   request.SystemOwnerPersonId is null && request.AccessOwnerPersonId is null &&
+                   request.ApplicationKind is null && request.Criticality is null ? null :
                 new RequestError(RequestErrorKind.Validation,
                     "A retirement preview cannot include revised application fields.");
         if (request.ChangeKind != "revise")
             return new RequestError(RequestErrorKind.Validation,
                 "The change kind must be revise or retire.");
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200 ||
-            string.IsNullOrWhiteSpace(request.Purpose) || request.Purpose.Length > 2000 ||
-            request.OwnerReference is { Length: > 2000 } ||
-            request.Classification is { Length: > 200 })
-            return new RequestError(RequestErrorKind.Validation,
-                "A revision preview requires bounded name, purpose, owner, and classification fields.");
         return null;
     }
 
     static List<ApplicationFieldChange> Changes(ApplicationView current,
-        PreviewApplicationChange request)
+        ApplicationRevisionContent? content)
     {
-        if (request.ChangeKind == "retire")
+        if (content is null)
             return [];
         var changes = new List<ApplicationFieldChange>();
-        Add("name", current.Name, request.Name!.Trim());
-        Add("purpose", current.Purpose, request.Purpose!.Trim());
-        Add("owner_reference", current.OwnerReference,
-            string.IsNullOrWhiteSpace(request.OwnerReference) ? null :
-                request.OwnerReference.Trim());
-        Add("classification", current.Classification,
-            string.IsNullOrWhiteSpace(request.Classification) ? null :
-                request.Classification.Trim());
+        Add("name", current.Name, content.Name);
+        Add("purpose", current.Purpose, content.Purpose);
+        Add("owner_reference", current.OwnerReference, content.OwnerReference);
+        Add("classification", current.Classification, content.Classification);
+        Add("system_owner_person_id", current.SystemOwnerPersonId?.ToString(),
+            content.SystemOwnerPersonId?.ToString());
+        Add("access_owner_person_id", current.AccessOwnerPersonId?.ToString(),
+            content.AccessOwnerPersonId?.ToString());
+        Add("application_kind", current.ApplicationKind, content.ApplicationKind);
+        Add("criticality", current.Criticality, content.Criticality);
         return changes;
 
         void Add(string field, string? before, string? after)
