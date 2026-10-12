@@ -1,0 +1,51 @@
+using Cntryl.Portia;
+
+namespace Bdgrz.Compliance.Features.Applications;
+
+public sealed class ListApplicationRelationshipsHandler(IAggregateReader reader,
+    RestrictedApplicationVisibility visibility)
+    : IRequestHandler<ListApplicationRelationships, ApplicationRelationshipPage>
+{
+    public async ValueTask<Result<ApplicationRelationshipPage>> HandleAsync(
+        IRequestContext<ListApplicationRelationships> context, CancellationToken ct)
+    {
+        var request = context.Request;
+        if (request.TenantId == Uuid.Empty || request.ApplicationId == Uuid.Empty ||
+            request.Limit is < 1 or > 200 || request.MinimumRevision is < 1 ||
+            request.Cursor is { Length: > 1024 })
+            return Result<ApplicationRelationshipPage>.Failure(new RequestError(
+                RequestErrorKind.Validation,
+                "The application relationship list query is invalid."));
+
+        var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
+            ? subject
+            : Uuid.Empty;
+        var source = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
+            request.ApplicationId), ct).ConfigureAwait(false);
+        if (!source.IsCreated || !await visibility.CanReadApplicationAsync(request.TenantId,
+                userId, request.ApplicationId, ct).ConfigureAwait(false))
+            return NotFound();
+        if (request.MinimumRevision is { } minimum && minimum > source.RelationshipRevision)
+            return Result<ApplicationRelationshipPage>.Failure(new RequestError(
+                RequestErrorKind.Conflict,
+                $"The application relationship source has not reached revision {minimum}.",
+                isTransient: true));
+
+        var visible = new List<ApplicationRelationshipView>();
+        foreach (var relationship in source.ReadApplicationRelationships())
+            if (await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                    relationship.TargetApplicationId, ct).ConfigureAwait(false))
+                visible.Add(relationship);
+
+        var error = ApplicationRelationshipPaging.Create(request.TenantId,
+            request.ApplicationId, source.RelationshipRevision, visible,
+            request.Limit, request.Cursor, out var page);
+        return error is not null
+            ? Result<ApplicationRelationshipPage>.Failure(error)
+            : Result<ApplicationRelationshipPage>.Success(page);
+    }
+
+    static Result<ApplicationRelationshipPage> NotFound() =>
+        Result<ApplicationRelationshipPage>.Failure(new RequestError(RequestErrorKind.NotFound,
+            "The application was not found."));
+}

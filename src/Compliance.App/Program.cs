@@ -1746,6 +1746,18 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Applications");
+    app.MapPortiaPost<AddApplicationRelationship, ApplicationRelationshipChange>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships/{relationship_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaDelete<RemoveApplicationRelationship, ApplicationRelationshipChange>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships/{relationship_id}")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplicationRelationships, ApplicationRelationshipPage>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
     app.MapPortiaGet<GetApplicationRevision, ApplicationRevisionView>(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
