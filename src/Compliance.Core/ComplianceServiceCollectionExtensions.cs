@@ -33,6 +33,7 @@ public static class ComplianceServiceCollectionExtensions
         services.AddSingleton(ControlActivationReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(ControlLifecycleReleaseGate.FromConfiguration(configuration));
         services.AddSingleton(ApplicationGovernedDeclarationGate.FromConfiguration(configuration));
+        services.AddSingleton(ApplicationGovernedRevisionGate.FromConfiguration(configuration));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICriteriaCatalog>(CriteriaCatalog.Platform);
         services.AddScoped<FitzCriteriaTextOverlayDirectory>();

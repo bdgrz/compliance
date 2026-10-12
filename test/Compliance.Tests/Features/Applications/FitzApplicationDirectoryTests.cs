@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bdgrz.Compliance.Features.AccessControl;
 using Bdgrz.Compliance.Features.Applications;
@@ -34,11 +35,14 @@ public sealed class FitzApplicationDirectoryTests
             {
                 StoredActor = declaredActor,
             });
-            await directory.ApplyAsync(new ApplicationRevised(tenantId, applicationId, 2,
+            var oldPayload = JsonSerializer.SerializeToNode(new ApplicationRevised(tenantId, applicationId, 2,
                 "Payroll", "Run monthly payroll", null, actorId, "Editor", now.AddMinutes(1))
             {
                 StoredActor = revisedActor,
-            });
+            }, ComplianceCoreJsonContext.Default.ApplicationRevised)!.AsObject();
+            oldPayload.Remove("application_kind");
+            oldPayload.Remove("criticality");
+            await directory.ApplyAsync(oldPayload.Deserialize(ComplianceCoreJsonContext.Default.ApplicationRevised)!);
             await batch.CommitAsync(ProjectionCheckpoint.Start);
         }
         var current = await directory.GetAsync(tenantId, applicationId);
