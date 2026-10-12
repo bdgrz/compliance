@@ -16,6 +16,36 @@ public sealed class ApplicationRevisionGovernanceTests
 {
     static readonly DateTimeOffset Now = new(2026, 10, 11, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData("classification")]
+    [InlineData("system_owner")]
+    [InlineData("access_owner")]
+    public async Task ShouldRejectExplicitClearWithoutAppendGivenCompleteGovernedRevision(string field)
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+        await fixture.RecordPersonAsync(fixture.Owner);
+        await fixture.SeedAsync(complete: true);
+        var request = fixture.CompleteRequest();
+        request = field switch
+        {
+            "classification" => request with { Classification = null, ClassificationIntent = new(true) },
+            "system_owner" => request with { SystemOwnerPersonId = null, SystemOwnerIntent = new(true) },
+            "access_owner" => request with { AccessOwnerPersonId = null, AccessOwnerIntent = new(true) },
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+        var before = await fixture.EventsAsync();
+        var foreignBefore = await fixture.ForeignEventsAsync();
+
+        // Act
+        var result = await fixture.Bus.SendAsync(request, fixture.Actor);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, result.Error?.Kind);
+        Assert.Equal(before, await fixture.EventsAsync());
+        Assert.Equal(foreignBefore, await fixture.ForeignEventsAsync());
+    }
+
     [Fact]
     public async Task ShouldRejectIncompleteResultGivenGovernedRevision()
     {

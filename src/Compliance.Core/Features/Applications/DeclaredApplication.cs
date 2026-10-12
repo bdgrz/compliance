@@ -131,11 +131,15 @@ public sealed partial class DeclaredApplication : Aggregate
         DateTimeOffset changedAt, string? classification = null,
         Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null,
         bool? isRestricted = null, string? applicationKind = null,
-        string? criticality = null, bool governedRevisionsEnabled = false)
+        string? criticality = null, bool governedRevisionsEnabled = false,
+        ApplicationRevisionField classificationIntent = default,
+        ApplicationRevisionField systemOwnerIntent = default,
+        ApplicationRevisionField accessOwnerIntent = default)
     {
         var check = ResolveRevisionContent(expectedRevision, name, purpose, ownerReference,
             classification, systemOwnerPersonId, accessOwnerPersonId, isRestricted,
-            applicationKind, criticality, governedRevisionsEnabled, out var content);
+            applicationKind, criticality, governedRevisionsEnabled, classificationIntent,
+            systemOwnerIntent, accessOwnerIntent, out var content);
         if (check is not null)
             return check;
         RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, content.Name,
@@ -152,13 +156,16 @@ public sealed partial class DeclaredApplication : Aggregate
         string purpose, string? ownerReference, string? classification,
         Uuid? systemOwnerPersonId, Uuid? accessOwnerPersonId, bool? isRestricted,
         string? applicationKind, string? criticality, bool governed,
+        ApplicationRevisionField classificationIntent, ApplicationRevisionField systemOwnerIntent,
+        ApplicationRevisionField accessOwnerIntent,
         out ApplicationRevisionContent content)
     {
         content = new ApplicationRevisionContent(name?.Trim()!, purpose?.Trim()!,
             NormalizeOptional(ownerReference),
-            governed ? classification?.Trim() ?? _classification?.Trim() : NormalizeOptional(classification),
-            systemOwnerPersonId ?? (governed ? _systemOwnerPersonId : null),
-            accessOwnerPersonId ?? (governed ? AccessOwnerPersonId : null),
+            governed ? ApplicationRevisionContent.ResolveField(classification?.Trim(),
+                _classification?.Trim(), classificationIntent, governed) : NormalizeOptional(classification),
+            ApplicationRevisionContent.ResolveField(systemOwnerPersonId, _systemOwnerPersonId, systemOwnerIntent, governed),
+            ApplicationRevisionContent.ResolveField(accessOwnerPersonId, AccessOwnerPersonId, accessOwnerIntent, governed),
             isRestricted ?? _isRestricted, applicationKind?.Trim() ?? _applicationKind?.Trim(),
             criticality?.Trim() ?? _criticality?.Trim());
         var check = CheckChange(expectedRevision);

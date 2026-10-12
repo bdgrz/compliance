@@ -16,6 +16,31 @@ public sealed class ApplicationRevisionPreviewContractTests
 {
     static readonly DateTimeOffset Now = new(2026, 10, 11, 12, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData("classification")]
+    [InlineData("system_owner")]
+    [InlineData("access_owner")]
+    public async Task ShouldRejectExplicitClearGivenCompleteGovernedPreview(string field)
+    {
+        // Arrange
+        await using var fixture = new Fixture(true);
+        await fixture.SeedAsync();
+        var request = fixture.CompleteRequest();
+        request = field switch
+        {
+            "classification" => request with { Classification = null, ClassificationIntent = new(true) },
+            "system_owner" => request with { SystemOwnerPersonId = null, SystemOwnerIntent = new(true) },
+            "access_owner" => request with { AccessOwnerPersonId = null, AccessOwnerIntent = new(true) },
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+
+        // Act
+        var result = await fixture.PreviewAsync(request);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, result.Error?.Kind);
+    }
+
     [Fact]
     public async Task ShouldReportOwnerClearsGivenExistingPreviewShapeWithDisabledRevisionGate()
     {

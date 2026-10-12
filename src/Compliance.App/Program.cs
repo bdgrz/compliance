@@ -1,10 +1,12 @@
 using Bdgrz.Compliance.Features.Retention;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Bdgrz.Compliance;
 using Bdgrz.Compliance.Features.Responsibilities;
 using Cntryl.Portia;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.OpenApi;
 
 var hostMode = ComplianceHostModeParser.Parse(
     Environment.GetEnvironmentVariable("COMPLIANCE_HOST_MODE"));
@@ -1724,7 +1726,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Applications");
     app.MapPortiaPut<ReviseApplication>(
-            "/api/v1/tenants/{tenant_id}/applications/{application_id}")
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}", endpoint => endpoint
+                .OnBind(Program.BindApplicationRevisionAsync)
+                .Accepts<ApplicationRevisionHttpBody>("application/json", isOptional: true, "*/*")
+                .Parameter<Uuid>("tenant_id", PortiaHttpParameterLocation.Route, required: true)
+                .Parameter<Uuid>("application_id", PortiaHttpParameterLocation.Route, required: true))
+        .AddOpenApiOperationTransformer(Program.PreserveApplicationHttpSchemaAsync)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Applications");
     app.MapPortiaGet<GetApplication, ApplicationView>(
@@ -1768,7 +1775,12 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
         .WithSummary("List current draft and approved boundary references for a system instance")
         .WithTags("System instances");
     app.MapPortiaPost<PreviewApplicationChange, ApplicationChangePreview>(
-            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews")
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/change-previews", endpoint => endpoint
+                .OnBind(Program.BindApplicationPreviewAsync)
+                .Accepts<ApplicationPreviewHttpBody>("application/json", isOptional: true, "*/*")
+                .Parameter<Uuid>("tenant_id", PortiaHttpParameterLocation.Route, required: true)
+                .Parameter<Uuid>("application_id", PortiaHttpParameterLocation.Route, required: true))
+        .AddOpenApiOperationTransformer(Program.PreserveApplicationHttpSchemaAsync)
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithSummary("Preview the known impact of a proposed application change")
         .WithTags("Applications");
@@ -2170,4 +2182,139 @@ static async Task RunWorkerAsync(string[] args)
 /// </summary>
 public partial class Program
 {
+    internal static Task PreserveApplicationHttpSchemaAsync(OpenApiOperation operation,
+        OpenApiOperationTransformerContext context, CancellationToken ct)
+    {
+        // Let the binder enforce JSON media types (including missing headers) so the fallback
+        // route cannot turn Portia's 415 into a 404. Documentation retains the original contract.
+        var body = new OpenApiRequestBody { Required = true, Content = operation.RequestBody!.Content };
+        operation.RequestBody = body;
+        body.Content!.Remove("*/*");
+        return Task.CompletedTask;
+    }
+
+    internal static async ValueTask<ReviseApplication> BindApplicationRevisionAsync(HttpContext context,
+        CancellationToken ct)
+    {
+        using var document = await PortiaHttpBinding.ReadJsonBodyAsync(context, true, ct).ConfigureAwait(false);
+        var body = document.RootElement;
+        var options = PortiaHttpBinding.GetJsonOptions(context);
+        var classification = ReadApplicationValue<ReviseApplication, string?>(context, body, options,
+            6, "Classification", true, true, out var classificationSupplied);
+        var systemOwner = ReadApplicationValue<ReviseApplication, Uuid?>(context, body, options,
+            7, "SystemOwnerPersonId", true, true, out var systemOwnerSupplied);
+        var accessOwner = ReadApplicationValue<ReviseApplication, Uuid?>(context, body, options,
+            8, "AccessOwnerPersonId", true, true, out var accessOwnerSupplied);
+        return new ReviseApplication(ApplicationRouteId(context, "tenant_id"), ApplicationRouteId(context, "application_id"),
+            Read<long>(2, "ExpectedRevision", false, false), Read<string>(3, "Name", false, false),
+            Read<string>(4, "Purpose", false, false), Read<string?>(5, "OwnerReference", true, false),
+            classification, systemOwner, accessOwner, Read<bool?>(9, "IsRestricted", true, true),
+            Read<string?>(10, "ApplicationKind", true, true), Read<string?>(11, "Criticality", true, true))
+        {
+            ClassificationIntent = new(classificationSupplied),
+            SystemOwnerIntent = new(systemOwnerSupplied),
+            AccessOwnerIntent = new(accessOwnerSupplied),
+        };
+
+        T Read<T>(int index, string name, bool nullable, bool hasDefault) =>
+            ReadApplicationValue<ReviseApplication, T>(context, body, options, index, name, nullable, hasDefault, out _);
+    }
+
+    internal static async ValueTask<PreviewApplicationChange> BindApplicationPreviewAsync(HttpContext context,
+        CancellationToken ct)
+    {
+        using var document = await PortiaHttpBinding.ReadJsonBodyAsync(context, true, ct).ConfigureAwait(false);
+        var body = document.RootElement;
+        var options = PortiaHttpBinding.GetJsonOptions(context);
+        var classification = ReadApplicationValue<PreviewApplicationChange, string?>(context, body, options,
+            7, "Classification", true, true, out var classificationSupplied);
+        var systemOwner = ReadApplicationValue<PreviewApplicationChange, Uuid?>(context, body, options,
+            8, "SystemOwnerPersonId", true, true, out var systemOwnerSupplied);
+        var accessOwner = ReadApplicationValue<PreviewApplicationChange, Uuid?>(context, body, options,
+            9, "AccessOwnerPersonId", true, true, out var accessOwnerSupplied);
+        return new PreviewApplicationChange(ApplicationRouteId(context, "tenant_id"), ApplicationRouteId(context, "application_id"),
+            Read<long>(2, "ExpectedApplicationRevision", false, false), Read<string>(3, "ChangeKind", false, false),
+            Read<string?>(4, "Name", true, true), Read<string?>(5, "Purpose", true, true),
+            Read<string?>(6, "OwnerReference", true, true), classification, systemOwner, accessOwner,
+            Read<string?>(10, "ApplicationKind", true, true), Read<string?>(11, "Criticality", true, true))
+        {
+            ClassificationIntent = new(classificationSupplied),
+            SystemOwnerIntent = new(systemOwnerSupplied),
+            AccessOwnerIntent = new(accessOwnerSupplied),
+        };
+
+        T Read<T>(int index, string name, bool nullable, bool hasDefault) =>
+            ReadApplicationValue<PreviewApplicationChange, T>(context, body, options, index, name, nullable, hasDefault, out _);
+    }
+
+    static Uuid ApplicationRouteId(HttpContext context, string name) =>
+        Uuid.TryParse(context.Request.RouteValues[name]?.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value : throw new BadHttpRequestException("Invalid route value.");
+
+    static T ReadApplicationValue<TRequest, T>(HttpContext context, JsonElement body, JsonSerializerOptions options,
+        int index, string name, bool nullable, bool hasDefault, out bool supplied)
+    {
+        var wireName = options.PropertyNamingPolicy?.ConvertName(name) ?? name;
+        supplied = PortiaHttpBinding.HasBodyMember<TRequest, T>(body, options, index, wireName);
+        if (!supplied && PortiaHttpBinding.ReadQuery(context, wireName) is { } raw)
+        {
+            // Preserve generated binding's body-before-query scalar fallback and parsing.
+            supplied = true;
+            object value;
+            if (typeof(T) == typeof(string))
+                value = raw;
+            else if (typeof(T) == typeof(long) && long.TryParse(raw, CultureInfo.InvariantCulture, out var number))
+                value = number;
+            else if (typeof(T) == typeof(Uuid?) && Uuid.TryParse(raw, CultureInfo.InvariantCulture, out var id))
+                value = id;
+            else if (typeof(T) == typeof(bool?) && bool.TryParse(raw, out var boolean))
+                value = boolean;
+            else
+                throw new BadHttpRequestException("Invalid scalar value.");
+            return (T)value;
+        }
+        return PortiaHttpBinding.ReadBody<TRequest, T>(body, options, index, name, wireName,
+            nullable, hasDefault, default!);
+    }
 }
+
+// These types describe only the existing HTTP body. Binding still uses the request's scalar
+// metadata above. Nonnullable UUID/bool documentation preserves Portia's current export shape.
+readonly record struct ApplicationRevisionHttpBody
+{
+    [JsonRequired]
+    public long ExpectedRevision { get; init; }
+    [JsonRequired]
+    public string? Name { get; init; }
+    [JsonRequired]
+    public string? Purpose { get; init; }
+    public string? OwnerReference { get; init; }
+    public string? Classification { get; init; }
+    public Uuid SystemOwnerPersonId { get; init; }
+    public Uuid AccessOwnerPersonId { get; init; }
+    public bool IsRestricted { get; init; }
+    public string? ApplicationKind { get; init; }
+    public string? Criticality { get; init; }
+}
+
+readonly record struct ApplicationPreviewHttpBody
+{
+    [JsonRequired]
+    public long ExpectedApplicationRevision { get; init; }
+    [JsonRequired]
+    public string? ChangeKind { get; init; }
+    public string? Name { get; init; }
+    public string? Purpose { get; init; }
+    public string? OwnerReference { get; init; }
+    public string? Classification { get; init; }
+    public Uuid SystemOwnerPersonId { get; init; }
+    public Uuid AccessOwnerPersonId { get; init; }
+    public string? ApplicationKind { get; init; }
+    public string? Criticality { get; init; }
+}
+
+[PortiaJsonContext]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSerializable(typeof(ApplicationRevisionHttpBody))]
+[JsonSerializable(typeof(ApplicationPreviewHttpBody))]
+sealed partial class ApplicationRevisionHttpJsonContext : JsonSerializerContext;

@@ -52,6 +52,7 @@ public sealed class PreviewApplicationChangeHandler(
                 request.Name!, request.Purpose!, request.OwnerReference, request.Classification,
                 request.SystemOwnerPersonId, request.AccessOwnerPersonId, null,
                 request.ApplicationKind, request.Criticality, gate?.IsEnabled ?? false,
+                request.ClassificationIntent, request.SystemOwnerIntent, request.AccessOwnerIntent,
                 out var resolved);
             if (invalid is not null)
                 return Result<ApplicationChangePreview>.Failure(invalid.ToRequestError());

@@ -8,6 +8,9 @@ sealed record ApplicationRevisionContent(string Name, string Purpose, string? Ow
     string? Classification, Uuid? SystemOwnerPersonId, Uuid? AccessOwnerPersonId,
     bool IsRestricted, string? ApplicationKind, string? Criticality)
 {
+    internal static T ResolveField<T>(T value, T current, ApplicationRevisionField intent, bool governed) =>
+        governed && !intent.IsSupplied && value is null ? current : value;
+
     public CommandFailure? Validate(bool governed)
     {
         if (string.IsNullOrWhiteSpace(Name) || Name.Length > 200 ||

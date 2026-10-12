@@ -1,5 +1,6 @@
 using Bdgrz.Compliance.Features.Programs;
 using Cntryl.Portia;
+using System.Text.Json.Serialization;
 
 namespace Bdgrz.Compliance.Features.Applications;
 
@@ -10,4 +11,12 @@ public sealed record PreviewApplicationChange(Uuid TenantId, Uuid ApplicationId,
     Uuid? SystemOwnerPersonId = null, Uuid? AccessOwnerPersonId = null,
     string? ApplicationKind = null, string? Criticality = null)
     : IRequest<ApplicationChangePreview>, IRestrictedApplicationResourceReadRequest,
-        IProgramManagementRequest, ICallable;
+        IProgramManagementRequest, ICallable
+{
+    [JsonIgnore]
+    public ApplicationRevisionField ClassificationIntent { get; init; }
+    [JsonIgnore]
+    public ApplicationRevisionField SystemOwnerIntent { get; init; }
+    [JsonIgnore]
+    public ApplicationRevisionField AccessOwnerIntent { get; init; }
+}
