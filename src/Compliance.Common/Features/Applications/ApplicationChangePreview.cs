@@ -9,7 +9,7 @@ public sealed record ApplicationChangePreview(Uuid TenantId, Uuid ApplicationId,
     IReadOnlyList<ApplicationBoundaryReferenceView> BoundaryReferences,
     IReadOnlyList<string> PendingContexts, bool Complete)
 {
-    /// <summary>Currently visible outgoing relationships; incoming impact remains pending.</summary>
+    /// <summary>Up to 200 visible outgoing relationships; incoming impact remains pending.</summary>
     public IReadOnlyList<ApplicationRelationshipView> ApplicationRelationships { get; init; } = [];
 
     public IReadOnlyList<ApplicationControlDraftReferenceView> ControlDraftReferences { get; init; } = [];

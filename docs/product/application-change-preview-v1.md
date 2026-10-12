@@ -63,7 +63,7 @@ The 200 result contains `tenant_id`, `application_id`,
 `application_revision`, `change_kind`, a list of changed content fields with
 `before` and `after`, up to 200 current draft and approved or historical
 `boundary_references`, up to 200 current direct-Application
-`control_draft_references`, currently visible outgoing
+`control_draft_references`, up to 200 currently visible outgoing
 `application_relationships`, `pending_contexts`, and `complete`. A control
 reference contains the stable control, program, applicability-entry, and
 current draft revision identifiers plus the authored subject and rationale; it
@@ -71,12 +71,18 @@ does not contain full draft content. `complete` is always `false` in this
 slice. `boundary_references_over_limit` and
 `control_draft_references_over_limit` are added when their respective result
 sets exceed 200, rather than silently presenting a truncated set as complete.
+`application_relationships_over_limit` is added when more than 200 visible
+active outgoing relationships exist, rather than silently presenting a truncated
+relationship list as complete.
 `application_relationships` contains active outgoing `depends_on` and `replaces`
 records only when the caller can read each target under the existing restricted
 Application visibility rules. Removed relationships and hidden targets are
 omitted. The `application_relationships` pending context remains because this
-source-only read cannot discover incoming links to the Application; the preview
-does not establish complete relationship impact or authorize successor approval.
+source-only read cannot discover incoming links to the Application. When the
+preview exceeds 200 visible outgoing relationships, clients can use the
+application relationship list endpoint to page through the complete visible
+outgoing list. The preview does not establish complete relationship impact or
+authorize successor approval.
 
 `control_draft_references` include only non-discarded, currently indexed
 `application` applicability entries. They do not establish an approved or

@@ -115,6 +115,60 @@ public sealed class ApplicationChangePreviewTests
     }
 
     [Fact]
+    public async Task ShouldBoundVisibleRelationshipsAndMarkOverflowGivenMoreThanTwoHundredOutgoingRelationships()
+    {
+        // Arrange
+        var tenantId = Uuid.CreateVersion4();
+        var applicationId = Uuid.CreateVersion4();
+        var actorId = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var source = new DeclaredApplication(tenantId, applicationId);
+        Assert.True(source.Declare("Application", "Purpose", null, actorId, "Manager", now)
+            .IsSuccess);
+        var targets = new List<DeclaredApplication>();
+        var relationshipIds = new HashSet<Uuid>();
+        for (var index = 0; index < 250; index++)
+        {
+            var targetId = Uuid.CreateVersion4();
+            var target = new DeclaredApplication(tenantId, targetId);
+            Assert.True(target.Declare($"Target {index}", "Purpose", null, actorId,
+                "Manager", now).IsSuccess);
+            targets.Add(target);
+            var relationshipId = Uuid.CreateVersion4();
+            relationshipIds.Add(relationshipId);
+            Assert.True(source.AddApplicationRelationship(index, relationshipId, targetId,
+                "depends_on", actorId, "Manager", now).IsSuccess);
+        }
+        var aggregateReader = new ApplicationMapReader([source, .. targets]);
+        var kv = new InMemoryKvClient();
+        var applications = new FitzApplicationDirectory(kv);
+        var boundaries = new FitzApplicationBoundaryReferenceDirectory(kv);
+        var controls = new FitzApplicationControlDraftReferenceDirectory(kv);
+        var events = new InMemoryEventStore();
+        await ProjectApplicationAsync(applications, tenantId, new ApplicationDeclared(
+            tenantId, applicationId, "Application", "Purpose", null, actorId, "Manager", now));
+        var handler = new PreviewApplicationChangeHandler(aggregateReader, applications,
+            boundaries, new ApplicationBoundaryReferenceReadConsistency(boundaries, events),
+            controls, new ApplicationControlDraftReferenceReadConsistency(controls, events),
+            RestrictedApplicationVisibilityFixture.Create(aggregateReader));
+
+        // Act
+        var result = await handler.HandleAsync(new RequestContext<PreviewApplicationChange>(
+            new PreviewApplicationChange(tenantId, applicationId, 1, "retire"),
+            new ClaimsPrincipal()), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(200, result.Value.ApplicationRelationships.Count);
+        Assert.Equal(201, targets.Sum(target => aggregateReader.HydrationCount(target.Id)));
+        Assert.All(result.Value.ApplicationRelationships, relationship =>
+            Assert.Contains(relationship.RelationshipId, relationshipIds));
+        Assert.Contains("application_relationships", result.Value.PendingContexts);
+        Assert.Contains("application_relationships_over_limit", result.Value.PendingContexts);
+        Assert.False(result.Value.Complete);
+    }
+
+    [Fact]
     public async Task ShouldReturnTransientConflictGivenRelationshipHistoryChangesDuringPreview()
     {
         // Arrange
@@ -606,12 +660,19 @@ public sealed class ApplicationChangePreviewTests
     {
         readonly Dictionary<Uuid, DeclaredApplication> _applications = applications.ToDictionary(
             static application => application.Id);
+        readonly Dictionary<Uuid, int> _hydrationCounts = [];
+
+        public int HydrationCount(Uuid applicationId) =>
+            _hydrationCounts.GetValueOrDefault(applicationId);
 
         public ValueTask<TAggregate> HydrateAsync<TAggregate>(TAggregate aggregate,
-            CancellationToken ct = default) where TAggregate : Aggregate =>
-            ValueTask.FromResult(_applications.TryGetValue(aggregate.Id, out var source)
+            CancellationToken ct = default) where TAggregate : Aggregate
+        {
+            _hydrationCounts[aggregate.Id] = _hydrationCounts.GetValueOrDefault(aggregate.Id) + 1;
+            return ValueTask.FromResult(_applications.TryGetValue(aggregate.Id, out var source)
                 ? (TAggregate)(Aggregate)source
                 : aggregate);
+        }
     }
 
     sealed class ControlReferenceDirectory : IApplicationControlDraftReferenceDirectory

@@ -28,6 +28,11 @@ public sealed partial class DeclaredApplication
             StringComparer.Ordinal)
         .ToArray();
 
+    internal IEnumerable<ApplicationRelationshipHistoryEntry>
+        EnumerateApplicationRelationshipHistory() => _relationships.Values
+        .Select(static relationship => new ApplicationRelationshipHistoryEntry(
+            relationship.View, relationship.IsActive, relationship.EventCount));
+
     public bool TryGetApplicationRelationship(Uuid relationshipId,
         out ApplicationRelationshipView? relationship, out bool isActive)
     {

@@ -10,8 +10,13 @@ namespace Bdgrz.Compliance.Features.Applications;
 sealed record ActorVisibleApplicationRelationships(long Revision,
     IReadOnlyList<ApplicationRelationshipView> ActiveItems, string Fingerprint);
 
+sealed record ActorVisibleApplicationRelationshipPreview(
+    IReadOnlyList<ApplicationRelationshipView> Items, bool HasMore);
+
 static class ApplicationRelationshipProjection
 {
+    const int MaximumPreviewItems = 200;
+
     public static async ValueTask<ActorVisibleApplicationRelationships> ReadAsync(
         DeclaredApplication source, Uuid tenantId, Uuid userId,
         RestrictedApplicationVisibility visibility, CancellationToken ct)
@@ -38,6 +43,27 @@ static class ApplicationRelationshipProjection
 
         return new ActorVisibleApplicationRelationships(revision, activeItems,
             Fingerprint(activeItems));
+    }
+
+    public static async ValueTask<ActorVisibleApplicationRelationshipPreview> ReadPreviewAsync(
+        DeclaredApplication source, Uuid tenantId, Uuid userId,
+        RestrictedApplicationVisibility visibility, CancellationToken ct)
+    {
+        var activeItems = new List<ApplicationRelationshipView>(MaximumPreviewItems + 1);
+        foreach (var relationship in source.EnumerateApplicationRelationshipHistory())
+        {
+            if (!relationship.IsActive || !await visibility.CanReadApplicationAsync(tenantId,
+                    userId, relationship.View.TargetApplicationId, ct).ConfigureAwait(false))
+                continue;
+
+            activeItems.Add(relationship.View);
+            if (activeItems.Count > MaximumPreviewItems)
+                break;
+        }
+
+        return new ActorVisibleApplicationRelationshipPreview(
+            activeItems.Take(MaximumPreviewItems).ToArray(),
+            activeItems.Count > MaximumPreviewItems);
     }
 
     static string Fingerprint(IReadOnlyList<ApplicationRelationshipView> items)

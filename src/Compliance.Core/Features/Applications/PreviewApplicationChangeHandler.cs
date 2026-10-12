@@ -79,7 +79,7 @@ public sealed class PreviewApplicationChangeHandler(
                 isTransient: true));
 
         var relationshipSourceRevision = source.SourceRelationshipRevision;
-        var relationships = await ApplicationRelationshipProjection.ReadAsync(source,
+        var relationships = await ApplicationRelationshipProjection.ReadPreviewAsync(source,
             request.TenantId, userId, visibility, ct).ConfigureAwait(false);
 
         var caughtUp = await boundaryConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
@@ -147,12 +147,14 @@ public sealed class PreviewApplicationChangeHandler(
             pending.Add("control_draft_references_over_limit");
         if (instancePage.NextCursor is not null)
             pending.Add("system_instance_references_over_limit");
+        if (relationships.HasMore)
+            pending.Add("application_relationships_over_limit");
         pending.AddRange(MissingContexts);
         return Result<ApplicationChangePreview>.Success(new ApplicationChangePreview(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
             Changes(current, content), page.Items, pending, false)
         {
-            ApplicationRelationships = relationships.ActiveItems,
+            ApplicationRelationships = relationships.Items,
             ControlDraftReferences = controlPage.Items,
             SystemInstanceReferences = instancePage.Items,
         });
