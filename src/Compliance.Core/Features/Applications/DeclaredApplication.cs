@@ -77,6 +77,7 @@ public sealed partial class DeclaredApplication : Aggregate
         // Historical application-stream declarations still own their old revision numbers.
         // Their instance state is projected separately and is not retained by this aggregate.
         On<SystemInstanceDeclared>(ev => _revision = ev.ApplicationRevision);
+        RegisterApplicationRelationshipEvents();
     }
 
     public Result<ApplicationRegistration> Declare(string name, string purpose,

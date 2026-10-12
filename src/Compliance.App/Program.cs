@@ -1746,6 +1746,37 @@ static async Task RunApiAsync(string[] args, ComplianceHostMode hostMode)
             "/api/v1/tenants/{tenant_id}/applications")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
         .WithTags("Applications");
+    app.MapPortiaPost<AddApplicationRelationship, ApplicationRelationshipChange>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships/{relationship_id}")
+        .WithDescription("expected_relationship_revision uses the actor-visible relationship event count. " +
+            "Each add or remove event counts only when its target is currently readable by the actor; " +
+            "events for hidden targets do not create revision gaps. Stale writes return a retryable " +
+            "conflict without exposing the canonical source sequence.")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaDelete<RemoveApplicationRelationship, ApplicationRelationshipChange>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships/{relationship_id}")
+        .WithDescription("expected_relationship_revision uses the actor-visible relationship event count. " +
+            "Each add or remove event counts only when its target is currently readable by the actor; " +
+            "events for hidden targets do not create revision gaps. Stale writes return a retryable " +
+            "conflict without exposing the canonical source sequence.")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithTags("Applications");
+    app.MapPortiaGet<ListApplicationRelationships, ApplicationRelationshipPage>(
+            "/api/v1/tenants/{tenant_id}/applications/{application_id}/relationships")
+        .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
+        .WithSummary("List directed relationships from an application")
+        .WithDescription("relationship_revision, expected_relationship_revision, and minimum_revision " +
+            "use actor-visible relationship event counts: each add or remove event counts only when " +
+            "its target is currently readable by the actor. Hidden target events do not create revision " +
+            "gaps. minimum_revision is a nonnegative read-your-own-writes lower bound; the endpoint " +
+            "returns the current actor-visible relationship snapshot when its revision meets the " +
+            "requested minimum. Otherwise it returns a retryable 409 with the requested and current " +
+            "actor-visible relationship revisions. It never returns a lower snapshot or reconstructs " +
+            "an exact historical revision. Continuation cursors bind tenant, source, actor, page size, " +
+            "visible revision, and the filtered active-row fingerprint; hidden-only updates preserve " +
+            "the cursor, while visible add/remove activity invalidates it.")
+        .WithTags("Applications");
     app.MapPortiaGet<GetApplicationRevision, ApplicationRevisionView>(
             "/api/v1/tenants/{tenant_id}/applications/{application_id}/revisions/{revision}")
         .RequireAuthorization(ComplianceAuthorizationPolicies.ApiUser)
