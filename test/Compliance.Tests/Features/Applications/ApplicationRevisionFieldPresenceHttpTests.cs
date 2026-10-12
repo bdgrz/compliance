@@ -25,7 +25,7 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 public sealed class ApplicationRevisionFieldPresenceHttpTests
 {
     [Fact]
-    public async Task ShouldEnableGovernedRevisionsAndKeepDeclarationsDisabledGivenDefaultHostConfiguration()
+    public async Task ShouldEnableGovernedDeclarationsAndRevisionsGivenDefaultHostConfiguration()
     {
         // Arrange
         await using var fixture = new Fixture();
@@ -36,7 +36,23 @@ public sealed class ApplicationRevisionFieldPresenceHttpTests
 
         // Assert
         Assert.True(revisions.IsEnabled);
+        Assert.True(declarations.IsEnabled);
+    }
+
+    [Fact]
+    public async Task ShouldKeepDeclarationsDisabledGivenExplicitFalseHostSetting()
+    {
+        // Arrange
+        await using var fixture = new Fixture(configureHost: host =>
+            host.UseSetting("Compliance:Applications:GovernedDeclarationsEnabled", "false"));
+
+        // Act
+        var declarations = fixture.DeclarationGate;
+        var revisions = fixture.RevisionGate;
+
+        // Assert
         Assert.False(declarations.IsEnabled);
+        Assert.True(revisions.IsEnabled);
     }
 
     [Theory]
