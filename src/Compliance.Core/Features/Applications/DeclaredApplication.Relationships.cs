@@ -137,7 +137,7 @@ public sealed partial class DeclaredApplication
     {
         On<ApplicationRelationshipAdded>(ev =>
         {
-            if (ev.TenantId != _tenantId || ev.ApplicationId != Id ||
+            if (!_created || _retired || ev.TenantId != _tenantId || ev.ApplicationId != Id ||
                 ev.RelationshipId == Uuid.Empty || ev.TargetApplicationId == Uuid.Empty ||
                 ev.TargetApplicationId == Id || ev.RelationshipType is not "depends_on" and not "replaces" ||
                 ev.RelationshipRevision != _relationshipRevision + 1 ||
@@ -154,7 +154,7 @@ public sealed partial class DeclaredApplication
         });
         On<ApplicationRelationshipRemoved>(ev =>
         {
-            if (ev.TenantId != _tenantId || ev.ApplicationId != Id ||
+            if (!_created || _retired || ev.TenantId != _tenantId || ev.ApplicationId != Id ||
                 ev.RelationshipRevision != _relationshipRevision + 1 ||
                 !_relationships.TryGetValue(ev.RelationshipId, out var state) ||
                 !state.IsActive || state.View.TargetApplicationId != ev.TargetApplicationId ||

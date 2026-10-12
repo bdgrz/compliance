@@ -153,8 +153,10 @@ It is separate from #463's canonical owner predicate acceptance. `AccessReviewSc
 proves the owner rule, legacy-instance decisions, the projection and its transient lag through
 the real broker, standalone and split-host, with tenant isolation.
 
-Still open: general application-to-application relationships, a governed successor or
-approval gate, and complete downstream impact.
+The directed relationship record/list/remove slice is documented in
+[application-relationships-v1.md](application-relationships-v1.md) (#977).
+A governed successor or approval gate and complete downstream impact remain
+open under [#464](https://github.com/bdgrz/compliance/issues/464).
 
 ## Information asset change preview ([#465](https://github.com/bdgrz/compliance/issues/465))
 
