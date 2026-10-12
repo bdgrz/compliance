@@ -608,6 +608,8 @@ public sealed class ComplianceWebTests
             .GetProperty("post");
         var previewSchema = changePreview.GetProperty("requestBody").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");
+        if (previewSchema.TryGetProperty("$ref", out var previewRequestReference))
+            previewSchema = schemas.GetProperty(previewRequestReference.GetString()!.Split('/')[^1]);
         foreach (var name in new[] { "expected_application_revision", "change_kind" })
             Assert.True(previewSchema.GetProperty("properties").TryGetProperty(name, out _));
         Assert.True(changePreview.GetProperty("responses").TryGetProperty("200", out _));
@@ -616,6 +618,17 @@ public sealed class ComplianceWebTests
             .GetProperty("content").GetProperty("application/json").GetProperty("schema");
         var previewResult = schemas.GetProperty(previewResponse.GetProperty("$ref")
             .GetString()!.Split('/')[^1]).GetProperty("properties");
+        var applicationRelationships = previewResult.GetProperty("application_relationships");
+        var relationshipItem = applicationRelationships.GetProperty("items");
+        var relationship = relationshipItem.TryGetProperty("$ref", out var relationshipReference)
+            ? schemas.GetProperty(relationshipReference.GetString()!.Split('/')[^1])
+            : relationshipItem;
+        foreach (var name in new[]
+                 {
+                     "relationship_id", "target_application_id", "relationship_type",
+                     "actor_member_id", "actor_display", "changed_at",
+                 })
+            Assert.True(relationship.GetProperty("properties").TryGetProperty(name, out _));
         var controlReferences = previewResult.GetProperty("control_draft_references");
         var controlReferenceItem = controlReferences.GetProperty("items");
         var controlReference = controlReferenceItem.TryGetProperty("$ref", out var reference)

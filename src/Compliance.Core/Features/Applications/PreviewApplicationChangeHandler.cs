@@ -14,7 +14,7 @@ public sealed class PreviewApplicationChangeHandler(
     : IRequestHandler<PreviewApplicationChange, ApplicationChangePreview>
 {
     static readonly string[] MissingContexts =
-        ["vendors", "approved_control_versions_and_lifecycle_impact",
+        ["application_relationships", "vendors", "approved_control_versions_and_lifecycle_impact",
             "system_instance_control_draft_references", "policies", "evidence_sources", "access_populations",
             "review_campaigns", "open_work", "readiness", "engagements"];
 
@@ -78,6 +78,10 @@ public sealed class PreviewApplicationChangeHandler(
                 RequestErrorKind.Conflict, "The application source and projection changed during preview.",
                 isTransient: true));
 
+        var relationshipSourceRevision = source.SourceRelationshipRevision;
+        var relationships = await ApplicationRelationshipProjection.ReadAsync(source,
+            request.TenantId, userId, visibility, ct).ConfigureAwait(false);
+
         var caughtUp = await boundaryConsistency.EnsureCaughtUpAsync(request.TenantId, ct)
             .ConfigureAwait(false);
         if (!caughtUp.IsSuccess)
@@ -127,12 +131,13 @@ public sealed class PreviewApplicationChangeHandler(
                 controlsCaughtUpAfterRead.Error.Kind, controlsCaughtUpAfterRead.Error.Message,
                 isTransient: true));
 
-        // Source rechecks catch a pending relationship write that raced either reverse-index read.
+        // Source rechecks catch a pending relationship write that raced the preview reads.
         // This preview remains advisory; future approval must use a complete, exact-version impact gate.
         var latest = await aggregates.HydrateApplicationAsync(request.TenantId, request.ApplicationId, ct).ConfigureAwait(false);
-        if (latest.Revision != source.Revision)
+        if (latest.Revision != source.Revision ||
+            latest.SourceRelationshipRevision != relationshipSourceRevision)
             return Result<ApplicationChangePreview>.Failure(new RequestError(
-                RequestErrorKind.Conflict, "The application changed during preview.",
+                RequestErrorKind.Conflict, "The application or its relationships changed during preview.",
                 isTransient: true));
 
         List<string> pending = [];
@@ -147,6 +152,7 @@ public sealed class PreviewApplicationChangeHandler(
             request.TenantId, request.ApplicationId, source.Revision, request.ChangeKind,
             Changes(current, content), page.Items, pending, false)
         {
+            ApplicationRelationships = relationships.ActiveItems,
             ControlDraftReferences = controlPage.Items,
             SystemInstanceReferences = instancePage.Items,
         });
