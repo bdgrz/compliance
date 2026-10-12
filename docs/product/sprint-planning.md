@@ -11,8 +11,9 @@ broader acceptance and dependencies.
 
 Sprints last 14 days, Wednesday through the following second Tuesday. The live
 Project 2 readback on October 12 records all 15 Stories assigned to Sprints 1–6
-as Done / Accepted, before their assigned iteration dates. Preserve those dates
-and assignments as accepted-early history:
+as Done / Accepted, before their assigned iteration dates. Web #52 and #54 were
+also accepted early in Sprint 1; their separate evidence remains on those issues.
+Preserve those dates and assignments as accepted-early history:
 
 | Sprint | Preserved dates | Accepted Stories |
 | --- | --- | --- |
@@ -55,53 +56,36 @@ review does not imply a notification workflow; approved-control publication does
 not imply successor or retirement workflows; boundary/catalog and manual-record
 acceptance does not imply complete inventories, imports or licensed content.
 
-## Remaining refinement and later horizons
+## Current remaining-work selection and forecast
 
-There are no non-Done Ready Stories in the October 12 Project 2 readback. The next
-planning action is bounded refinement of
-[#928](https://github.com/bdgrz/compliance/issues/928), not a new commitment or
-implementation. It remains **Unscheduled / Needs refinement / L - split /
-Discovery**, with no sprint assignment, and is a non-throughput Epic/coordinator.
+Remaining work was organized on October 12 in [#974](https://github.com/bdgrz/compliance/issues/974).
+The [current forecast](sprint-forecast.md) and [complete issue map](sprint-forecast.csv)
+account for all 337 original open backend/web issues and four explicit planning,
+pilot and retention-prerequisite tasks. Project 2 carries live Sprint, Order,
+Commitment, Readiness and Planning note values for every leaf; multi-sprint
+coordinators remain roadmap-only.
 
-Cap that refinement at 20 minutes: reconcile accepted Application child evidence
-with the remaining canonical SystemInstance identity/readback and metadata-edit
-scope, then record one observable gap, owning repository, exact allowed change,
-dependencies, focused check and stopping point before any implementation task.
-Preserve #928's acceptance and the accepted
-[M0-D05](decisions/m0-d05-application-inventory.md) identity and
-[M0-D22](decisions/m0-d22-canonical-ownership.md) ownership contracts, including
-required classification and accountable owners, platform-qualified identity and
-uniqueness, attribution, explicit unresolved information, and tenant/stale-write
-fences. Accepted Application children do not close the coordinator or the broader
-legacy acceptance. Recording an inventory item does not approve boundary
-membership or access-review scope.
+Two inspected S / Verification tasks, web #56 and #57, are selected for Sprint 1.
+They verify existing member access and suspension/reinstatement behavior with exact
+files, commands and stopping points; they do not authorize rebuilding UI or closing
+broader parent acceptance. The planning task #974 is separate from user throughput.
+All other leaf work is Forecast, not committed or made Ready by its date.
 
-[#952 Canonical SystemInstance recording](https://github.com/bdgrz/compliance/issues/952)
-and [#953 Identity-preserving metadata revision](https://github.com/bdgrz/compliance/issues/953),
-along with the other Needs-refinement Stories, remain unscheduled and unaccepted.
-Do not weaken canonical acceptance to match an existing form or silently turn a
-discovery into implementation. No new dates, estimates or capacity are selected
-by this reconciliation.
+The first six iteration IDs, dates and accepted-item assignments are preserved.
+Their future goal names are refreshed for remaining work before Sprint 1 starts;
+the table above retains their original historical goals. Accepted early work does
+not consume future capacity or establish a calendar velocity sample. The current
+plan extends the Wednesday calendar to 27 conditional goal buckets. Those dates
+are not a whole-project ETA, and broad future buckets must split or resize before
+commitment using measured capacity. Preserve all original acceptance and history.
 
-Broader horizons remain unscheduled until decomposed into comparable user
-outcomes with acceptance:
-
-| Horizon | Scope retained and planning boundary |
-| --- | --- |
-| [#900 Workspace](https://github.com/bdgrz/compliance/issues/900) | Accepted #910–#913 scope only; history does not close broader legacy organization acceptance. |
-| [#901 Accountable controls](https://github.com/bdgrz/compliance/issues/901) / [#902 Program scope](https://github.com/bdgrz/compliance/issues/902) | Accepted review/publication, catalog selection, mapping and manual-record Stories do not close remaining control, boundary or inventory acceptance. Boundary drafts do not imply approved scope. |
-| [#903 Policy/risk](https://github.com/bdgrz/compliance/issues/903) / [#904 Work/evidence](https://github.com/bdgrz/compliance/issues/904) | Decompose policy/risk decisions, recurring work and retained evidence before dates. Public storage/inspection/upload gaps [#196](https://github.com/bdgrz/compliance/issues/196) and [#272](https://github.com/bdgrz/compliance/issues/272) remain to be delivered. |
-| [#905 Readiness](https://github.com/bdgrz/compliance/issues/905) / [#906 Examination evidence](https://github.com/bdgrz/compliance/issues/906) | Separate management readiness/gap plans from examination requests, delivery and auditor conclusions. |
-| [#907 Professional teams](https://github.com/bdgrz/compliance/issues/907) / [#908 Imports](https://github.com/bdgrz/compliance/issues/908) / [#909 Organization operations](https://github.com/bdgrz/compliance/issues/909) | Keep engagement/independence, optional import automation, and commercial/billing/operations work separately scoped; none silently blocks the manual application path. |
-| [#636 Platform foundations](https://github.com/bdgrz/compliance/issues/636) / [#637 Decisions and facts](https://github.com/bdgrz/compliance/issues/637) | Track cross-cutting enablers and named fact discovery separately. A dependency gates only its recorded consumer. |
-
-Native clients, broad E2E/browser validation and release/deployment qualification
-require separate scope and evidence. Backend/web acceptance does not imply those
-horizons are covered. Unresolved external inputs need named owners and directly
-affected acceptance; they do not silently block unrelated manual workflows.
-The pre-planning snapshot had 338 open issues, including
-155 E2E issues; those counts mix stories, tasks, legacy scope and validation,
-so they are not a count of remaining features.
+Canonical SystemInstance #952 and metadata #953 remain Needs refinement; their
+forecast placement is not implementation readiness. Do not repeat exhausted
+#952 discovery as the automatic next action. The next bounded delivery actions
+are the two inspected web verification tasks, one at a time. Full readiness,
+artifacts, retained import bytes, professional consumers, real external inputs,
+production rollout and deferred validation retain their named dependencies in
+the current forecast. No application code is selected by this organization pass.
 
 ## Fields and sizing
 
