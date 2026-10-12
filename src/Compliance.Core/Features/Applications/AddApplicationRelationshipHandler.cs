@@ -6,6 +6,8 @@ public sealed class AddApplicationRelationshipHandler(IAggregateExecutor executo
     IAggregateReader reader, RestrictedApplicationVisibility visibility, TimeProvider clock)
     : IRequestHandler<AddApplicationRelationship, ApplicationRelationshipChange>
 {
+    const int MaximumConcurrencyAttempts = 3;
+
     public async ValueTask<Result<ApplicationRelationshipChange>> HandleAsync(
         IRequestContext<AddApplicationRelationship> context, CancellationToken ct)
     {
@@ -17,41 +19,74 @@ public sealed class AddApplicationRelationshipHandler(IAggregateExecutor executo
         var userId = UserIdentityClaims.TryGetBdgrzSubject(context.Actor, out var subject)
             ? subject
             : Uuid.Empty;
-        var source = await reader.HydrateAsync(new DeclaredApplication(request.TenantId,
-            request.ApplicationId), ct).ConfigureAwait(false);
-        if (!source.IsCreated || !await visibility.CanReadApplicationAsync(request.TenantId,
-                userId, request.ApplicationId, ct).ConfigureAwait(false))
-            return NotFound();
-
-        if (source.TryGetApplicationRelationship(request.RelationshipId,
-                out var existing, out _))
-        {
-            if (existing is null || !await visibility.CanReadApplicationAsync(request.TenantId,
-                    userId, existing.TargetApplicationId, ct).ConfigureAwait(false))
-                return NotFound();
-            if (source.TryResolveApplicationRelationshipAdd(request.RelationshipId,
-                    request.TargetApplicationId, request.RelationshipType, out var retry))
-                return retry;
-        }
-        else if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
-                     request.TargetApplicationId, ct).ConfigureAwait(false))
-        {
-            return NotFound();
-        }
-
         var (memberId, display) = ApplicationActor.From(context);
         var target = new DeclaredApplication(request.TenantId, request.ApplicationId);
-        return await executor.ExecuteAsync(target, app =>
+        for (var attempt = 0; attempt < MaximumConcurrencyAttempts; attempt++)
         {
-            if (app.TryResolveApplicationRelationshipAdd(request.RelationshipId,
-                    request.TargetApplicationId, request.RelationshipType, out var retry))
-                return AggregateOutcome.Discard(retry);
-            return AggregateOutcome.CommitOnSuccess(app.AddApplicationRelationship(
-                request.ExpectedRelationshipRevision, request.RelationshipId,
-                request.TargetApplicationId, request.RelationshipType, memberId, display,
-                clock.GetUtcNow()));
-        }, context, ct).ConfigureAwait(false);
+            var source = await reader.HydrateAsync(target, ct).ConfigureAwait(false);
+            if (!source.IsCreated || !await visibility.CanReadApplicationAsync(request.TenantId,
+                    userId, request.ApplicationId, ct).ConfigureAwait(false))
+                return NotFound();
+
+            var projection = await ApplicationRelationshipProjection.ReadAsync(source,
+                request.TenantId, userId, visibility, ct).ConfigureAwait(false);
+            if (source.TryGetApplicationRelationship(request.RelationshipId,
+                    out var existing, out _))
+            {
+                if (existing is null || !await visibility.CanReadApplicationAsync(
+                        request.TenantId, userId, existing.TargetApplicationId, ct)
+                        .ConfigureAwait(false))
+                    return NotFound();
+                if (source.TryResolveApplicationRelationshipAdd(request.RelationshipId,
+                        request.TargetApplicationId, request.RelationshipType, out var retry))
+                    return MapVisibleRevision(retry, projection.Revision);
+            }
+            else if (!await visibility.CanReadApplicationAsync(request.TenantId, userId,
+                         request.TargetApplicationId, ct).ConfigureAwait(false))
+            {
+                return NotFound();
+            }
+
+            if (request.ExpectedRelationshipRevision != projection.Revision)
+                return Result<ApplicationRelationshipChange>.Failure(
+                    ApplicationRelationshipConcurrency.VisibleRevisionMismatch(
+                        request.ExpectedRelationshipRevision, projection.Revision));
+
+            var result = await executor.ExecuteAsync(target, app =>
+            {
+                if (app.SourceRelationshipRevision != source.SourceRelationshipRevision)
+                    return AggregateOutcome.Discard(Result<ApplicationRelationshipChange>.Failure(
+                        ApplicationRelationshipConcurrency.SourceChanged()));
+                if (app.TryResolveApplicationRelationshipAdd(request.RelationshipId,
+                        request.TargetApplicationId, request.RelationshipType, out var retry))
+                    return AggregateOutcome.Discard(retry);
+                return AggregateOutcome.CommitOnSuccess(app.AddApplicationRelationship(
+                    source.SourceRelationshipRevision, request.RelationshipId,
+                    request.TargetApplicationId, request.RelationshipType, memberId, display,
+                    clock.GetUtcNow()));
+            }, context, ct).ConfigureAwait(false);
+            if (ApplicationRelationshipConcurrency.IsSourceChanged(result.Error))
+                continue;
+            if (!result.IsSuccess)
+                return result;
+
+            var latest = await reader.HydrateAsync(target, ct).ConfigureAwait(false);
+            var latestProjection = await ApplicationRelationshipProjection.ReadAsync(latest,
+                request.TenantId, userId, visibility, ct).ConfigureAwait(false);
+            return MapVisibleRevision(result, latestProjection.Revision);
+        }
+
+        return Result<ApplicationRelationshipChange>.Failure(
+            ApplicationRelationshipConcurrency.SourceChanged());
     }
+
+    static Result<ApplicationRelationshipChange> MapVisibleRevision(
+        Result<ApplicationRelationshipChange> result, long revision) => result.IsSuccess
+        ? Result<ApplicationRelationshipChange>.Success(result.Value with
+        {
+            RelationshipRevision = revision,
+        })
+        : result;
 
     static RequestError? Validate(AddApplicationRelationship request)
     {

@@ -79,7 +79,7 @@ public sealed class ApplicationRelationshipRequestTests
         Assert.Equal("removed", removed.Value.State);
         Assert.Equal(2, removed.Value.RelationshipRevision);
         Assert.Equal(1, persisted.Revision);
-        Assert.Equal(2, persisted.RelationshipRevision);
+        Assert.Equal(2, persisted.SourceRelationshipRevision);
         Assert.Empty(persisted.ReadApplicationRelationships());
         var addedEvent = Assert.IsType<ApplicationRelationshipAdded>(
             Assert.Single(events, record => record.Event is ApplicationRelationshipAdded).Event);
@@ -172,7 +172,7 @@ public sealed class ApplicationRelationshipRequestTests
         Assert.Equal(2, before.Count);
         Assert.Equal(before.Count, after.Count);
         Assert.True(persisted.IsRetired);
-        Assert.Equal(0, persisted.RelationshipRevision);
+        Assert.Equal(0, persisted.SourceRelationshipRevision);
     }
 
     [Fact]
@@ -205,10 +205,10 @@ public sealed class ApplicationRelationshipRequestTests
         // Act
         var first = await handler.HandleAsync(Scenario.Context(
             new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
-                Limit: 1, MinimumRevision: 3), actor), CancellationToken.None);
+                Limit: 1, MinimumRevision: 2), actor), CancellationToken.None);
         var second = await handler.HandleAsync(Scenario.Context(
             new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
-                Limit: 1, Cursor: first.Value.NextCursor, MinimumRevision: 3), actor),
+                Limit: 1, Cursor: first.Value.NextCursor, MinimumRevision: 2), actor),
             CancellationToken.None);
         var lagging = await handler.HandleAsync(Scenario.Context(
             new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
@@ -225,8 +225,8 @@ public sealed class ApplicationRelationshipRequestTests
         // Assert
         Assert.True(first.IsSuccess);
         Assert.True(second.IsSuccess);
-        Assert.Equal(3, first.Value.RelationshipRevision);
-        Assert.Equal(3, second.Value.RelationshipRevision);
+        Assert.Equal(2, first.Value.RelationshipRevision);
+        Assert.Equal(2, second.Value.RelationshipRevision);
         Assert.NotNull(first.Value.NextCursor);
         Assert.Null(second.Value.NextCursor);
         var visibleIds = first.Value.Items.Concat(second.Value.Items)
@@ -238,7 +238,8 @@ public sealed class ApplicationRelationshipRequestTests
         var laggingError = Assert.IsType<RequestError>(lagging.Error);
         Assert.Equal(RequestErrorKind.Conflict, laggingError.Kind);
         Assert.True(laggingError.IsTransient);
-        Assert.Contains("revision 3", laggingError.Message, StringComparison.Ordinal);
+        Assert.Contains("visible relationship revision 2", laggingError.Message,
+            StringComparison.Ordinal);
         Assert.Contains("minimum revision 4", laggingError.Message, StringComparison.Ordinal);
         var staleError = Assert.IsType<RequestError>(staleCursor.Error);
         Assert.Equal(RequestErrorKind.Conflict, staleError.Kind);
@@ -262,6 +263,260 @@ public sealed class ApplicationRelationshipRequestTests
         Assert.Equal(0, result.Value.RelationshipRevision);
         Assert.Empty(result.Value.Items);
         Assert.Null(result.Value.NextCursor);
+    }
+
+    [Fact]
+    public async Task ShouldCountOnlyCurrentlyVisibleRelationshipEventsGivenList()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+        var visibleTargetA = Uuid.CreateVersion4();
+        var visibleTargetB = Uuid.CreateVersion4();
+        var hiddenTarget = Uuid.CreateVersion4();
+        await scenario.SaveApplicationAsync(visibleTargetA);
+        await scenario.SaveApplicationAsync(visibleTargetB);
+        await scenario.SaveApplicationAsync(hiddenTarget, isRestricted: true);
+        var source = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        var now = DateTimeOffset.UtcNow;
+        var hiddenRelationshipId = Uuid.CreateVersion4();
+        Assert.True(source.AddApplicationRelationship(0, Uuid.CreateVersion4(), visibleTargetA,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.AddApplicationRelationship(1, hiddenRelationshipId, hiddenTarget,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.RemoveApplicationRelationship(2, hiddenRelationshipId,
+            scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.AddApplicationRelationship(3, Uuid.CreateVersion4(), visibleTargetB,
+            "replaces", scenario.UserId, "Inventory manager", now).IsSuccess);
+        await scenario.Writer.SaveAsync(source, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+
+        // Act
+        var result = await scenario.ListHandler().HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId),
+            scenario.Actor()), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.RelationshipRevision);
+        Assert.Equal(2, result.Value.Items.Count);
+        Assert.Contains(result.Value.Items, item => item.TargetApplicationId == visibleTargetA);
+        Assert.Contains(result.Value.Items, item => item.TargetApplicationId == visibleTargetB);
+        Assert.DoesNotContain(result.Value.Items, item => item.TargetApplicationId == hiddenTarget);
+    }
+
+    [Fact]
+    public async Task ShouldUseVisibleEventCountForMutationAcknowledgementsGivenHiddenHistory()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+        var hiddenTarget = Uuid.CreateVersion4();
+        var visibleTargetA = Uuid.CreateVersion4();
+        var visibleTargetB = Uuid.CreateVersion4();
+        await scenario.SaveApplicationAsync(hiddenTarget, isRestricted: true);
+        await scenario.SaveApplicationAsync(visibleTargetA);
+        await scenario.SaveApplicationAsync(visibleTargetB);
+        var source = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        var now = DateTimeOffset.UtcNow;
+        var hiddenRelationshipId = Uuid.CreateVersion4();
+        Assert.True(source.AddApplicationRelationship(0, hiddenRelationshipId, hiddenTarget,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.RemoveApplicationRelationship(1, hiddenRelationshipId,
+            scenario.UserId, "Inventory manager", now).IsSuccess);
+        await scenario.Writer.SaveAsync(source, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var relationshipId = Uuid.CreateVersion4();
+        var addHandler = scenario.AddHandler();
+
+        // Act
+        var added = await addHandler.HandleAsync(Scenario.Context(
+            new AddApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                relationshipId, 0, visibleTargetA, "depends_on"), scenario.Actor()),
+            CancellationToken.None);
+        var addedRetry = await addHandler.HandleAsync(Scenario.Context(
+            new AddApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                relationshipId, 0, visibleTargetA, "depends_on"), scenario.Actor()),
+            CancellationToken.None);
+        var removed = await scenario.RemoveHandler().HandleAsync(Scenario.Context(
+            new RemoveApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                relationshipId, 1), scenario.Actor()), CancellationToken.None);
+        var removedRetry = await scenario.RemoveHandler().HandleAsync(Scenario.Context(
+            new RemoveApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                relationshipId, 1), scenario.Actor()), CancellationToken.None);
+
+        // Assert
+        Assert.True(added.IsSuccess);
+        Assert.Equal(1, added.Value.RelationshipRevision);
+        Assert.True(addedRetry.IsSuccess);
+        Assert.Equal(1, addedRetry.Value.RelationshipRevision);
+        Assert.True(removed.IsSuccess);
+        Assert.Equal(2, removed.Value.RelationshipRevision);
+        Assert.True(removedRetry.IsSuccess);
+        Assert.Equal(2, removedRetry.Value.RelationshipRevision);
+    }
+
+    [Fact]
+    public async Task ShouldReportOnlyVisibleRevisionGivenStaleMutationAndMinimum()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+        var hiddenTarget = Uuid.CreateVersion4();
+        var visibleTarget = Uuid.CreateVersion4();
+        var newTarget = Uuid.CreateVersion4();
+        await scenario.SaveApplicationAsync(hiddenTarget, isRestricted: true);
+        await scenario.SaveApplicationAsync(visibleTarget);
+        await scenario.SaveApplicationAsync(newTarget);
+        var source = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        var now = DateTimeOffset.UtcNow;
+        var hiddenRelationshipId = Uuid.CreateVersion4();
+        Assert.True(source.AddApplicationRelationship(0, hiddenRelationshipId, hiddenTarget,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.RemoveApplicationRelationship(1, hiddenRelationshipId,
+            scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.AddApplicationRelationship(2, Uuid.CreateVersion4(), visibleTarget,
+            "replaces", scenario.UserId, "Inventory manager", now).IsSuccess);
+        await scenario.Writer.SaveAsync(source, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+
+        // Act
+        var futureExpectedMutation = await scenario.AddHandler().HandleAsync(Scenario.Context(
+            new AddApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                Uuid.CreateVersion4(), 2, newTarget, "depends_on"), scenario.Actor()),
+            CancellationToken.None);
+        var staleMutation = await scenario.AddHandler().HandleAsync(Scenario.Context(
+            new AddApplicationRelationship(scenario.TenantId, scenario.SourceId,
+                Uuid.CreateVersion4(), 0, newTarget, "depends_on"), scenario.Actor()),
+            CancellationToken.None);
+        var belowMinimum = await scenario.ListHandler().HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                MinimumRevision: 2), scenario.Actor()), CancellationToken.None);
+
+        // Assert
+        var futureExpectedError = Assert.IsType<RequestError>(futureExpectedMutation.Error);
+        Assert.Equal(RequestErrorKind.Conflict, futureExpectedError.Kind);
+        Assert.True(futureExpectedError.IsTransient);
+        Assert.Contains("Expected relationship revision 2 did not match current " +
+            "actor-visible revision 1", futureExpectedError.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("revision 3", futureExpectedError.Message,
+            StringComparison.Ordinal);
+        var staleError = Assert.IsType<RequestError>(staleMutation.Error);
+        Assert.Equal(RequestErrorKind.Conflict, staleError.Kind);
+        Assert.True(staleError.IsTransient);
+        Assert.Contains("Expected relationship revision 0 did not match current " +
+            "actor-visible revision 1", staleError.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision 3", staleError.Message,
+            StringComparison.Ordinal);
+        var minimumError = Assert.IsType<RequestError>(belowMinimum.Error);
+        Assert.Equal(RequestErrorKind.Conflict, minimumError.Kind);
+        Assert.True(minimumError.IsTransient);
+        Assert.Contains("visible relationship revision 1", minimumError.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("revision 3", minimumError.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ShouldBindContinuationToActorLimitAndVisibleRowsGivenPaging()
+    {
+        // Arrange
+        await using var scenario = await Scenario.CreateAsync();
+        var visibleTargetA = Uuid.CreateVersion4();
+        var visibleTargetB = Uuid.CreateVersion4();
+        var hiddenTarget = Uuid.CreateVersion4();
+        var newHiddenTarget = Uuid.CreateVersion4();
+        var visibleTargetC = Uuid.CreateVersion4();
+        await scenario.SaveApplicationAsync(visibleTargetA);
+        await scenario.SaveApplicationAsync(visibleTargetB);
+        await scenario.SaveApplicationAsync(hiddenTarget, isRestricted: true);
+        await scenario.SaveApplicationAsync(newHiddenTarget, isRestricted: true);
+        await scenario.SaveApplicationAsync(visibleTargetC);
+        var source = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        var now = DateTimeOffset.UtcNow;
+        Assert.True(source.AddApplicationRelationship(0, Uuid.CreateVersion4(), visibleTargetA,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.AddApplicationRelationship(1, Uuid.CreateVersion4(), visibleTargetB,
+            "depends_on", scenario.UserId, "Inventory manager", now).IsSuccess);
+        Assert.True(source.AddApplicationRelationship(2, Uuid.CreateVersion4(), hiddenTarget,
+            "replaces", scenario.UserId, "Inventory manager", now).IsSuccess);
+        await scenario.Writer.SaveAsync(source, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var handler = scenario.ListHandler();
+        var actor = scenario.Actor();
+        var first = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId, Limit: 1),
+            actor), CancellationToken.None);
+        Assert.True(first.IsSuccess);
+        Assert.NotNull(first.Value.NextCursor);
+
+        // Act
+        var wrongLimit = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                Limit: 2, Cursor: first.Value.NextCursor), actor), CancellationToken.None);
+        var otherActor = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                Limit: 1, Cursor: first.Value.NextCursor),
+            Scenario.Actor(Uuid.CreateVersion4())), CancellationToken.None);
+        var latest = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        Assert.True(latest.AddApplicationRelationship(latest.SourceRelationshipRevision,
+            Uuid.CreateVersion4(), newHiddenTarget, "depends_on", scenario.UserId,
+            "Inventory manager", now.AddMinutes(1)).IsSuccess);
+        await scenario.Writer.SaveAsync(latest, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var afterHiddenUpdate = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                Limit: 1, Cursor: first.Value.NextCursor), actor), CancellationToken.None);
+        var tombstone = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        var tombstoneId = Uuid.CreateVersion4();
+        Assert.True(tombstone.AddApplicationRelationship(tombstone.SourceRelationshipRevision,
+            tombstoneId, visibleTargetC, "replaces", scenario.UserId,
+            "Inventory manager", now.AddMinutes(2)).IsSuccess);
+        await scenario.Writer.SaveAsync(tombstone, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        tombstone = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        Assert.True(tombstone.RemoveApplicationRelationship(tombstone.SourceRelationshipRevision,
+            tombstoneId, scenario.UserId, "Inventory manager", now.AddMinutes(3)).IsSuccess);
+        await scenario.Writer.SaveAsync(tombstone, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var afterVisibleTombstone = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                Limit: 1, Cursor: first.Value.NextCursor), actor), CancellationToken.None);
+        var changed = await scenario.Reader.HydrateAsync(new DeclaredApplication(
+            scenario.TenantId, scenario.SourceId));
+        Assert.True(changed.AddApplicationRelationship(changed.SourceRelationshipRevision,
+            Uuid.CreateVersion4(), visibleTargetC, "replaces", scenario.UserId,
+            "Inventory manager", now.AddMinutes(4)).IsSuccess);
+        await scenario.Writer.SaveAsync(changed, new RequestDispatchContext(RequestActor.System),
+            CancellationToken.None);
+        var afterVisibleUpdate = await handler.HandleAsync(Scenario.Context(
+            new ListApplicationRelationships(scenario.TenantId, scenario.SourceId,
+                Limit: 1, Cursor: first.Value.NextCursor), actor), CancellationToken.None);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(wrongLimit.Error).Kind);
+        Assert.Equal(RequestErrorKind.Validation,
+            Assert.IsType<RequestError>(otherActor.Error).Kind);
+        Assert.True(afterHiddenUpdate.IsSuccess);
+        Assert.Equal(2, afterHiddenUpdate.Value.RelationshipRevision);
+        Assert.Single(afterHiddenUpdate.Value.Items);
+        var firstTarget = first.Value.Items[0].TargetApplicationId;
+        var expectedContinuationTarget = firstTarget == visibleTargetA
+            ? visibleTargetB
+            : visibleTargetA;
+        Assert.Equal(expectedContinuationTarget,
+            afterHiddenUpdate.Value.Items[0].TargetApplicationId);
+        var tombstoneError = Assert.IsType<RequestError>(afterVisibleTombstone.Error);
+        Assert.Equal(RequestErrorKind.Conflict, tombstoneError.Kind);
+        Assert.True(tombstoneError.IsTransient);
+        var changedError = Assert.IsType<RequestError>(afterVisibleUpdate.Error);
+        Assert.Equal(RequestErrorKind.Conflict, changedError.Kind);
+        Assert.True(changedError.IsTransient);
     }
 
     [Fact]
@@ -369,10 +624,12 @@ public sealed class ApplicationRelationshipRequestTests
         public ListApplicationRelationshipsHandler ListHandler() =>
             new(Reader, Visibility);
 
-        public ClaimsPrincipal Actor() => new(new ClaimsIdentity(
+        public ClaimsPrincipal Actor() => Actor(UserId);
+
+        public static ClaimsPrincipal Actor(Uuid userId) => new(new ClaimsIdentity(
         [
             new Claim("iss", "bdgrz"),
-            new Claim("sub", UserId.ToString()),
+            new Claim("sub", userId.ToString()),
             new Claim("email", "inventory@example.com"),
         ], "BdgrzSession"));
 

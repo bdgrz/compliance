@@ -18,14 +18,16 @@ or approved scope.
   optional `minimum_revision` query parameters.
 
 Mutation requests require Application inventory manage authorization. The
-source must be active and visible to the actor, and the target must exist and
-be visible in the same tenant. Missing, restricted, and cross-tenant resources
-are returned as not found. A denied request does not append a source event.
+source must be active and visible to the actor. The target must exist in the
+same tenant and be visible to the actor; a visible retired target remains
+eligible. Missing, restricted, and cross-tenant resources are returned as not
+found. A denied request does not append a source event.
 
 Successful mutations acknowledge `relationship_id`,
 `relationship_revision`, and `state` (`active` or `removed`). The authenticated
 member is recorded on each add and removal. Repeating an operation with the
-same relationship ID and payload returns its canonical acknowledgement. A
+same relationship ID and payload returns an acknowledgement using the current
+actor-visible revision. A
 relationship ID cannot be reused with different content. A source may have at
 most one active relationship for a given type and target. Removal retains a
 tombstone, so an old retry cannot change a later relationship created with a
@@ -34,21 +36,28 @@ new ID.
 ## Revision and paging rules
 
 Relationship add and remove events are stored in the source Application stream
-with a relationship revision independent of Application metadata revision.
-Concurrent changes use source-stream optimistic concurrency. Reads use the
-canonical source stream rather than Fitz metadata projections.
+with an internal sequence independent of Application metadata revision.
+Concurrent changes use that source-stream sequence for optimistic concurrency.
+Public `relationship_revision`, `expected_relationship_revision`, and
+`minimum_revision` values count add and remove events only for relationship
+targets the actor can currently read. Per-relationship event counts keep hidden
+target events out of the public count without gaps. Stale-write and
+minimum-revision conflicts report only the actor-visible count. Reads use the
+source stream rather than Fitz metadata projections.
 
 Lists default to 50 items and accept limits through 200. Only active
 relationships whose target is visible are included. The opaque continuation
-cursor is bound to the tenant, source Application, and observed relationship
-revision; a cursor from an older revision returns a retryable conflict and the
-client restarts paging.
+cursor is bound to the tenant, source Application, actor, page size, visible
+relationship revision, and a fingerprint of the filtered active rows. Hidden-only
+events do not invalidate a cursor. A visible add or removal, including a
+tombstone change that leaves active rows unchanged, returns a retryable conflict
+and the client restarts paging.
 
-`minimum_revision` is a nonnegative read-your-own-writes lower bound. If the current
-canonical relationship revision meets or exceeds it, the endpoint returns that
-current snapshot. If the source is behind, the endpoint returns a retryable
-409 with both the requested minimum and current revision. It does not return a
-lower snapshot or reconstruct an exact historical revision.
+`minimum_revision` is a nonnegative read-your-own-writes lower bound in the
+actor-visible count. If the current visible count meets or exceeds it, the
+endpoint returns that current snapshot. If it is behind, the endpoint returns a
+retryable 409 with the requested minimum and current visible revision. It does
+not return a lower snapshot or reconstruct an exact historical revision.
 
 ## Boundaries
 

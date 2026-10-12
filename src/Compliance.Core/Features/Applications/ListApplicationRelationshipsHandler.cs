@@ -25,22 +25,18 @@ public sealed class ListApplicationRelationshipsHandler(IAggregateReader reader,
         if (!source.IsCreated || !await visibility.CanReadApplicationAsync(request.TenantId,
                 userId, request.ApplicationId, ct).ConfigureAwait(false))
             return NotFound();
-        if (request.MinimumRevision is { } minimum && minimum > source.RelationshipRevision)
+        var projection = await ApplicationRelationshipProjection.ReadAsync(source,
+            request.TenantId, userId, visibility, ct).ConfigureAwait(false);
+        if (request.MinimumRevision is { } minimum && minimum > projection.Revision)
             return Result<ApplicationRelationshipPage>.Failure(new RequestError(
                 RequestErrorKind.Conflict,
-                $"The application relationship source is at revision {source.RelationshipRevision}, " +
-                $"below requested minimum revision {minimum}; retry the read.",
+                $"The visible relationship revision {projection.Revision} is below " +
+                $"requested minimum revision {minimum}; retry the read.",
                 isTransient: true));
 
-        var visible = new List<ApplicationRelationshipView>();
-        foreach (var relationship in source.ReadApplicationRelationships())
-            if (await visibility.CanReadApplicationAsync(request.TenantId, userId,
-                    relationship.TargetApplicationId, ct).ConfigureAwait(false))
-                visible.Add(relationship);
-
         var error = ApplicationRelationshipPaging.Create(request.TenantId,
-            request.ApplicationId, source.RelationshipRevision, visible,
-            request.Limit, request.Cursor, out var page);
+            request.ApplicationId, userId, projection.Revision, projection.ActiveItems,
+            projection.Fingerprint, request.Limit, request.Cursor, out var page);
         return error is not null
             ? Result<ApplicationRelationshipPage>.Failure(error)
             : Result<ApplicationRelationshipPage>.Success(page);

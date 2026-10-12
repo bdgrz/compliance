@@ -35,18 +35,35 @@ public sealed class ApplicationRelationshipContractTests
         Assert.Equal("listApplicationRelationships", list.GetProperty("operationId").GetString());
         Assert.Equal("addApplicationRelationship", add.GetProperty("operationId").GetString());
         Assert.Equal("removeApplicationRelationship", remove.GetProperty("operationId").GetString());
+        Assert.Contains("actor-visible relationship event count",
+            add.GetProperty("description").GetString(), StringComparison.Ordinal);
+        Assert.Contains("without exposing the canonical source sequence",
+            remove.GetProperty("description").GetString(), StringComparison.Ordinal);
         var description = list.GetProperty("description").GetString();
+        Assert.Contains("relationship_revision, expected_relationship_revision, and minimum_revision",
+            description, StringComparison.Ordinal);
+        Assert.Contains("actor-visible relationship event counts", description,
+            StringComparison.Ordinal);
+        Assert.Contains("Hidden target events do not create revision gaps", description,
+            StringComparison.Ordinal);
         Assert.Contains("minimum_revision is a nonnegative read-your-own-writes lower bound",
             description, StringComparison.Ordinal);
         Assert.Contains("read-your-own-writes lower bound", description,
             StringComparison.Ordinal);
-        Assert.Contains("current canonical relationship snapshot", description,
+        Assert.Contains("current actor-visible relationship snapshot", description,
             StringComparison.Ordinal);
         Assert.Contains("retryable 409", description, StringComparison.Ordinal);
-        Assert.Contains("requested and current relationship revisions", description,
+        Assert.Contains("requested and current actor-visible relationship revisions", description,
             StringComparison.Ordinal);
         Assert.Contains("never returns a lower snapshot", description, StringComparison.Ordinal);
         Assert.Contains("reconstructs an exact historical revision", description,
+            StringComparison.Ordinal);
+        Assert.Contains("bind tenant, source, actor, page size", description,
+            StringComparison.Ordinal);
+        Assert.Contains("visible revision", description, StringComparison.Ordinal);
+        Assert.Contains("hidden-only updates preserve the cursor", description,
+            StringComparison.Ordinal);
+        Assert.Contains("visible add/remove activity invalidates it", description,
             StringComparison.Ordinal);
 
         var addSchema = ResolveSchema(document.RootElement, add.GetProperty("requestBody")

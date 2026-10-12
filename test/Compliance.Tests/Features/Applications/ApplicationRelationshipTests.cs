@@ -28,7 +28,7 @@ public sealed class ApplicationRelationshipTests
         Assert.Equal("active", result.Value.State);
         Assert.Equal(1, result.Value.RelationshipRevision);
         Assert.Equal(1, source.Revision);
-        Assert.Equal(1, source.RelationshipRevision);
+        Assert.Equal(1, source.SourceRelationshipRevision);
         var added = Assert.IsType<ApplicationRelationshipAdded>(
             new AggregateScenario<DeclaredApplication>(source).PendingEvents[^1]);
         Assert.Equal(tenantId, added.TenantId);
@@ -81,7 +81,7 @@ public sealed class ApplicationRelationshipTests
 
         // Assert
         Assert.Equal(1, persisted.Revision);
-        Assert.Equal(1, persisted.RelationshipRevision);
+        Assert.Equal(1, persisted.SourceRelationshipRevision);
         Assert.Equal(relationshipId, Assert.Single(persisted.ReadApplicationRelationships())
             .RelationshipId);
         var addedEvent = Assert.IsType<ApplicationRelationshipAdded>(
@@ -129,10 +129,10 @@ public sealed class ApplicationRelationshipTests
         Assert.Equal("removed", AssertSuccess(oldRemoveReplay).State);
         Assert.Equal("active", AssertSuccess(replacement).State);
         Assert.Equal("removed", AssertSuccess(oldRemoveAfterReplacement).State);
-        Assert.Equal(3, source.RelationshipRevision);
+        Assert.Equal(3, source.SourceRelationshipRevision);
         Assert.Equal(1, source.Revision);
         Assert.Equal(1, replay.Revision);
-        Assert.Equal(3, replay.RelationshipRevision);
+        Assert.Equal(3, replay.SourceRelationshipRevision);
         var active = Assert.Single(replay.ReadApplicationRelationships());
         Assert.Equal(replacementRelationshipId, active.RelationshipId);
         Assert.Equal(targetId, active.TargetApplicationId);
@@ -162,10 +162,10 @@ public sealed class ApplicationRelationshipTests
         var stale = source.AddApplicationRelationship(0, Uuid.CreateVersion4(),
             Uuid.CreateVersion4(), "depends_on", Uuid.CreateVersion4(), "Manager",
             DateTimeOffset.UtcNow);
-        var unsupported = source.AddApplicationRelationship(source.RelationshipRevision,
+        var unsupported = source.AddApplicationRelationship(source.SourceRelationshipRevision,
             Uuid.CreateVersion4(), Uuid.CreateVersion4(), "DEPENDS_ON",
             Uuid.CreateVersion4(), "Manager", DateTimeOffset.UtcNow);
-        var selfLink = source.AddApplicationRelationship(source.RelationshipRevision,
+        var selfLink = source.AddApplicationRelationship(source.SourceRelationshipRevision,
             Uuid.CreateVersion4(), sourceId, "depends_on", Uuid.CreateVersion4(),
             "Manager", DateTimeOffset.UtcNow);
 
@@ -175,7 +175,8 @@ public sealed class ApplicationRelationshipTests
         Assert.True(otherType.IsSuccess);
         var staleError = Assert.IsType<RequestError>(stale.Error);
         Assert.Equal(RequestErrorKind.Conflict, staleError.Kind);
-        Assert.Contains("Current revision: 2", staleError.Message, StringComparison.Ordinal);
+        Assert.True(staleError.IsTransient);
+        Assert.DoesNotContain("2", staleError.Message, StringComparison.Ordinal);
         Assert.Equal(RequestErrorKind.Validation,
             Assert.IsType<RequestError>(unsupported.Error).Kind);
         Assert.Equal(RequestErrorKind.Validation,
@@ -183,7 +184,7 @@ public sealed class ApplicationRelationshipTests
         Assert.Equal(pendingBefore + 1,
             new AggregateScenario<DeclaredApplication>(source).PendingEvents.Count);
         Assert.Equal(1, source.Revision);
-        Assert.Equal(2, source.RelationshipRevision);
+        Assert.Equal(2, source.SourceRelationshipRevision);
     }
 
     [Fact]
@@ -216,7 +217,7 @@ public sealed class ApplicationRelationshipTests
             Assert.IsType<RequestError>(emptyRelationshipId.Error).Kind);
         Assert.Equal(RequestErrorKind.Validation,
             Assert.IsType<RequestError>(emptyTargetId.Error).Kind);
-        Assert.Equal(1, source.RelationshipRevision);
+        Assert.Equal(1, source.SourceRelationshipRevision);
     }
 
     static DeclaredApplication NewApplication(Uuid tenantId, Uuid applicationId,

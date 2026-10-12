@@ -1,5 +1,4 @@
 using Bdgrz.Compliance.Features.AccessControl;
-using Bdgrz.Compliance.Features.Versioning;
 using Cntryl.Portia;
 
 namespace Bdgrz.Compliance.Features.Applications;
@@ -12,7 +11,7 @@ public sealed partial class DeclaredApplication
     readonly Dictionary<Uuid, ApplicationRelationshipState> _relationships = [];
     long _relationshipRevision;
 
-    public long RelationshipRevision => _relationshipRevision;
+    internal long SourceRelationshipRevision => _relationshipRevision;
 
     public IReadOnlyList<ApplicationRelationshipView> ReadApplicationRelationships() =>
         _relationships.Values.Where(static relationship => relationship.IsActive)
@@ -20,6 +19,14 @@ public sealed partial class DeclaredApplication
             .OrderBy(static relationship => relationship.RelationshipId.ToString(),
                 StringComparer.Ordinal)
             .ToArray();
+
+    internal IReadOnlyList<ApplicationRelationshipHistoryEntry>
+        ReadApplicationRelationshipHistory() => _relationships.Values
+        .Select(static relationship => new ApplicationRelationshipHistoryEntry(
+            relationship.View, relationship.IsActive, relationship.EventCount))
+        .OrderBy(static relationship => relationship.View.RelationshipId.ToString(),
+            StringComparer.Ordinal)
+        .ToArray();
 
     public bool TryGetApplicationRelationship(Uuid relationshipId,
         out ApplicationRelationshipView? relationship, out bool isActive)
@@ -83,8 +90,7 @@ public sealed partial class DeclaredApplication
             return Conflict("Relationships cannot be changed on a retired application.");
         if (expectedRelationshipRevision != _relationshipRevision)
             return Result<ApplicationRelationshipChange>.Failure(
-                CommandFailure.ForVersion(VersionedRecordRules.StaleRevision(
-                    "application relationship", _relationshipRevision)).ToRequestError());
+                ApplicationRelationshipConcurrency.SourceChanged());
         if (_relationships.Values.Any(relationship => relationship.IsActive &&
             relationship.View.TargetApplicationId == targetApplicationId &&
             relationship.View.RelationshipType == relationshipType))
@@ -119,8 +125,7 @@ public sealed partial class DeclaredApplication
             return Invalid("The expected relationship revision cannot be negative.");
         if (expectedRelationshipRevision != _relationshipRevision)
             return Result<ApplicationRelationshipChange>.Failure(
-                CommandFailure.ForVersion(VersionedRecordRules.StaleRevision(
-                    "application relationship", _relationshipRevision)).ToRequestError());
+                ApplicationRelationshipConcurrency.SourceChanged());
 
         var nextRevision = _relationshipRevision + 1;
         RaiseEvent(new ApplicationRelationshipRemoved(_tenantId, Id, relationshipId,
@@ -150,7 +155,7 @@ public sealed partial class DeclaredApplication
             _relationships.Add(ev.RelationshipId, new ApplicationRelationshipState(
                 new ApplicationRelationshipView(ev.RelationshipId, ev.TargetApplicationId,
                     ev.RelationshipType, ev.ActorMemberId, ev.ActorDisplay, ev.ChangedAt), true,
-                ev.RelationshipRevision));
+                ev.RelationshipRevision, 1));
         });
         On<ApplicationRelationshipRemoved>(ev =>
         {
@@ -165,6 +170,7 @@ public sealed partial class DeclaredApplication
             {
                 IsActive = false,
                 RelationshipRevision = ev.RelationshipRevision,
+                EventCount = state.EventCount + 1,
             };
         });
     }
@@ -186,5 +192,8 @@ public sealed partial class DeclaredApplication
             message));
 
     sealed record ApplicationRelationshipState(ApplicationRelationshipView View,
-        bool IsActive, long RelationshipRevision);
+        bool IsActive, long RelationshipRevision, long EventCount);
 }
+
+sealed record ApplicationRelationshipHistoryEntry(
+    ApplicationRelationshipView View, bool IsActive, long EventCount);
