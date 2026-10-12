@@ -156,7 +156,7 @@ public sealed partial class DeclaredApplication : Aggregate
     {
         content = new ApplicationRevisionContent(name?.Trim()!, purpose?.Trim()!,
             NormalizeOptional(ownerReference),
-            classification?.Trim() ?? (governed ? _classification?.Trim() : null),
+            governed ? classification?.Trim() ?? _classification?.Trim() : NormalizeOptional(classification),
             systemOwnerPersonId ?? (governed ? _systemOwnerPersonId : null),
             accessOwnerPersonId ?? (governed ? AccessOwnerPersonId : null),
             isRestricted ?? _isRestricted, applicationKind?.Trim() ?? _applicationKind?.Trim(),

@@ -369,6 +369,61 @@ public sealed class ApplicationRevisionGovernanceTests
         Assert.Equal(foreignBefore, await fixture.ForeignEventsAsync());
     }
 
+    [Fact]
+    public async Task ShouldClearClassificationGivenBlankRevisionWithDisabledGate()
+    {
+        // Arrange
+        await using var fixture = new Fixture(false);
+        await fixture.RecordPersonAsync(fixture.Owner);
+        await fixture.SeedAsync(complete: true);
+        var before = await fixture.EventsAsync();
+        var foreignBefore = await fixture.ForeignEventsAsync();
+
+        // Act
+        var result = await fixture.Bus.SendAsync(fixture.CompleteRequest() with
+        {
+            Classification = " \t ",
+        }, fixture.Actor);
+        var after = await fixture.EventsAsync();
+
+        // Assert
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(2, after.Length);
+        Assert.Equal(before[0], after[0]);
+        var revised = Assert.IsType<ApplicationRevised>(after[1].Event);
+        Assert.Equal(fixture.Tenant, revised.TenantId);
+        Assert.Equal(fixture.Application, revised.ApplicationId);
+        Assert.Equal(2, revised.Revision);
+        Assert.Null(revised.Classification);
+        Assert.Equal(fixture.Owner, revised.SystemOwnerPersonId);
+        Assert.Equal(fixture.Owner, revised.AccessOwnerPersonId);
+        Assert.Equal("service", revised.ApplicationKind);
+        Assert.Equal("critical", revised.Criticality);
+        Assert.Equal(foreignBefore, await fixture.ForeignEventsAsync());
+    }
+
+    [Fact]
+    public async Task ShouldRejectExplicitBlankClassificationGivenEnabledRevisionWithCompleteState()
+    {
+        // Arrange
+        await using var fixture = new Fixture();
+        await fixture.RecordPersonAsync(fixture.Owner);
+        await fixture.SeedAsync(complete: true);
+        var before = await fixture.EventsAsync();
+        var foreignBefore = await fixture.ForeignEventsAsync();
+
+        // Act
+        var result = await fixture.Bus.SendAsync(fixture.CompleteRequest() with
+        {
+            Classification = " \t ",
+        }, fixture.Actor);
+
+        // Assert
+        Assert.Equal(RequestErrorKind.Validation, result.Error?.Kind);
+        Assert.Equal(before, await fixture.EventsAsync());
+        Assert.Equal(foreignBefore, await fixture.ForeignEventsAsync());
+    }
+
     sealed class Fixture : IAsyncDisposable
     {
         readonly ServiceProvider _provider;
