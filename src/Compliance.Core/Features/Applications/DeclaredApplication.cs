@@ -22,6 +22,10 @@ public sealed partial class DeclaredApplication : Aggregate
 
     bool _retired;
     bool _isRestricted;
+    string? _classification;
+    string? _applicationKind;
+    string? _criticality;
+    Uuid? _systemOwnerPersonId;
 
     public bool IsCreated => _created;
     public bool IsRetired => _retired;
@@ -49,11 +53,19 @@ public sealed partial class DeclaredApplication : Aggregate
             _initialAccessOwner = ev.AccessOwnerPersonId;
             _initialIsRestricted = ev.IsRestricted;
             _isRestricted = ev.IsRestricted;
+            _classification = ev.Classification;
+            _applicationKind = ev.ApplicationKind;
+            _criticality = ev.Criticality;
+            _systemOwnerPersonId = ev.SystemOwnerPersonId;
             AccessOwnerPersonId = ev.AccessOwnerPersonId;
         });
         On<ApplicationRevised>(ev =>
         {
             _revision = ev.Revision;
+            _classification = ev.Classification;
+            _systemOwnerPersonId = ev.SystemOwnerPersonId;
+            _applicationKind = ev.ApplicationKind ?? _applicationKind;
+            _criticality = ev.Criticality ?? _criticality;
             AccessOwnerPersonId = ev.AccessOwnerPersonId;
             _isRestricted = ev.IsRestricted;
         });
@@ -118,22 +130,44 @@ public sealed partial class DeclaredApplication : Aggregate
         string? ownerReference, Uuid actorMemberId, string actorDisplay,
         DateTimeOffset changedAt, string? classification = null,
         Uuid? systemOwnerPersonId = null, Uuid? accessOwnerPersonId = null,
-        bool? isRestricted = null)
+        bool? isRestricted = null, string? applicationKind = null,
+        string? criticality = null, bool governedRevisionsEnabled = false)
     {
-        var check = CheckChange(expectedRevision);
+        var check = ResolveRevisionContent(expectedRevision, name, purpose, ownerReference,
+            classification, systemOwnerPersonId, accessOwnerPersonId, isRestricted,
+            applicationKind, criticality, governedRevisionsEnabled, out var content);
         if (check is not null)
             return check;
-        var validation = Validate(name, purpose, ownerReference, classification);
-        if (validation is not null)
-            return CommandFailure.InvalidContent(validation.Message!);
-        RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, name.Trim(),
-            purpose.Trim(), NormalizeOptional(ownerReference), actorMemberId,
-            actorDisplay, changedAt, NormalizeOptional(classification), systemOwnerPersonId,
-            accessOwnerPersonId, isRestricted ?? _isRestricted)
+        RaiseEvent(new ApplicationRevised(_tenantId, Id, _revision + 1, content.Name,
+            content.Purpose, content.OwnerReference, actorMemberId,
+            actorDisplay, changedAt, content.Classification, content.SystemOwnerPersonId,
+            content.AccessOwnerPersonId, content.IsRestricted, content.ApplicationKind, content.Criticality)
         {
             StoredActor = ActorReference.ForMember(actorMemberId, actorDisplay),
         });
         return null;
+    }
+
+    internal CommandFailure? ResolveRevisionContent(long expectedRevision, string name,
+        string purpose, string? ownerReference, string? classification,
+        Uuid? systemOwnerPersonId, Uuid? accessOwnerPersonId, bool? isRestricted,
+        string? applicationKind, string? criticality, bool governed,
+        out ApplicationRevisionContent content)
+    {
+        content = new ApplicationRevisionContent(name?.Trim()!, purpose?.Trim()!,
+            NormalizeOptional(ownerReference),
+            governed ? classification?.Trim() ?? _classification?.Trim() : NormalizeOptional(classification),
+            systemOwnerPersonId ?? (governed ? _systemOwnerPersonId : null),
+            accessOwnerPersonId ?? (governed ? AccessOwnerPersonId : null),
+            isRestricted ?? _isRestricted, applicationKind?.Trim() ?? _applicationKind?.Trim(),
+            criticality?.Trim() ?? _criticality?.Trim());
+        var check = CheckChange(expectedRevision);
+        if (check is not null)
+            return check;
+        var validation = Validate(name!, purpose!, ownerReference, classification);
+        return validation is not null
+            ? CommandFailure.InvalidContent(validation.Message!)
+            : content.Validate(governed);
     }
 
     /// <summary>Retires the application from an effective date without deleting its history.</summary>

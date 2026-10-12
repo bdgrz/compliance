@@ -9,6 +9,50 @@ namespace Bdgrz.Compliance.Tests.Features.Applications;
 
 public sealed class DeclaredApplicationTests
 {
+    [Fact]
+    public void ShouldReplayHistoricalClearsAndRetainAdditionsGivenOldSerializedRevision()
+    {
+        // Arrange
+        var tenant = Uuid.CreateVersion4();
+        var id = Uuid.CreateVersion4();
+        var actor = Uuid.CreateVersion4();
+        var owner = Uuid.CreateVersion4();
+        var now = DateTimeOffset.UtcNow;
+        var payload = JsonSerializer.SerializeToNode(new ApplicationRevised(tenant, id, 2,
+            "Legacy edit", "Legacy purpose", null, actor, "Legacy editor", now),
+            ComplianceCoreJsonContext.Default.ApplicationRevised)!.AsObject();
+        payload.Remove("application_kind");
+        payload.Remove("criticality");
+        var oldEvent = payload.Deserialize(ComplianceCoreJsonContext.Default.ApplicationRevised)!;
+        var application = new DeclaredApplication(tenant, id);
+        new AggregateScenario<DeclaredApplication>(application).Given(
+            DomainEventSeed.Attach(new ApplicationDeclared(tenant, id, "Original", "Purpose", null,
+                actor, "Original actor", now.AddMinutes(-1), "internal", owner, owner,
+                ApplicationKind: "service", Criticality: "critical"), id, 1),
+            DomainEventSeed.Attach(oldEvent, id, 2));
+
+        // Act
+        var incomplete = application.Revise(2, "Revised", "Purpose", null, actor, "Editor", now,
+            governedRevisionsEnabled: true);
+        var completed = application.Revise(2, "Revised", "Purpose", null, actor, "Editor", now,
+            "internal", owner, owner, governedRevisionsEnabled: true);
+
+        // Assert
+        Assert.Null(oldEvent.ApplicationKind);
+        Assert.Null(oldEvent.Criticality);
+        Assert.Null(oldEvent.SystemOwnerPersonId);
+        Assert.Null(oldEvent.AccessOwnerPersonId);
+        Assert.Null(oldEvent.Classification);
+        Assert.Equal(CommandFailureCode.InvalidContent, Assert.IsType<CommandFailure>(incomplete).Code);
+        Assert.Null(completed);
+        var revised = Assert.IsType<ApplicationRevised>(Assert.Single(
+            new AggregateScenario<DeclaredApplication>(application).PendingEvents));
+        Assert.Equal(3, revised.Revision);
+        Assert.Equal("service", revised.ApplicationKind);
+        Assert.Equal("critical", revised.Criticality);
+        Assert.Equal(owner, revised.AccessOwnerPersonId);
+    }
+
     [Theory]
     [InlineData("classification_missing")]
     [InlineData("classification_blank")]
